@@ -1,3 +1,19 @@
+## Rust only
+
+All backend code is Rust. Do not add or extend Python anywhere in this repo. That includes new files, new routes, new tests, and features in existing modules under `src/litellm_lens/`, `tests/`, `scripts/` and `deploy/`
+
+The existing Python backend is being ported to Rust and deleted, following `docs/rust-migration.md`. Until a module is ported, only fix bugs in it. If a task seems to need Python, write it in Rust instead, or stop and ask
+
+Where code lives:
+
+- `runtime/` (moving to `src/worker/`): the Rust workspace. It is the only server, and every HTTP route, worker job and storage call goes here
+- `packages/ui/` and `apps/web/` (moving to `src/ui/`): the TypeScript UI
+- `packages/sdk/` (moving to `src/sdk/`): the eval SDK users install in their own repos. It stays Python because users write evals in Python, and it is the one Python package allowed. It talks to Lens over HTTP only and never imports backend code
+
+The other exception is the sandboxed interpreter the investigation agent uses to run model-written analysis code (`deploy/runtime/python_runtime.py` and `python_policy.c`, moving under `src/worker/crates/lens/sandbox/`). Do not add anything else beside it
+
+Merge a PR only after its CI run is green
+
 Do not write comments unless they are any of:
 - absolutely necessary to explain some very complex business logic (in which case, keep it concise and clear)
 - used as an input for tools to read and act on. For example:
