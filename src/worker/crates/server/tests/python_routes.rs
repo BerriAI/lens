@@ -83,7 +83,7 @@ fn supported_http_methods_are_parsed(#[case] method: &str) {
 
 #[rstest]
 fn every_python_route_line_parses_and_points_to_a_source_file() {
-    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let repository_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
 
     assert_eq!(routes().count(), ROUTES.lines().count());
     for (method, path, file) in routes() {
