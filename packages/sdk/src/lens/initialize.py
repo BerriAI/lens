@@ -6,7 +6,7 @@ from typing import Final
 from .config import Settings
 from .errors import ConfigurationError
 
-ACTION: Final = "BerriAI/litellm-lens/packages/sdk/action@litellm_eval_sdk"
+ACTION: Final = "BerriAI/lens/packages/sdk/action@63be70d6b299bb22a0912da48bf703b14e886c95"
 
 
 def workflow(action: str) -> str:

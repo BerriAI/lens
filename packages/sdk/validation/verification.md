@@ -20,7 +20,7 @@ The targeted mutation run killed 20 of 20 deliberate behavioral faults. `mutatio
 
 Ruff checks, formatting, strict mypy, and provisional schema drift checks pass. The wheel and source distribution build. A clean environment imports both `lens` from `lens-evals==0.1.0a1` and `litellm_lens` from `litellm-lens==0.1.0`; the latter was installed without its server dependencies for this namespace-conflict check
 
-The GitHub workflow runs SDK tests on Python 3.11 and 3.13 and exercises the actual composite Action against the development server, including a real GitHub check and Action outputs. Its hosted run result is recorded below once completed
+The GitHub workflow runs SDK tests on Python 3.11 and 3.13 and exercises the actual composite Action against the development server, including a real GitHub check and Action outputs. [Hosted run 37857752356](https://github.com/BerriAI/lens/actions/runs/37857752356) passed both Python jobs, the composite Action job, output validation, and the real `Lens / demo` GitHub check
 
 Still pending: the Rust-exported eval schema and shared Rust fixture validation, production eval lifecycle/scoring/baseline integration, and the agent's service-token/sandbox adapter plus real regression PR ship test. The live smoke task generates a support response and traces it; it does not launch the deployed agent or establish the quality of its responses
 

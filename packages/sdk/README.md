@@ -48,7 +48,7 @@ lens eval --json
 
 `init` creates an eval scaffold, adds configuration when needed, and creates `.github/workflows/lens.yml`. It refuses to overwrite files. Implement the task and adjust the workflow's agent dependency/startup steps before using it. The scaffold uses a strict pass-rate gate so an unimplemented task fails even without a baseline
 
-The generated workflow currently references the preview branch Action in this repository. Use `--action-ref owner/repository/path@commit` to pin a reviewed commit. The intended standalone `berriai/lens-action@v1` has not been published
+The generated workflow pins the tested preview Action commit in `BerriAI/lens`. Use `--action-ref owner/repository/path@commit` to select another reviewed commit. The intended standalone `berriai/lens-action@v1` has not been published
 
 `lens eval` exits 0 when all gates pass, 1 when any gate fails, and 2 for configuration or infrastructure errors. JSON stdout contains only `{"runs": [...]}`. Task/module stdout is redirected to stderr. If one eval fails at the infrastructure layer, completed runs are retained in JSON and the command exits 2. The terminal table reports task submissions and errors. Per-case scoring is available through the server's report links and regression summaries, since v1 does not return every case score
 
