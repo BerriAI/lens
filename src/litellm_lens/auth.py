@@ -7,8 +7,9 @@ from urllib.parse import urlsplit
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import SecretStr, TypeAdapter, ValidationError
+from pydantic import SecretStr, ValidationError
 
+from litellm_lens.access_repository import AccessRepository
 from litellm_lens.context import current_runtime
 from litellm_lens.identity import AllRows, Identity, OwnedRows, ReadScope, Role
 from litellm_lens.models import Record
@@ -89,12 +90,7 @@ async def user_api_key_auth(request: Request) -> Identity:
     if session is None:
         raise HTTPException(401, "Sign in to Lens")
     check_cookie_origin(request)
-    rows: Final = TypeAdapter(tuple[dict[str, str], ...]).validate_python(
-        await current_runtime().database.query_raw(
-            'SELECT id FROM "LensSession" WHERE id=$1 AND expires_at > CURRENT_TIMESTAMP', token_hash(session)
-        )
-    )
-    if not rows:
+    if not await AccessRepository(current_runtime().state).session_active(token_hash(session), datetime.now(UTC)):
         raise HTTPException(401, "Lens session has expired")
     return local_admin()
 
@@ -105,9 +101,7 @@ async def sign_in(body: SessionRequest, response: Response) -> SessionView:
         raise HTTPException(401, "Invalid Lens setup token")
     session: Final = secrets.token_urlsafe(48)
     expires: Final = datetime.now(UTC) + SESSION_LIFETIME
-    await current_runtime().database.execute_raw(
-        'INSERT INTO "LensSession" (id, expires_at) VALUES ($1, $2)', token_hash(session), expires
-    )
+    await AccessRepository(current_runtime().state).create_session(token_hash(session), expires)
     response.set_cookie(
         COOKIE,
         session,
@@ -128,7 +122,7 @@ async def session_info(auth: Annotated[Identity, Depends(user_api_key_auth)]) ->
 async def sign_out(request: Request, auth: Annotated[Identity, Depends(user_api_key_auth)]) -> Response:
     session: Final = request.cookies.get(COOKIE)
     if session is not None:
-        await current_runtime().database.execute_raw('DELETE FROM "LensSession" WHERE id=$1', token_hash(session))
+        await AccessRepository(current_runtime().state).revoke_session(token_hash(session))
     response: Final = Response(status_code=204)
     response.delete_cookie(COOKIE)
     return response

@@ -49,7 +49,8 @@ from litellm_lens.models import (
     TraceIdentity,
     Worker,
 )
-from litellm_lens.repository import DueLens, Row
+from litellm_lens.repository import DueLens
+from tests.support.legacy_sql import Row
 from litellm_lens.signals import SignalConfig, StoredTraceSignal
 from litellm_lens.state import claim_job, queue_job, replace_job
 from litellm_lens.trace.generated.models import ExecutionRow, LensSampleParams

@@ -34,7 +34,8 @@ from litellm_lens.models import (
     Scope,
     TextSource,
 )
-from litellm_lens.repository import LensRepository, Row
+from litellm_lens.repository import LensRepository
+from tests.support.legacy_sql import Row
 from litellm_lens.trace.errors import TraceChanged
 from litellm_lens.trace.generated.types import SpanDetail, Trace, TraceScope
 from litellm_lens.trace.storage import ClickHouseStorage

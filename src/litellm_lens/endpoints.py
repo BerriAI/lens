@@ -108,7 +108,7 @@ class _ClaimRepository(Protocol):
 
 
 def repository() -> LensRepository:
-    return LensRepository(current_runtime().database)
+    return LensRepository(current_runtime().state)
 
 
 def signals_repository() -> SignalRepository:

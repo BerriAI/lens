@@ -1,22 +1,22 @@
 import asyncio
-import json
 import random
-from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
+from itertools import chain
 from types import MappingProxyType
-from typing import Final, Protocol
+from typing import Final
 
 from fastapi import HTTPException
-from pydantic import JsonValue, TypeAdapter
-from typing_extensions import LiteralString
 
+from litellm_lens.access_repository import AccessRepository
+from litellm_lens.clickhouse_state import Change, ClickHouseState, Snapshot, StorageFailure
 from litellm_lens.ingestion import IngestionKey
 from litellm_lens.models import (
     Job,
     Lens,
     Progress,
+    Record,
     Review,
     ReviewVersion,
     Scope,
@@ -24,24 +24,25 @@ from litellm_lens.models import (
     TraceIdentity,
     Worker,
 )
+from litellm_lens.persistence import document, record_key, record_pages, require_storage, utc_time
+from litellm_lens.repository_queries import FindingRun, InvestigationQueries
 from litellm_lens.reviews import criteria_key
 from litellm_lens.state import apply_progress, current_job, due_at, replace_job
-from litellm.types.llms.base import LiteLLMBaseModel
 
-class Database(Protocol):
-    def query_raw(self, query: LiteralString, *args: object) -> Awaitable[object]: ...
-    def execute_raw(self, query: LiteralString, *args: object) -> Awaitable[int]: ...
-    def transaction(self) -> AbstractAsyncContextManager["Database"]: ...
+UPDATE_ATTEMPTS: Final = 40
+UPDATE_BACKOFF_SECONDS: Final = 0.02
 
 
-class Row(LiteLLMBaseModel):
-    data: JsonValue
-    due_at: datetime | None = None
+class StoredLens(Record):
+    lens: Lens
+    due_at: datetime | None
 
 
-class DueRow(LiteLLMBaseModel):
-    data: JsonValue
-    due_at: datetime
+class ArchivedJob(Record):
+    lens_id: str
+    parent_key: str
+    archived_version: int
+    job: Job
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,207 +51,135 @@ class DueLens:
     due_at: datetime
 
 
-class FindingRun(LiteLLMBaseModel):
-    finding_id: str
-    job_id: str
+def stored(lens: Lens) -> StoredLens:
+    scheduled: Final = due_at(lens)
+    return StoredLens(lens=lens, due_at=utc_time(scheduled) if scheduled is not None else None)
 
 
-_ROWS: Final = TypeAdapter(tuple[Row, ...])
-_DUE_ROWS: Final = TypeAdapter(tuple[DueRow, ...])
-_DUE_QUERY: Final[LiteralString] = """SELECT data, due_at FROM "LiteLLM_Lens"
-WHERE due_at IS NOT NULL AND due_at <= ($4::timestamptz AT TIME ZONE 'UTC')
-AND ($1::boolean OR (
-    COALESCE((data->'scope'->>'all_teams')::boolean, false) IS NOT TRUE
-    AND COALESCE(data->'scope'->>'team_id', '')=$2
-    AND ($2 <> '' OR COALESCE(data->'scope'->>'api_key_hash', '')=$3)
-))
-ORDER BY due_at, id
-LIMIT $5"""
-_DUE_AFTER_QUERY: Final[LiteralString] = """SELECT data, due_at FROM "LiteLLM_Lens"
-WHERE due_at IS NOT NULL AND due_at <= ($4::timestamptz AT TIME ZONE 'UTC')
-AND (due_at, id) > ($6::timestamp, $7)
-AND ($1::boolean OR (
-    COALESCE((data->'scope'->>'all_teams')::boolean, false) IS NOT TRUE
-    AND COALESCE(data->'scope'->>'team_id', '')=$2
-    AND ($2 <> '' OR COALESCE(data->'scope'->>'api_key_hash', '')=$3)
-))
-ORDER BY due_at, id
-LIMIT $5"""
-UPDATE_ATTEMPTS: Final = 40
-UPDATE_BACKOFF_SECONDS: Final = 0.02
+def review_key(lens_id: str, job: Job, execution_id: str) -> str:
+    return record_key("review", lens_id, criteria_key(job.settings), execution_id)
 
 
 class LensRepository:
-    def __init__(self, db: Database, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None:
-        self.db: Final = db
+    def __init__(self, state: ClickHouseState, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None:
+        self.state: Final = state
         self.sleep: Final = sleep
+        self.access: Final = AccessRepository(state)
+        self.queries: Final = InvestigationQueries(state)
 
     async def ingestion_keys(self) -> tuple[IngestionKey, ...]:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw('SELECT data FROM "LiteLLM_LensIngestionKey" ORDER BY id LIMIT 10001')
-        )
-        if len(rows) > 10000:
-            raise HTTPException(503, "Lens ingestion key limit exceeded")
-        return tuple(IngestionKey.model_validate(row.data) for row in rows)
+        return await self.access.ingestion_keys()
 
     async def save_ingestion_key(self, key: IngestionKey) -> None:
-        async with self.db.transaction() as db:
-            await db.execute_raw('LOCK TABLE "LiteLLM_LensIngestionKey" IN EXCLUSIVE MODE')
-            inserted: Final = await db.execute_raw(
-                'INSERT INTO "LiteLLM_LensIngestionKey" (id,data) SELECT $1,$2::jsonb '
-                'WHERE (SELECT count(*) FROM "LiteLLM_LensIngestionKey") < 10000',
-                key.id,
-                key.model_dump_json(),
-            )
-            if not inserted:
-                raise HTTPException(409, "Revoke an unused ingestion key before creating another")
+        await self.access.save_ingestion_key(key)
 
     async def revoke_ingestion_key(self, key_id: str) -> None:
-        await self.db.execute_raw('DELETE FROM "LiteLLM_LensIngestionKey" WHERE id=$1', key_id)
+        await self.access.revoke_ingestion_key(key_id)
 
     async def finding_runs(self, lens_id: str, finding_ids: tuple[str, ...]) -> tuple[FindingRun, ...]:
         if not finding_ids:
             return ()
-        rows: Final = await self.db.query_raw(
-            """WITH jobs AS (
-                SELECT data FROM "LiteLLM_LensRun" WHERE lens_id=$1
-                UNION ALL
-                SELECT jsonb_array_elements(data->'jobs') FROM "LiteLLM_Lens" WHERE id=$1
-            )
-            SELECT DISTINCT jsonb_build_object('finding_id', finding->>'id', 'job_id', jobs.data->>'id') AS data
-            FROM jobs, jsonb_array_elements(NULLIF(jobs.data->'findings', 'null'::jsonb)) AS finding
-            WHERE finding->>'id'=ANY($2::text[])""",
-            lens_id,
-            finding_ids,
-        )
-        return tuple(FindingRun.model_validate(row.data) for row in _ROWS.validate_python(rows))
+        snapshot: Final = require_storage(await self.state.read(record_key("lens", lens_id)))
+        if snapshot.value is None:
+            return ()
+        return await self.queries.finding_runs(snapshot, StoredLens.model_validate(snapshot.value).lens, finding_ids)
 
     async def reviews(self, lens_id: str, job: Job) -> tuple[Review, ...]:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                'SELECT data FROM "LiteLLM_LensReview" WHERE lens_id=$1 AND criteria_key=$2 '
-                "AND execution_id=ANY($3::text[])",
-                lens_id,
-                criteria_key(job.settings),
-                tuple(e.id for e in job.sample.executions) if job.sample else (),
-            )
-        )
-        return tuple(Review.model_validate(row.data) for row in rows)
-
-    @asynccontextmanager
-    async def locked(self, lens_id: str) -> AsyncGenerator["LensRepository"]:
-        async with self.db.transaction() as db:
-            await db.query_raw('SELECT data FROM "LiteLLM_Lens" WHERE id=$1 FOR UPDATE', lens_id)
-            yield LensRepository(db, self.sleep)
+        keys: Final = tuple(review_key(lens_id, job, e.id) for e in job.sample.executions) if job.sample else ()
+        records: Final = require_storage(await self.state.read_many(keys))
+        return tuple(Review.model_validate(record.value) for record in records if record.value is not None)
 
     async def update_locked(self, lens_id: str, transform: Callable[[Lens], Lens]) -> Lens | None:
-        async with self.locked(lens_id) as repo:
-            return await repo.update(lens_id, transform, attempts=1)
+        return await self.update(lens_id, transform)
 
     async def progress(self, lens_id: str, assigned: Job, body: Progress) -> Lens | None:
-        async with self.locked(lens_id) as repo:
+        def renew(lens: Lens) -> Lens:
+            job: Final = current_job(lens)
+            now: Final = datetime.now(UTC)
+            if (
+                job is None
+                or job.id != assigned.id
+                or job.worker_id != assigned.worker_id
+                or job.attempts != assigned.attempts
+                or job.status != "running"
+                or job.lease_until is None
+                or job.lease_until <= now
+            ):
+                raise HTTPException(409, "This worker no longer owns the job")
+            return replace_job(lens, apply_progress(job, body, now))
 
-            def renew(lens: Lens) -> Lens:
-                job: Final = current_job(lens)
-                now: Final = datetime.now(timezone.utc)
-                if (
-                    job is None
-                    or job.id != assigned.id
-                    or job.worker_id != assigned.worker_id
-                    or job.attempts != assigned.attempts
-                    or job.status != "running"
-                    or job.lease_until is None
-                    or job.lease_until <= now
-                ):
-                    raise HTTPException(409, "This worker no longer owns the job")
-                return replace_job(lens, apply_progress(job, body, now))
-
-            updated: Final = await repo.update(lens_id, renew, attempts=1)
-            if updated is not None and body.review is not None:
-                await repo._save_review(lens_id, assigned, body.review)
-            return updated
-
-    async def _save_review(self, lens_id: str, job: Job, review: Review) -> None:
-        if review.reused or review.extraction is None or not review.content_version:
-            return
-        await self.db.execute_raw(
-            'INSERT INTO "LiteLLM_LensReview" (lens_id, criteria_key, execution_id, data) '
-            "VALUES ($1,$2,$3,$4::jsonb) ON CONFLICT (lens_id, criteria_key, execution_id) "
-            "DO UPDATE SET data=EXCLUDED.data",
-            lens_id,
-            criteria_key(job.settings),
-            review.execution_id,
-            review.model_dump_json(),
+        review: Final = body.review
+        checkpoint: Final = (
+            (review_key(lens_id, assigned, review.execution_id), review)
+            if review is not None and not review.reused and review.extraction is not None and review.content_version
+            else None
         )
+        return await self._update(lens_id, renew, UPDATE_ATTEMPTS, False, checkpoint)
 
     async def complete_reviews(self, lens_id: str, job: Job, versions: tuple[ReviewVersion, ...]) -> None:
-        await self.db.execute_raw(
-            """UPDATE "LiteLLM_LensReview" AS review SET data=jsonb_set(data, '{consolidated}', 'true')
-            FROM jsonb_to_recordset($3::jsonb) AS version(execution_id text, content_version text)
-            WHERE review.lens_id=$1 AND review.criteria_key=$2 AND review.execution_id=version.execution_id
-            AND review.data->>'content_version'=version.content_version""",
-            lens_id,
-            criteria_key(job.settings),
-            json.dumps(tuple(version.model_dump() for version in versions)),
+        expected: Final = MappingProxyType(
+            {review_key(lens_id, job, v.execution_id): v.content_version for v in versions}
         )
+        for attempt in range(UPDATE_ATTEMPTS):
+            match await self._complete_reviews(expected):
+                case None:
+                    return
+                case StorageFailure(kind="conflict"):
+                    await self._backoff(attempt)
+                case StorageFailure() as failure:
+                    require_storage(failure)
+        require_storage(StorageFailure("conflict"))
+
+    async def _complete_reviews(self, expected: Mapping[str, str]) -> StorageFailure | None:
+        previous: Final = require_storage(await self.state.read_many(tuple(expected)))
+        matching: Final = tuple(
+            (record, Review.model_validate(record.value)) for record in previous if record.value is not None
+        )
+        changes: Final = tuple(
+            Change(record, document(review.model_copy(update={"consolidated": True})))
+            for record, review in matching
+            if review.content_version == expected[record.key] and not review.consolidated
+        )
+        return await self.state.commit(changes) if changes else None
 
     async def lenses(self) -> tuple[Lens, ...]:
-        rows: Final = _ROWS.validate_python(await self.db.query_raw('SELECT data FROM "LiteLLM_Lens" ORDER BY id'))
-        return tuple(Lens.model_validate(row.data) for row in rows)
+        pages: Final = tuple([page async for page in record_pages(self.state, "lens/")])
+        records: Final = chain.from_iterable(pages)
+        lenses: Final = tuple(
+            StoredLens.model_validate(record.value).lens for record in records if record.value is not None
+        )
+        return tuple(sorted(lenses, key=lambda lens: lens.id))
 
     async def due(self, scope: Scope, now: datetime, limit: int, after: DueLens | None = None) -> tuple[DueLens, ...]:
-        query: Final[LiteralString] = _DUE_QUERY if after is None else _DUE_AFTER_QUERY
-        parameters: Final[tuple[object, ...]] = (
-            (
-                scope.all_teams,
-                scope.team_id,
-                scope.api_key_hash,
-                now.isoformat(),
-                limit,
-            )
-            if after is None
-            else (
-                scope.all_teams,
-                scope.team_id,
-                scope.api_key_hash,
-                now.isoformat(),
-                limit,
-                after.due_at,
-                after.lens.id,
-            )
+        heads: Final = await self.queries.due(scope, now, limit, (after.due_at, after.lens.id) if after else None)
+        records: Final = require_storage(await self.state.resolve(heads))
+        return tuple(
+            DueLens(lens=StoredLens.model_validate(record.value).lens, due_at=utc_time(head.due_at))
+            for head, record in zip(heads, records, strict=True)
         )
-        rows: Final = _DUE_ROWS.validate_python(await self.db.query_raw(query, *parameters), from_attributes=True)
-        return tuple(DueLens(lens=Lens.model_validate(row.data), due_at=row.due_at) for row in rows)
 
     async def get(self, lens_id: str) -> Lens | None:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                'SELECT data FROM "LiteLLM_Lens" WHERE id=$1',
-                lens_id,
-            )
-        )
-        return Lens.model_validate(rows[0].data) if rows else None
+        record: Final = require_storage(await self.state.read(record_key("lens", lens_id)))
+        return StoredLens.model_validate(record.value).lens if record.value is not None else None
 
     async def create(self, lens: Lens) -> Lens:
-        await self.db.execute_raw(
-            """INSERT INTO "LiteLLM_Lens" (id, version, data, due_at)
-            VALUES ($1,0,$2::jsonb,($3::text::timestamptz AT TIME ZONE 'UTC'))""",
-            lens.id,
-            lens.model_dump_json(),
-            scheduled_at.isoformat() if (scheduled_at := due_at(lens)) else None,
-        )
+        previous: Final = require_storage(await self.state.read(record_key("lens", lens.id)))
+        if previous.value is not None:
+            require_storage(StorageFailure("exists"))
+        require_storage(await self.state.commit((Change(previous, document(stored(lens))),)))
         return lens
 
     async def sync_due(self, lens: Lens) -> None:
-        await self.db.execute_raw(
-            """UPDATE "LiteLLM_Lens"
-            SET due_at=($3::text::timestamptz AT TIME ZONE 'UTC')
-            WHERE id=$1 AND version=$2
-              AND due_at IS DISTINCT FROM ($3::text::timestamptz AT TIME ZONE 'UTC')""",
-            lens.id,
-            lens.version,
-            scheduled_at.isoformat() if (scheduled_at := due_at(lens)) else None,
-        )
+        previous: Final = require_storage(await self.state.read(record_key("lens", lens.id)))
+        if previous.value is None:
+            return
+        value: Final = StoredLens.model_validate(previous.value)
+        corrected: Final = stored(value.lens)
+        if value.lens.version != lens.version or value.due_at == corrected.due_at:
+            return
+        result: Final = await self.state.commit((Change(previous, document(corrected)),))
+        if result is not None and result.kind != "conflict":
+            require_storage(result)
 
     async def update(
         self,
@@ -260,205 +189,110 @@ class LensRepository:
         *,
         changed_only: bool = False,
     ) -> Lens | None:
+        return await self._update(lens_id, transform, attempts, changed_only, None)
+
+    async def _backoff(self, attempt: int) -> None:
+        await self.sleep(random.uniform(0, UPDATE_BACKOFF_SECONDS * min(attempt + 1, 8)))
+
+    async def _update(
+        self,
+        lens_id: str,
+        transform: Callable[[Lens], Lens],
+        attempts: int,
+        changed_only: bool,
+        checkpoint: tuple[str, Review] | None,
+    ) -> Lens | None:
         for attempt in range(attempts):
-            completed, updated = await self._try_update(lens_id, transform, changed_only)
+            completed, updated = await self._try_update(lens_id, transform, changed_only, checkpoint)
             if completed:
                 return updated
-            await self.sleep(random.uniform(0, UPDATE_BACKOFF_SECONDS * min(attempt + 1, 8)))
+            await self._backoff(attempt)
         return None
 
     async def _try_update(
-        self, lens_id: str, transform: Callable[[Lens], Lens], changed_only: bool
+        self,
+        lens_id: str,
+        transform: Callable[[Lens], Lens],
+        changed_only: bool,
+        checkpoint: tuple[str, Review] | None,
     ) -> tuple[bool, Lens | None]:
-        previous: Final = await self.get(lens_id)
-        if previous is None:
+        previous: Final = require_storage(await self.state.read(record_key("lens", lens_id)))
+        if previous.value is None:
             return True, None
-        candidate: Final = transform(previous)
-        if candidate == previous:
-            return True, None if changed_only else previous
-        updated: Final = candidate.model_copy(update=MappingProxyType({"version": previous.version + 1}))
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """WITH previous AS MATERIALIZED (
-                SELECT data FROM "LiteLLM_Lens" WHERE id=$2 AND version=$3 FOR UPDATE
-            ), updated AS (
-                UPDATE "LiteLLM_Lens" SET data=$1::jsonb, version=version+1,
-                    due_at=($4::text::timestamptz AT TIME ZONE 'UTC')
-                WHERE id=$2 AND version=$3 AND EXISTS (SELECT 1 FROM previous) RETURNING id
-            )
-            , archived AS (INSERT INTO "LiteLLM_LensRun" (id, lens_id, created_at, data)
-            SELECT job->>'id', $2, (job->>'created_at')::timestamp, job
-            FROM previous, jsonb_array_elements(previous.data->'jobs') AS job
-            WHERE EXISTS (SELECT 1 FROM updated)
-              AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(($1::jsonb)->'jobs') AS retained
-                              WHERE retained->>'id'=job->>'id')
-            ON CONFLICT (id) DO NOTHING)
-            SELECT to_jsonb(count(*)) AS data FROM updated""",
-                updated.model_dump_json(),
-                lens_id,
-                previous.version,
-                scheduled_at.isoformat() if (scheduled_at := due_at(updated)) else None,
-            )
+        lens: Final = StoredLens.model_validate(previous.value).lens
+        candidate: Final = transform(lens)
+        if candidate == lens and checkpoint is None:
+            return True, None if changed_only else lens
+        updated: Final = candidate.model_copy(update={"version": lens.version + 1}) if candidate != lens else lens
+        archives: Final = await self._archive_changes(previous, lens, updated)
+        review: Final = (
+            (Change(require_storage(await self.state.read(checkpoint[0])), document(checkpoint[1])),)
+            if checkpoint is not None
+            else ()
         )
-        return bool(rows and rows[0].data == 1), updated
+        result: Final = await self.state.commit((Change(previous, document(stored(updated))), *archives, *review))
+        if result is not None and result.kind != "conflict":
+            require_storage(result)
+        return result is None, updated
+
+    async def _archive_changes(self, parent: Snapshot, previous: Lens, updated: Lens) -> tuple[Change, ...]:
+        retained: Final = frozenset(job.id for job in updated.jobs)
+        removed: Final = tuple(job for job in previous.jobs if job.id not in retained)
+        records: Final = require_storage(
+            await self.state.read_many(tuple(record_key("run", previous.id, job.id) for job in removed))
+        )
+        return tuple(
+            Change(
+                record,
+                document(
+                    ArchivedJob(
+                        lens_id=previous.id,
+                        parent_key=parent.key,
+                        archived_version=updated.version,
+                        job=job,
+                    )
+                ),
+            )
+            for job, record in zip(removed, records, strict=True)
+            if record.value is None
+        )
 
     async def jobs(self, lens_id: str, offset: int = 0) -> tuple[Job, ...]:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """SELECT data FROM (
-                SELECT data FROM "LiteLLM_LensRun" WHERE lens_id=$1
-                UNION ALL
-                SELECT jsonb_array_elements(data->'jobs') AS data FROM "LiteLLM_Lens" WHERE id=$1
-            ) AS jobs ORDER BY data->>'created_at' DESC, data->>'id' DESC LIMIT 50 OFFSET $2""",
-                lens_id,
-                offset,
-            )
-        )
-        return tuple(Job.model_validate(row.data) for row in rows)
+        snapshot: Final = require_storage(await self.state.read(record_key("lens", lens_id)))
+        if snapshot.value is None:
+            return ()
+        return await self.queries.jobs(snapshot, StoredLens.model_validate(snapshot.value).lens, offset)
 
     async def job(self, lens_id: str, job_id: str) -> Job | None:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """SELECT data FROM "LiteLLM_LensRun" WHERE lens_id=$1 AND id=$2
-            UNION ALL SELECT job AS data FROM "LiteLLM_Lens", jsonb_array_elements(data->'jobs') AS job
-            WHERE id=$1 AND job->>'id'=$2 LIMIT 1""",
-                lens_id,
-                job_id,
-            )
-        )
-        return Job.model_validate(rows[0].data) if rows else None
+        snapshot: Final = require_storage(await self.state.read(record_key("lens", lens_id)))
+        if snapshot.value is None:
+            return None
+        jobs: Final = await self.queries.jobs(snapshot, StoredLens.model_validate(snapshot.value).lens, 0, job_id)
+        return jobs[0] if jobs else None
 
     async def trace_findings(self, traces: tuple[TraceIdentity, ...]) -> tuple[TraceFindingCount, ...]:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """WITH targets AS (
-                    SELECT DISTINCT trace_id, trace_ref,
-                        jsonb_build_array(jsonb_build_object('source', 'traces', 'trace_id', trace_id)) AS executions
-                    FROM jsonb_to_recordset($1::jsonb) AS target(trace_id text, trace_ref text)
-                ), jobs AS (
-                    SELECT target.trace_id, target.trace_ref, run.data AS job
-                    FROM targets AS target JOIN "LiteLLM_LensRun" AS run
-                        ON run.data->'sample'->'executions' @> target.executions
-                    WHERE run.data->>'status'='completed'
-                    UNION ALL
-                    SELECT target.trace_id, target.trace_ref, job
-                    FROM targets AS target JOIN "LiteLLM_Lens" AS lens
-                        ON lens.data->'jobs' @> jsonb_build_array(jsonb_build_object(
-                            'status', 'completed', 'sample', jsonb_build_object('executions', target.executions)))
-                    CROSS JOIN LATERAL jsonb_array_elements(lens.data->'jobs') AS job
-                    WHERE job->>'status'='completed'
-                ), assessed AS (
-                    SELECT jobs.trace_id, jobs.trace_ref, execution->>'id' AS execution_id, job
-                    FROM jobs, jsonb_array_elements(job->'sample'->'executions') AS execution
-                    WHERE execution->>'trace_id'=jobs.trace_id
-                        AND COALESCE(execution->>'trace_ref', '')=jobs.trace_ref
-                        AND execution->>'source'='traces' AND EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(job->'assessments') AS assessment
-                        WHERE assessment->>'execution_id'=execution->>'id'
-                            AND COALESCE((assessment->>'cannot_assess')::boolean, false)=false
-                    )
-                )
-                SELECT jsonb_build_object(
-                    'trace_id', target.trace_id, 'trace_ref', target.trace_ref,
-                    'finding_count', CASE WHEN count(assessed.execution_id)=0 THEN NULL
-                        ELSE count(DISTINCT finding->>'id') END
-                ) AS data FROM targets AS target
-                LEFT JOIN assessed USING (trace_id, trace_ref)
-                LEFT JOIN LATERAL jsonb_array_elements(NULLIF(assessed.job->'findings', 'null'::jsonb)) AS finding
-                    ON finding->'occurrences' ? assessed.execution_id
-                GROUP BY target.trace_id, target.trace_ref""",
-                json.dumps(tuple(trace.model_dump() for trace in traces)),
-            )
-        )
-        return tuple(TraceFindingCount.model_validate(row.data) for row in rows)
+        return await self.queries.trace_findings(traces)
 
     async def workers(self) -> tuple[Worker, ...]:
-        rows: Final = _ROWS.validate_python(await self.db.query_raw('SELECT data FROM "LiteLLM_LensWorker"'))
-        return tuple(Worker.model_validate(row.data) for row in rows)
+        return await self.access.workers()
 
-    async def eligible_workers(self, scope: Scope) -> AsyncIterator[Worker]:
-        scoped: Final = (
-            {"all_teams": True}
-            if scope.all_teams
-            else {"team_id": scope.team_id}
-            if scope.team_id
-            else {"team_id": "", "api_key_hash": scope.api_key_hash}
-        )
-        cursor = ""  # rebind-ok: advance the keyset cursor after each bounded page
-        while True:
-            rows = _ROWS.validate_python(
-                await self.db.query_raw(
-                    """SELECT data FROM "LiteLLM_LensWorker"
-                    WHERE data @> '{"revoked": false}'::jsonb AND id > $1
-                    AND (data->'scope' @> '{"all_teams": true}'::jsonb OR data->'scope' @> $2::jsonb)
-                    ORDER BY id LIMIT 50""",
-                    cursor,
-                    json.dumps(scoped),
-                )
-            )
-            workers = tuple(Worker.model_validate(row.data) for row in rows)
-            for worker in workers:
-                yield worker
-            if len(workers) < 50:
-                return
-            cursor = workers[-1].id
+    def eligible_workers(self, scope: Scope) -> AsyncIterator[Worker]:
+        return self.access.eligible_workers(scope)
 
     async def worker(self, token_hash: str) -> Worker | None:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                'SELECT data FROM "LiteLLM_LensWorker" WHERE token_hash=$1',
-                token_hash,
-            )
-        )
-        return Worker.model_validate(rows[0].data) if rows else None
+        return await self.access.worker(token_hash)
 
     async def save_worker(self, worker: Worker, token_hash: str | None = None) -> None:
-        if token_hash is not None:
-            await self.db.execute_raw(
-                'INSERT INTO "LiteLLM_LensWorker" (id,token_hash,data) VALUES ($1,$2,$3::jsonb)',
-                worker.id,
-                token_hash,
-                worker.model_dump_json(),
-            )
-            return
-        await self.db.execute_raw(
-            'UPDATE "LiteLLM_LensWorker" SET data=$1::jsonb WHERE id=$2', worker.model_dump_json(), worker.id
-        )
+        await self.access.save_worker(worker, token_hash)
 
     async def configure_service_worker(self, worker: Worker, token_hash: str) -> Worker:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                'INSERT INTO "LiteLLM_LensWorker" AS existing (id,token_hash,data) VALUES ($1,$2,$3::jsonb) '
-                "ON CONFLICT (token_hash) DO UPDATE "
-                "SET data=jsonb_set(EXCLUDED.data, '{id}', to_jsonb(existing.id)) RETURNING data",
-                worker.id,
-                token_hash,
-                worker.model_dump_json(),
-            )
-        )
-        return Worker.model_validate(rows[0].data)
+        return await self.access.configure_service_worker(worker, token_hash)
 
     async def set_worker_billing(self, worker_id: str, key_id: str) -> Worker | None:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """UPDATE "LiteLLM_LensWorker"
-                SET data=jsonb_set(data, '{analysis_key_id}', to_jsonb($1::text))
-                WHERE id=$2 AND COALESCE((data->>'revoked')::boolean, false)=false RETURNING data""",
-                key_id,
-                worker_id,
-            )
-        )
-        return Worker.model_validate(rows[0].data) if rows else None
+        return await self.access.set_worker_billing(worker_id, key_id)
 
     async def revoke_worker(self, worker_id: str) -> None:
-        await self.db.execute_raw(
-            """UPDATE "LiteLLM_LensWorker" SET data=jsonb_set(data, '{revoked}', 'true') WHERE id=$1""",
-            worker_id,
-        )
+        await self.access.revoke_worker(worker_id)
 
     async def heartbeat(self, worker_id: str, now: str) -> None:
-        await self.db.execute_raw(
-            """UPDATE "LiteLLM_LensWorker" SET data=jsonb_set(data, '{last_seen}', to_jsonb($1::text)) WHERE id=$2""",
-            now,
-            worker_id,
-        )
+        await self.access.heartbeat(worker_id, now)

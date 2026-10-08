@@ -1,8 +1,8 @@
 # Developing Lens
 
-This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI package builds and the standalone UI can be previewed. It is not yet an installable standalone release: application startup, remaining ClickHouse repositories and cross-repository qualification remain open
+This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI package builds and the standalone UI can be previewed. It is not yet an installable standalone release: application startup, storage qualification and cross-repository qualification remain open
 
-The target deployment is Lens with ClickHouse, including its configured Keeper component. PostgreSQL code currently present is transitional extraction work and migration material, not the target runtime dependency
+The target deployment is Lens with ClickHouse, including its configured Keeper component. The API runtime and Lens repositories use ClickHouse. PostgreSQL helpers remain for migration work, and their driver is an optional `migration` extra
 
 ## Repository layout
 
@@ -51,16 +51,25 @@ uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test
 cargo check --manifest-path runtime/Cargo.toml
 ```
 
-The ClickHouse state prototype, dataset repository and signal repository have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
+The ClickHouse state, dataset, signal, investigation and access repositories have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
 
 ```sh
 docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
-CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest tests/integration/test_clickhouse_state.py tests/integration/database/test_lens_dataset_repository.py tests/integration/database/test_lens_signal_repository.py -q
+CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest \
+  tests/integration/test_clickhouse_state.py \
+  tests/integration/database/test_lens_dataset_repository.py \
+  tests/integration/database/test_lens_signal_repository.py \
+  tests/integration/database/test_lens_repository.py \
+  tests/integration/database/test_lens_scheduler_load.py \
+  tests/integration/database/test_access_repository.py \
+  tests/integration/test_auth.py -q
 ```
 
-The tests create and drop isolated databases. Dataset revisions and their latest summaries publish atomically. Signal claims and result writes retain their lease and configuration checks. Investigation records and sessions still need their ClickHouse adapters, and full capacity, migration and recovery qualification remains open. These tests do not demonstrate that the full Lens product runs end to end
+The tests create and drop isolated databases. Dataset revisions and their latest summaries publish atomically. Signal claims and result writes retain their lease and configuration checks. Investigation updates, archived history, review checkpoints, workers, tracing keys and browser sessions also use ClickHouse. Full capacity, migration and recovery qualification remains open. See [investigation storage qualification](docs/extraction/clickhouse-investigations.md) for the concurrency checks, test limits and observed HTTP interruption. These tests do not demonstrate that the full Lens product runs end to end
 
 ## Completion and source provenance
+
+Copied tests that still initialize the old gateway runtime need standalone fixtures. A full test-suite run is not yet qualified
 
 The [completion plan](docs/extraction/completion-plan.md) includes the standalone, embedded, release, deployment, migration and ClickHouse requirements. The [implementation ledger](docs/extraction/implementation-state.json) records open requirements and partial evidence
 

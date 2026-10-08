@@ -1,12 +1,16 @@
 import json
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from typing import Final, LiteralString
+from typing import Final, LiteralString, Protocol
 
 import asyncpg
 
-from litellm_lens.repository import Database
+
+class Database(Protocol):
+    def query_raw(self, query: LiteralString, *args: object) -> Awaitable[object]: ...
+    def execute_raw(self, query: LiteralString, *args: object) -> Awaitable[int]: ...
+    def transaction(self) -> AbstractAsyncContextManager["Database"]: ...
 
 
 def encode_json(value: object) -> str:
