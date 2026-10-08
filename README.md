@@ -6,7 +6,7 @@
 
 ![LiteLLM Lens](assets/lens-hero.gif)
 
-[4K video](assets/lens-hero-4k.mp4) · [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) · [Docs](https://docs.litellm.ai/docs/proxy/lens) · [Early access](https://forms.gle/3GC1Ner4vjthGWi18)
+[4K video](assets/lens-hero-4k.mp4) · [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) · [Docs](deploy/lens/README.md) · [Contributing](CONTRIBUTING.md) · [Early access](https://forms.gle/3GC1Ner4vjthGWi18)
 
 </div>
 
@@ -46,6 +46,8 @@ Traces live in ClickHouse that you host next to your LiteLLM gateway. Query them
 
 ## Get started
 
-Lens ships with LiteLLM and lives in the dashboard under Observability, Lens (`/ui/lens/`). It needs a Lens worker running next to your gateway. The [worker guide](https://github.com/BerriAI/litellm/blob/main/deploy/lens/README.md) covers local installs, existing deployments, Helm, the API, and what a scan actually does
+The current released Lens ships with LiteLLM and lives in the dashboard under Observability, Lens (`/ui/lens/`). It needs a Lens worker running next to your gateway. The [worker guide](deploy/lens/README.md) covers that deployment, Helm, the API, and what a scan actually does
+
+This repository owns the standalone extraction, which is still in development. See [Contributing](CONTRIBUTING.md) for the current repository layout and development checks, and the [completion plan](docs/extraction/completion-plan.md) for the remaining standalone and embedded requirements
 
 Want help rolling it out? [Sign up for early access](https://forms.gle/3GC1Ner4vjthGWi18)

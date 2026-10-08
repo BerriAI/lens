@@ -55,9 +55,9 @@
       "source": "deploy/lens/README.md",
       "destination": "deploy/lens/README.md",
       "sha256": "b69e58cee33c337ad121132981c2870062a45c60cc4e11a1d963d78c154e9e41",
-      "change": "unchanged",
-      "extracted_sha256": "b69e58cee33c337ad121132981c2870062a45c60cc4e11a1d963d78c154e9e41",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "1bed3feacf836632ef6898acadcaeabc2fe5b655072122f3f4ce1f17660db478",
+      "baseline_identical": false
     },
     {
       "source": "deploy/lens/compose.build.yaml",

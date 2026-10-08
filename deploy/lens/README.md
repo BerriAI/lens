@@ -1,5 +1,7 @@
 # Lens service
 
+This guide describes the released LiteLLM-integrated deployment. Its LiteLLM clone, chart and development commands still refer to that product. Standalone Lens is being developed in this repository; see [Contributing](../../CONTRIBUTING.md) for current development instructions and the [completion plan](../../docs/extraction/completion-plan.md) for its requirements
+
 Lens records agent activity and investigates it in a separate Rust service. LiteLLM serves model requests, the dashboard, and investigation settings. Lens owns trace ingestion and ClickHouse access; PostgreSQL stays with LiteLLM
 
 Agent exporters send traces directly to Lens. LiteLLM sends its optional request logs through a bounded background queue. If Lens or ClickHouse is unavailable, model requests continue; traces can be delayed or dropped according to the exporter's retry policy. The gateway never waits for ClickHouse during startup or inference
