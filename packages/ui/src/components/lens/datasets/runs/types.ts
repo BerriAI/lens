@@ -1,4 +1,5 @@
-// TODO: replace with types generated from runtime/crates/contract/schema/lens.v1.json once that schema is checked in
+// TODO: replace with types generated from runtime/crates/contract/schema/lens.v1.json (contract B Gate,
+// CaseResult, Summary, EvalRun); names and fields here are guesses until that schema is checked in
 export type Verdict = "pass" | "fail" | "error";
 export type RunStatus = "running" | "finished" | "error";
 
