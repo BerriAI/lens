@@ -15,9 +15,11 @@
     "visibility": "INTERNAL",
     "path": "/Users/mfkhalil/Code/litellm-lens",
     "branch": "litellm_lens_standalone",
-    "pull_request": "https://github.com/BerriAI/litellm-lens/pull/2",
+    "pull_request": "https://github.com/BerriAI/litellm-lens/pull/3",
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "collaboration draft; standalone runtime not yet wired"
+    "readiness": "source available on main; standalone runtime still incomplete; follow-up implementation in draft PR 3",
+    "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
+    "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda"
   },
   "completed_actions": [
     "Fetched latest LiteLLM main",
@@ -310,7 +312,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T21:53:44.022697+00:00",
+  "updated_at_utc": "2026-10-08T21:58:27.549375+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -351,5 +353,26 @@
       "evidence": "evidence/schema-check.log",
       "known_warnings": "datamodel-code-generator uses default integer representation for Rust unsigned schema formats; unchanged from source tooling"
     }
-  }
+  },
+  "open_dependency_advisories": [
+    {
+      "package": "datamodel-code-generator",
+      "installed": "0.66.0",
+      "patched": "0.81.0",
+      "scope": "development tool; protobuf weak-import path traversal",
+      "status": "requires reviewed generator update and schema parity check"
+    },
+    {
+      "package": "rustls",
+      "patched": "0.23.45",
+      "scope": "runtime TLS",
+      "status": "requires lockfile update and verification"
+    },
+    {
+      "package": "serde_with",
+      "patched": "3.21.0",
+      "scope": "Rust serialization",
+      "status": "requires dependency update and verification"
+    }
+  ]
 }
