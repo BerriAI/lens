@@ -2,9 +2,9 @@
 
 import { ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 
-import { StateMessage } from "@/components/shared/StateMessage";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { StateMessage } from "../../../shared/StateMessage";
+import { Button } from "../../../ui/button";
+import { cn } from "../../../../lib/cva.config";
 
 import { IdChip } from "../../traces/ui/IdChip";
 import { useEvalRun } from "./api";
