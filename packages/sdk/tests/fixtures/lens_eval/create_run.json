@@ -1,0 +1,14 @@
+{
+  "eval": "demo",
+  "agent": "demo",
+  "dataset_id": "demo",
+  "revision": 1,
+  "version": "base",
+  "branch": "main",
+  "trials": 3,
+  "scorers": [
+    {
+      "kind": "task_completed"
+    }
+  ]
+}

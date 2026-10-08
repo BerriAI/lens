@@ -1,0 +1,56 @@
+name: Lens evals
+description: Run agent evals and publish the server's verdict to GitHub
+inputs:
+  api-key:
+    description: Lens API key
+    required: true
+  base-url:
+    description: Lens server URL, defaults to tool.lens.base_url
+    required: false
+  path:
+    description: Eval file or directory, defaults to tool.lens.evals
+    required: false
+  github-token:
+    description: Token with checks and pull requests write permissions
+    default: ${{ github.token }}
+outputs:
+  passed:
+    description: Whether every server gate passed
+    value: ${{ steps.report.outputs.passed }}
+  run-urls:
+    description: JSON array of Lens run URLs
+    value: ${{ steps.report.outputs.run-urls }}
+runs:
+  using: composite
+  steps:
+    - name: Install SDK
+      shell: bash
+      run: python -m pip install "${GITHUB_ACTION_PATH}/.."
+    - name: Run evals
+      id: eval
+      shell: bash
+      env:
+        LENS_API_KEY: ${{ inputs.api-key }}
+        LENS_BASE_URL: ${{ inputs.base-url }}
+        LENS_EVAL_PATH: ${{ inputs.path }}
+      run: |
+        set +e
+        args=(--ci --json)
+        if [[ -n "$LENS_EVAL_PATH" ]]; then args+=("$LENS_EVAL_PATH"); fi
+        lens eval "${args[@]}" > "$RUNNER_TEMP/lens-runs.json"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [[ "$code" -eq 2 ]]; then exit 2; fi
+    - name: Publish report
+      id: report
+      shell: bash
+      env:
+        LENS_API_KEY: ${{ inputs.api-key }}
+        LENS_BASE_URL: ${{ inputs.base-url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: python -m lens.github "$RUNNER_TEMP/lens-runs.json"
+    - name: Enforce gate
+      shell: bash
+      env:
+        LENS_EXIT_CODE: ${{ steps.eval.outputs.exit-code }}
+      run: exit "$LENS_EXIT_CODE"

@@ -1,0 +1,118 @@
+{
+  "gateway": "https://gateway-dev.litellm-sandbox.ai",
+  "dataset": {
+    "id": "9154d122-1f48-48d5-ac9c-5d622031b6e8",
+    "name": "model-release-bench",
+    "revision": 1
+  },
+  "downloaded_cases": 1,
+  "eval_api_in_openapi": false,
+  "date": "2026-10-08",
+  "inference_and_ingest": "real deployed gateway",
+  "eval_lifecycle_and_scoring": "local synthetic contract server",
+  "trials": [
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "53f57c88f2834c228e32b8493d44f5b3",
+      "session_id": "pass-sdk-smoke-d0f3c859f51041e98cec12dc333524b6",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.0014020000000000003,
+      "response_characters": 141
+    },
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "505b6810d104456fa0b25ce2debc69a2",
+      "session_id": "pass-sdk-smoke-c204e1fce04547a086e03620bdd7ba46",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.001392,
+      "response_characters": 141
+    },
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "c5c956e0a217470497a3705e602253cf",
+      "session_id": "pass-sdk-smoke-2df245cd3423497a816426dc7a7c2143",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.0015520000000000002,
+      "response_characters": 133
+    }
+  ],
+  "gateway_reported_cost_usd": 0.004346000000000001,
+  "first_run": {
+    "runs": [
+      {
+        "id": "65356392e91741f186258fd498225dcb",
+        "status": "done",
+        "eval": "sdk-live-smoke",
+        "agent": "lens-sdk-smoke",
+        "version": "sdk-validation-20261008",
+        "branch": "main",
+        "pr": null,
+        "url": "http://localhost:8765/runs/65356392e91741f186258fd498225dcb",
+        "expected_trials": 3,
+        "received_trials": 3,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1.0,
+          "cost_per_case": 0.004346000000000001,
+          "scores": {
+            "task_completed": 1.0
+          },
+          "errors": 0,
+          "baseline_run_id": null,
+          "baseline_version": null,
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": [
+              "no baseline on main for rev 1"
+            ]
+          }
+        },
+        "failure": ""
+      }
+    ]
+  },
+  "wheel_repeat": {
+    "runs": [
+      {
+        "id": "24fbaad9c17742a4a6faa5e04e7edfa6",
+        "status": "done",
+        "eval": "sdk-live-smoke",
+        "agent": "lens-sdk-smoke",
+        "version": "sdk-validation-20261008",
+        "branch": "main",
+        "pr": null,
+        "url": "http://localhost:8765/runs/24fbaad9c17742a4a6faa5e04e7edfa6",
+        "expected_trials": 3,
+        "received_trials": 3,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1.0,
+          "cost_per_case": 0.0043560000000000005,
+          "scores": {
+            "task_completed": 1.0
+          },
+          "errors": 0,
+          "baseline_run_id": "65356392e91741f186258fd498225dcb",
+          "baseline_version": "sdk-validation-20261008",
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        "failure": ""
+      }
+    ]
+  }
+}

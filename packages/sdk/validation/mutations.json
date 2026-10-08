@@ -1,0 +1,86 @@
+{
+  "killed": 20,
+  "total": 20,
+  "mutations": [
+    {
+      "name": "retry HTTP errors",
+      "killed": true
+    },
+    {
+      "name": "recover finish acknowledgement",
+      "killed": true
+    },
+    {
+      "name": "configured concurrency",
+      "killed": true
+    },
+    {
+      "name": "all trials executed",
+      "killed": true
+    },
+    {
+      "name": "configured server gate",
+      "killed": true
+    },
+    {
+      "name": "distinct CI executions",
+      "killed": true
+    },
+    {
+      "name": "subset selection",
+      "killed": true
+    },
+    {
+      "name": "cost forwarded",
+      "killed": true
+    },
+    {
+      "name": "server failure classification",
+      "killed": true
+    },
+    {
+      "name": "assert gate verdict",
+      "killed": true
+    },
+    {
+      "name": "valid trace references",
+      "killed": true
+    },
+    {
+      "name": "ties fail",
+      "killed": true
+    },
+    {
+      "name": "regressions detected",
+      "killed": true
+    },
+    {
+      "name": "server gate conjunction",
+      "killed": true
+    },
+    {
+      "name": "closed result rejection",
+      "killed": true
+    },
+    {
+      "name": "missing baseline neutral",
+      "killed": true
+    },
+    {
+      "name": "infrastructure exit code",
+      "killed": true
+    },
+    {
+      "name": "gate failure exit code",
+      "killed": true
+    },
+    {
+      "name": "only edit owned comment",
+      "killed": true
+    },
+    {
+      "name": "duplicate evaluation rejection",
+      "killed": true
+    }
+  ]
+}

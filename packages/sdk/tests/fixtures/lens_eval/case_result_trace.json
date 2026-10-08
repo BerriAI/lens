@@ -1,0 +1,8 @@
+{
+  "trace": {
+    "attribute": "session.id",
+    "value": "pass-fixture"
+  },
+  "cost_usd": 0.125,
+  "duration_ms": 10
+}

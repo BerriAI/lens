@@ -1,0 +1,31 @@
+{
+  "id": "candidate",
+  "status": "done",
+  "eval": "demo",
+  "agent": "demo",
+  "version": "candidate",
+  "branch": "topic",
+  "pr": 7,
+  "url": "http://localhost:8765/runs/candidate",
+  "expected_trials": 108,
+  "received_trials": 108,
+  "summary": {
+    "passed": 36,
+    "total": 36,
+    "pass_rate": 1.0,
+    "cost_per_case": 0.375,
+    "scores": {
+      "task_completed": 1.0
+    },
+    "errors": 0,
+    "baseline_run_id": "baseline",
+    "baseline_version": "base",
+    "regressions": [],
+    "fixed": [],
+    "gate": {
+      "passed": true,
+      "reasons": []
+    }
+  },
+  "failure": ""
+}

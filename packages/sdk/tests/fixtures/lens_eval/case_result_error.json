@@ -1,0 +1,7 @@
+{
+  "error": {
+    "type": "TimeoutError",
+    "message": "Agent exceeded deadline"
+  },
+  "duration_ms": 1000
+}
