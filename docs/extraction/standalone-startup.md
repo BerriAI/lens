@@ -57,6 +57,8 @@ The application creates its database and current fresh schema if absent. It does
 
 ## Evidence and limits
 
+Implementation candidate: `ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d`. The local API and Rust test processes exited cleanly on SIGINT after verification
+
 `tests/integration/test_application.py` exercises the assembled application against ClickHouse. It covers first sign-in, cookie reuse, key and dataset persistence across API lifespans, explicit runtime configuration, private credential snapshots and readiness rejection for missing storage, stale credentials and incompatible protocol/release. Dataset routes are registered before the general investigation route, preserving `/lens/datasets`
 
 The focused configuration/application/authentication run passed 15 checks. Three targeted mutations were rejected by assertions: shadowing the dataset route, bypassing service authentication and ignoring protocol compatibility. See [test output](evidence/standalone-startup-tests.log) and [mutation results](evidence/standalone-startup-mutations.json)

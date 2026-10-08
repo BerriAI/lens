@@ -22,7 +22,7 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a",
+    "candidate_commit": "ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -526,7 +526,9 @@
       "python_typecheck_files": 3,
       "live_trace_spans": 6,
       "live_receipt_received": true,
-      "scope": "Provider-free local tracing path and assembled API; no published install, full browser parity, provider investigation, gateway embedding or complete lifecycle qualification"
+      "scope": "Provider-free local tracing path and assembled API; no published install, full browser parity, provider investigation, gateway embedding or complete lifecycle qualification",
+      "candidate_commit": "ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d",
+      "shutdown": "Live API and Rust test processes exited cleanly on SIGINT; the existing ClickHouse test services were preserved"
     }
   },
   "open_dependency_advisories": [
@@ -554,5 +556,6 @@
     "requirement": "Keep the existing Rust runtime and Python API for the parity-first extraction",
     "authorized_by": "User answer on 2026-10-08",
     "status": "retained"
-  }
+  },
+  "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger"
 }
