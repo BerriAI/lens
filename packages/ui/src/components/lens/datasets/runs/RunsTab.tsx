@@ -8,26 +8,40 @@ import { formatActivityTimestamp } from "@/utils/activityTimestamp";
 
 import { useEvalRunRoute } from "../../route";
 import { useEvalRuns } from "./api";
-import { costPerCase, deltaLabel, groupRuns, passedLabel, shortSha } from "./format";
+import { costPerCase, deltaLabel, deltaTone, groupRuns, passedLabel, shortSha } from "./format";
 import { GatePill, PullRequestLink } from "./RunBadges";
 import { RunDetail } from "./RunDetail";
 import type { EvalRun } from "./types";
 
 export interface RunsTabProps {
   readonly datasetId: string;
+  readonly agentName: string;
 }
 
-export function RunsTab({ datasetId }: RunsTabProps) {
+export function RunsTab({ datasetId, agentName }: RunsTabProps) {
   const { runId, caseId, openRun, openCase } = useEvalRunRoute();
   if (runId)
-    return <RunDetail key={runId} runId={runId} caseId={caseId} onBack={() => openRun(null)} onOpenCase={openCase} />;
-  return <RunList datasetId={datasetId} onOpen={openRun} />;
+    return (
+      <RunDetail
+        key={runId}
+        runId={runId}
+        datasetId={datasetId}
+        caseId={caseId}
+        onBack={() => openRun(null)}
+        onOpenCase={openCase}
+      />
+    );
+  return <RunList datasetId={datasetId} agentName={agentName} onOpen={openRun} />;
 }
 
-const NO_FILTER = {};
+interface RunListProps {
+  readonly datasetId: string;
+  readonly agentName: string;
+  readonly onOpen: (runId: string) => void;
+}
 
-function RunList({ datasetId, onOpen }: { datasetId: string; onOpen: (runId: string) => void }) {
-  const runs = useEvalRuns(NO_FILTER);
+function RunList({ datasetId, agentName, onOpen }: RunListProps) {
+  const runs = useEvalRuns({ agent: agentName });
   if (runs.isPending)
     return (
       <StateMessage
@@ -70,12 +84,6 @@ const NUMERIC_HEAD = cn(HEAD, "text-right");
 const CELL = "px-4 py-2.5 align-middle";
 const NUMERIC = cn(CELL, "text-right tabular-nums");
 
-function deltaTone(run: EvalRun): string {
-  const delta = run.summary?.pass_rate_delta ?? null;
-  if (delta === null || delta === 0) return "text-muted-foreground";
-  return delta < 0 ? "text-destructive" : "text-success";
-}
-
 function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalRun[]; onOpen: (id: string) => void }) {
   if (runs.length === 0) return null;
   return (
@@ -87,7 +95,7 @@ function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalR
             <tr>
               <th className={HEAD}>Run</th>
               <th className={NUMERIC_HEAD}>Passed</th>
-              <th className={NUMERIC_HEAD}>vs main</th>
+              <th className={NUMERIC_HEAD}>vs baseline</th>
               <th className={NUMERIC_HEAD}>Cost per case</th>
               <th className={HEAD}>Gate</th>
               <th className={HEAD}>
@@ -113,12 +121,16 @@ function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalR
                   </button>
                 </td>
                 <td className={NUMERIC}>{run.summary ? passedLabel(run.summary) : "–"}</td>
-                <td className={cn(NUMERIC, deltaTone(run))}>{run.summary ? deltaLabel(run.summary) : "–"}</td>
+                <td className={cn(NUMERIC, deltaTone(run.summary?.pass_rate_delta ?? null))}>
+                  {run.summary ? deltaLabel(run.summary) : "–"}
+                </td>
                 <td className={NUMERIC}>{run.summary ? costPerCase(run.summary) : "–"}</td>
                 <td className={CELL}>
                   <GatePill run={run} />
                 </td>
-                <td className={cn(CELL, "text-right")}>{run.pr_url && <PullRequestLink url={run.pr_url} />}</td>
+                <td className={cn(CELL, "text-right")}>
+                  <PullRequestLink url={run.pr_url} />
+                </td>
               </tr>
             ))}
           </tbody>
