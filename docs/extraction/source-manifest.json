@@ -288,7 +288,7 @@
       "destination": "runtime/Cargo.lock",
       "sha256": "838afc5c347d3c085bdf4cea0921dfcec5927eaaee64918c8f51ac65edffa74d",
       "change": "adapted_during_extraction",
-      "extracted_sha256": "bbe38be322e8a2d98cc5d96c49f87358f6f83a0ece71d769170bede4d40d7b73",
+      "extracted_sha256": "f8636392b26e8d3a208f0e89647b0084d2f75d1991d5e407f3da15ddafa00420",
       "baseline_identical": false
     },
     {

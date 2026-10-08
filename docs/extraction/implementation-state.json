@@ -22,7 +22,7 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "d1f42a4a50e5cfb3ba66fcd2f9fc0e51190e9b11",
+    "candidate_commit": "caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -55,7 +55,8 @@
     "Removed PostgreSQL from the API runtime context and made its driver an optional migration dependency",
     "Preserved investigation, checkpoint, history and worker behavior in real ClickHouse integration tests, including 50 concurrent duplicate settlements and bounded scheduler reads",
     "Verified 195 core and integration checks in a combined run and rejected eight targeted storage/authentication mutations",
-    "Merged collaborator Rust server scaffold and route-inventory changes from main without changing the agreed Rust/Python split"
+    "Merged collaborator Rust server scaffold and route-inventory changes from main without changing the agreed Rust/Python split",
+    "Adapted the concurrently merged HTTP parity harness to ClickHouse sessions and replayed all 43 existing auth/dataset fixtures without changing expected responses"
   ],
   "current_work": "Complete standalone API/runtime startup, provider configuration and model access, signal/scheduler lifecycle and live UI flows; port remaining copied endpoint/lifecycle fixtures; qualify persistence migration, recovery and capacity, then LiteLLM embedding and companion repositories",
   "acceptance": {
@@ -82,7 +83,8 @@
     "S2": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
       ]
     },
     "S3": {
@@ -100,7 +102,8 @@
     "S6": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
       ]
     },
     "F1": {
@@ -149,7 +152,8 @@
       "status": "not_run",
       "evidence": [
         "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)",
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
       ]
     },
     "F10": {
@@ -177,7 +181,9 @@
     },
     "I2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+      ]
     },
     "I3": {
       "status": "not_run",
@@ -374,7 +380,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T23:23:29.543578+00:00",
+  "updated_at_utc": "2026-10-08T23:27:16.207593+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -486,6 +492,14 @@
       "collection_error": "Copied tracing endpoint test still imports gateway runtime and requires gateway-only backoff dependency",
       "evidence": "docs/extraction/evidence/python-unit-collection.log",
       "follow_up": "Port remaining gateway/SQL-dependent endpoint and lifecycle fixtures, preserving behavior assertions"
+    },
+    "http_auth_dataset_parity": {
+      "passed": 43,
+      "failed": 0,
+      "candidate_commit": "caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a",
+      "fixture_commit": "01bd40dfd310a6279488030cc0e509ce2e3db1a4",
+      "evidence": "docs/extraction/evidence/clickhouse-http-parity.log",
+      "scope": "Real HTTP auth and dataset API requests against Uvicorn and ClickHouse; no provider calls, browser rendering or complete Lens application"
     }
   },
   "open_dependency_advisories": [

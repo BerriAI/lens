@@ -24,6 +24,10 @@ Eight targeted mutations are rejected by behavior assertions: removing attempt f
 
 Evidence: [repository tests](evidence/clickhouse-investigations.log), [affected-case recheck](evidence/clickhouse-http-recheck.log), [targeted mutations](evidence/clickhouse-investigation-mutations.json), [scoped type diagnostics](evidence/clickhouse-investigation-types.json) and [unit collection](evidence/python-unit-collection.log). The seven checked Python modules have no type errors; remaining warnings include inherited third-party typing, unused results and adjacent SQL string literals
 
+The independently merged HTTP fixture runner now also uses ClickHouse sessions. All 43 committed authentication and dataset fixtures from `01bd40dfd310a6279488030cc0e509ce2e3db1a4` replay unchanged against a real Uvicorn server, with PostgreSQL absent. The candidate harness is `caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a`. This covers bearer/cookie/JWT authentication, session revocation and expiry, dataset revisions, exports and role/scope decisions; analysis is deliberately unavailable in this fixture harness
+
+Run `uv run python runtime/crates/parity/harness/serve.py`, then `cargo run --manifest-path runtime/Cargo.toml -p lens-parity -- replay --base-url http://127.0.0.1:4100`. Each harness start uses a fresh ClickHouse database. See [replay output](evidence/clickhouse-http-parity.log) and [server log](evidence/clickhouse-http-parity-server.log)
+
 ## Limits still open
 
 One combined run passed 186 checks, then encountered an HTTP disconnect during scheduler setup and eight subsequent fixture setup errors. ClickHouse remained running and healthy, with no restart or OOM event. All nine affected checks passed on a targeted recheck, and 1,500 diagnostic requests through fresh client connections had no failures. A subsequent combined run of the same 195 checks passed without changing the workload or restarting ClickHouse. The failed run is retained as [HTTP interruption evidence](evidence/clickhouse-http-interruption.log). Its cause is unresolved, so this is not a deployment reliability qualification
