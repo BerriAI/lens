@@ -6,7 +6,7 @@ from typing import Final
 
 from pydantic import BaseModel, JsonValue
 
-from litellm.proxy.lens.agent_contract import (
+from litellm_lens.agent_contract import (
     Candidate,
     Checkpoint,
     Clusters,
@@ -17,7 +17,7 @@ from litellm.proxy.lens.agent_contract import (
     PythonAgentTurn,
     PythonRequest,
 )
-from litellm.proxy.lens.models import (
+from litellm_lens.models import (
     Claim,
     ExecutionContent,
     Extraction,
@@ -27,7 +27,7 @@ from litellm.proxy.lens.models import (
     Result,
     Sample,
 )
-from litellm.proxy.lens.release import PROTOCOL_VERSION
+from litellm_lens.release import PROTOCOL_VERSION
 
 MODELS: Final[tuple[type[BaseModel], ...]] = (
     Claim,
@@ -49,7 +49,7 @@ MODELS: Final[tuple[type[BaseModel], ...]] = (
     Checkpoint,
     FindingGroups,
 )
-TARGET: Final = Path(__file__).resolve().parents[1] / "litellm-rust/crates/lens/contract.json"
+TARGET: Final = Path(__file__).resolve().parents[1] / "runtime/crates/lens/contract.json"
 
 
 def draft_seven(value: JsonValue, names: bool = False) -> JsonValue:

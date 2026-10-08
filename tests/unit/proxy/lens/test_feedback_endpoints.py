@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ValidationError
 
 from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.lens.feedback_endpoints import (
+from litellm_lens.feedback_endpoints import (
     FeedbackDeletion,
     FeedbackSubmission,
     FeedbackTarget,
@@ -17,10 +17,10 @@ from litellm.proxy.lens.feedback_endpoints import (
     read_feedback,
     submit_feedback,
 )
-from litellm.proxy.lens.feedback_models import TraceFeedbackRequest
-from litellm.proxy.lens.feedback_repository import FEEDBACK_TABLE, ClickHouseFeedbackStore, session_trace_id
-from litellm.proxy.lens.models import TraceIdentity
-from litellm.rust_bridge.trace.generated.models import (
+from litellm_lens.feedback_models import TraceFeedbackRequest
+from litellm_lens.feedback_repository import FEEDBACK_TABLE, ClickHouseFeedbackStore, session_trace_id
+from litellm_lens.models import TraceIdentity
+from litellm_lens.trace.generated.models import (
     FeedbackRow,
     FeedbackSummaryRow,
     FeedbackTargetRow,
@@ -28,8 +28,8 @@ from litellm.rust_bridge.trace.generated.models import (
     LensFeedbackSummaryParams,
     LensFeedbackTargetParams,
 )
-from litellm.rust_bridge.trace.queries import ReadQuery
-from litellm.rust_bridge.trace.storage import ClickHouseStorage
+from litellm_lens.trace.queries import ReadQuery
+from litellm_lens.trace.storage import ClickHouseStorage
 
 ADMIN: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin")
 OTHER_ADMIN: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="other")
@@ -162,7 +162,7 @@ async def test_session_id_resolves_to_the_trace_lens_derives_at_ingest() -> None
 
 
 def test_session_trace_id_matches_the_rust_ingest_hash() -> None:
-    # Pinned in litellm-rust/crates/traces/tests/otlp.rs (session_capture_joins_native_logs_...).
+    # Pinned in runtime/crates/traces/tests/otlp.rs (session_capture_joins_native_logs_...).
     assert session_trace_id("session-one") == "5fddf060372c8501dca4f331b9da882b"
 
 

@@ -1,7 +1,7 @@
 import pytest
 
 from litellm import constants
-from litellm.tracing.config import is_clickhouse_tracing_enabled, trace_storage_config
+from litellm_lens.tracing.config import is_clickhouse_tracing_enabled, trace_storage_config
 
 
 @pytest.mark.parametrize(
@@ -129,6 +129,6 @@ def test_legacy_reader_and_split_retention_fields_are_rejected() -> None:
 def test_lens_enablement_requires_its_service_or_an_explicit_lens_store(
     settings: object, environ: dict[str, str], enabled: bool
 ) -> None:
-    from litellm.tracing.config import is_lens_tracing_enabled
+    from litellm_lens.tracing.config import is_lens_tracing_enabled
 
     assert is_lens_tracing_enabled(settings, environ) is enabled

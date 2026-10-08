@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 TOOLING: Final = ROOT / "scripts/trace_codegen"
-GENERATED: Final = ROOT / "litellm/rust_bridge/trace/generated"
+GENERATED: Final = ROOT / "src/litellm_lens/trace/generated"
 SCHEMAS: Final = TypeAdapter(dict[str, dict[str, JsonValue]])
 
 
@@ -41,7 +41,7 @@ def export(crate: str, extra_args: tuple[str, ...] = ()) -> Mapping[str, Mapping
             "run",
             "--locked",
             "--manifest-path",
-            str(ROOT / "litellm-rust/Cargo.toml"),
+            str(ROOT / "runtime/Cargo.toml"),
             "-p",
             f"litellm-{crate}",
             "--bin",

@@ -16,8 +16,8 @@ from litellm import Router
 from litellm.proxy import proxy_server
 from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
 from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.lens import endpoints
-from litellm.proxy.lens.models import (
+from litellm_lens import endpoints
+from litellm_lens.models import (
     Check,
     Coverage,
     Lens,
@@ -29,9 +29,9 @@ from litellm.proxy.lens.models import (
     Scope,
     Worker,
 )
-from litellm.proxy.lens.release import PROTOCOL_VERSION, release_tag
-from litellm.proxy.lens.repository import Database, LensRepository, Row
-from litellm.proxy.lens.state import can_access
+from litellm_lens.release import PROTOCOL_VERSION, release_tag
+from litellm_lens.repository import Database, LensRepository, Row
+from litellm_lens.state import can_access
 from litellm.proxy.utils import PrismaClient, ProxyLogging
 
 

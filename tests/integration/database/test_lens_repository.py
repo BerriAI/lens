@@ -18,7 +18,7 @@ from pydantic import TypeAdapter
 
 from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
 from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.lens.models import (
+from litellm_lens.models import (
     Check,
     Evidence,
     Execution,
@@ -35,8 +35,8 @@ from litellm.proxy.lens.models import (
     TraceIdentity,
     Worker,
 )
-from litellm.proxy.lens.repository import LensRepository, WriterDatabase
-from litellm.proxy.lens.state import cancel_job, claim_job, current_job, due_at, end_job, queue_job, replace_job
+from litellm_lens.repository import LensRepository, WriterDatabase
+from litellm_lens.state import cancel_job, claim_job, current_job, due_at, end_job, queue_job, replace_job
 
 
 @pytest_asyncio.fixture(loop_scope="function")
@@ -434,7 +434,7 @@ async def test_trace_findings_include_archived_assessments_without_counting_retr
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import trace_findings
+    from litellm_lens.endpoints import trace_findings
 
     monkeypatch.setattr(proxy_server, "prisma_client", SimpleNamespace(db=lens_db))
     now: Final = datetime.now(timezone.utc)
@@ -650,7 +650,7 @@ def test_db_push_creates_fresh_lens_tables_and_preserves_them_on_restart(monkeyp
 
 @pytest.mark.asyncio
 async def test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_invalidate_them(lens_db: Prisma) -> None:
-    from litellm.proxy.lens.models import Extraction, Review, ReviewVersion
+    from litellm_lens.models import Extraction, Review, ReviewVersion
 
     now: Final = datetime.now(timezone.utc)
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))
@@ -725,7 +725,7 @@ async def test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_in
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lost_ownership", ("expired", "reassigned", "same_worker", "cancelled", "next_job"))
 async def test_delayed_progress_cannot_replace_a_newer_checkpoint(lens_db: Prisma, lost_ownership: str) -> None:
-    from litellm.proxy.lens.models import Extraction, Review
+    from litellm_lens.models import Extraction, Review
     from tests.unit.proxy.lens.test_state import lens, worker
 
     now: Final = datetime.now(timezone.utc)
@@ -772,8 +772,8 @@ async def test_delayed_progress_cannot_replace_a_newer_checkpoint(lens_db: Prism
 
 @pytest.mark.asyncio
 async def test_locked_settlement_charges_every_concurrent_call_exactly_once(lens_db: Prisma) -> None:
-    from litellm.proxy.lens.inference import settle_amount
-    from litellm.proxy.lens.models import BudgetReservation, Step
+    from litellm_lens.inference import settle_amount
+    from litellm_lens.models import BudgetReservation, Step
     from tests.unit.proxy.lens.test_state import lens
 
     now: Final = datetime.now(timezone.utc)
@@ -816,7 +816,7 @@ async def test_locked_settlement_charges_every_concurrent_call_exactly_once(lens
 
 @pytest.mark.asyncio
 async def test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update(lens_db: Prisma) -> None:
-    from litellm.proxy.lens.models import Extraction, Review
+    from litellm_lens.models import Extraction, Review
     from tests.unit.proxy.lens.test_state import lens, worker
 
     now: Final = datetime.now(timezone.utc)
@@ -869,7 +869,7 @@ async def wait_for_lens_row_lock(db: Prisma, transaction: Prisma) -> None:
 
 @pytest.mark.asyncio
 async def test_legacy_finding_run_provenance_is_recovered_from_archived_and_current_jobs(lens_db: Prisma) -> None:
-    from litellm.proxy.lens.state import merge_finding
+    from litellm_lens.state import merge_finding
     from tests.unit.proxy.lens.test_state import NOW, finding, lens
 
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))

@@ -4,7 +4,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.lens.release import worker_image
+from litellm_lens.release import worker_image
 
 
 @pytest.mark.parametrize("tag", ("v1.2.3", "v1.2.3-rc.4", "v1.2.3-dev.5", "branch-main-1234567"))
@@ -35,7 +35,7 @@ def test_source_build_uses_the_separate_development_package(monkeypatch: pytest.
 def test_python_installs_recommend_the_matching_worker(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, installed: str, expected: str
 ) -> None:
-    from litellm.proxy.lens import release
+    from litellm_lens import release
 
     metadata: Final = tmp_path / "litellm.dist-info"
     metadata.mkdir()
@@ -57,7 +57,7 @@ def test_python_installs_recommend_the_matching_worker(
 def test_unknown_source_never_falls_back_to_a_package_version_or_image_override(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, source: str
 ) -> None:
-    from litellm.proxy.lens import release
+    from litellm_lens import release
 
     metadata: Final = tmp_path / "litellm.dist-info"
     metadata.mkdir()

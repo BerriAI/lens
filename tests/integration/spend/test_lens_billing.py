@@ -9,7 +9,7 @@ from typing import Final
 import pytest
 from pydantic import JsonValue
 
-from litellm.proxy.lens.release import PROTOCOL_VERSION
+from litellm_lens.release import PROTOCOL_VERSION
 from tests.integration._support.client import Gateway, eventually, object_value, string_value
 from tests.integration._support.database import read_rows, write_rows
 from tests.integration._support.process import owned_proxy

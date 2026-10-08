@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.proxy.lens.models import Check
-from litellm.proxy.lens.reviews import criteria_key
+from litellm_lens.models import Check
+from litellm_lens.reviews import criteria_key
 from tests.unit.proxy.lens.test_state import lens
 
 

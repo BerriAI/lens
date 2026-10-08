@@ -3,7 +3,7 @@ from typing import Final
 import pytest
 from pydantic import JsonValue, ValidationError
 
-from litellm.proxy.lens.agent_contract import (
+from litellm_lens.agent_contract import (
     Checkpoint,
     EvidenceRequest,
     FindingGroups,

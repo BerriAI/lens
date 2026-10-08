@@ -16,10 +16,10 @@ from pydantic import TypeAdapter
 from typing_extensions import LiteralString
 
 from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.lens.endpoints import claim_due
-from litellm.proxy.lens.models import Evidence, Finding, Lens, LensSettings, Scope, Worker
-from litellm.proxy.lens.repository import Database, LensRepository, Row, WriterDatabase
-from litellm.proxy.lens.state import current_job
+from litellm_lens.endpoints import claim_due
+from litellm_lens.models import Evidence, Finding, Lens, LensSettings, Scope, Worker
+from litellm_lens.repository import Database, LensRepository, Row, WriterDatabase
+from litellm_lens.state import current_job
 
 
 @pytest_asyncio.fixture(loop_scope="function")

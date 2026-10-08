@@ -6,8 +6,8 @@ from typing import Final
 import pytest
 
 from litellm.constants import LENS_DATASET_MAX_CASE_CHARS, LENS_DATASET_MAX_CASES
-from litellm.proxy.lens.datasets import build_cases, case_id, export_jsonl, revision_problem
-from litellm.proxy.lens.models import (
+from litellm_lens.datasets import build_cases, case_id, export_jsonl, revision_problem
+from litellm_lens.models import (
     BuildRequest,
     BuildResult,
     CaseSource,
@@ -21,8 +21,8 @@ from litellm.proxy.lens.models import (
     TextSource,
     TraceSource,
 )
-from litellm.proxy.lens.sources import execution_id
-from litellm.rust_bridge.trace.generated.types import (
+from litellm_lens.sources import execution_id
+from litellm_lens.trace.generated.types import (
     Span,
     SpanDetail,
     SpanType,

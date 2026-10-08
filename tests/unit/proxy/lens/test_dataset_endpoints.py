@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from litellm.constants import LENS_DATASET_MAX_CASE_CHARS, LENS_DATASET_MAX_CASES
 from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.lens.dataset_endpoints import (
+from litellm_lens.dataset_endpoints import (
     ProxyDatasetReader,
     build_dataset_cases,
     create_dataset,
@@ -18,9 +18,9 @@ from litellm.proxy.lens.dataset_endpoints import (
     read_dataset,
     save_revision,
 )
-from litellm.proxy.lens.dataset_repository import StoredSummary
-from litellm.proxy.lens.datasets import case_id
-from litellm.proxy.lens.models import (
+from litellm_lens.dataset_repository import StoredSummary
+from litellm_lens.datasets import case_id
+from litellm_lens.models import (
     BuildRequest,
     CaseSource,
     Dataset,
@@ -34,11 +34,11 @@ from litellm.proxy.lens.models import (
     Scope,
     TextSource,
 )
-from litellm.proxy.lens.repository import LensRepository, Row
-from litellm.rust_bridge.trace.errors import TraceChanged
-from litellm.rust_bridge.trace.generated.types import SpanDetail, Trace, TraceScope
-from litellm.rust_bridge.trace.storage import ClickHouseStorage
-from litellm.tracing import TraceReceiver
+from litellm_lens.repository import LensRepository, Row
+from litellm_lens.trace.errors import TraceChanged
+from litellm_lens.trace.generated.types import SpanDetail, Trace, TraceScope
+from litellm_lens.trace.storage import ClickHouseStorage
+from litellm_lens.tracing import TraceReceiver
 from tests.unit.proxy.lens.test_datasets import detail, span, stored_finding, trace
 from tests.unit.proxy.lens.test_state import lens
 

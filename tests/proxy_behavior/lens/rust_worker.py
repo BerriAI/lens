@@ -10,8 +10,8 @@ from typing import Final
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from litellm.proxy.lens.models import Claim, ExecutionContent, ModelRequest, ModelResult, Progress, Result, Sample
-from litellm.proxy.lens.release import PROTOCOL_VERSION
+from litellm_lens.models import Claim, ExecutionContent, ModelRequest, ModelResult, Progress, Result, Sample
+from litellm_lens.release import PROTOCOL_VERSION
 
 
 async def run_worker(

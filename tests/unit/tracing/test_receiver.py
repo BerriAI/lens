@@ -4,11 +4,11 @@ from typing import Final, cast
 import pytest
 
 from litellm.constants import AGENT_TRACING_AGENT_LIST_LIMIT
-from litellm.rust_bridge.trace.generated.models import TraceAgentRow, TraceAgentsParams
-from litellm.rust_bridge.trace.generated.types import TraceScope
-from litellm.rust_bridge.trace.storage import ClickHouseStorage
-from litellm.tracing import TraceReceiver
-from litellm.tracing.types import TraceAgent
+from litellm_lens.trace.generated.models import TraceAgentRow, TraceAgentsParams
+from litellm_lens.trace.generated.types import TraceScope
+from litellm_lens.trace.storage import ClickHouseStorage
+from litellm_lens.tracing import TraceReceiver
+from litellm_lens.tracing.types import TraceAgent
 
 
 class AgentRowsStorage:

@@ -18,9 +18,13 @@
   "completed_actions": [
     "Fetched latest LiteLLM main",
     "Created isolated extraction worktree",
-    "Created and verified internal Lens repository"
+    "Created and verified internal Lens repository",
+    "Imported relevant source history and recorded baseline file hashes",
+    "Verified independent Rust build with pinned shared library dependencies",
+    "Ran extracted Python core tests: 107 passed",
+    "Audited 192 production Lens UI modules and their imports"
   ],
-  "current_work": "Preserve history and copy product code; establish build and behavioral baseline",
+  "current_work": "Qualify ClickHouse-only state concurrency and failure behavior before replacing persistence repositories",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -265,6 +269,56 @@
     "D6": {
       "status": "not_run",
       "evidence": []
+    },
+    "C1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "C2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "C3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "C4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "C5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "C6": {
+      "status": "not_run",
+      "evidence": []
+    }
+  },
+  "updated_at_utc": "2026-10-08T21:36:43.965951+00:00",
+  "storage_decision": {
+    "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
+    "authorized_by": "User steering on 2026-10-08",
+    "candidate": "ClickHouse payload records and atomic KeeperMap pointer publication; bundled in-process Keeper",
+    "status": "correctness prototype in progress, not qualified"
+  },
+  "verification": {
+    "rust_libraries": {
+      "passed": 169,
+      "evidence": "evidence/runtime-unit.log"
+    },
+    "rust_behavior": {
+      "passed": 49,
+      "evidence": "evidence/runtime-behavior.log"
+    },
+    "python_core": {
+      "passed": 107,
+      "evidence": "evidence/extracted-python-core.log"
+    },
+    "postgres_dataset_adapter": {
+      "status": "failed_fixture_wiring",
+      "evidence": "evidence/postgres-datasets.log",
+      "superseded_by": "ClickHouse-only persistence requirement"
     }
   }
 }

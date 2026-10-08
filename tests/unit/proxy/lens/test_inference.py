@@ -9,7 +9,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 import litellm
 from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
-from litellm.proxy.lens.inference import (
+from litellm_lens.inference import (
     Deployment,
     DeploymentParams,
     cache_injection_points,
@@ -21,7 +21,7 @@ from litellm.proxy.lens.inference import (
     quote,
     request_messages,
 )
-from litellm.proxy.lens.models import ModelMessage, ModelRequest
+from litellm_lens.models import ModelMessage, ModelRequest
 from litellm.types.utils import ModelResponse
 
 
@@ -83,7 +83,7 @@ def test_custom_priced_model_charges_reported_tokens() -> None:
 
 @pytest.mark.parametrize("capacity", (8192, 65536, 128000))
 def test_output_allowance_and_budget_follow_the_models_capacity(capacity: int, monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.lens.inference import output_tokens
+    from litellm_lens.inference import output_tokens
 
     monkeypatch.setattr(litellm, "model_cost", {**litellm.model_cost})
     litellm.register_model(
@@ -103,14 +103,14 @@ def test_output_allowance_and_budget_follow_the_models_capacity(capacity: int, m
 
 
 def test_explicit_deployment_output_setting_is_respected() -> None:
-    from litellm.proxy.lens.inference import output_tokens
+    from litellm_lens.inference import output_tokens
 
     deployment: Final = Deployment(litellm_params=DeploymentParams(model="custom/model", max_tokens=32000))
     assert output_tokens(deployment) == 32000
 
 
 def test_shared_context_capacity_leaves_room_for_the_entire_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.lens.inference import output_tokens
+    from litellm_lens.inference import output_tokens
 
     monkeypatch.setattr(litellm, "model_cost", {**litellm.model_cost})
     litellm.register_model(
@@ -133,7 +133,7 @@ def test_shared_context_capacity_leaves_room_for_the_entire_prompt(monkeypatch: 
 
 
 def test_unknown_model_capacity_requires_explicit_operator_metadata() -> None:
-    from litellm.proxy.lens.inference import ModelCapacity, output_tokens
+    from litellm_lens.inference import ModelCapacity, output_tokens
 
     params: Final = DeploymentParams(model="openai/lens-unknown-capacity")
     with pytest.raises(HTTPException) as error:
@@ -145,7 +145,7 @@ def test_unknown_model_capacity_requires_explicit_operator_metadata() -> None:
 
 
 def test_context_preflight_only_rejects_when_every_deployment_is_too_small() -> None:
-    from litellm.proxy.lens.inference import ModelCapacity
+    from litellm_lens.inference import ModelCapacity
 
     params: Final = DeploymentParams(model="openai/lens-configured-context", max_tokens=400)
     short: Final = ModelRequest(prompt="Review", purpose="extract")
@@ -417,8 +417,8 @@ def test_cache_hook_marks_prior_write_boundary_when_the_conversation_grows(monke
 def test_parallel_reservations_wait_without_charging_or_falsely_exhausting_budget() -> None:
     from functools import reduce
 
-    from litellm.proxy.lens.inference import reserve_amount, settle_amount
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import reserve_amount, settle_amount
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import lens
 
     initial: Final = lens().model_copy(update={"spent": 45})
@@ -441,8 +441,8 @@ def test_parallel_reservations_wait_without_charging_or_falsely_exhausting_budge
 def test_expired_reservations_do_not_hold_budget_and_late_settlement_still_charges() -> None:
     from datetime import timedelta
 
-    from litellm.proxy.lens.inference import reserve_amount, settle_amount
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import reserve_amount, settle_amount
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import NOW, lens
 
     stale: Final = BudgetReservation(id="stale", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW)
@@ -461,8 +461,8 @@ def test_expired_reservations_do_not_hold_budget_and_late_settlement_still_charg
 def test_abandoned_reservations_are_pruned_after_late_settlement_retention() -> None:
     from datetime import timedelta
 
-    from litellm.proxy.lens.inference import reserve_amount
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import reserve_amount
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import NOW, lens
 
     stale: Final = BudgetReservation(
@@ -478,8 +478,8 @@ def test_abandoned_reservations_are_pruned_after_late_settlement_retention() -> 
 def test_renewed_model_call_keeps_budget_reserved_until_it_finishes_or_its_lease_expires() -> None:
     from datetime import timedelta
 
-    from litellm.proxy.lens.inference import BUDGET_LEASE, renew_reservation, reserve_amount, settle_amount
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import BUDGET_LEASE, renew_reservation, reserve_amount, settle_amount
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import NOW, lens
 
     active: Final = BudgetReservation(
@@ -501,8 +501,8 @@ def test_renewed_model_call_keeps_budget_reserved_until_it_finishes_or_its_lease
 
 @pytest.mark.parametrize("missing", (False, True))
 def test_renewal_does_not_resurrect_expired_or_released_budget(missing: bool) -> None:
-    from litellm.proxy.lens.inference import renew_reservation
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import renew_reservation
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import NOW, lens
 
     expired: Final = BudgetReservation(id="expired", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW)
@@ -517,7 +517,7 @@ def test_renewal_does_not_resurrect_expired_or_released_budget(missing: bool) ->
 async def test_model_call_and_budget_renewal_finish_together(outcome: str) -> None:
     import asyncio
 
-    from litellm.proxy.lens.inference import model_with_renewal
+    from litellm_lens.inference import model_with_renewal
 
     model_started: Final = asyncio.Event()
     renewal_started: Final = asyncio.Event()
@@ -570,15 +570,15 @@ async def test_model_call_and_budget_renewal_finish_together(outcome: str) -> No
 async def test_renewal_preserves_the_original_failure_while_request_cleanup_is_pending(timed_out: bool) -> None:
     import asyncio
 
-    from litellm.proxy.lens.inference import (
+    from litellm_lens.inference import (
         BUDGET_LEASE,
         model_with_renewal,
         renew_reservation,
         reserve_amount,
         reserved_budget,
     )
-    from litellm.proxy.lens.models import BudgetReservation
-    from litellm.proxy.lens.repository import LensRepository
+    from litellm_lens.models import BudgetReservation
+    from litellm_lens.repository import LensRepository
     from tests.unit.proxy.lens.test_endpoints import ResultDatabase
     from tests.unit.proxy.lens.test_state import NOW, lens
 
@@ -626,10 +626,10 @@ async def test_renewal_preserves_the_original_failure_while_request_cleanup_is_p
 async def test_request_deadline_expiry_returns_gateway_timeout(stalled: str, monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
-    from litellm.proxy.lens import inference
-    from litellm.proxy.lens.inference import BUDGET_LEASE, reserve_amount, reserved_budget
-    from litellm.proxy.lens.models import BudgetReservation
-    from litellm.proxy.lens.repository import LensRepository
+    from litellm_lens import inference
+    from litellm_lens.inference import BUDGET_LEASE, reserve_amount, reserved_budget
+    from litellm_lens.models import BudgetReservation
+    from litellm_lens.repository import LensRepository
     from tests.unit.proxy.lens.test_endpoints import ResultDatabase
     from tests.unit.proxy.lens.test_state import NOW, lens
 
@@ -670,8 +670,8 @@ async def test_renewal_deadline_cancels_stalled_database_and_model(monkeypatch: 
     from collections.abc import AsyncGenerator
     from contextlib import asynccontextmanager
 
-    from litellm.proxy.lens import inference
-    from litellm.proxy.lens.repository import Database, LensRepository, Row
+    from litellm_lens import inference
+    from litellm_lens.repository import Database, LensRepository, Row
 
     interval: Final = inference.BUDGET_RENEW_INTERVAL
     loop: Final = asyncio.get_running_loop()
@@ -718,7 +718,7 @@ async def test_renewal_deadline_cancels_stalled_database_and_model(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_completed_paid_response_survives_simultaneous_renewal_failure() -> None:
-    from litellm.proxy.lens.inference import model_with_renewal
+    from litellm_lens.inference import model_with_renewal
 
     response: Final = (ModelResponse(model="analysis"), 0.25)
 
@@ -739,9 +739,9 @@ async def test_failed_budget_cleanup_preserves_the_original_request_error(cancel
     from collections.abc import AsyncGenerator
     from contextlib import asynccontextmanager
 
-    from litellm.proxy.lens.inference import release_failed_reservation
-    from litellm.proxy.lens.models import BudgetReservation
-    from litellm.proxy.lens.repository import Database, LensRepository, Row
+    from litellm_lens.inference import release_failed_reservation
+    from litellm_lens.models import BudgetReservation
+    from litellm_lens.repository import Database, LensRepository, Row
     from tests.unit.proxy.lens.test_state import lens
 
     hold: Final = BudgetReservation(id="paid", job_id="job", amount=10, month=lens().budget_month)
@@ -782,8 +782,8 @@ async def test_failed_budget_cleanup_preserves_the_original_request_error(cancel
 def test_budget_admission_rechecks_the_attempt_after_a_replica_reclaims_the_job(reclaimed: bool) -> None:
     from datetime import timedelta
 
-    from litellm.proxy.lens.inference import reserve_attempt
-    from litellm.proxy.lens.models import BudgetReservation
+    from litellm_lens.inference import reserve_attempt
+    from litellm_lens.models import BudgetReservation
     from tests.unit.proxy.lens.test_state import NOW, lens_with_job
 
     original: Final = lens_with_job("running", NOW + timedelta(minutes=5))

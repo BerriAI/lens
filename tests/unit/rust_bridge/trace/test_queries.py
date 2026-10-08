@@ -3,8 +3,8 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.rust_bridge.trace.generated.models import LensContentParams
-from litellm.rust_bridge.trace.queries import LENS_CONTENT, LENS_EVIDENCE
+from litellm_lens.trace.generated.models import LensContentParams
+from litellm_lens.trace.queries import LENS_CONTENT, LENS_EVIDENCE
 
 
 @pytest.mark.parametrize("offset", (-1, 2**32))
@@ -56,7 +56,7 @@ def test_named_query_rejects_rows_missing_required_result_fields() -> None:
 
 @pytest.mark.parametrize("count", (0, "9007199254740993", 2**64 - 1))
 def test_clickhouse_rows_normalize_numbers_and_preserve_tuples(count: int | str) -> None:
-    from litellm.rust_bridge.trace.queries import LENS_SAMPLE
+    from litellm_lens.trace.queries import LENS_SAMPLE
 
     result: Final = LENS_SAMPLE.response.validate_json(
         '{"data":[{"source":"traces","trace_id":"trace","team_id":"team","name":"run",'
@@ -77,8 +77,8 @@ def test_clickhouse_rows_normalize_numbers_and_preserve_tuples(count: int | str)
 
 
 def test_response_defaults_remain_normalized_when_omitted() -> None:
-    from litellm.rust_bridge.trace.generated.models import ActivityAvailability
-    from litellm.rust_bridge.trace.queries import LENS_SAMPLE
+    from litellm_lens.trace.generated.models import ActivityAvailability
+    from litellm_lens.trace.queries import LENS_SAMPLE
 
     row: Final = LENS_SAMPLE.response.validate_json(
         '{"data":[{"source":"requests","trace_id":"trace","team_id":"team","name":"run",'
@@ -92,7 +92,7 @@ def test_response_defaults_remain_normalized_when_omitted() -> None:
 
 @pytest.mark.parametrize("count", (-1, "18446744073709551616", "1.5"))
 def test_clickhouse_count_rejects_invalid_quoted_and_unquoted_numbers(count: int | str) -> None:
-    from litellm.rust_bridge.trace.queries import LENS_EVIDENCE
+    from litellm_lens.trace.queries import LENS_EVIDENCE
 
     with pytest.raises(ValidationError):
         LENS_EVIDENCE.response.validate_python({"data": [{"count": count}]})
@@ -101,7 +101,7 @@ def test_clickhouse_count_rejects_invalid_quoted_and_unquoted_numbers(count: int
 def test_dictionary_validation_keeps_required_nullable_and_optional_fields_distinct() -> None:
     from pydantic import TypeAdapter
 
-    from litellm.rust_bridge.trace.generated.types import SpanDetail, SpanErrorPage
+    from litellm_lens.trace.generated.types import SpanDetail, SpanErrorPage
 
     result: Final = TypeAdapter(SpanDetail).validate_python(
         {
@@ -131,7 +131,7 @@ def test_dictionary_validation_keeps_required_nullable_and_optional_fields_disti
 
 
 def test_invalid_native_response_preserves_validation_error_as_cause() -> None:
-    from litellm.rust_bridge.trace.storage import _decode_query_response
+    from litellm_lens.trace.storage import _decode_query_response
 
     with pytest.raises(RuntimeError, match="Native trace query returned an invalid response") as error:
         _decode_query_response(LENS_EVIDENCE.response, '{"data":[{"count":-1}]}')
@@ -140,7 +140,7 @@ def test_invalid_native_response_preserves_validation_error_as_cause() -> None:
 
 @pytest.mark.parametrize("flag", (0, 1, "0", "1"))
 def test_clickhouse_availability_normalizes_numeric_boolean_flags(flag: int | str) -> None:
-    from litellm.rust_bridge.trace.generated.models import ActivityAvailability
+    from litellm_lens.trace.generated.models import ActivityAvailability
 
     result: Final = ActivityAvailability.model_validate({"traces": flag, "requests": flag})
     assert result.traces is (str(flag) == "1")
@@ -148,7 +148,7 @@ def test_clickhouse_availability_normalizes_numeric_boolean_flags(flag: int | st
 
 
 def test_response_flags_reject_values_outside_the_boolean_range() -> None:
-    from litellm.rust_bridge.trace.generated.models import ActivityAvailability
+    from litellm_lens.trace.generated.models import ActivityAvailability
 
     with pytest.raises(ValidationError):
         ActivityAvailability.model_validate({"traces": 2})

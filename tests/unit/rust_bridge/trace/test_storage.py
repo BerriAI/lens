@@ -7,8 +7,8 @@ import pytest
 from pydantic import JsonValue
 
 from litellm.rust_bridge import loader
-from litellm.rust_bridge.trace.generated.types import QueryScope
-from litellm.rust_bridge.trace.storage import ClickHouseStorage, TraceStorageConfig
+from litellm_lens.trace.generated.types import QueryScope
+from litellm_lens.trace.storage import ClickHouseStorage, TraceStorageConfig
 
 
 class _NativeConfig:

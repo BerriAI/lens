@@ -10,10 +10,10 @@ from typing import Final
 import pytest
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm.proxy.lens.models import Execution, Scope, TraceIdentity
-from litellm.proxy.lens.repository import Database, Row
-from litellm.proxy.lens.signal_repository import SignalRepository
-from litellm.proxy.lens.signals import (
+from litellm_lens.models import Execution, Scope, TraceIdentity
+from litellm_lens.repository import Database, Row
+from litellm_lens.signal_repository import SignalRepository
+from litellm_lens.signals import (
     DEFAULT_SIGNALS,
     SIGNAL_BACKLOG_SWEEP,
     SIGNAL_CLAIM_LEASE,
@@ -37,8 +37,8 @@ from litellm.proxy.lens.signals import (
     signal_state,
     trace_signals,
 )
-from litellm.proxy.lens.sources import SourceReader
-from litellm.rust_bridge.trace.generated.models import (
+from litellm_lens.sources import SourceReader
+from litellm_lens.trace.generated.models import (
     ActivityAvailability,
     AgentRow,
     CountRow,

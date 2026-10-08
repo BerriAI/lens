@@ -25,19 +25,19 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter
 
-from litellm.proxy.lens.ingestion import IngestionKeyCreated
-from litellm.rust_bridge.trace.generated.types import AllQueryScope, Trace
-from litellm.rust_bridge.trace.storage import ClickHouseStorage, Tenant, span_rows
-from litellm.tracing.config import trace_storage_config
-from litellm.tracing.types import SpendLogRecord
+from litellm_lens.ingestion import IngestionKeyCreated
+from litellm_lens.trace.generated.types import AllQueryScope, Trace
+from litellm_lens.trace.storage import ClickHouseStorage, Tenant, span_rows
+from litellm_lens.tracing.config import trace_storage_config
+from litellm_lens.tracing.types import SpendLogRecord
 
 if TYPE_CHECKING:
     from prisma import Prisma
     from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
-TRACE_FIXTURES: Final = REPO_ROOT / "litellm-rust/crates/traces/tests/fixtures"
-SPEND_FIXTURES: Final = REPO_ROOT / "litellm-rust/crates/traces-clickhouse/tests/fixtures"
+TRACE_FIXTURES: Final = REPO_ROOT / "runtime/crates/traces/tests/fixtures"
+SPEND_FIXTURES: Final = REPO_ROOT / "runtime/crates/traces-clickhouse/tests/fixtures"
 JSON: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 SPEND_ROWS: Final = TypeAdapter(tuple[SpendLogRecord, ...])

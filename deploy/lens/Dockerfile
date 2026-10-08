@@ -5,8 +5,8 @@ FROM $LITELLM_BUILD_IMAGE AS builder
 RUN apk add --no-cache rust build-base cmake perl pkgconf openssl-dev libseccomp-dev python-3.13
 WORKDIR /src
 COPY .cargo/ .cargo/
-COPY litellm-rust/ litellm-rust/
-COPY litellm/proxy/lens/prompts/ litellm/proxy/lens/prompts/
+COPY runtime/ runtime/
+COPY src/litellm_lens/prompts/ src/litellm_lens/prompts/
 WORKDIR /src/litellm-rust
 ENV CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols
 RUN cargo build --locked --release -p litellm-lens
@@ -25,7 +25,7 @@ RUN : "${LITELLM_RELEASE_TAG:?Pass --build-arg LITELLM_RELEASE_TAG matching the 
 RUN apk add --no-cache python-3.13 setpriv libgcc libstdc++ openssl ca-certificates
 ENV LITELLM_RELEASE_TAG=${LITELLM_RELEASE_TAG} PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
-COPY --from=builder /src/litellm-rust/target/release/litellm-lens /usr/local/bin/litellm-lens
+COPY --from=builder /src/runtime/target/release/litellm-lens /usr/local/bin/litellm-lens
 COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
 COPY deploy/lens/python_runtime.py /tmp/python_runtime.py
 RUN python3.13 -S /tmp/python_runtime.py /app/lens/python-runtime.json && rm /tmp/python_runtime.py

@@ -29,16 +29,16 @@ from litellm.proxy._types import LitellmUserRoles, ProxyLifespanState, UserAPIKe
 from litellm.proxy.auth.authorization import OwnedRows, ReadScope
 from litellm.proxy.auth.authorization_dependencies import get_log_team_lookup
 from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.tracing_runtime import manage_tracing, provide_storage
+from litellm_lens.tracing_runtime import manage_tracing, provide_storage
 from litellm.rust_bridge import loader
-from litellm.rust_bridge.trace.errors import TraceChanged
-from litellm.rust_bridge.trace.generated.models import TraceQueryHelp
-from litellm.rust_bridge.trace.generated.responses import TraceSQLResponse
-from litellm.rust_bridge.trace.generated.types import AllQueryScope, TraceScope
-from litellm.rust_bridge.trace.storage import ClickHouseStorage, TraceStorageConfig
-from litellm.tracing import TraceReceiver
-from litellm.tracing.remote import RemoteTraceStore
-from litellm.tracing.types import TraceAgent, TraceAgentList
+from litellm_lens.trace.errors import TraceChanged
+from litellm_lens.trace.generated.models import TraceQueryHelp
+from litellm_lens.trace.generated.responses import TraceSQLResponse
+from litellm_lens.trace.generated.types import AllQueryScope, TraceScope
+from litellm_lens.trace.storage import ClickHouseStorage, TraceStorageConfig
+from litellm_lens.tracing import TraceReceiver
+from litellm_lens.tracing.remote import RemoteTraceStore
+from litellm_lens.tracing.types import TraceAgent, TraceAgentList
 
 SQL_ROWS: Final[tuple[Mapping[str, JsonValue], ...]] = (
     {
@@ -785,7 +785,7 @@ def test_unconfigured_lifespan_receiver_returns_501(enabled: bool, monkeypatch: 
 
 
 def test_lens_reads_from_the_lifespan_storage(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.lens.endpoints import router as lens_router
+    from litellm_lens.endpoints import router as lens_router
 
     monkeypatch.setenv("LITELLM_LENS_URL", "http://lens.test")
     monkeypatch.setenv("LITELLM_LENS_SERVICE_TOKEN", "test-service-token-with-32-characters")
@@ -816,8 +816,8 @@ def test_lens_reads_from_the_lifespan_storage(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_lens_reads_from_injected_storage_without_receiver() -> None:
-    from litellm.proxy.lens.endpoints import router as lens_router
-    from litellm.proxy.lens.sources import Storage
+    from litellm_lens.endpoints import router as lens_router
+    from litellm_lens.sources import Storage
 
     storage: Final = MagicMock(spec=Storage)
     storage.lens_sample = AsyncMock(return_value=[])

@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.tracing.remote import LensConnection
+from litellm_lens.tracing.remote import LensConnection
 
 
 @pytest.mark.asyncio

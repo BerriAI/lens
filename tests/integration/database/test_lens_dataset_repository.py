@@ -6,32 +6,31 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from prisma import Prisma
-from prisma.types import DatasourceOverride
 
-from litellm.proxy.db.prisma_client import PrismaWrapper
-from litellm.proxy.lens.dataset_repository import DatasetRepository, StoredSummary
-from litellm.proxy.lens.models import CaseSource, Dataset, DatasetCase, DatasetMessage, DatasetSummary
-from litellm.proxy.lens.repository import WriterDatabase
+from litellm_lens.dataset_repository import DatasetRepository, StoredSummary
+from litellm_lens.models import CaseSource, Dataset, DatasetCase, DatasetMessage, DatasetSummary
+from litellm_lens.database import PostgresDatabase, connect_database
+from litellm_lens.migrate import migrate
 
 SAVED_AT: Final = datetime(2026, 3, 1, 12, 0, 0, 123000, tzinfo=timezone.utc)
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def lens_db() -> AsyncIterator[Prisma]:
-    async with Prisma(datasource=DatasourceOverride(url=os.environ["DATABASE_URL"])) as db:
+async def lens_db() -> AsyncIterator[PostgresDatabase]:
+    async with connect_database(os.environ["DATABASE_URL"]) as db:
+        await migrate(db)
         yield db
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def dataset_ids(lens_db: Prisma) -> AsyncIterator[tuple[str, ...]]:
+async def dataset_ids(lens_db: PostgresDatabase) -> AsyncIterator[tuple[str, ...]]:
     ids: Final = tuple(uuid4().hex for _ in range(3))
     yield ids
     await lens_db.execute_raw('DELETE FROM "LiteLLM_LensDataset" WHERE id = ANY($1::text[])', list(ids))
 
 
-def _repo(db: Prisma) -> DatasetRepository:
-    return DatasetRepository(WriterDatabase(PrismaWrapper(db)))
+def _repo(db: PostgresDatabase) -> DatasetRepository:
+    return DatasetRepository(WriterDatabase(PostgresDatabaseWrapper(db)))
 
 
 def _dataset(dataset_id: str, revision: int, case_count: int, team_id: str = "team-a") -> Dataset:
@@ -57,7 +56,7 @@ def _dataset(dataset_id: str, revision: int, case_count: int, team_id: str = "te
 
 @pytest.mark.asyncio
 async def test_get_returns_requested_revision_and_defaults_to_latest(
-    lens_db: Prisma, dataset_ids: tuple[str, ...]
+    lens_db: PostgresDatabase, dataset_ids: tuple[str, ...]
 ) -> None:
     repo: Final = _repo(lens_db)
     dataset_id: Final = dataset_ids[0]
@@ -70,7 +69,7 @@ async def test_get_returns_requested_revision_and_defaults_to_latest(
 
 
 @pytest.mark.asyncio
-async def test_get_unknown_dataset_or_revision_returns_none(lens_db: Prisma, dataset_ids: tuple[str, ...]) -> None:
+async def test_get_unknown_dataset_or_revision_returns_none(lens_db: PostgresDatabase, dataset_ids: tuple[str, ...]) -> None:
     repo: Final = _repo(lens_db)
     assert await repo.insert(_dataset(dataset_ids[0], 1, 1), SAVED_AT)
 
@@ -81,7 +80,7 @@ async def test_get_unknown_dataset_or_revision_returns_none(lens_db: Prisma, dat
 
 @pytest.mark.asyncio
 async def test_inserting_an_existing_revision_is_rejected_and_keeps_the_first(
-    lens_db: Prisma, dataset_ids: tuple[str, ...]
+    lens_db: PostgresDatabase, dataset_ids: tuple[str, ...]
 ) -> None:
     repo: Final = _repo(lens_db)
     original: Final = _dataset(dataset_ids[0], 1, 1)
@@ -97,7 +96,7 @@ async def test_inserting_an_existing_revision_is_rejected_and_keeps_the_first(
 
 @pytest.mark.asyncio
 async def test_summaries_list_each_dataset_once_at_its_latest_revision_newest_first(
-    lens_db: Prisma, dataset_ids: tuple[str, ...]
+    lens_db: PostgresDatabase, dataset_ids: tuple[str, ...]
 ) -> None:
     repo: Final = _repo(lens_db)
     older, newer, single = dataset_ids

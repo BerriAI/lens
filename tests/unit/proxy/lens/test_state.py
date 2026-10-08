@@ -4,7 +4,7 @@ from typing import Final, Literal
 
 import pytest
 
-from litellm.proxy.lens.models import (
+from litellm_lens.models import (
     MAX_REVIEWS,
     MAX_STEPS,
     Activity,
@@ -29,7 +29,7 @@ from litellm.proxy.lens.models import (
     Step,
     Worker,
 )
-from litellm.proxy.lens.state import (
+from litellm_lens.state import (
     add_review,
     add_step,
     apply_progress,
@@ -220,7 +220,7 @@ def test_lease_prevents_double_claim_and_expires_with_bounded_retries() -> None:
 
 
 def test_replaying_evidence_does_not_reopen_but_new_occurrence_does() -> None:
-    from litellm.proxy.lens.state import snapshot_finding
+    from litellm_lens.state import snapshot_finding
 
     original: Final = lens()
     resolved: Final = merge_finding(original, finding("run1"), 1, NOW).model_copy(update={"status": "resolved"})
@@ -345,7 +345,7 @@ def test_invalid_schedule_is_rejected(interval: float) -> None:
 
 
 def test_batch_snapshot_keeps_feedback_identity_and_only_current_evidence() -> None:
-    from litellm.proxy.lens.state import snapshot_finding
+    from litellm_lens.state import snapshot_finding
 
     original: Final = lens()
     dismissed: Final = merge_finding(original, finding("old-run"), 1, NOW).model_copy(
@@ -367,7 +367,7 @@ def test_batch_snapshot_keeps_feedback_identity_and_only_current_evidence() -> N
 
 @pytest.mark.parametrize("explicit_reference", (False, True))
 def test_issue_and_pattern_with_same_title_keep_independent_feedback(explicit_reference: bool) -> None:
-    from litellm.proxy.lens.state import snapshot_finding
+    from litellm_lens.state import snapshot_finding
 
     original: Final = lens()
     issue: Final = merge_finding(original, finding("old"), 1, NOW).model_copy(
@@ -634,8 +634,8 @@ def test_explicit_cluster_match_does_not_absorb_a_same_title_issue_with_differen
 
 
 def test_feedback_changed_during_analysis_survives_a_stale_merge_decision() -> None:
-    from litellm.proxy.lens.endpoints import merge_results
-    from litellm.proxy.lens.models import Result
+    from litellm_lens.endpoints import merge_results
+    from litellm_lens.models import Result
 
     first: Final = merge_finding(lens(), finding("trace-a"), 1, NOW, "first-run")
     later: Final = merge_finding(lens(), finding("trace-b"), 1, NOW + timedelta(minutes=1), "second-run")

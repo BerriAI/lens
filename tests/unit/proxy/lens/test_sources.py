@@ -4,9 +4,9 @@ from typing import Final, Literal
 
 import pytest
 
-from litellm.proxy.lens.models import Evidence, Execution, ExecutionContent, MetadataFilter, Scope, TracePart
-from litellm.proxy.lens.sources import SourceReader, execution_id, parse_execution
-from litellm.rust_bridge.trace.generated.models import (
+from litellm_lens.models import Evidence, Execution, ExecutionContent, MetadataFilter, Scope, TracePart
+from litellm_lens.sources import SourceReader, execution_id, parse_execution
+from litellm_lens.trace.generated.models import (
     ActivityAvailability,
     AgentRow,
     CountRow,

@@ -3,8 +3,8 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.lens.models import Check, Lens, LensSettings, Scope
-from litellm.proxy.lens.repository import UPDATE_ATTEMPTS, LensRepository, Row
+from litellm_lens.models import Check, Lens, LensSettings, Scope
+from litellm_lens.repository import UPDATE_ATTEMPTS, LensRepository, Row
 
 NOW: Final = datetime(2026, 1, 15, tzinfo=timezone.utc)
 STORED: Final = Lens(
@@ -71,9 +71,9 @@ async def test_checkpoint_and_progress_commit_together_or_roll_back_together(wri
     from collections.abc import AsyncGenerator
     from contextlib import asynccontextmanager
 
-    from litellm.proxy.lens.models import Extraction, Progress, Review
-    from litellm.proxy.lens.repository import Database
-    from litellm.proxy.lens.state import claim_job, queue_job, replace_job
+    from litellm_lens.models import Extraction, Progress, Review
+    from litellm_lens.repository import Database
+    from litellm_lens.state import claim_job, queue_job, replace_job
     from tests.unit.proxy.lens.test_state import lens, worker
 
     claimed: Final = claim_job(queue_job(lens(), NOW, "job"), worker(), NOW)

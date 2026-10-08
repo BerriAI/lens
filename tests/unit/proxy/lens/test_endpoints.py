@@ -12,7 +12,7 @@ from pydantic import TypeAdapter, ValidationError
 import litellm
 from litellm import Router
 from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.lens.endpoints import (
+from litellm_lens.endpoints import (
     claim_due,
     get_signals,
     list_agents,
@@ -30,10 +30,10 @@ from litellm.proxy.lens.endpoints import (
     watching,
     worker_supports_model,
 )
-from litellm.proxy.lens.endpoints import (
+from litellm_lens.endpoints import (
     sample as worker_sample,
 )
-from litellm.proxy.lens.models import (
+from litellm_lens.models import (
     ActivitySelection,
     Coverage,
     Execution,
@@ -49,12 +49,12 @@ from litellm.proxy.lens.models import (
     TraceIdentity,
     Worker,
 )
-from litellm.proxy.lens.repository import DueLens, Row
-from litellm.proxy.lens.signals import SignalConfig, StoredTraceSignal
-from litellm.proxy.lens.state import claim_job, queue_job, replace_job
-from litellm.rust_bridge.trace.generated.models import ExecutionRow, LensSampleParams
-from litellm.rust_bridge.trace.storage import ClickHouseStorage
-from litellm.tracing.remote import RemoteTraceStore
+from litellm_lens.repository import DueLens, Row
+from litellm_lens.signals import SignalConfig, StoredTraceSignal
+from litellm_lens.state import claim_job, queue_job, replace_job
+from litellm_lens.trace.generated.models import ExecutionRow, LensSampleParams
+from litellm_lens.trace.storage import ClickHouseStorage
+from litellm_lens.tracing.remote import RemoteTraceStore
 from tests.unit.proxy.lens.test_state import NOW, lens, worker
 
 
@@ -251,8 +251,8 @@ async def test_checkpoint_rejects_unselected_traces_disabled_checks_and_foreign_
     monkeypatch: pytest.MonkeyPatch, selected: bool, check_id: str, quoted: str
 ) -> None:
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import progress
-    from litellm.proxy.lens.models import Evidence, Extraction, Observation, Progress, Review
+    from litellm_lens.endpoints import progress
+    from litellm_lens.models import Evidence, Extraction, Observation, Progress, Review
 
     claimed: Final = claim_job(queue_job(lens(), NOW, "job"), worker(), NOW)
     active: Final = claimed.jobs[0].model_copy(
@@ -296,8 +296,8 @@ async def test_checkpoint_rejects_unselected_traces_disabled_checks_and_foreign_
 async def test_findings_cannot_merge_missing_ids_or_positive_patterns_into_issues(
     reference: str, foreign_kind: bool
 ) -> None:
-    from litellm.proxy.lens.endpoints import validate_finding
-    from litellm.proxy.lens.state import merge_finding
+    from litellm_lens.endpoints import validate_finding
+    from litellm_lens.state import merge_finding
     from tests.unit.proxy.lens.test_state import finding
 
     saved: Final = merge_finding(lens(), finding("old"), 1, NOW, "previous").model_copy(update={"kind": "pattern"})
@@ -322,7 +322,7 @@ async def test_unchanged_rerun_does_not_rediscover_old_or_quoteless_occurrences(
     monkeypatch: pytest.MonkeyPatch, selected: str
 ) -> None:
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.state import merge_finding
+    from litellm_lens.state import merge_finding
     from tests.unit.proxy.lens.test_state import finding
 
     saved_finding: Final = merge_finding(lens(), finding("old-trace"), 1, NOW, "original-run").model_copy(
@@ -730,7 +730,7 @@ def test_admin_can_configure_lens_and_viewer_can_only_read() -> None:
 
 @pytest.mark.parametrize("identity", ("not-an-execution", "W10=", "WyJvdGhlciIsICIiLCAiaWQiXQ=="))
 def test_invalid_explicit_execution_ids_are_rejected(identity: str) -> None:
-    from litellm.proxy.lens.endpoints import validate_selection
+    from litellm_lens.endpoints import validate_selection
     from tests.unit.proxy.lens.test_state import lens
 
     settings: Final = lens().settings.model_copy(update={"execution_ids": (identity,)})
@@ -744,7 +744,7 @@ def test_invalid_explicit_execution_ids_are_rejected(identity: str) -> None:
 async def test_incompatible_worker_is_rejected_before_claiming_work(
     protocol_version: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy.lens.endpoints import claim
+    from litellm_lens.endpoints import claim
     from tests.unit.proxy.lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "v1.2.3")
@@ -848,7 +848,7 @@ def test_run_now_with_a_lookback_scans_that_lookback_instead_of_since_last_run()
 def test_model_errors_reach_worker_with_status_and_redacted_provider_message(provider: bool) -> None:
 
     from litellm.proxy._types import ProxyException
-    from litellm.proxy.lens.endpoints import model_failure
+    from litellm_lens.endpoints import model_failure
 
     message: Final = "Token rate limit exceeded. api_key=secret-example-value-123456 Retry in 60 seconds."
     error: Final = model_failure(
@@ -865,7 +865,7 @@ def test_model_errors_reach_worker_with_status_and_redacted_provider_message(pro
 
 @pytest.mark.asyncio
 async def test_preview_samples_a_selection_without_investigation_settings() -> None:
-    from litellm.proxy.lens.endpoints import Preview, preview_sample
+    from litellm_lens.endpoints import Preview, preview_sample
 
     class SelectionStorage:
         async def lens_sample(self, parameters):
@@ -886,7 +886,7 @@ async def test_preview_samples_a_selection_without_investigation_settings() -> N
 async def test_preview_reports_calendar_overflow_as_a_validation_error() -> None:
     from datetime import datetime, timezone
 
-    from litellm.proxy.lens.endpoints import Preview, preview_sample
+    from litellm_lens.endpoints import Preview, preview_sample
 
     body: Final = Preview(
         selection=ActivitySelection(),
@@ -903,8 +903,8 @@ async def test_preview_reports_calendar_overflow_as_a_validation_error() -> None
 async def test_different_release_is_rejected_before_accessing_jobs(
     monkeypatch: pytest.MonkeyPatch, worker_release: str
 ) -> None:
-    from litellm.proxy.lens.endpoints import claim
-    from litellm.proxy.lens.release import PROTOCOL_VERSION
+    from litellm_lens.endpoints import claim
+    from litellm_lens.release import PROTOCOL_VERSION
     from tests.unit.proxy.lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "v1.2.3")
@@ -917,8 +917,8 @@ async def test_different_release_is_rejected_before_accessing_jobs(
 
 @pytest.mark.asyncio
 async def test_unknown_gateway_release_refuses_registration_and_claims(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy.lens.endpoints import WorkerName, claim, register_worker
-    from litellm.proxy.lens.release import PROTOCOL_VERSION
+    from litellm_lens.endpoints import WorkerName, claim, register_worker
+    from litellm_lens.release import PROTOCOL_VERSION
     from tests.unit.proxy.lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "")
@@ -990,8 +990,8 @@ async def test_compatible_worker_without_an_analysis_key_waits_without_claiming_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import claim
-    from litellm.proxy.lens.release import PROTOCOL_VERSION
+    from litellm_lens.endpoints import claim
+    from litellm_lens.release import PROTOCOL_VERSION
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "v1.2.3")
     monkeypatch.setattr(proxy_server, "prisma_client", None)
@@ -1008,7 +1008,7 @@ async def test_internal_service_authentication_is_separate_from_gateway_keys(
 ) -> None:
     from fastapi.security import HTTPAuthorizationCredentials
 
-    from litellm.proxy.lens.endpoints import service_auth
+    from litellm_lens.endpoints import service_auth
 
     monkeypatch.setenv("LITELLM_LENS_URL", "http://lens" if configured else "")
     monkeypatch.setenv("LITELLM_LENS_SERVICE_TOKEN", "x" * 32)
@@ -1038,7 +1038,7 @@ async def test_service_status_uses_internal_auth_and_only_advertises_the_public_
 ) -> None:
     import respx
 
-    from litellm.proxy.lens.endpoints import service_connection, user_scope
+    from litellm_lens.endpoints import service_connection, user_scope
 
     monkeypatch.setenv("LITELLM_LENS_URL", "http://lens/private-prefix")
     monkeypatch.setenv("LITELLM_LENS_PUBLIC_URL", "https://traces.example/lens-ingest/")
@@ -1063,7 +1063,7 @@ async def test_service_status_uses_internal_auth_and_only_advertises_the_public_
 async def test_service_setup_distinguishes_missing_installation_from_incomplete_configuration(
     monkeypatch: pytest.MonkeyPatch, url: str, configured: bool
 ) -> None:
-    from litellm.proxy.lens.endpoints import service_connection
+    from litellm_lens.endpoints import service_connection
 
     monkeypatch.setenv("LITELLM_LENS_URL", url)
     monkeypatch.delenv("LITELLM_LENS_SERVICE_TOKEN", raising=False)
@@ -1082,8 +1082,8 @@ async def test_credential_snapshot_excludes_expired_keys_and_disables_caching(mo
     from fastapi import Response
 
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import ingestion_credentials
-    from litellm.proxy.lens.ingestion import IngestionCredential, IngestionKeyCreated, IngestionKeyRequest, new_key
+    from litellm_lens.endpoints import ingestion_credentials
+    from litellm_lens.ingestion import IngestionCredential, IngestionKeyCreated, IngestionKeyRequest, new_key
 
     created: Final = new_key(IngestionKeyRequest(team_id="team"), "owner")
     assert isinstance(created, IngestionKeyCreated)
@@ -1115,8 +1115,8 @@ async def test_created_ingestion_keys_report_activation_only_after_the_service_a
     import respx
 
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import create_ingestion_key, list_ingestion_keys, revoke_ingestion_key
-    from litellm.proxy.lens.ingestion import IngestionKey, IngestionKeyRequest
+    from litellm_lens.endpoints import create_ingestion_key, list_ingestion_keys, revoke_ingestion_key
+    from litellm_lens.ingestion import IngestionKey, IngestionKeyRequest
 
     db: Final = SimpleNamespace(query_raw=AsyncMock(return_value=()), execute_raw=AsyncMock(return_value=1))
     context: Final = AsyncMock()
@@ -1147,8 +1147,8 @@ async def test_created_ingestion_keys_report_activation_only_after_the_service_a
 @pytest.mark.asyncio
 async def test_ingestion_keys_reject_expired_requests_and_read_only_admins(monkeypatch: pytest.MonkeyPatch) -> None:
     from litellm.proxy import proxy_server
-    from litellm.proxy.lens.endpoints import create_ingestion_key
-    from litellm.proxy.lens.ingestion import IngestionKeyRequest
+    from litellm_lens.endpoints import create_ingestion_key
+    from litellm_lens.ingestion import IngestionKeyRequest
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     with pytest.raises(HTTPException) as expired:
