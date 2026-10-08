@@ -1,15 +1,11 @@
 "use client";
 
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-
-import { apiClient } from "@/components/networking";
-
 import { useLensAccessToken, useLensApi } from "../../data/LensServices";
 import { useTracesApi, type TracesApi } from "../../traces/api";
 import type { Span, Trace } from "../../traces/types";
 import { datasetKeys } from "../api";
-import { liveEvalRunsApi, type EvalRunsApi } from "./client";
+import type { EvalRunsApi } from "./client";
 import type { CaseOutcome, EvalRunFilter } from "./types";
 
 const evalRunKeys = {
@@ -20,15 +16,21 @@ const evalRunKeys = {
     [...evalRunKeys.all(), "trace", { scope, traceId, traceRef }] as const,
 };
 
-async function fullTrace(
+export const MAX_TRACE_PAGES = 50;
+
+export async function fullTrace(
   api: TracesApi,
   outcome: CaseOutcome,
-  cursor: string | null = null,
+  cursors: readonly string[] = [],
   earlier: readonly Span[] = [],
 ): Promise<Trace> {
-  const page = await api.trace(outcome.trace_id, outcome.trace_ref || undefined, cursor);
+  const page = await api.trace(outcome.trace_id, outcome.trace_ref || undefined, cursors.at(-1) ?? null);
   const spans = [...earlier, ...page.spans];
-  return page.next_cursor ? fullTrace(api, outcome, page.next_cursor, spans) : { ...page, spans };
+  const next = page.next_cursor;
+  if (!next) return { ...page, spans };
+  if (cursors.includes(next) || cursors.length + 1 >= MAX_TRACE_PAGES)
+    throw new Error(`Trace ${outcome.trace_id} kept paging past ${cursors.length + 1} pages`);
+  return fullTrace(api, outcome, [...cursors, next], spans);
 }
 
 const evalRunQueries = {
@@ -49,19 +51,14 @@ const evalRunQueries = {
   },
 };
 
-function useEvalRunsApi(): EvalRunsApi {
-  const accessToken = useLensAccessToken();
-  return useMemo(() => liveEvalRunsApi(apiClient, accessToken), [accessToken]);
-}
-
 export function useEvalRuns(filter: EvalRunFilter) {
-  const api = useEvalRunsApi();
-  return useQuery(evalRunQueries.list(api, useLensApi().scope, filter));
+  const api = useLensApi();
+  return useQuery(evalRunQueries.list(api.evalRuns, api.scope, filter));
 }
 
 export function useEvalRun(runId: string) {
-  const api = useEvalRunsApi();
-  return useQuery(evalRunQueries.detail(api, useLensApi().scope, runId));
+  const api = useLensApi();
+  return useQuery(evalRunQueries.detail(api.evalRuns, api.scope, runId));
 }
 
 export function useCaseTrace(outcome: CaseOutcome | null) {
