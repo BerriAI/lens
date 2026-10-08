@@ -26,18 +26,18 @@ Python unit tests mirror the package under `tests/unit/litellm_lens/`. Deploymen
 Install Python dependencies with `uv sync --dev`. These copied core behavior tests pass in the extracted package:
 
 ```sh
-uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py -q
+uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py tests/unit/litellm_lens/test_signals.py -q
 cargo check --manifest-path runtime/Cargo.toml
 ```
 
-The ClickHouse state prototype has integration tests against a real ClickHouse server with KeeperMap enabled. Start its isolated test stack and run:
+The ClickHouse state prototype, dataset repository and signal repository have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
 
 ```sh
 docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
-CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest tests/integration/test_clickhouse_state.py -q
+CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest tests/integration/test_clickhouse_state.py tests/integration/database/test_lens_dataset_repository.py tests/integration/database/test_lens_signal_repository.py -q
 ```
 
-The test creates and drops isolated databases. The storage prototype tests are not evidence that the full Lens product already runs end to end
+The tests create and drop isolated databases. Dataset revisions and their latest summaries publish atomically. Signal claims and result writes retain their lease and configuration checks. Investigation records and sessions still need their ClickHouse adapters, and full capacity, migration and recovery qualification remains open. These tests do not demonstrate that the full Lens product runs end to end
 
 ## Completion and source provenance
 

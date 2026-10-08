@@ -35,7 +35,7 @@ ALL_TRACES: Final = TraceScope(all_teams=1, user_id="", team_ids=())
 
 
 def dataset_store() -> DatasetStore:
-    return DatasetRepository(current_runtime().database)
+    return DatasetRepository(current_runtime().state)
 
 
 Datasets: TypeAlias = Annotated[DatasetStore, Depends(dataset_store)]

@@ -2815,16 +2815,16 @@
       "source": "litellm/proxy/lens/dataset_endpoints.py",
       "destination": "src/litellm_lens/dataset_endpoints.py",
       "sha256": "58ca7b99b925ad6c3e9148b60b2a8efbbe72542a3a3577200f957ab2644383f4",
-      "change": "import_or_build_path",
-      "extracted_sha256": "ea1fed3321da7d838070c876f9ebed5d7bd3745a45915839561f36a18b278723",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "25bde5d49ecedd37c71077416b9181cbc49a1f0411b94618b225337667bacf15",
       "baseline_identical": false
     },
     {
       "source": "litellm/proxy/lens/dataset_repository.py",
       "destination": "src/litellm_lens/dataset_repository.py",
       "sha256": "7b79fb081c497aaf264d242611fe499ae23a94f3cf4fe2eb93304a694cd00723",
-      "change": "import_or_build_path",
-      "extracted_sha256": "05eb0cc174a6643240596bcf861c1fe3eed09e9abc81080984e59dc2415bb202",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "85a3c6fdce180102bf2d1adebe9c127bbfd7e663b3b1b5638bcde5e8d970df47",
       "baseline_identical": false
     },
     {
@@ -2839,8 +2839,8 @@
       "source": "litellm/proxy/lens/endpoints.py",
       "destination": "src/litellm_lens/endpoints.py",
       "sha256": "30d512a05756c1fdf6489c7c2c85956af1c3996cb5fed54dd0e1fa146d0e75a9",
-      "change": "import_or_build_path",
-      "extracted_sha256": "4b329ac239fd8c6201d791afa63bd2b7daadad8b7b085025c642c3ad137001e1",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "90371366d179340d0ba40bf7bf3d67515970ab4cd3ee826a6be59e5aeb384f37",
       "baseline_identical": false
     },
     {
@@ -2951,16 +2951,16 @@
       "source": "litellm/proxy/lens/signal_repository.py",
       "destination": "src/litellm_lens/signal_repository.py",
       "sha256": "c3d39d256118f8242b4acfab2926a8bcbac4f23ddb6ec9c4bc788c5b0775b5f0",
-      "change": "import_or_build_path",
-      "extracted_sha256": "ceaf1a5682e096e7cf318654952f02ebd9a761c2d44ecd4aa76a2c8462c96994",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "eed9f60860f9205c1c1667169589b8a1eac703109f7d2236a4b85fc4e3320e1f",
       "baseline_identical": false
     },
     {
       "source": "litellm/proxy/lens/signals.py",
       "destination": "src/litellm_lens/signals.py",
       "sha256": "75f36f9195c700a0a8f0fdb5b3adf705ecd5e346d04b4514f6ed4dc055740df4",
-      "change": "import_or_build_path",
-      "extracted_sha256": "73abf6163905bb8fc71f8b10f59375bd10916c49919086b2d6083024e7de335a",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "39d7e684e4604af5a9d3cc16d18a2bb91b607a53aacf1af9bc8cb741df896904",
       "baseline_identical": false
     },
     {
@@ -3495,8 +3495,8 @@
       "source": "tests/integration/database/test_lens_dataset_repository.py",
       "destination": "tests/integration/database/test_lens_dataset_repository.py",
       "sha256": "0bebacfa527bc1b68cff08d002349d62b076b5c06d3067363b45f3e0fdfd7a7d",
-      "change": "import_or_build_path",
-      "extracted_sha256": "d6408ee4b485998e6d6d94c4e8fc2c1f8b015de7e3eab5acb5b9e1316a96dc48",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8d630d867ae4fe8d5b8f0eee3dbdacfef427b08755f3e84760b11069afb6793c",
       "baseline_identical": false
     },
     {
@@ -3671,8 +3671,8 @@
       "source": "tests/unit/proxy/lens/test_signals.py",
       "destination": "tests/unit/litellm_lens/test_signals.py",
       "sha256": "0c9d21ea3fd5a0dbb4e735c1f2d325f1d1ed9ffcca879f24bbf96c4562ecea79",
-      "change": "import_or_build_path",
-      "extracted_sha256": "8788d35f26c0aec0aedb5406282ce862d96964f3e7d1712658daec64cce61dc0",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8316d5d6699b27daeb123caeb3d9971354ba81d16f7d587ae74a1cbc297349fa",
       "baseline_identical": false
     },
     {

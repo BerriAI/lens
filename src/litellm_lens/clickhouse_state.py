@@ -48,6 +48,7 @@ class StorageFailure:
 _JSON: Final = TypeAdapter(JsonValue)
 _HEADS: Final = TypeAdapter(tuple[Head, ...])
 _BLOBS: Final = TypeAdapter(tuple[Blob, ...])
+_KEYS: Final = TypeAdapter(tuple[str, ...])
 _EMPTY: Final[Mapping[str, str]] = MappingProxyType({})
 
 
@@ -146,6 +147,20 @@ class ClickHouseState:
     async def read(self, key: str) -> Snapshot | StorageFailure:
         result: Final = await self.read_many((key,))
         return result if isinstance(result, StorageFailure) else result[0]
+
+    async def keys(self, prefix: str, after: str = "", limit: int = 128) -> tuple[str, ...] | StorageFailure:
+        result: Final = await self.command(
+            "SELECT DISTINCT key FROM lens_state_blobs "
+            "WHERE key >= {prefix:String} AND key < concat({prefix:String}, char(127)) AND key > {after:String} "
+            "ORDER BY key LIMIT {limit:UInt32} FORMAT JSONEachRow",
+            MappingProxyType({"prefix": prefix, "after": after, "limit": str(limit)}),
+        )
+        if isinstance(result, StorageFailure):
+            return result
+        try:
+            return _KEYS.validate_python(tuple(json.loads(row)["key"] for row in result.splitlines()))
+        except (ValidationError, ValueError, KeyError, TypeError):
+            return StorageFailure("invalid")
 
     async def read_many(self, keys: tuple[str, ...]) -> tuple[Snapshot, ...] | StorageFailure:
         for attempt in range(8):

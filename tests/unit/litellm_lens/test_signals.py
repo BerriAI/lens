@@ -1,18 +1,17 @@
 import asyncio
 import json
-from collections.abc import AsyncGenerator, Mapping, Sequence
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from itertools import chain
-from types import MappingProxyType, SimpleNamespace
+from types import MappingProxyType
 from typing import Final
 
 import pytest
+from litellm.types.decisions import DecisionsResponse
+from litellm.types.decisions import NoulAnswer as DecisionsNoulAnswer
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
 from litellm_lens.models import Execution, Scope, TraceIdentity
-from litellm_lens.repository import Database, Row
-from litellm_lens.signal_repository import SignalRepository
 from litellm_lens.signals import (
     DEFAULT_SIGNALS,
     SIGNAL_BACKLOG_SWEEP,
@@ -22,10 +21,12 @@ from litellm_lens.signals import (
     SIGNAL_MAX_SCAN_PAGES,
     SIGNAL_TASK,
     DecisionQuestions,
+    DecisionsCall,
     DecisionState,
     Signal,
     SignalAttempt,
     SignalClassifier,
+    SignalCompletion,
     SignalConfig,
     SignalData,
     SignalStep,
@@ -49,10 +50,8 @@ from litellm_lens.trace.generated.models import (
     LensSampleParams,
     PartRow,
 )
-from litellm.types.decisions import DecisionsResponse
-from litellm.types.decisions import NoulAnswer as DecisionsNoulAnswer
 
-NOW: Final = datetime(2026, 10, 7, 12, tzinfo=timezone.utc)
+NOW: Final = datetime(2026, 10, 7, 12, tzinfo=UTC)
 CURRENT_CONFIG_KEY: Final = SignalConfig(model="decision").key()
 _SIGNAL_STEPS: Final[TypeAdapter[tuple[SignalStep, ...]]] = TypeAdapter(tuple[SignalStep, ...])
 _STORED_DATA: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)
@@ -165,85 +164,50 @@ class PagedSampleStorage(SignalStorage):
         return self.pages[index]
 
 
-class SignalDatabase:
+class SignalResults:
     def __init__(
         self,
-        config: SignalConfig | None,
+        config: SignalConfig,
         *,
         stored_rows: tuple[StoredTraceSignal, ...] = (),
         claim_result: bool = True,
+        fail_store: bool = False,
     ) -> None:
         self.config: Final = config
         self.stored_rows: Final = stored_rows
         self.claim_result: Final = claim_result
+        self.fail_store: Final = fail_store
         self.calls: Final[asyncio.Queue[str]] = asyncio.Queue()
         self.claims: Final[asyncio.Queue[str]] = asyncio.Queue()
-        self.claim_args: Final[asyncio.Queue[tuple[object, ...]]] = asyncio.Queue()
-        self.saved: Final[asyncio.Queue[tuple[object, ...]]] = asyncio.Queue()
+        self.claim_args: Final[asyncio.Queue[tuple[datetime, datetime]]] = asyncio.Queue()
+        self.saved: Final[asyncio.Queue[SignalAttempt]] = asyncio.Queue()
 
-    async def query_raw(self, query: str, *args: object) -> object:
-        if '"LiteLLM_LensSignalConfig"' in query:
-            return () if self.config is None else (Row(data=self.config.model_dump(mode="json")),)
-        if query.startswith("SELECT jsonb_build_object"):
-            payload: Final = args[0]
-            assert isinstance(payload, str)
-            requested: Final = TypeAdapter(tuple[TraceIdentity, ...]).validate_json(payload)
-            identities: Final = tuple((trace.trace_id, trace.trace_ref) for trace in requested)
-            return tuple(
-                Row(data=stored.model_dump(mode="json"))
-                for stored in self.stored_rows
-                if (stored.trace_id, stored.trace_ref) in identities
-            )
-        if query.startswith('INSERT INTO "LiteLLM_LensTraceSignal"'):
-            await self.claim_args.put(args)
-            if not self.claim_result:
-                return ()
-            trace_id: Final = args[0]
-            assert isinstance(trace_id, str)
-            await self.claims.put(trace_id)
-            return (Row(data={"trace_id": trace_id}),)
-        raise AssertionError(f"Unexpected query: {query}")
+    async def get_config(self) -> SignalConfig:
+        return self.config
 
-    async def execute_raw(self, query: str, *args: object) -> int:
-        await self.saved.put(args)
-        return 1
+    async def traces(self, requested: tuple[TraceIdentity, ...]) -> tuple[StoredTraceSignal, ...]:
+        identities: Final = frozenset((trace.trace_id, trace.trace_ref) for trace in requested)
+        return tuple(stored for stored in self.stored_rows if (stored.trace_id, stored.trace_ref) in identities)
 
-    @asynccontextmanager
-    async def transaction(self) -> AsyncGenerator[Database, None]:
-        yield self
+    async def claim(
+        self, execution: Execution, config: SignalConfig, claimed_until: datetime, now: datetime
+    ) -> bool:
+        await self.claim_args.put((claimed_until, now))
+        if self.claim_result:
+            await self.claims.put(execution.trace_id)
+        return self.claim_result
 
-
-def saved_result(args: tuple[object, ...]) -> SignalData:
-    payload: Final = args[1]
-    assert isinstance(payload, str)
-    return SignalData.model_validate_json(payload)
-
-
-@pytest.mark.asyncio
-async def test_signal_repository_reads_defaults_and_saves_the_global_config() -> None:
-    database: Final = SignalDatabase(None)
-    repository: Final = SignalRepository(database)
-    updated: Final = SignalConfig(model="decision", threshold=0.7)
-
-    assert await repository.get_config() == SignalConfig()
-    await repository.save_config(updated)
-
-    saved: Final = await database.saved.get()
-    assert saved[0] == "global"
-    assert isinstance(saved[1], str)
-    assert SignalConfig.model_validate_json(saved[1]) == updated
-
-
-@pytest.mark.asyncio
-async def test_signal_repository_reads_rows_and_reports_a_lost_claim() -> None:
-    config: Final = SignalConfig(model="decision")
-    row: Final = stored_trace(config.key())
-    database: Final = SignalDatabase(config, stored_rows=(row,), claim_result=False)
-    repository: Final = SignalRepository(database)
-
-    assert await repository.traces(()) == ()
-    assert await repository.traces((TraceIdentity(trace_id="trace"),)) == (row,)
-    assert not await repository.claim(execution("trace"), config, NOW + timedelta(minutes=5), NOW)
+    async def store(
+        self,
+        execution: Execution,
+        config: SignalConfig,
+        claimed_until: datetime,
+        classified_at: datetime,
+        attempt: SignalAttempt,
+    ) -> None:
+        if self.fail_store:
+            raise RuntimeError("store unavailable")
+        await self.saved.put(attempt)
 
 
 def test_signal_config_hashes_questions_but_not_threshold_or_display_name() -> None:
@@ -572,8 +536,8 @@ async def test_signal_tick_classifies_at_most_50_traces_and_persists_scores() ->
         for index in range(60)
     )
     storage: Final = SignalStorage(executions=executions)
-    database: Final = SignalDatabase(config)
-    repository: Final = SignalRepository(database)
+    database: Final = SignalResults(config)
+    repository: Final = database
 
     async def decide(
         *,
@@ -596,7 +560,7 @@ async def test_signal_tick_classifies_at_most_50_traces_and_persists_scores() ->
     await run_signal_tick(storage, repository, decide, lambda: NOW)
     classified: Final = tuple(database.saved.get_nowait() for _ in range(database.saved.qsize()))
     traces: Final = tuple(database.calls.get_nowait() for _ in range(database.calls.qsize()))
-    saved_data: Final = tuple(saved_result(args) for args in classified)
+    saved_data: Final = tuple(SignalData.model_validate(attempt.model_dump()) for attempt in classified)
 
     assert len(classified) == 50
     assert frozenset(traces) == frozenset(f"trace-{index}" for index in range(50))
@@ -636,8 +600,8 @@ async def test_signal_tick_claims_with_worker_start_time_and_skips_lost_claims()
         )
         for index in range(2)
     )
-    database: Final = SignalDatabase(config, claim_result=False)
-    repository: Final = SignalRepository(database)
+    database: Final = SignalResults(config, claim_result=False)
+    repository: Final = database
 
     class AdvancingClock:
         def __init__(self) -> None:
@@ -663,14 +627,7 @@ async def test_signal_tick_claims_with_worker_start_time_and_skips_lost_claims()
 
     claims: Final = tuple(database.claim_args.get_nowait() for _ in range(database.claim_args.qsize()))
 
-    def claim_times(args: tuple[object, ...]) -> tuple[datetime, datetime]:
-        claimed_until: Final = args[4]
-        claimed_at: Final = args[6]
-        assert isinstance(claimed_until, datetime)
-        assert isinstance(claimed_at, datetime)
-        return claimed_until, claimed_at
-
-    times: Final = tuple(claim_times(claim) for claim in claims)
+    times: Final = claims
     assert database.calls.empty()
     assert database.saved.empty()
     assert all(claimed_until == claimed_at + SIGNAL_CLAIM_LEASE for claimed_until, claimed_at in times)
@@ -702,8 +659,8 @@ async def test_signal_tick_resumes_after_ten_pages_and_resets_after_a_short_page
     all_rows: Final = tuple(chain.from_iterable(pages))
     stored_rows: Final = tuple(stored_trace(CURRENT_CONFIG_KEY, trace_id=row.trace_id) for row in all_rows)
     storage: Final = PagedSampleStorage(pages)
-    database: Final = SignalDatabase(config, stored_rows=stored_rows)
-    repository: Final = SignalRepository(database)
+    database: Final = SignalResults(config, stored_rows=stored_rows)
+    repository: Final = database
 
     async def decide(
         *,
@@ -735,11 +692,11 @@ async def test_signal_tick_resumes_after_ten_pages_and_resets_after_a_short_page
     assert second_cursor
 
     short_storage: Final = PagedSampleStorage((pages[0][:50],))
-    short_database: Final = SignalDatabase(config, stored_rows=stored_rows[:50])
+    short_database: Final = SignalResults(config, stored_rows=stored_rows[:50])
     short_cursor: Final = (
         await run_signal_tick(
             short_storage,
-            SignalRepository(short_database),
+            short_database,
             decide,
             lambda: NOW,
         )
@@ -785,11 +742,11 @@ async def test_signal_tick_resumes_a_partially_consumed_page() -> None:
             }
         }
 
-    first_database: Final = SignalDatabase(config, stored_rows=initial_rows)
+    first_database: Final = SignalResults(config, stored_rows=initial_rows)
     first_cursor: Final = (
         await run_signal_tick(
             storage,
-            SignalRepository(first_database),
+            first_database,
             decide,
             lambda: NOW,
             cursor=resume_cursor,
@@ -800,11 +757,11 @@ async def test_signal_tick_resumes_a_partially_consumed_page() -> None:
     classified_first_rows: Final = tuple(
         stored_trace(CURRENT_CONFIG_KEY, trace_id=trace_id) for trace_id in first_claims
     )
-    second_database: Final = SignalDatabase(config, stored_rows=(*initial_rows, *classified_first_rows))
+    second_database: Final = SignalResults(config, stored_rows=(*initial_rows, *classified_first_rows))
     second_cursor: Final = (
         await run_signal_tick(
             storage,
-            SignalRepository(second_database),
+            second_database,
             decide,
             lambda: NOW,
             cursor=first_cursor,
@@ -842,7 +799,7 @@ async def test_signal_tick_skips_claims_and_writes_when_router_is_not_ready() ->
             ),
         )
     )
-    database: Final = SignalDatabase(config)
+    database: Final = SignalResults(config)
 
     async def decide(
         *,
@@ -856,7 +813,7 @@ async def test_signal_tick_skips_claims_and_writes_when_router_is_not_ready() ->
 
     await run_signal_tick(
         storage,
-        SignalRepository(database),
+        database,
         decide,
         lambda: NOW,
         router_ready=lambda: False,
@@ -872,7 +829,7 @@ async def test_signal_tick_skips_missing_dependencies_and_disabled_configs() -> 
 
     await run_signal_tick(storage, None, None, lambda: NOW)
 
-    database: Final = SignalDatabase(SignalConfig())
+    database: Final = SignalResults(SignalConfig())
 
     async def decide(
         *,
@@ -884,14 +841,9 @@ async def test_signal_tick_skips_missing_dependencies_and_disabled_configs() -> 
     ) -> object:
         raise AssertionError("disabled signal config should not call Decisions")
 
-    await run_signal_tick(storage, SignalRepository(database), decide, lambda: NOW)
+    await run_signal_tick(storage, database, decide, lambda: NOW)
     assert database.claims.empty()
     assert database.saved.empty()
-
-
-class FailingStoreDatabase(SignalDatabase):
-    async def execute_raw(self, query: str, *args: object) -> int:
-        raise RuntimeError("store unavailable")
 
 
 @pytest.mark.asyncio
@@ -909,7 +861,7 @@ async def test_signal_tick_continues_when_storing_a_result_fails() -> None:
         selected=1,
         selection_key="cursor",
     )
-    database: Final = FailingStoreDatabase(config)
+    database: Final = SignalResults(config, fail_store=True)
 
     async def decide(
         *,
@@ -929,7 +881,7 @@ async def test_signal_tick_continues_when_storing_a_result_fails() -> None:
 
     await run_signal_tick(
         SignalStorage(executions=(execution_row,)),
-        SignalRepository(database),
+        database,
         decide,
         lambda: NOW,
     )
@@ -971,9 +923,7 @@ async def test_signal_loop_continues_after_a_tick_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_proxy_signal_call_resolves_the_current_router(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-
+async def test_signal_call_resolves_current_analysis_access_after_reconfiguration() -> None:
     async def first_decisions(
         *,
         model: str,
@@ -994,8 +944,15 @@ async def test_proxy_signal_call_resolves_the_current_router(monkeypatch: pytest
     ) -> object:
         return "second"
 
+    choices: Final = iter((first_decisions, second_decisions, None))
+
+    async def resolve() -> DecisionsCall | None:
+        return next(choices)
+
+    completion: Final = SignalCompletion(resolve)
+
     async def call_current_router() -> object:
-        return await proxy_server._call_current_lens_signal_router(
+        return await completion(
             model="decision",
             state={"task": "task"},
             questions={},
@@ -1003,13 +960,10 @@ async def test_proxy_signal_call_resolves_the_current_router(monkeypatch: pytest
             metadata={"tags": ["test"]},
         )
 
-    monkeypatch.setattr(proxy_server, "llm_router", SimpleNamespace(adecisions=first_decisions))
     assert await call_current_router() == "first"
 
-    monkeypatch.setattr(proxy_server, "llm_router", SimpleNamespace(adecisions=second_decisions))
     assert await call_current_router() == "second"
 
-    monkeypatch.setattr(proxy_server, "llm_router", None)
     with pytest.raises(RuntimeError, match="router is not initialized"):
         await call_current_router()
 
@@ -1065,7 +1019,7 @@ async def test_live_sweep_reads_one_page_of_recently_finished_traces() -> None:
     )
     live_storage: Final = RecordingSampleStorage(pages)
     backlog_storage: Final = RecordingSampleStorage(pages)
-    repository: Final = SignalRepository(SignalDatabase(SignalConfig(model="decision"), stored_rows=stored_rows))
+    repository: Final = SignalResults(SignalConfig(model="decision"), stored_rows=stored_rows)
 
     live_tick: Final = await run_signal_tick(live_storage, repository, no_answers, lambda: NOW, sweep=SIGNAL_LIVE_SWEEP)
     await run_signal_tick(backlog_storage, repository, no_answers, lambda: NOW, sweep=SIGNAL_BACKLOG_SWEEP)
@@ -1084,11 +1038,11 @@ async def test_live_sweep_reads_one_page_of_recently_finished_traces() -> None:
 @pytest.mark.asyncio
 async def test_signal_loop_drains_a_backlog_without_waiting_for_the_interval() -> None:
     storage: Final = SignalStorage(executions=sample_rows("trace", SIGNAL_MAX_PER_TICK + 10))
-    database: Final = SignalDatabase(SignalConfig(model="decision"))
+    database: Final = SignalResults(SignalConfig(model="decision"))
     hour_long_sweep: Final = SignalSweep(lookback=timedelta(minutes=15), interval_seconds=3600, max_pages=1)
 
     task: Final = asyncio.create_task(
-        run_signal_loop(storage, SignalRepository(database), no_answers, lambda: NOW, sweep=hour_long_sweep)
+        run_signal_loop(storage, database, no_answers, lambda: NOW, sweep=hour_long_sweep)
     )
     claims: Final = tuple([await asyncio.wait_for(database.claims.get(), 1) for _ in range(SIGNAL_MAX_PER_TICK + 1)])
     task.cancel()

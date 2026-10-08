@@ -112,7 +112,7 @@ def repository() -> LensRepository:
 
 
 def signals_repository() -> SignalRepository:
-    return SignalRepository(current_runtime().database)
+    return SignalRepository(current_runtime().state)
 
 
 def source_reader(storage: Storage | None) -> SourceReader:

@@ -1,18 +1,18 @@
 import asyncio
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from itertools import accumulate
 from types import MappingProxyType
 from typing import Annotated, Final, Literal, Protocol, TypeAlias
 
-from pydantic import ConfigDict, Field, JsonValue, ValidationError, field_validator, model_validator
-
 from litellm.integrations.clickhouse.context import lens_analysis
 from litellm.litellm_core_utils.initialize_dynamic_callback_params import inherit_message_logging_privacy
 from litellm.litellm_core_utils.secret_redaction import redact_internal_details
+from pydantic import ConfigDict, Field, JsonValue, ValidationError, field_validator, model_validator
+
 from litellm_lens.models import ActivitySelection, Execution, Record, Scope, TraceIdentity
 from litellm_lens.sources import SourceReader, Storage
 
@@ -164,7 +164,7 @@ class StoredTraceSignal(Record):
     @classmethod
     def normalize_database_timestamp(cls, value: datetime | None) -> datetime | None:
         if value is not None and value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
 
 
@@ -197,6 +197,25 @@ class DecisionsCall(Protocol):
         timeout: float,
         metadata: Mapping[str, object],
     ) -> object: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SignalCompletion:
+    resolve: Callable[[], Awaitable[DecisionsCall | None]]
+
+    async def __call__(
+        self,
+        *,
+        model: str,
+        state: DecisionState,
+        questions: DecisionQuestions,
+        timeout: float,
+        metadata: Mapping[str, object],
+    ) -> object:
+        decisions: Final = await self.resolve()
+        if decisions is None:
+            raise RuntimeError("The Lens analysis router is not initialized")
+        return await decisions(model=model, state=state, questions=questions, timeout=timeout, metadata=metadata)
 
 
 class SignalRepositoryProtocol(Protocol):
@@ -609,7 +628,7 @@ async def run_signal_loop(
     storage: Storage,
     repository: SignalRepositoryProtocol | None,
     completion: DecisionsCall | None,
-    clock: Clock = lambda: datetime.now(timezone.utc),
+    clock: Clock = lambda: datetime.now(UTC),
     router_ready: RouterReady = lambda: True,
     sweep: SignalSweep = SIGNAL_BACKLOG_SWEEP,
 ) -> None:

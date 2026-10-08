@@ -1,11 +1,13 @@
-import json
+import asyncio
+import random
 from datetime import datetime
 from typing import Final
 
-from pydantic import TypeAdapter
+from pydantic import JsonValue
 
+from litellm_lens.clickhouse_state import Change, ClickHouseState
 from litellm_lens.models import Execution, TraceIdentity
-from litellm_lens.repository import Database, Row
+from litellm_lens.persistence import document, record_key, require_storage, utc_time
 from litellm_lens.signals import (
     SIGNAL_RECLASSIFY_AFTER,
     SIGNAL_RETRY_FAILED_AFTER,
@@ -14,55 +16,50 @@ from litellm_lens.signals import (
     StoredTraceSignal,
 )
 
-_ROWS: Final[TypeAdapter[tuple[Row, ...]]] = TypeAdapter(tuple[Row, ...])
+_CONFIG_KEY: Final = "signals/config"
+
+
+def claimable(execution: Execution, existing: StoredTraceSignal | None, config_key: str, now: datetime) -> bool:
+    if existing is None:
+        return True
+    if existing.claimed_until is not None and existing.claimed_until >= now:
+        return False
+    if existing.config_key != config_key:
+        return True
+    status: Final = existing.data.get("status") if isinstance(existing.data, dict) else ""
+    expired_pending: Final = status == "pending" and existing.claimed_until is not None and existing.claimed_until < now
+    grew: Final = (
+        execution.span_count > existing.span_count
+        and existing.classified_at is not None
+        and existing.classified_at < now - SIGNAL_RECLASSIFY_AFTER
+    )
+    retry: Final = (
+        status == "failed"
+        and existing.classified_at is not None
+        and existing.classified_at < now - SIGNAL_RETRY_FAILED_AFTER
+    )
+    return expired_pending or grew or retry
 
 
 class SignalRepository:
-    def __init__(self, db: Database) -> None:
-        self.db: Final = db
+    def __init__(self, state: ClickHouseState) -> None:
+        self.state: Final = state
 
     async def get_config(self) -> SignalConfig:
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw('SELECT data FROM "LiteLLM_LensSignalConfig" WHERE id=$1', "global")
-        )
-        return SignalConfig() if not rows else SignalConfig.model_validate(rows[0].data)
+        record: Final = require_storage(await self.state.read(_CONFIG_KEY))
+        return SignalConfig() if record.value is None else SignalConfig.model_validate(record.value)
 
     async def save_config(self, config: SignalConfig) -> None:
-        await self.db.execute_raw(
-            """INSERT INTO "LiteLLM_LensSignalConfig" (id, data)
-            VALUES ($1, $2::jsonb)
-            ON CONFLICT (id) DO UPDATE SET data=EXCLUDED.data""",
-            "global",
-            json.dumps(config.model_dump(mode="json")),
-        )
+        require_storage(await self.state.update(_CONFIG_KEY, lambda _: document(config)))
 
     async def traces(self, identities: tuple[TraceIdentity, ...]) -> tuple[StoredTraceSignal, ...]:
         if not identities:
             return ()
-        payload: Final = json.dumps(
-            tuple({"trace_id": trace.trace_id, "trace_ref": trace.trace_ref} for trace in identities)
+        keys: Final = tuple(
+            dict.fromkeys(record_key("trace-signal", trace.trace_id, trace.trace_ref) for trace in identities)
         )
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """SELECT jsonb_build_object(
-                    'trace_id', trace_id,
-                    'trace_ref', trace_ref,
-                    'config_key', config_key,
-                    'span_count', span_count,
-                    'claimed_until', claimed_until,
-                    'classified_at', classified_at,
-                    'data', data
-                ) AS data
-                FROM "LiteLLM_LensTraceSignal"
-                WHERE (trace_id, trace_ref) IN (
-                    SELECT trace_id, trace_ref FROM jsonb_to_recordset($1::jsonb) AS requested(
-                        trace_id text, trace_ref text
-                    )
-                )""",
-                payload,
-            )
-        )
-        return tuple(StoredTraceSignal.model_validate(row.data) for row in rows)
+        records: Final = require_storage(await self.state.read_many(keys))
+        return tuple(StoredTraceSignal.model_validate(record.value) for record in records if record.value is not None)
 
     async def claim(
         self,
@@ -71,47 +68,27 @@ class SignalRepository:
         claimed_until: datetime,
         now: datetime,
     ) -> bool:
-        data: Final = json.dumps({"status": "pending", "scores": {}, "model": config.model, "error": ""})
-        rows: Final = _ROWS.validate_python(
-            await self.db.query_raw(
-                """INSERT INTO "LiteLLM_LensTraceSignal" AS stored
-                    (trace_id, trace_ref, config_key, span_count, claimed_until, classified_at, data)
-                VALUES ($1, $2, $3, $4, $5::timestamp, NULL, $6::jsonb)
-                ON CONFLICT (trace_id, trace_ref) DO UPDATE SET
-                    config_key=EXCLUDED.config_key,
-                    span_count=EXCLUDED.span_count,
-                    claimed_until=EXCLUDED.claimed_until,
-                    classified_at=NULL,
-                    data=EXCLUDED.data
-                WHERE (stored.claimed_until IS NULL OR stored.claimed_until < $7::timestamp)
-                    AND (
-                        stored.config_key IS DISTINCT FROM EXCLUDED.config_key
-                        OR (
-                            stored.data->>'status'='pending'
-                            AND stored.claimed_until < $7::timestamp
-                        )
-                        OR (
-                            EXCLUDED.span_count > stored.span_count
-                            AND stored.classified_at < $8::timestamp
-                        )
-                        OR (
-                            stored.data->>'status'='failed'
-                            AND stored.classified_at < $9::timestamp
-                        )
-                    )
-                RETURNING jsonb_build_object('trace_id', trace_id) AS data""",
-                execution.trace_id,
-                execution.trace_ref,
-                config.key(),
-                execution.span_count,
-                claimed_until,
-                data,
-                now,
-                now - SIGNAL_RECLASSIFY_AFTER,
-                now - SIGNAL_RETRY_FAILED_AFTER,
-            )
+        key: Final = record_key("trace-signal", execution.trace_id, execution.trace_ref)
+        pending: Final = StoredTraceSignal(
+            trace_id=execution.trace_id,
+            trace_ref=execution.trace_ref,
+            config_key=config.key(),
+            span_count=execution.span_count,
+            claimed_until=claimed_until,
+            data={"status": "pending", "scores": {}, "model": config.model, "error": ""},
         )
-        return bool(rows)
+        for attempt in range(40):
+            record: Final = require_storage(await self.state.read(key))
+            existing: Final = None if record.value is None else StoredTraceSignal.model_validate(record.value)
+            if not claimable(execution, existing, config.key(), utc_time(now)):
+                return False
+            result: Final = await self.state.commit((Change(record, document(pending)),))
+            if result is None:
+                return True
+            if result.kind != "conflict":
+                require_storage(result)
+            await asyncio.sleep(random.uniform(0, 0.02 * min(attempt + 1, 8)))
+        return False
 
     async def store(
         self,
@@ -121,22 +98,27 @@ class SignalRepository:
         classified_at: datetime,
         attempt: SignalAttempt,
     ) -> None:
-        payload: Final = json.dumps(
-            {
-                "status": attempt.status,
-                "scores": dict(attempt.scores),
-                "model": attempt.model,
-                "error": attempt.error,
-            }
-        )
-        await self.db.execute_raw(
-            """UPDATE "LiteLLM_LensTraceSignal"
-            SET classified_at=$1::timestamp, claimed_until=NULL, data=$2::jsonb
-            WHERE trace_id=$3 AND trace_ref=$4 AND config_key=$5 AND claimed_until=$6::timestamp""",
-            classified_at,
-            payload,
-            execution.trace_id,
-            execution.trace_ref,
-            config.key(),
-            claimed_until,
+        def complete(value: JsonValue) -> JsonValue:
+            if value is None:
+                return value
+            existing: Final = StoredTraceSignal.model_validate(value)
+            if existing.config_key != config.key() or existing.claimed_until != utc_time(claimed_until):
+                return value
+            return document(
+                existing.model_copy(
+                    update={
+                        "classified_at": utc_time(classified_at),
+                        "claimed_until": None,
+                        "data": {
+                            "status": attempt.status,
+                            "scores": dict(attempt.scores),
+                            "model": attempt.model,
+                            "error": attempt.error,
+                        },
+                    }
+                )
+            )
+
+        require_storage(
+            await self.state.update(record_key("trace-signal", execution.trace_id, execution.trace_ref), complete)
         )
