@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { costPerCase, deltaLabel, gateTone, groupRuns, passedLabel } from "./format";
+import { costPerCase, deltaLabel, deltaTone, gateTone, groupRuns, passedLabel, safeLinkUrl } from "./format";
 import type { EvalRun, Summary } from "./types";
 
 const summary: Summary = {
@@ -65,11 +65,36 @@ describe("run formatting", () => {
     expect(gateTone(run("r", { gate }))).toBe(expected);
   });
 
+  it("reads an errored run as errored even though it has no gate yet", () => {
+    expect(gateTone(run("r", { status: "error", gate: null, summary: null }))).toBe("errored");
+  });
+
+  it.each([
+    { delta: -0.25, expected: "text-destructive" },
+    { delta: 0.1, expected: "text-success" },
+    { delta: 0, expected: "text-muted-foreground" },
+    { delta: null, expected: "text-muted-foreground" },
+  ])("tones a delta of $delta as $expected", ({ delta, expected }) => {
+    expect(deltaTone(delta)).toBe(expected);
+  });
+
+  it.each([
+    { url: "https://github.com/example/agent/pull/7", expected: "https://github.com/example/agent/pull/7" },
+    { url: "HTTP://ci.example.com/pr/7", expected: "HTTP://ci.example.com/pr/7" },
+    { url: "javascript:alert(1)", expected: null },
+    { url: "data:text/html,hi", expected: null },
+    { url: "//evil.example.com", expected: null },
+    { url: "https://", expected: null },
+    { url: null, expected: null },
+  ])("only links $url when it is http(s)", ({ url, expected }) => {
+    expect(safeLinkUrl(url)).toBe(expected);
+  });
+
   it("splits this dataset's runs into main and pull requests, newest first", () => {
     const runs = [
       run("main-old", { created_at: "2026-10-01T00:00:00Z" }),
-      run("pr", { branch: "fix-refunds", created_at: "2026-10-03T00:00:00Z" }),
-      run("main-new", { created_at: "2026-10-02T00:00:00Z" }),
+      run("pr", { branch: "fix-refunds", pr_url: "https://github.com/x/y/pull/1", created_at: "2026-10-03T00:00:00Z" }),
+      run("main-new", { branch: "master", created_at: "2026-10-02T00:00:00Z" }),
       run("other-dataset", { dataset_id: "ds-2" }),
     ];
 
