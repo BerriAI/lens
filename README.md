@@ -13,7 +13,7 @@
 
 <br>
 
-[Early access](https://forms.gle/3GC1Ner4vjthGWi18) &nbsp;&nbsp;·&nbsp;&nbsp; [Docs](https://docs.litellm.ai/docs/proxy/lens) &nbsp;&nbsp;·&nbsp;&nbsp; [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) &nbsp;&nbsp;·&nbsp;&nbsp; [4K film](assets/lens-hero-4k.mp4)
+[Early access](https://forms.gle/3GC1Ner4vjthGWi18) &nbsp;&nbsp;·&nbsp;&nbsp; [Docs](deploy/lens/README.md) &nbsp;&nbsp;·&nbsp;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&nbsp;·&nbsp;&nbsp; [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) &nbsp;&nbsp;·&nbsp;&nbsp; [4K film](assets/lens-hero-4k.mp4)
 
 <br><br>
 
@@ -38,6 +38,6 @@ Point Claude Code or Codex at them and let your agents improve your agents.
 
 <br>
 
-[Get started](https://docs.litellm.ai/docs/proxy/lens)
+[Get started](deploy/lens/README.md)
 
 </div>

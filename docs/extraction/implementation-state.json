@@ -125,7 +125,9 @@
     },
     "F9": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)"
+      ]
     },
     "F10": {
       "status": "not_run",
