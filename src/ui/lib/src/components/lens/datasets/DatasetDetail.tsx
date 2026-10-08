@@ -4,12 +4,14 @@ import { useState } from "react";
 import { ChevronRight, Database, Download, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StateMessage } from "../../shared/StateMessage";
-import { useDatasetRoute } from "../route";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+import { useDatasetRoute, useEvalRunRoute } from "../route";
 import { IdChip } from "../traces/ui/IdChip";
 import { isRevisionConflict, useDataset, useExportDataset, useSaveRevision } from "./api";
 import { CasePanel } from "./CasePanel";
 import { CaseTable } from "./CaseTable";
 import { changedCount, withEdits, type CaseEdit, type CaseEdits } from "./caseView";
+import { RunsTab } from "./runs/RunsTab";
 import type { Dataset } from "./types";
 
 export interface DatasetDetailProps {
@@ -76,6 +78,7 @@ interface DatasetRevisionProps {
 function DatasetRevision(props: DatasetRevisionProps) {
   const { dataset, latestRevision, readOnly, onBack, onPickRevision, onShowLatest, onReload } = props;
   const { caseId, setCaseId } = useDatasetRoute();
+  const { datasetTab, setDatasetTab } = useEvalRunRoute();
   const [edits, setEdits] = useState<CaseEdits>({});
   const save = useSaveRevision();
   const exportDataset = useExportDataset();
@@ -134,35 +137,52 @@ function DatasetRevision(props: DatasetRevisionProps) {
           </div>
         </div>
       </header>
-      <SaveProblem error={save.error ?? exportDataset.error} onReload={reload} />
-      {!isLatest && (
-        <p role="status" className="border-b px-4 py-2 text-xs text-muted-foreground">
-          Revision {dataset.revision} is read-only. Switch to the latest revision to make changes.
-        </p>
-      )}
-      {cases.length === 0 ? (
-        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-          This revision has no cases. Add some from a trace or a finding.
-        </p>
-      ) : (
-        <CaseTable
-          cases={cases}
-          editable={editable}
-          selectedId={caseId}
-          onSelect={setCaseId}
-          onToggle={(id, included) => edit(id, { included })}
-        >
-          {(item) => (
-            <CasePanel
-              key={item.id}
-              item={item}
-              datasetName={dataset.name}
-              editable={editable}
-              onEdit={(next) => edit(item.id, next)}
-            />
+      <Tabs value={datasetTab} onValueChange={setDatasetTab} className="min-h-0 flex-1 gap-0">
+        <div className="shrink-0 border-b px-3 sm:px-4">
+          <TabsList variant="line" aria-label="Dataset sections" className="h-9 gap-4 px-0">
+            <TabsTrigger value="cases" className="flex-none px-0 text-sm">
+              Cases
+            </TabsTrigger>
+            <TabsTrigger value="runs" className="flex-none px-0 text-sm">
+              Runs
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="runs" className="min-h-0 overflow-y-auto">
+          <RunsTab datasetId={dataset.id} />
+        </TabsContent>
+        <TabsContent value="cases" className="flex min-h-0 flex-col">
+          <SaveProblem error={save.error ?? exportDataset.error} onReload={reload} />
+          {!isLatest && (
+            <p role="status" className="border-b px-4 py-2 text-xs text-muted-foreground">
+              Revision {dataset.revision} is read-only. Switch to the latest revision to make changes.
+            </p>
           )}
-        </CaseTable>
-      )}
+          {cases.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+              This revision has no cases. Add some from a trace or a finding.
+            </p>
+          ) : (
+            <CaseTable
+              cases={cases}
+              editable={editable}
+              selectedId={caseId}
+              onSelect={setCaseId}
+              onToggle={(id, included) => edit(id, { included })}
+            >
+              {(item) => (
+                <CasePanel
+                  key={item.id}
+                  item={item}
+                  datasetName={dataset.name}
+                  editable={editable}
+                  onEdit={(next) => edit(item.id, next)}
+                />
+              )}
+            </CaseTable>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
