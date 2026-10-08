@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/datasets",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "agent_name": "parity agent",
+        "case_count": 0,
+        "id": "{{dataset_id}}",
+        "name": "parity dataset",
+        "revision": 0,
+        "updated_at": "{{timestamp}}"
+      }
+    ]
+  }
+}

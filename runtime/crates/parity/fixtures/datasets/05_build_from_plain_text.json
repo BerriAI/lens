@@ -1,0 +1,53 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/datasets/build",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "dataset_id": "{{dataset_id}}",
+      "sources": [
+        {
+          "kind": "text",
+          "text": "plain text dataset case"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "cases": [
+        {
+          "agent_version": "",
+          "expected": "",
+          "id": "40f08ab8abea010878edfd6b0f7030abf2781995c8b10eab35df167d395193e7",
+          "included": true,
+          "messages": [
+            {
+              "content": "plain text dataset case",
+              "name": "",
+              "role": "user",
+              "tool_calls": []
+            }
+          ],
+          "reply": "",
+          "source": {
+            "finding_id": "",
+            "lens_id": "",
+            "span_id": "",
+            "trace_id": "",
+            "trace_ref": ""
+          },
+          "tool_calls": []
+        }
+      ],
+      "skipped": []
+    }
+  }
+}
