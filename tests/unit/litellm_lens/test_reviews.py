@@ -2,7 +2,7 @@ from typing import Final
 
 from litellm_lens.models import Check
 from litellm_lens.reviews import criteria_key
-from tests.unit.proxy.lens.test_state import lens
+from tests.unit.litellm_lens.test_state import lens
 
 
 def test_only_evaluation_changes_invalidate_reviews() -> None:

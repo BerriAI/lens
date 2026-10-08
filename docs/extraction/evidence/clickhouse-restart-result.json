@@ -1,0 +1,23 @@
+{
+  "committed_records_survived_clickhouse_restart": true,
+  "prepared_unpublished_records_remain_invisible": true,
+  "postgres_running": false,
+  "records": [
+    {
+      "key": "progress",
+      "revision": 1,
+      "digest": "f05aba933a86bf6383245315333219b5b6bdcfb225ca8fe848b57fd967cf6be4",
+      "value": {
+        "reviewed": 1
+      }
+    },
+    {
+      "key": "checkpoint",
+      "revision": 1,
+      "digest": "6d1e5f8e5e35698b5380157d3deac5d269fb4784eadc282df4137709ef01fbac",
+      "value": {
+        "content": "retained"
+      }
+    }
+  ]
+}

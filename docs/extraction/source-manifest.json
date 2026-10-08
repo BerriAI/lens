@@ -37,19 +37,19 @@
     },
     {
       "source": "deploy/lens/Dockerfile",
-      "destination": "deploy/lens/Dockerfile",
+      "destination": "deploy/runtime/Dockerfile",
       "sha256": "6859412c06b642e55382ddea3b7ef98e703917365cd7de8b2ff796b26c01d3f4",
       "change": "import_or_build_path",
-      "extracted_sha256": "4e056ad9d73f24d1a9c9961293f6932605623536946c84920cc1a85c9f34d501",
+      "extracted_sha256": "ed9c0f699d5bc54f56cdb6176ce79fefb7939bad127b630b644d26277d22e463",
       "baseline_identical": false
     },
     {
       "source": "deploy/lens/Dockerfile.dockerignore",
-      "destination": "deploy/lens/Dockerfile.dockerignore",
+      "destination": "deploy/runtime/Dockerfile.dockerignore",
       "sha256": "4e84e2e43c11ec462d68c42e0ff4b2c0b2abf94e94bd75173a4aac25a13bb181",
-      "change": "unchanged",
-      "extracted_sha256": "4e84e2e43c11ec462d68c42e0ff4b2c0b2abf94e94bd75173a4aac25a13bb181",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3b0463cec633c8519f342a3f4296743184930da4cc7b6b7ff991b007f678c5c3",
+      "baseline_identical": false
     },
     {
       "source": "deploy/lens/README.md",
@@ -63,9 +63,9 @@
       "source": "deploy/lens/compose.build.yaml",
       "destination": "deploy/lens/compose.build.yaml",
       "sha256": "52d9f81198d5cb39db81e13b6204680efd71acfef4346fe4126a7212a4882dbb",
-      "change": "unchanged",
-      "extracted_sha256": "52d9f81198d5cb39db81e13b6204680efd71acfef4346fe4126a7212a4882dbb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "01e23613f0dbbe580aa2a03c19885af6c71af777cec00b777717dc9181b04191",
+      "baseline_identical": false
     },
     {
       "source": "deploy/lens/compose.yaml",
@@ -93,7 +93,7 @@
     },
     {
       "source": "deploy/lens/python_policy.c",
-      "destination": "deploy/lens/python_policy.c",
+      "destination": "deploy/runtime/python_policy.c",
       "sha256": "3586b3351230272d99d94a16a7d246e73055c991052f766b20d7c7015354ffda",
       "change": "unchanged",
       "extracted_sha256": "3586b3351230272d99d94a16a7d246e73055c991052f766b20d7c7015354ffda",
@@ -101,7 +101,7 @@
     },
     {
       "source": "deploy/lens/python_runtime.py",
-      "destination": "deploy/lens/python_runtime.py",
+      "destination": "deploy/runtime/python_runtime.py",
       "sha256": "edd11f41e95ae6c254f90128be07087d794ff630be857c5e291e1e2fabc5307a",
       "change": "unchanged",
       "extracted_sha256": "edd11f41e95ae6c254f90128be07087d794ff630be857c5e291e1e2fabc5307a",
@@ -3031,25 +3031,25 @@
       "source": "litellm/rust_bridge/trace/generated/models.py",
       "destination": "src/litellm_lens/trace/generated/models.py",
       "sha256": "cadd227e5e5343c22d13770809dc98794eae100619d0d0f33f8c2ba4e9d95822",
-      "change": "unchanged",
-      "extracted_sha256": "cadd227e5e5343c22d13770809dc98794eae100619d0d0f33f8c2ba4e9d95822",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "182a3ab318b8499e616f3339e0ed0a0c1b14b8cd0f04e9436108ded39986949b",
+      "baseline_identical": false
     },
     {
       "source": "litellm/rust_bridge/trace/generated/requests.py",
       "destination": "src/litellm_lens/trace/generated/requests.py",
       "sha256": "3eeded4654e45ed31496aaab0d29c71c571541280d917c0b3ece0c63c8f9df59",
-      "change": "unchanged",
-      "extracted_sha256": "3eeded4654e45ed31496aaab0d29c71c571541280d917c0b3ece0c63c8f9df59",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "83fb4b58f8861ada02d213f69fe40d509853d58e88cd0fa96ef5949011fb06ca",
+      "baseline_identical": false
     },
     {
       "source": "litellm/rust_bridge/trace/generated/responses.py",
       "destination": "src/litellm_lens/trace/generated/responses.py",
       "sha256": "75f4e6ee89b964044847eefa09ab26837ee0bb5034d7d052c68cbeb5a73458dd",
-      "change": "unchanged",
-      "extracted_sha256": "75f4e6ee89b964044847eefa09ab26837ee0bb5034d7d052c68cbeb5a73458dd",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "9455e3916f0df124ef79fd0f55d41aa098455e32a12e500478e5c152d56abb6b",
+      "baseline_identical": false
     },
     {
       "source": "litellm/rust_bridge/trace/generated/types.py",
@@ -3504,7 +3504,7 @@
       "destination": "tests/integration/database/test_lens_repository.py",
       "sha256": "21b0681e1d1643ef9c13d11280a28d784cfa08cd69f450c4e50b105aa82f25f5",
       "change": "import_or_build_path",
-      "extracted_sha256": "d01eb9bc3b847acb4e3474877bd7e78b80a19b85836fdf9f752195364a537cde",
+      "extracted_sha256": "5394070f5f2ce368d13cca0245e4756eff8f92547c00c77460fb7fd9393ab677",
       "baseline_identical": false
     },
     {
@@ -3589,7 +3589,7 @@
     },
     {
       "source": "tests/unit/proxy/lens/__init__.py",
-      "destination": "tests/unit/proxy/lens/__init__.py",
+      "destination": "tests/unit/litellm_lens/__init__.py",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "change": "unchanged",
       "extracted_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -3597,7 +3597,7 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_agent_contract.py",
-      "destination": "tests/unit/proxy/lens/test_agent_contract.py",
+      "destination": "tests/unit/litellm_lens/test_agent_contract.py",
       "sha256": "69130e6b75db7cf3247a56cb9a53f85170240ef01c24a8ab3b5bea13093ba290",
       "change": "import_or_build_path",
       "extracted_sha256": "0b6d292d4c80be2d567d3e547224b384714144209d48b09d3e427f38f023b0e2",
@@ -3605,15 +3605,15 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_dataset_endpoints.py",
-      "destination": "tests/unit/proxy/lens/test_dataset_endpoints.py",
+      "destination": "tests/unit/litellm_lens/test_dataset_endpoints.py",
       "sha256": "253db6eb4f8a0934dae760ab0af993298497ac5b2e39d1cb6794866f7ca119b0",
       "change": "import_or_build_path",
-      "extracted_sha256": "e5f9ac834b29be031e4ab83a63ed4382f2b29ad60d4d66182280abc20902cff0",
+      "extracted_sha256": "b5c9a7ce60eaf79acc92615ccb9070becdf704c75e96eca6dfc621450c28a2da",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_datasets.py",
-      "destination": "tests/unit/proxy/lens/test_datasets.py",
+      "destination": "tests/unit/litellm_lens/test_datasets.py",
       "sha256": "c30cbbbe106073d4f08e737882c586436faaf176d2aa00ee8688497269c93fa3",
       "change": "import_or_build_path",
       "extracted_sha256": "ef4633234e225bd165864978b63294d815cd3a7d7759234c859881936f65f17a",
@@ -3621,15 +3621,15 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_endpoints.py",
-      "destination": "tests/unit/proxy/lens/test_endpoints.py",
+      "destination": "tests/unit/litellm_lens/test_endpoints.py",
       "sha256": "b1bab7b93f4d6fe3220423021e498fa52fa86ab76433ffdb85e7b9a3e7d9ae03",
       "change": "import_or_build_path",
-      "extracted_sha256": "bd9a1f2552df4ef560919cc4058394f02006f6473d17fa239f3b2c0cb37200f1",
+      "extracted_sha256": "3d6499892af6ff2f06bd73dd302791dc2e12fd81ed464bfb9e27e05fa043565b",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_feedback_endpoints.py",
-      "destination": "tests/unit/proxy/lens/test_feedback_endpoints.py",
+      "destination": "tests/unit/litellm_lens/test_feedback_endpoints.py",
       "sha256": "6546efd503f7dffc0e6c2c39c3f5f7e13cb163e74bf3880c505443d99b63d855",
       "change": "import_or_build_path",
       "extracted_sha256": "f74a51994bc7f8f0df0e1ad744108e48997d49b61c47bdd3de4bb254fda5c88f",
@@ -3637,15 +3637,15 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_inference.py",
-      "destination": "tests/unit/proxy/lens/test_inference.py",
+      "destination": "tests/unit/litellm_lens/test_inference.py",
       "sha256": "671ddc8d6a9c8ee7e2a0e90aa5a3f7e7ac7273e1388e9a822eea9adee4343b0b",
       "change": "import_or_build_path",
-      "extracted_sha256": "6f2b8ec8c2403674a112dbd3d47bb43edf9d28d67168db6f5c143ce2f49c6758",
+      "extracted_sha256": "9314ef4bdf88220c12770dd3fbea21dd5064528fdddcec15decd3dc9de2612e7",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_release.py",
-      "destination": "tests/unit/proxy/lens/test_release.py",
+      "destination": "tests/unit/litellm_lens/test_release.py",
       "sha256": "95ca83e3367b3bd2408f2ea7ac991eb01d6a4232ef793016bf4ee478332be8cd",
       "change": "import_or_build_path",
       "extracted_sha256": "53aafd885029c2d096d0bb8381bf985bcaa837632ad2d8420b1804a7fe60d2a8",
@@ -3653,23 +3653,23 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_repository.py",
-      "destination": "tests/unit/proxy/lens/test_repository.py",
+      "destination": "tests/unit/litellm_lens/test_repository.py",
       "sha256": "56c9991a9841d4ab7fac2164d5bcd0dd9b166751e97dc1a673c4df9febd90cba",
       "change": "import_or_build_path",
-      "extracted_sha256": "0cd81706919339407d512ab31a3955499def070870e350cdc464b2a435956b32",
+      "extracted_sha256": "cc5abf9e03367f330196ce8054000dc3e5aebd789fe3148a5f1c95b18128aab2",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_reviews.py",
-      "destination": "tests/unit/proxy/lens/test_reviews.py",
+      "destination": "tests/unit/litellm_lens/test_reviews.py",
       "sha256": "8a181da5a2a511b8f52753a861305b9e7ec91d24b04bdc567506dea3815dc1ae",
       "change": "import_or_build_path",
-      "extracted_sha256": "d42c9877b316f55194a381719414411c525fc995c4cef1386591af8c5e2228ad",
+      "extracted_sha256": "0e6b619ccea6ec03156fa6cb5a84a597b53af0a436921d1af5e73c926d293a4f",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_signals.py",
-      "destination": "tests/unit/proxy/lens/test_signals.py",
+      "destination": "tests/unit/litellm_lens/test_signals.py",
       "sha256": "0c9d21ea3fd5a0dbb4e735c1f2d325f1d1ed9ffcca879f24bbf96c4562ecea79",
       "change": "import_or_build_path",
       "extracted_sha256": "8788d35f26c0aec0aedb5406282ce862d96964f3e7d1712658daec64cce61dc0",
@@ -3677,15 +3677,15 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_sources.py",
-      "destination": "tests/unit/proxy/lens/test_sources.py",
+      "destination": "tests/unit/litellm_lens/test_sources.py",
       "sha256": "90ad496dec3cae713f9145795237c4998d14a4f5fe2bd5b67f4e1d3de3381345",
       "change": "import_or_build_path",
-      "extracted_sha256": "93990603c3dc1bbdf7af60cab85c97da8dedfcff72ae1e3909ffceeb0a73c836",
+      "extracted_sha256": "be2fcd4d5d64d06df264af3210c9efb0fd59303da7cf8ded477d20f4c8090c31",
       "baseline_identical": false
     },
     {
       "source": "tests/unit/proxy/lens/test_state.py",
-      "destination": "tests/unit/proxy/lens/test_state.py",
+      "destination": "tests/unit/litellm_lens/test_state.py",
       "sha256": "36f6e074d60ca99f78d7603312af5111ed6044decd10618b81b9f76f0c2f3070",
       "change": "import_or_build_path",
       "extracted_sha256": "46aec288f2711821a15030e6af02a62be5d471fde9b71a9c094b40da5268a337",
@@ -3693,7 +3693,7 @@
     },
     {
       "source": "tests/unit/proxy/test_tracing_endpoints.py",
-      "destination": "tests/unit/proxy/test_tracing_endpoints.py",
+      "destination": "tests/unit/litellm_lens/test_tracing_endpoints.py",
       "sha256": "e6e05b3262801c542670bf672c5caa8c3ee0cca11e1e267347f9ba736a763709",
       "change": "import_or_build_path",
       "extracted_sha256": "84b29f499d8b09f51a66c2154c4e45c4a63c36e9741d5974a81a080c71d0900a",
@@ -3701,7 +3701,7 @@
     },
     {
       "source": "tests/unit/rust_bridge/trace/__init__.py",
-      "destination": "tests/unit/rust_bridge/trace/__init__.py",
+      "destination": "tests/unit/litellm_lens/trace/__init__.py",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "change": "unchanged",
       "extracted_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -3709,7 +3709,7 @@
     },
     {
       "source": "tests/unit/rust_bridge/trace/test_queries.py",
-      "destination": "tests/unit/rust_bridge/trace/test_queries.py",
+      "destination": "tests/unit/litellm_lens/trace/test_queries.py",
       "sha256": "ba02334793fd0a63098aa1adff8414d436eab2971a79dd940c8136ac0a52197a",
       "change": "import_or_build_path",
       "extracted_sha256": "7d9641f491b95937e94dbaf5db32ed441d7cd568416f6b5038d1763e85ca6d0e",
@@ -3717,7 +3717,7 @@
     },
     {
       "source": "tests/unit/rust_bridge/trace/test_storage.py",
-      "destination": "tests/unit/rust_bridge/trace/test_storage.py",
+      "destination": "tests/unit/litellm_lens/trace/test_storage.py",
       "sha256": "b3c00c8f76378e36824d9797d7e514145a90bea32307f3ab95d35dc0563748ad",
       "change": "import_or_build_path",
       "extracted_sha256": "46c1e994dc6fbf2e8f618a7e3a343dd31ce454c4db170807d8c41e937232a8ed",
@@ -3725,7 +3725,7 @@
     },
     {
       "source": "tests/unit/tracing/__init__.py",
-      "destination": "tests/unit/tracing/__init__.py",
+      "destination": "tests/unit/litellm_lens/tracing/__init__.py",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "change": "unchanged",
       "extracted_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -3733,7 +3733,7 @@
     },
     {
       "source": "tests/unit/tracing/test_config.py",
-      "destination": "tests/unit/tracing/test_config.py",
+      "destination": "tests/unit/litellm_lens/tracing/test_config.py",
       "sha256": "a4350a720a7d79763c058d15f28cd77be79dadba0cb3e873707b684725d443b0",
       "change": "import_or_build_path",
       "extracted_sha256": "7363a91836f99491ca8c4d478c5bb2363a9ed2548822378e6dfb83c40340be60",
@@ -3741,7 +3741,7 @@
     },
     {
       "source": "tests/unit/tracing/test_exporter.py",
-      "destination": "tests/unit/tracing/test_exporter.py",
+      "destination": "tests/unit/litellm_lens/tracing/test_exporter.py",
       "sha256": "b7f0a40d92d07b55ef61ed9d21b1aa66dd0ed908341e6822a2e8df94fb50a6fd",
       "change": "import_or_build_path",
       "extracted_sha256": "6ac56347edae7fbbdd2177abe325f832b86e9a1601048da4c00260921c553123",
@@ -3749,7 +3749,7 @@
     },
     {
       "source": "tests/unit/tracing/test_receiver.py",
-      "destination": "tests/unit/tracing/test_receiver.py",
+      "destination": "tests/unit/litellm_lens/tracing/test_receiver.py",
       "sha256": "3cc0dc470a299708518ece11b0c8357ddcfbd453331b81d575203e68d32b6bc0",
       "change": "import_or_build_path",
       "extracted_sha256": "9228586807cc9730c8f7a9e521f4abe38b35f5acd559164c8129e08a0a2483a4",
@@ -3757,7 +3757,7 @@
     },
     {
       "source": "tests/unit/tracing/test_remote.py",
-      "destination": "tests/unit/tracing/test_remote.py",
+      "destination": "tests/unit/litellm_lens/tracing/test_remote.py",
       "sha256": "d5df4fd975fc0e6ec77bd052c5245f0296bba923b8b78d79d82d85ca588898a5",
       "change": "import_or_build_path",
       "extracted_sha256": "f681b4098c974b1e0fea4bbb401a759ecfbb13d5b40b0a72cdeed3afbd6c9755",

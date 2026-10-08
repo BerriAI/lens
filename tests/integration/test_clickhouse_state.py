@@ -8,16 +8,19 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
+from pydantic import JsonValue, TypeAdapter
 
 from litellm_lens.clickhouse_state import Change, ClickHouseState, PreparedCommit, Snapshot, StorageFailure
+from litellm_lens.inference import settle_amount
+from litellm_lens.models import BudgetReservation, Lens, Step
+from litellm_lens.state import queue_job
+from tests.unit.litellm_lens.test_state import NOW, lens
 
 
 @pytest_asyncio.fixture
 async def store() -> AsyncIterator[ClickHouseState]:
     database: Final = f"lens_state_test_{uuid4().hex}"
-    async with httpx.AsyncClient(
-        base_url=os.environ["CLICKHOUSE_STATE_TEST_URL"], timeout=30
-    ) as administration:
+    async with httpx.AsyncClient(base_url=os.environ["CLICKHOUSE_STATE_TEST_URL"], timeout=30) as administration:
         result: Final = await administration.post(
             "/", params={"query": "CREATE DATABASE {name:Identifier}", "param_name": database}
         )
@@ -54,9 +57,12 @@ async def test_concurrent_claims_publish_one_winner(store: ClickHouseState) -> N
 
 @pytest.mark.asyncio
 async def test_stale_progress_cannot_publish_its_checkpoint(store: ClickHouseState) -> None:
-    assert await store.commit(
-        (Change(Snapshot(key="lens"), {"worker": "old"}), Change(Snapshot(key="review"), {"content": "original"}))
-    ) is None
+    assert (
+        await store.commit(
+            (Change(Snapshot(key="lens"), {"worker": "old"}), Change(Snapshot(key="review"), {"content": "original"}))
+        )
+        is None
+    )
     previous: Final = await store.read_many(("lens", "review"))
     assert isinstance(previous, tuple)
     obsolete: Final = await store.prepare(
@@ -129,3 +135,37 @@ async def test_tombstone_keeps_revision_so_old_writes_cannot_recreate_a_deleted_
     assert isinstance(stale, StorageFailure)
     assert stale.kind == "conflict"
     assert await store.read(key) == deleted
+
+
+@pytest.mark.asyncio
+async def test_concurrent_real_lens_settlements_charge_each_reservation_once(store: ClickHouseState) -> None:
+    queued: Final = queue_job(lens(), NOW, "job")
+    reservations: Final = tuple(
+        BudgetReservation(id=str(index), job_id=queued.jobs[0].id, amount=1, month=queued.budget_month)
+        for index in range(50)
+    )
+    funded: Final = queued.model_copy(update={"reservations": reservations})
+    json_value: Final = TypeAdapter(JsonValue)
+    assert (
+        await store.commit((Change(Snapshot(key="budget"), json_value.validate_json(funded.model_dump_json())),))
+        is None
+    )
+    step: Final = Step(at=NOW, kind="model", label="Reviewed a run", cost=0.25)
+
+    async def settle(reservation: BudgetReservation) -> None:
+        def transform(value: JsonValue) -> JsonValue:
+            current: Final = Lens.model_validate(value)
+            settled: Final = settle_amount(current, reservation.id, 0.25, step)
+            return json_value.validate_json(settled.model_dump_json())
+
+        result: Final = await store.update("budget", transform)
+        assert isinstance(result, Snapshot), result
+
+    await asyncio.gather(*(settle(reservation) for reservation in (*reservations, *reservations)))
+    stored: Final = await store.read("budget")
+    assert isinstance(stored, Snapshot)
+    current: Final = Lens.model_validate(stored.value)
+    assert current.spent == queued.spent + 50 * 0.25
+    assert current.jobs[0].cost == 50 * 0.25
+    assert len(current.jobs[0].steps) == 50
+    assert current.reservations == ()

@@ -419,7 +419,7 @@ def test_parallel_reservations_wait_without_charging_or_falsely_exhausting_budge
 
     from litellm_lens.inference import reserve_amount, settle_amount
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import lens
+    from tests.unit.litellm_lens.test_state import lens
 
     initial: Final = lens().model_copy(update={"spent": 45})
     reservations: Final = tuple(
@@ -443,7 +443,7 @@ def test_expired_reservations_do_not_hold_budget_and_late_settlement_still_charg
 
     from litellm_lens.inference import reserve_amount, settle_amount
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     stale: Final = BudgetReservation(id="stale", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW)
     initial: Final = lens().model_copy(update={"reservations": (stale,)})
@@ -463,7 +463,7 @@ def test_abandoned_reservations_are_pruned_after_late_settlement_retention() -> 
 
     from litellm_lens.inference import reserve_amount
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     stale: Final = BudgetReservation(
         id="stale", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW - timedelta(days=1)
@@ -480,7 +480,7 @@ def test_renewed_model_call_keeps_budget_reserved_until_it_finishes_or_its_lease
 
     from litellm_lens.inference import BUDGET_LEASE, renew_reservation, reserve_amount, settle_amount
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     active: Final = BudgetReservation(
         id="active", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW + BUDGET_LEASE
@@ -503,7 +503,7 @@ def test_renewed_model_call_keeps_budget_reserved_until_it_finishes_or_its_lease
 def test_renewal_does_not_resurrect_expired_or_released_budget(missing: bool) -> None:
     from litellm_lens.inference import renew_reservation
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     expired: Final = BudgetReservation(id="expired", job_id="run", amount=90, month=lens().budget_month, expires_at=NOW)
     initial: Final = lens().model_copy(update={"reservations": () if missing else (expired,)})
@@ -579,8 +579,8 @@ async def test_renewal_preserves_the_original_failure_while_request_cleanup_is_p
     )
     from litellm_lens.models import BudgetReservation
     from litellm_lens.repository import LensRepository
-    from tests.unit.proxy.lens.test_endpoints import ResultDatabase
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_endpoints import ResultDatabase
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     db: Final = ResultDatabase(lens())
     repo: Final = LensRepository(db)
@@ -630,8 +630,8 @@ async def test_request_deadline_expiry_returns_gateway_timeout(stalled: str, mon
     from litellm_lens.inference import BUDGET_LEASE, reserve_amount, reserved_budget
     from litellm_lens.models import BudgetReservation
     from litellm_lens.repository import LensRepository
-    from tests.unit.proxy.lens.test_endpoints import ResultDatabase
-    from tests.unit.proxy.lens.test_state import NOW, lens
+    from tests.unit.litellm_lens.test_endpoints import ResultDatabase
+    from tests.unit.litellm_lens.test_state import NOW, lens
 
     budget_deadline: Final = inference.BUDGET_WAIT_TIMEOUT
     request_deadline: Final = budget_deadline * 2 if stalled == "budget_wait" else budget_deadline / 2
@@ -742,7 +742,7 @@ async def test_failed_budget_cleanup_preserves_the_original_request_error(cancel
     from litellm_lens.inference import release_failed_reservation
     from litellm_lens.models import BudgetReservation
     from litellm_lens.repository import Database, LensRepository, Row
-    from tests.unit.proxy.lens.test_state import lens
+    from tests.unit.litellm_lens.test_state import lens
 
     hold: Final = BudgetReservation(id="paid", job_id="job", amount=10, month=lens().budget_month)
 
@@ -784,7 +784,7 @@ def test_budget_admission_rechecks_the_attempt_after_a_replica_reclaims_the_job(
 
     from litellm_lens.inference import reserve_attempt
     from litellm_lens.models import BudgetReservation
-    from tests.unit.proxy.lens.test_state import NOW, lens_with_job
+    from tests.unit.litellm_lens.test_state import NOW, lens_with_job
 
     original: Final = lens_with_job("running", NOW + timedelta(minutes=5))
     assigned: Final = original.jobs[0].model_copy(update={"worker_id": "shared-worker", "attempts": 1})

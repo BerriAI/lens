@@ -55,7 +55,7 @@ from litellm_lens.state import claim_job, queue_job, replace_job
 from litellm_lens.trace.generated.models import ExecutionRow, LensSampleParams
 from litellm_lens.trace.storage import ClickHouseStorage
 from litellm_lens.tracing.remote import RemoteTraceStore
-from tests.unit.proxy.lens.test_state import NOW, lens, worker
+from tests.unit.litellm_lens.test_state import NOW, lens, worker
 
 
 def execution(identity: str) -> Execution:
@@ -132,7 +132,7 @@ async def test_result_cannot_commit_after_losing_ownership_during_evidence_valid
     monkeypatch: pytest.MonkeyPatch, change: str
 ) -> None:
     from litellm.proxy import proxy_server
-    from tests.unit.proxy.lens.test_state import finding
+    from tests.unit.litellm_lens.test_state import finding
 
     claimed: Final = claim_job(queue_job(lens(), NOW, "job"), worker(), NOW)
     active: Final = claimed.jobs[0].model_copy(
@@ -298,7 +298,7 @@ async def test_findings_cannot_merge_missing_ids_or_positive_patterns_into_issue
 ) -> None:
     from litellm_lens.endpoints import validate_finding
     from litellm_lens.state import merge_finding
-    from tests.unit.proxy.lens.test_state import finding
+    from tests.unit.litellm_lens.test_state import finding
 
     saved: Final = merge_finding(lens(), finding("old"), 1, NOW, "previous").model_copy(update={"kind": "pattern"})
     identity: Final = saved.id if foreign_kind else "missing"
@@ -323,7 +323,7 @@ async def test_unchanged_rerun_does_not_rediscover_old_or_quoteless_occurrences(
 ) -> None:
     from litellm.proxy import proxy_server
     from litellm_lens.state import merge_finding
-    from tests.unit.proxy.lens.test_state import finding
+    from tests.unit.litellm_lens.test_state import finding
 
     saved_finding: Final = merge_finding(lens(), finding("old-trace"), 1, NOW, "original-run").model_copy(
         update={"occurrences": ("old-trace", "selected-without-quote")}
@@ -541,7 +541,7 @@ async def test_analysis_key_accepts_wildcard_and_alias_access(
 @pytest.mark.parametrize("revoked,key_id", ((True, "a" * 64), (False, None)))
 @pytest.mark.asyncio
 async def test_worker_without_active_billing_cannot_take_work(revoked: bool, key_id: str | None) -> None:
-    from tests.unit.proxy.lens.test_state import worker
+    from tests.unit.litellm_lens.test_state import worker
 
     inactive: Final = worker().model_copy(update={"revoked": revoked, "analysis_key_id": key_id})
     settings: Final = LensSettings(name="Research", model="analysis", context="Answer questions")
@@ -731,7 +731,7 @@ def test_admin_can_configure_lens_and_viewer_can_only_read() -> None:
 @pytest.mark.parametrize("identity", ("not-an-execution", "W10=", "WyJvdGhlciIsICIiLCAiaWQiXQ=="))
 def test_invalid_explicit_execution_ids_are_rejected(identity: str) -> None:
     from litellm_lens.endpoints import validate_selection
-    from tests.unit.proxy.lens.test_state import lens
+    from tests.unit.litellm_lens.test_state import lens
 
     settings: Final = lens().settings.model_copy(update={"execution_ids": (identity,)})
     with pytest.raises(HTTPException) as error:
@@ -745,7 +745,7 @@ async def test_incompatible_worker_is_rejected_before_claiming_work(
     protocol_version: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from litellm_lens.endpoints import claim
-    from tests.unit.proxy.lens.test_state import worker
+    from tests.unit.litellm_lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "v1.2.3")
     with pytest.raises(HTTPException) as error:
@@ -905,7 +905,7 @@ async def test_different_release_is_rejected_before_accessing_jobs(
 ) -> None:
     from litellm_lens.endpoints import claim
     from litellm_lens.release import PROTOCOL_VERSION
-    from tests.unit.proxy.lens.test_state import worker
+    from tests.unit.litellm_lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "v1.2.3")
     monkeypatch.delenv("LENS_WORKER_IMAGE", raising=False)
@@ -919,7 +919,7 @@ async def test_different_release_is_rejected_before_accessing_jobs(
 async def test_unknown_gateway_release_refuses_registration_and_claims(monkeypatch: pytest.MonkeyPatch) -> None:
     from litellm_lens.endpoints import WorkerName, claim, register_worker
     from litellm_lens.release import PROTOCOL_VERSION
-    from tests.unit.proxy.lens.test_state import worker
+    from tests.unit.litellm_lens.test_state import worker
 
     monkeypatch.setenv("LITELLM_RELEASE_TAG", "")
     monkeypatch.setenv("LENS_WORKER_IMAGE", "registry.example/lens-worker:old")

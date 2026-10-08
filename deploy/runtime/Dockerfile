@@ -7,10 +7,10 @@ WORKDIR /src
 COPY .cargo/ .cargo/
 COPY runtime/ runtime/
 COPY src/litellm_lens/prompts/ src/litellm_lens/prompts/
-WORKDIR /src/litellm-rust
+WORKDIR /src/runtime
 ENV CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols
 RUN cargo build --locked --release -p litellm-lens
-COPY deploy/lens/python_policy.c /tmp/python_policy.c
+COPY deploy/runtime/python_policy.c /tmp/python_policy.c
 RUN cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror /tmp/python_policy.c -lseccomp -o /tmp/python-policy && \
     /tmp/python-policy /tmp/python.seccomp
 
@@ -27,7 +27,7 @@ ENV LITELLM_RELEASE_TAG=${LITELLM_RELEASE_TAG} PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY --from=builder /src/runtime/target/release/litellm-lens /usr/local/bin/litellm-lens
 COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
-COPY deploy/lens/python_runtime.py /tmp/python_runtime.py
+COPY deploy/runtime/python_runtime.py /tmp/python_runtime.py
 RUN python3.13 -S /tmp/python_runtime.py /app/lens/python-runtime.json && rm /tmp/python_runtime.py
 USER 65532:65532
 EXPOSE 4318

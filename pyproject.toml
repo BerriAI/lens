@@ -32,6 +32,7 @@ dev = [
 packages = ["src/litellm_lens"]
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]

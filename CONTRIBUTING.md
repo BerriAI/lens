@@ -11,27 +11,30 @@ The target deployment is Lens with ClickHouse, including its configured Keeper c
 | `src/litellm_lens/` | Python API, investigation state and model access |
 | `runtime/` | Rust ingestion, trace storage, investigation worker and sandbox |
 | `packages/ui/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
-| `deploy/` | Installation and image assets being adapted for standalone Lens |
+| `deploy/runtime/` | Rust runtime image and Python sandbox packaging |
+| `deploy/clickhouse/` | ClickHouse coordination configuration |
+| `deploy/lens/` | Legacy installation assets being migrated to the standalone bundle |
 | `migrations/legacy/` | Source PostgreSQL migrations retained for migration compatibility |
 | `scripts/` | Schema and release tooling |
 | `tests/` | Copied behavior tests and standalone integration tests |
 | `docs/extraction/` | Completion contract, baseline provenance and qualification ledger |
 
-The copied test paths and deployment scripts are being reorganized. No sibling checkout is required by the Rust workspace or Python package dependency resolution
+Python unit tests mirror the package under `tests/unit/litellm_lens/`. Deployment scripts are being reorganized. No sibling checkout is required by the Rust workspace or Python package dependency resolution
 
 ## Checks available now
 
 Install Python dependencies with `uv sync --dev`. These copied core behavior tests pass in the extracted package:
 
 ```sh
-uv run pytest tests/unit/proxy/lens/test_state.py tests/unit/proxy/lens/test_reviews.py tests/unit/proxy/lens/test_agent_contract.py tests/unit/proxy/lens/test_sources.py tests/unit/proxy/lens/test_datasets.py -q
+uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py -q
 cargo check --manifest-path runtime/Cargo.toml
 ```
 
-The ClickHouse state prototype has integration tests against a real ClickHouse server with KeeperMap enabled. Set `CLICKHOUSE_STATE_TEST_URL` to an isolated local test instance, then run:
+The ClickHouse state prototype has integration tests against a real ClickHouse server with KeeperMap enabled. Start its isolated test stack and run:
 
 ```sh
-uv run pytest tests/integration/test_clickhouse_state.py -q
+docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
+CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest tests/integration/test_clickhouse_state.py -q
 ```
 
 The test creates and drops isolated databases. The storage prototype tests are not evidence that the full Lens product already runs end to end

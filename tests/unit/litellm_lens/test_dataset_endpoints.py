@@ -39,8 +39,8 @@ from litellm_lens.trace.errors import TraceChanged
 from litellm_lens.trace.generated.types import SpanDetail, Trace, TraceScope
 from litellm_lens.trace.storage import ClickHouseStorage
 from litellm_lens.tracing import TraceReceiver
-from tests.unit.proxy.lens.test_datasets import detail, span, stored_finding, trace
-from tests.unit.proxy.lens.test_state import lens
+from tests.unit.litellm_lens.test_datasets import detail, span, stored_finding, trace
+from tests.unit.litellm_lens.test_state import lens
 
 ADMIN: Final = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin", team_id="alpha")
 

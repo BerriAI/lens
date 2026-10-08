@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, TypeAlias
 
-from pydantic import ConfigDict, Field, JsonValue
-
 from litellm.types.llms.base import LiteLLMBaseModel
+from pydantic import ConfigDict, Field, JsonValue
 
 
 class TraceSQLResponse(LiteLLMBaseModel):

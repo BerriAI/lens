@@ -74,7 +74,7 @@ async def test_checkpoint_and_progress_commit_together_or_roll_back_together(wri
     from litellm_lens.models import Extraction, Progress, Review
     from litellm_lens.repository import Database
     from litellm_lens.state import claim_job, queue_job, replace_job
-    from tests.unit.proxy.lens.test_state import lens, worker
+    from tests.unit.litellm_lens.test_state import lens, worker
 
     claimed: Final = claim_job(queue_job(lens(), NOW, "job"), worker(), NOW)
     job: Final = claimed.jobs[0].model_copy(update={"lease_until": datetime.max.replace(tzinfo=timezone.utc)})
