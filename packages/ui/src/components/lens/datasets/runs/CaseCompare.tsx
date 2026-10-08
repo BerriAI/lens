@@ -3,8 +3,8 @@
 import { Loader2, X } from "lucide-react";
 import { useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../../ui/button";
+import { cn } from "../../../../lib/cva.config";
 
 import { toolSummary } from "../../traces/detail/content/payload";
 import { SpanIcon } from "../../traces/ui/SpanIcon";
