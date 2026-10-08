@@ -1,0 +1,39 @@
+[
+  {
+    "name": "cookie-auth",
+    "source": "src/lib/http/authHeaders.ts",
+    "replacement": {
+      "before": "token ? { [getAuthHeaderName()]: `Bearer ${token}` } : {}",
+      "after": "({ [getAuthHeaderName()]: `Bearer ${token}` })"
+    },
+    "test": "src/lib/http/sessionRequests.test.ts",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "mutation-cookie-auth.log"
+  },
+  {
+    "name": "lookup-padding",
+    "source": "src/components/lens/traces/detail/useSpanRequestLog.ts",
+    "replacement": {
+      "before": "const LOOKUP_PAD_MINUTES = 30;",
+      "after": "const LOOKUP_PAD_MINUTES = 0;"
+    },
+    "test": "src/components/lens/traces/detail/span/DetailPane.integration.test.tsx",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "mutation-lookup-padding.log"
+  },
+  {
+    "name": "request-identity",
+    "source": "src/components/lens/traces/detail/useSpanRequestLog.ts",
+    "replacement": {
+      "before": "response.data.find((log: LogEntry) => log.request_id === requestId)",
+      "after": "response.data[0]"
+    },
+    "test": "src/components/lens/traces/detail/span/DetailPane.integration.test.tsx",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "mutation-request-identity.log",
+    "assertion": "The requested missing-log message is absent when the first returned log replaces the exact request-ID match"
+  }
+]
