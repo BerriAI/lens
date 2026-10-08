@@ -16,7 +16,7 @@ from litellm.litellm_core_utils.secret_redaction import redact_internal_details
 from litellm_lens.identity import Identity as UserAPIKeyAuth, Role as LitellmUserRoles, ModelRequestError as ProxyException
 from litellm_lens.identity import KeyNotFoundError
 from litellm_lens.auth import user_api_key_auth
-from litellm_lens.context import current_runtime
+from litellm_lens.context import current_connection, current_runtime
 from litellm_lens.billing import validate_key
 from litellm_lens.inference import Deployment, deployment_prices
 from litellm_lens.ingestion import (
@@ -82,7 +82,7 @@ from litellm_lens.state import (
 )
 from litellm_lens.tracing_runtime import provide_storage
 from litellm.router import Router
-from litellm_lens.tracing.remote import LensConnection, bounded_response
+from litellm_lens.tracing.remote import bounded_response
 from litellm.types.llms.base import LiteLLMBaseModel
 
 router: Final = APIRouter(prefix="/lens", tags=["Lens"])
@@ -166,7 +166,7 @@ Attempt: TypeAlias = Annotated[int, Header(alias="X-LiteLLM-Lens-Attempt", ge=1)
 
 async def service_auth(credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer)]) -> None:
     try:
-        connection: Final = LensConnection.from_env()
+        connection: Final = current_connection()
     except ValueError as error:
         raise HTTPException(503, "Configure the Lens service connection") from error
     if not secrets.compare_digest(credentials.credentials, connection.token):
@@ -182,9 +182,9 @@ async def service_connection(auth: Auth) -> ServiceConnection:
 
     import httpx
 
-    public_url: Final = os.environ.get("LITELLM_LENS_PUBLIC_URL", "").rstrip("/")
+    public_url: Final = current_runtime().ingestion_url or os.environ.get("LITELLM_LENS_PUBLIC_URL", "").rstrip("/")
     try:
-        connection: Final = LensConnection.from_env()
+        connection: Final = current_connection()
     except ValueError:
         return ServiceConnection(
             url=public_url,
@@ -235,7 +235,7 @@ async def publish_credentials() -> bool:
     import httpx
 
     try:
-        connection: Final = LensConnection.from_env()
+        connection: Final = current_connection()
         snapshot: Final = await credential_snapshot()
         response: Final = await connection.control_client().post(
             connection.endpoint("/internal/credentials"),
@@ -639,7 +639,7 @@ async def register_worker(body: WorkerName, auth: Auth) -> WorkerCreated:
     image: Final = configured_worker_image()
     await validate_key(body.analysis_key_id)
     try:
-        token: Final = LensConnection.from_env().token if body.managed else "lens-" + secrets.token_urlsafe(40)
+        token: Final = current_connection().token if body.managed else "lens-" + secrets.token_urlsafe(40)
     except ValueError as error:
         raise HTTPException(503, "Configure the Lens service before enabling investigations") from error
     token_hash: Final = hashlib.sha256(token.encode()).hexdigest()

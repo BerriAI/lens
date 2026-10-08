@@ -3,14 +3,13 @@ import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, NoReturn
+from typing import Final, NoReturn, assert_never
 from urllib.parse import urlsplit
 
 import httpx
-from pydantic import JsonValue, TypeAdapter
-from typing_extensions import assert_never
-
 from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+from pydantic import JsonValue, TypeAdapter
+
 from litellm_lens.trace.errors import TraceChanged
 from litellm_lens.trace.generated.types import QueryScope, ReadQueryName, TraceScope
 
@@ -23,6 +22,7 @@ _INSERT_PATHS: Final[Mapping[str, str]] = {"spend_logs": "/internal/spend", "len
 class LensConnection:
     url: str
     token: str
+    client: httpx.AsyncClient | None = None
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] = os.environ) -> "LensConnection":
@@ -42,6 +42,8 @@ class LensConnection:
         return cls(url, token)
 
     def control_client(self) -> httpx.AsyncClient:
+        if self.client is not None:
+            return self.client
         return get_async_httpx_client(
             "lens-control",
             params={"timeout": httpx.Timeout(35, connect=3), "follow_redirects": False},

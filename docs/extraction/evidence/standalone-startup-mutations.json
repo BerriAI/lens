@@ -1,0 +1,17 @@
+[
+  {
+    "name": "dataset-route-shadowed",
+    "exit_code": 1,
+    "assertion_failure": true
+  },
+  {
+    "name": "service-auth-bypassed",
+    "exit_code": 1,
+    "assertion_failure": true
+  },
+  {
+    "name": "protocol-check-removed",
+    "exit_code": 1,
+    "assertion_failure": true
+  }
+]

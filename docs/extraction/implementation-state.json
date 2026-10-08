@@ -17,7 +17,7 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Shared UI preview and ClickHouse application repositories are implemented; standalone startup, model access, deployment qualification and full E2E remain incomplete",
+    "readiness": "Standalone tracing startup and browser sign-in work with Rust and ClickHouse; analysis setup, full E2E, storage migration and cross-repository qualification remain incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
@@ -56,9 +56,14 @@
     "Preserved investigation, checkpoint, history and worker behavior in real ClickHouse integration tests, including 50 concurrent duplicate settlements and bounded scheduler reads",
     "Verified 195 core and integration checks in a combined run and rejected eight targeted storage/authentication mutations",
     "Merged collaborator Rust server scaffold and route-inventory changes from main without changing the agreed Rust/Python split",
-    "Adapted the concurrently merged HTTP parity harness to ClickHouse sessions and replayed all 43 existing auth/dataset fixtures without changing expected responses"
+    "Adapted the concurrently merged HTTP parity harness to ClickHouse sessions and replayed all 43 existing auth/dataset fixtures without changing expected responses",
+    "Added the standalone FastAPI application lifecycle, static UI serving, configured runtime clients and readiness checks",
+    "Verified configuration, API startup, session/key/dataset persistence and runtime readiness with 15 focused checks and three rejected mutations",
+    "Replayed one copied OpenAI Agents fixture through the actual Rust service into ClickHouse and opened its six spans in the live standalone browser; delivery receipt confirmed",
+    "Fixed standalone login remaining on the sign-in screen after a successful response; browser now enters Lens without reload",
+    "Fast-forwarded concurrent Lens SDK changes from main through a7e137b5 without changing their source"
   ],
-  "current_work": "Complete standalone API/runtime startup, provider configuration and model access, signal/scheduler lifecycle and live UI flows; port remaining copied endpoint/lifecycle fixtures; qualify persistence migration, recovery and capacity, then LiteLLM embedding and companion repositories",
+  "current_work": "Implement standalone analysis provider/model/key configuration, update onboarding for standalone use, qualify worker and signal operation with real providers, then finish migrations, release artifacts and LiteLLM/ops/publisher integration",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -84,7 +89,8 @@
       "status": "not_run",
       "evidence": [
         "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)",
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
       ]
     },
     "S3": {
@@ -97,19 +103,23 @@
     },
     "S5": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
+      ]
     },
     "S6": {
       "status": "not_run",
       "evidence": [
         "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)",
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
       ]
     },
     "F1": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
       ]
     },
     "F2": {
@@ -317,7 +327,9 @@
     },
     "D1": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
+      ]
     },
     "D2": {
       "status": "not_run",
@@ -380,7 +392,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T23:27:16.207593+00:00",
+  "updated_at_utc": "2026-10-08T23:43:04.969965+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -500,6 +512,21 @@
       "fixture_commit": "01bd40dfd310a6279488030cc0e509ce2e3db1a4",
       "evidence": "docs/extraction/evidence/clickhouse-http-parity.log",
       "scope": "Real HTTP auth and dataset API requests against Uvicorn and ClickHouse; no provider calls, browser rendering or complete Lens application"
+    },
+    "standalone_startup": {
+      "status": "partial",
+      "tests_passed": 15,
+      "targeted_mutations_killed": 3,
+      "targeted_mutations_attempted": 3,
+      "evidence": "docs/extraction/standalone-startup.md",
+      "ui_build": "passed",
+      "web_typecheck": "passed",
+      "python_typecheck_errors": 0,
+      "python_typecheck_warnings": 19,
+      "python_typecheck_files": 3,
+      "live_trace_spans": 6,
+      "live_receipt_received": true,
+      "scope": "Provider-free local tracing path and assembled API; no published install, full browser parity, provider investigation, gateway embedding or complete lifecycle qualification"
     }
   },
   "open_dependency_advisories": [

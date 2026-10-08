@@ -12,6 +12,7 @@ from pydantic import SecretStr
 from litellm_lens.clickhouse_state import ClickHouseState
 from litellm_lens.identity import Identity
 from litellm_lens.tracing import TraceReceiver
+from litellm_lens.tracing.remote import LensConnection
 
 
 class AnalysisAccess(Protocol):
@@ -37,6 +38,8 @@ class Runtime:
     sql_signing_key: SecretStr
     public_url: str
     gateway_secret: SecretStr | None = None
+    connection: LensConnection | None = None
+    ingestion_url: str | None = None
 
 
 _CURRENT: Final[ContextVar[Runtime]] = ContextVar("lens_runtime")
@@ -44,6 +47,10 @@ _CURRENT: Final[ContextVar[Runtime]] = ContextVar("lens_runtime")
 
 def current_runtime() -> Runtime:
     return _CURRENT.get()
+
+
+def current_connection() -> LensConnection:
+    return current_runtime().connection or LensConnection.from_env()
 
 
 @contextmanager

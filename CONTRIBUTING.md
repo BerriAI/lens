@@ -1,6 +1,6 @@
 # Developing Lens
 
-This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI package builds and the standalone UI can be previewed. It is not yet an installable standalone release: application startup, storage qualification and cross-repository qualification remain open
+This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI builds, and the standalone API can serve it with live Rust ingestion and ClickHouse storage. It is not yet an installable standalone release: analysis-provider setup, complete lifecycle, storage qualification and cross-repository qualification remain open
 
 The target deployment is Lens with ClickHouse, including its configured Keeper component. The API runtime and Lens repositories use ClickHouse. PostgreSQL helpers remain for migration work, and their driver is an optional `migration` extra
 
@@ -31,7 +31,7 @@ npm ci
 npm run dev:ui
 ```
 
-Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. The live standalone API is still being completed; the preview does not demonstrate ingestion, persistence or provider-backed investigations
+Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. For the live tracing path, see [standalone development startup](docs/extraction/standalone-startup.md). Provider-backed investigations and the standalone setup experience are still being completed
 
 ```sh
 npm run typecheck:ui

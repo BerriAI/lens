@@ -2840,7 +2840,7 @@
       "destination": "src/litellm_lens/endpoints.py",
       "sha256": "30d512a05756c1fdf6489c7c2c85956af1c3996cb5fed54dd0e1fa146d0e75a9",
       "change": "adapted_during_extraction",
-      "extracted_sha256": "f35d2933d03fc48ef5c958db3519885e10b67fa49b67f5a49ca805aa38b87707",
+      "extracted_sha256": "c0da7dd45fc20bcd3c0bf24920b80a25c92d0eb4f54134126988a2ac6c42492c",
       "baseline_identical": false
     },
     {
@@ -3127,8 +3127,8 @@
       "source": "litellm/tracing/remote.py",
       "destination": "src/litellm_lens/tracing/remote.py",
       "sha256": "d190545b2439e76477b52f68c0ae36bb3a5a71a4b143a2645fa6267515120a32",
-      "change": "import_or_build_path",
-      "extracted_sha256": "fcab06e8eb20608e302c2a7ebc718544769e00544364e211ebe40c877400abb1",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "765c40df82f797ab9f87b11f59add160d8518da93f493d0822fdeb11874d99d5",
       "baseline_identical": false
     },
     {

@@ -84,7 +84,9 @@ function SignIn() {
       ),
     onSuccess: (session) => {
       setToken("");
-      client.clear();
+      client.removeQueries({
+        predicate: (query) => query.queryKey[0] !== sessionKey[0],
+      });
       client.setQueryData(sessionKey, session);
     },
   });
