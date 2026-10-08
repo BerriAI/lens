@@ -1,0 +1,270 @@
+{
+  "objective": "Complete all requirements in completion-plan.md; create any new repos as BerriAI internal repositories",
+  "status": "in_progress",
+  "started_at_utc": "2026-10-08T21:09:32.261897+00:00",
+  "baseline": {
+    "repository": "BerriAI/litellm",
+    "commit": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+    "worktree": "/Users/mfkhalil/Code/litellm-lens-extraction",
+    "branch": "litellm_lens_extraction",
+    "fetched_main": true
+  },
+  "lens_repository": {
+    "repository": "BerriAI/litellm-lens",
+    "url": "https://github.com/BerriAI/litellm-lens",
+    "visibility": "INTERNAL",
+    "path": "/Users/mfkhalil/Code/litellm-lens"
+  },
+  "completed_actions": [
+    "Fetched latest LiteLLM main",
+    "Created isolated extraction worktree",
+    "Created and verified internal Lens repository"
+  ],
+  "current_work": "Preserve history and copy product code; establish build and behavioral baseline",
+  "acceptance": {
+    "B1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "B2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "B3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "B4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "S6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F7": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F8": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F9": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F10": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F11": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "F12": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "I7": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M7": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M8": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "M9": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R7": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R8": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R9": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "R10": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O6": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "O7": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D1": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D2": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D3": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D4": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D5": {
+      "status": "not_run",
+      "evidence": []
+    },
+    "D6": {
+      "status": "not_run",
+      "evidence": []
+    }
+  }
+}
