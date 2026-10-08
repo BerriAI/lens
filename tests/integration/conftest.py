@@ -27,4 +27,3 @@ async def store() -> AsyncIterator[ClickHouseState]:
             "/", params={"query": "DROP DATABASE {name:Identifier} SYNC", "param_name": database}
         )
         removed.raise_for_status()
-

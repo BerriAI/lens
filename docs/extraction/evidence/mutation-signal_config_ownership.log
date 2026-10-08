@@ -1,0 +1,22 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result[False] __
+tests/integration/database/test_lens_signal_repository.py:68: in test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result
+    assert await repository.traces((TraceIdentity(trace_id="trace"),)) == current
+E   AssertionError: assert (StoredTraceS...: 'failed'}),) == (StoredTraceS... 'pending'}),)
+E
+E     At index 0 diff: StoredTraceSignal(trace_id='trace', trace_ref='', config_key='ded9c476ec6d4f118ddd1b19aaa0c287c201f900ba7430b720d05d4613ddbfcc', span_count=1, claimed_until=None, classified_at=datetime.datetime(2026, 10, 7, 12, 5, 1, tzinfo=TzInfo(0)), data={'error': 'obsolete', 'model': 'decision', 'scores': {}, 'status': 'failed'}) != StoredTraceSignal(trace_id='trace', trace_ref='', config_key='ded9c476ec6d4f118ddd1b19aaa0c287c201f900ba7430b720d05d4613ddbfcc', span_count=1, claimed_until=datetime.datetime(2026, 10, 7, 12, 10, 1, tzinfo=TzInfo(0)), classified_at=None...
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+__ test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result[True] __
+tests/integration/database/test_lens_signal_repository.py:68: in test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result
+    assert await repository.traces((TraceIdentity(trace_id="trace"),)) == current
+E   AssertionError: assert (StoredTraceS...: 'failed'}),) == (StoredTraceS... 'pending'}),)
+E
+E     At index 0 diff: StoredTraceSignal(trace_id='trace', trace_ref='', config_key='ded9c476ec6d4f118ddd1b19aaa0c287c201f900ba7430b720d05d4613ddbfcc', span_count=1, claimed_until=None, classified_at=datetime.datetime(2026, 10, 7, 12, 5, 1, tzinfo=TzInfo(0)), data={'error': 'obsolete', 'model': 'decision', 'scores': {}, 'status': 'failed'}) != StoredTraceSignal(trace_id='trace', trace_ref='', config_key='ded9c476ec6d4f118ddd1b19aaa0c287c201f900ba7430b720d05d4613ddbfcc', span_count=1, claimed_until=datetime.datetime(2026, 10, 7, 12, 10, 1, tzinfo=TzInfo(0)), classified_at=None...
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_signal_repository.py::test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result[False]
+FAILED tests/integration/database/test_lens_signal_repository.py::test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result[True]
+2 failed in 1.54s

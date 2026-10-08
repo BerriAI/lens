@@ -1,0 +1,68 @@
+[
+  {
+    "mutation": "dataset_latest",
+    "test": "test_lens_dataset_repository.py::test_get_returns_requested_revision_and_defaults_to_latest",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-dataset_latest.log",
+    "source": "src/litellm_lens/dataset_repository.py",
+    "original": "dataset.revision > StoredSummary",
+    "replacement": "dataset.revision < StoredSummary",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  },
+  {
+    "mutation": "dataset_immutable",
+    "test": "test_lens_dataset_repository.py::test_inserting_an_existing_revision_is_rejected_and_keeps_the_first",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-dataset_immutable.log",
+    "source": "src/litellm_lens/dataset_repository.py",
+    "original": "if revision.value is not None:",
+    "replacement": "if False:",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  },
+  {
+    "mutation": "dataset_paging",
+    "test": "test_lens_dataset_repository.py::test_summary_listing_pages_only_published_dataset_metadata",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-dataset_paging.log",
+    "source": "src/litellm_lens/dataset_repository.py",
+    "original": "cursor = keys[-1]",
+    "replacement": "return",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  },
+  {
+    "mutation": "signal_lease_boundary",
+    "test": "test_lens_signal_repository.py::test_signal_lease_must_be_strictly_expired_before_reclaiming",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-signal_lease_boundary.log",
+    "source": "src/litellm_lens/signal_repository.py",
+    "original": "existing.claimed_until >= now",
+    "replacement": "existing.claimed_until > now",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  },
+  {
+    "mutation": "signal_lease_ownership",
+    "test": "test_lens_signal_repository.py::test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-signal_lease_ownership.log",
+    "source": "src/litellm_lens/signal_repository.py",
+    "original": "existing.config_key != config.key() or existing.claimed_until != utc_time(claimed_until)",
+    "replacement": "existing.config_key != config.key()",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  },
+  {
+    "mutation": "signal_config_ownership",
+    "test": "test_lens_signal_repository.py::test_expired_worker_cannot_overwrite_a_new_claim_or_completed_result",
+    "exit_code": 1,
+    "killed": true,
+    "log": "mutation-signal_config_ownership.log",
+    "source": "src/litellm_lens/signal_repository.py",
+    "original": "existing.config_key != config.key() or existing.claimed_until != utc_time(claimed_until)",
+    "replacement": "existing.claimed_until != utc_time(claimed_until)",
+    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea"
+  }
+]
