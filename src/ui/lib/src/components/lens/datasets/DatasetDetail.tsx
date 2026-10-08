@@ -149,7 +149,7 @@ function DatasetRevision(props: DatasetRevisionProps) {
           </TabsList>
         </div>
         <TabsContent value="runs" className="min-h-0 overflow-y-auto">
-          <RunsTab datasetId={dataset.id} />
+          <RunsTab datasetId={dataset.id} agentName={dataset.agent_name} />
         </TabsContent>
         <TabsContent value="cases" className="flex min-h-0 flex-col">
           <SaveProblem error={save.error ?? exportDataset.error} onReload={reload} />
