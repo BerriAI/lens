@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/auth/session",
+    "headers": {
+      "cookie": "lens_session={{session_cookie}}"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "user_id": "lens-admin",
+      "user_role": "proxy_admin"
+    }
+  }
+}

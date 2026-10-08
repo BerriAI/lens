@@ -1,0 +1,48 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/datasets/{{dataset_id}}/revisions",
+    "headers": {
+      "authorization": "Bearer {{jwt.other_team_viewer}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "base_revision": 1,
+      "cases": [
+        {
+          "expected": "first expected",
+          "id": "provided-one",
+          "included": true,
+          "messages": [
+            {
+              "content": "first case",
+              "role": "user"
+            }
+          ],
+          "source": {}
+        },
+        {
+          "expected": "second expected",
+          "id": "provided-two",
+          "included": false,
+          "messages": [
+            {
+              "content": "excluded case",
+              "role": "user"
+            }
+          ],
+          "source": {}
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Only proxy admins can configure or run Lens"
+    }
+  }
+}

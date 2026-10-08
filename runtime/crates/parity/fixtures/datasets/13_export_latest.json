@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/datasets/{{dataset_id}}/export",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-disposition": "attachment; filename=\"dataset-{{dataset_id}}-r1.jsonl\"",
+      "content-type": "application/x-ndjson"
+    },
+    "body": "{\"id\":\"058e078ea0bc3e6504bc718ccdc87ed12cb3f0ebc6f09950004127f1304ded65\",\"messages\":[{\"role\":\"user\",\"content\":\"first case\",\"name\":\"\",\"tool_calls\":[]}],\"reply\":\"\",\"tool_calls\":[],\"expected\":\"first expected\",\"included\":true,\"source\":{\"trace_id\":\"\",\"trace_ref\":\"\",\"span_id\":\"\",\"finding_id\":\"\",\"lens_id\":\"\"},\"agent_version\":\"\"}\n"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/datasets/build",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "dataset_id": "{{dataset_id}}",
+      "sources": [
+        {
+          "kind": "text",
+          "text": "{\"messages\":[{\"role\":\"user\",\"content\":\"line one\"}],\"reply\":\"answer one\",\"expected\":\"expectation one\"}\n{\"messages\":[{\"role\":\"user\",\"content\":\"line two\"}],\"reply\":\"answer two\",\"expected\":\"expectation two\"}"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "cases": [
+        {
+          "agent_version": "",
+          "expected": "expectation one",
+          "id": "c6850898448d70d42d4c789be5b018d016f5eb5c51814ef287f647e881231e2c",
+          "included": true,
+          "messages": [
+            {
+              "content": "line one",
+              "name": "",
+              "role": "user",
+              "tool_calls": []
+            }
+          ],
+          "reply": "answer one",
+          "source": {
+            "finding_id": "",
+            "lens_id": "",
+            "span_id": "",
+            "trace_id": "",
+            "trace_ref": ""
+          },
+          "tool_calls": []
+        },
+        {
+          "agent_version": "",
+          "expected": "expectation two",
+          "id": "0715f4512fea5964d5f0c666b5403fffaf25d6a556b32928daa1251a92b77aac",
+          "included": true,
+          "messages": [
+            {
+              "content": "line two",
+              "name": "",
+              "role": "user",
+              "tool_calls": []
+            }
+          ],
+          "reply": "answer two",
+          "source": {
+            "finding_id": "",
+            "lens_id": "",
+            "span_id": "",
+            "trace_id": "",
+            "trace_ref": ""
+          },
+          "tool_calls": []
+        }
+      ],
+      "skipped": []
+    }
+  }
+}

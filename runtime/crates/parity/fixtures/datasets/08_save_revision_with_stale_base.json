@@ -1,0 +1,48 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/datasets/{{dataset_id}}/revisions",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "base_revision": 0,
+      "cases": [
+        {
+          "expected": "first expected",
+          "id": "provided-one",
+          "included": true,
+          "messages": [
+            {
+              "content": "first case",
+              "role": "user"
+            }
+          ],
+          "source": {}
+        },
+        {
+          "expected": "second expected",
+          "id": "provided-two",
+          "included": false,
+          "messages": [
+            {
+              "content": "excluded case",
+              "role": "user"
+            }
+          ],
+          "source": {}
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 409,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Dataset changed, reload"
+    }
+  }
+}

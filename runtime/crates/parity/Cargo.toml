@@ -1,0 +1,28 @@
+[package]
+name = "lens-parity"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }
+httpdate = "1.0"
+jsonwebtoken = { workspace = true, features = ["rust_crypto"] }
+regex = "1"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+similar = "2.7"
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs"] }
+url.workspace = true
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+rstest.workspace = true
+tempfile = "3"
+wiremock.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

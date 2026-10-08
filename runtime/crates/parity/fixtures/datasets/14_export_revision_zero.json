@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/datasets/{{dataset_id}}/export?revision=0",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-disposition": "attachment; filename=\"dataset-{{dataset_id}}-r0.jsonl\"",
+      "content-type": "application/x-ndjson"
+    },
+    "body": null
+  }
+}

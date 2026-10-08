@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/datasets/{{dataset_id}}",
+    "headers": {
+      "authorization": "Bearer {{jwt.other_team}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Lens requires proxy administrator access"
+    }
+  }
+}

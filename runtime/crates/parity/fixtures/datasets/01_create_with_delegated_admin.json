@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/datasets",
+    "headers": {
+      "authorization": "Bearer {{jwt.valid}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "agent_name": "parity agent",
+      "name": "parity dataset"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "agent_name": "parity agent",
+      "cases": [],
+      "created_at": "{{timestamp}}",
+      "created_by": "gateway-admin",
+      "id": "{{dataset_id}}",
+      "name": "parity dataset",
+      "revision": 0,
+      "team_id": "alpha"
+    }
+  }
+}
