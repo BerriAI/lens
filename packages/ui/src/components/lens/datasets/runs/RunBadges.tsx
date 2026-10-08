@@ -1,6 +1,6 @@
 import { SquareArrowOutUpRight } from "lucide-react";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 
 import { gateTone, safeLinkUrl, type GateTone } from "./format";
 import type { EvalRun } from "./types";
