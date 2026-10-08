@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, testQueryClient } from "@/../tests/test-utils";
-import { renderWithLens, stubGateway, type GatewayRequest } from "@/../tests/lens-test-utils";
+import { renderWithProviders, testQueryClient } from "../../../../../tests/test-utils";
+import { renderWithLens, stubGateway, type GatewayRequest } from "../../../../../tests/lens-test-utils";
 import { LensServicesProvider } from "../../data/LensServices";
 import { createLensDemo } from "../../data/demo/createLensDemo";
 import type { Span, Trace } from "../../traces/types";
@@ -11,8 +11,8 @@ import type { Dataset, DatasetSummary } from "../types";
 import { RunsTab } from "./RunsTab";
 import type { CaseDiff, EvalRun } from "./types";
 
-vi.mock("@/components/networking", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/components/networking")>()),
+vi.mock("../../../../lib/http/requests", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../lib/http/requests")>()),
   proxyBaseUrl: "",
   getProxyBaseUrl: () => "",
 }));
