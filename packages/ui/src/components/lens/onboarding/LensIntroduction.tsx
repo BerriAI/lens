@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../ui/button";
+import { cn } from "../../../lib/cva.config";
 import styles from "./LensIntroduction.module.css";
 import { GatewayFlow } from "./GatewayFlow";
 

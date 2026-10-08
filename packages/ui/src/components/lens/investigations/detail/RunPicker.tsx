@@ -1,9 +1,9 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../ui/button";
 
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "../../../ui/popover";
 import { ScanDuration } from "./JobMeta";
 import { useRunHistory } from "./useRunHistory";
 import type { Lens, Job } from "../../model/types";

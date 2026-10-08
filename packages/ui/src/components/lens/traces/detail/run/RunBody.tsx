@@ -4,9 +4,9 @@ import { type RefObject, useRef, useState } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useResizeObserver } from "usehooks-ts";
 
-import { useShortcut } from "@/components/shared/useShortcut";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/Resizable";
-import { TabsContent } from "@/components/ui/tabs";
+import { useShortcut } from "../../../../shared/useShortcut";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../../ui/Resizable";
+import { TabsContent } from "../../../../ui/tabs";
 
 import type { RunSelection } from "../../routing";
 import type { Trace } from "../../types";

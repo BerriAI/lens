@@ -3,8 +3,8 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { ChevronRight, RotateCw } from "lucide-react";
 import { useInView } from "react-intersection-observer";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../ui/button";
+import { cn } from "../../../lib/cva.config";
 
 import { runTime } from "../model/format";
 import type { Execution, MatchingPreview } from "./useMatchingActivity";

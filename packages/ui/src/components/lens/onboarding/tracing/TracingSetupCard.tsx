@@ -3,19 +3,19 @@
 import { ArrowRight, ArrowUpRight, Check, Copy, KeyRound, Loader2, Send } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { components } from "@/lib/http/schema";
-import { createApiClient, type RequestOptions } from "@/lib/http/client";
+import type { components } from "../../../../lib/http/schema";
+import { createApiClient, type RequestOptions } from "../../../../lib/http/client";
 import { useTimeout } from "usehooks-ts";
 
-import { cn } from "@/lib/cva.config";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { copyToClipboard } from "@/utils/dataUtils";
+import { cn } from "../../../../lib/cva.config";
+import { Button } from "../../../ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
+import { copyToClipboard } from "../../../../utils/dataUtils";
 
 import anthropicLogo from "../../../../../public/assets/logos/anthropic.svg";
 import openaiLogo from "../../../../../public/assets/logos/openai_small.svg";
 import otelLogo from "../../../../../public/assets/logos/opentelemetry.svg";
-import { agentTraceCall, apiClient, getProxyBaseUrl } from "../../../networking";
+import { agentTraceCall, apiClient, getProxyBaseUrl } from "../../../../lib/http/requests";
 import { ActiveDot } from "../../traces/ui/ActiveDot";
 import { sampleTraceExport } from "./sampleTrace";
 import { FRAMEWORKS, frameworkSnippet, type FrameworkGuide } from "./tracingSetupGuides";

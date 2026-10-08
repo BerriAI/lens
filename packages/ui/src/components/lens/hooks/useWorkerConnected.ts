@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "../../../hooks/useNow";
 import { workerConnected } from "../model/status";
 import type { LensList } from "../model/types";
 

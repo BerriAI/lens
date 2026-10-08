@@ -1,8 +1,8 @@
 "use client";
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Input } from "@/components/ui/input";
-import { DurationInput } from "@/components/shared/DurationInput";
+import { Input } from "../../../ui/input";
+import { DurationInput } from "../../../shared/DurationInput";
 import type { InvestigationInput } from "../investigationSchema";
 import { AnalysisModelField, type AnalysisModelFieldProps } from "./AnalysisModelField";
 

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithProviders } from "../../../../../tests/test-utils";
-import { Inspector } from "@/components/shared/Inspector";
+import { Inspector } from "../../../shared/Inspector";
 import traceList from "../__fixtures__/trace_list.json";
 import { AgentTracesTable, runCost } from "./AgentTracesTable";
 import { traceKey } from "../routing";

@@ -1,11 +1,11 @@
 "use client";
-import { ListRow } from "@/components/shared/ListRow";
+import { ListRow } from "../../../shared/ListRow";
 
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../ui/button";
 
-import { TabsContent } from "@/components/ui/tabs";
+import { TabsContent } from "../../../ui/tabs";
 import { HistoryTimeline } from "./HistoryTimeline";
 import { ScanDuration } from "./JobMeta";
 import { useRunHistory } from "./useRunHistory";

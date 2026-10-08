@@ -8,7 +8,7 @@ import {
   agentTraceSpanErrorCall,
   apiClient,
   getProxyBaseUrl,
-} from "../../networking";
+} from "../../../lib/http/requests";
 import type { AgentSummary } from "../agents/agentRollup";
 import type {
   SpanDetail,

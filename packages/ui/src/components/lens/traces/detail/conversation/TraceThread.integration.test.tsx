@@ -9,12 +9,12 @@ import { useOpenTraceRouting } from "../../routing";
 import type { SpanDetail, Trace } from "../../types";
 import { RunView } from "../run/RunView";
 
-vi.mock("../../../../networking", () => ({
+vi.mock("../../../../../lib/http/requests", () => ({
   agentTraceCall: vi.fn(),
   agentTraceSpanCall: vi.fn(),
   getProxyBaseUrl: () => "http://proxy.test",
 }));
-import { agentTraceCall, agentTraceSpanCall } from "../../../../networking";
+import { agentTraceCall, agentTraceSpanCall } from "../../../../../lib/http/requests";
 
 function RoutedRunView(props: Omit<ComponentProps<typeof RunView>, "selection">) {
   const { selection } = useOpenTraceRouting();

@@ -3,41 +3,69 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ComponentProps, useState } from "react";
 
-import { renderWithProviders, testQueryClient } from "../../../../../../tests/test-utils";
+import {
+  renderWithProviders as renderBase,
+  testQueryClient,
+} from "../../../../../../tests/test-utils";
 import { DetailPane } from "./DetailPane";
 import type { SpanTab } from "../../routing";
 import { absoluteTime, SpanHoverCard, spanFacts } from "../tree/SpanHoverCard";
 import type { GroupRowData, SpanRowData } from "../../tree";
 import type { Span, SpanDetail, SpanErrorPage, Trace } from "../../types";
 
-vi.mock("../../../../networking", () => ({
+vi.mock("../../../../../lib/http/requests", () => ({
   agentTraceSpanCall: vi.fn(),
   agentTraceSpanErrorCall: vi.fn(),
-  uiSpendLogsCall: vi.fn(),
   getProxyBaseUrl: () => "http://proxy.test/",
 }));
 
-vi.mock("../../../../logs/detail", () => ({
-  LogDetailsDrawer: ({
-    open,
-    logEntry,
-    onClose,
-    backTo,
-  }: {
-    open: boolean;
-    logEntry: { request_id: string } | null;
-    onClose: () => void;
-    backTo?: { label: string };
-  }) =>
-    open && logEntry ? (
-      <div role="dialog" aria-label="Request log">
-        {logEntry.request_id}
-        {backTo && <button onClick={onClose}>Back to {backTo.label}</button>}
-      </div>
-    ) : null,
-}));
+import {
+  LensHostProvider,
+  type SpendLogDrawerProps,
+  type LensHost,
+} from "../../../../../host/LensHost";
+import type { LogEntry } from "../../../../logs/types";
 
-import { agentTraceSpanCall, agentTraceSpanErrorCall, uiSpendLogsCall } from "../../../../networking";
+const uiSpendLogsCall = vi.fn<NonNullable<LensHost["spendLogs"]>["lookup"]>();
+const RequestLogDrawer = ({
+  open,
+  logEntry,
+  onClose,
+  backTo,
+}: SpendLogDrawerProps) =>
+  open && logEntry ? (
+    <div role="dialog" aria-label="Request log">
+      {logEntry.request_id}
+      <button onClick={onClose}>Back to {backTo.label}</button>
+    </div>
+  ) : null;
+const host: LensHost = {
+  spendLogs: { lookup: uiSpendLogsCall, Drawer: RequestLogDrawer },
+};
+const renderWithProviders = (...[ui, options]: Parameters<typeof renderBase>) =>
+  renderBase(<LensHostProvider host={host}>{ui}</LensHostProvider>, options);
+const requestLog: LogEntry = {
+  request_id: "req_7f3a9c2e1b44",
+  api_key: "",
+  team_id: "",
+  model: "model",
+  model_id: "model",
+  call_type: "completion",
+  spend: 0.0002,
+  total_tokens: 719,
+  prompt_tokens: 659,
+  completion_tokens: 60,
+  startTime: "2026-09-30T06:43:52Z",
+  endTime: "2026-09-30T06:43:53Z",
+  cache_hit: "False",
+  messages: "",
+  response: "",
+};
+
+import {
+  agentTraceSpanCall,
+  agentTraceSpanErrorCall,
+} from "../../../../../lib/http/requests";
 
 type SpanFields = Partial<Span> & Pick<Span, "span_id">;
 
@@ -63,7 +91,12 @@ const span = (overrides: SpanFields): Span => ({
   ...overrides,
 });
 
-const rootFields: SpanFields = { span_id: "root", parent_span_id: null, name: "support_triage_agent", type: "agent" };
+const rootFields: SpanFields = {
+  span_id: "root",
+  parent_span_id: null,
+  name: "support_triage_agent",
+  type: "agent",
+};
 const llmFields: SpanFields = {
   span_id: "llm1",
   name: "ChatOpenAI",
@@ -93,7 +126,8 @@ const trace: Trace = {
     trace_id: "t1",
     name: "support_triage_agent",
     service: "research-agent",
-    input_preview: '[{"role": "user", "content": "Customer acme-404 says billing is wrong."}]',
+    input_preview:
+      '[{"role": "user", "content": "Customer acme-404 says billing is wrong."}]',
     start_time: "2026-09-30T06:43:52.928000+00:00",
     duration_ms: 1310,
     status: "ok",
@@ -123,15 +157,30 @@ const details: Record<string, SpanDetail> = {
     output: JSON.stringify({
       role: "assistant",
       content: "",
-      tool_calls: [{ name: "get_customer_plan", args: { customer_id: "acme-404", note: LONG_NOTE } }],
+      tool_calls: [
+        {
+          name: "get_customer_plan",
+          args: { customer_id: "acme-404", note: LONG_NOTE },
+        },
+      ],
     }),
     attributes: { "gen_ai.request.model": "claude-sonnet-4-5" },
   },
-  tool1: { span_id: "tool1", input: '{"customer_id":"acme-404"}', output: "", attributes: {} },
+  tool1: {
+    span_id: "tool1",
+    input: '{"customer_id":"acme-404"}',
+    output: "",
+    attributes: {},
+  },
   root: {
     span_id: "root",
-    input: JSON.stringify([{ role: "user", content: "Customer acme-404 says billing is wrong." }]),
-    output: JSON.stringify({ role: "assistant", content: "Customer acme-404 is on the Enterprise plan." }),
+    input: JSON.stringify([
+      { role: "user", content: "Customer acme-404 says billing is wrong." },
+    ]),
+    output: JSON.stringify({
+      role: "assistant",
+      content: "Customer acme-404 is on the Enterprise plan.",
+    }),
     attributes: {},
   },
 };
@@ -169,7 +218,10 @@ const workflowDetail: SpanDetail = {
   input_ui: {
     kind: "fields",
     fields: [
-      { key: "init_state", value: '{"config": {"timeout": null, "workers": 4}}' },
+      {
+        key: "init_state",
+        value: '{"config": {"timeout": null, "workers": 4}}',
+      },
       { key: "start_event", value: "AgentWorkflowStartEvent()" },
     ],
   },
@@ -189,7 +241,10 @@ const langchainDetail: SpanDetail = {
         key: "messages",
         value: JSON.stringify([
           { type: "human", data: { content: "What is an agent trace?" } },
-          { type: "ai", data: { content: "A record of every step an agent took." } },
+          {
+            type: "ai",
+            data: { content: "A record of every step an agent took." },
+          },
         ]),
       },
     ],
@@ -201,7 +256,10 @@ const failedToolMessageDetail: SpanDetail = {
   span_id: "tool1",
   input: '{"customer_id":"acme-404"}',
   output: "raw tool output",
-  output_ui: { kind: "messages", messages: [{ role: "tool", content: "permission denied: /etc/shadow" }] },
+  output_ui: {
+    kind: "messages",
+    messages: [{ role: "tool", content: "permission denied: /etc/shadow" }],
+  },
   attributes: {},
 };
 
@@ -214,19 +272,32 @@ const spanRow = (s: Span): SpanRowData => ({
   collapsed: false,
 });
 
-function LocalDetailPane(props: Omit<ComponentProps<typeof DetailPane>, "spanTab" | "onSpanTabChange">) {
+function LocalDetailPane(
+  props: Omit<ComponentProps<typeof DetailPane>, "spanTab" | "onSpanTabChange">,
+) {
   const [spanTab, setSpanTab] = useState<SpanTab>("content");
-  return <DetailPane {...props} spanTab={spanTab} onSpanTabChange={setSpanTab} />;
+  return (
+    <DetailPane {...props} spanTab={spanTab} onSpanTabChange={setSpanTab} />
+  );
 }
 
 const renderPane = (row: SpanRowData | GroupRowData) =>
-  renderWithProviders(<LocalDetailPane trace={trace} row={row} accessToken="sk-test" onClose={vi.fn()} />);
+  renderWithProviders(
+    <LocalDetailPane
+      trace={trace}
+      row={row}
+      accessToken="sk-test"
+      onClose={vi.fn()}
+    />,
+  );
 
 describe("DetailPane", () => {
   beforeEach(() => {
     testQueryClient.clear();
     vi.mocked(agentTraceSpanCall).mockReset();
-    vi.mocked(agentTraceSpanCall).mockImplementation(async (_token, _trace, spanId) => details[spanId]);
+    vi.mocked(agentTraceSpanCall).mockImplementation(
+      async (_token, _trace, spanId) => details[spanId],
+    );
   });
 
   it("renders the span tabs and the fetched LLM conversation with its tool call", async () => {
@@ -234,9 +305,16 @@ describe("DetailPane", () => {
     expect(screen.getByRole("tab", { name: "Content" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Request" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Attributes" })).toBeInTheDocument();
-    expect(await screen.findByText("Customer acme-404 says billing is wrong.")).toBeVisible();
+    expect(
+      await screen.findByText("Customer acme-404 says billing is wrong."),
+    ).toBeVisible();
     expect(screen.getAllByText("get_customer_plan").length).toBeGreaterThan(0);
-    expect(vi.mocked(agentTraceSpanCall)).toHaveBeenCalledWith("sk-test", "t1", "llm1", undefined);
+    expect(vi.mocked(agentTraceSpanCall)).toHaveBeenCalledWith(
+      "sk-test",
+      "t1",
+      "llm1",
+      undefined,
+    );
   });
 
   it("keeps the output visible when a step contains a long input conversation", async () => {
@@ -251,9 +329,13 @@ describe("DetailPane", () => {
       input_ui: { kind: "messages", messages },
     });
     renderPane(spanRow(root));
-    const input = await screen.findByRole("button", { name: "Input 120 messages" });
+    const input = await screen.findByRole("button", {
+      name: "Input 120 messages",
+    });
     expect(input).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText("Customer acme-404 is on the Enterprise plan.")).toBeVisible();
+    expect(
+      screen.getByText("Customer acme-404 is on the Enterprise plan."),
+    ).toBeVisible();
     expect(screen.getByText("Review case 119")).not.toBeVisible();
     await user.click(input);
     expect(screen.getByText("Review case 119")).toBeVisible();
@@ -263,7 +345,9 @@ describe("DetailPane", () => {
     renderPane(spanRow(failedTool));
     const error = screen.getByRole("region", { name: "Error" });
     expect(error).toHaveTextContent("Tool · ValueError");
-    expect(error).toHaveTextContent("ValueError('customer acme-404 not found in billing DB')");
+    expect(error).toHaveTextContent(
+      "ValueError('customer acme-404 not found in billing DB')",
+    );
     expect(error).not.toHaveTextContent("Traceback");
     const input = await screen.findByRole("region", { name: /^Input/ });
     expect(input).toHaveTextContent("customer_id");
@@ -272,45 +356,121 @@ describe("DetailPane", () => {
 
   it("links a priced LLM step to its spend log in the header and opens it by that request id", async () => {
     const user = userEvent.setup();
-    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [{ request_id: "req_7f3a9c2e1b44" }] });
+    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [requestLog] });
     renderPane(spanRow(llm));
-    const link = screen.getByRole("button", { name: "Open LiteLLM spend log req_7f3a9c2e1b44" });
+    const link = screen.getByRole("button", {
+      name: "Open LiteLLM spend log req_7f3a9c2e1b44",
+    });
     expect(link).toHaveTextContent("LiteLLM Spend Log$0.0002");
     await user.click(link);
-    expect(await screen.findByRole("dialog", { name: "Request log" })).toHaveTextContent("req_7f3a9c2e1b44");
-    expect(vi.mocked(uiSpendLogsCall).mock.calls[0][0].params).toEqual({ request_id: "req_7f3a9c2e1b44" });
+    expect(
+      await screen.findByRole("dialog", { name: "Request log" }),
+    ).toHaveTextContent("req_7f3a9c2e1b44");
+    expect(vi.mocked(uiSpendLogsCall).mock.calls[0][0].params).toEqual({
+      request_id: "req_7f3a9c2e1b44",
+    });
+    expect(vi.mocked(uiSpendLogsCall).mock.calls[0][0]).toMatchObject({
+      accessToken: "sk-test",
+      start_date: "2026-09-30 06:13:52",
+      end_date: "2026-09-30 07:13:52",
+      page: 1,
+      page_size: 1,
+    });
+  });
+
+  it("keeps a spend log with another request id out of the drawer", async () => {
+    const user = userEvent.setup();
+    uiSpendLogsCall.mockResolvedValue({
+      data: [{ ...requestLog, request_id: "another-request" }],
+    });
+    renderPane(spanRow(llm));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
+      }),
+    );
+    expect(
+      await screen.findByText("Spend log not visible in this time range"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("dialog", { name: "Request log" }),
+    ).not.toBeInTheDocument();
   });
 
   it("returns from the spend log to the same agent trace step", async () => {
     const user = userEvent.setup();
-    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [{ request_id: "req_7f3a9c2e1b44" }] });
+    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [requestLog] });
     renderPane(spanRow(llm));
-    await user.click(screen.getByRole("button", { name: "Open LiteLLM spend log req_7f3a9c2e1b44" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
+      }),
+    );
     const drawer = await screen.findByRole("dialog", { name: "Request log" });
-    await user.click(within(drawer).getByRole("button", { name: "Back to Lens trace" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Request log" })).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Open LiteLLM spend log req_7f3a9c2e1b44" })).toBeVisible();
+    await user.click(
+      within(drawer).getByRole("button", { name: "Back to Lens trace" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Request log" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
+      }),
+    ).toBeVisible();
   });
 
   it.each([
-    { spend_match: "no_call_id" as const, reason: "This step records no usable call identifier or transport context" },
-    { spend_match: "no_spend_log" as const, reason: "No matching spend log belongs to this run" },
-    { spend_match: "incomplete_evidence" as const, reason: "This step does not account for every request in the call" },
-  ])("says why an unpriced LLM step has no cost ($spend_match)", async ({ spend_match, reason }) => {
-    const user = userEvent.setup();
-    const unpriced: SpanFields = { ...llmFields, spend: null, spend_log_request_id: null, spend_match };
-    renderPane(spanRow(span(unpriced)));
-    expect(screen.getByTitle(reason)).toHaveTextContent("Cost not matched");
-    expect(screen.queryByRole("button", { name: /Open LiteLLM spend log/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Request" }));
-    expect(await screen.findByText(reason, { selector: "p" })).toBeInTheDocument();
-  });
+    {
+      spend_match: "no_call_id" as const,
+      reason:
+        "This step records no usable call identifier or transport context",
+    },
+    {
+      spend_match: "no_spend_log" as const,
+      reason: "No matching spend log belongs to this run",
+    },
+    {
+      spend_match: "incomplete_evidence" as const,
+      reason: "This step does not account for every request in the call",
+    },
+  ])(
+    "says why an unpriced LLM step has no cost ($spend_match)",
+    async ({ spend_match, reason }) => {
+      const user = userEvent.setup();
+      const unpriced: SpanFields = {
+        ...llmFields,
+        spend: null,
+        spend_log_request_id: null,
+        spend_match,
+      };
+      renderPane(spanRow(span(unpriced)));
+      expect(screen.getByTitle(reason)).toHaveTextContent("Cost not matched");
+      expect(
+        screen.queryByRole("button", { name: /Open LiteLLM spend log/ }),
+      ).not.toBeInTheDocument();
+      await user.click(screen.getByRole("tab", { name: "Request" }));
+      expect(
+        await screen.findByText(reason, { selector: "p" }),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("keeps the Cost fact for a priced step that has no single spend log to link", () => {
-    const pricedFromRetries: SpanFields = { ...llmFields, spend: 0.0005, spend_log_request_id: null };
+    const pricedFromRetries: SpanFields = {
+      ...llmFields,
+      spend: 0.0005,
+      spend_log_request_id: null,
+    };
     renderPane(spanRow(span(pricedFromRetries)));
-    expect(screen.queryByRole("button", { name: /Open LiteLLM spend log/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Cost").parentElement).toHaveTextContent("Cost$0.0005");
+    expect(
+      screen.queryByRole("button", { name: /Open LiteLLM spend log/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Cost").parentElement).toHaveTextContent(
+      "Cost$0.0005",
+    );
   });
 
   it("summarizes a ×N group with its failure pattern", () => {
@@ -348,11 +508,16 @@ describe("DetailPane", () => {
   it("'Copy step' copies a curl for this span's captured content", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
     renderPane(spanRow(llm));
     await user.click(screen.getByRole("button", { name: "Copy step" }));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
-    expect(writeText.mock.calls[0][0]).toContain("http://proxy.test/v1/traces/t1/spans/llm1");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "http://proxy.test/v1/traces/t1/spans/llm1",
+    );
   });
 
   it("renders the assistant tool call as a card and expands a long argument on click", async () => {
@@ -361,14 +526,25 @@ describe("DetailPane", () => {
     const output = await screen.findByRole("region", { name: "Output" });
     expect(output).toHaveTextContent("Assistant");
     expect(output).toHaveTextContent("get_customer_plan");
-    const expand = within(output).getAllByRole("button", { name: "Expand note" })[0];
-    expect(within(output).queryAllByText(LONG_NOTE, { selector: "pre", ignore: "[inert] *" })).toHaveLength(0);
+    const expand = within(output).getAllByRole("button", {
+      name: "Expand note",
+    })[0];
+    expect(
+      within(output).queryAllByText(LONG_NOTE, {
+        selector: "pre",
+        ignore: "[inert] *",
+      }),
+    ).toHaveLength(0);
     await user.click(expand);
-    expect(within(output).getAllByRole("button", { name: "Collapse note" })[0]).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    expect(within(output).getAllByText(LONG_NOTE, { selector: "pre", ignore: "[inert] *" })).not.toHaveLength(0);
+    expect(
+      within(output).getAllByRole("button", { name: "Collapse note" })[0],
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(output).getAllByText(LONG_NOTE, {
+        selector: "pre",
+        ignore: "[inert] *",
+      }),
+    ).not.toHaveLength(0);
   });
 
   it("collapses the Input section without touching Output", async () => {
@@ -377,13 +553,23 @@ describe("DetailPane", () => {
     const input = await screen.findByRole("region", { name: /^Input/ });
     const systemText = "You are a LiteLLM support agent.";
     expect(within(input).queryByText(systemText)).not.toBeInTheDocument();
-    await user.click(within(input).getByRole("button", { name: "Expand System" }));
-    expect(within(input).getByText(systemText, { ignore: "[inert] *" })).toBeVisible();
+    await user.click(
+      within(input).getByRole("button", { name: "Expand System" }),
+    );
+    expect(
+      within(input).getByText(systemText, { ignore: "[inert] *" }),
+    ).toBeVisible();
     await user.click(within(input).getByRole("button", { name: /^Input/ }));
-    expect(within(input).getByRole("button", { name: /^Input/ })).toHaveAttribute("aria-expanded", "false");
-    expect(within(input).queryByText(systemText, { ignore: "[inert] *" })).not.toBeInTheDocument();
+    expect(
+      within(input).getByRole("button", { name: /^Input/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      within(input).queryByText(systemText, { ignore: "[inert] *" }),
+    ).not.toBeInTheDocument();
     const output = screen.getByRole("region", { name: "Output" });
-    expect(within(output).getAllByText("get_customer_plan", { ignore: "[inert] *" })).not.toHaveLength(0);
+    expect(
+      within(output).getAllByText("get_customer_plan", { ignore: "[inert] *" }),
+    ).not.toHaveLength(0);
   });
 
   it("renders the standard input_ui / output_ui instead of re-parsing the raw payload", async () => {
@@ -405,7 +591,9 @@ describe("DetailPane", () => {
     vi.mocked(agentTraceSpanCall).mockResolvedValue(failedToolMessageDetail);
     renderPane(spanRow(failedTool));
     const output = await screen.findByRole("region", { name: "Output" });
-    const result = within(output).getByRole("group", { name: "Failed tool result" });
+    const result = within(output).getByRole("group", {
+      name: "Failed tool result",
+    });
     expect(result).toBeVisible();
     expect(result).toHaveClass("text-destructive");
     expect(result).toHaveTextContent("permission denied: /etc/shadow");
@@ -416,7 +604,9 @@ describe("DetailPane", () => {
     vi.mocked(agentTraceSpanCall).mockResolvedValue(textDetail);
     renderPane(spanRow(llm));
     const output = await screen.findByRole("region", { name: "Output" });
-    expect(within(output).getByText("all done", { selector: "pre" })).toBeInTheDocument();
+    expect(
+      within(output).getByText("all done", { selector: "pre" }),
+    ).toBeInTheDocument();
     expect(output).not.toHaveTextContent("answer");
   });
 
@@ -426,17 +616,27 @@ describe("DetailPane", () => {
     renderPane(spanRow(root));
     const input = await screen.findByRole("region", { name: /^Input/ });
     expect(within(input).getByText("AgentWorkflowStartEvent()")).toBeVisible();
-    expect(within(input).getByRole("button", { name: "Collapse init_state" })).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(input).getByRole("button", { name: "Collapse init_state" }),
+    ).toHaveAttribute("aria-expanded", "true");
     expect(within(input).queryByText("workers")).not.toBeInTheDocument();
-    await user.click(within(input).getByRole("button", { name: "Expand config" }));
+    await user.click(
+      within(input).getByRole("button", { name: "Expand config" }),
+    );
     expect(within(input).getByText("workers")).toBeVisible();
     expect(within(input).getByText("4")).toBeVisible();
 
     const output = screen.getByRole("region", { name: "Output" });
-    expect(within(output).getByText("agent trace", { selector: "strong" })).toBeVisible();
+    expect(
+      within(output).getByText("agent trace", { selector: "strong" }),
+    ).toBeVisible();
     await user.click(within(output).getByRole("radio", { name: "Raw" }));
-    expect(within(output).getByText("StopEvent(result='done')", { selector: "pre" })).toBeVisible();
-    expect(within(output).queryByText("agent trace", { selector: "strong" })).not.toBeInTheDocument();
+    expect(
+      within(output).getByText("StopEvent(result='done')", { selector: "pre" }),
+    ).toBeVisible();
+    expect(
+      within(output).queryByText("agent trace", { selector: "strong" }),
+    ).not.toBeInTheDocument();
     expect(within(input).getByText("AgentWorkflowStartEvent()")).toBeVisible();
   });
 
@@ -444,10 +644,16 @@ describe("DetailPane", () => {
     vi.mocked(agentTraceSpanCall).mockResolvedValue(langchainDetail);
     renderPane(spanRow(root));
     const output = await screen.findByRole("region", { name: "Output" });
-    expect(within(output).getByRole("button", { name: "Collapse messages" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(output).getByRole("button", { name: "Collapse User" })).toBeVisible();
+    expect(
+      within(output).getByRole("button", { name: "Collapse messages" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(output).getByRole("button", { name: "Collapse User" }),
+    ).toBeVisible();
     expect(within(output).getByText("What is an agent trace?")).toBeVisible();
-    expect(within(output).getByText("A record of every step an agent took.")).toBeVisible();
+    expect(
+      within(output).getByText("A record of every step an agent took."),
+    ).toBeVisible();
     expect(output).not.toHaveTextContent('"type": "human"');
   });
 
@@ -458,7 +664,9 @@ describe("DetailPane", () => {
     const ids = screen.getByRole("region", { name: "Identifiers" });
     expect(ids).toHaveTextContent("span_idllm1");
     expect(ids).toHaveTextContent("parent_span_idroot");
-    const attributes = await screen.findByRole("region", { name: "Attributes" });
+    const attributes = await screen.findByRole("region", {
+      name: "Attributes",
+    });
     expect(attributes).toHaveTextContent("gen_ai.request.model");
     expect(attributes).not.toHaveTextContent("span_id");
   });
@@ -484,14 +692,22 @@ describe("SpanHoverCard", () => {
       </SpanHoverCard>,
     );
     await user.hover(screen.getByRole("button", { name: "row" }));
-    const card = await screen.findByTestId("span-hover-card", {}, { timeout: 2000 });
+    const card = await screen.findByTestId(
+      "span-hover-card",
+      {},
+      { timeout: 2000 },
+    );
     expect(within(card).getByText(label)).toBeInTheDocument();
   });
 
   it("shows absolute Start / End times and the agent tag after hovering the row", async () => {
     const user = userEvent.setup();
     const traceStartMs = Date.parse(trace.summary.start_time);
-    const timed = span({ span_id: "timed", start_offset_ms: 2000, duration_ms: 3000 });
+    const timed = span({
+      span_id: "timed",
+      start_offset_ms: 2000,
+      duration_ms: 3000,
+    });
     renderWithProviders(
       <SpanHoverCard facts={spanFacts(timed)} traceStartMs={traceStartMs}>
         <button type="button">row</button>
@@ -499,11 +715,17 @@ describe("SpanHoverCard", () => {
     );
     expect(screen.queryByTestId("span-hover-card")).not.toBeInTheDocument();
     await user.hover(screen.getByRole("button", { name: "row" }));
-    const card = await screen.findByTestId("span-hover-card", {}, { timeout: 2000 });
+    const card = await screen.findByTestId(
+      "span-hover-card",
+      {},
+      { timeout: 2000 },
+    );
     const time = within(card).getByRole("region", { name: "Time" });
     expect(time).toHaveTextContent(`Start${absoluteTime(traceStartMs, 2000)}`);
     expect(time).toHaveTextContent(`End${absoluteTime(traceStartMs, 5000)}`);
-    expect(within(card).getByRole("region", { name: "Tags" })).toHaveTextContent("agent:support_triage_agent");
+    expect(
+      within(card).getByRole("region", { name: "Tags" }),
+    ).toHaveTextContent("agent:support_triage_agent");
   });
 });
 
@@ -520,17 +742,34 @@ it("retrieves the retained diagnostic one section at a time", async () => {
     total_chars: 100,
     next_cursor: null,
   };
-  vi.mocked(agentTraceSpanErrorCall).mockResolvedValueOnce(firstPage).mockResolvedValueOnce(lastPage);
+  vi.mocked(agentTraceSpanErrorCall)
+    .mockResolvedValueOnce(firstPage)
+    .mockResolvedValueOnce(lastPage);
   renderPane(spanRow({ ...failedTool, error_truncated: true }));
   expect(screen.getByText("Error preview truncated")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "View stored diagnostic" }));
-  expect(await screen.findByText("First diagnostic section")).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "View stored diagnostic" }),
+  );
+  expect(
+    await screen.findByText("First diagnostic section"),
+  ).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Next section" }));
-  expect(await screen.findByText("Last diagnostic section")).toBeInTheDocument();
-  expect(screen.queryByText("First diagnostic section")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Next section" })).not.toBeInTheDocument();
-  expect(agentTraceSpanErrorCall).toHaveBeenLastCalledWith("sk-test", "t1", "tool1", {
-    traceRef: undefined,
-    cursor: "next-section",
-  });
+  expect(
+    await screen.findByText("Last diagnostic section"),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText("First diagnostic section"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Next section" }),
+  ).not.toBeInTheDocument();
+  expect(agentTraceSpanErrorCall).toHaveBeenLastCalledWith(
+    "sk-test",
+    "t1",
+    "tool1",
+    {
+      traceRef: undefined,
+      cursor: "next-section",
+    },
+  );
 });

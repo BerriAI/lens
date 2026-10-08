@@ -2,9 +2,9 @@
 
 import { useId, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { TracingSetupFields, useLensService } from "@/components/lens/onboarding/tracing/TracingSetupCard";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../ui/button";
+import { TracingSetupFields, useLensService } from "./tracing/TracingSetupCard";
+import { cn } from "../../../lib/cva.config";
 import { useLensAccessToken } from "../data/LensServices";
 import type { LensReadiness } from "../hooks/useLensReadiness";
 import { initialSetupStep } from "../model/readiness";

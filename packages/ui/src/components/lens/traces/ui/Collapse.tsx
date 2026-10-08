@@ -2,7 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 
 /** Snaps between 0 and auto height; children stay mounted but inert while closed. */
 export function Collapse({

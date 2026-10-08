@@ -2,16 +2,16 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
-import type { RunSelection } from "@/components/lens/traces/routing";
+import type { RunSelection } from "../traces/routing";
 
-import { renderWithLens } from "@/../tests/lens-test-utils";
-import { Inspector } from "@/components/shared/Inspector";
+import { renderWithLens } from "../../../../tests/lens-test-utils";
+import { Inspector } from "../../shared/Inspector";
 
 import type { OwnedFinding } from "../model/inbox";
 import type { Finding, Lens } from "../model/types";
 import { FindingPanel, ownedFindingKey } from "./FindingDetails";
 
-vi.mock("@/components/lens/traces/detail/run/RunView", () => ({
+vi.mock("../traces/detail/run/RunView", () => ({
   RunView: ({ traceId, selection }: { traceId: string; selection: RunSelection }) => (
     <div data-testid="run-view">
       {traceId} at {selection.spanId}

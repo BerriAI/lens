@@ -3,9 +3,9 @@
 import { ChevronRight, Wrench } from "lucide-react";
 import { useState } from "react";
 
-import CopyButton from "@/components/shared/CopyButton";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import CopyButton from "../../../../shared/CopyButton";
+import { Button } from "../../../../ui/button";
+import { cn } from "../../../../../lib/cva.config";
 
 import type { TraceMessage } from "../../types";
 import { fmtMs } from "../../utils";

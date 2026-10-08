@@ -1,11 +1,11 @@
 "use client";
 
 import { ArrowUpRight, SearchX, TriangleAlert } from "lucide-react";
-import { LoadingState } from "@/components/shared/LoadingState";
-import { StateMessage } from "@/components/shared/StateMessage";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { LoadingState } from "../../shared/LoadingState";
+import { StateMessage } from "../../shared/StateMessage";
+import { Button, buttonVariants } from "../../ui/button";
 
-import { ApiError } from "@/lib/http/client";
+import { ApiError } from "../../../lib/http/client";
 
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
 

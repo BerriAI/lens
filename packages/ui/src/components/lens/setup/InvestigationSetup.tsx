@@ -3,9 +3,9 @@
 import { FormProvider, useWatch, type UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { useZodForm } from "@/lib/forms/useZodForm";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useZodForm } from "../../../lib/forms/useZodForm";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
 import {
   investigationSchema,
   investigationDefaults,
@@ -24,7 +24,7 @@ import { MatchingActivityPreview } from "./MatchingActivityPreview";
 import { useMatchingActivity } from "./useMatchingActivity";
 import { useAnalysisModels } from "./fields/useAnalysisModels";
 import { modelGate } from "./fields/analysisModels";
-import { Inspector } from "@/components/shared/Inspector";
+import { Inspector } from "../../shared/Inspector";
 import { TraceEvidence } from "../investigations/Evidence";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import type { Execution } from "./useMatchingActivity";

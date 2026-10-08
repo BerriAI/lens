@@ -1,6 +1,6 @@
 # Developing Lens
 
-This branch contains the complete Lens source extraction and the standalone implementation in progress. It is available for collaborative development. It is not yet an installable standalone release: application startup, the UI package build, ClickHouse repository integration and cross-repository qualification remain open
+This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI package builds and the standalone UI can be previewed. It is not yet an installable standalone release: application startup, remaining ClickHouse repositories and cross-repository qualification remain open
 
 The target deployment is Lens with ClickHouse, including its configured Keeper component. PostgreSQL code currently present is transitional extraction work and migration material, not the target runtime dependency
 
@@ -11,6 +11,7 @@ The target deployment is Lens with ClickHouse, including its configured Keeper c
 | `src/litellm_lens/` | Python API, investigation state and model access |
 | `runtime/` | Rust ingestion, trace storage, investigation worker and sandbox |
 | `packages/ui/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
+| `apps/web/` | Small standalone Next.js shell, exported as static files for the Python API |
 | `deploy/runtime/` | Rust runtime image and Python sandbox packaging |
 | `deploy/clickhouse/` | ClickHouse coordination configuration |
 | `deploy/lens/` | Legacy installation assets being migrated to the standalone bundle |
@@ -20,6 +21,26 @@ The target deployment is Lens with ClickHouse, including its configured Keeper c
 | `docs/extraction/` | Completion contract, baseline provenance and qualification ledger |
 
 Python unit tests mirror the package under `tests/unit/litellm_lens/`. Deployment scripts are being reorganized. No sibling checkout is required by the Rust workspace or Python package dependency resolution
+
+## Preview and build the UI
+
+Use Node.js 24.14.1 or newer and npm 11.10.0 or newer. From the repository root:
+
+```sh
+npm ci
+npm run dev:ui
+```
+
+Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. The live standalone API is still being completed; the preview does not demonstrate ingestion, persistence or provider-backed investigations
+
+```sh
+npm run typecheck:ui
+npm run test:ui
+npm run build:ui
+npm run qualify:ui-package
+```
+
+The production build writes static files to `apps/web/out`. Package qualification packs `@litellm/lens-ui`, installs it into a temporary consumer with its own dependencies, and builds that consumer. It prints the package integrity and output path. See [the UI package](packages/ui/README.md) for the embedding boundary and [qualification notes](docs/extraction/ui-package.md) for the current evidence and limits
 
 ## Checks available now
 

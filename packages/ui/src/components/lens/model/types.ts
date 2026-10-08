@@ -1,4 +1,4 @@
-import type { components } from "@/lib/http/schema";
+import type { components } from "../../../lib/http/schema";
 
 export type Lens = components["schemas"]["Lens"];
 

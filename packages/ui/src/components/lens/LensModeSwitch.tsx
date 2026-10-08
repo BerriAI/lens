@@ -2,8 +2,8 @@
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { Settings } from "lucide-react";
-import { StatusDot } from "@/components/shared/StatusDot";
-import { cn } from "@/lib/cva.config";
+import { StatusDot } from "../shared/StatusDot";
+import { cn } from "../../lib/cva.config";
 import type { InvestigationActivity } from "./model/status";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
 import type { LensList } from "./model/types";

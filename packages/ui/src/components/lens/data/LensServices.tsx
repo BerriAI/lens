@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { apiClient } from "@/components/networking";
-import { fetchClient } from "@/lib/http/api";
-import { liveTracesApi, TracesApiContext, type TracesApi } from "@/components/lens/traces/api";
+import { apiClient } from "../../../lib/http/requests";
+import { fetchClient } from "../../../lib/http/api";
+import { liveTracesApi, TracesApiContext, type TracesApi } from "../traces/api";
 import { liveLensApi, type LensApi } from "./service";
 
 export interface LensServices {

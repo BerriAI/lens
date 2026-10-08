@@ -1,6 +1,6 @@
 import { useTracesLive } from "../api";
-import { useModelCostMap } from "@/app/(dashboard)/hooks/models/useModelCostMap";
-import { getProviderLogoAndName } from "@/components/provider_info_helpers";
+import { useModelCostMap } from "../../../../hooks/useModelCostMap";
+import { getProviderLogoAndName } from "../../../provider_info_helpers";
 
 export type ProviderLookup = (model: string) => string | undefined;
 

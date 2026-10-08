@@ -1,13 +1,13 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "@/../tests/test-utils";
-import { readRequest, renderWithLens, stubGateway, type GatewayRequest } from "@/../tests/lens-test-utils";
+import { testQueryClient } from "../../../../tests/test-utils";
+import { readRequest, renderWithLens, stubGateway, type GatewayRequest } from "../../../../tests/lens-test-utils";
 import { DatasetsView } from "./DatasetsView";
 import type { Dataset, DatasetCase, DatasetSummary } from "./types";
 
-vi.mock("@/components/networking", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/components/networking")>()),
+vi.mock("../../../lib/http/requests", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/http/requests")>()),
   proxyBaseUrl: "",
   getProxyBaseUrl: () => "",
 }));

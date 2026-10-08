@@ -4,12 +4,12 @@ import { ArrowRight, PanelRight, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useLensApi } from "../../data/LensServices";
-import { useModelCostMap } from "@/app/(dashboard)/hooks/models/useModelCostMap";
-import { ProviderLogo } from "@/components/molecules/models/ProviderLogo";
+import { useModelCostMap } from "../../../../hooks/useModelCostMap";
+import { ProviderLogo } from "../../../molecules/models/ProviderLogo";
 import { agoLabel } from "../../model/format";
-import { Button } from "@/components/ui/button";
-import { useNow } from "@/hooks/useNow";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../../ui/button";
+import { useNow } from "../../../../hooks/useNow";
+import { cn } from "../../../../lib/cva.config";
 
 import { money } from "../../model/format";
 import {

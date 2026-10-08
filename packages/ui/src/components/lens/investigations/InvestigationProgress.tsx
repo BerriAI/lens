@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "../../../hooks/useNow";
 import {
   analysisElapsed,
   analysisFraction,

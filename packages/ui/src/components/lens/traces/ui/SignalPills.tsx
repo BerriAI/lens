@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 
 import type { SignalFlag } from "../types";
 

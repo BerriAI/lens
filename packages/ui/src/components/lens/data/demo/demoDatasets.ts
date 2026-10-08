@@ -1,5 +1,5 @@
-import { ApiError } from "@/lib/http/client";
-import type { SpanDetail } from "@/components/lens/traces/types";
+import { ApiError } from "../../../../lib/http/client";
+import type { SpanDetail } from "../../traces/types";
 
 import { evidenceTarget } from "../../model/findings";
 import type { DatasetsApi } from "../../datasets/client";

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 
-import { Inspector } from "@/components/shared/Inspector";
-import { Button } from "@/components/ui/button";
-import { TabsContent } from "@/components/ui/tabs";
+import { Inspector } from "../../../shared/Inspector";
+import { Button } from "../../../ui/button";
+import { TabsContent } from "../../../ui/tabs";
 
 import { runTime } from "../../model/format";
 import { type Job, type Lens } from "../../model/types";

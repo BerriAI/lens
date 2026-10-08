@@ -1,8 +1,8 @@
 import type { Client } from "openapi-fetch";
 
-import type { ApiClient } from "@/lib/http/client";
-import { getAuthHeaderName } from "@/lib/http/runtime";
-import type { paths } from "@/lib/http/schema";
+import type { ApiClient } from "../../../lib/http/client";
+import { authHeaders } from "../../../lib/http/authHeaders";
+import type { paths } from "../../../lib/http/schema";
 
 import type {
   BuildRequest,
@@ -34,7 +34,7 @@ export const datasetExportPath = (datasetId: string): string =>
   `/lens/datasets/${encodeURIComponent(datasetId)}/export`;
 
 export function liveDatasetsApi(client: Client<paths>, apiClient: ApiClient, accessToken: string): DatasetsApi {
-  const headers = { [getAuthHeaderName()]: `Bearer ${accessToken}` };
+  const headers = authHeaders(accessToken);
   return {
     list: () => required(client.GET("/lens/datasets", { headers })),
     get: (datasetId, revision) =>

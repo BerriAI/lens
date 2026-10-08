@@ -2,7 +2,7 @@
 
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError } from "@/lib/http/client";
+import { ApiError } from "../../../lib/http/client";
 
 import { lensKeys } from "../data/queries";
 import { useLensApi } from "../data/LensServices";

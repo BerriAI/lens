@@ -1,9 +1,9 @@
 import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { Check } from "lucide-react";
-import { copyToClipboard } from "@/utils/dataUtils";
-import anthropicLogo from "@/../public/assets/logos/anthropic.svg";
-import openaiLogo from "@/../public/assets/logos/openai_small.svg";
+import { copyToClipboard } from "../../../utils/dataUtils";
+import anthropicLogo from "../../../../public/assets/logos/anthropic.svg";
+import openaiLogo from "../../../../public/assets/logos/openai_small.svg";
 import { briefMarkdown } from "../model/findings";
 import { type IssueBrief } from "../model/types";
 

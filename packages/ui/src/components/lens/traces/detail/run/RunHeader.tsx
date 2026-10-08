@@ -14,17 +14,17 @@ import {
 import { useState } from "react";
 import { useTimeout } from "usehooks-ts";
 
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { Button } from "../../../../ui/button";
+import { ButtonGroup } from "../../../../ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/cva.config";
-import { copyToClipboard } from "@/utils/dataUtils";
+} from "../../../../ui/dropdown-menu";
+import { TabsList, TabsTrigger } from "../../../../ui/tabs";
+import { cn } from "../../../../../lib/cva.config";
+import { copyToClipboard } from "../../../../../utils/dataUtils";
 
 import { AddToDatasetDialog, useCanAddToDataset } from "../../../datasets/AddToDatasetDialog";
 import type { TraceHandoff } from "../../api";

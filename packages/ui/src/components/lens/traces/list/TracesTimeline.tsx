@@ -3,8 +3,8 @@
 import moment from "moment";
 import { useMemo } from "react";
 
-import type { TimeWindow } from "@/components/shared/timeRange/timeRange";
-import { Timeline, TIMELINE_BUCKETS, type TimeBucket } from "@/components/shared/timeline/Timeline";
+import type { TimeWindow } from "../../../shared/timeRange/timeRange";
+import { Timeline, TIMELINE_BUCKETS, type TimeBucket } from "../../../shared/timeline/Timeline";
 
 import type { TraceSummary } from "../types";
 import { traceAgentNames } from "../utils";

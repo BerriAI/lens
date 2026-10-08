@@ -1,7 +1,7 @@
-import { ApiError } from "@/lib/http/client";
-import type { TracesApi } from "@/components/lens/traces/api";
-import { rollUpAgents } from "@/components/lens/agents/agentRollup";
-import type { Feedback, TraceSummary } from "@/components/lens/traces/types";
+import { ApiError } from "../../../../lib/http/client";
+import type { TracesApi } from "../../traces/api";
+import { rollUpAgents } from "../../agents/agentRollup";
+import type { Feedback, TraceSummary } from "../../traces/types";
 import type { LensServices } from "../LensServices";
 import type { LensApi } from "../service";
 import { demoDatasetsApi } from "./demoDatasets";

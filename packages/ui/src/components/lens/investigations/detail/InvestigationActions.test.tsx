@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "@/../tests/test-utils";
+import { renderWithProviders } from "../../../../../tests/test-utils";
 import type { Lens } from "../../model/types";
 import { InvestigationActions, type InvestigationActionsProps } from "./InvestigationActions";
 

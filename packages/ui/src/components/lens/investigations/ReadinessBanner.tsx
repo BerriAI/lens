@@ -1,8 +1,8 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { uiHref } from "@/utils/uiHref";
-import { cn } from "@/lib/cva.config";
+import { uiHref } from "../../../utils/uiHref";
+import { cn } from "../../../lib/cva.config";
 
 export type ReadinessBannerProps = ComponentProps<"div"> & { activityReady: boolean };
 

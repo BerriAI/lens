@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../lib/cva.config";
 import type { Priority } from "../model/inbox";
 
 export const PRIORITY_ORDER: readonly Priority[] = ["high", "medium", "low"];

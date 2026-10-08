@@ -4,8 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, DatabaseZap, Loader2, RotateCw, TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "../../ui/button";
+import { Checkbox } from "../../ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -13,13 +13,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { extractProxyErrorMessage } from "@/lib/http/client";
-import { cn } from "@/lib/cva.config";
-import { toast } from "@/lib/toast";
+} from "../../ui/dialog";
+import { Input } from "../../ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { Textarea } from "../../ui/textarea";
+import { extractProxyErrorMessage } from "../../../lib/http/client";
+import { cn } from "../../../lib/cva.config";
+import { toast } from "../../../lib/toast";
 
 import { useTracesLive } from "../traces/api";
 import { useOptionalLensApi } from "../data/LensServices";

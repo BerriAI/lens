@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "../../../hooks/useNow";
 
 import type { LensApi } from "../data/service";
 import { queueReason, type QueueReason } from "../model/status";

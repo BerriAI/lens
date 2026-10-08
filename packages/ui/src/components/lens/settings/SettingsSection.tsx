@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../lib/cva.config";
 
 export type SettingsSectionProps = ComponentProps<"section"> & { heading: string; description: string };
 

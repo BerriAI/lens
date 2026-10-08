@@ -5,8 +5,8 @@ import { lensQueries } from "../../data/queries";
 
 import { useQuery } from "@tanstack/react-query";
 import { useLensApi } from "../../data/LensServices";
-import { SearchSelect } from "@/components/shared/SearchSelect";
-import { Input } from "@/components/ui/input";
+import { SearchSelect } from "../../../shared/SearchSelect";
+import { Input } from "../../../ui/input";
 import type { WorkerFormInput } from "./workerSchema";
 
 export function AnalysisAccessFields() {

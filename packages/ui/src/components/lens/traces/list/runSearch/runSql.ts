@@ -1,9 +1,9 @@
-import { getProxyBaseUrl } from "@/components/networking";
-import type { TimeWindow } from "@/components/shared/timeRange/timeRange";
+import { getProxyBaseUrl } from "../../../../../lib/http/requests";
+import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 import type { TraceQueryBody } from "../../types";
 
-import { isNegatedOp, valueMatcher } from "@/components/shared/search/language";
-import type { SearchFilter, SearchQuery } from "@/components/shared/search/searchQuery";
+import { isNegatedOp, valueMatcher } from "../../../../shared/search/language";
+import type { SearchFilter, SearchQuery } from "../../../../shared/search/searchQuery";
 import type { RunField } from "./runQuery";
 
 const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,

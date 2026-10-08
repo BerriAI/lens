@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { ChevronRight, ClipboardCopy, X } from "lucide-react";
 
-import { Inspector } from "@/components/shared/Inspector";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useNow } from "@/hooks/useNow";
-import { copyToClipboard } from "@/utils/dataUtils";
+import { Inspector } from "../../shared/Inspector";
+import { Button } from "../../ui/button";
+import { Textarea } from "../../ui/textarea";
+import { useNow } from "../../../hooks/useNow";
+import { copyToClipboard } from "../../../utils/dataUtils";
 
 import { AddToDatasetButton } from "../datasets/AddToDatasetDialog";
 import { evidenceTarget, findingMarkdown } from "../model/findings";

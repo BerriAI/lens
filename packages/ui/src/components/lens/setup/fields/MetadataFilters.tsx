@@ -3,8 +3,8 @@
 import { useId } from "react";
 import { Plus, X } from "lucide-react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../../ui/button";
+import { Input } from "../../../ui/input";
 import type { InvestigationInput } from "../investigationSchema";
 import type { ScopeOptions } from "../useMatchingActivity";
 

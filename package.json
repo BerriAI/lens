@@ -1,0 +1,47 @@
+{
+  "name": "litellm-lens-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:ui": "npm run dev --workspace @litellm/lens-web",
+    "build:ui": "npm run build --workspace @litellm/lens-web",
+    "typecheck:ui": "npm run typecheck --workspace @litellm/lens-ui",
+    "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx",
+    "qualify:ui-package": "node scripts/qualify_ui_package.mjs"
+  },
+  "engines": {
+    "node": ">=24.14.1",
+    "npm": ">=11.10.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "20.19.37",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@tailwindcss/postcss": "4.3.2",
+    "postcss": "8.5.23",
+    "prettier": "3.2.5",
+    "vitest": "4.1.11",
+    "jsdom": "27.4.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "vite": "7.3.5"
+  },
+  "overrides": {
+    "prismjs": "1.30.0",
+    "js-yaml": "4.3.2",
+    "brace-expansion": "5.0.12",
+    "glob": "13.0.0",
+    "minimatch": "10.2.4",
+    "ws": "8.21.0",
+    "braces": "3.0.3",
+    "axios": "1.13.6",
+    "postcss": "8.5.23",
+    "esbuild": "0.28.1",
+    "sharp": "^0.35.5"
+  }
+}

@@ -11,10 +11,10 @@ import { createContext, useContext, type ReactNode } from "react";
 import { SquareArrowOutUpRight } from "lucide-react";
 import { useMediaQuery } from "usehooks-ts";
 
-import { Inspector } from "@/components/shared/Inspector";
-import { InspectorTable } from "@/components/shared/InspectorTable";
-import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/cva.config";
+import { Inspector } from "../../shared/Inspector";
+import { InspectorTable } from "../../shared/InspectorTable";
+import { Checkbox } from "../../ui/checkbox";
+import { cn } from "../../../lib/cva.config";
 
 import { useOpenSourceTrace } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";

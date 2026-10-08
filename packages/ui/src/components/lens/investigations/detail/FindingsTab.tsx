@@ -3,10 +3,10 @@
 import type { ReactNode } from "react";
 import { ChevronRight, CheckCircle2 } from "lucide-react";
 
-import { Inspector } from "@/components/shared/Inspector";
-import { Button } from "@/components/ui/button";
-import { TabsContent } from "@/components/ui/tabs";
-import { cn } from "@/lib/cva.config";
+import { Inspector } from "../../../shared/Inspector";
+import { Button } from "../../../ui/button";
+import { TabsContent } from "../../../ui/tabs";
+import { cn } from "../../../../lib/cva.config";
 
 import { sortedFindings } from "../../model/findings";
 import type { OwnedFinding } from "../../model/inbox";
