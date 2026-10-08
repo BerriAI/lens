@@ -1,10 +1,9 @@
 import type { EvalRun, Summary } from "./types";
 
-const MAIN_BRANCH = "main";
-
-export type GateTone = "passed" | "failed" | "pending";
+export type GateTone = "passed" | "failed" | "pending" | "errored";
 
 export const gateTone = (run: EvalRun): GateTone => {
+  if (run.status === "error") return "errored";
   if (run.gate === null) return "pending";
   return run.gate.passed ? "passed" : "failed";
 };
@@ -19,6 +18,11 @@ export const deltaLabel = (summary: Summary): string => {
   return `${summary.pass_rate_delta > 0 ? "+" : "−"}${percentPoints(summary.pass_rate_delta)}`;
 };
 
+export const deltaTone = (delta: number | null): string => {
+  if (delta === null || delta === 0) return "text-muted-foreground";
+  return delta < 0 ? "text-destructive" : "text-success";
+};
+
 export const costPerCase = (summary: Summary): string => {
   if (summary.cost_usd === null || summary.total === 0) return "–";
   const each = summary.cost_usd / summary.total;
@@ -26,6 +30,8 @@ export const costPerCase = (summary: Summary): string => {
 };
 
 export const shortSha = (sha: string): string => sha.slice(0, 7);
+
+export const safeLinkUrl = (url: string | null): string | null => (url && /^https?:\/\/[^/\s]/i.test(url) ? url : null);
 
 export interface RunGroups {
   readonly main: readonly EvalRun[];
@@ -37,7 +43,7 @@ const newestFirst = (a: EvalRun, b: EvalRun): number => b.created_at.localeCompa
 export const groupRuns = (runs: readonly EvalRun[], datasetId: string): RunGroups => {
   const ours = runs.filter((run) => run.dataset_id === datasetId).sort(newestFirst);
   return {
-    main: ours.filter((run) => run.branch === MAIN_BRANCH),
-    pulls: ours.filter((run) => run.branch !== MAIN_BRANCH),
+    main: ours.filter((run) => run.pr_url === null),
+    pulls: ours.filter((run) => run.pr_url !== null),
   };
 };
