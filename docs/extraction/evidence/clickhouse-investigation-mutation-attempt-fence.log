@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_delayed_progress_cannot_replace_a_newer_checkpoint[same_worker] _____
+tests/integration/database/test_lens_repository.py:553: in test_delayed_progress_cannot_replace_a_newer_checkpoint
+    with pytest.raises(HTTPException) as error:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE <class 'fastapi.exceptions.HTTPException'>
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_delayed_progress_cannot_replace_a_newer_checkpoint[same_worker]
+1 failed in 0.57s

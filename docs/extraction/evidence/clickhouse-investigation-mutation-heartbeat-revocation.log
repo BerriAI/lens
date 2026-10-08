@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_heartbeat_never_restores_revoked_access _________________
+tests/integration/database/test_lens_repository.py:278: in test_heartbeat_never_restores_revoked_access
+    assert stored is not None and stored.revoked is True
+E   AssertionError: assert (Worker(analysis_key_id=None, id='ad43a2a11b80432ca7f719608f63c767', name='worker', scope=Scope(team_id='ad1c4a0f4b9e47...ash='', all_teams=False), last_seen=datetime.datetime(2026, 10, 8, 23, 19, 24, 49208, tzinfo=TzInfo(0)), revoked=False) is not None and False is True)
+E    +  where False = Worker(analysis_key_id=None, id='ad43a2a11b80432ca7f719608f63c767', name='worker', scope=Scope(team_id='ad1c4a0f4b9e47...ash='', all_teams=False), last_seen=datetime.datetime(2026, 10, 8, 23, 19, 24, 49208, tzinfo=TzInfo(0)), revoked=False).revoked
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_heartbeat_never_restores_revoked_access
+1 failed in 0.44s

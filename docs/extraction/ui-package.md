@@ -32,6 +32,6 @@ The trace list was visually compared at 1440×900 and 768×900 against unchanged
 
 ## Remaining boundaries
 
-The standalone live API, ClickHouse investigation/session repositories, model access, scheduler startup and full deployment remain incomplete. This UI work does not qualify real ingestion, provider-backed analysis, persistence, restart behavior or migrations
+The standalone live API, storage deployment qualification, model access, scheduler startup and full deployment remain incomplete. This UI work does not qualify real ingestion, provider-backed analysis, persistence, restart behavior or migrations
 
 LiteLLM still needs to adopt the package and supply its actual native drawer, identity, API routing and permission adapters. Light/dark coverage, the full viewport matrix, keyboard/focus parity, all setup and live-write flows, shared routing prefixes, contract regeneration and published-artifact compatibility checks remain open. None of the completion plan's full-product acceptance requirements is closed by this UI preview
