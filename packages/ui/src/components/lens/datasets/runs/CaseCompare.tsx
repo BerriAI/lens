@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cva.config";
@@ -21,12 +22,13 @@ export interface CaseCompareProps {
 export function CaseCompare({ diff, onClose }: CaseCompareProps) {
   const baseline = useCaseTrace(diff.baseline);
   const candidate = useCaseTrace(diff.candidate);
-  const baselineSpans = toolSteps(baseline.data?.spans ?? []);
-  const candidateSpans = toolSteps(candidate.data?.spans ?? []);
-  const compared =
-    baseline.data && candidate.data
+  const compared = useMemo(() => {
+    const baselineSpans = toolSteps(baseline.data?.spans ?? []);
+    const candidateSpans = toolSteps(candidate.data?.spans ?? []);
+    return baseline.data && candidate.data
       ? compareSteps(baselineSpans, candidateSpans)
       : { baseline: unchangedSteps(baselineSpans), candidate: unchangedSteps(candidateSpans) };
+  }, [baseline.data, candidate.data]);
   return (
     <section aria-label="Case comparison" className="flex flex-col gap-3">
       <header className="flex items-start gap-2">
