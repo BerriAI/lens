@@ -12,7 +12,7 @@ from lens.client import Client
 from lens.devserver import create_app
 
 SDK = Path(__file__).resolve().parents[1]
-SHARED = SDK.parents[1] / "runtime/crates/contract/fixtures/lens_eval"
+SHARED = SDK.parents[1] / "src/worker/crates/contract/fixtures/lens_eval"
 FIXTURES = SHARED if SHARED.exists() else SDK / "tests/fixtures/lens_eval"
 
 

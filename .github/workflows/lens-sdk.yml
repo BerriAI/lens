@@ -2,9 +2,9 @@ name: Lens SDK
 on:
   push:
     branches: [main, litellm_eval_sdk]
-    paths: ['packages/sdk/**', 'schema/lens.v1.json', 'runtime/crates/contract/**', '.github/workflows/lens-sdk.yml']
+    paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', '.github/workflows/lens-sdk.yml']
   pull_request:
-    paths: ['packages/sdk/**', 'schema/lens.v1.json', 'runtime/crates/contract/**', '.github/workflows/lens-sdk.yml']
+    paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', '.github/workflows/lens-sdk.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,26 +20,26 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install uv==0.10.9
-      - run: uv sync --project packages/sdk --frozen
-      - run: uv run --project packages/sdk ruff check packages/sdk
-      - run: uv run --project packages/sdk ruff format --check packages/sdk
-      - run: uv run --project packages/sdk mypy packages/sdk/src/lens packages/sdk/scripts/generate_contract.py
+      - run: uv sync --project src/sdk --frozen
+      - run: uv run --project src/sdk ruff check src/sdk
+      - run: uv run --project src/sdk ruff format --check src/sdk
+      - run: uv run --project src/sdk mypy src/sdk/src/lens src/sdk/scripts/generate_contract.py
       - name: Check generated contract drift
         shell: bash
         run: |
           schema=schema/lens.v1.json
           if [[ ! -f "$schema" ]]; then
             echo '::warning::Rust eval schema is pending. Checking the provisional appendix schema.'
-            schema=packages/sdk/tests/fixtures/appendix.v1.json
+            schema=src/sdk/tests/fixtures/appendix.v1.json
           fi
-          uv run --project packages/sdk python packages/sdk/scripts/generate_contract.py --schema "$schema" --check
-      - run: uv run --project packages/sdk pytest packages/sdk/tests --cov=lens --cov-config=packages/sdk/pyproject.toml
-      - run: uv build --project packages/sdk --out-dir packages/sdk/dist
+          uv run --project src/sdk python src/sdk/scripts/generate_contract.py --schema "$schema" --check
+      - run: uv run --project src/sdk pytest src/sdk/tests --cov=lens --cov-config=src/sdk/pyproject.toml
+      - run: uv build --project src/sdk --out-dir src/sdk/dist
       - name: Check wheel in a fresh environment
         shell: bash
         run: |
           uv venv /tmp/lens-wheel
-          uv pip install --python /tmp/lens-wheel/bin/python packages/sdk/dist/*.whl
+          uv pip install --python /tmp/lens-wheel/bin/python src/sdk/dist/*.whl
           /tmp/lens-wheel/bin/lens --help
   action:
     if: github.event_name != 'pull_request'
@@ -55,19 +55,19 @@ jobs:
       - name: Start the contract stub
         shell: bash
         run: |
-          python -m pip install './packages/sdk[dev-server]'
+          python -m pip install './src/sdk[dev-server]'
           lens dev-server > /tmp/lens-dev-server.log 2>&1 &
           printf '\n[tool.lens]\nproject="demo"\n' >> pyproject.toml
           for attempt in {1..30}; do
             if curl --fail --silent -H 'Authorization: Bearer lens-dev' -H 'X-Lens-Contract: 1' 'http://127.0.0.1:8765/lens/datasets/resolve?name=demo'; then break; fi
             sleep 1
           done
-      - uses: ./packages/sdk/action
+      - uses: ./src/sdk/action
         id: lens
         with:
           api-key: lens-dev
           base-url: http://127.0.0.1:8765
-          path: packages/sdk/examples/demo.py
+          path: src/sdk/examples/demo.py
       - name: Verify Action outputs
         env:
           PASSED: ${{ steps.lens.outputs.passed }}
