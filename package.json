@@ -9,7 +9,7 @@
     "dev:ui": "npm run dev --workspace @litellm/lens-web",
     "build:ui": "npm run build --workspace @litellm/lens-web",
     "typecheck:ui": "npm run typecheck --workspace @litellm/lens-ui",
-    "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx",
+    "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx src/components/lens/datasets/runs",
     "qualify:ui-package": "node scripts/qualify_ui_package.mjs"
   },
   "engines": {
