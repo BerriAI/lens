@@ -15,7 +15,7 @@ from litellm_lens.trace.generated.models import (
     LensEvidenceParams,
     PartRow,
 )
-from tests.unit.proxy.lens.test_state import lens
+from tests.unit.litellm_lens.test_state import lens
 
 
 def test_same_trace_id_from_different_keys_is_a_distinct_execution() -> None:

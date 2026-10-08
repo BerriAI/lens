@@ -1,8 +1,9 @@
 import asyncio
 import hashlib
 import json
+import random
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal, LiteralString
@@ -92,6 +93,7 @@ class ClickHouseState:
                     "insert_keeper_max_retries": "0",
                     "async_insert": "0",
                     "wait_end_of_query": "1",
+                    # ClickHouse decodes escaped text before interpreting String parameters as JSON.
                     **{f"param_{key}": value.replace("\\", "\\\\") for key, value in parameters.items()},
                 },
                 content=body.encode(),
@@ -152,6 +154,8 @@ class ClickHouseState:
                 return before
             values: Final = await self._values(before)
             if isinstance(values, StorageFailure):
+                return values
+            if len(keys) == 1 and values is not None:
                 return values
             after: Final = await self.heads(keys)
             if isinstance(after, StorageFailure):
@@ -223,3 +227,23 @@ class ClickHouseState:
     async def commit(self, changes: tuple[Change, ...]) -> StorageFailure | None:
         prepared: Final = await self.prepare(changes)
         return prepared if isinstance(prepared, StorageFailure) else await self.publish(prepared)
+
+    async def update(
+        self, key: str, transform: Callable[[JsonValue], JsonValue], attempts: int = 40
+    ) -> Snapshot | StorageFailure:
+        for attempt in range(attempts):
+            previous: Final = await self.read(key)
+            if isinstance(previous, StorageFailure):
+                return previous
+            value: Final = transform(previous.value)
+            if value == previous.value:
+                return previous
+            change: Final = Change(previous, value)
+            result: Final = await self.commit((change,))
+            if result is None:
+                blob: Final = next_blob(change)
+                return Snapshot(key=blob.key, revision=blob.revision, digest=blob.digest, value=value)
+            if result.kind != "conflict":
+                return result
+            await asyncio.sleep(random.uniform(0, 0.02 * min(attempt + 1, 8)))
+        return StorageFailure("conflict")

@@ -13,7 +13,11 @@
     "repository": "BerriAI/litellm-lens",
     "url": "https://github.com/BerriAI/litellm-lens",
     "visibility": "INTERNAL",
-    "path": "/Users/mfkhalil/Code/litellm-lens"
+    "path": "/Users/mfkhalil/Code/litellm-lens",
+    "branch": "litellm_lens_standalone",
+    "pull_request": "https://github.com/BerriAI/litellm-lens/pull/2",
+    "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
+    "readiness": "collaboration draft; standalone runtime not yet wired"
   },
   "completed_actions": [
     "Fetched latest LiteLLM main",
@@ -22,9 +26,14 @@
     "Imported relevant source history and recorded baseline file hashes",
     "Verified independent Rust build with pinned shared library dependencies",
     "Ran extracted Python core tests: 107 passed",
-    "Audited 192 production Lens UI modules and their imports"
+    "Audited 192 production Lens UI modules and their imports",
+    "Pushed complete extracted source to collaboration branch and opened draft PR 2",
+    "Moved Python tests to package-aligned paths and sandbox/image assets to deploy/runtime",
+    "Added pinned ClickHouse integration Compose stack with in-process Keeper",
+    "Regenerated trace contracts; only third-party import ordering changed; regeneration check passes",
+    "Verified native Lens settlement logic against ClickHouse: 50 reservations settled concurrently with duplicate attempts, each charged once"
   ],
-  "current_work": "Qualify ClickHouse-only state concurrency and failure behavior before replacing persistence repositories",
+  "current_work": "Complete ClickHouse repository adapters and standalone application wiring, then real product E2E; UI dependency closure and cross-repo work remain open",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -276,15 +285,21 @@
     },
     "C2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-state-budget.log (partial: claims and settlement primitive)"
+      ]
     },
     "C3": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-state-budget.log (partial: coupled record publication primitive)"
+      ]
     },
     "C4": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-restart-result.json (partial: restart only; restore and reclamation pending)"
+      ]
     },
     "C5": {
       "status": "not_run",
@@ -295,7 +310,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T21:36:43.965951+00:00",
+  "updated_at_utc": "2026-10-08T21:53:44.022697+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -313,12 +328,28 @@
     },
     "python_core": {
       "passed": 107,
-      "evidence": "evidence/extracted-python-core.log"
+      "evidence": "evidence/reorganized-python-core.log"
     },
     "postgres_dataset_adapter": {
       "status": "failed_fixture_wiring",
       "evidence": "evidence/postgres-datasets.log",
       "superseded_by": "ClickHouse-only persistence requirement"
+    },
+    "clickhouse_state": {
+      "passed": 7,
+      "duration_seconds": 13.25,
+      "evidence": "evidence/clickhouse-state-budget.log",
+      "scope": "Persistence primitive and copied Lens settlement logic; not full application E2E"
+    },
+    "clickhouse_restart": {
+      "status": "passed",
+      "evidence": "evidence/clickhouse-restart-result.json",
+      "scope": "Committed pointers and payloads survive ClickHouse restart; unpublished prepared payloads remain invisible"
+    },
+    "schema_generation": {
+      "status": "passed",
+      "evidence": "evidence/schema-check.log",
+      "known_warnings": "datamodel-code-generator uses default integer representation for Rust unsigned schema formats; unchanged from source tooling"
     }
   }
 }

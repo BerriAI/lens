@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated, TypeAlias
 
-from pydantic import ConfigDict, Field
-
 from litellm.types.llms.base import LiteLLMBaseModel
+from pydantic import ConfigDict, Field
 
 
 class TraceDetailRequest(LiteLLMBaseModel):

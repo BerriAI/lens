@@ -726,7 +726,7 @@ async def test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_in
 @pytest.mark.parametrize("lost_ownership", ("expired", "reassigned", "same_worker", "cancelled", "next_job"))
 async def test_delayed_progress_cannot_replace_a_newer_checkpoint(lens_db: Prisma, lost_ownership: str) -> None:
     from litellm_lens.models import Extraction, Review
-    from tests.unit.proxy.lens.test_state import lens, worker
+    from tests.unit.litellm_lens.test_state import lens, worker
 
     now: Final = datetime.now(timezone.utc)
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))
@@ -774,7 +774,7 @@ async def test_delayed_progress_cannot_replace_a_newer_checkpoint(lens_db: Prism
 async def test_locked_settlement_charges_every_concurrent_call_exactly_once(lens_db: Prisma) -> None:
     from litellm_lens.inference import settle_amount
     from litellm_lens.models import BudgetReservation, Step
-    from tests.unit.proxy.lens.test_state import lens
+    from tests.unit.litellm_lens.test_state import lens
 
     now: Final = datetime.now(timezone.utc)
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))
@@ -817,7 +817,7 @@ async def test_locked_settlement_charges_every_concurrent_call_exactly_once(lens
 @pytest.mark.asyncio
 async def test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update(lens_db: Prisma) -> None:
     from litellm_lens.models import Extraction, Review
-    from tests.unit.proxy.lens.test_state import lens, worker
+    from tests.unit.litellm_lens.test_state import lens, worker
 
     now: Final = datetime.now(timezone.utc)
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))
@@ -870,7 +870,7 @@ async def wait_for_lens_row_lock(db: Prisma, transaction: Prisma) -> None:
 @pytest.mark.asyncio
 async def test_legacy_finding_run_provenance_is_recovered_from_archived_and_current_jobs(lens_db: Prisma) -> None:
     from litellm_lens.state import merge_finding
-    from tests.unit.proxy.lens.test_state import NOW, finding, lens
+    from tests.unit.litellm_lens.test_state import NOW, finding, lens
 
     repo: Final = LensRepository(WriterDatabase(PrismaWrapper(lens_db)))
     saved: Final = merge_finding(lens(), finding("trace"), 1, NOW)
@@ -889,7 +889,7 @@ async def test_legacy_finding_run_provenance_is_recovered_from_archived_and_curr
 
 
 def test_review_migration_preserves_existing_lens_history_credentials_and_spend() -> None:
-    from tests.unit.proxy.lens.test_state import NOW, lens, worker
+    from tests.unit.litellm_lens.test_state import NOW, lens, worker
 
     migrations: Final = (
         Path(__file__).resolve().parents[3] / "litellm-proxy-extras" / "litellm_proxy_extras" / "migrations"
