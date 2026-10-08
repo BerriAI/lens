@@ -18,6 +18,7 @@ function demoLensApi(data: LensDemoData): LensApi {
   return {
     scope: "demo",
     datasets: demoDatasetsApi(data),
+    evalRuns: { list: async () => [], get: notInDemo },
     lenses: async () => ({ lenses: data.lenses, workers: [], tracing_enabled: true }),
     activity: async () => ({ traces: true, requests: false }),
     runs: (lensId, offset) => found(jobs(lensId)?.slice(offset)),
