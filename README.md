@@ -1,53 +1,43 @@
 <div align="center">
 
-# LiteLLM Lens
+<img src="assets/lens-banner.png" alt="LiteLLM Lens, self-improving agents" width="100%">
 
-**The gateway that helps your agents improve**
+<br><br>
 
-![LiteLLM Lens](assets/lens-hero.gif)
+<img src="assets/lens-hero.gif" alt="Agent swarms flow through the LiteLLM gateway into one trace per run, and Lens loops what it learns back into your agents" width="100%">
 
-[4K video](assets/lens-hero-4k.mp4) · [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) · [Docs](deploy/lens/README.md) · [Contributing](CONTRIBUTING.md) · [Early access](https://forms.gle/3GC1Ner4vjthGWi18)
+<br><br>
+
+**Your agents run. Lens watches every run, finds what went wrong, and feeds it back.**<br>
+**The next run is better.**
+
+<br>
+
+[Early access](https://forms.gle/3GC1Ner4vjthGWi18) &nbsp;&nbsp;·&nbsp;&nbsp; [Docs](https://docs.litellm.ai/docs/proxy/lens) &nbsp;&nbsp;·&nbsp;&nbsp; [Launch post](https://docs.litellm.ai/blog/litellm-lens-launch) &nbsp;&nbsp;·&nbsp;&nbsp; [4K film](assets/lens-hero-4k.mp4)
+
+<br><br>
+
+<img src="assets/lens-traces.png" alt="Lens traces" width="100%">
+
+<br><br>
+
+<img src="assets/lens-finding.png" alt="Lens finding" width="100%">
+
+<br><br>
+
+<img src="assets/lens-dataset.png" alt="Lens dataset" width="100%">
+
+<br><br>
+
+<img src="assets/lens-mark.svg" alt="" width="72">
+
+<br>
+
+**Built into LiteLLM.** Your traces stay in your own ClickHouse, next to your gateway.<br>
+Point Claude Code or Codex at them and let your agents improve your agents.
+
+<br>
+
+[Get started](https://docs.litellm.ai/docs/proxy/lens)
 
 </div>
-
-Tell Lens what to look for in your agents, let it analyze your traces, then read the findings and go deeper into any trace
-
-## The agentic swarm developer
-
-We're building for a world where one team runs hundreds of agents in parallel. A single swarm can produce 200K+ traces, and every one of those calls already flows through LiteLLM. The gateway is the one chokepoint that sees all of your agent traffic, so it's the natural place to learn from it
-
-## The problem
-
-Nobody can read 200K traces by hand. Tracing platforms make it worse: your data sits in someone else's system behind their rate limits, so tools like Claude Code or Codex can't dig into it the way they dig into your code
-
-## How Lens works
-
-### 1. Tell Lens what to look for
-
-For each agent, describe what a good run and a bad run look like. Add specific questions if you have them, like "Find tool failures the agent does not recover from"
-
-![Questions and checks](assets/questions-and-checks.png)
-
-### 2. Lens analyzes your traces
-
-Agents review your traces, group similar problems together, and surface findings. Each finding tells you what happened, what to do next, and which runs back it up
-
-![Finding detail](assets/finding-detail.png)
-
-### 3. Read the findings, then go deeper into the trace
-
-Every finding links back to the exact step in the trace that caused it. You get the step tree on one side and the full input and output on the other
-
-![Trace detail](assets/trace-detail.png)
-
-### Agent-first tracing APIs
-
-Traces live in ClickHouse that you host next to your LiteLLM gateway. Query them with SQL, or point Claude Code or Codex at the tracing API and let them investigate. No external rate limits, and your data never leaves your infrastructure
-
-## Get started
-
-The current released Lens ships with LiteLLM and lives in the dashboard under Observability, Lens (`/ui/lens/`). It needs a Lens worker running next to your gateway. The [worker guide](deploy/lens/README.md) covers that deployment, Helm, the API, and what a scan actually does
-
-This repository owns the standalone extraction, which is still in development. See [Contributing](CONTRIBUTING.md) for the current repository layout and development checks, and the [completion plan](docs/extraction/completion-plan.md) for the remaining standalone and embedded requirements
-
-Want help rolling it out? [Sign up for early access](https://forms.gle/3GC1Ner4vjthGWi18)
