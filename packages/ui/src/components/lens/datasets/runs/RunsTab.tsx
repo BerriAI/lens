@@ -2,9 +2,9 @@
 
 import { FlaskConical, Loader2, TriangleAlert } from "lucide-react";
 
-import { StateMessage } from "@/components/shared/StateMessage";
-import { cn } from "@/lib/cva.config";
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
+import { StateMessage } from "../../../shared/StateMessage";
+import { cn } from "../../../../lib/cva.config";
+import { formatActivityTimestamp } from "../../../../utils/activityTimestamp";
 
 import { useEvalRunRoute } from "../../route";
 import { useEvalRuns } from "./api";
