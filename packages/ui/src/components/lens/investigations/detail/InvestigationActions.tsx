@@ -1,13 +1,13 @@
 "use client";
 
 import { Pause, Play, Settings2, MoreHorizontal, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+} from "../../../ui/dropdown-menu";
 import { hasActiveJob } from "../../model/status";
 import { type Lens } from "../../model/types";
 

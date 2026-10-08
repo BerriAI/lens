@@ -4,7 +4,7 @@ import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../../ui/button";
 
 import { useTracesApi } from "../../api";
 import {

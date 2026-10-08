@@ -1,9 +1,9 @@
 "use client";
 
-import CopyButton from "@/components/shared/CopyButton";
+import CopyButton from "../../../../shared/CopyButton";
 
 import { AddToDatasetButton } from "../../../datasets/AddToDatasetDialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../ui/tabs";
 
 import { useTracesApi } from "../../api";
 import { formatCost } from "../../list/AgentTracesTable";

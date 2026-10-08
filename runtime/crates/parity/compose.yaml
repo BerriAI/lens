@@ -1,0 +1,3 @@
+name: lens-parity
+include:
+  - ../../../tests/integration/clickhouse.compose.yaml

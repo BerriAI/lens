@@ -2,8 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 
-import { StatusBadge, type StatusTone } from "@/components/shared/table_cells";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { StatusBadge, type StatusTone } from "../../../shared/table_cells/status_badge";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../../ui/sheet";
 
 import { conclusions } from "../../model/live";
 import { releasedReviews } from "../../model/stage";

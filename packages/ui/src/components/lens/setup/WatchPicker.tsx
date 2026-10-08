@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { watches as defaultWatches } from "../model/watches";
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../lib/cva.config";
 
 const dotColors = ["#8b5cf6", "#22b3e8", "#e3a32b", "#eb6b93", "#22b3e8", "#8b5cf6", "#e3a32b", "#eb6b93"];
 const lensBlue = { light: "#0011b3", dark: "#8b9bff" };

@@ -1,0 +1,23 @@
+{
+  "name": "@litellm/lens-web",
+  "version": "0.1.0-dev.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3100",
+    "build": "next build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@litellm/lens-ui": "0.1.0-dev.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "next": "16.3.8",
+    "@tanstack/react-query": "5.100.7",
+    "nuqs": "2.9.4",
+    "next-themes": "0.4.6",
+    "sonner": "2.0.8",
+    "react-hotkeys-hook": "5.3.3",
+    "zod": "4.6.5"
+  }
+}

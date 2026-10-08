@@ -1,6 +1,6 @@
 "use client";
 
-import CopyButton from "@/components/shared/CopyButton";
+import CopyButton from "../../../../shared/CopyButton";
 
 import { fieldEntries } from "../content/payload";
 import { formatCost } from "../../list/AgentTracesTable";

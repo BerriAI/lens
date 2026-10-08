@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import { DotFieldCanvas, DotFieldRoot } from "@/components/shared/dotField/DotField";
-import type { DotColumn } from "@/components/shared/dotField/dots";
+import { DotFieldCanvas, DotFieldRoot } from "../../../shared/dotField/DotField";
+import type { DotColumn } from "../../../shared/dotField/dots";
 
 import { when } from "../../model/format";
 import type { Job } from "../../model/types";

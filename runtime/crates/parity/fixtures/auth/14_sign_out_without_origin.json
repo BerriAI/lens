@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/auth/session",
+    "headers": {
+      "cookie": "lens_session={{session_cookie}}"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Lens session requests must come from the Lens origin"
+    }
+  }
+}

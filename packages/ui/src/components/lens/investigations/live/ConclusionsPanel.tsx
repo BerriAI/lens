@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 
 import { grownGroups, share, type Conclusion } from "../../model/live";
 

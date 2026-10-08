@@ -5,13 +5,13 @@ import { ArrowDown, ChevronRight, Plus, Star } from "lucide-react";
 import { createContext, useContext, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 
-import { DataTableViewOptions } from "@/components/shared/DataTable/DataTableViewOptions";
-import { usePersistedColumnVisibility } from "@/components/shared/DataTable/usePersistedColumnVisibility";
-import { InspectorTable, useInspectorTable } from "@/components/shared/InspectorTable";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/cva.config";
-import { formatActivityTimestamp, formatRunTimestamp, localTimeZoneAbbreviation } from "@/utils/activityTimestamp";
+import { DataTableViewOptions } from "../../../shared/DataTable/DataTableViewOptions";
+import { usePersistedColumnVisibility } from "../../../shared/DataTable/usePersistedColumnVisibility";
+import { InspectorTable, useInspectorTable } from "../../../shared/InspectorTable";
+import { Button } from "../../../ui/button";
+import { Skeleton } from "../../../ui/skeleton";
+import { cn } from "../../../../lib/cva.config";
+import { formatActivityTimestamp, formatRunTimestamp, localTimeZoneAbbreviation } from "../../../../utils/activityTimestamp";
 
 import { SpanIcon } from "../ui/SpanIcon";
 import type { TraceFindingState } from "./useTraceFindings";

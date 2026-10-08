@@ -1,13 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import CopyButton from "@/components/shared/CopyButton";
-import { getProxyBaseUrl } from "@/components/networking";
-import { getAuthHeaderName } from "@/lib/http/runtime";
+import { Button } from "../../../ui/button";
+import CopyButton from "../../../shared/CopyButton";
+import { getProxyBaseUrl } from "../../../../lib/http/requests";
+import { getAuthHeaderName } from "../../../../lib/http/runtime";
 import { useTracesLive } from "../../traces/api";
 import { investigationHandoffText } from "../agentHandoff";
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "../../../ui/tabs";
 import { RunsTab } from "./RunsTab";
 import { LiveRunLoader } from "../live/LiveRunLoader";
 import type { QueueContext } from "../useQueueReason";

@@ -3,13 +3,13 @@ import { focusManager, onlineManager } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "@/lib/http/client";
+import { ApiError } from "../../../../../lib/http/client";
 
 import { renderWithProviders, testQueryClient } from "../../../../../../tests/test-utils";
 import researchTrace from "../../__fixtures__/research_trace.json";
 import swarmTrace from "../../__fixtures__/swarm_trace.json";
 import type { ComponentProps } from "react";
-import { ShortcutHints } from "@/components/shared/ShortcutHints";
+import { ShortcutHints } from "../../../../shared/ShortcutHints";
 import { RunView } from "./RunView";
 import { initialRunSelection } from "./useRunTree";
 import { tickLabel, timeTicks } from "../tree/timeline";
@@ -19,7 +19,7 @@ import type { Span } from "../../types";
 import type { Trace } from "../../types";
 import { traceDisplayName } from "../../utils";
 
-vi.mock("../../../../networking", () => ({
+vi.mock("../../../../../lib/http/requests", () => ({
   agentTraceCall: vi.fn(),
   agentTraceSpanCall: vi.fn(),
   getProxyBaseUrl: () => "http://proxy.test/",
@@ -36,11 +36,11 @@ vi.mock("../span/DetailPane", () => ({
   ),
 }));
 
-vi.mock("@/utils/dataUtils", () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
+vi.mock("../../../../../utils/dataUtils", () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
 
-import { copyToClipboard } from "@/utils/dataUtils";
+import { copyToClipboard } from "../../../../../utils/dataUtils";
 
-import { agentTraceCall } from "../../../../networking";
+import { agentTraceCall } from "../../../../../lib/http/requests";
 
 const swarm = swarmTrace as Trace;
 const research = researchTrace as Trace;

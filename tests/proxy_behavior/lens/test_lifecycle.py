@@ -30,7 +30,8 @@ from litellm_lens.models import (
     Worker,
 )
 from litellm_lens.release import PROTOCOL_VERSION, release_tag
-from litellm_lens.repository import Database, LensRepository, Row
+from litellm_lens.repository import LensRepository
+from tests.support.legacy_sql import Database, Row
 from litellm_lens.state import can_access
 from litellm.proxy.utils import PrismaClient, ProxyLogging
 

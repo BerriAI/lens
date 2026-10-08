@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { ApiClient } from "@/lib/http/client";
-import { getAuthHeaderName } from "@/lib/http/runtime";
+import type { ApiClient } from "../../../lib/http/client";
+import { authHeaders } from "../../../lib/http/authHeaders";
 import type { Client } from "openapi-fetch";
-import type { components, paths } from "@/lib/http/schema";
+import type { components, paths } from "../../../lib/http/schema";
 import { liveDatasetsApi, type DatasetsApi } from "../datasets/client";
 import type {
   ActivitySelection,
@@ -87,7 +87,7 @@ async function sent(request: Promise<unknown>): Promise<void> {
 }
 
 export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToken: string): LensApi {
-  const headers = { [getAuthHeaderName()]: `Bearer ${accessToken}` };
+  const headers = authHeaders(accessToken);
   const lens = (lens_id: string) => ({ headers, params: { path: { lens_id } } });
   const worker = (worker_id: string) => ({ headers, params: { path: { worker_id } } });
   return {

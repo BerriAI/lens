@@ -1,8 +1,8 @@
 "use client";
 
 import { useId, type ComponentProps, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../ui/button";
+import { cn } from "../../../lib/cva.config";
 import type { LensReadiness } from "../hooks/useLensReadiness";
 import { useOnboarding } from "./OnboardingContext";
 import { OnboardingSteps } from "./OnboardingSteps";

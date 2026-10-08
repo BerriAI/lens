@@ -121,6 +121,7 @@ pub fn router(state: Arc<State>) -> Router {
                 .route("/internal/status", get(status)),
         )
         .with_state(state)
+        .merge(lens_server::router())
 }
 
 #[derive(serde::Deserialize)]

@@ -1,8 +1,15 @@
 <div align="center">
+  <a href="https://github.com/BerriAI/lens">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/lens-logo-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="assets/lens-logo-light.png">
+      <img alt="LiteLLM Lens" src="assets/lens-logo-light.png" width="35%">
+    </picture>
+  </a>
 
-<img src="assets/lens-banner.png" alt="LiteLLM Lens, self-improving agents" width="100%">
+<h3>Self-improving agents, built into LiteLLM.</h3>
 
-<br><br>
+<br>
 
 <img src="assets/lens-hero.gif" alt="Agent swarms flow through the LiteLLM gateway into one trace per run, and Lens loops what it learns back into your agents" width="100%">
 

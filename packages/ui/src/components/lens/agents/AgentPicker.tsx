@@ -3,9 +3,9 @@
 import { Bot, Check, ChevronsUpDown, Search } from "lucide-react";
 import { useState } from "react";
 
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/cva.config";
+import { Input } from "../../ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
+import { cn } from "../../../lib/cva.config";
 
 import { FrameworkLogo, traceFramework } from "../traces/ui/TraceFramework";
 import type { AgentSummary } from "./agentRollup";

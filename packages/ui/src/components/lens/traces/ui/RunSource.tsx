@@ -6,8 +6,8 @@ import githubLogo from "../../../../../public/assets/logos/github.svg";
 import jiraLogo from "../../../../../public/assets/logos/jira.svg";
 import linearLogo from "../../../../../public/assets/logos/linear.svg";
 import slackLogo from "../../../../../public/assets/logos/slack.svg";
-import { Logo } from "@/components/molecules/logo/Logo";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Logo } from "../../../molecules/logo/Logo";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../../../ui/hover-card";
 
 import type { TraceSummary } from "../types";
 

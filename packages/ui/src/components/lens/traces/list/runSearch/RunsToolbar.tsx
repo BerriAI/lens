@@ -1,9 +1,9 @@
 "use client";
 
 import type { TraceSummary } from "../../types";
-import type { TimeWindow } from "@/components/shared/timeRange/timeRange";
+import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../ui/select";
 import { useRunFilterRouting } from "../../routing";
 import { RunSearch } from "./RunSearch";
 

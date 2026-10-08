@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/http/client";
+import { ApiError } from "../../../../lib/http/client";
 
 /**
  * Why a trace read failed, as the proxy reports it in the `code` of a failed response. Each kind has

@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../ui/button";
+import { cn } from "../../../lib/cva.config";
 
 import { useInvalidateLenses } from "../data/mutations";
 import { lensQueries } from "../data/queries";

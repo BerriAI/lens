@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "../../../ui/switch";
 import { AnalysisKeyPicker } from "./AnalysisKeyPicker";
 
 import { AnalysisAccessFields } from "./AnalysisAccessFields";

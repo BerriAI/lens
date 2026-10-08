@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ComponentProps } from "react";
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../lib/cva.config";
 import { StepIndicator, type StepState } from "../ui/StepIndicator";
 import { SETUP_STEPS, type SetupStep as SetupStepId } from "./investigationSchema";
 

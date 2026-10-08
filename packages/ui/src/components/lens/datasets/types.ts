@@ -1,4 +1,4 @@
-import type { paths } from "@/lib/http/schema";
+import type { paths } from "../../../lib/http/schema";
 
 type Json<T> = T extends { content: { "application/json": infer Body } } ? Body : never;
 

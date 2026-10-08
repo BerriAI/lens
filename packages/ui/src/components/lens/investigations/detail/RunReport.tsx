@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useNow } from "@/hooks/useNow";
+import { Button } from "../../../ui/button";
+import { cn } from "../../../../lib/cva.config";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui/collapsible";
+import { useNow } from "../../../../hooks/useNow";
 
 import { analysisElapsed } from "../../model/progress";
 import { money } from "../../model/format";

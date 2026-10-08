@@ -1,6 +1,6 @@
 "use client";
 
-import CopyButton from "@/components/shared/CopyButton";
+import CopyButton from "../../../../shared/CopyButton";
 
 import { useTracesApi } from "../../api";
 import type { GroupRowData } from "../../tree";

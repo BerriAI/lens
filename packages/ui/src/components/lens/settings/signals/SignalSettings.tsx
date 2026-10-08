@@ -5,13 +5,13 @@ import { Flag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useId, useState } from "react";
 
-import { SearchSelect } from "@/components/shared/SearchSelect";
-import { StatusDot } from "@/components/shared/StatusDot";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { uiHref } from "@/utils/uiHref";
+import { SearchSelect } from "../../../shared/SearchSelect";
+import { StatusDot } from "../../../shared/StatusDot";
+import { Button } from "../../../ui/button";
+import { Input } from "../../../ui/input";
+import { Skeleton } from "../../../ui/skeleton";
+import { Textarea } from "../../../ui/textarea";
+import { uiHref } from "../../../../utils/uiHref";
 
 import { useLensApi } from "../../data/LensServices";
 import { lensKeys, lensQueries } from "../../data/queries";

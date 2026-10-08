@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Inspector } from "@/components/shared/Inspector";
-import { Button } from "@/components/ui/button";
-import { RunView } from "@/components/lens/traces/detail/run/RunView";
-import { useLocalRunSelection } from "@/components/lens/traces/routing";
+import { Inspector } from "../../shared/Inspector";
+import { Button } from "../../ui/button";
+import { RunView } from "../traces/detail/run/RunView";
+import { useLocalRunSelection } from "../traces/routing";
 
 import { lensQueries } from "../data/queries";
 import { useLensAccessToken, useLensApi } from "../data/LensServices";

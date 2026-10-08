@@ -4,8 +4,8 @@ from typing import Final, LiteralString, cast
 
 from pydantic import TypeAdapter
 
+from litellm_lens.database import Database
 from litellm_lens.models import Record
-from litellm_lens.repository import Database
 
 
 class AppliedMigration(Record):
@@ -18,7 +18,7 @@ async def migrate(database: Database) -> None:
         await transaction.query_raw("SELECT pg_advisory_xact_lock(746362184947742)")
         await transaction.execute_raw(
             'CREATE TABLE IF NOT EXISTS "LensSchemaMigration" '
-            '(name TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)'
+            "(name TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)"
         )
         applied: Final = TypeAdapter(tuple[AppliedMigration, ...]).validate_python(
             await transaction.query_raw('SELECT name, checksum FROM "LensSchemaMigration" ORDER BY name')

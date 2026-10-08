@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________________ test_due_filters_by_schedule_and_scope ____________________
+tests/integration/database/test_lens_repository.py:121: in test_due_filters_by_schedule_and_scope
+    assert tuple(candidate.lens.id for candidate in team_due) == tuple(
+E   AssertionError: assert ('dc9b71c7229...df3e2dced810') == ('dc9b71c7229...df3e2dced810')
+E
+E     At index 1 diff: 'dc9b71c7229f4e7a9225819766727ed1' != '4a488ac9dd544013bfbedf3e2dced810'
+E     Left contains one more item: '4a488ac9dd544013bfbedf3e2dced810'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_due_filters_by_schedule_and_scope
+1 failed in 0.54s

@@ -3,7 +3,7 @@
 import { ChartGantt, ListTree, MoreHorizontal, PanelRightOpen, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../../ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -11,9 +11,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/cva.config";
+} from "../../../../ui/dropdown-menu";
+import { Input } from "../../../../ui/input";
+import { cn } from "../../../../../lib/cva.config";
 
 import type { TreeRow } from "../../tree";
 import type { TraceSummary } from "../../types";

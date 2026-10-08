@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_invalidate_them _
+tests/integration/database/test_lens_repository.py:514: in test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_invalidate_them
+    assert await repo.reviews(lens.id, resumed) == (updated,)
+E   AssertionError: assert (Review(execu...rtial=False),) == (Review(execu...rtial=False),)
+E
+E     At index 0 diff: Review(execution_id='53aa050ca94b46bdbf940b745e845c73', trace_id='3503c16c37c54a6eb21dd9cd9f2e0171', agent='agent', name='task', spans=(), reasoning='', verdicts=(), cannot_assess=False, model='analysis', duration_ms=10, at=datetime.datetime(2026, 10, 8, 23, 19, 23, 203050, tzinfo=TzInfo(0)), tool_calls=(), extraction=Extraction(observations=(), cannot_assess=False, reasoning=''), content_version='version-2', reused=False, consolidated=True, partial=False) != Review(execution_id='53aa050ca94b46bdbf940b745e845c73', trace_id='3503c16c37c54a6eb21dd9cd9f2e0...
+E
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_invalidate_them
+1 failed in 0.60s

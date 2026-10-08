@@ -11,6 +11,8 @@ from typing import Final, Literal, LiteralString
 import httpx
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
+from litellm_lens.state_schema import INDEX_SCHEMA
+
 
 class Head(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -119,7 +121,13 @@ class ClickHouseState:
             "ENGINE=ReplacingMergeTree ORDER BY (key, revision, digest) "
             "SETTINGS fsync_after_insert=1, fsync_part_directory=1"
         )
-        return blobs if isinstance(blobs, StorageFailure) else None
+        if isinstance(blobs, StorageFailure):
+            return blobs
+        for statement in INDEX_SCHEMA:
+            indexed: Final = await self.command(statement)
+            if isinstance(indexed, StorageFailure):
+                return indexed
+        return None
 
     async def ensure_head(self, key: str) -> StorageFailure | None:
         result: Final = await self.command(
@@ -163,6 +171,8 @@ class ClickHouseState:
             return StorageFailure("invalid")
 
     async def read_many(self, keys: tuple[str, ...]) -> tuple[Snapshot, ...] | StorageFailure:
+        if not keys:
+            return ()
         for attempt in range(8):
             before: Final = await self.heads(keys)
             if isinstance(before, StorageFailure):
@@ -181,6 +191,8 @@ class ClickHouseState:
         return StorageFailure("unavailable")
 
     async def _values(self, heads: tuple[Head, ...]) -> tuple[Snapshot, ...] | StorageFailure | None:
+        if not heads:
+            return ()
         references: Final = tuple((head.key, head.revision, head.digest) for head in heads if head.digest)
         result: Final = await self.command(
             "SELECT key, revision, digest, data FROM lens_state_blobs FINAL "
@@ -203,6 +215,10 @@ class ClickHouseState:
         if any(head.digest and head.key not in values for head in heads):
             return None
         return tuple(values.get(head.key, Snapshot(**head.model_dump())) for head in heads)
+
+    async def resolve(self, heads: tuple[Head, ...]) -> tuple[Snapshot, ...] | StorageFailure:
+        values: Final = await self._values(heads)
+        return StorageFailure("unavailable") if values is None else values
 
     async def prepare(self, changes: tuple[Change, ...]) -> PreparedCommit | StorageFailure:
         keys: Final = tuple(change.previous.key for change in changes)

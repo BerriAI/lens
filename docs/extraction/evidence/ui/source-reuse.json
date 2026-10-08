@@ -1,0 +1,12 @@
+{
+  "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "scope": "Production Lens modules, excluding import declarations and comments; TypeScript printer normalizes formatting. This is source reuse evidence, not functional parity.",
+  "modules": 193,
+  "identicalBodies": 189,
+  "adaptedBodies": [
+    "src/components/lens/data/service.ts",
+    "src/components/lens/datasets/client.ts",
+    "src/components/lens/traces/detail/span/SpendLogLink.tsx",
+    "src/components/lens/traces/detail/useSpanRequestLog.ts"
+  ]
+}

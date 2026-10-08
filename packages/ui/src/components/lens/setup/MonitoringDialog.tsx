@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { z } from "zod";
 import { Controller } from "react-hook-form";
-import { useZodForm } from "@/lib/forms/useZodForm";
-import { Button } from "@/components/ui/button";
+import { useZodForm } from "../../../lib/forms/useZodForm";
+import { Button } from "../../ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { DurationInput } from "@/components/shared/DurationInput";
+} from "../../ui/dialog";
+import { DurationInput } from "../../shared/DurationInput";
 import { type Settings } from "../model/types";
 
 const monitoringSchema = z.object({

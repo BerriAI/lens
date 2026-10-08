@@ -288,7 +288,7 @@
       "destination": "runtime/Cargo.lock",
       "sha256": "838afc5c347d3c085bdf4cea0921dfcec5927eaaee64918c8f51ac65edffa74d",
       "change": "adapted_during_extraction",
-      "extracted_sha256": "c12f0010c18caa6f5d8d7ceddc97a37831182790ddc7541a4f3619825f408632",
+      "extracted_sha256": "f8636392b26e8d3a208f0e89647b0084d2f75d1991d5e407f3da15ddafa00420",
       "baseline_identical": false
     },
     {
@@ -303,9 +303,9 @@
       "source": "litellm-rust/crates/lens/Cargo.toml",
       "destination": "runtime/crates/lens/Cargo.toml",
       "sha256": "0cf2d0757288b35968c689572626121c9351ecf5452207b9917897359aa2e587",
-      "change": "unchanged",
-      "extracted_sha256": "0cf2d0757288b35968c689572626121c9351ecf5452207b9917897359aa2e587",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "953d47462075e71839cbc6e44a0351b9745bfdb01883a0b0ebe3adbfcff14f09",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/lens/build.rs",
@@ -463,9 +463,9 @@
       "source": "litellm-rust/crates/lens/src/lib.rs",
       "destination": "runtime/crates/lens/src/lib.rs",
       "sha256": "6dc51366d09d1d7d35df441747e10898048abd6687a54508e5d64330521c1746",
-      "change": "unchanged",
-      "extracted_sha256": "6dc51366d09d1d7d35df441747e10898048abd6687a54508e5d64330521c1746",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3abf17df90e9550ddcf644094501c31bcddd0b19e2327705cbbc45c210220b09",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/lens/src/main.rs",
@@ -2840,7 +2840,7 @@
       "destination": "src/litellm_lens/endpoints.py",
       "sha256": "30d512a05756c1fdf6489c7c2c85956af1c3996cb5fed54dd0e1fa146d0e75a9",
       "change": "adapted_during_extraction",
-      "extracted_sha256": "90371366d179340d0ba40bf7bf3d67515970ab4cd3ee826a6be59e5aeb384f37",
+      "extracted_sha256": "f35d2933d03fc48ef5c958db3519885e10b67fa49b67f5a49ca805aa38b87707",
       "baseline_identical": false
     },
     {
@@ -2935,8 +2935,8 @@
       "source": "litellm/proxy/lens/repository.py",
       "destination": "src/litellm_lens/repository.py",
       "sha256": "9fea6e41bb248ef8dea21879078ddd0b8ea352e7d78844a085bea43ab8270cd4",
-      "change": "import_or_build_path",
-      "extracted_sha256": "cfa70f0987a557e6c1d6659615005775130badceee7976e3ed7f462c0a5084c6",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "baa9d24e64283a9b9f912c7160ddac515e1454ecc423ec23e6b962db1cd4de58",
       "baseline_identical": false
     },
     {
@@ -3471,7 +3471,7 @@
       "source": "scripts/trace_codegen/templates/pydantic_v2/types.jinja2",
       "destination": "scripts/trace_codegen/templates/pydantic_v2/types.jinja2",
       "sha256": "20a22f36acccf3b8b2284a3762c5c7150c74a23fdee86927fdc4816d23f34d7e",
-      "change": "unchanged",
+      "change": "adapted_during_extraction",
       "extracted_sha256": "20a22f36acccf3b8b2284a3762c5c7150c74a23fdee86927fdc4816d23f34d7e",
       "baseline_identical": true
     },
@@ -3503,16 +3503,16 @@
       "source": "tests/integration/database/test_lens_repository.py",
       "destination": "tests/integration/database/test_lens_repository.py",
       "sha256": "21b0681e1d1643ef9c13d11280a28d784cfa08cd69f450c4e50b105aa82f25f5",
-      "change": "import_or_build_path",
-      "extracted_sha256": "5394070f5f2ce368d13cca0245e4756eff8f92547c00c77460fb7fd9393ab677",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "a8ef95b0670d9460af1050e1666a530e01369795bcb5bcc9072be313a82e8915",
       "baseline_identical": false
     },
     {
       "source": "tests/integration/database/test_lens_scheduler_load.py",
       "destination": "tests/integration/database/test_lens_scheduler_load.py",
       "sha256": "3ed6646677b46b2138ddfc3b3f74e8ed5f33460054c67823562df6fc5e6afba4",
-      "change": "import_or_build_path",
-      "extracted_sha256": "e8eeb7a50ecade49891e60875ebc6feb0255fa671a4f3726489a9b5a3454fa3d",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "9d84066290595b16d70b7c72f697f627c6dde465469f7776823fb54913152d4c",
       "baseline_identical": false
     },
     {
@@ -3575,8 +3575,8 @@
       "source": "tests/proxy_behavior/lens/test_lifecycle.py",
       "destination": "tests/proxy_behavior/lens/test_lifecycle.py",
       "sha256": "d62cf8dcda16a0c42a4c3fc23cf4e21999e8a77f77c806693c2aaa30e2aedb8e",
-      "change": "import_or_build_path",
-      "extracted_sha256": "4eccdfe56cd589de89035a3b2e05652eeb49e467ea3138dfb72038ce1e3adca8",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fb979fe149e362a5060b11ff2dbcceeaa5eb2fd533463375ef527bb777c9c7d1",
       "baseline_identical": false
     },
     {
@@ -3607,8 +3607,8 @@
       "source": "tests/unit/proxy/lens/test_dataset_endpoints.py",
       "destination": "tests/unit/litellm_lens/test_dataset_endpoints.py",
       "sha256": "253db6eb4f8a0934dae760ab0af993298497ac5b2e39d1cb6794866f7ca119b0",
-      "change": "import_or_build_path",
-      "extracted_sha256": "b5c9a7ce60eaf79acc92615ccb9070becdf704c75e96eca6dfc621450c28a2da",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "4261d701582fbb588c8a57925d6579d8cc5d100ce0e0ea03c67054b0ed8152e8",
       "baseline_identical": false
     },
     {
@@ -3623,8 +3623,8 @@
       "source": "tests/unit/proxy/lens/test_endpoints.py",
       "destination": "tests/unit/litellm_lens/test_endpoints.py",
       "sha256": "b1bab7b93f4d6fe3220423021e498fa52fa86ab76433ffdb85e7b9a3e7d9ae03",
-      "change": "import_or_build_path",
-      "extracted_sha256": "3d6499892af6ff2f06bd73dd302791dc2e12fd81ed464bfb9e27e05fa043565b",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3e76474d72c0329cd57a509d20fe26aa73882ad287069efa9f17916f98acb55c",
       "baseline_identical": false
     },
     {
@@ -3639,8 +3639,8 @@
       "source": "tests/unit/proxy/lens/test_inference.py",
       "destination": "tests/unit/litellm_lens/test_inference.py",
       "sha256": "671ddc8d6a9c8ee7e2a0e90aa5a3f7e7ac7273e1388e9a822eea9adee4343b0b",
-      "change": "import_or_build_path",
-      "extracted_sha256": "9314ef4bdf88220c12770dd3fbea21dd5064528fdddcec15decd3dc9de2612e7",
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8833dc3b51b1046b36b9f3cf45a588cccdcfd2398d10acfdedfc0d0e72a2808a",
       "baseline_identical": false
     },
     {
@@ -3653,10 +3653,10 @@
     },
     {
       "source": "tests/unit/proxy/lens/test_repository.py",
-      "destination": "tests/unit/litellm_lens/test_repository.py",
+      "destination": "tests/integration/database/test_lens_repository.py",
       "sha256": "56c9991a9841d4ab7fac2164d5bcd0dd9b166751e97dc1a673c4df9febd90cba",
-      "change": "import_or_build_path",
-      "extracted_sha256": "cc5abf9e03367f330196ce8054000dc3e5aebd789fe3148a5f1c95b18128aab2",
+      "change": "ported_to_clickhouse_integration",
+      "extracted_sha256": "a8ef95b0670d9460af1050e1666a530e01369795bcb5bcc9072be313a82e8915",
       "baseline_identical": false
     },
     {
@@ -3775,49 +3775,49 @@
       "source": "ui/litellm-dashboard/src/components/lens/LensModeSwitch.tsx",
       "destination": "packages/ui/src/components/lens/LensModeSwitch.tsx",
       "sha256": "bc7b1d53ebf0a6c47f1633b25887b48ce3fc8407229369aa5b20d277ccb91da6",
-      "change": "unchanged",
-      "extracted_sha256": "bc7b1d53ebf0a6c47f1633b25887b48ce3fc8407229369aa5b20d277ccb91da6",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "143ad78ee97169abbbfcc802a00dfdef117f658f62e062c3e0531c71301b83d1",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/LensPage.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/LensPage.integration.test.tsx",
       "sha256": "9af42faab4f98e158266f88daedea95d88cb5f814bb18be7f29f1d25d5e2b93e",
-      "change": "unchanged",
-      "extracted_sha256": "9af42faab4f98e158266f88daedea95d88cb5f814bb18be7f29f1d25d5e2b93e",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "bec59d5c1e5e1814d31d10e3d628a068bcbcf54af976483c92ae9445e98ecf3a",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/LensSetup.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/LensSetup.integration.test.tsx",
       "sha256": "e9060e8330d3a342b1867602689592d1d90a57d86c461725412fc6b81bc3157f",
-      "change": "unchanged",
-      "extracted_sha256": "e9060e8330d3a342b1867602689592d1d90a57d86c461725412fc6b81bc3157f",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "f2957e5dde6aadaec4cdc9591e22eabcec1333971d570e530f97a81301f64fdb",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/LensWorkspace.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/LensWorkspace.integration.test.tsx",
       "sha256": "523d767ead906a331299b0a6e81823474ca80d94d3aa9ba0610f1194104b18eb",
-      "change": "unchanged",
-      "extracted_sha256": "523d767ead906a331299b0a6e81823474ca80d94d3aa9ba0610f1194104b18eb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "232bbd4c968ee3104cf24b83258bcf56894e46df31593a2c9a57eda78ed70549",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/LensWorkspace.tsx",
       "destination": "packages/ui/src/components/lens/LensWorkspace.tsx",
       "sha256": "43b32288f87f95d73a8676f7e6c3d7a12be8135e401ffd095800bc52d3d97348",
-      "change": "unchanged",
-      "extracted_sha256": "43b32288f87f95d73a8676f7e6c3d7a12be8135e401ffd095800bc52d3d97348",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ba6d1fd861287e37f7d532bf12624d2eb4314b6c6dff74e4921ae6747882ca82",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/agents/AgentPicker.tsx",
       "destination": "packages/ui/src/components/lens/agents/AgentPicker.tsx",
       "sha256": "8c18c1254b98a56a314ba0b1a5c49d5beb37f1c7e059d2c8f4db02b705eacaf9",
-      "change": "unchanged",
-      "extracted_sha256": "8c18c1254b98a56a314ba0b1a5c49d5beb37f1c7e059d2c8f4db02b705eacaf9",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "b10ed8c7fee8bef1aa8e2b0d21891e5f2003916246d9bdb14c99b11e58b9bebf",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/agents/AgentScoped.tsx",
@@ -3863,9 +3863,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/data/LensServices.tsx",
       "destination": "packages/ui/src/components/lens/data/LensServices.tsx",
       "sha256": "a621f9c7c9055b6123c2e4496d5500e54728f4eca02fb7997c2e31a87307bc63",
-      "change": "unchanged",
-      "extracted_sha256": "a621f9c7c9055b6123c2e4496d5500e54728f4eca02fb7997c2e31a87307bc63",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e4cd4ab7442cd5910651c3dc2b2fe9748d85f501f0be5dff7604f0065c7ab9b4",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/createLensDemo.test.ts",
@@ -3879,33 +3879,33 @@
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/createLensDemo.ts",
       "destination": "packages/ui/src/components/lens/data/demo/createLensDemo.ts",
       "sha256": "d3600af4d034a58542fe9f749b3d598193b820d970025a0d2eb656b4050ab91b",
-      "change": "unchanged",
-      "extracted_sha256": "d3600af4d034a58542fe9f749b3d598193b820d970025a0d2eb656b4050ab91b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7023daa79ba6bcf79bed89b3413fc480770475d99f4d67ff7a85e2c942ade9a9",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/demoDatasets.ts",
       "destination": "packages/ui/src/components/lens/data/demo/demoDatasets.ts",
       "sha256": "8cf9d571b804512e72b91001dae2bd6a3d1d5122344721ba749f6596bb1a53d9",
-      "change": "unchanged",
-      "extracted_sha256": "8cf9d571b804512e72b91001dae2bd6a3d1d5122344721ba749f6596bb1a53d9",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e9c5637a6bb3dfe2135ff15281d16c5b072f596e007cf6e70e5f6bf3678e4e72",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/fixtures.ts",
       "destination": "packages/ui/src/components/lens/data/demo/fixtures.ts",
       "sha256": "5f6a1194dcefbeddd98c48e4bfe3902b4cc91211f224576f66e8c8677126f6c5",
-      "change": "unchanged",
-      "extracted_sha256": "5f6a1194dcefbeddd98c48e4bfe3902b4cc91211f224576f66e8c8677126f6c5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "76c267c97dd10499bd0ad3199ab94a2c46b82ebccefd62489391baa4201373f8",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/lensDemoLongTrace.ts",
       "destination": "packages/ui/src/components/lens/data/demo/lensDemoLongTrace.ts",
       "sha256": "e72a51861cf145528cf30485b5e70e5c1c6f1dfd6c677549d8e161bc89bef10c",
-      "change": "unchanged",
-      "extracted_sha256": "e72a51861cf145528cf30485b5e70e5c1c6f1dfd6c677549d8e161bc89bef10c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "216014ea0a429812c30f3358eacb7365247aa31415fe30fe4f352e2a87c09c76",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/data/demo/scenarios.ts",
@@ -3935,73 +3935,73 @@
       "source": "ui/litellm-dashboard/src/components/lens/data/service.ts",
       "destination": "packages/ui/src/components/lens/data/service.ts",
       "sha256": "f2c602a80bf63ffab271176c5747a74bfac7c36659ba1d1526bc42afa5fe51e5",
-      "change": "unchanged",
-      "extracted_sha256": "f2c602a80bf63ffab271176c5747a74bfac7c36659ba1d1526bc42afa5fe51e5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "02417e9635aa608a653a7609c431ad00e45f6061d570875cfee4d90d324ec943",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/AddToDatasetDialog.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/datasets/AddToDatasetDialog.integration.test.tsx",
       "sha256": "3aa57ebacd734fb55f2323e93a5488275c837726891b8998a162105316d58953",
-      "change": "unchanged",
-      "extracted_sha256": "3aa57ebacd734fb55f2323e93a5488275c837726891b8998a162105316d58953",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c7b67740472ed5d9e0d9c54197027fe027af9a70c60bb0be1661507617abc93d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/AddToDatasetDialog.tsx",
       "destination": "packages/ui/src/components/lens/datasets/AddToDatasetDialog.tsx",
       "sha256": "7dc44180f7fa901544a3834d7507f200db99fd8e5bae047148d6d76c22613bc1",
-      "change": "unchanged",
-      "extracted_sha256": "7dc44180f7fa901544a3834d7507f200db99fd8e5bae047148d6d76c22613bc1",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "830301b435b9593c116e461095a4b90a994aaab1521929abdd156ce568909b52",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/CasePanel.tsx",
       "destination": "packages/ui/src/components/lens/datasets/CasePanel.tsx",
       "sha256": "6b42e32efae0cbdb7786b8597d30618fa4836c320670535584af06e88bca913d",
-      "change": "unchanged",
-      "extracted_sha256": "6b42e32efae0cbdb7786b8597d30618fa4836c320670535584af06e88bca913d",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "adc065324b2292eea0ad1c8c775f53071aa117c359d5bef32264d1dc21e5440f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/CaseTable.tsx",
       "destination": "packages/ui/src/components/lens/datasets/CaseTable.tsx",
       "sha256": "50d216672499806bfec89e9b86ec0c3241874bbe2bff62675da9d1ef1e677e59",
-      "change": "unchanged",
-      "extracted_sha256": "50d216672499806bfec89e9b86ec0c3241874bbe2bff62675da9d1ef1e677e59",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "65c592c04511b1b98290bb837431c5a7ddd46206b6d517a8e7e1126ea64bd2bc",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/DatasetDetail.tsx",
       "destination": "packages/ui/src/components/lens/datasets/DatasetDetail.tsx",
       "sha256": "babe1ea530032e19a10d12bcf2c505526bc7a50a5af5ff3b22d2896fa75c4c10",
-      "change": "unchanged",
-      "extracted_sha256": "babe1ea530032e19a10d12bcf2c505526bc7a50a5af5ff3b22d2896fa75c4c10",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "81353cb93e0bdf28da6ecd3fc482daea6ac3fa5ed6948cdaab01c748de7b8608",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/DatasetsView.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/datasets/DatasetsView.integration.test.tsx",
       "sha256": "bf87769e4c5b36027d0ea4eadcf6d423b34bc5ebdeb2a94c6685513a84e6b258",
-      "change": "unchanged",
-      "extracted_sha256": "bf87769e4c5b36027d0ea4eadcf6d423b34bc5ebdeb2a94c6685513a84e6b258",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "528ca62b535ac9f570765401fb7552e5fdddcf6d17a1c3acf4e7131cf63c4eb0",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/DatasetsView.tsx",
       "destination": "packages/ui/src/components/lens/datasets/DatasetsView.tsx",
       "sha256": "fed23866a000d58193c944bef064604ca501e6a298406ed007af1fbd710ecf48",
-      "change": "unchanged",
-      "extracted_sha256": "fed23866a000d58193c944bef064604ca501e6a298406ed007af1fbd710ecf48",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e49f11086b755a19ec4a31c9fb2ba6cc8ac18ffc7377584605eb78b80fbde011",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/api.ts",
       "destination": "packages/ui/src/components/lens/datasets/api.ts",
       "sha256": "5f67e830ac3c971ba6b69236fdbf4f7b064439e2c47e711e892561f64607a20a",
-      "change": "unchanged",
-      "extracted_sha256": "5f67e830ac3c971ba6b69236fdbf4f7b064439e2c47e711e892561f64607a20a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8cc64e3e2305fc7d4ee26e688b7794f547935b36b7f7a2750f336174f0e91b33",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/caseView.test.ts",
@@ -4023,9 +4023,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/datasets/client.ts",
       "destination": "packages/ui/src/components/lens/datasets/client.ts",
       "sha256": "d11a9fc351c487ccde109d752c63762c0b8dac8ff9d205545376182f28bb023b",
-      "change": "unchanged",
-      "extracted_sha256": "d11a9fc351c487ccde109d752c63762c0b8dac8ff9d205545376182f28bb023b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "77ac728a79affffdd6e5a164923f126d92adbc97355ca259d57d0a591c45732b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/datasets/draft.test.ts",
@@ -4047,65 +4047,65 @@
       "source": "ui/litellm-dashboard/src/components/lens/datasets/types.ts",
       "destination": "packages/ui/src/components/lens/datasets/types.ts",
       "sha256": "5267d757231f8096372de0205c903cd9711f126820900c3c9b314353541f8a6c",
-      "change": "unchanged",
-      "extracted_sha256": "5267d757231f8096372de0205c903cd9711f126820900c3c9b314353541f8a6c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "740b84548e7fc4d1ede0db3a036b9f98087d50cbff9f863c97ae838a95fabf28",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/hooks/useLensReadiness.ts",
       "destination": "packages/ui/src/components/lens/hooks/useLensReadiness.ts",
       "sha256": "6e3669d6108abe8ccff9df00b5e292e55a91abb60bed835584b91c66ac8a3c66",
-      "change": "unchanged",
-      "extracted_sha256": "6e3669d6108abe8ccff9df00b5e292e55a91abb60bed835584b91c66ac8a3c66",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "6a4d305901b503a04a2dd2a3471415e359df527278f3fbaf68ae11512288fac7",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/hooks/useWorkerConnected.ts",
       "destination": "packages/ui/src/components/lens/hooks/useWorkerConnected.ts",
       "sha256": "9decd036ee8231639853b0e0522c64b5a2f432b3e8e04ae0fa2d3ac3fc3958e8",
-      "change": "unchanged",
-      "extracted_sha256": "9decd036ee8231639853b0e0522c64b5a2f432b3e8e04ae0fa2d3ac3fc3958e8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "af884609de00d0b070547d1775034484a349af1a121d917269ffe96c4e6f4e25",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/Evidence.tsx",
       "destination": "packages/ui/src/components/lens/investigations/Evidence.tsx",
       "sha256": "8c25d45278e16aa3c756db559d34b29223cec7e50e84d6669384586a7f6d6273",
-      "change": "unchanged",
-      "extracted_sha256": "8c25d45278e16aa3c756db559d34b29223cec7e50e84d6669384586a7f6d6273",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "85a8803c44f6583c5ad7a679d016f69d10b7c6bf682eb416876d48b9920eefd1",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/FindingDetails.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/investigations/FindingDetails.integration.test.tsx",
       "sha256": "656ebcd9dfb27e7f08934c3e65cadce086840a4bb643509b448843fc98db6fd2",
-      "change": "unchanged",
-      "extracted_sha256": "656ebcd9dfb27e7f08934c3e65cadce086840a4bb643509b448843fc98db6fd2",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7f42ef98a65d8c1ed8c7acfe5b4e3590c1568e848390516a571c080d8d8c140d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/FindingDetails.tsx",
       "destination": "packages/ui/src/components/lens/investigations/FindingDetails.tsx",
       "sha256": "033b210fd572c3e055be4472498de668320b270792f8067f7b2d429e1c1da005",
-      "change": "unchanged",
-      "extracted_sha256": "033b210fd572c3e055be4472498de668320b270792f8067f7b2d429e1c1da005",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8ae2a1ce8c5435e625b97a1c35ee24291e24c85e5f9e558aa7ff8ed962bffe74",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/FindingsView.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/investigations/FindingsView.integration.test.tsx",
       "sha256": "d62cdfc80fad0abf1c0047e14e49d64934ac8058cde04bcad5827397ef1a3966",
-      "change": "unchanged",
-      "extracted_sha256": "d62cdfc80fad0abf1c0047e14e49d64934ac8058cde04bcad5827397ef1a3966",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "231448eae9d46f43208bc45392d68c3078a2f936c7e80ea6d09645b7cf152469",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/FindingsView.tsx",
       "destination": "packages/ui/src/components/lens/investigations/FindingsView.tsx",
       "sha256": "6ec35fea0e5de2005154ba6751cc3dd0cb7e3d8389915ec565082fdd99897d09",
-      "change": "unchanged",
-      "extracted_sha256": "6ec35fea0e5de2005154ba6751cc3dd0cb7e3d8389915ec565082fdd99897d09",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ca290aa23e167b6a1d699b000e704a123c4824385ffad58534601bd43b5ae9e5",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/FrequencyCard.tsx",
@@ -4119,57 +4119,57 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/InvestigationList.tsx",
       "destination": "packages/ui/src/components/lens/investigations/InvestigationList.tsx",
       "sha256": "4e305ba3dd7aea43d76b330f8f60150732d8812e5c52de681ab12c5b4ca06181",
-      "change": "unchanged",
-      "extracted_sha256": "4e305ba3dd7aea43d76b330f8f60150732d8812e5c52de681ab12c5b4ca06181",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "a087315762b355bb7eec07b2e92d937828a3a6f20c380cbc45daf852fc5572ab",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/InvestigationProgress.tsx",
       "destination": "packages/ui/src/components/lens/investigations/InvestigationProgress.tsx",
       "sha256": "ff83ba161b1c6a10e7753919f8d4960e6c863d33059b77e6e1eef0885ad732e5",
-      "change": "unchanged",
-      "extracted_sha256": "ff83ba161b1c6a10e7753919f8d4960e6c863d33059b77e6e1eef0885ad732e5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fcf27815ea3bb506b8bacb359c8bec261b939d33d917f8d24945cd242aeca099",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/InvestigationStates.tsx",
       "destination": "packages/ui/src/components/lens/investigations/InvestigationStates.tsx",
       "sha256": "7741fd537e9bb27746b30506010b2fdff92e262dbb284061346a169d0a691f21",
-      "change": "unchanged",
-      "extracted_sha256": "7741fd537e9bb27746b30506010b2fdff92e262dbb284061346a169d0a691f21",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "0150ab21f4a32c24cbbf136cc43de361b9bb3586e04ccc798506ebc4c7c347b7",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/InvestigationsView.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/investigations/InvestigationsView.integration.test.tsx",
       "sha256": "c7355665233312fa36a47bb183083f2f0dd70a26c948a0a61560e5c7414cde1c",
-      "change": "unchanged",
-      "extracted_sha256": "c7355665233312fa36a47bb183083f2f0dd70a26c948a0a61560e5c7414cde1c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "d5454203e09b35e580f0e5485425ce3e281cc972c2ce95b7415700a6b4f4f47f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/InvestigationsView.tsx",
       "destination": "packages/ui/src/components/lens/investigations/InvestigationsView.tsx",
       "sha256": "25ba20e40457241a22022f98a5f6c4b6af12bd10aae6bfcf6e9cd610862f85b4",
-      "change": "unchanged",
-      "extracted_sha256": "25ba20e40457241a22022f98a5f6c4b6af12bd10aae6bfcf6e9cd610862f85b4",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c394c982952b99b981de67b93d20594d64d3b1c3891ed88804c5a56115d0989b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/IssueBrief.tsx",
       "destination": "packages/ui/src/components/lens/investigations/IssueBrief.tsx",
       "sha256": "296d64185f6305a22dbaf3eba96dd2b433a8593f1fe7bb57e42b05194525a05e",
-      "change": "unchanged",
-      "extracted_sha256": "296d64185f6305a22dbaf3eba96dd2b433a8593f1fe7bb57e42b05194525a05e",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "379248f9a6971ab42825420f525c97b855fcd11e4b4b5afe8de303d9500f07e3",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/PriorityMark.tsx",
       "destination": "packages/ui/src/components/lens/investigations/PriorityMark.tsx",
       "sha256": "2fa4e82ece0bce98474685f4b6d40f1179cbfa990f3ebf8d409d6532dee1491b",
-      "change": "unchanged",
-      "extracted_sha256": "2fa4e82ece0bce98474685f4b6d40f1179cbfa990f3ebf8d409d6532dee1491b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ea6528faf2a1ecd56e15e613861d6d034dccf49386f24467a71181283a6bb3f3",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/QueueReasonText.tsx",
@@ -4183,17 +4183,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/ReadinessBanner.tsx",
       "destination": "packages/ui/src/components/lens/investigations/ReadinessBanner.tsx",
       "sha256": "3ccfcec4a4ec185033df2498b8d52f1a2bd5924744f9bd6a30e75fe4281afc0a",
-      "change": "unchanged",
-      "extracted_sha256": "3ccfcec4a4ec185033df2498b8d52f1a2bd5924744f9bd6a30e75fe4281afc0a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "605418ff0ed3267b48d39ae275dc69e51d03df22f790fd833881aeda1ff72b49",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/StepFeed.tsx",
       "destination": "packages/ui/src/components/lens/investigations/StepFeed.tsx",
       "sha256": "fe45649dee7918e9cd83601b310423a8f0771e9b8df59424447a449d470c9006",
-      "change": "unchanged",
-      "extracted_sha256": "fe45649dee7918e9cd83601b310423a8f0771e9b8df59424447a449d470c9006",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "5b6b6f0b8d0307b39d1c840955bd327154cf0a6f8af31d47ec125e5cb93c6838",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/WatchAllBanner.tsx",
@@ -4223,25 +4223,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/CriteriaTab.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/CriteriaTab.tsx",
       "sha256": "e617c8ff3f82b81cd0b7034035af98fe423d5f9f8bcdcadf0b45513daae6ed31",
-      "change": "unchanged",
-      "extracted_sha256": "e617c8ff3f82b81cd0b7034035af98fe423d5f9f8bcdcadf0b45513daae6ed31",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "355ed55a573bd13fd86705b281e2e236bb5373a678f934b760a5992057e96ae2",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/FindingsTab.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/FindingsTab.tsx",
       "sha256": "2a14a2e1d187cff69fabbb91cd1bf6eb9179d10c18157d7a4ab947d4b64182b1",
-      "change": "unchanged",
-      "extracted_sha256": "2a14a2e1d187cff69fabbb91cd1bf6eb9179d10c18157d7a4ab947d4b64182b1",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c15a932a9fa862105fff84e1a41665d83ca413a8372681b33a75cfc9979a1d68",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/HistoryTab.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/HistoryTab.tsx",
       "sha256": "312a40ed1ec71f3413d2ff4dce1745665f3b7d0a49a618e312d7fed477e3e3b1",
-      "change": "unchanged",
-      "extracted_sha256": "312a40ed1ec71f3413d2ff4dce1745665f3b7d0a49a618e312d7fed477e3e3b1",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "54139928549862cba3a42a8a3d5babe2f7b1dc10bc03746fa5e6aa7a8a0297dd",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/HistoryTimeline.test.ts",
@@ -4255,41 +4255,41 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/HistoryTimeline.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/HistoryTimeline.tsx",
       "sha256": "6492f28ddc3197115d86faec1e4199a27f6e8a4793bb86f84ee4997e53b5fabb",
-      "change": "unchanged",
-      "extracted_sha256": "6492f28ddc3197115d86faec1e4199a27f6e8a4793bb86f84ee4997e53b5fabb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "5c5baffe6461cc5f1afbc50f26da7e2c8cce5927f9fbcb84fa6b65a6bad90118",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/InvestigationActions.test.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/InvestigationActions.test.tsx",
       "sha256": "f3ec7aaeef3d15b7dd8265f62283387d44514e0cfecf811de38bf021d07eace5",
-      "change": "unchanged",
-      "extracted_sha256": "f3ec7aaeef3d15b7dd8265f62283387d44514e0cfecf811de38bf021d07eace5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "464fb8dc285974396cce2a95dd4ed5aa4a4d3ffe732a59d35e5d6753dc1c4f44",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/InvestigationActions.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/InvestigationActions.tsx",
       "sha256": "f47682c4d97fdae3d814d5ad522c3acd8059594fb0bcf5f08278162c7b2df0c7",
-      "change": "unchanged",
-      "extracted_sha256": "f47682c4d97fdae3d814d5ad522c3acd8059594fb0bcf5f08278162c7b2df0c7",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "dda879ec7f8c9c9dd21955d5322954883918faf217099398ff63b2d02ab80c5b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/InvestigationDetail.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/InvestigationDetail.tsx",
       "sha256": "6988e9874e3f3f47b4ac0e9dc70e4a31e31cd6e4d9eb3144d5d7fe5bda0119a2",
-      "change": "unchanged",
-      "extracted_sha256": "6988e9874e3f3f47b4ac0e9dc70e4a31e31cd6e4d9eb3144d5d7fe5bda0119a2",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8ded4cffd1ff68393a652bb73eb877facc32b977d15a540c9416cbc3f413614a",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/InvestigationSummary.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/InvestigationSummary.tsx",
       "sha256": "c5eea9546c9926504ec3d2155a6d16f47293b8cf6a02b8d10a53ae14b0fd3333",
-      "change": "unchanged",
-      "extracted_sha256": "c5eea9546c9926504ec3d2155a6d16f47293b8cf6a02b8d10a53ae14b0fd3333",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "264ba7719a11c1dcec103f44968cc79749449a212749d7a4844c71d55673d820",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/JobMeta.tsx",
@@ -4303,33 +4303,33 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/RunNowDialog.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/RunNowDialog.tsx",
       "sha256": "ffdbb0a6f35c28561f71bc84c5f025138ec4394381ebadd1e9720201ae346dee",
-      "change": "unchanged",
-      "extracted_sha256": "ffdbb0a6f35c28561f71bc84c5f025138ec4394381ebadd1e9720201ae346dee",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "78235ed8023904ee15b80b8ae9cad524c917ad2a6654d9f6f9a7bb636b296412",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/RunPicker.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/RunPicker.tsx",
       "sha256": "681a474dd3a7eb4bee4675c6f3a88c38d598487cf89356dd6663ea75754a99f4",
-      "change": "unchanged",
-      "extracted_sha256": "681a474dd3a7eb4bee4675c6f3a88c38d598487cf89356dd6663ea75754a99f4",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "193ff029fa83dad2a7706a519b4ef9b275ccbc3927a6905972d0a2b5854f4859",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/RunReport.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/RunReport.tsx",
       "sha256": "8e9eb916cf0a2058f5765392556e37736b3f949172c96fb701d136b323a6f51c",
-      "change": "unchanged",
-      "extracted_sha256": "8e9eb916cf0a2058f5765392556e37736b3f949172c96fb701d136b323a6f51c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "6ec9cb6ddaf081aec1428162a82eb315843e1de05941b67ce4753b9ad280c6a3",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/RunsTab.tsx",
       "destination": "packages/ui/src/components/lens/investigations/detail/RunsTab.tsx",
       "sha256": "dea06cd13bcde24e666ea4001b2665fdcc7dfd96c32e0d52f9d837540309d363",
-      "change": "unchanged",
-      "extracted_sha256": "dea06cd13bcde24e666ea4001b2665fdcc7dfd96c32e0d52f9d837540309d363",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "f7d30092330a29dbb1057113547bfa8620788e93a5f6cecc0ee06a0a68ac4ed8",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/detail/useRunHistory.ts",
@@ -4343,17 +4343,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/investigationQuery.test.ts",
       "destination": "packages/ui/src/components/lens/investigations/investigationQuery.test.ts",
       "sha256": "f8ed8ed707c49d7f1d03fff0dbcb43f7d69a4115871757e650a4de414346258a",
-      "change": "unchanged",
-      "extracted_sha256": "f8ed8ed707c49d7f1d03fff0dbcb43f7d69a4115871757e650a4de414346258a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7e1186ebd67095328b69fa7ae9777cb2d0d900c0d49c388f8c61cc425257b393",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/investigationQuery.ts",
       "destination": "packages/ui/src/components/lens/investigations/investigationQuery.ts",
       "sha256": "4e96ac0d92e64fa4308dd377dd21cc05b75a858444de7f459f5a00ef1e062431",
-      "change": "unchanged",
-      "extracted_sha256": "4e96ac0d92e64fa4308dd377dd21cc05b75a858444de7f459f5a00ef1e062431",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "a7ee92afaa062dba2844f17d51ab49822fc989380bcde586496739e6080b76a6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/investigationScreen.test.ts",
@@ -4375,25 +4375,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/ConclusionsPanel.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/ConclusionsPanel.tsx",
       "sha256": "6d21dd69dd462f02598e519be5b8ac0be1ea1968e96866086add67879c6498af",
-      "change": "unchanged",
-      "extracted_sha256": "6d21dd69dd462f02598e519be5b8ac0be1ea1968e96866086add67879c6498af",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c092bc51814487de5bda2299fe1328a958e1aaa79bb367359e406073ae977a62",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/LiveDrawer.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/LiveDrawer.tsx",
       "sha256": "cfc7417f5f14b92ccc8a031443bb93f38f6774636193182ba7252306ca82a4a3",
-      "change": "unchanged",
-      "extracted_sha256": "cfc7417f5f14b92ccc8a031443bb93f38f6774636193182ba7252306ca82a4a3",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "a92297f6f1532d6d1358fef4339c96638d30b1d81ab9193fb881b1c0b569e94f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/LiveRun.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/LiveRun.integration.test.tsx",
       "sha256": "c515ebff8e45de5dfdddc4f67664a52b836e38c652a323dd0b81e618ff3ca9d8",
-      "change": "unchanged",
-      "extracted_sha256": "c515ebff8e45de5dfdddc4f67664a52b836e38c652a323dd0b81e618ff3ca9d8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c9be467605559230aaafe744037ab0984d3650f581aa36b95196663b5fc95acb",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/LiveRun.tsx",
@@ -4415,25 +4415,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/LiveStrip.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/LiveStrip.tsx",
       "sha256": "1d0f97d34b6c3e7ac795b7a4df8da71e6638974886daf95a2f67942cb5d32f13",
-      "change": "unchanged",
-      "extracted_sha256": "1d0f97d34b6c3e7ac795b7a4df8da71e6638974886daf95a2f67942cb5d32f13",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "36d78f9b2feccaf1738012b809fa3131f1c72f2412a821e588508df45aa6d424",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/NowReading.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/NowReading.tsx",
       "sha256": "a84187ae4d94599ff0a96744510629097dd10489ec5ee6284c45042839993fc4",
-      "change": "unchanged",
-      "extracted_sha256": "a84187ae4d94599ff0a96744510629097dd10489ec5ee6284c45042839993fc4",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7bfee47078bdd25c24cc9289d23fb5e7fca2b9a3bbb7c785a2b979cd3cdb2129",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/TraceList.tsx",
       "destination": "packages/ui/src/components/lens/investigations/live/TraceList.tsx",
       "sha256": "23d0900e806cffdae9ace6fa29f2e85519819c398d00c3f487aa9a63c97f5b35",
-      "change": "unchanged",
-      "extracted_sha256": "23d0900e806cffdae9ace6fa29f2e85519819c398d00c3f487aa9a63c97f5b35",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "28b9ec6f300cd75e80203a45deabce510dc40852bfd91f5f30f313ad4d903940",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/live/useJobReviews.integration.test.tsx",
@@ -4487,9 +4487,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/investigations/useQueueReason.ts",
       "destination": "packages/ui/src/components/lens/investigations/useQueueReason.ts",
       "sha256": "116646edb618ac969fcd372835c3b3fccc241c506694bc3a11e181a64a9ae425",
-      "change": "unchanged",
-      "extracted_sha256": "116646edb618ac969fcd372835c3b3fccc241c506694bc3a11e181a64a9ae425",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fe103ef94b3f7b4f4abbd80aaad5b1887d36941fbb750a315de61d7ee2e35a3f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/investigations/useRunSnapshot.ts",
@@ -4527,9 +4527,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/model/format.ts",
       "destination": "packages/ui/src/components/lens/model/format.ts",
       "sha256": "0c7e93efefb28ce13989339a2d59f2e353b254ca88803b42fdd9c04f67f8d052",
-      "change": "unchanged",
-      "extracted_sha256": "0c7e93efefb28ce13989339a2d59f2e353b254ca88803b42fdd9c04f67f8d052",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "99c481a4fa2fc60782294768cd89b0acda6384c152ab4b2c3b5b7e617cfd3713",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/model/frequency.test.ts",
@@ -4679,17 +4679,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/model/status.ts",
       "destination": "packages/ui/src/components/lens/model/status.ts",
       "sha256": "3b7bbee22b4157556b75a8ec15eb21a80be15db366826bf13f828d69024d53e3",
-      "change": "unchanged",
-      "extracted_sha256": "3b7bbee22b4157556b75a8ec15eb21a80be15db366826bf13f828d69024d53e3",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ac030ef2ad7ad82fe13c2a855c0714c82993db1156c7ff3faba4930921ae2458",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/model/types.ts",
       "destination": "packages/ui/src/components/lens/model/types.ts",
       "sha256": "8e4478dbbfeb9b349347aa00ef43456914cae41e36c3136116c39ddd549b874e",
-      "change": "unchanged",
-      "extracted_sha256": "8e4478dbbfeb9b349347aa00ef43456914cae41e36c3136116c39ddd549b874e",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "b2a72253346d9df0991fb15b6fdcd1e29b779488a07b30492873d98f54904591",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/model/watches.ts",
@@ -4703,17 +4703,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/GatewayFlow.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/GatewayFlow.tsx",
       "sha256": "217d6a29bd801dd9f44f5d85271fc71599f8b6af75f2db5a38ec2b2c359c2d7a",
-      "change": "unchanged",
-      "extracted_sha256": "217d6a29bd801dd9f44f5d85271fc71599f8b6af75f2db5a38ec2b2c359c2d7a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8306724c04b1fea90e08380a0ddf622fe888c5065e98b4114144d067eeaeca2d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/LensGettingStarted.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/LensGettingStarted.tsx",
       "sha256": "f87ff61ca7550ccc3dc3e3ebe9cddaaf9242279bff992fc451a67cce6aaffc84",
-      "change": "unchanged",
-      "extracted_sha256": "f87ff61ca7550ccc3dc3e3ebe9cddaaf9242279bff992fc451a67cce6aaffc84",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "430c7963d214163f282a96c1f50f935a14265adfe35ab5f33d0a0ba643ebfce2",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/LensIntroduction.module.css",
@@ -4727,49 +4727,49 @@
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/LensIntroduction.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/LensIntroduction.tsx",
       "sha256": "d1c1c92235563a1b8a5da1bb1030480c23146ca5b5db6f341e9115dafbd6f5c7",
-      "change": "unchanged",
-      "extracted_sha256": "d1c1c92235563a1b8a5da1bb1030480c23146ca5b5db6f341e9115dafbd6f5c7",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "615588b66e135f5a05cec379c9cd2f75768ab53b96bf6e377d61aec0b1c66b7d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/OnboardingContext.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/OnboardingContext.tsx",
       "sha256": "635b44c416a213b1fd1850838ec28655513b4a1026d55f1106dcd6755adddeaf",
-      "change": "unchanged",
-      "extracted_sha256": "635b44c416a213b1fd1850838ec28655513b4a1026d55f1106dcd6755adddeaf",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "d28e2b282bfb64fe8f2532069a08122f29479a29703ce463dd863841e8ef388f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/OnboardingSetup.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/OnboardingSetup.tsx",
       "sha256": "7e15b062a77840663a2cdb8d51f8b6d3df35ad341d1b489c336bf3ebcc60780d",
-      "change": "unchanged",
-      "extracted_sha256": "7e15b062a77840663a2cdb8d51f8b6d3df35ad341d1b489c336bf3ebcc60780d",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "5dc46effde510406acc30f5b74f300f86c5606d65cea5cc927f6a69ecca746bc",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/OnboardingSteps.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/OnboardingSteps.tsx",
       "sha256": "4b45a9e21698f0d308ecd4425d8c1d0e0856082a363accb119b7b78ce4bce77c",
-      "change": "unchanged",
-      "extracted_sha256": "4b45a9e21698f0d308ecd4425d8c1d0e0856082a363accb119b7b78ce4bce77c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "25ee13a9d1ee14f3e1e3d72d7ce3cbb533aa76f69cf59798c914feb093d06fa8",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/tracing/TracingSetupCard.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/tracing/TracingSetupCard.integration.test.tsx",
       "sha256": "03c375335ac34e5b425bf094666a536ab19f61520cea153b25ca9d29f4c43390",
-      "change": "unchanged",
-      "extracted_sha256": "03c375335ac34e5b425bf094666a536ab19f61520cea153b25ca9d29f4c43390",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "71cd07e1cf7e504a0868e6174d356a6b0f2213604893a77b4d21de0a13d30013",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/tracing/TracingSetupCard.tsx",
       "destination": "packages/ui/src/components/lens/onboarding/tracing/TracingSetupCard.tsx",
       "sha256": "5feb3043dda2ab1bb557c16fa4eaea27dcc194969ba613d7df99e7ecc3f49bdf",
-      "change": "unchanged",
-      "extracted_sha256": "5feb3043dda2ab1bb557c16fa4eaea27dcc194969ba613d7df99e7ecc3f49bdf",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fdfbcf026b716f1602e07bcb24b468e11cdee77a9953762d3bdb49613c2abf19",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/onboarding/tracing/previewTrace.json",
@@ -4807,41 +4807,41 @@
       "source": "ui/litellm-dashboard/src/components/lens/route.ts",
       "destination": "packages/ui/src/components/lens/route.ts",
       "sha256": "2336cfdacc56b5711e1bac36b3042844671ae06ddea11569121f29ba3211e810",
-      "change": "unchanged",
-      "extracted_sha256": "2336cfdacc56b5711e1bac36b3042844671ae06ddea11569121f29ba3211e810",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "821b7119065582913f75d0ad80d3503a596cb722d94ac0678c20dde10f1152b4",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/LensSettings.tsx",
       "destination": "packages/ui/src/components/lens/settings/LensSettings.tsx",
       "sha256": "0a32bf6eab07d3b72ef25354a36359145d1bd4776aa9c172e54b3237384f3588",
-      "change": "unchanged",
-      "extracted_sha256": "0a32bf6eab07d3b72ef25354a36359145d1bd4776aa9c172e54b3237384f3588",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "2c0bea60b21d46b6867d09a6989b4acf0a69cf0dcddcb0f6c513ba579cbebfee",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/SettingsSection.tsx",
       "destination": "packages/ui/src/components/lens/settings/SettingsSection.tsx",
       "sha256": "f2bea6f798b06b855bebe41e3040f0dcb67b135f37846084834473a25e9da1ae",
-      "change": "unchanged",
-      "extracted_sha256": "f2bea6f798b06b855bebe41e3040f0dcb67b135f37846084834473a25e9da1ae",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "01f22061e0ee8c38b577c05b7f43ad3f3dc2f358e6c337d0bc9af7d7d89d2366",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/signals/SignalSettings.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/settings/signals/SignalSettings.integration.test.tsx",
       "sha256": "06d3b40476c85c45fabed579bc4dd124a973d7fdb153776bd84bc6aa06d7e949",
-      "change": "unchanged",
-      "extracted_sha256": "06d3b40476c85c45fabed579bc4dd124a973d7fdb153776bd84bc6aa06d7e949",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "93fd323993b714c2ad7293c76a4f523e4dd10563747fe23cc54aeb93d5a17034",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/signals/SignalSettings.tsx",
       "destination": "packages/ui/src/components/lens/settings/signals/SignalSettings.tsx",
       "sha256": "4d13f4ba93d8232c6af214d4bb99a91fee9e47c44dd73361f149e53342a85389",
-      "change": "unchanged",
-      "extracted_sha256": "4d13f4ba93d8232c6af214d4bb99a91fee9e47c44dd73361f149e53342a85389",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "88a2026ffb936e71b2d11675b376fbe7dbbf668e8f3c8de12859f10c3805ccfa",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/signals/signalDraft.test.ts",
@@ -4863,73 +4863,73 @@
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/AnalysisAccessFields.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/AnalysisAccessFields.tsx",
       "sha256": "66b971bed6031814f7df30130dc240d7878d39c60091a4c30050c43bd2da5515",
-      "change": "unchanged",
-      "extracted_sha256": "66b971bed6031814f7df30130dc240d7878d39c60091a4c30050c43bd2da5515",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "1a35cf1340edc8daa797b5fac9e6d259cccd7231e976447445a1e200c0813df5",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/AnalysisKeyDetails.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/AnalysisKeyDetails.tsx",
       "sha256": "c1d2e7e6f472bf962b3948040d3b0cc7413c6d66c743f973fa2245451698506d",
-      "change": "unchanged",
-      "extracted_sha256": "c1d2e7e6f472bf962b3948040d3b0cc7413c6d66c743f973fa2245451698506d",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fe85eec89f55ac7e6cfd398233c1b7d1775f56630bd72dfdd0bfdeb31b44be70",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/AnalysisKeyPicker.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/AnalysisKeyPicker.integration.test.tsx",
       "sha256": "352e5061fdca7e20a8a57bab8ac4035a07c1073291d305e9ce5751b71ead4353",
-      "change": "unchanged",
-      "extracted_sha256": "352e5061fdca7e20a8a57bab8ac4035a07c1073291d305e9ce5751b71ead4353",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "b81ccc81bc23d56ad08ce777793c774d31ec1622ec4cabf7e3cd5b38083648f7",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/AnalysisKeyPicker.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/AnalysisKeyPicker.tsx",
       "sha256": "0a4cc97a070740de138b95b290525c28d91d9b22785ee5818a27e75521a3fafb",
-      "change": "unchanged",
-      "extracted_sha256": "0a4cc97a070740de138b95b290525c28d91d9b22785ee5818a27e75521a3fafb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "979b52cc0afb94e9b8c72db15f31e8a795d567247d13781e8d454e24c2522b9d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/WorkerForm.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/WorkerForm.tsx",
       "sha256": "75cceb56d6ab45c2610aab1a8d2dda3e2d0b9a90732fb777d2f5ba3fbe9d5612",
-      "change": "unchanged",
-      "extracted_sha256": "75cceb56d6ab45c2610aab1a8d2dda3e2d0b9a90732fb777d2f5ba3fbe9d5612",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "6faa25dc9a37afa7aca60507efb101ffb4a57d4a888f9dc9c2133b347a19fa4d",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/WorkerInstall.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/WorkerInstall.tsx",
       "sha256": "3cf1c519285ee0fea6487a333f9772bf0047c7f760b98a041d43cf1817ecd034",
-      "change": "unchanged",
-      "extracted_sha256": "3cf1c519285ee0fea6487a333f9772bf0047c7f760b98a041d43cf1817ecd034",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "a380398b1fb144291ef8e4176db87fab336345d719b2d32e97fb6eb6e5462a18",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/WorkerList.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/WorkerList.tsx",
       "sha256": "c8fb6cbf8c5a31d09c62e988be01bf5babc0abe701051a68f449c80c938c9b11",
-      "change": "unchanged",
-      "extracted_sha256": "c8fb6cbf8c5a31d09c62e988be01bf5babc0abe701051a68f449c80c938c9b11",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "61d162342b713e70e6779d3d404bf5d55ffc86a1ed10c55aa0e6c8d614e74b87",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/WorkerSettings.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/WorkerSettings.integration.test.tsx",
       "sha256": "c77f2252aaf8666d47c688549ea993c28a4bb3f6226ca27b0155641452780ff5",
-      "change": "unchanged",
-      "extracted_sha256": "c77f2252aaf8666d47c688549ea993c28a4bb3f6226ca27b0155641452780ff5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "6a213f5b6e863d5cb98794debcbc6484f0c2462c51139f6c805d7a3a5c9e71ff",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/WorkerSettings.tsx",
       "destination": "packages/ui/src/components/lens/settings/worker/WorkerSettings.tsx",
       "sha256": "c180785574007a66f58c144bab8622f228e0e823a9228f576f29ad4b6fe3a4e7",
-      "change": "unchanged",
-      "extracted_sha256": "c180785574007a66f58c144bab8622f228e0e823a9228f576f29ad4b6fe3a4e7",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c4169e76a3ae94a64f957161286bab37d3553e275502015a943b766b5dbf337e",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/settings/worker/useAnalysisKeyInfo.ts",
@@ -4983,33 +4983,33 @@
       "source": "ui/litellm-dashboard/src/components/lens/setup/InvestigationSetup.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/setup/InvestigationSetup.integration.test.tsx",
       "sha256": "33c2244c7dbb1d7eaeab7d4d81b80d6f17c4fb86a02f2628fc044ca5bcc0d3ea",
-      "change": "unchanged",
-      "extracted_sha256": "33c2244c7dbb1d7eaeab7d4d81b80d6f17c4fb86a02f2628fc044ca5bcc0d3ea",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "34ce98c02c7c61478009ce95692f572bc07a0942fc65490403a86c79865e241f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/InvestigationSetup.tsx",
       "destination": "packages/ui/src/components/lens/setup/InvestigationSetup.tsx",
       "sha256": "c77c6a709a4ff0e67cc2413a6e385b25f516b120d3a9ef776e43ca71d64f46ba",
-      "change": "unchanged",
-      "extracted_sha256": "c77c6a709a4ff0e67cc2413a6e385b25f516b120d3a9ef776e43ca71d64f46ba",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "4b1b4cb87677349c0f7fc039ef2c66bfb5ea59d041c6cda190919d763071db21",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/MatchingActivityPreview.tsx",
       "destination": "packages/ui/src/components/lens/setup/MatchingActivityPreview.tsx",
       "sha256": "2ca2da4571ea90714eae4af3caee85ea072cd6754c3a60f5b462057893a59f19",
-      "change": "unchanged",
-      "extracted_sha256": "2ca2da4571ea90714eae4af3caee85ea072cd6754c3a60f5b462057893a59f19",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "11d0299f41275411e5f092e76302650ee52147738c174e5ae0fef9baf4b400f7",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/MonitoringDialog.tsx",
       "destination": "packages/ui/src/components/lens/setup/MonitoringDialog.tsx",
       "sha256": "e3da2e0c963e7d73d1d48d141d1e51427a80ae94de677139695bf55e2792e917",
-      "change": "unchanged",
-      "extracted_sha256": "e3da2e0c963e7d73d1d48d141d1e51427a80ae94de677139695bf55e2792e917",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e3f7cfa4f5922d76294e87961ce9f3d46fd9404984d24355fb3b56f9979522b6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/SetupSteps.test.tsx",
@@ -5023,65 +5023,65 @@
       "source": "ui/litellm-dashboard/src/components/lens/setup/SetupSteps.tsx",
       "destination": "packages/ui/src/components/lens/setup/SetupSteps.tsx",
       "sha256": "3fafe8be2210d5eb08244eb8942331441f140d1efaf5cedeaacf36fa49094a67",
-      "change": "unchanged",
-      "extracted_sha256": "3fafe8be2210d5eb08244eb8942331441f140d1efaf5cedeaacf36fa49094a67",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "2f22fbc8a51f2e94176dfbfa0f34737eb71249f3fd3ab303f70e272eafff0b26",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/WatchPicker.tsx",
       "destination": "packages/ui/src/components/lens/setup/WatchPicker.tsx",
       "sha256": "75ddca1ebf314eb824b3b68103ad06bc80ae1154bf499406e604f6036c73b7c7",
-      "change": "unchanged",
-      "extracted_sha256": "75ddca1ebf314eb824b3b68103ad06bc80ae1154bf499406e604f6036c73b7c7",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "1ccb693eddf9e2502e92ba412c6e7975dd427a9b48ffde9014395d32a2d9d5c2",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/AnalysisModelField.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/AnalysisModelField.tsx",
       "sha256": "69006c3e9ce7ec3d01ef15a93d6f67dde3410dc9fa2e411d7af8cdb1abfacfaa",
-      "change": "unchanged",
-      "extracted_sha256": "69006c3e9ce7ec3d01ef15a93d6f67dde3410dc9fa2e411d7af8cdb1abfacfaa",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fefed6aeb5592cc6c692d6b41911b0b04f8f8ad99f0ed9c9042d53e3455abb11",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/ExpectationsFields.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/ExpectationsFields.tsx",
       "sha256": "ac8f219a2675e374f9176966b6ee9afa648cb046343a3a46b4d76e0f12566f4c",
-      "change": "unchanged",
-      "extracted_sha256": "ac8f219a2675e374f9176966b6ee9afa648cb046343a3a46b4d76e0f12566f4c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c0766327fb28de9d2ed1650ccc05587e295f48ddd30e694b13e3766d9a29d2bf",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/MetadataFilters.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/MetadataFilters.tsx",
       "sha256": "8ee21439f124bc4968abb5ecccdbc1177975ce928a39ab3401333d2725663b12",
-      "change": "unchanged",
-      "extracted_sha256": "8ee21439f124bc4968abb5ecccdbc1177975ce928a39ab3401333d2725663b12",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8b6b935d07c9bacf4c8bb36fcea9a4450accb174e9cc0837effc40a961adad24",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/RunFields.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/RunFields.tsx",
       "sha256": "463c88c881aa8b0973692966012a0e915f620a0b05e5fcdfec0e146ea0aa60f2",
-      "change": "unchanged",
-      "extracted_sha256": "463c88c881aa8b0973692966012a0e915f620a0b05e5fcdfec0e146ea0aa60f2",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ac01eb215d57502a9bbc904611e583cb0e3a007d2df5b6659f013620e5eef105",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/SampleFields.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/SampleFields.tsx",
       "sha256": "0ed89aeeff2a180fa4bc893e8a2e119a52dd5dc01d6f709973fb20df4ec10e56",
-      "change": "unchanged",
-      "extracted_sha256": "0ed89aeeff2a180fa4bc893e8a2e119a52dd5dc01d6f709973fb20df4ec10e56",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "28307ddc06e212248efa3eb2c3d6f9a615a169f54d76be2e8ea316a983f6da51",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/ScopeFields.tsx",
       "destination": "packages/ui/src/components/lens/setup/fields/ScopeFields.tsx",
       "sha256": "3bca93ca0837580aca2f29e4eecd98e57f97786c8488b4d271b12ebe75faac79",
-      "change": "unchanged",
-      "extracted_sha256": "3bca93ca0837580aca2f29e4eecd98e57f97786c8488b4d271b12ebe75faac79",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e11c3c624ac6a920ba88b290b3b80d4f2d137bf08a2a83a9b802704a84ac2eef",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/setup/fields/analysisModels.ts",
@@ -5215,25 +5215,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/api.test.ts",
       "destination": "packages/ui/src/components/lens/traces/api.test.ts",
       "sha256": "65c4f83e5cf114f8edbe1cff146e25da43570fa41a0e9cfd64c05a3b51e3504b",
-      "change": "unchanged",
-      "extracted_sha256": "65c4f83e5cf114f8edbe1cff146e25da43570fa41a0e9cfd64c05a3b51e3504b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "d3f70d86a5a4f2bbf452e2d679b7ac9714a21dfd6af1181bb1a324a2af2ba153",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/api.ts",
       "destination": "packages/ui/src/components/lens/traces/api.ts",
       "sha256": "9ebd80c54cf8edd44c82a188a6c8020fa77fe23e1cd1392875719718d32ab5c5",
-      "change": "unchanged",
-      "extracted_sha256": "9ebd80c54cf8edd44c82a188a6c8020fa77fe23e1cd1392875719718d32ab5c5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3a08c267b6abe5c9a6b7b15e8e784c6e83d3bbc889550b40ac1b109b0b43f545",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/Block.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/Block.tsx",
       "sha256": "6be6b7dafb22ace0349082207ce9efc9f5989fee30500a3aa4d0b176cb302b7a",
-      "change": "unchanged",
-      "extracted_sha256": "6be6b7dafb22ace0349082207ce9efc9f5989fee30500a3aa4d0b176cb302b7a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "bb00f7471801c89190b7904d859a7ea3080e7e34bb9ab8e33cdcd8d3bcd22d1f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/ContentTab.tsx",
@@ -5247,17 +5247,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/FieldTree.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/FieldTree.tsx",
       "sha256": "b68dc769272662096d7a44c0adb5da6feeeb127d002f357145f49cc9866b4021",
-      "change": "unchanged",
-      "extracted_sha256": "b68dc769272662096d7a44c0adb5da6feeeb127d002f357145f49cc9866b4021",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "668b240dbc71065f1406cb53c8892e915bcc6c267a43d0681a54374138c23649",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/Markdown.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/Markdown.tsx",
       "sha256": "8c8ea77b5839696f730439639bb5c239442c7b35b0b48d2197966c67998fa0a1",
-      "change": "unchanged",
-      "extracted_sha256": "8c8ea77b5839696f730439639bb5c239442c7b35b0b48d2197966c67998fa0a1",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "09299fdc5a6a5e1f5d3118288b1878236240205b78c38d7b246e6231135efc89",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/Messages.integration.test.tsx",
@@ -5271,41 +5271,41 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/Messages.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/Messages.tsx",
       "sha256": "10c2e7d84a45b389d8198ef16f5943d13f22b4d80de7af318de933fa01392898",
-      "change": "unchanged",
-      "extracted_sha256": "10c2e7d84a45b389d8198ef16f5943d13f22b4d80de7af318de933fa01392898",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "417f96ea5c019aa5c6af98516a61b42bc1877504c00b5c3a3e79fa1eb49f191f",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/PayloadBody.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/PayloadBody.tsx",
       "sha256": "7500800879882c25b4a8afcd677a7d37bb85221e91b362ef613004ba05f8708b",
-      "change": "unchanged",
-      "extracted_sha256": "7500800879882c25b4a8afcd677a7d37bb85221e91b362ef613004ba05f8708b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e9f460227b0aaba46c63d1bab861af5a7d15fdcccc0d32a7aa1f0f893675c6a5",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/Section.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/Section.tsx",
       "sha256": "3e6ed02598341760065ce42e710f260ef8b6643b08f3a7ee67978e53260121d8",
-      "change": "unchanged",
-      "extracted_sha256": "3e6ed02598341760065ce42e710f260ef8b6643b08f3a7ee67978e53260121d8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "fcd5cfbb3f03a0201af21a92dd34b09f539558fe8f0c38f8a68c3977cd8ed60a",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/SpanError.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/SpanError.tsx",
       "sha256": "ff6b9690bf3c718d2e689f19eaa6ee6928507b985a1c340c9a09930e59d3199c",
-      "change": "unchanged",
-      "extracted_sha256": "ff6b9690bf3c718d2e689f19eaa6ee6928507b985a1c340c9a09930e59d3199c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "b430737d6baa67259a7632667a2804f1c5ea71189044896b7931dafbdfd1b311",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/ToolContent.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/content/ToolContent.tsx",
       "sha256": "d6ac1c828882a347642ae41e2c6525689fe2580336a00395077097b38c8967f6",
-      "change": "unchanged",
-      "extracted_sha256": "d6ac1c828882a347642ae41e2c6525689fe2580336a00395077097b38c8967f6",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "55e61559f2861cd58e768cced4b9faabdef9c726ba85b273e5009975dec06889",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/content/payload.test.ts",
@@ -5327,25 +5327,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/conversation/ConversationParts.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/conversation/ConversationParts.tsx",
       "sha256": "bd0fc87220808c0426552703853c6e65db358184d86a6da1b33fc4996c61307b",
-      "change": "unchanged",
-      "extracted_sha256": "bd0fc87220808c0426552703853c6e65db358184d86a6da1b33fc4996c61307b",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "5151db35334b902ec9dda08badf4f4c14db3b12a844dfad8ed41fc55cca36b7e",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/conversation/TraceThread.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/conversation/TraceThread.integration.test.tsx",
       "sha256": "b1e1bdcb19e234fbacbe9e8f5bd6add967f0aea3d89583b7e84c864f024d3a74",
-      "change": "unchanged",
-      "extracted_sha256": "b1e1bdcb19e234fbacbe9e8f5bd6add967f0aea3d89583b7e84c864f024d3a74",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8f6a6a91e47e0ee4bb4b415661e6c558f652d988f970e5032e6ee9c40e7aa752",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/conversation/TraceThread.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/conversation/TraceThread.tsx",
       "sha256": "155c9b01a85cb2b8b787bfff41abab9e0608bfd40513eba0639e87b57ff4e05e",
-      "change": "unchanged",
-      "extracted_sha256": "155c9b01a85cb2b8b787bfff41abab9e0608bfd40513eba0639e87b57ff4e05e",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "0fce6d340986d7fca5ded241d1c6a94a441644df34d277a04ebe96b7617cfa33",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/conversation/conversation.test.ts",
@@ -5407,9 +5407,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/feedback/FeedbackPanel.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/feedback/FeedbackPanel.tsx",
       "sha256": "cba7b99ad625788be55e289b1618c2b18bc5466304bb599cb7a237a02bb71e82",
-      "change": "unchanged",
-      "extracted_sha256": "cba7b99ad625788be55e289b1618c2b18bc5466304bb599cb7a237a02bb71e82",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "636ae5d82b28e273596c5f44d54945ff6981c097623376b09bafbf65fab6d8c6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/feedback/feedback.test.ts",
@@ -5431,41 +5431,41 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/PagingBanner.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/run/PagingBanner.tsx",
       "sha256": "0916713b0ab4070df47e3a31ef1d521345e80dfa9c6081dfb40e1cebe0e003ad",
-      "change": "unchanged",
-      "extracted_sha256": "0916713b0ab4070df47e3a31ef1d521345e80dfa9c6081dfb40e1cebe0e003ad",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e9106e80309cdf5b60aa2f16bac422f6e7da3cdf18dfe632e847479dddcea42b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/RunBody.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/run/RunBody.tsx",
       "sha256": "fd51fbb42984167245358119d21edd376e1f2a56cce5dab2d5051fee051f2f28",
-      "change": "unchanged",
-      "extracted_sha256": "fd51fbb42984167245358119d21edd376e1f2a56cce5dab2d5051fee051f2f28",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7c10500657884b9c7e98f413af2feee8fc5ce0ca7454daba897424a4aa8f992b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/RunHeader.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/run/RunHeader.tsx",
       "sha256": "6c305978399540d8b216acd1a817efba940f82337fa473fa7cbcc8f78f03da34",
-      "change": "unchanged",
-      "extracted_sha256": "6c305978399540d8b216acd1a817efba940f82337fa473fa7cbcc8f78f03da34",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "aabe665963ff9d6d4de63239d406c4c1f5b3075adf4b2ba5a1b71533260e21ab",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/RunView.test.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/run/RunView.test.tsx",
       "sha256": "1cf645d5064c52504e5f7cd58e844989192aaf4f963172c801bfb42ef831f557",
-      "change": "unchanged",
-      "extracted_sha256": "1cf645d5064c52504e5f7cd58e844989192aaf4f963172c801bfb42ef831f557",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "80ee572f0810069861cad99006e95d23573b7f0ec3f3a657b4b89d6688eda552",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/RunView.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/run/RunView.tsx",
       "sha256": "018d4880f0b3b01d70be2e7fbbc03575e42eac295f05b891784d1374e1c5acb5",
-      "change": "unchanged",
-      "extracted_sha256": "018d4880f0b3b01d70be2e7fbbc03575e42eac295f05b891784d1374e1c5acb5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "90597cda71b8b9136b30ed07319859609482cb7704f31779cc6984fb6bfcacd9",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/run/useRunTree.ts",
@@ -5495,9 +5495,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/DetailPane.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/DetailPane.integration.test.tsx",
       "sha256": "a0ee719ef7b5cbcb70d3892a9e7ed4aa62a3de4fb74767db843cd007c6c6a2aa",
-      "change": "unchanged",
-      "extracted_sha256": "a0ee719ef7b5cbcb70d3892a9e7ed4aa62a3de4fb74767db843cd007c6c6a2aa",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3bd907915644ea98c9b226d10061cc4d83909e0824db4a166e8e26530231c493",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/DetailPane.tsx",
@@ -5511,65 +5511,65 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/GroupPane.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/GroupPane.tsx",
       "sha256": "b1991e21f32c27c9d3372e170ca81d25b97f70ae528bc956b1f03d0cf1500e5a",
-      "change": "unchanged",
-      "extracted_sha256": "b1991e21f32c27c9d3372e170ca81d25b97f70ae528bc956b1f03d0cf1500e5a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "3d253da38cb5432b396d4d3a21c4e4146cc1fc56baeff99256751314967d7b0c",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/PaneHeader.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/PaneHeader.tsx",
       "sha256": "f6fb8774953b6f397d0ac5f73b545e9db7800bbfe91e5a3b2af955243bd07ca0",
-      "change": "unchanged",
-      "extracted_sha256": "f6fb8774953b6f397d0ac5f73b545e9db7800bbfe91e5a3b2af955243bd07ca0",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "13b9e76ad4ff71c7e972b2d0d81dfa2e9df390582b260dfa1a364b83272c00e8",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/RequestTab.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/RequestTab.tsx",
       "sha256": "6fd038a20b808214ad741d3af4cbec93525a48d70e6a1ed47ac882f8a8fdbebb",
-      "change": "unchanged",
-      "extracted_sha256": "6fd038a20b808214ad741d3af4cbec93525a48d70e6a1ed47ac882f8a8fdbebb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "f23c460f961160fc6ad24dfb8d5020a56decdb197a430f08b14017c6990956c5",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/SpanPane.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/SpanPane.tsx",
       "sha256": "5ac1463532f888fb45d95fabcd98c5241125b072d60c40c3c97f6d9dd97a79c8",
-      "change": "unchanged",
-      "extracted_sha256": "5ac1463532f888fb45d95fabcd98c5241125b072d60c40c3c97f6d9dd97a79c8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "b4ea4e8cf3a16f81a1153f195a453ad514f0a403698f3cbea2b6cd7f0c7d26b6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/span/SpendLogLink.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/span/SpendLogLink.tsx",
       "sha256": "cb2ebb08c10a4a642465cae5c7b2c269ee8a866dcf82578df3e291e0f4f154aa",
-      "change": "unchanged",
-      "extracted_sha256": "cb2ebb08c10a4a642465cae5c7b2c269ee8a866dcf82578df3e291e0f4f154aa",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "480e20f86ed418a42aa71b1b3628182b43ab606c99106e95ea2703cd8c475f39",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/tree/SpanHoverCard.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/tree/SpanHoverCard.tsx",
       "sha256": "e3280c3e74a658bbc713a8b15d4d127c12b17fe73e6ffb06606c1945fc5882c0",
-      "change": "unchanged",
-      "extracted_sha256": "e3280c3e74a658bbc713a8b15d4d127c12b17fe73e6ffb06606c1945fc5882c0",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "4c5b7d84c01135e897c026b1f706697a3db3ef2d3193eecd7562bc96cd506389",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/tree/SpanTree.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/tree/SpanTree.tsx",
       "sha256": "7ea58c717117e3e7fb45a8f56ab572c43c22dc13dda3bdbf837d371e63403634",
-      "change": "unchanged",
-      "extracted_sha256": "7ea58c717117e3e7fb45a8f56ab572c43c22dc13dda3bdbf837d371e63403634",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7867d2e0aff227d4725383a3e3105444bb57f1aeeba80f0b8ebb07cf81a7ab09",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/tree/TreeRows.tsx",
       "destination": "packages/ui/src/components/lens/traces/detail/tree/TreeRows.tsx",
       "sha256": "2baf1e966836a2a017c50dc3001bb5b4272475a25c398bd8e65f9e0c95de5557",
-      "change": "unchanged",
-      "extracted_sha256": "2baf1e966836a2a017c50dc3001bb5b4272475a25c398bd8e65f9e0c95de5557",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "787e41d431eefba529a38ac40b50c8680340a4895029b04e117c242aac498894",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/tree/timeline.test.ts",
@@ -5591,49 +5591,49 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/detail/useSpanRequestLog.ts",
       "destination": "packages/ui/src/components/lens/traces/detail/useSpanRequestLog.ts",
       "sha256": "e610f26fcce425c0e9a8b63f4c6da7e7ae2aced0cc663fd53a91722d529175dd",
-      "change": "unchanged",
-      "extracted_sha256": "e610f26fcce425c0e9a8b63f4c6da7e7ae2aced0cc663fd53a91722d529175dd",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "91c616c263ed2be411d2d68d33bb99cbdafdc5b07c3866f47b3241c56a1d95c6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/AgentTracesPage.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/AgentTracesPage.tsx",
       "sha256": "0509b2a32feae8a84fa79295217ba269a28ecea9078035c4118956b433ca2dc5",
-      "change": "unchanged",
-      "extracted_sha256": "0509b2a32feae8a84fa79295217ba269a28ecea9078035c4118956b433ca2dc5",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "150e35a6af42f45710981440257a12865c254154a8d11a07d711fa2350944ac7",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/AgentTracesSection.integration.test.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/AgentTracesSection.integration.test.tsx",
       "sha256": "d3077c579d4a7da1302815f79a4d608141171485f8fe77ccf5df3637bf8893a0",
-      "change": "unchanged",
-      "extracted_sha256": "d3077c579d4a7da1302815f79a4d608141171485f8fe77ccf5df3637bf8893a0",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e8e97ec57e53b09d9bdf6ba29526f83d8401d1134d509dd1dbc13882a8408cdb",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/AgentTracesSection.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/AgentTracesSection.tsx",
       "sha256": "5b641e2a5af3313ec85794520d45b689cfed6018ca0c61778fbbd0a65a398590",
-      "change": "unchanged",
-      "extracted_sha256": "5b641e2a5af3313ec85794520d45b689cfed6018ca0c61778fbbd0a65a398590",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c1034995209cc67eab12d0b37c66d6a0c95888696573ccfe98628bd38f86b1a1",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/AgentTracesTable.test.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/AgentTracesTable.test.tsx",
       "sha256": "53f701e39aab9ed247849fed121f357b850e064cf2ab60ed03470bbbc0cb33c3",
-      "change": "unchanged",
-      "extracted_sha256": "53f701e39aab9ed247849fed121f357b850e064cf2ab60ed03470bbbc0cb33c3",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "9892f315dea14b04d236499725077330c12b536093ff93a5519219ad59ff8936",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/AgentTracesTable.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/AgentTracesTable.tsx",
       "sha256": "2437eddcb3ee5b14cb08725639c1561f0463912f98ac5319a0d941acf13a076a",
-      "change": "unchanged",
-      "extracted_sha256": "2437eddcb3ee5b14cb08725639c1561f0463912f98ac5319a0d941acf13a076a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "2b691870e8c38dfcaf59c9a198d84dbb3c2cc0d8375d7718b8cc4e2cf810ebf1",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/TracesTimeline.test.ts",
@@ -5647,9 +5647,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/TracesTimeline.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/TracesTimeline.tsx",
       "sha256": "2992fed485c5d90e3267a8d76bf630cc5735d502c9b91c5717706d383962952f",
-      "change": "unchanged",
-      "extracted_sha256": "2992fed485c5d90e3267a8d76bf630cc5735d502c9b91c5717706d383962952f",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7c578cc649d955689711241a907af8cd7979255abff01012c20c3d9cfbcad6cd",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/RunSearch.test.tsx",
@@ -5663,17 +5663,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/RunSearch.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/RunSearch.tsx",
       "sha256": "fda7653f2ba1dc21dbe23e4d1cdbd1e16c10ce415b0bd7b9a0962f4230ca6918",
-      "change": "unchanged",
-      "extracted_sha256": "fda7653f2ba1dc21dbe23e4d1cdbd1e16c10ce415b0bd7b9a0962f4230ca6918",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e05ac3fc2ff4e29cc9d5ae4ddb2a8c1b11c539094087258b6687f28f72b919e2",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/RunsToolbar.tsx",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/RunsToolbar.tsx",
       "sha256": "c1efea9795b85bbe39a1b17b80813d12ac1b397bb3cf3af38ab551bfa171747a",
-      "change": "unchanged",
-      "extracted_sha256": "c1efea9795b85bbe39a1b17b80813d12ac1b397bb3cf3af38ab551bfa171747a",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "9d1772bec170f3f785f83a234d2ff72e27989b8b8a4acc08d569839f6225823e",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/__fixtures__/runs.ts",
@@ -5687,49 +5687,49 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/runQuery.test.ts",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/runQuery.test.ts",
       "sha256": "72058843b6a068f80bf1802e00a9fa265ea5d3dee2e38899d08a9dc84f4d2302",
-      "change": "unchanged",
-      "extracted_sha256": "72058843b6a068f80bf1802e00a9fa265ea5d3dee2e38899d08a9dc84f4d2302",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "8a519551a5a63d000e5f1ff5c69bec98d658d518eb2f7abb8953929c6c7399af",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/runQuery.ts",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/runQuery.ts",
       "sha256": "0c4ed408b4aa883bad2c8dcbda16cd18247560194a48c83cd3007d2d5f4fc1da",
-      "change": "unchanged",
-      "extracted_sha256": "0c4ed408b4aa883bad2c8dcbda16cd18247560194a48c83cd3007d2d5f4fc1da",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "1df7dbec580fdc9797db3ae8d95476f813364fd2d349163508f5bcb9b54380bc",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/runSql.test.ts",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/runSql.test.ts",
       "sha256": "9f8b49d4c0641087414506c3f3338c29c664571ea03c6134697650789d1d0b05",
-      "change": "unchanged",
-      "extracted_sha256": "9f8b49d4c0641087414506c3f3338c29c664571ea03c6134697650789d1d0b05",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "ff027cf5807a76c73a676f7c09d1adbe8e80abcad79432b227b7ade988785e31",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/runSearch/runSql.ts",
       "destination": "packages/ui/src/components/lens/traces/list/runSearch/runSql.ts",
       "sha256": "cf115d1fea0633cb3ba9ce3ff265102424c270ece64b37eb9b634cd4616c1d31",
-      "change": "unchanged",
-      "extracted_sha256": "cf115d1fea0633cb3ba9ce3ff265102424c270ece64b37eb9b634cd4616c1d31",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "d68ab06f2ee2eb62d6d1baf478234f17efa68c7f4abedbf1798615b733fa8236",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/traceReadFailure.test.ts",
       "destination": "packages/ui/src/components/lens/traces/list/traceReadFailure.test.ts",
       "sha256": "fcac2714477ebd669f99fa1842c8e2abe1af3cdc8a1479bf24a989c94f3944b8",
-      "change": "unchanged",
-      "extracted_sha256": "fcac2714477ebd669f99fa1842c8e2abe1af3cdc8a1479bf24a989c94f3944b8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "209f865bddb2c78208b6062c49c0af1e3492f303bc99620e8a3881bb5cfc5a6a",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/traceReadFailure.ts",
       "destination": "packages/ui/src/components/lens/traces/list/traceReadFailure.ts",
       "sha256": "80625423da0e73f0f13e89cf7890ccc3c9bc5097e30e7f482638e7bd541c2098",
-      "change": "unchanged",
-      "extracted_sha256": "80625423da0e73f0f13e89cf7890ccc3c9bc5097e30e7f482638e7bd541c2098",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "74e99f05bbbcb5384ab0071432ac23ba75a99da0da5b7da6c5172ab5e5088699",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/useAgentTraces.test.ts",
@@ -5743,9 +5743,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/useAgentTraces.ts",
       "destination": "packages/ui/src/components/lens/traces/list/useAgentTraces.ts",
       "sha256": "8f2af599fc9794541fda370f27c7615e81031b26e48915c300be47f2ed9aa1fb",
-      "change": "unchanged",
-      "extracted_sha256": "8f2af599fc9794541fda370f27c7615e81031b26e48915c300be47f2ed9aa1fb",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "766fa9956bf653484caf49b4a92fb799df32758736ee679e0bd2ae75aeb4dfe6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/list/useTraceFeedback.integration.test.tsx",
@@ -5807,9 +5807,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/routing.ts",
       "destination": "packages/ui/src/components/lens/traces/routing.ts",
       "sha256": "52f75cc33d2c8bb2522ec792be29c407b1d25b259321a83c72760288c59167a3",
-      "change": "unchanged",
-      "extracted_sha256": "52f75cc33d2c8bb2522ec792be29c407b1d25b259321a83c72760288c59167a3",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7a90465183c88578a9c64a3747f12fc3b704997084373618703b9cdf597b0f01",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/tree.ts",
@@ -5823,9 +5823,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/types.ts",
       "destination": "packages/ui/src/components/lens/traces/types.ts",
       "sha256": "2188caf8dd6da5e714d5be57bb480e016647ce6659abf472812d2efe788d63ef",
-      "change": "unchanged",
-      "extracted_sha256": "2188caf8dd6da5e714d5be57bb480e016647ce6659abf472812d2efe788d63ef",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "816010b7058ffb47601c6b35fc1623383d174436c30834431e3a3236ccde2f60",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/ActiveDot.tsx",
@@ -5839,17 +5839,17 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/Collapse.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/Collapse.tsx",
       "sha256": "1b3cd8273872a4b6de80ec32ee7eef808f42d5c61da6651c192147cda4b6d15f",
-      "change": "unchanged",
-      "extracted_sha256": "1b3cd8273872a4b6de80ec32ee7eef808f42d5c61da6651c192147cda4b6d15f",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c282ca366a033d14e0662ed4285be51bc071f9a7fa9ef446d44075f224ba57a6",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/IdChip.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/IdChip.tsx",
       "sha256": "3041589b0afa35ad8eefbf9c1bab9c3c02676179fcc1e6e1f0d56d59a618b19e",
-      "change": "unchanged",
-      "extracted_sha256": "3041589b0afa35ad8eefbf9c1bab9c3c02676179fcc1e6e1f0d56d59a618b19e",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "c3f9964f2547f7ea89c4eb37a6bcfb864290d350a89cd17cc533c328e4e37a49",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/RunSource.test.ts",
@@ -5863,25 +5863,25 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/RunSource.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/RunSource.tsx",
       "sha256": "e4aa52ae849c598770830959dc7124639b5b081d0696e8c36f4f137df9e202db",
-      "change": "unchanged",
-      "extracted_sha256": "e4aa52ae849c598770830959dc7124639b5b081d0696e8c36f4f137df9e202db",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "797f6eeaf19385d31f92eeb5ee31fb9e952a143044a4726dbc6dcbb5ebc011bf",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/SignalPills.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/SignalPills.tsx",
       "sha256": "bf3c8b9fb020aa9f95f20679aa8811f5be63269ce775abbf0eb28d6743256a58",
-      "change": "unchanged",
-      "extracted_sha256": "bf3c8b9fb020aa9f95f20679aa8811f5be63269ce775abbf0eb28d6743256a58",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e1221a396902948856d176b36cfc21280c34be35392e0b7c0f83c1cfe2cf960b",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/SpanIcon.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/SpanIcon.tsx",
       "sha256": "a407b73e8f3e3fc8a95848d6e2d6a3843ff4057bf58a733c9a8f002b117436b0",
-      "change": "unchanged",
-      "extracted_sha256": "a407b73e8f3e3fc8a95848d6e2d6a3843ff4057bf58a733c9a8f002b117436b0",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "5b6bd37f131cee0f1f1035a06b6213b987c79b8efc788f807566fe43c7eac8b1",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/TraceFramework.test.ts",
@@ -5895,9 +5895,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/TraceFramework.tsx",
       "destination": "packages/ui/src/components/lens/traces/ui/TraceFramework.tsx",
       "sha256": "cb6f58f71b85c268df08650b17db578642baf9c9d8cc0c91a35050955d7990e6",
-      "change": "unchanged",
-      "extracted_sha256": "cb6f58f71b85c268df08650b17db578642baf9c9d8cc0c91a35050955d7990e6",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "44061c44b7adf8cf8cdfa6905de259af840becec669ab6402a5eefd7b9f2cc19",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/spanProvider.test.ts",
@@ -5911,9 +5911,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/traces/ui/spanProvider.ts",
       "destination": "packages/ui/src/components/lens/traces/ui/spanProvider.ts",
       "sha256": "d011831aa2ad42939b08e68018d5318ab6d7eabd0ae9f061573e867c7bb2beed",
-      "change": "unchanged",
-      "extracted_sha256": "d011831aa2ad42939b08e68018d5318ab6d7eabd0ae9f061573e867c7bb2beed",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "0e9fced4680c80bd30d0c114d81145c377e5437b259f125e2ce24c57453b1392",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/src/components/lens/traces/utils.test.ts",
@@ -5935,9 +5935,9 @@
       "source": "ui/litellm-dashboard/src/components/lens/ui/StepIndicator.tsx",
       "destination": "packages/ui/src/components/lens/ui/StepIndicator.tsx",
       "sha256": "b7aaba8c15c895a80da445f8c0a253f80d949e1d5673791d5859f714a0062c9d",
-      "change": "unchanged",
-      "extracted_sha256": "b7aaba8c15c895a80da445f8c0a253f80d949e1d5673791d5859f714a0062c9d",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "551c363e6b501ca7c80ee10886861f58eacfc8308b88e7ab773b67ae76c65339",
+      "baseline_identical": false
     },
     {
       "source": "ui/litellm-dashboard/tests/lens-test-utils.tsx",
@@ -5946,6 +5946,1366 @@
       "change": "unchanged",
       "extracted_sha256": "5c0bf0c74492e326fe354b66cd3aa59bdf3309239dfa5eaddc474bcb7687d0ce",
       "baseline_identical": true
+    },
+    {
+      "source": "ui/litellm-dashboard/.agents/skills/url-state/SKILL.md",
+      "destination": "packages/ui/.agents/skills/url-state/SKILL.md",
+      "sha256": "e4fe5bd2c47a12f93a2aaafbdb4fdb4aa0b1c450ea4078c87a50c4eba91c6855",
+      "extracted_sha256": "e4fe5bd2c47a12f93a2aaafbdb4fdb4aa0b1c450ea4078c87a50c4eba91c6855",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/a2a_agent.png",
+      "destination": "packages/ui/public/assets/logos/a2a_agent.png",
+      "sha256": "aa8b651e0f13faeacf1d54bd855108a20cd77c12f14b3fc28c606a0aab678203",
+      "extracted_sha256": "aa8b651e0f13faeacf1d54bd855108a20cd77c12f14b3fc28c606a0aab678203",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/ai21.svg",
+      "destination": "packages/ui/public/assets/logos/ai21.svg",
+      "sha256": "7366697107f955bad0186ec01db4d35a752307a4d4804668f83ee743506fb321",
+      "extracted_sha256": "7366697107f955bad0186ec01db4d35a752307a4d4804668f83ee743506fb321",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/aiml_api.svg",
+      "destination": "packages/ui/public/assets/logos/aiml_api.svg",
+      "sha256": "e235166d87ce1cef4a242ec0b6dea8cef2cc484760e0c692727f9b9221851a1b",
+      "extracted_sha256": "e235166d87ce1cef4a242ec0b6dea8cef2cc484760e0c692727f9b9221851a1b",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/anthropic.svg",
+      "destination": "packages/ui/public/assets/logos/anthropic.svg",
+      "sha256": "ec6eb26f1e4f2a8f37d715a86d0ae99508480470c6b2846f5edf793a4e3923bc",
+      "extracted_sha256": "ec6eb26f1e4f2a8f37d715a86d0ae99508480470c6b2846f5edf793a4e3923bc",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/assemblyai_small.png",
+      "destination": "packages/ui/public/assets/logos/assemblyai_small.png",
+      "sha256": "63c930ed88f53af01ba185b8142e7d16201402691cc4d31440edec60290cdcc9",
+      "extracted_sha256": "63c930ed88f53af01ba185b8142e7d16201402691cc4d31440edec60290cdcc9",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/baseten.svg",
+      "destination": "packages/ui/public/assets/logos/baseten.svg",
+      "sha256": "0bc1dc7277983821295b5ade3d5e225bc92d9d866775174c0df1a983d0f0075d",
+      "extracted_sha256": "0bc1dc7277983821295b5ade3d5e225bc92d9d866775174c0df1a983d0f0075d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/bedrock.svg",
+      "destination": "packages/ui/public/assets/logos/bedrock.svg",
+      "sha256": "91770aff640be44e29d34a446f59e6f9c1d26196e162aa0743f2ae4f609b5410",
+      "extracted_sha256": "91770aff640be44e29d34a446f59e6f9c1d26196e162aa0743f2ae4f609b5410",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/cerebras.svg",
+      "destination": "packages/ui/public/assets/logos/cerebras.svg",
+      "sha256": "6cba7e176f653f4288e40be66fe6ae984d1208213a45d80fd503ed2e79437d95",
+      "extracted_sha256": "6cba7e176f653f4288e40be66fe6ae984d1208213a45d80fd503ed2e79437d95",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/cloudflare.svg",
+      "destination": "packages/ui/public/assets/logos/cloudflare.svg",
+      "sha256": "cee35d3f0ecb7925ce0a89aeaff8b907cadae7c3fe44a23e4001cc8d5ee57502",
+      "extracted_sha256": "cee35d3f0ecb7925ce0a89aeaff8b907cadae7c3fe44a23e4001cc8d5ee57502",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/cohere.svg",
+      "destination": "packages/ui/public/assets/logos/cohere.svg",
+      "sha256": "c986b2dc626c50221b0f25afdd519771f069b4762f72f332b81c899b31a5c326",
+      "extracted_sha256": "c986b2dc626c50221b0f25afdd519771f069b4762f72f332b81c899b31a5c326",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/cometapi.svg",
+      "destination": "packages/ui/public/assets/logos/cometapi.svg",
+      "sha256": "069903c78f5f468da16bfb82ed1de0f74030904183f764b71deb0c7e94213c23",
+      "extracted_sha256": "069903c78f5f468da16bfb82ed1de0f74030904183f764b71deb0c7e94213c23",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/crewai-color.svg",
+      "destination": "packages/ui/public/assets/logos/crewai-color.svg",
+      "sha256": "440582d092619fb31f336f3a7a323999c0f40f961b7a6c17ac8196e55d6dd0e8",
+      "extracted_sha256": "440582d092619fb31f336f3a7a323999c0f40f961b7a6c17ac8196e55d6dd0e8",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/cursor.svg",
+      "destination": "packages/ui/public/assets/logos/cursor.svg",
+      "sha256": "c39ee63dd6a38a9856bd97a1dcb863023eed2b353b9709742e000c8ac90d91d7",
+      "extracted_sha256": "c39ee63dd6a38a9856bd97a1dcb863023eed2b353b9709742e000c8ac90d91d7",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/databricks.svg",
+      "destination": "packages/ui/public/assets/logos/databricks.svg",
+      "sha256": "94e4d31906f8d9755c627ff11b1a0ec0a586a2221563a5b7832c9f4e5f68c6f7",
+      "extracted_sha256": "94e4d31906f8d9755c627ff11b1a0ec0a586a2221563a5b7832c9f4e5f68c6f7",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/deepgram.png",
+      "destination": "packages/ui/public/assets/logos/deepgram.png",
+      "sha256": "a70d37c2698a41480d683d03ebcc1577014924ebd8b509442cc878769b47dd27",
+      "extracted_sha256": "a70d37c2698a41480d683d03ebcc1577014924ebd8b509442cc878769b47dd27",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/deepinfra.png",
+      "destination": "packages/ui/public/assets/logos/deepinfra.png",
+      "sha256": "72d6db89995985bf7b53204b810ce101c0d07dd679909feb5333f6054fc9e4dd",
+      "extracted_sha256": "72d6db89995985bf7b53204b810ce101c0d07dd679909feb5333f6054fc9e4dd",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/deepseek.svg",
+      "destination": "packages/ui/public/assets/logos/deepseek.svg",
+      "sha256": "793de24d491dde063b9acdaa4212e7fc00aab00f76a5c299ba08ecd62c0942c9",
+      "extracted_sha256": "793de24d491dde063b9acdaa4212e7fc00aab00f76a5c299ba08ecd62c0942c9",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/edenai.svg",
+      "destination": "packages/ui/public/assets/logos/edenai.svg",
+      "sha256": "129be7bda4fa0424835e45b4c312a25f5a85975f7166caa60c08f2c84c2b27a8",
+      "extracted_sha256": "129be7bda4fa0424835e45b4c312a25f5a85975f7166caa60c08f2c84c2b27a8",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/elevenlabs.png",
+      "destination": "packages/ui/public/assets/logos/elevenlabs.png",
+      "sha256": "e42202b1687225e05c0261947ec7e8914d6fbbdaf722c995e206aec0996742de",
+      "extracted_sha256": "e42202b1687225e05c0261947ec7e8914d6fbbdaf722c995e206aec0996742de",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/fal_ai.jpg",
+      "destination": "packages/ui/public/assets/logos/fal_ai.jpg",
+      "sha256": "94ac2b648e8e3ea81db90da3082fc5b6c3bde0ee9d6452a05d7806e7e54de4e1",
+      "extracted_sha256": "94ac2b648e8e3ea81db90da3082fc5b6c3bde0ee9d6452a05d7806e7e54de4e1",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/featherless.svg",
+      "destination": "packages/ui/public/assets/logos/featherless.svg",
+      "sha256": "45efbd887b9cfbef1bcef24c202df762ea2fa71a8fa5d96903cdad72a23a0965",
+      "extracted_sha256": "45efbd887b9cfbef1bcef24c202df762ea2fa71a8fa5d96903cdad72a23a0965",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/fireworks.svg",
+      "destination": "packages/ui/public/assets/logos/fireworks.svg",
+      "sha256": "f1c4782b86bc03a36323fd68ad6cc376c6b2ebe57b701cc958ebd6b8d37effd6",
+      "extracted_sha256": "f1c4782b86bc03a36323fd68ad6cc376c6b2ebe57b701cc958ebd6b8d37effd6",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/friendli.svg",
+      "destination": "packages/ui/public/assets/logos/friendli.svg",
+      "sha256": "942d0795421aa7831ce1a91300b503fb42e0b8928a888439311024526139e3e9",
+      "extracted_sha256": "942d0795421aa7831ce1a91300b503fb42e0b8928a888439311024526139e3e9",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/gigachat.svg",
+      "destination": "packages/ui/public/assets/logos/gigachat.svg",
+      "sha256": "021ff244212bff61d2fdb01946746a0adf3be031f9319bc8ae275f4818b4525d",
+      "extracted_sha256": "021ff244212bff61d2fdb01946746a0adf3be031f9319bc8ae275f4818b4525d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/github.svg",
+      "destination": "packages/ui/public/assets/logos/github.svg",
+      "sha256": "61eb9e6873ad1e79a76015a476f0f3ff3a84bdbf221900e8f60a820c14d5f637",
+      "extracted_sha256": "61eb9e6873ad1e79a76015a476f0f3ff3a84bdbf221900e8f60a820c14d5f637",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/github_copilot.svg",
+      "destination": "packages/ui/public/assets/logos/github_copilot.svg",
+      "sha256": "dd2ffd596ab4df6c09a6df41b1b85d954a6a8f86690c12c7f39fe3be7d6609e6",
+      "extracted_sha256": "dd2ffd596ab4df6c09a6df41b1b85d954a6a8f86690c12c7f39fe3be7d6609e6",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/google-adk.png",
+      "destination": "packages/ui/public/assets/logos/google-adk.png",
+      "sha256": "7b3a16ca4417a134f1463ae3722ac0a437467fdbf3f7d7c9f29a08fc0cff0fbf",
+      "extracted_sha256": "7b3a16ca4417a134f1463ae3722ac0a437467fdbf3f7d7c9f29a08fc0cff0fbf",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/google.svg",
+      "destination": "packages/ui/public/assets/logos/google.svg",
+      "sha256": "8b694251c4d88e7ac9f0725f502b3ef3fba57291c6e9408ca15d8df74e71a627",
+      "extracted_sha256": "8b694251c4d88e7ac9f0725f502b3ef3fba57291c6e9408ca15d8df74e71a627",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/groq.svg",
+      "destination": "packages/ui/public/assets/logos/groq.svg",
+      "sha256": "db824dc1c983323e48bce48940d77d0ce6e1aa012c4c69dc23a9bc9bf278114a",
+      "extracted_sha256": "db824dc1c983323e48bce48940d77d0ce6e1aa012c4c69dc23a9bc9bf278114a",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/hermes.png",
+      "destination": "packages/ui/public/assets/logos/hermes.png",
+      "sha256": "69c8462457361d1195b68dce4abe1634c0b4b1946103f2024b1ee5b20aff8001",
+      "extracted_sha256": "69c8462457361d1195b68dce4abe1634c0b4b1946103f2024b1ee5b20aff8001",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/huggingface.svg",
+      "destination": "packages/ui/public/assets/logos/huggingface.svg",
+      "sha256": "5d39d66bb6c9b026d3cb5de7bd9978dad3906570df2aca8f00078a6f8a3d0f5e",
+      "extracted_sha256": "5d39d66bb6c9b026d3cb5de7bd9978dad3906570df2aca8f00078a6f8a3d0f5e",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/hyperbolic.svg",
+      "destination": "packages/ui/public/assets/logos/hyperbolic.svg",
+      "sha256": "459ebd5a986f2ba3dded01c29b97fb708893064ba64f5aa2131fd9690b32f503",
+      "extracted_sha256": "459ebd5a986f2ba3dded01c29b97fb708893064ba64f5aa2131fd9690b32f503",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/infinity.png",
+      "destination": "packages/ui/public/assets/logos/infinity.png",
+      "sha256": "d6be8b51b26048e604753baced486f73a679fc4f7f9188fb4877cb866c5fb83d",
+      "extracted_sha256": "d6be8b51b26048e604753baced486f73a679fc4f7f9188fb4877cb866c5fb83d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/jina.png",
+      "destination": "packages/ui/public/assets/logos/jina.png",
+      "sha256": "11105396b759922fbbc019e01af4d04328497f870103d1b463bd6aadeff62c90",
+      "extracted_sha256": "11105396b759922fbbc019e01af4d04328497f870103d1b463bd6aadeff62c90",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/jira.svg",
+      "destination": "packages/ui/public/assets/logos/jira.svg",
+      "sha256": "8853c9b2acc92a457c4170659792045c47fa2c1318d8e1dc7b453ea9ccec5be7",
+      "extracted_sha256": "8853c9b2acc92a457c4170659792045c47fa2c1318d8e1dc7b453ea9ccec5be7",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/lambda.svg",
+      "destination": "packages/ui/public/assets/logos/lambda.svg",
+      "sha256": "33b54b204321d87c546b45d63e03ce3f94caf43e7134234b009588ceb7b15dff",
+      "extracted_sha256": "33b54b204321d87c546b45d63e03ce3f94caf43e7134234b009588ceb7b15dff",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/langchain.svg",
+      "destination": "packages/ui/public/assets/logos/langchain.svg",
+      "sha256": "1130bf9624e0dea6e275ce6edfce83056ab7ec6522e24d0dd4670b7d4352fea8",
+      "extracted_sha256": "1130bf9624e0dea6e275ce6edfce83056ab7ec6522e24d0dd4670b7d4352fea8",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/langgraph-color.svg",
+      "destination": "packages/ui/public/assets/logos/langgraph-color.svg",
+      "sha256": "63ae8f41f2b67a3ffac19797aff76e3bc64c3c88d62bd3afb962707c5fbf219b",
+      "extracted_sha256": "63ae8f41f2b67a3ffac19797aff76e3bc64c3c88d62bd3afb962707c5fbf219b",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/linear.svg",
+      "destination": "packages/ui/public/assets/logos/linear.svg",
+      "sha256": "069a1eaca077479cee0689c16c044e9ab3a98e1584e18c89c6a67e0dcd680c0f",
+      "extracted_sha256": "069a1eaca077479cee0689c16c044e9ab3a98e1584e18c89c6a67e0dcd680c0f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/litellm_monogram.svg",
+      "destination": "packages/ui/public/assets/logos/litellm_monogram.svg",
+      "sha256": "69eaed389008a423e98590466c98b80f4ab7ffec47f4bda53ee0db3890775ba0",
+      "extracted_sha256": "69eaed389008a423e98590466c98b80f4ab7ffec47f4bda53ee0db3890775ba0",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/llamaindex-color.svg",
+      "destination": "packages/ui/public/assets/logos/llamaindex-color.svg",
+      "sha256": "3cf3cfd62c9ad6b687f9486dc0403d74de4b0a6616190297255b32764e2248cd",
+      "extracted_sha256": "3cf3cfd62c9ad6b687f9486dc0403d74de4b0a6616190297255b32764e2248cd",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/lmstudio.svg",
+      "destination": "packages/ui/public/assets/logos/lmstudio.svg",
+      "sha256": "4d9af573850de079212909adbecae7ba2721b60049c88b3d4c59686dff1c98da",
+      "extracted_sha256": "4d9af573850de079212909adbecae7ba2721b60049c88b3d4c59686dff1c98da",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/meta_llama.svg",
+      "destination": "packages/ui/public/assets/logos/meta_llama.svg",
+      "sha256": "ecda28c1e6f6f89c2ee9dc96009fb0ffa92cc15ba31835873250b7d3e1dac30f",
+      "extracted_sha256": "ecda28c1e6f6f89c2ee9dc96009fb0ffa92cc15ba31835873250b7d3e1dac30f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/microsoft_azure.svg",
+      "destination": "packages/ui/public/assets/logos/microsoft_azure.svg",
+      "sha256": "8ea658a5b8dcc92adbf83ba60df4d7209b60ff1331d64b86c9d2dde96eb6bfc4",
+      "extracted_sha256": "8ea658a5b8dcc92adbf83ba60df4d7209b60ff1331d64b86c9d2dde96eb6bfc4",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/minimax.svg",
+      "destination": "packages/ui/public/assets/logos/minimax.svg",
+      "sha256": "1de341543d54099467e1c786020fe003b3a5edaf84151f31798f3e432fba9e6b",
+      "extracted_sha256": "1de341543d54099467e1c786020fe003b3a5edaf84151f31798f3e432fba9e6b",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/mistral.svg",
+      "destination": "packages/ui/public/assets/logos/mistral.svg",
+      "sha256": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+      "extracted_sha256": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/moonshot.svg",
+      "destination": "packages/ui/public/assets/logos/moonshot.svg",
+      "sha256": "5e75a11128e4ff00bd3b74d3fa269d17247ab05581620ae0770704c4cc640f03",
+      "extracted_sha256": "5e75a11128e4ff00bd3b74d3fa269d17247ab05581620ae0770704c4cc640f03",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/morph.svg",
+      "destination": "packages/ui/public/assets/logos/morph.svg",
+      "sha256": "994eb5b52da00eca9f4fa4d4c11a7fa1c1fa37dd9f58f9a97b951f0ea23a9f59",
+      "extracted_sha256": "994eb5b52da00eca9f4fa4d4c11a7fa1c1fa37dd9f58f9a97b951f0ea23a9f59",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/nebius.svg",
+      "destination": "packages/ui/public/assets/logos/nebius.svg",
+      "sha256": "e92a617ba4824897673e7868555329ab63754f687e143c3000b8de79f5e9188b",
+      "extracted_sha256": "e92a617ba4824897673e7868555329ab63754f687e143c3000b8de79f5e9188b",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/novita.svg",
+      "destination": "packages/ui/public/assets/logos/novita.svg",
+      "sha256": "e41321ff6a421b958c7f402f11ffcf44dbcef9c703c952736bcc92c0fd6624c4",
+      "extracted_sha256": "e41321ff6a421b958c7f402f11ffcf44dbcef9c703c952736bcc92c0fd6624c4",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/nvidia_nim.svg",
+      "destination": "packages/ui/public/assets/logos/nvidia_nim.svg",
+      "sha256": "8c941e4eb8b782eccaaea1240c059d20be33ab8eda28d7c9ed9b53ac802fe683",
+      "extracted_sha256": "8c941e4eb8b782eccaaea1240c059d20be33ab8eda28d7c9ed9b53ac802fe683",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/nvidia_triton.png",
+      "destination": "packages/ui/public/assets/logos/nvidia_triton.png",
+      "sha256": "1c4a67b226d7196cb7ac3479ba4415c563ed5ec264a0feafb57202ca230cffe9",
+      "extracted_sha256": "1c4a67b226d7196cb7ac3479ba4415c563ed5ec264a0feafb57202ca230cffe9",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/ollama.svg",
+      "destination": "packages/ui/public/assets/logos/ollama.svg",
+      "sha256": "9be947ecafd82ce3ee19a80e48ce461d1f9b3607491137e3ddfd221e14e2440f",
+      "extracted_sha256": "9be947ecafd82ce3ee19a80e48ce461d1f9b3607491137e3ddfd221e14e2440f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/openai-agents.svg",
+      "destination": "packages/ui/public/assets/logos/openai-agents.svg",
+      "sha256": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186",
+      "extracted_sha256": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/openai_small.svg",
+      "destination": "packages/ui/public/assets/logos/openai_small.svg",
+      "sha256": "d494dc379302996a4e66a08ca46ba2af599bf71e8b59a8a3fa2fdf57b087d4e0",
+      "extracted_sha256": "d494dc379302996a4e66a08ca46ba2af599bf71e8b59a8a3fa2fdf57b087d4e0",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/openclaw.png",
+      "destination": "packages/ui/public/assets/logos/openclaw.png",
+      "sha256": "2b1d369de3b766905d2b2153884cc6fa3d31150fe4c30755ea52dcfba2bdafc0",
+      "extracted_sha256": "2b1d369de3b766905d2b2153884cc6fa3d31150fe4c30755ea52dcfba2bdafc0",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/openrouter.svg",
+      "destination": "packages/ui/public/assets/logos/openrouter.svg",
+      "sha256": "b27e013e89e939521f42eff53d6e5c84ce408d16a8eb1af55ded735bb4f76102",
+      "extracted_sha256": "b27e013e89e939521f42eff53d6e5c84ce408d16a8eb1af55ded735bb4f76102",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/opentelemetry.svg",
+      "destination": "packages/ui/public/assets/logos/opentelemetry.svg",
+      "sha256": "1e93836eeedaf02fb985130ed05c4d692c66ff56269f50af8478a219645ee741",
+      "extracted_sha256": "1e93836eeedaf02fb985130ed05c4d692c66ff56269f50af8478a219645ee741",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/oracle.svg",
+      "destination": "packages/ui/public/assets/logos/oracle.svg",
+      "sha256": "305d310fda8165fb38e24273c643f2c61107e2440e12abc3c209bd49c2deff15",
+      "extracted_sha256": "305d310fda8165fb38e24273c643f2c61107e2440e12abc3c209bd49c2deff15",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/perplexity-ai.svg",
+      "destination": "packages/ui/public/assets/logos/perplexity-ai.svg",
+      "sha256": "b98de424d91bffaf3936c521279ffca09f71444896c797579a6ae22291a95e71",
+      "extracted_sha256": "b98de424d91bffaf3936c521279ffca09f71444896c797579a6ae22291a95e71",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/pydantic-ai-color.svg",
+      "destination": "packages/ui/public/assets/logos/pydantic-ai-color.svg",
+      "sha256": "c01456b3818dffe22efc16362575f3ff61ff0b29f2ffb583c6f37dad2a3eca9e",
+      "extracted_sha256": "c01456b3818dffe22efc16362575f3ff61ff0b29f2ffb583c6f37dad2a3eca9e",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/qwen.png",
+      "destination": "packages/ui/public/assets/logos/qwen.png",
+      "sha256": "2ab9028cff4eb9311972c8d4330fca774bba87b4d78ff75043dd959140f77b99",
+      "extracted_sha256": "2ab9028cff4eb9311972c8d4330fca774bba87b4d78ff75043dd959140f77b99",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/recraft.svg",
+      "destination": "packages/ui/public/assets/logos/recraft.svg",
+      "sha256": "63f905d8d54a790c611d5338c59aabacae95efa04c20891f70777534f9e89f1a",
+      "extracted_sha256": "63f905d8d54a790c611d5338c59aabacae95efa04c20891f70777534f9e89f1a",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/replicate.svg",
+      "destination": "packages/ui/public/assets/logos/replicate.svg",
+      "sha256": "528f7aec80ece703f11315a6d606139abb86d59e130ab8be74f562fa5443b6ab",
+      "extracted_sha256": "528f7aec80ece703f11315a6d606139abb86d59e130ab8be74f562fa5443b6ab",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/runway.png",
+      "destination": "packages/ui/public/assets/logos/runway.png",
+      "sha256": "79b668750ec9aa786af1f8d3f471f866cc01549b28d7178f4ca5c8358050bd41",
+      "extracted_sha256": "79b668750ec9aa786af1f8d3f471f866cc01549b28d7178f4ca5c8358050bd41",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/sambanova.svg",
+      "destination": "packages/ui/public/assets/logos/sambanova.svg",
+      "sha256": "2b93f03f25987c17d7c2d1e161ef331d9b6a1f98c01e9f8fe5b95bf4b8cc7700",
+      "extracted_sha256": "2b93f03f25987c17d7c2d1e161ef331d9b6a1f98c01e9f8fe5b95bf4b8cc7700",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/sap.png",
+      "destination": "packages/ui/public/assets/logos/sap.png",
+      "sha256": "9e28a4714ab8ab3027914e103fa3417ac2428fceefe56382fab58516b24a5006",
+      "extracted_sha256": "9e28a4714ab8ab3027914e103fa3417ac2428fceefe56382fab58516b24a5006",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/scx_ai.svg",
+      "destination": "packages/ui/public/assets/logos/scx_ai.svg",
+      "sha256": "90b1ff7bc3f010f567e0c35b21156e775e2346285ceb9f3c5b9329e77d3a286c",
+      "extracted_sha256": "90b1ff7bc3f010f567e0c35b21156e775e2346285ceb9f3c5b9329e77d3a286c",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/slack.svg",
+      "destination": "packages/ui/public/assets/logos/slack.svg",
+      "sha256": "7e04f0bcf504872f80d15fe6707ef9a5b399e475ee4c245c3417f527dd43874d",
+      "extracted_sha256": "7e04f0bcf504872f80d15fe6707ef9a5b399e475ee4c245c3417f527dd43874d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/snowflake.svg",
+      "destination": "packages/ui/public/assets/logos/snowflake.svg",
+      "sha256": "64d406433cc6454a57e1fbb945b310dbe7ed1bc795123729e029c38b072854ed",
+      "extracted_sha256": "64d406433cc6454a57e1fbb945b310dbe7ed1bc795123729e029c38b072854ed",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/soniox.svg",
+      "destination": "packages/ui/public/assets/logos/soniox.svg",
+      "sha256": "71a4d57c2b966fe9756e30ea7b710d43f300a349667caa1f7828ae92e3640313",
+      "extracted_sha256": "71a4d57c2b966fe9756e30ea7b710d43f300a349667caa1f7828ae92e3640313",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/strands.svg",
+      "destination": "packages/ui/public/assets/logos/strands.svg",
+      "sha256": "7cd4f60074d26d030153591d6f38946fffd17cfbb9dc7599895311f94c407c94",
+      "extracted_sha256": "7cd4f60074d26d030153591d6f38946fffd17cfbb9dc7599895311f94c407c94",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/tencent.svg",
+      "destination": "packages/ui/public/assets/logos/tencent.svg",
+      "sha256": "e203a5a51801a87b1a0b1dd19916cbc2852e9ad82c279e22afe98bc2074c78f4",
+      "extracted_sha256": "e203a5a51801a87b1a0b1dd19916cbc2852e9ad82c279e22afe98bc2074c78f4",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/togetherai.svg",
+      "destination": "packages/ui/public/assets/logos/togetherai.svg",
+      "sha256": "eedae8c167bbeff86800c6aa3b374fa64c9a80020fdba69a4522952a914eac57",
+      "extracted_sha256": "eedae8c167bbeff86800c6aa3b374fa64c9a80020fdba69a4522952a914eac57",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/topaz.svg",
+      "destination": "packages/ui/public/assets/logos/topaz.svg",
+      "sha256": "3c06ed71409153cf1007ceba96062e776cfc306bed9764fbdbaccde7d02d1134",
+      "extracted_sha256": "3c06ed71409153cf1007ceba96062e776cfc306bed9764fbdbaccde7d02d1134",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/typesafe.png",
+      "destination": "packages/ui/public/assets/logos/typesafe.png",
+      "sha256": "fcb8f554778c45ff62b97ca05df643588b39c8c66913736b7fe3485cedd96180",
+      "extracted_sha256": "fcb8f554778c45ff62b97ca05df643588b39c8c66913736b7fe3485cedd96180",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/v0.svg",
+      "destination": "packages/ui/public/assets/logos/v0.svg",
+      "sha256": "54025f0dd9cd5d2e8cd6e07fdedfcc33fd778be890cf468a206b301ff3f1f04f",
+      "extracted_sha256": "54025f0dd9cd5d2e8cd6e07fdedfcc33fd778be890cf468a206b301ff3f1f04f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/vercel.svg",
+      "destination": "packages/ui/public/assets/logos/vercel.svg",
+      "sha256": "01a2eab6cdb7d6ed3d8166aba8b836619dfd0e5c0b2e8d0fd10d756a65aa2ae7",
+      "extracted_sha256": "01a2eab6cdb7d6ed3d8166aba8b836619dfd0e5c0b2e8d0fd10d756a65aa2ae7",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/vllm.png",
+      "destination": "packages/ui/public/assets/logos/vllm.png",
+      "sha256": "db73557a3252dad8b4dffdd5ed323a2088a7d68d319994b047d4a003c5063c70",
+      "extracted_sha256": "db73557a3252dad8b4dffdd5ed323a2088a7d68d319994b047d4a003c5063c70",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/volcengine.png",
+      "destination": "packages/ui/public/assets/logos/volcengine.png",
+      "sha256": "87fc0bccfaa53d2f07c96a154e02e5466ea181c0251244415866cbb626e43640",
+      "extracted_sha256": "87fc0bccfaa53d2f07c96a154e02e5466ea181c0251244415866cbb626e43640",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/voyage.webp",
+      "destination": "packages/ui/public/assets/logos/voyage.webp",
+      "sha256": "fe759369dcfa16bd82daafaa931a7a32f2091bc80fc733cbef31cfd86b1af2df",
+      "extracted_sha256": "fe759369dcfa16bd82daafaa931a7a32f2091bc80fc733cbef31cfd86b1af2df",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/watsonx.svg",
+      "destination": "packages/ui/public/assets/logos/watsonx.svg",
+      "sha256": "f0f81318823c826a200532ce08dc243fe07b185daecf88788d4072141ee0b8f4",
+      "extracted_sha256": "f0f81318823c826a200532ce08dc243fe07b185daecf88788d4072141ee0b8f4",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/xai.svg",
+      "destination": "packages/ui/public/assets/logos/xai.svg",
+      "sha256": "4c685a622c59c699e824e216ca989580cf12105e489352cb20172c7c8af990c3",
+      "extracted_sha256": "4c685a622c59c699e824e216ca989580cf12105e489352cb20172c7c8af990c3",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/public/assets/logos/xinference.svg",
+      "destination": "packages/ui/public/assets/logos/xinference.svg",
+      "sha256": "1fdd08b24aa7f0b864ba3904d56e64bcd9ca704eecb27759d3d49c397cfc3f59",
+      "extracted_sha256": "1fdd08b24aa7f0b864ba3904d56e64bcd9ca704eecb27759d3d49c397cfc3f59",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/logs/types.ts",
+      "destination": "packages/ui/src/components/logs/types.ts",
+      "sha256": "6226700d970f79882ec84467e3cb9c1262e570d9a88f18ce828f900566c11840",
+      "extracted_sha256": "6226700d970f79882ec84467e3cb9c1262e570d9a88f18ce828f900566c11840",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/molecules/logo/Logo.tsx",
+      "destination": "packages/ui/src/components/molecules/logo/Logo.tsx",
+      "sha256": "ba0789108c9bf8c7ec38cc853e188f9d131c7850a44fba82868eebd7230cbe2e",
+      "extracted_sha256": "da59d84fc15e03f49236ca29f6f4f14a8c9dbd7f81b420dd190c151f92a4ed76",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/molecules/models/ProviderLogo.tsx",
+      "destination": "packages/ui/src/components/molecules/models/ProviderLogo.tsx",
+      "sha256": "4e49c2a5cd5b413d6f345797cf2db9b1de533863cc4ab32c4de16d4866480867",
+      "extracted_sha256": "a3d0a6b6d4bce8c84632b501946f8de2a8e706b62b97ee9580cc8c013e80d4ae",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/provider_info_helpers.tsx",
+      "destination": "packages/ui/src/components/provider_info_helpers.tsx",
+      "sha256": "42da81a71d2a588418f3be89a709c8f035e3f5ac1d6ba273e82832abc5026b46",
+      "extracted_sha256": "bc2a755fbdfc61cda9f021334a269b8047a4318339cc4e1d9e151c219fae359e",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/CopyButton.tsx",
+      "destination": "packages/ui/src/components/shared/CopyButton.tsx",
+      "sha256": "59b7123178187fbec2e2bdec65d899bb6256a14ac4154c325db0c7850dd8ddf9",
+      "extracted_sha256": "85bc8b4b98985592a37477f3deee33aa22e1fe2e3dd3b49028f51321722fdf1a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/DataTable/DataTableViewOptions.tsx",
+      "destination": "packages/ui/src/components/shared/DataTable/DataTableViewOptions.tsx",
+      "sha256": "4e9f8ac863f4d66e73fc006a981b27dbfbd5521052d728f57aaec4f58c216c50",
+      "extracted_sha256": "c36bc824908adf349ccb22da7603215cf0d2ec74f56caa1ad6a7e9e1747b817d",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/DataTable/columnMeta.ts",
+      "destination": "packages/ui/src/components/shared/DataTable/columnMeta.ts",
+      "sha256": "a1cc7006ac0ac2dd2748f5b4a07092a330d175b16adbcd49c0eed365e9b4575f",
+      "extracted_sha256": "a1cc7006ac0ac2dd2748f5b4a07092a330d175b16adbcd49c0eed365e9b4575f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/DataTable/types.ts",
+      "destination": "packages/ui/src/components/shared/DataTable/types.ts",
+      "sha256": "df9b082e7f64804a44b15f295b829c6588a1794da59983aab2cdcceef59c9fe5",
+      "extracted_sha256": "df9b082e7f64804a44b15f295b829c6588a1794da59983aab2cdcceef59c9fe5",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/DataTable/usePersistedColumnVisibility.ts",
+      "destination": "packages/ui/src/components/shared/DataTable/usePersistedColumnVisibility.ts",
+      "sha256": "923c6bffcdb2b797f6749a41bbadab00c37bedea78cd03a3637f2310d0224183",
+      "extracted_sha256": "f9e30c5b707569daf8e2fd69aae6c2805adae6b34b27b848412de61e7077a065",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/DurationInput.tsx",
+      "destination": "packages/ui/src/components/shared/DurationInput.tsx",
+      "sha256": "b7998cded94670cb03918a7287411d819c72a8504a274bfb260d306aec6fe67d",
+      "extracted_sha256": "8b53d4bf0b3f4e2f6b281b0d9e6d5757a1136d47e66bb504ee3398a31c91bfc2",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/EntityLink.tsx",
+      "destination": "packages/ui/src/components/shared/EntityLink.tsx",
+      "sha256": "85988cd6f2cdba65b3d89ce3608ac24c700c0ccb13be22904f8d569a67877c3c",
+      "extracted_sha256": "5737f599155f2b5293eed830b45b97c1d62818f3236fbc2acdccc84a003aefd7",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/Inspector.tsx",
+      "destination": "packages/ui/src/components/shared/Inspector.tsx",
+      "sha256": "21017a4fc1cbc49c6d4783ef5210fb349051117b0d24c3896e08e7392412fcfb",
+      "extracted_sha256": "7858d22278d8967ac6eee6b8c2053f11704f72fa59c904a8a8b15cfa42b1a829",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/InspectorTable.tsx",
+      "destination": "packages/ui/src/components/shared/InspectorTable.tsx",
+      "sha256": "f5cc4e4c311afc93f5fb08f7e5536756fcb86d58a150277003a2f738c5a2714c",
+      "extracted_sha256": "a129c56e8455f6b9868ea2443c10d17632331cf81786e8ad5e0d5da58c841143",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/ListRow.tsx",
+      "destination": "packages/ui/src/components/shared/ListRow.tsx",
+      "sha256": "3003157a98f793bb32b3a37c709bedd0f942d90e70fc59eed9b83d45d09d85a6",
+      "extracted_sha256": "8c8b9e46eca28e099d0b547254da6a0bf5d7dacf368bd67e2047a01935174040",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/LoadingState.tsx",
+      "destination": "packages/ui/src/components/shared/LoadingState.tsx",
+      "sha256": "c2f1bf27e5ceffb9fa1de499756211c9a8b3406f78931ff415ff0b2b8d6dfa16",
+      "extracted_sha256": "c2f1bf27e5ceffb9fa1de499756211c9a8b3406f78931ff415ff0b2b8d6dfa16",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/SearchSelect.tsx",
+      "destination": "packages/ui/src/components/shared/SearchSelect.tsx",
+      "sha256": "16c70b30b21b4ddd0d5ea69f08f5347cebb3889ed46eab21166625e16d4fc5cc",
+      "extracted_sha256": "7144e5172c0608b0ceda178aa32db0a309cabd7938badeb4a3bfc3448240aa5a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/ShortcutHints.tsx",
+      "destination": "packages/ui/src/components/shared/ShortcutHints.tsx",
+      "sha256": "1c1691205c71d5af7816fa700117c296c225c6994aa053185f744bdf5cf333c8",
+      "extracted_sha256": "a0a4a2ab9e0825f20596d5068641f88abd03f216316d20bd9c73d46764b1ae1a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/StateMessage.tsx",
+      "destination": "packages/ui/src/components/shared/StateMessage.tsx",
+      "sha256": "49d922a416ad4333df76dc8daec59fb0fc7eb65bb886a1e8a6ce891eb4b456b9",
+      "extracted_sha256": "6d76f1b68c3aecd11db25a2e17b8e80236d67528fe5f022f8289b23119af786d",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/StatusDot.tsx",
+      "destination": "packages/ui/src/components/shared/StatusDot.tsx",
+      "sha256": "cc1e78b104011bd1f7985037f1a384753a52aeb4af544d38861960edbc17261a",
+      "extracted_sha256": "8160fb39faa12ec6d73237caa74ea4913e4d4069c3e1f8143d0bfc001145d80b",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/dotField/DotField.tsx",
+      "destination": "packages/ui/src/components/shared/dotField/DotField.tsx",
+      "sha256": "0e88b7c9f1f36b897edf1f4be8f6859184eec9e78ed14872e1a6d93ba9178729",
+      "extracted_sha256": "c4b1b623b401ec1c3a16b6657065ce185007e989a2727c365f45a3c9cbf73925",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/dotField/dots.ts",
+      "destination": "packages/ui/src/components/shared/dotField/dots.ts",
+      "sha256": "39d7828820252d899218246b1607d825895aa67c724183688daaf31a8b440b75",
+      "extracted_sha256": "39d7828820252d899218246b1607d825895aa67c724183688daaf31a8b440b75",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/SearchBox.tsx",
+      "destination": "packages/ui/src/components/shared/search/SearchBox.tsx",
+      "sha256": "0f3ee335657f92450065d1842d3f6d1955507cf276ad4f7be395562175b9ca0e",
+      "extracted_sha256": "86b8635db0abc837adc148ddc3faec1f790bcf088059ffff3adef783f6216d1e",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/evaluate.ts",
+      "destination": "packages/ui/src/components/shared/search/evaluate.ts",
+      "sha256": "b03ccf0624997f4ba949b212905a960cc767e0dc34489f17c4ef804e98f907cb",
+      "extracted_sha256": "b03ccf0624997f4ba949b212905a960cc767e0dc34489f17c4ef804e98f907cb",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/language.ts",
+      "destination": "packages/ui/src/components/shared/search/language.ts",
+      "sha256": "d5b7c954b9c12121dce2f0d31c43e6ef3b36a4058a27cbef30d2f1689bf1313e",
+      "extracted_sha256": "d5b7c954b9c12121dce2f0d31c43e6ef3b36a4058a27cbef30d2f1689bf1313e",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/searchQuery.ts",
+      "destination": "packages/ui/src/components/shared/search/searchQuery.ts",
+      "sha256": "3b6259b398c77533b1c616f44fa344c3c1537553331d46ea9fafb61f25f05f9d",
+      "extracted_sha256": "3b6259b398c77533b1c616f44fa344c3c1537553331d46ea9fafb61f25f05f9d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/suggestions.ts",
+      "destination": "packages/ui/src/components/shared/search/suggestions.ts",
+      "sha256": "cbecb0ed76d37209a7a950559775b5298210caa0b22ff9311c7bb2e1051590e2",
+      "extracted_sha256": "cbecb0ed76d37209a7a950559775b5298210caa0b22ff9311c7bb2e1051590e2",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/search/valueSource.ts",
+      "destination": "packages/ui/src/components/shared/search/valueSource.ts",
+      "sha256": "e54c763f771172b94db0bf387760c0323ee25bb705e941db14f6bb58b66078d5",
+      "extracted_sha256": "e54c763f771172b94db0bf387760c0323ee25bb705e941db14f6bb58b66078d5",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/table_cells/cell_tooltip.tsx",
+      "destination": "packages/ui/src/components/shared/table_cells/cell_tooltip.tsx",
+      "sha256": "94fe52c96742b25429d30bc54d7ab2a2324f37025cbea99f819a77ec87bb1772",
+      "extracted_sha256": "22b495e55a05d03ef49554d7ff45bf5201f8e7377737a09a97f5ed3098670b4a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/table_cells/status_badge.tsx",
+      "destination": "packages/ui/src/components/shared/table_cells/status_badge.tsx",
+      "sha256": "63ff2eb7041e18879c303484288ffe060db245e20fb92be664b39fb9f56c4b35",
+      "extracted_sha256": "787ab1d838d53d06f15de05f3430eac5cba3a55a161f4744ec9200b972ffa76a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/timeRange/TimeRangeControls.tsx",
+      "destination": "packages/ui/src/components/shared/timeRange/TimeRangeControls.tsx",
+      "sha256": "63d01b6a422a8b42ebab094c97b2a781bf1ed4734797fe400a5c059feb4acc21",
+      "extracted_sha256": "c57cffbb605937912c331dd9e60cfd1dca99776f415ffa1adcdd66223a329979",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/timeRange/routing.ts",
+      "destination": "packages/ui/src/components/shared/timeRange/routing.ts",
+      "sha256": "ebd84030c52fa338d57796e5478804a58a8401ca7ca7ff6c54bc31be23bba901",
+      "extracted_sha256": "ebd84030c52fa338d57796e5478804a58a8401ca7ca7ff6c54bc31be23bba901",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/timeRange/timeRange.ts",
+      "destination": "packages/ui/src/components/shared/timeRange/timeRange.ts",
+      "sha256": "456c5f4a4fcb32c840b8958e7a0833ae7ca333b2060d2c1c816928e6a60cf093",
+      "extracted_sha256": "456c5f4a4fcb32c840b8958e7a0833ae7ca333b2060d2c1c816928e6a60cf093",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/timeRange/useRelativeRange.ts",
+      "destination": "packages/ui/src/components/shared/timeRange/useRelativeRange.ts",
+      "sha256": "1d68d22d9291efdbb729ffb8762edc7db860c183a9bd4c506f0768f4865deca8",
+      "extracted_sha256": "1d68d22d9291efdbb729ffb8762edc7db860c183a9bd4c506f0768f4865deca8",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/timeline/Timeline.tsx",
+      "destination": "packages/ui/src/components/shared/timeline/Timeline.tsx",
+      "sha256": "05287c2443b81fe69085576030f50caea9b7aa5d9278d23468216531a4106d56",
+      "extracted_sha256": "be00816a9aab8eb70a6e0ac7118e51ce4ec2f9897e4ddf5e9969e07f684f4990",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/shared/useShortcut.ts",
+      "destination": "packages/ui/src/components/shared/useShortcut.ts",
+      "sha256": "d62b3edd7547dfff0c6ec4bae8990d098207e29a7c5bbc245d57e1764fc04474",
+      "extracted_sha256": "d62b3edd7547dfff0c6ec4bae8990d098207e29a7c5bbc245d57e1764fc04474",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/Resizable.tsx",
+      "destination": "packages/ui/src/components/ui/Resizable.tsx",
+      "sha256": "358765d8a4ec7ea4136b3151e503cb513dab1a951e565d9a3381661cd855fe72",
+      "extracted_sha256": "923a11f204c950d3a54936d911234343dbdc369419f7e61d6f356865b729b808",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/badge.tsx",
+      "destination": "packages/ui/src/components/ui/badge.tsx",
+      "sha256": "31f74c987ac1c8dd1bd2a84a270623b054c1fc4ce81a30eb788ce3d579d95e40",
+      "extracted_sha256": "c1ca79428e91815d4d11d9d4423dea455e036257d55e06527d06099756f409d7",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/button-group.tsx",
+      "destination": "packages/ui/src/components/ui/button-group.tsx",
+      "sha256": "45311c218ffe1c8393be29ebab04527a9167c2e48a5fdb15adc0f22cd541614f",
+      "extracted_sha256": "a793084715108ce35f0b8921260033865b6067298f766fef8951f3f6ffbc70e9",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/button.tsx",
+      "destination": "packages/ui/src/components/ui/button.tsx",
+      "sha256": "709504c4a347b021a9984ee3e65359992e9f0f172d22e63030207d0c604296d6",
+      "extracted_sha256": "6a047876db1941c59248fe9fb8a9cf1e2a85614c66c3ea3d46ac20bf2593d0fc",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/checkbox.tsx",
+      "destination": "packages/ui/src/components/ui/checkbox.tsx",
+      "sha256": "7c6ce84284a608e8ca9b7636cb5da89481d8c945d03ba511da6a2fd56bcdf78c",
+      "extracted_sha256": "3b8bd49281fe56a5dbe569e51e20199c2d944ca180bd26696191fde27df5ea7f",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/collapsible.tsx",
+      "destination": "packages/ui/src/components/ui/collapsible.tsx",
+      "sha256": "1251b05bdf0f9d8118139c3ed7bb0ea60466ee664c2d58e710be9b39032c6f6c",
+      "extracted_sha256": "1251b05bdf0f9d8118139c3ed7bb0ea60466ee664c2d58e710be9b39032c6f6c",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/combobox.tsx",
+      "destination": "packages/ui/src/components/ui/combobox.tsx",
+      "sha256": "415510d38ea33f28cb571ef11ebd6ee777a377e0d1886b6771dcb15fdde7a02f",
+      "extracted_sha256": "9569aefa01c4fc8bfadf9084a2487f8ccec94a5596c887893874218136603ad5",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/dialog.tsx",
+      "destination": "packages/ui/src/components/ui/dialog.tsx",
+      "sha256": "0c50f7da7e287df66e69485e4e5b56c4a0fb9f8730571541873377e7ed45a2c8",
+      "extracted_sha256": "110c118b508c5e28c69ca816362df3cff1ac769774760a6529d95196c72d5f4e",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/dropdown-menu.tsx",
+      "destination": "packages/ui/src/components/ui/dropdown-menu.tsx",
+      "sha256": "831b967c1911010eb3adbfe96d76340dce858803d80310236352a7b52de799c2",
+      "extracted_sha256": "1bea91e895f918d10ec03ec9ec43d8de8fd9979f159c3d35ed7b7bb87882aee0",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/hover-card.tsx",
+      "destination": "packages/ui/src/components/ui/hover-card.tsx",
+      "sha256": "9f4f376e778fd1560de1f3afa4b8ba1971bb8bc5f272324ea61e65e15b685f1c",
+      "extracted_sha256": "e394b23fbec033ee45ab30518df75f2a54fab748c4384c00707a18b6b2007769",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/input-group.tsx",
+      "destination": "packages/ui/src/components/ui/input-group.tsx",
+      "sha256": "2c82ac3566fa4072c5cc6320a0a786afb9d27c061d41316411483f61353560eb",
+      "extracted_sha256": "fbd8508e46a029315e4841028da499888cfa153dba2015393d735091d42301fd",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/input.tsx",
+      "destination": "packages/ui/src/components/ui/input.tsx",
+      "sha256": "c91f4f63d6c2c84d2e0f7368a97dfb126ac74804e775e5aa5bcefd853917e69e",
+      "extracted_sha256": "42e6b59d9391bfb6d24da6d6f9fb9a6ffc5d8bf181986502e3d483826408bb2c",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/popover.tsx",
+      "destination": "packages/ui/src/components/ui/popover.tsx",
+      "sha256": "182221370b4c51b9fdd08f71c259596d747b565fcebeed2875832d1f2f556c8a",
+      "extracted_sha256": "4abd130e0351a639142c1324aa99ecca43187246b4b4fce79ac0365674278954",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/select.tsx",
+      "destination": "packages/ui/src/components/ui/select.tsx",
+      "sha256": "07e1a6c1c01468d20ce760a06f39c9e59c56103e63556c7240bbc9e8c2b8d24b",
+      "extracted_sha256": "f0cdf1573d1ee4bec950f00870d62981012f5de6d77421eb1ce3577d624caf4f",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/separator.tsx",
+      "destination": "packages/ui/src/components/ui/separator.tsx",
+      "sha256": "1aadf3c39d08e4aeea1b9950040079b0fa8baa1d5f9644667cbbb6b9c8c0837a",
+      "extracted_sha256": "6eef97956c0c510ee8839596e5795c3a42169dec6044ba534f1e11edd9e2a103",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/sheet.tsx",
+      "destination": "packages/ui/src/components/ui/sheet.tsx",
+      "sha256": "c4528c70ebf1acf226f198422561ad4348ac9e35a8990b1fd15e17ad9268d60b",
+      "extracted_sha256": "bba20aafb02b7b1cea2f3db630b7536280122982fea00be22c322dcaf5965251",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/skeleton.tsx",
+      "destination": "packages/ui/src/components/ui/skeleton.tsx",
+      "sha256": "d3984cd8c4d6cdf73a81ea0891dae87ae6a01c1895fd68df0b6d740006acb9d6",
+      "extracted_sha256": "9d39762f1c9a1b9e315a95ec9c18cb8e80669d572bcdfe4d72c4f936edb55837",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/sonner.tsx",
+      "destination": "packages/ui/src/components/ui/sonner.tsx",
+      "sha256": "502c011687aee1a48fa221d356f8f2d8eeb035c0706e8f8e9ef0104660cfc51d",
+      "extracted_sha256": "502c011687aee1a48fa221d356f8f2d8eeb035c0706e8f8e9ef0104660cfc51d",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/switch.tsx",
+      "destination": "packages/ui/src/components/ui/switch.tsx",
+      "sha256": "b53aedd97ce9ebdcaf94f60bb120b172149f79045edf37b22858ff10bb61e09e",
+      "extracted_sha256": "c5a1d96023486a2ce26d8353d3986366a45c9637aa8886fc3a2ea96327c00686",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/table.tsx",
+      "destination": "packages/ui/src/components/ui/table.tsx",
+      "sha256": "ba895007bb3ac1246e2a2a4e67b27dfa2de41679f26259a25ffe6b8fdcb11918",
+      "extracted_sha256": "89dd7c8c38d556f564be02888fb3ae70520dc1fec13e50f7b03ed3505d188e7e",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/tabs.tsx",
+      "destination": "packages/ui/src/components/ui/tabs.tsx",
+      "sha256": "0e614492dab5ee5f4418895293386b642203c8f1a3a9d14a8eca94a906c91c04",
+      "extracted_sha256": "ef15500dce6fb271ac003bdd176f738def1ef6219788b74107efcd9e7596f739",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/textarea.tsx",
+      "destination": "packages/ui/src/components/ui/textarea.tsx",
+      "sha256": "a313760e9f66c6f819c3426e038acb9aa8f47a59be74062f51321caa88a688ea",
+      "extracted_sha256": "9d32012ea1155128e26119252c4d46c0e54c29cbd57f23ebc5031b997d424a0f",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/components/ui/tooltip.tsx",
+      "destination": "packages/ui/src/components/ui/tooltip.tsx",
+      "sha256": "21e365e7414b00e1dda3cb0e8c1ffe7eaf8f4cee8665857e7a4ab0051c694811",
+      "extracted_sha256": "6074a1cd419d5c8b69b56c58a2f090b02ce8f1601cda33449cde2fe1cae20167",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/app/(dashboard)/hooks/common/queryKeysFactory.ts",
+      "destination": "packages/ui/src/hooks/queryKeysFactory.ts",
+      "sha256": "f13cc653015347688208b6a2817d6a024cae82cea1b2be422061ae1fb40e86a3",
+      "extracted_sha256": "f13cc653015347688208b6a2817d6a024cae82cea1b2be422061ae1fb40e86a3",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/app/(dashboard)/hooks/models/useModelCostMap.ts",
+      "destination": "packages/ui/src/hooks/useModelCostMap.ts",
+      "sha256": "90e810bfafd18e47370cd3889e2ce9941b87cbf6f167fb8b789f6aea1463ab1e",
+      "extracted_sha256": "8a7b8f6906c636637ca416eebe71a923d4856308231200e658ca8febc533b35b",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/hooks/useNow.ts",
+      "destination": "packages/ui/src/hooks/useNow.ts",
+      "sha256": "13a428d43a69620b3825597d92dd14d661df983aabfa5169abff1713c1f0680b",
+      "extracted_sha256": "13a428d43a69620b3825597d92dd14d661df983aabfa5169abff1713c1f0680b",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/assetPaths.ts",
+      "destination": "packages/ui/src/lib/assetPaths.ts",
+      "sha256": "9462d342a282781c02c97f4c036158faa37e7fc0ab0a14e1df622ccd9c757f5a",
+      "extracted_sha256": "c1e777813ca5b17e7ae0609f4757c50bd3592fbfbf3cdceb152dce3637f2b9d0",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/cva.config.ts",
+      "destination": "packages/ui/src/lib/cva.config.ts",
+      "sha256": "a9ff5614fec6e47cd306851cd39e2bb0bd1b939a9776cad032bc06753a24b105",
+      "extracted_sha256": "a9ff5614fec6e47cd306851cd39e2bb0bd1b939a9776cad032bc06753a24b105",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/forms/useZodForm.ts",
+      "destination": "packages/ui/src/lib/forms/useZodForm.ts",
+      "sha256": "628ea5583554fc05a9f8cb8e42965a31f64984a0558d1353a34a9210a180317a",
+      "extracted_sha256": "628ea5583554fc05a9f8cb8e42965a31f64984a0558d1353a34a9210a180317a",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/http/api.ts",
+      "destination": "packages/ui/src/lib/http/api.ts",
+      "sha256": "f384548402d7d5fee0eb5e7bb06968d618cd1840771cc1987075ae138979ed48",
+      "extracted_sha256": "f384548402d7d5fee0eb5e7bb06968d618cd1840771cc1987075ae138979ed48",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/http/client.ts",
+      "destination": "packages/ui/src/lib/http/client.ts",
+      "sha256": "c4350e177fcd96ec97daca12f6cad4acd63e0b5ff325ce7e150e9589692588a3",
+      "extracted_sha256": "c4350e177fcd96ec97daca12f6cad4acd63e0b5ff325ce7e150e9589692588a3",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/http/resolveApiBase.ts",
+      "destination": "packages/ui/src/lib/http/resolveApiBase.ts",
+      "sha256": "4d6792c606bdd2a9b2cddc4d24923ccc18f7f438cafa31e0e21285e97c58421f",
+      "extracted_sha256": "4d6792c606bdd2a9b2cddc4d24923ccc18f7f438cafa31e0e21285e97c58421f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/http/runtime.ts",
+      "destination": "packages/ui/src/lib/http/runtime.ts",
+      "sha256": "b8b666a3d41df3b7cf4066283f67e72bc5e8e04ff4414695eb972ba7561ce133",
+      "extracted_sha256": "b8b666a3d41df3b7cf4066283f67e72bc5e8e04ff4414695eb972ba7561ce133",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/http/schema.d.ts",
+      "destination": "packages/ui/src/lib/http/schema.d.ts",
+      "sha256": "f0883228fe7444c1d900977ef05bc6239b320672e9712ee7c418a9781c27d7ce",
+      "extracted_sha256": "f0883228fe7444c1d900977ef05bc6239b320672e9712ee7c418a9781c27d7ce",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/logoTreatments.ts",
+      "destination": "packages/ui/src/lib/logoTreatments.ts",
+      "sha256": "f7b30ec37a3eec22fe8535c99b734fc88b567d7e876860bb19c8b97461712750",
+      "extracted_sha256": "12951ac12f445b1e403cf47d016b1e902fee4d9fe950be4570f444aaaf1d7858",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/serverRootPath.ts",
+      "destination": "packages/ui/src/lib/serverRootPath.ts",
+      "sha256": "d4e9258acb020b007d2a76f0d9870d5d10f0a2d6bc8d24bcaa0f65931892b736",
+      "extracted_sha256": "d4e9258acb020b007d2a76f0d9870d5d10f0a2d6bc8d24bcaa0f65931892b736",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/lib/toast.ts",
+      "destination": "packages/ui/src/lib/toast.ts",
+      "sha256": "598c32af38ceddfaf9699b9013ecf2e0b2df7b5d76795c9de010d5ff92c52ad5",
+      "extracted_sha256": "9c88dabb92898d8882d0430640f41b0fedeb82bcd7d7b6d0d922638810dc84d1",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/app/globals.css",
+      "destination": "packages/ui/src/styles.css",
+      "sha256": "2d5037a4359cfcb70651de878960c8f42d4a7164ecbf2fd545ccd13eb39e47fd",
+      "extracted_sha256": "3199dd49850667542dd29c3cf06b4d57b468ded6aef7e3d4d2a72a2bb397b480",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/utils/activityTimestamp.ts",
+      "destination": "packages/ui/src/utils/activityTimestamp.ts",
+      "sha256": "06c30feb029a45116b26388e57c1908757f07ae7f8261eed7087c9f3dbc89322",
+      "extracted_sha256": "06c30feb029a45116b26388e57c1908757f07ae7f8261eed7087c9f3dbc89322",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/utils/dataUtils.ts",
+      "destination": "packages/ui/src/utils/dataUtils.ts",
+      "sha256": "d75aa3182ddc39f605bcc342cd4faa17ff5c5f25a3b037d3fe48aba40b70a7fa",
+      "extracted_sha256": "00e235288ea6350559ca5d6295050fae770ffc1b3cf71c4b2caecc19099d23b6",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/utils/localStorageUtils.ts",
+      "destination": "packages/ui/src/utils/localStorageUtils.ts",
+      "sha256": "2c4beeb10c123c02ff09c390cb92953e811cb0e846e2d040c65a8a0e73746894",
+      "extracted_sha256": "2c4beeb10c123c02ff09c390cb92953e811cb0e846e2d040c65a8a0e73746894",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/utils/roles.ts",
+      "destination": "packages/ui/src/utils/roles.ts",
+      "sha256": "2123b57206b29825d60be323e058ccbfca3579dcce5d2b24d926929656d72fa7",
+      "extracted_sha256": "2f9d9518be64e9ee80f60db8cc14019fc756183205acf5c51362622db89b8391",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/src/utils/uiHref.ts",
+      "destination": "packages/ui/src/utils/uiHref.ts",
+      "sha256": "ea17df0c800a3917b052e4711913019aa15c567d1112d0f12ae22655f1c8e75b",
+      "extracted_sha256": "d65a42049d8a639b903b5455ad40428b60a339e6bb20aaae347bcb34b938038a",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/tests/jsdomFetchEnv.ts",
+      "destination": "packages/ui/tests/jsdomFetchEnv.ts",
+      "sha256": "7a59476a46fd4b3e1522e9c6ec6cf436b6d5ab8ac97a17ae867aeb9cdf0371ff",
+      "extracted_sha256": "7a59476a46fd4b3e1522e9c6ec6cf436b6d5ab8ac97a17ae867aeb9cdf0371ff",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/tests/setup.unit.ts",
+      "destination": "packages/ui/tests/setup.unit.ts",
+      "sha256": "b5b7c87e72f384980ca1d92c4f54d6c30b2f099556e3843588073cfe0a0a893f",
+      "extracted_sha256": "b5b7c87e72f384980ca1d92c4f54d6c30b2f099556e3843588073cfe0a0a893f",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/tests/setupTests.ts",
+      "destination": "packages/ui/tests/setupTests.ts",
+      "sha256": "d8c685d755656e0d46fe2550fef4fd9d422046117635a715dd7ef4decf9a8205",
+      "extracted_sha256": "5f866a215b3e2b905fd5281fc4181e730bb334be084261c3127f485df13dc1ff",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "ui/litellm-dashboard/tests/test-utils.tsx",
+      "destination": "packages/ui/tests/test-utils.tsx",
+      "sha256": "02c6f64b53b27b1a719ce314466c17370df7a204293b135e805ce1b21d7099c9",
+      "extracted_sha256": "02c6f64b53b27b1a719ce314466c17370df7a204293b135e805ce1b21d7099c9",
+      "baseline_identical": true,
+      "change": "unchanged"
+    },
+    {
+      "source": "ui/litellm-dashboard/vitest.config.ts",
+      "destination": "packages/ui/vitest.config.ts",
+      "sha256": "061446b67af18b541c723104f25aa94667dd438c050fc873f3c02a7b5a9a3ef0",
+      "extracted_sha256": "45fa8fc1206002f15fdfc7e54cc36a5f3e2089af627762a3708fa63f0fc6d87b",
+      "baseline_identical": false,
+      "change": "adapted_during_extraction"
+    },
+    {
+      "source": "LICENSE",
+      "destination": "packages/ui/LICENSE",
+      "sha256": "b170d6bf8e8835dd357e011681db028f4d51e2fb0ea892058f56e01fb39b8273",
+      "change": "unchanged",
+      "extracted_sha256": "b170d6bf8e8835dd357e011681db028f4d51e2fb0ea892058f56e01fb39b8273",
+      "baseline_identical": true
+    },
+    {
+      "source": "tests/integration/database/test_lens_repository.py",
+      "destination": "tests/integration/migration/test_legacy_lens.py",
+      "sha256": "21b0681e1d1643ef9c13d11280a28d784cfa08cd69f450c4e50b105aa82f25f5",
+      "change": "split_legacy_migration_tests",
+      "extracted_sha256": "33c03ae8f0ae1b9b36ee9e0bc8146e82c288d0169011a5b193309c579e12bd8e",
+      "baseline_identical": false
     }
   ]
 }

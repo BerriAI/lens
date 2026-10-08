@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_history_pages_keep_time_and_id_order_across_archived_and_current_runs __
+tests/integration/database/test_lens_repository.py:756: in test_history_pages_keep_time_and_id_order_across_archived_and_current_runs
+    assert len(first) == 50 and len(second) == 6
+E   AssertionError: assert (2 == 50)
+E    +  where 2 = len((Job(id='run-055', status='queued', stage='Queued', created_at=datetime.datetime(2026, 1, 15, 0, 0, tzinfo=TzInfo(0)),..., assessments=(), steps=(), reviews=(), reviewed=0, reading=(), activities=(), trigger='schedule', review_versions=())))
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_history_pages_keep_time_and_id_order_across_archived_and_current_runs
+1 failed in 0.47s

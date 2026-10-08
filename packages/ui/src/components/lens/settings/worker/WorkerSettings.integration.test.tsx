@@ -2,15 +2,15 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useQuery } from "@tanstack/react-query";
-import { testQueryClient } from "@/../tests/test-utils";
-import { readRequest, renderWithLens, type StubbedRequest } from "@/../tests/lens-test-utils";
+import { testQueryClient } from "../../../../../tests/test-utils";
+import { readRequest, renderWithLens, type StubbedRequest } from "../../../../../tests/lens-test-utils";
 import { lensQueries } from "../../data/queries";
 import { useLensApi } from "../../data/LensServices";
 import type { LensList } from "../../model/types";
 import { WorkerSettings } from "./WorkerSettings";
 
-vi.mock("@/components/networking", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/components/networking")>()),
+vi.mock("../../../../lib/http/requests", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../lib/http/requests")>()),
   proxyBaseUrl: "https://gateway.example/proxy",
 }));
 

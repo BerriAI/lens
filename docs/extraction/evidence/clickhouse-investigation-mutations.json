@@ -1,0 +1,82 @@
+[
+  {
+    "name": "attempt-fence",
+    "file": "src/litellm_lens/repository.py",
+    "before": "                or job.attempts != assigned.attempts\n",
+    "after": "",
+    "test": "tests/integration/database/test_lens_repository.py::test_delayed_progress_cannot_replace_a_newer_checkpoint[same_worker]",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-attempt-fence.log"
+  },
+  {
+    "name": "checkpoint-atomicity",
+    "file": "src/litellm_lens/repository.py",
+    "before": "        result: Final = await self.state.commit((Change(previous, document(stored(updated))), *archives, *review))",
+    "after": "        if review:\n            require_storage(await self.state.commit(review))\n        result: Final = await self.state.commit((Change(previous, document(stored(updated))), *archives))",
+    "test": "tests/integration/database/test_lens_repository.py::test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-checkpoint-atomicity.log"
+  },
+  {
+    "name": "archive-publication",
+    "file": "src/litellm_lens/repository.py",
+    "before": "(Change(previous, document(stored(updated))), *archives, *review)",
+    "after": "(Change(previous, document(stored(updated))), *review)",
+    "test": "tests/integration/database/test_lens_repository.py::test_history_pages_keep_time_and_id_order_across_archived_and_current_runs",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-archive-publication.log"
+  },
+  {
+    "name": "review-version",
+    "file": "src/litellm_lens/repository.py",
+    "before": "review.content_version == expected[record.key] and not review.consolidated",
+    "after": "not review.consolidated",
+    "test": "tests/integration/database/test_lens_repository.py::test_review_checkpoints_survive_new_jobs_and_only_relevant_settings_invalidate_them",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-review-version.log"
+  },
+  {
+    "name": "heartbeat-revocation",
+    "file": "src/litellm_lens/access_repository.py",
+    "before": "worker.model_copy(update={\"last_seen\": at})",
+    "after": "worker.model_copy(update={\"last_seen\": at, \"revoked\": False})",
+    "test": "tests/integration/database/test_lens_repository.py::test_heartbeat_never_restores_revoked_access",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-heartbeat-revocation.log"
+  },
+  {
+    "name": "credential-cap",
+    "file": "src/litellm_lens/access_repository.py",
+    "before": "len(keys) >= INGESTION_KEY_LIMIT",
+    "after": "len(keys) > INGESTION_KEY_LIMIT",
+    "test": "tests/integration/database/test_access_repository.py::test_concurrent_creation_cannot_exceed_the_ingestion_key_limit",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-credential-cap.log"
+  },
+  {
+    "name": "schedule-visibility",
+    "file": "src/litellm_lens/repository_queries.py",
+    "before": "\"INNER JOIN lens_state_heads AS h USING (key, revision, digest) \"",
+    "after": "\"LEFT JOIN lens_state_heads AS h USING (key, revision, digest) \"",
+    "test": "tests/integration/database/test_lens_repository.py::test_due_filters_by_schedule_and_scope",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-schedule-visibility.log"
+  },
+  {
+    "name": "session-expiry",
+    "file": "src/litellm_lens/access_repository.py",
+    "before": ".expires_at > utc_time(now)",
+    "after": ".expires_at >= utc_time(now)",
+    "test": "tests/integration/database/test_access_repository.py::test_sessions_expire_at_the_boundary_and_stay_revoked_across_clients",
+    "exit_code": 1,
+    "assertion_rejected": true,
+    "evidence": "clickhouse-investigation-mutation-session-expiry.log"
+  }
+]

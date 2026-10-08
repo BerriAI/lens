@@ -1,0 +1,74 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/datasets/{{dataset_id}}",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "agent_name": "parity agent",
+      "cases": [
+        {
+          "agent_version": "",
+          "expected": "first expected",
+          "id": "058e078ea0bc3e6504bc718ccdc87ed12cb3f0ebc6f09950004127f1304ded65",
+          "included": true,
+          "messages": [
+            {
+              "content": "first case",
+              "name": "",
+              "role": "user",
+              "tool_calls": []
+            }
+          ],
+          "reply": "",
+          "source": {
+            "finding_id": "",
+            "lens_id": "",
+            "span_id": "",
+            "trace_id": "",
+            "trace_ref": ""
+          },
+          "tool_calls": []
+        },
+        {
+          "agent_version": "",
+          "expected": "second expected",
+          "id": "24a320398393ba7537255a85965ba7b4a7bd3177711c3aebf298c89056069917",
+          "included": false,
+          "messages": [
+            {
+              "content": "excluded case",
+              "name": "",
+              "role": "user",
+              "tool_calls": []
+            }
+          ],
+          "reply": "",
+          "source": {
+            "finding_id": "",
+            "lens_id": "",
+            "span_id": "",
+            "trace_id": "",
+            "trace_ref": ""
+          },
+          "tool_calls": []
+        }
+      ],
+      "created_at": "{{timestamp}}",
+      "created_by": "lens-admin",
+      "id": "{{dataset_id}}",
+      "name": "parity dataset",
+      "revision": 1,
+      "team_id": "alpha"
+    }
+  }
+}

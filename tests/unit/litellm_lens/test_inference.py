@@ -671,7 +671,8 @@ async def test_renewal_deadline_cancels_stalled_database_and_model(monkeypatch: 
     from contextlib import asynccontextmanager
 
     from litellm_lens import inference
-    from litellm_lens.repository import Database, LensRepository, Row
+    from litellm_lens.repository import LensRepository
+    from tests.support.legacy_sql import Database, Row
 
     interval: Final = inference.BUDGET_RENEW_INTERVAL
     loop: Final = asyncio.get_running_loop()
@@ -741,7 +742,8 @@ async def test_failed_budget_cleanup_preserves_the_original_request_error(cancel
 
     from litellm_lens.inference import release_failed_reservation
     from litellm_lens.models import BudgetReservation
-    from litellm_lens.repository import Database, LensRepository, Row
+    from litellm_lens.repository import LensRepository
+    from tests.support.legacy_sql import Database, Row
     from tests.unit.litellm_lens.test_state import lens
 
     hold: Final = BudgetReservation(id="paid", job_id="job", amount=10, month=lens().budget_month)

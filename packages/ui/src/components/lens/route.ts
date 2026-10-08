@@ -2,7 +2,7 @@
 
 import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
-import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "@/components/lens/traces/routing";
+import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
 
 export const LENS_TABS = {
   traces: "Traces",

@@ -9,12 +9,12 @@ import {
 } from "@tanstack/react-table";
 import { ChevronRight, Database, Loader2, TriangleAlert } from "lucide-react";
 import { useMediaQuery } from "usehooks-ts";
-import { Inspector } from "@/components/shared/Inspector";
-import { InspectorTable } from "@/components/shared/InspectorTable";
-import { Button } from "@/components/ui/button";
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
+import { Inspector } from "../../shared/Inspector";
+import { InspectorTable } from "../../shared/InspectorTable";
+import { Button } from "../../ui/button";
+import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
-import { StateMessage } from "@/components/shared/StateMessage";
+import { StateMessage } from "../../shared/StateMessage";
 import { useDatasetRoute } from "../route";
 import { useDatasets } from "./api";
 import { DatasetDetail } from "./DatasetDetail";

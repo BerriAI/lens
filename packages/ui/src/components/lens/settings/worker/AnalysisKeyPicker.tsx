@@ -15,7 +15,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from "@/components/ui/combobox";
+} from "../../../ui/combobox";
 
 export function AnalysisKeyPicker() {
   const { control } = useFormContext<WorkerFormInput>();

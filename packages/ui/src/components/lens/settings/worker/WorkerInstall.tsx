@@ -2,7 +2,7 @@
 
 import type { ComponentProps, ReactNode } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 import { SettingsCard } from "../SettingsSection";
 
 export type WorkerInstallProps = ComponentProps<"div"> & {

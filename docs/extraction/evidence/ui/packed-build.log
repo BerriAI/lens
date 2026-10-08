@@ -1,0 +1,42 @@
+
+> qualify:ui-package
+> node scripts/qualify_ui_package.mjs
+
+Qualifying the packed UI in /var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-ui-package-z9IMxZ
+
+added 336 packages, and audited 337 packages in 14s
+
+136 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> lens-ui-package-qualification@0.1.0-dev.0 build
+> next build
+
+▲ Next.js 16.3.8 (Turbopack)
+✓ Running next.config.mjs took 5ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.5s
+  Running TypeScript ...
+  Finished TypeScript in 4.9s ...
+  Collecting page data using 4 workers ...
+  Generating static pages using 4 workers (0/3) ...
+✓ Generating static pages using 4 workers (3/3) in 296ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+{
+  "package": "litellm-lens-ui-0.1.0-dev.0.tgz",
+  "integrity": "sha512-lLUVoHkDOXzMCMlWlsEXB8k8fYDDJj0yUcBJwp9QDmoLhEqRV1KwgvraU0bGuP4PYcTJpIbuZMfkxB3qSxpnMQ==",
+  "entries": 369,
+  "directory": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-ui-package-z9IMxZ",
+  "staticOutput": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-ui-package-z9IMxZ/out"
+}

@@ -1,7 +1,7 @@
 import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback, useState } from "react";
 
-import { TIME_RANGE_PARSERS } from "@/components/shared/timeRange/routing";
+import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
 import type { TraceSummary } from "./types";
 
 export const TRACE_VIEWS = ["steps", "thread"] as const;

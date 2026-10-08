@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update ____
+tests/integration/database/test_lens_repository.py:654: in test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update
+    assert checkpoint.value is None
+E   AssertionError: assert {'agent': 'agent', 'at': '2026-10-08T23:19:21.732073Z', 'cannot_assess': False, 'consolidated': False, ...} is None
+E    +  where {'agent': 'agent', 'at': '2026-10-08T23:19:21.732073Z', 'cannot_assess': False, 'consolidated': False, ...} = Snapshot(key='review/%5B%22lens%22%2C%22e185ed2e7a8aa8d090fbaa7c9ea064c0f40a8ba8e80aed8e8eb7a1329c5c62fd%22%2C%22trace...partial': False, 'reasoning': '', 'reused': False, 'spans': [], 'tool_calls': [], 'trace_id': 'trace', 'verdicts': []}).value
+=========================== short test summary info ============================
+FAILED tests/integration/database/test_lens_repository.py::test_progress_rechecks_ownership_after_waiting_for_a_concurrent_update
+1 failed in 0.55s

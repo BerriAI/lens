@@ -10,19 +10,19 @@
     "fetched_main": true
   },
   "lens_repository": {
-    "repository": "BerriAI/litellm-lens",
-    "url": "https://github.com/BerriAI/litellm-lens",
+    "repository": "BerriAI/lens",
+    "url": "https://github.com/BerriAI/lens",
     "visibility": "INTERNAL",
     "path": "/Users/mfkhalil/Code/litellm-lens",
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Source published on main; datasets and signals use ClickHouse; standalone runtime and UI still incomplete",
+    "readiness": "Shared UI preview and ClickHouse application repositories are implemented; standalone startup, model access, deployment qualification and full E2E remain incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea",
+    "candidate_commit": "caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -47,9 +47,18 @@
     "Implemented signal configuration, conditional claims and fenced result storage using ClickHouse",
     "Copied dynamic signal-router resolution out of the gateway behind an injected resolver",
     "Preserved the four dataset integration cases and moved signal repository checks from fake SQL to real ClickHouse",
-    "Validated 139 core unit tests and 23 ClickHouse integration tests; six targeted behavior mutations were rejected"
+    "Validated 139 core unit tests and 23 ClickHouse integration tests; six targeted behavior mutations were rejected",
+    "Packaged the shared React workspace and standalone static shell, copying Lens component bodies and source dependency versions",
+    "Qualified an isolated UI tarball consumer build with 97 focused checks and three targeted adapter mutation checks",
+    "Compared baseline and extracted demo trace lists at desktop and narrow viewports; checked trace, finding, dataset and investigation navigation with browser captures",
+    "Moved investigations, archived runs, review checkpoints, workers, tracing keys and browser sessions to ClickHouse",
+    "Removed PostgreSQL from the API runtime context and made its driver an optional migration dependency",
+    "Preserved investigation, checkpoint, history and worker behavior in real ClickHouse integration tests, including 50 concurrent duplicate settlements and bounded scheduler reads",
+    "Verified 195 core and integration checks in a combined run and rejected eight targeted storage/authentication mutations",
+    "Merged collaborator Rust server scaffold and route-inventory changes from main without changing the agreed Rust/Python split",
+    "Adapted the concurrently merged HTTP parity harness to ClickHouse sessions and replayed all 43 existing auth/dataset fixtures without changing expected responses"
   ],
-  "current_work": "Move investigation, checkpoint, worker, ingestion-key and session persistence to ClickHouse; finish API/runtime startup and analysis access; build shared UI and standalone shell; qualify actual E2E and all companion repositories",
+  "current_work": "Complete standalone API/runtime startup, provider configuration and model access, signal/scheduler lifecycle and live UI flows; port remaining copied endpoint/lifecycle fixtures; qualify persistence migration, recovery and capacity, then LiteLLM embedding and companion repositories",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -73,7 +82,10 @@
     },
     "S2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+      ]
     },
     "S3": {
       "status": "not_run",
@@ -89,11 +101,16 @@
     },
     "S6": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+      ]
     },
     "F1": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "F2": {
       "status": "not_run",
@@ -105,11 +122,15 @@
     },
     "F4": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "F5": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "F6": {
       "status": "not_run",
@@ -117,16 +138,22 @@
     },
     "F7": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "F8": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "F9": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)",
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
       ]
     },
     "F10": {
@@ -142,20 +169,27 @@
     "F12": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
       ]
     },
     "I1": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "I2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
+      ]
     },
     "I3": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "I4": {
       "status": "not_run",
@@ -171,7 +205,9 @@
     },
     "I7": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "M1": {
       "status": "not_run",
@@ -207,7 +243,9 @@
     },
     "M9": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "R1": {
       "status": "not_run",
@@ -283,7 +321,10 @@
     },
     "D2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+      ]
     },
     "D3": {
       "status": "not_run",
@@ -304,21 +345,24 @@
     "C1": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
       ]
     },
     "C2": {
       "status": "not_run",
       "evidence": [
         "docs/extraction/evidence/clickhouse-state-budget.log (partial: claims and settlement primitive)",
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
       ]
     },
     "C3": {
       "status": "not_run",
       "evidence": [
         "docs/extraction/evidence/clickhouse-state-budget.log (partial: coupled record publication primitive)",
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
       ]
     },
     "C4": {
@@ -336,17 +380,18 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T22:17:05.363627+00:00",
+  "updated_at_utc": "2026-10-08T23:27:16.207593+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
     "candidate": "ClickHouse payload records and atomic KeeperMap pointer publication; bundled in-process Keeper",
-    "status": "correctness prototype in progress, not qualified",
+    "status": "Application repositories and sessions implemented on ClickHouse; production storage qualification incomplete",
     "open_qualification": [
-      "Investigation and session repository integration",
-      "Schema version migration runner and PostgreSQL import",
+      "Full app integration and remaining copied endpoint/lifecycle test fixtures",
+      "Schema version migration runner, metadata backfill and PostgreSQL import",
       "Safe payload reclamation, Keeper metadata growth, and capacity/query budgets",
-      "Backup/restore and external or multi-node ClickHouse compatibility"
+      "Backup/restore and external or multi-node ClickHouse compatibility",
+      "Investigate intermittent HTTP disconnect observed once during the combined workload"
     ]
   },
   "verification": {
@@ -399,6 +444,62 @@
       "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea",
       "evidence": "docs/extraction/evidence/clickhouse-repository-mutations.json",
       "scope": "Selected dataset revision, listing and signal ownership regressions; not a codebase-wide mutation score"
+    },
+    "ui_package": {
+      "status": "partial",
+      "candidate_commit": "b1635a5ee7c8b88a6f829503882794e64a2a8f06",
+      "typecheck": "passed",
+      "focused_tests_passed": 97,
+      "focused_test_files": 5,
+      "targeted_mutations_killed": 3,
+      "targeted_mutations_attempted": 3,
+      "isolated_tarball_build": "passed",
+      "tarball_entries": 369,
+      "tarball_integrity": "sha512-lLUVoHkDOXzMCMlWlsEXB8k8fYDDJj0yUcBJwp9QDmoLhEqRV1KwgvraU0bGuP4PYcTJpIbuZMfkxB3qSxpnMQ==",
+      "source_modules_audited": 193,
+      "identical_bodies_excluding_imports_comments": 189,
+      "evidence": "docs/extraction/ui-package.md",
+      "scope": "Shared UI build, isolated package consumption, copied component tests and demo browser spot checks; no live application E2E, pixel-diff qualification or actual gateway embedding"
+    },
+    "clickhouse_investigations_and_access": {
+      "passed": 195,
+      "unit_passed": 139,
+      "integration_passed": 56,
+      "duration_seconds": 60.01,
+      "candidate_commit": "d1f42a4a50e5cfb3ba66fcd2f9fc0e51190e9b11",
+      "evidence": "docs/extraction/clickhouse-investigations.md",
+      "scope": "Core state behavior plus real ClickHouse repository and FastAPI session checks; no full deployment, browser or provider-backed E2E",
+      "scheduler_read_bytes_before": 104394,
+      "scheduler_read_bytes_after": 104394,
+      "investigation_count_before": 21,
+      "investigation_count_after": 221,
+      "http_interruption": "Earlier combined run: 186 passed, one failure and eight fixture errors after HTTP disconnections; all nine affected checks and later full run passed. No DB restart/OOM; cause remains open",
+      "typecheck": {
+        "files": 7,
+        "errors": 0,
+        "warnings": 16
+      }
+    },
+    "targeted_investigation_mutations": {
+      "killed": 8,
+      "attempted": 8,
+      "candidate_commit": "d1f42a4a50e5cfb3ba66fcd2f9fc0e51190e9b11",
+      "evidence": "docs/extraction/evidence/clickhouse-investigation-mutations.json",
+      "scope": "Selected attempt, checkpoint, archive, review-version, revocation, cap, visibility and expiry regressions; not a codebase-wide mutation score"
+    },
+    "full_python_unit_suite": {
+      "status": "incomplete",
+      "collection_error": "Copied tracing endpoint test still imports gateway runtime and requires gateway-only backoff dependency",
+      "evidence": "docs/extraction/evidence/python-unit-collection.log",
+      "follow_up": "Port remaining gateway/SQL-dependent endpoint and lifecycle fixtures, preserving behavior assertions"
+    },
+    "http_auth_dataset_parity": {
+      "passed": 43,
+      "failed": 0,
+      "candidate_commit": "caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a",
+      "fixture_commit": "01bd40dfd310a6279488030cc0e509ce2e3db1a4",
+      "evidence": "docs/extraction/evidence/clickhouse-http-parity.log",
+      "scope": "Real HTTP auth and dataset API requests against Uvicorn and ClickHouse; no provider calls, browser rendering or complete Lens application"
     }
   },
   "open_dependency_advisories": [
@@ -421,5 +522,10 @@
       "scope": "Rust serialization",
       "status": "requires dependency update and verification"
     }
-  ]
+  ],
+  "runtime_decision": {
+    "requirement": "Keep the existing Rust runtime and Python API for the parity-first extraction",
+    "authorized_by": "User answer on 2026-10-08",
+    "status": "retained"
+  }
 }

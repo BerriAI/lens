@@ -11,7 +11,6 @@ from pydantic import SecretStr
 
 from litellm_lens.clickhouse_state import ClickHouseState
 from litellm_lens.identity import Identity
-from litellm_lens.repository import Database
 from litellm_lens.tracing import TraceReceiver
 
 
@@ -31,7 +30,6 @@ class AnalysisAccess(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class Runtime:
-    database: Database
     state: ClickHouseState
     analysis: AnalysisAccess
     tracing: TraceReceiver

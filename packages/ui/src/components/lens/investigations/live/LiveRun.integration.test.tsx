@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { renderWithLens, stubGateway } from "@/../tests/lens-test-utils";
-import { testQueryClient } from "@/../tests/test-utils";
+import { renderWithLens, stubGateway } from "../../../../../tests/lens-test-utils";
+import { testQueryClient } from "../../../../../tests/test-utils";
 import { createLensDemoData } from "../../data/demo/fixtures";
 import type { Activity, Job, Review } from "../../model/types";
 import { LiveRun } from "./LiveRun";

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import CopyButton from "@/components/shared/CopyButton";
-import { cn } from "@/lib/cva.config";
+import CopyButton from "../../../../shared/CopyButton";
+import { cn } from "../../../../../lib/cva.config";
 
 import { FoldChevron } from "../../ui/Collapse";
 

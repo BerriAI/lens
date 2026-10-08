@@ -2,13 +2,13 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FormProvider, useForm } from "react-hook-form";
-import { testQueryClient } from "@/../tests/test-utils";
-import { renderWithLens } from "@/../tests/lens-test-utils";
-import { apiClient } from "@/components/networking";
+import { testQueryClient } from "../../../../../tests/test-utils";
+import { renderWithLens } from "../../../../../tests/lens-test-utils";
+import { apiClient } from "../../../../lib/http/requests";
 import { AnalysisKeyPicker } from "./AnalysisKeyPicker";
 import type { WorkerFormInput } from "./workerSchema";
 
-vi.mock("@/components/networking", () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }));
+vi.mock("../../../../lib/http/requests", () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }));
 
 function AnalysisKeyPickerForm() {
   const form = useForm<WorkerFormInput>({

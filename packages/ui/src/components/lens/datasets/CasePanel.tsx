@@ -3,10 +3,10 @@
 import { useId, type ReactNode } from "react";
 import { SquareArrowOutUpRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "../../ui/button";
+import { Switch } from "../../ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+import { Textarea } from "../../ui/textarea";
 
 import { useOpenSourceTrace } from "../route";
 import { MessageList } from "../traces/detail/content/Messages";

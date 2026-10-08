@@ -2,8 +2,8 @@
 
 import { Bot, Settings2, User, Wrench } from "lucide-react";
 
-import CopyButton from "@/components/shared/CopyButton";
-import { cn } from "@/lib/cva.config";
+import CopyButton from "../../../../shared/CopyButton";
+import { cn } from "../../../../../lib/cva.config";
 
 import type { TraceMessage, TraceToolCall } from "../../types";
 import { Block, BlockBadge, type BadgeTone } from "./Block";
