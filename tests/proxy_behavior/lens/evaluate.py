@@ -90,7 +90,7 @@ async def evaluate(
     model_name: str,
     concurrency: int,
     feedback: tuple[Finding, ...] = (),
-    worker_binary: Path = Path("runtime/target/debug/examples/worker_once"),
+    worker_binary: Path = Path("src/worker/target/debug/examples/worker_once"),
 ) -> dict[str, object]:
     records: Final = MappingProxyType({case.name: fixtures(case) for case in cases})
     settings: Final = LensSettings(
@@ -216,7 +216,7 @@ async def main() -> None:
     parser.add_argument("--split", choices=("dev", "holdout", "all"), default="all")
     parser.add_argument("--background", type=int, default=0, help="Additional clean runs for rare-problem batch tests")
     parser.add_argument("--concurrency", type=int, default=8)
-    parser.add_argument("--worker-binary", type=Path, default=Path("runtime/target/debug/examples/worker_once"))
+    parser.add_argument("--worker-binary", type=Path, default=Path("src/worker/target/debug/examples/worker_once"))
     args: Final = parser.parse_args()
     dataset: Final = Dataset.model_validate_json(args.dataset.read_text())
     selected: Final = tuple(c for c in dataset.cases if args.split == "all" or c.split == args.split)

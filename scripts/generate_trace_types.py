@@ -41,7 +41,7 @@ def export(crate: str, extra_args: tuple[str, ...] = ()) -> Mapping[str, Mapping
             "run",
             "--locked",
             "--manifest-path",
-            str(ROOT / "runtime/Cargo.toml"),
+            str(ROOT / "src/worker/Cargo.toml"),
             "-p",
             f"litellm-{crate}",
             "--bin",
