@@ -3,7 +3,7 @@ set -euo pipefail
 
 ref="${1:-origin/main}"
 base=$(git merge-base "$ref" HEAD)
-route_file="runtime/crates/server/python_routes.txt"
+route_file="src/worker/crates/server/python_routes.txt"
 repo_root=$(git rev-parse --show-toplevel)
 
 if ! git cat-file -e "$base:$route_file" 2>/dev/null; then

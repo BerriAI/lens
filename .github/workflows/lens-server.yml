@@ -21,19 +21,19 @@ jobs:
       - name: Install Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
       - name: Fetch comparison branch
-        working-directory: runtime
+        working-directory: src/worker
         env:
           BASE_REF: ${{ github.base_ref || 'main' }}
         run: git fetch origin "$BASE_REF"
       - name: Check formatting
-        working-directory: runtime
+        working-directory: src/worker
         run: cargo fmt --check
       - name: Run Clippy
-        working-directory: runtime
+        working-directory: src/worker
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Run tests
-        working-directory: runtime
+        working-directory: src/worker
         run: cargo test
       - name: Check Python route ratchet
-        working-directory: runtime
+        working-directory: src/worker
         run: bash crates/server/check_python_routes.sh "origin/${{ github.base_ref || 'main' }}"
