@@ -34,7 +34,17 @@ const INBOX_PARSERS = {
   priority: parseAsStringLiteral(["all", "high", "medium", "low"]).withDefault("all"),
 };
 
-const DATASET_PARSERS = { dataset: parseAsString, revision: parseAsInteger, case: parseAsString };
+const DATASET_TABS = ["cases", "runs"] as const;
+export type DatasetTab = (typeof DATASET_TABS)[number];
+
+const DATASET_PARSERS = {
+  dataset: parseAsString,
+  revision: parseAsInteger,
+  case: parseAsString,
+  dataset_tab: parseAsStringLiteral(DATASET_TABS),
+  eval_run: parseAsString,
+  eval_case: parseAsString,
+};
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 
@@ -203,11 +213,13 @@ export function useInboxFilters() {
   };
 }
 
+const FRESH_DATASET = { revision: null, case: null, dataset_tab: null, eval_run: null, eval_case: null } as const;
+
 /** `revision` null means the latest revision, so a dataset link keeps following new saves. */
 export function useDatasetRoute() {
   const [{ dataset, revision, case: caseId }, setParams] = useQueryStates(DATASET_PARSERS, { history: "push" });
   const openDataset = useCallback(
-    (next: string | null) => void setParams({ dataset: next, revision: null, case: null }),
+    (next: string | null) => void setParams({ ...FRESH_DATASET, dataset: next }),
     [setParams],
   );
   const setRevision = useCallback(
@@ -216,6 +228,24 @@ export function useDatasetRoute() {
   );
   const setCaseId = useCallback((next: string | null) => void setParams({ case: next }), [setParams]);
   return { datasetId: dataset, revision, caseId, openDataset, setRevision, setCaseId };
+}
+
+const isDatasetTab = (tab: string): tab is DatasetTab => (DATASET_TABS as readonly string[]).includes(tab);
+
+/** A run link without a tab still lands on Runs, so a PR comment needs only the dataset, run and case. */
+export function useEvalRunRoute() {
+  const [{ dataset_tab, eval_run, eval_case }, setParams] = useQueryStates(DATASET_PARSERS, { history: "push" });
+  const setDatasetTab = useCallback(
+    (next: string) => void (isDatasetTab(next) && setParams({ dataset_tab: next }, { history: "replace" })),
+    [setParams],
+  );
+  const openRun = useCallback(
+    (next: string | null) => void setParams({ dataset_tab: "runs", eval_run: next, eval_case: null }),
+    [setParams],
+  );
+  const openCase = useCallback((next: string | null) => void setParams({ eval_case: next }), [setParams]);
+  const datasetTab: DatasetTab = dataset_tab ?? (eval_run ? "runs" : "cases");
+  return { datasetTab, runId: eval_run, caseId: eval_case, setDatasetTab, openRun, openCase };
 }
 
 const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, ...OPEN_TRACE_PARSERS };
