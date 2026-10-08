@@ -1,10 +1,6 @@
 <div align="center">
 
-<img src="assets/lens-banner.png" alt="LiteLLM Lens, self-improving agents" width="100%">
-
-<br><br>
-
-<img src="assets/lens-hero.gif" alt="Agent swarms flow through the LiteLLM gateway into one trace per run, and Lens loops what it learns back into your agents" width="100%">
+<img src="assets/lens-hero.gif" alt="LiteLLM Lens, self-improving agents. Agent swarms flow through the LiteLLM gateway into one trace per run, and Lens loops what it learns back into your agents" width="100%">
 
 <br><br>
 
