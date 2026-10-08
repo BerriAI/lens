@@ -6,11 +6,11 @@ The existing Python backend is being ported to Rust and deleted, following `docs
 
 Where code lives:
 
-- `runtime/` (moving to `src/worker/`): the Rust workspace. It is the only server, and every HTTP route, worker job and storage call goes here
-- `packages/ui/` and `apps/web/` (moving to `src/ui/`): the TypeScript UI
-- `packages/sdk/` (moving to `src/sdk/`): the eval SDK users install in their own repos. It stays Python because users write evals in Python, and it is the one Python package allowed. It talks to Lens over HTTP only and never imports backend code
+- `src/worker/`: the Rust workspace. It is the only server, and every HTTP route, worker job and storage call goes here
+- `src/ui/lib/` and `src/ui/app/`: the TypeScript UI
+- `src/sdk/`: the eval SDK users install in their own repos. It stays Python because users write evals in Python, and it is the one Python package allowed. It talks to Lens over HTTP only and never imports backend code
 
-The other exception is the sandboxed interpreter the investigation agent uses to run model-written analysis code (`deploy/runtime/python_runtime.py` and `python_policy.c`, moving under `src/worker/crates/lens/sandbox/`). Do not add anything else beside it
+The other exception is the sandboxed interpreter the investigation agent uses to run model-written analysis code (`python_runtime.py` and `python_policy.c` under `src/worker/crates/lens/sandbox/`). Do not add anything else beside it
 
 Merge a PR only after its CI run is green
 
