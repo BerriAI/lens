@@ -9,18 +9,19 @@ import { cn } from "@/lib/cva.config";
 import { IdChip } from "../../traces/ui/IdChip";
 import { useEvalRun } from "./api";
 import { CaseCompare } from "./CaseCompare";
-import { costPerCase, deltaLabel, passedLabel, shortSha } from "./format";
+import { costPerCase, deltaLabel, deltaTone, passedLabel, shortSha } from "./format";
 import { CriticalPill, GatePill, PullRequestLink } from "./RunBadges";
 import type { CaseDiff, EvalRun, Summary } from "./types";
 
 export interface RunDetailProps {
   readonly runId: string;
+  readonly datasetId: string;
   readonly caseId: string | null;
   readonly onBack: () => void;
   readonly onOpenCase: (caseId: string | null) => void;
 }
 
-export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps) {
+export function RunDetail({ runId, datasetId, caseId, onBack, onOpenCase }: RunDetailProps) {
   const run = useEvalRun(runId);
   if (run.isPending)
     return (
@@ -45,28 +46,76 @@ export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps)
         </Button>
       </StateMessage>
     );
-  const diff = run.data.summary ? findDiff(run.data.summary, caseId) : null;
+  if (run.data.dataset_id !== datasetId)
+    return (
+      <StateMessage
+        role="alert"
+        icon={<TriangleAlert className="size-5" />}
+        title="This run belongs to another dataset"
+        description={`Run ${run.data.id} evaluated dataset ${run.data.dataset_id}.`}
+      >
+        <Button size="sm" variant="outline" onClick={onBack}>
+          All runs
+        </Button>
+      </StateMessage>
+    );
   return (
     <div className="flex flex-col gap-3 px-3 pt-3 pb-8 sm:px-4">
       <RunHeader run={run.data} onBack={onBack} />
-      {run.data.summary ? (
-        <>
-          <SummaryStrip summary={run.data.summary} />
-          <GateReasons run={run.data} />
-          {diff ? (
-            <CaseCompare key={diff.case_id} diff={diff} onClose={() => onOpenCase(null)} />
-          ) : (
-            <>
-              <DiffList title="Regressions" diffs={run.data.summary.regressions} onOpen={onOpenCase} />
-              <DiffList title="Fixed" diffs={run.data.summary.fixed} onOpen={onOpenCase} />
-            </>
-          )}
-        </>
+      <RunBody run={run.data} caseId={caseId} onOpenCase={onOpenCase} />
+    </div>
+  );
+}
+
+function RunBody({
+  run,
+  caseId,
+  onOpenCase,
+}: {
+  run: EvalRun;
+  caseId: string | null;
+  onOpenCase: RunDetailProps["onOpenCase"];
+}) {
+  if (run.status === "error")
+    return (
+      <p role="alert" className="py-10 text-center text-sm text-muted-foreground">
+        This run ended with an error before it could be scored.
+      </p>
+    );
+  if (!run.summary)
+    return (
+      <p role="status" className="py-10 text-center text-sm text-muted-foreground">
+        This run is still being scored.
+      </p>
+    );
+  const diff = findDiff(run.summary, caseId);
+  return (
+    <>
+      <SummaryStrip summary={run.summary} />
+      <GateReasons run={run} />
+      {diff ? (
+        <CaseCompare key={diff.case_id} diff={diff} onClose={() => onOpenCase(null)} />
       ) : (
-        <p role="status" className="py-10 text-center text-sm text-muted-foreground">
-          This run is still being scored.
-        </p>
+        <>
+          {caseId && <MissingCase caseId={caseId} onDismiss={() => onOpenCase(null)} />}
+          <DiffList title="Regressions" diffs={run.summary.regressions} onOpen={onOpenCase} />
+          <DiffList title="Fixed" diffs={run.summary.fixed} onOpen={onOpenCase} />
+        </>
       )}
+    </>
+  );
+}
+
+function MissingCase({ caseId, onDismiss }: { caseId: string; onDismiss: () => void }) {
+  return (
+    <div role="alert" className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm">
+      <TriangleAlert aria-hidden="true" className="size-4 shrink-0 text-warning" />
+      <p className="min-w-0 flex-1 text-muted-foreground">
+        Case <span className="font-mono text-foreground">{caseId}</span> did not regress or get fixed in this run.
+      </p>
+      <Button size="sm" variant="outline" onClick={onDismiss}>
+        Dismiss
+      </Button>
     </div>
   );
 }
@@ -93,11 +142,9 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
         <span className="text-xs text-muted-foreground">
           {run.agent} · revision {run.dataset_revision}
         </span>
-        {run.pr_url && (
-          <span className="ml-auto">
-            <PullRequestLink url={run.pr_url} />
-          </span>
-        )}
+        <span className="ml-auto">
+          <PullRequestLink url={run.pr_url} />
+        </span>
       </div>
     </header>
   );
@@ -113,11 +160,6 @@ function Stat({ label, value, note, tone }: { label: string; value: string; note
   );
 }
 
-function deltaTone(delta: number | null): string | undefined {
-  if (delta === null || delta === 0) return undefined;
-  return delta < 0 ? "text-destructive" : "text-success";
-}
-
 function SummaryStrip({ summary }: { summary: Summary }) {
   return (
     <dl
@@ -130,10 +172,10 @@ function SummaryStrip({ summary }: { summary: Summary }) {
         note={`${summary.failed} failed · ${summary.errored} errored`}
       />
       <Stat
-        label="vs main"
+        label="vs baseline"
         value={deltaLabel(summary)}
         note={summary.baseline_reason ?? "Pass rate against the baseline"}
-        tone={deltaTone(summary.pass_rate_delta)}
+        tone={summary.pass_rate_delta ? deltaTone(summary.pass_rate_delta) : undefined}
       />
       <Stat
         label="Regressions"
@@ -152,8 +194,8 @@ function GateReasons({ run }: { run: EvalRun }) {
     <section aria-label="Gate reasons" className="rounded-xl border bg-card px-4 pt-3 pb-3">
       <h4 className="text-sm font-medium text-foreground">Why the gate {run.gate.passed ? "passed" : "failed"}</h4>
       <ul className="mt-1.5 flex flex-col gap-1 text-sm text-muted-foreground">
-        {run.gate.reasons.map((reason) => (
-          <li key={reason}>{reason}</li>
+        {run.gate.reasons.map((reason, index) => (
+          <li key={index}>{reason}</li>
         ))}
       </ul>
     </section>
