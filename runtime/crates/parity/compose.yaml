@@ -1,21 +1,3 @@
 name: lens-parity
 include:
   - ../../../tests/integration/clickhouse.compose.yaml
-services:
-  postgres:
-    image: postgres:16@sha256:75adc2a65806c96bc0e59030230bfe3f1c1b0d6d8f8181a8913e2b8b53bdc166
-    environment:
-      POSTGRES_DB: parity
-      POSTGRES_USER: parity
-      POSTGRES_PASSWORD: parity-password
-    ports:
-      - "127.0.0.1:15433:5432"
-    volumes:
-      - postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U parity -d parity"]
-      interval: 2s
-      timeout: 2s
-      retries: 30
-volumes:
-  postgres:
