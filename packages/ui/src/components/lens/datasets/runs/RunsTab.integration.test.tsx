@@ -1,11 +1,14 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "@/../tests/test-utils";
+import { renderWithProviders, testQueryClient } from "@/../tests/test-utils";
 import { renderWithLens, stubGateway, type GatewayRequest } from "@/../tests/lens-test-utils";
+import { LensServicesProvider } from "../../data/LensServices";
+import { createLensDemo } from "../../data/demo/createLensDemo";
 import type { Span, Trace } from "../../traces/types";
 import { DatasetsView } from "../DatasetsView";
-import type { Dataset } from "../types";
+import type { Dataset, DatasetSummary } from "../types";
+import { RunsTab } from "./RunsTab";
 import type { CaseDiff, EvalRun } from "./types";
 
 vi.mock("@/components/networking", async (importOriginal) => ({
@@ -23,6 +26,15 @@ const dataset: Dataset = {
   revision: 2,
   created_by: "admin",
   cases: [],
+};
+
+const datasetSummary: DatasetSummary = {
+  id: dataset.id,
+  name: dataset.name,
+  agent_name: dataset.agent_name,
+  revision: dataset.revision,
+  case_count: 0,
+  updated_at: "2026-10-02T10:00:00Z",
 };
 
 const regression: CaseDiff = {
@@ -81,6 +93,19 @@ const redRun: EvalRun = {
   gate: { passed: false, reasons: ["1 critical case regressed against main"] },
 };
 
+const erroredRun: EvalRun = {
+  ...redRun,
+  id: "run-error",
+  branch: "flaky-ci",
+  commit_sha: "3333333cccc",
+  pr_url: "https://github.com/example/agent/pull/8",
+  status: "error",
+  summary: null,
+  gate: null,
+};
+
+const otherDatasetRun: EvalRun = { ...redRun, id: "run-elsewhere", dataset_id: "ds-other" };
+
 const span = (span_id: string, name: string, start: number): Span => ({
   span_id,
   parent_span_id: "root",
@@ -121,7 +146,9 @@ const trace = (traceId: string, spans: Span[]): Trace => ({
     input_tokens: 0,
     output_tokens: 0,
     models: [],
-  } as Trace["summary"],
+    priced_calls: 0,
+    spend: null,
+  },
   agents: [],
   spans,
 });
@@ -142,9 +169,11 @@ const candidatePages: Record<string, Trace> = {
 let proxy = stubGateway();
 
 const serve = (path: string, request: GatewayRequest) => {
+  if (path === "/lens/datasets") return [datasetSummary];
   if (path === `/lens/datasets/${dataset.id}`) return dataset;
-  if (path === "/lens/evals/runs") return [mainRun, redRun];
-  if (path === `/lens/evals/runs/${redRun.id}`) return redRun;
+  if (path === "/lens/evals/runs" && request.query.agent === dataset.agent_name) return [mainRun, redRun, erroredRun];
+  const run = [redRun, erroredRun, otherDatasetRun].find((item) => path === `/lens/evals/runs/${item.id}`);
+  if (run) return run;
   if (path === "/v1/traces/trace-pr") return candidatePages[request.query.cursor ?? ""];
   const traceId = path.match(/^\/v1\/traces\/([^/]+)$/)?.[1];
   if (traceId && traces[traceId]) return traces[traceId];
@@ -229,5 +258,72 @@ describe("Dataset runs", () => {
 
     await user.click(screen.getByRole("button", { name: "Runs" }));
     expect(await screen.findByRole("region", { name: "Pull requests" })).toBeInTheDocument();
+  });
+  it("shows an errored run as errored instead of still scoring", async () => {
+    const user = userEvent.setup();
+    renderWithLens(<DatasetsView />, { searchParams: `?tab=datasets&dataset=${dataset.id}&dataset_tab=runs` });
+
+    const pulls = await screen.findByRole("region", { name: "Pull requests" });
+    const row = within(pulls).getByRole("row", { name: /flaky-ci/ });
+    expect(within(row).getByText("Gate errored")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: /flaky-ci/ }));
+    expect(await screen.findByText("This run ended with an error before it could be scored.")).toBeInTheDocument();
+    expect(screen.queryByText("This run is still being scored.")).not.toBeInTheDocument();
+  });
+
+  it("says so when a PR link names a case that did not regress in the run, and clears it on dismiss", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${dataset.id}&eval_run=${redRun.id}&eval_case=case-gone`,
+      onUrlUpdate,
+    });
+
+    const missing = await screen.findByRole("alert");
+    expect(missing).toHaveTextContent("Case case-gone did not regress or get fixed in this run.");
+    expect(screen.getByRole("region", { name: "Regressions" })).toBeInTheDocument();
+
+    await user.click(within(missing).getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("eval_case")).toBe(false);
+  });
+
+  it("refuses to show a run from another dataset under this dataset's header", async () => {
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${dataset.id}&eval_run=${otherDatasetRun.id}&eval_case=${regression.case_id}`,
+    });
+
+    expect(await screen.findByText("This run belongs to another dataset")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Case comparison" })).not.toBeInTheDocument();
+  });
+
+  it("drops the run and case when you leave the dataset, so reopening it starts on Cases", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${dataset.id}&dataset_tab=runs&eval_run=${redRun.id}&eval_case=${regression.case_id}`,
+      onUrlUpdate,
+    });
+    await expectComparison();
+
+    await user.click(screen.getByRole("button", { name: "Datasets" }));
+    await user.click(await screen.findByRole("row", { name: new RegExp(dataset.name) }));
+
+    expect(await screen.findByRole("tab", { name: "Cases" })).toHaveAttribute("aria-selected", "true");
+    const params = new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString);
+    expect(params.get("dataset")).toBe(dataset.id);
+    expect(["dataset_tab", "eval_run", "eval_case"].filter((key) => params.has(key))).toEqual([]);
+  });
+
+  it("serves an empty run list in sample mode without calling the proxy", async () => {
+    renderWithProviders(
+      <LensServicesProvider services={createLensDemo()}>
+        <RunsTab datasetId={dataset.id} agentName={dataset.agent_name} />
+      </LensServicesProvider>,
+    );
+
+    expect(await screen.findByText("No eval runs yet")).toBeInTheDocument();
+    expect(proxy.get).not.toHaveBeenCalled();
   });
 });
