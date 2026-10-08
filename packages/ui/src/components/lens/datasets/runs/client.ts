@@ -1,4 +1,4 @@
-import type { ApiClient } from "@/lib/http/client";
+import type { ApiClient } from "../../../../lib/http/client";
 
 import type { EvalRun, EvalRunFilter } from "./types";
 
