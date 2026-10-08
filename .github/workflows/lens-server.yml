@@ -1,0 +1,39 @@
+name: lens-server
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
+      - name: Fetch comparison branch
+        working-directory: runtime
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: git fetch origin "$BASE_REF"
+      - name: Check formatting
+        working-directory: runtime
+        run: cargo fmt --check
+      - name: Run Clippy
+        working-directory: runtime
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run tests
+        working-directory: runtime
+        run: cargo test
+      - name: Check Python route ratchet
+        working-directory: runtime
+        run: bash crates/server/check_python_routes.sh "origin/${{ github.base_ref || 'main' }}"
