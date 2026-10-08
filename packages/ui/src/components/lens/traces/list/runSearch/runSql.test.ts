@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { parseQuery } from "@/components/shared/search/language";
-import { toSearchQuery } from "@/components/shared/search/searchQuery";
+import { parseQuery } from "../../../../shared/search/language";
+import { toSearchQuery } from "../../../../shared/search/searchQuery";
 import { RUN_QUERY } from "./runQuery";
 import { runPredicates, runQueryCommand, runQuerySql, traceQueryCommand } from "./runSql";
 

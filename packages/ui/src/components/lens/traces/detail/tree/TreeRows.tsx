@@ -2,7 +2,7 @@
 
 import { MoreHorizontal } from "lucide-react";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../../lib/cva.config";
 
 import { formatCost } from "../../list/AgentTracesTable";
 import { FoldChevron } from "../../ui/Collapse";

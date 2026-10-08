@@ -1,9 +1,9 @@
 "use client";
 
 import { Controller, useFormContext } from "react-hook-form";
-import { Input } from "@/components/ui/input";
+import { Input } from "../../../ui/input";
 
-import { DurationInput } from "@/components/shared/DurationInput";
+import { DurationInput } from "../../../shared/DurationInput";
 import type { InvestigationInput } from "../investigationSchema";
 
 export function SampleFields() {

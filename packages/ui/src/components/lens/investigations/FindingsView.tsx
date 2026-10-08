@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Inspector, useInspector } from "@/components/shared/Inspector";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useNow } from "@/hooks/useNow";
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
+import { Inspector, useInspector } from "../../shared/Inspector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { useNow } from "../../../hooks/useNow";
+import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
 import { useLensApi } from "../data/LensServices";
 import { useLensUpdate } from "../data/mutations";
 import { lensQueries } from "../data/queries";

@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { Check } from "lucide-react";
-import { cva, cn } from "@/lib/cva.config";
+import { cva, cn } from "../../../lib/cva.config";
 
 export type StepState = "complete" | "current" | "upcoming";
 

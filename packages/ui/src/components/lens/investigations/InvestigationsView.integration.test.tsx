@@ -1,9 +1,9 @@
 import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "@/../tests/test-utils";
-import { renderWithLens, stubGateway } from "@/../tests/lens-test-utils";
-import { ApiError } from "@/lib/http/client";
+import { testQueryClient } from "../../../../tests/test-utils";
+import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
+import { ApiError } from "../../../lib/http/client";
 import { lensKeys } from "../data/queries";
 import { InvestigationsView } from "./InvestigationsView";
 import { investigationHandoffText } from "./agentHandoff";
@@ -19,8 +19,8 @@ function renderWithProviders(ui: React.ReactElement, options?: Parameters<typeof
   return renderWithLens(ui, { searchParams: window.location.search, ...options });
 }
 
-vi.mock("@/components/networking", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/components/networking")>()),
+vi.mock("../../../lib/http/requests", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/http/requests")>()),
   proxyBaseUrl: "",
   getProxyBaseUrl: () => "",
 }));

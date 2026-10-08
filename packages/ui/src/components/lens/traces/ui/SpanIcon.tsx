@@ -14,8 +14,8 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { Logo } from "@/components/molecules/logo/Logo";
-import { cn } from "@/lib/cva.config";
+import { Logo } from "../../../molecules/logo/Logo";
+import { cn } from "../../../../lib/cva.config";
 
 import { useSpanProvider } from "./spanProvider";
 import type { SpanType } from "../types";

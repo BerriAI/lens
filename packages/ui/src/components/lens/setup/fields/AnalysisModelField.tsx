@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { SearchSelect } from "@/components/shared/SearchSelect";
+import { SearchSelect } from "../../../shared/SearchSelect";
 import { analysisModelOptions, type ModelGate } from "./analysisModels";
 import type { AnalysisModels } from "./useAnalysisModels";
 import type { InvestigationInput } from "../investigationSchema";

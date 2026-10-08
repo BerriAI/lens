@@ -1,4 +1,4 @@
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
+import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
 import type { Job, Lens, LensList } from "./types";
 
 export function workerConnected(worker: LensList["workers"][number], now = Date.now()): boolean {

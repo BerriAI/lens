@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { TraceSummary } from "@/components/lens/traces/types";
+import type { TraceSummary } from "../traces/types";
 
 export interface Onboarding {
   readonly readOnly: boolean;

@@ -3,8 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { MessageSquareQuote, Star } from "lucide-react";
 
-import { cn } from "@/lib/cva.config";
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
+import { cn } from "../../../../../lib/cva.config";
+import { formatActivityTimestamp } from "../../../../../utils/activityTimestamp";
 
 import { useTracesApi } from "../../api";
 import { formatScore } from "../../list/AgentTracesTable";

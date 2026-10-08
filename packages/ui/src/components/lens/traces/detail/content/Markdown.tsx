@@ -3,7 +3,7 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../../lib/cva.config";
 
 const BLOCK_GAP = "mb-3 last:mb-0";
 

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { agentHandoffText } from "./api";
-import { getProxyBaseUrl } from "../../networking";
+import { getProxyBaseUrl } from "../../../lib/http/requests";
 
-vi.mock("../../networking", () => ({ getProxyBaseUrl: vi.fn(() => "https://proxy.test/root/") }));
+vi.mock("../../../lib/http/requests", () => ({ getProxyBaseUrl: vi.fn(() => "https://proxy.test/root/") }));
 
 describe("agent handoff", () => {
   it("requests bounded trace pages and explains how to retrieve captured content", () => {

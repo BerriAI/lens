@@ -2,8 +2,8 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { mockAllIsIntersecting, setupIntersectionMocking } from "react-intersection-observer/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "@/../tests/test-utils";
-import { renderWithLens as renderWithProviders, stubGateway } from "@/../tests/lens-test-utils";
+import { testQueryClient } from "../../../../tests/test-utils";
+import { renderWithLens as renderWithProviders, stubGateway } from "../../../../tests/lens-test-utils";
 import { MonitoringDialog } from "./MonitoringDialog";
 import { InvestigationSetup } from "./InvestigationSetup";
 import { initialWatches, watchChecks } from "../model/watches";

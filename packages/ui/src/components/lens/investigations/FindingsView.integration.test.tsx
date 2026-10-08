@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { renderWithLens, stubGateway } from "@/../tests/lens-test-utils";
-import { testQueryClient } from "@/../tests/test-utils";
+import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
+import { testQueryClient } from "../../../../tests/test-utils";
 import { createLensDemoData } from "../data/demo/fixtures";
 import { findingKey, inboxRows } from "../model/inbox";
 import type { Lens } from "../model/types";

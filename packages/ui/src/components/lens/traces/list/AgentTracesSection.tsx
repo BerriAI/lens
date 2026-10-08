@@ -8,8 +8,8 @@ import { useMemo, useState } from "react";
 
 import { filterRuns } from "./runSearch/runQuery";
 import { RunsToolbar } from "./runSearch/RunsToolbar";
-import { Inspector } from "@/components/shared/Inspector";
-import { Button } from "@/components/ui/button";
+import { Inspector } from "../../../shared/Inspector";
+import { Button } from "../../../ui/button";
 
 import { AgentTracesTable } from "./AgentTracesTable";
 import { useTraceFindings } from "./useTraceFindings";
@@ -21,10 +21,10 @@ import { signalsConfigured } from "../../model/signals";
 import { type TraceRef, traceKey, traceRefOf, useOpenTraceRouting, useRunFilterRouting } from "../routing";
 import type { TraceSummary } from "../types";
 import { RunView } from "../detail/run/RunView";
-import { useZoomRouting } from "@/components/shared/timeRange/routing";
-import { type RelativeRange, type TimeWindow, timeWindow } from "@/components/shared/timeRange/timeRange";
-import { TimeRangeControls } from "@/components/shared/timeRange/TimeRangeControls";
-import type { RelativeRangeState } from "@/components/shared/timeRange/useRelativeRange";
+import { useZoomRouting } from "../../../shared/timeRange/routing";
+import { type RelativeRange, type TimeWindow, timeWindow } from "../../../shared/timeRange/timeRange";
+import { TimeRangeControls } from "../../../shared/timeRange/TimeRangeControls";
+import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 import { TracesTimeline } from "./TracesTimeline";
 import { TracingSetupCard } from "../../onboarding/tracing/TracingSetupCard";
 import { useTracesLive } from "../api";

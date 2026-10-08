@@ -3,10 +3,10 @@
 import { useMemo } from "react";
 
 import type { TraceSummary } from "../../types";
-import type { TimeWindow } from "@/components/shared/timeRange/timeRange";
+import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 
-import { SearchBox } from "@/components/shared/search/SearchBox";
-import { itemValues } from "@/components/shared/search/valueSource";
+import { SearchBox } from "../../../../shared/search/SearchBox";
+import { itemValues } from "../../../../shared/search/valueSource";
 import { RUN_INDEX, RUN_QUERY } from "./runQuery";
 import { runQueryCommand } from "./runSql";
 

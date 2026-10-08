@@ -2,7 +2,7 @@
 
 import { Check } from "lucide-react";
 
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../../../../ui/hover-card";
 
 import { formatCost } from "../../list/AgentTracesTable";
 import { errorHeadline } from "../content/SpanError";

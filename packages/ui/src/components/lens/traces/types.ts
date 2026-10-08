@@ -1,4 +1,4 @@
-import type { components, paths } from "@/lib/http/schema";
+import type { components, paths } from "../../../lib/http/schema";
 
 export type Trace = paths["/v1/traces/{trace_id}"]["get"]["responses"][200]["content"]["application/json"];
 export type TracePage = paths["/v1/traces"]["get"]["responses"][200]["content"]["application/json"];

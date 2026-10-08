@@ -1,9 +1,9 @@
 import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { chooseSelectOption, renderWithProviders, testQueryClient } from "@/../tests/test-utils";
-import { copyToClipboard } from "@/utils/dataUtils";
-import { agentTraceCall, apiClient } from "../../../networking";
+import { chooseSelectOption, renderWithProviders, testQueryClient } from "../../../../../tests/test-utils";
+import { copyToClipboard } from "../../../../utils/dataUtils";
+import { agentTraceCall, apiClient } from "../../../../lib/http/requests";
 import {
   codingAgentCommand,
   codingAgentPrompt,
@@ -15,12 +15,12 @@ import {
 import { FRAMEWORKS } from "./tracingSetupGuides";
 import type { Trace } from "../../traces/types";
 
-vi.mock("../../../networking", () => ({
+vi.mock("../../../../lib/http/requests", () => ({
   getProxyBaseUrl: () => "http://proxy.test/",
   agentTraceCall: vi.fn(),
   apiClient: { post: vi.fn(), get: vi.fn() },
 }));
-vi.mock("@/utils/dataUtils", () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
+vi.mock("../../../../utils/dataUtils", () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
 
 const SECRET = "sk-abcdefghijklmnopWXYZ";
 

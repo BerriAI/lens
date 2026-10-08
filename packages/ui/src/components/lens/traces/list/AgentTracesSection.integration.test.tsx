@@ -3,18 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { mockAllIsIntersecting, setupIntersectionMocking } from "react-intersection-observer/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "@/lib/http/client";
+import { ApiError } from "../../../../lib/http/client";
 
 import { renderWithProviders, testQueryClient } from "../../../../../tests/test-utils";
 import traceList from "../__fixtures__/trace_list.json";
 import AgentTracesPage from "./AgentTracesPage";
 import { filterRuns } from "./runSearch/runQuery";
-import type { RelativeRangeState } from "@/components/shared/timeRange/useRelativeRange";
+import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 
 import { AgentTracesSection } from "./AgentTracesSection";
 import type { TraceFeedbackSummary, TraceFindingCount, TracePage, TraceSummary } from "../types";
 
-vi.mock("../../../networking", () => ({
+vi.mock("../../../../lib/http/requests", () => ({
   apiClient: { get: vi.fn(), post: vi.fn() },
   agentTraceListCall: vi.fn(),
   sendOtlpTraceCall: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock("../detail/run/RunView", () => ({
   ),
 }));
 
-import { agentTraceListCall, apiClient } from "../../../networking";
+import { agentTraceListCall, apiClient } from "../../../../lib/http/requests";
 
 const readyService = {
   configured: true,

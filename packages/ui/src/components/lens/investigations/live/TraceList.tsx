@@ -3,8 +3,8 @@
 import { memo, useState } from "react";
 
 import { agoLabel } from "../../model/format";
-import { useNow } from "@/hooks/useNow";
-import { cn } from "@/lib/cva.config";
+import { useNow } from "../../../../hooks/useNow";
+import { cn } from "../../../../lib/cva.config";
 
 import {
   briefReasoning,

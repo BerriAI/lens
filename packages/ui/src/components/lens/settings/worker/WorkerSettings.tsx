@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { FormProvider } from "react-hook-form";
-import { Button } from "@/components/ui/button";
-import { useZodForm } from "@/lib/forms/useZodForm";
+import { Button } from "../../../ui/button";
+import { useZodForm } from "../../../../lib/forms/useZodForm";
 import { useRevokeWorker } from "../../data/mutations";
 import type { LensList, Worker } from "../../model/types";
 import { useWorkerConnected } from "../../hooks/useWorkerConnected";

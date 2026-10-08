@@ -17,12 +17,12 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Source published on main; datasets and signals use ClickHouse; standalone runtime and UI still incomplete",
+    "readiness": "Source and shared UI preview published on main; datasets and signals use ClickHouse; live standalone API/runtime, remaining persistence and full E2E are incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea",
+    "candidate_commit": "b1635a5ee7c8b88a6f829503882794e64a2a8f06",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -47,9 +47,12 @@
     "Implemented signal configuration, conditional claims and fenced result storage using ClickHouse",
     "Copied dynamic signal-router resolution out of the gateway behind an injected resolver",
     "Preserved the four dataset integration cases and moved signal repository checks from fake SQL to real ClickHouse",
-    "Validated 139 core unit tests and 23 ClickHouse integration tests; six targeted behavior mutations were rejected"
+    "Validated 139 core unit tests and 23 ClickHouse integration tests; six targeted behavior mutations were rejected",
+    "Packaged the shared React workspace and standalone static shell, copying Lens component bodies and source dependency versions",
+    "Qualified an isolated UI tarball consumer build with 97 focused checks and three targeted adapter mutation checks",
+    "Compared baseline and extracted demo trace lists at desktop and narrow viewports; checked trace, finding, dataset and investigation navigation with browser captures"
   ],
-  "current_work": "Move investigation, checkpoint, worker, ingestion-key and session persistence to ClickHouse; finish API/runtime startup and analysis access; build shared UI and standalone shell; qualify actual E2E and all companion repositories",
+  "current_work": "Move investigation, checkpoint, worker, ingestion-key and session persistence to ClickHouse; finish standalone API/runtime startup, model access and scheduling; qualify live E2E, actual LiteLLM embedding and all companion repositories",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -93,7 +96,9 @@
     },
     "F1": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "F2": {
       "status": "not_run",
@@ -126,7 +131,8 @@
     "F9": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)"
+        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)",
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
       ]
     },
     "F10": {
@@ -147,7 +153,9 @@
     },
     "I1": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "I2": {
       "status": "not_run",
@@ -155,7 +163,9 @@
     },
     "I3": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "I4": {
       "status": "not_run",
@@ -171,7 +181,9 @@
     },
     "I7": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "M1": {
       "status": "not_run",
@@ -283,7 +295,9 @@
     },
     "D2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
+      ]
     },
     "D3": {
       "status": "not_run",
@@ -336,7 +350,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T22:17:05.363627+00:00",
+  "updated_at_utc": "2026-10-08T22:57:31.316257+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -399,6 +413,22 @@
       "candidate_commit": "421ac66b3cc80451179d06250ee66d87224e74ea",
       "evidence": "docs/extraction/evidence/clickhouse-repository-mutations.json",
       "scope": "Selected dataset revision, listing and signal ownership regressions; not a codebase-wide mutation score"
+    },
+    "ui_package": {
+      "status": "partial",
+      "candidate_commit": "b1635a5ee7c8b88a6f829503882794e64a2a8f06",
+      "typecheck": "passed",
+      "focused_tests_passed": 97,
+      "focused_test_files": 5,
+      "targeted_mutations_killed": 3,
+      "targeted_mutations_attempted": 3,
+      "isolated_tarball_build": "passed",
+      "tarball_entries": 369,
+      "tarball_integrity": "sha512-lLUVoHkDOXzMCMlWlsEXB8k8fYDDJj0yUcBJwp9QDmoLhEqRV1KwgvraU0bGuP4PYcTJpIbuZMfkxB3qSxpnMQ==",
+      "source_modules_audited": 193,
+      "identical_bodies_excluding_imports_comments": 189,
+      "evidence": "docs/extraction/ui-package.md",
+      "scope": "Shared UI build, isolated package consumption, copied component tests and demo browser spot checks; no live application E2E, pixel-diff qualification or actual gateway embedding"
     }
   },
   "open_dependency_advisories": [
@@ -421,5 +451,10 @@
       "scope": "Rust serialization",
       "status": "requires dependency update and verification"
     }
-  ]
+  ],
+  "runtime_decision": {
+    "requirement": "Keep the existing Rust runtime and Python API for the parity-first extraction",
+    "authorized_by": "User answer on 2026-10-08",
+    "status": "retained"
+  }
 }

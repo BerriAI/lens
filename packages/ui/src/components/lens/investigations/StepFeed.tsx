@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../lib/cva.config";
 
 import { stepLine } from "../model/inbox";
 import type { Job } from "../model/types";

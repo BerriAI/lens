@@ -11,8 +11,8 @@ import openaiAgentsLogo from "../../../../../public/assets/logos/openai-agents.s
 import pydanticAiLogo from "../../../../../public/assets/logos/pydantic-ai-color.svg";
 import strandsLogo from "../../../../../public/assets/logos/strands.svg";
 import vercelLogo from "../../../../../public/assets/logos/vercel.svg";
-import { Logo } from "@/components/molecules/logo/Logo";
-import { cn } from "@/lib/cva.config";
+import { Logo } from "../../../molecules/logo/Logo";
+import { cn } from "../../../../lib/cva.config";
 
 import type { TraceSummary } from "../types";
 

@@ -3,8 +3,8 @@ import { Bot, Box, Braces, CircleDashed, Hash, SquareChevronRight } from "lucide
 import type { TraceSummary } from "../../types";
 import { previewText, traceAgentNames } from "../../utils";
 
-import { type ClientIndex, filterItems } from "@/components/shared/search/evaluate";
-import { ALL_OPERATORS, type FieldSpec, type QueryLanguage } from "@/components/shared/search/language";
+import { type ClientIndex, filterItems } from "../../../../shared/search/evaluate";
+import { ALL_OPERATORS, type FieldSpec, type QueryLanguage } from "../../../../shared/search/language";
 
 const RUN_FIELDS = {
   name: { group: "Run attributes", icon: SquareChevronRight, suggestValues: true },

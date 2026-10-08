@@ -3,8 +3,8 @@
 import { ChevronRight, MessageSquareText, TriangleAlert, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../../../ui/button";
+import { cn } from "../../../../../lib/cva.config";
 
 import type { Trace } from "../../types";
 import { fmtMs } from "../../utils";

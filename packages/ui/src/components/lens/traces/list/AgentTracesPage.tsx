@@ -1,6 +1,6 @@
 "use client";
 
-import { useRelativeRange } from "@/components/shared/timeRange/useRelativeRange";
+import { useRelativeRange } from "../../../shared/timeRange/useRelativeRange";
 
 import { AgentTracesSection } from "./AgentTracesSection";
 import { useTracesLive } from "../api";

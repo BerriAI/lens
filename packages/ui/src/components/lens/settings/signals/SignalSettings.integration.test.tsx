@@ -2,8 +2,8 @@ import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderWithLens } from "@/../tests/lens-test-utils";
-import { testQueryClient } from "@/../tests/test-utils";
+import { renderWithLens } from "../../../../../tests/lens-test-utils";
+import { testQueryClient } from "../../../../../tests/test-utils";
 
 import type { SignalConfig } from "../../model/types";
 import { SignalForm } from "./SignalSettings";

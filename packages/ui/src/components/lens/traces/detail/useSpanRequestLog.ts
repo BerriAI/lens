@@ -3,7 +3,7 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import moment from "moment";
 
-import { uiSpendLogsCall } from "../../../networking";
+import { useLensHost, type SpendLogLookup } from "../../../../host/LensHost";
 import type { LogEntry } from "../../../logs/types";
 
 /** Spend-log timestamps are written when the call finishes, so pad the span start on both sides. */
@@ -25,22 +25,23 @@ export function useSpanRequestLog(
   spanStartMs: number,
   enabled: boolean,
 ) {
+  const { spendLogs } = useLensHost();
   const fetchLog = async (): Promise<LogEntry | null> => {
-    if (requestId === null) return null;
-    const logsOptions: Parameters<typeof uiSpendLogsCall>[0] = {
+    if (requestId === null || !spendLogs) return null;
+    const logsOptions: SpendLogLookup = {
       accessToken,
       ...spanLogWindow(spanStartMs),
       page: 1,
       page_size: 1,
       params: { request_id: requestId },
     };
-    const response = await uiSpendLogsCall(logsOptions);
+    const response = await spendLogs.lookup(logsOptions);
     return response.data.find((log: LogEntry) => log.request_id === requestId) ?? null;
   };
   const queryOptions: UseQueryOptions<LogEntry | null> = {
     queryKey: ["logs", "spanRequest", requestId, spanStartMs, accessToken],
     queryFn: fetchLog,
-    enabled: enabled && requestId !== null,
+    enabled: enabled && requestId !== null && Boolean(spendLogs),
     staleTime: Infinity,
   };
   return useQuery(queryOptions);

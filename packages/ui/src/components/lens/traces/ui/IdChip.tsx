@@ -2,7 +2,7 @@
 
 import { Copy } from "lucide-react";
 
-import { copyToClipboard } from "@/utils/dataUtils";
+import { copyToClipboard } from "../../../../utils/dataUtils";
 
 /** Small chip that copies an id; shows "ID" alone, or the id itself when `showValue` is set. */
 export function IdChip({ value, label, showValue = false }: { value: string; label: string; showValue?: boolean }) {

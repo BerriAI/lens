@@ -1,10 +1,10 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { Button } from "@/components/ui/button";
-import { useNow } from "@/hooks/useNow";
-import { StatusDot, type StatusDotProps } from "@/components/shared/StatusDot";
-import { cn } from "@/lib/cva.config";
+import { Button } from "../../../ui/button";
+import { useNow } from "../../../../hooks/useNow";
+import { StatusDot, type StatusDotProps } from "../../../shared/StatusDot";
+import { cn } from "../../../../lib/cva.config";
 import { workerConnected } from "../../model/status";
 import { agoLabel } from "../../model/format";
 import { AnalysisKeySummary } from "./AnalysisKeyDetails";

@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../ui/button";
 
-import { TabsContent } from "@/components/ui/tabs";
+import { TabsContent } from "../../../ui/tabs";
 import { type Settings } from "../../model/types";
 import { watches } from "../../model/watches";
 

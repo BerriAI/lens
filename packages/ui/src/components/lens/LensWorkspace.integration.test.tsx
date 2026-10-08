@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderWithProviders, testQueryClient } from "@/../tests/test-utils";
-import { readRequest, requestPath } from "@/../tests/lens-test-utils";
+import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
+import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";

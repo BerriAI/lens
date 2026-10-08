@@ -8,8 +8,8 @@ import {
   type RelativeRange,
   type TimeWindow,
   timeWindow,
-} from "@/components/shared/timeRange/timeRange";
-import { ApiError } from "@/lib/http/client";
+} from "../../../shared/timeRange/timeRange";
+import { ApiError } from "../../../../lib/http/client";
 
 import type { TracePage, TraceSummary } from "../types";
 import type { TraceWindow } from "../api";

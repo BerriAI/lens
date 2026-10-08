@@ -1,4 +1,4 @@
-import { formatActivityTimestamp as runTime } from "@/utils/activityTimestamp";
+import { formatActivityTimestamp as runTime } from "../../../utils/activityTimestamp";
 import type { Settings } from "./types";
 
 export { runTime };

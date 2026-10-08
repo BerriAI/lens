@@ -2,7 +2,7 @@
 
 import { Braces } from "lucide-react";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../../lib/cva.config";
 
 import { Block, BlockBadge } from "./Block";
 import { FieldTree } from "./FieldTree";

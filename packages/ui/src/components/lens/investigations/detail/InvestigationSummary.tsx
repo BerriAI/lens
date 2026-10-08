@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "../../../../hooks/useNow";
 import { durationLabel, money, scopeLabel, sourceLabels } from "../../model/format";
 import { nextCheckStatus } from "../../model/status";
 import { type Lens } from "../../model/types";

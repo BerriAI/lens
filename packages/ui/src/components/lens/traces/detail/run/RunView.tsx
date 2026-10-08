@@ -5,10 +5,10 @@ import { ArrowLeft } from "lucide-react";
 import { Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 
-import { LoadingState } from "@/components/shared/LoadingState";
-import { Button } from "@/components/ui/button";
-import { Tabs } from "@/components/ui/tabs";
-import { cn } from "@/lib/cva.config";
+import { LoadingState } from "../../../../shared/LoadingState";
+import { Button } from "../../../../ui/button";
+import { Tabs } from "../../../../ui/tabs";
+import { cn } from "../../../../../lib/cva.config";
 
 import { useTracesApi } from "../../api";
 import { classifyTraceReadFailure, traceReadRetry, traceReadRetryDelay } from "../../list/traceReadFailure";

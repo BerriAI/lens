@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../lib/cva.config";
 
 import {
   activityOperation,
@@ -12,7 +12,7 @@ import {
 } from "../../model/live";
 import { laneText, typedChars, type Lane } from "../../model/stage";
 import type { Activity } from "../../model/types";
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "../../../../hooks/useNow";
 import { ModelName } from "./LiveStrip";
 
 const RED = "text-destructive";

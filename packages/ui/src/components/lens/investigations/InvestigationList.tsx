@@ -11,17 +11,17 @@ import { createContext, useContext, type ReactNode } from "react";
 import { ChevronRight, Pencil, Play } from "lucide-react";
 
 import { useMediaQuery } from "usehooks-ts";
-import { useNow } from "@/hooks/useNow";
-import { Inspector } from "@/components/shared/Inspector";
-import { InspectorTable } from "@/components/shared/InspectorTable";
-import { formatActivityTimestamp } from "@/utils/activityTimestamp";
-import { cn } from "@/lib/cva.config";
+import { useNow } from "../../../hooks/useNow";
+import { Inspector } from "../../shared/Inspector";
+import { InspectorTable } from "../../shared/InspectorTable";
+import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
+import { cn } from "../../../lib/cva.config";
 import { agoLabel, scopeLabel } from "../model/format";
 
 import { findingKey, openFindings, scheduleLabel } from "../model/inbox";
 import { lensStatus } from "../model/status";
-import { SearchBox } from "@/components/shared/search/SearchBox";
-import { itemValues } from "@/components/shared/search/valueSource";
+import { SearchBox } from "../../shared/search/SearchBox";
+import { itemValues } from "../../shared/search/valueSource";
 import { type Finding, type Lens } from "../model/types";
 import { useLensRoute, useListSearchRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";

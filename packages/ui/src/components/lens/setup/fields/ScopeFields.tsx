@@ -9,8 +9,8 @@ import {
   ComboboxList,
   ComboboxItem,
   ComboboxEmpty,
-} from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
+} from "../../../ui/combobox";
+import { Input } from "../../../ui/input";
 import type { InvestigationInput } from "../investigationSchema";
 import type { ScopeOptions } from "../useMatchingActivity";
 

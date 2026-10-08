@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/cva.config";
+import { cn } from "../../../../../lib/cva.config";
 import { FieldTree } from "./FieldTree";
 import { MessageList } from "./Messages";
 import { fieldNode, toolAction, toolResult, type FieldNode } from "./payload";
