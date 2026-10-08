@@ -1,6 +1,6 @@
 # Lens UI
 
-`@litellm/lens-ui` owns the existing Lens workspace, trace viewer, investigations, findings, datasets, setup screens, shared components and assets. `apps/web` consumes this package for the standalone UI. LiteLLM's integration will consume the same package
+`@litellm/lens-ui` owns the existing Lens workspace, trace viewer, investigations, findings, datasets, setup screens, shared components and assets. `src/ui/app` consumes this package for the standalone UI. LiteLLM's integration will consume the same package
 
 The package exports TypeScript source and static image imports for a Next.js host. Add `@litellm/lens-ui` to `transpilePackages`, import `@litellm/lens-ui/styles.css` in the standalone layout, and provide TanStack Query, nuqs's Next app adapter, HotkeysProvider and ThemeProvider. The exported CSS includes its Tailwind source declaration so a tarball consumer can discover the package's classes. An embedded dashboard that already owns the same design tokens can scan the installed package alongside its existing stylesheet
 

@@ -9,10 +9,10 @@ The target deployment is Lens with ClickHouse, including its configured Keeper c
 | Path | Responsibility |
 | --- | --- |
 | `src/litellm_lens/` | Python API, investigation state and model access |
-| `runtime/` | Rust ingestion, trace storage, investigation worker and sandbox |
-| `packages/ui/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
-| `apps/web/` | Small standalone Next.js shell, exported as static files for the Python API |
-| `deploy/runtime/` | Rust runtime image and Python sandbox packaging |
+| `src/worker/` | Rust ingestion, trace storage, investigation worker and sandbox (Python sandbox sources in `crates/lens/sandbox/`) |
+| `src/ui/lib/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
+| `src/ui/app/` | Small standalone Next.js shell, exported as static files for the Python API |
+| `deploy/runtime/` | Rust runtime image |
 | `deploy/clickhouse/` | ClickHouse coordination configuration |
 | `deploy/lens/` | Legacy installation assets being migrated to the standalone bundle |
 | `migrations/legacy/` | Source PostgreSQL migrations retained for migration compatibility |
@@ -40,7 +40,7 @@ npm run build:ui
 npm run qualify:ui-package
 ```
 
-The production build writes static files to `apps/web/out`. Package qualification packs `@litellm/lens-ui`, installs it into a temporary consumer with its own dependencies, and builds that consumer. It prints the package integrity and output path. See [the UI package](packages/ui/README.md) for the embedding boundary and [qualification notes](docs/extraction/ui-package.md) for the current evidence and limits
+The production build writes static files to `src/ui/app/out`. Package qualification packs `@litellm/lens-ui`, installs it into a temporary consumer with its own dependencies, and builds that consumer. It prints the package integrity and output path. See [the UI package](src/ui/lib/README.md) for the embedding boundary and [qualification notes](docs/extraction/ui-package.md) for the current evidence and limits
 
 ## Checks available now
 
@@ -48,7 +48,7 @@ Install Python dependencies with `uv sync --dev`. These copied core behavior tes
 
 ```sh
 uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py tests/unit/litellm_lens/test_signals.py -q
-cargo check --manifest-path runtime/Cargo.toml
+cargo check --manifest-path src/worker/Cargo.toml
 ```
 
 The ClickHouse state, dataset, signal, investigation and access repositories have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
