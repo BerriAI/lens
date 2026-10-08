@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/auth/session",
+    "headers": {
+      "cookie": "lens_session={{session_cookie}}",
+      "origin": "{{origin}}"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 204,
+    "headers": {
+      "set-cookie": "lens_session=\"\"; expires={{http_date}}; Max-Age=0; Path=/; SameSite=lax"
+    },
+    "body": null
+  }
+}
