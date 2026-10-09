@@ -21,7 +21,10 @@ export function Workspace() {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
   const session = useQuery({
     queryKey: sessionKey,
-    queryFn: async () => sessionSchema.parse(await api.get("/auth/session")),
+    queryFn: async () =>
+      sessionSchema.parse(
+        await api.get("/auth/session", { cache: "no-store" }),
+      ),
     enabled: !demo,
     retry: false,
   });

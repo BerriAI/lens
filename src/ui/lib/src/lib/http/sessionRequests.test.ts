@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { liveLensServices } from "../../components/lens/data/LensServices";
 import { configureLensHttp } from "./configure";
+import { createApiClient } from "./client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -8,6 +9,26 @@ afterEach(() => {
 });
 
 describe("Lens session requests", () => {
+  it("should bypass cached redirects when checking the browser session", async () => {
+    const session = { user_id: "admin", user_role: "proxy_admin" };
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const request = new Request(input, init);
+      expect(request.url).toBe("https://lens.test/auth/session");
+      expect(request.cache).toBe("no-store");
+      expect(request.credentials).toBe("same-origin");
+      return Response.json(session);
+    });
+    const api = createApiClient({
+      getBaseUrl: () => "https://lens.test",
+      fetchImpl: fetcher,
+    });
+
+    await expect(
+      api.get("/auth/session", { cache: "no-store" }),
+    ).resolves.toEqual(session);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it.each(["", "lens-credential"])(
     "preserves the selected authentication mode for %j",
     async (token) => {
