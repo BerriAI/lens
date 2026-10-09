@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -85,6 +85,16 @@ async fn score_case<J: Judge>(run: &RunInput, case: &CaseInput, judge: &J) -> Re
 fn validate(run: &RunInput) -> Result<()> {
     if run.cases.is_empty() || run.trials == 0 {
         return Err(Error::EmptyRun);
+    }
+    let mut seen = BTreeSet::new();
+    if let Some(case) = run
+        .cases
+        .iter()
+        .find(|case| !seen.insert(case.case_id.as_str()))
+    {
+        return Err(Error::DuplicateCase {
+            case_id: case.case_id.clone(),
+        });
     }
     match run.cases.iter().find(|case| case.trials.len() > run.trials) {
         Some(case) => Err(Error::ExtraTrials {
