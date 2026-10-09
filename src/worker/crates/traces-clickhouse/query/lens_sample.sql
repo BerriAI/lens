@@ -1,11 +1,7 @@
 eval_traces AS (
-    SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+    SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
     WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
-      AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
-      AND Timestamp < fromUnixTimestamp64Milli(toInt64({end:UInt64}))
-      AND coalesce(nullIf(SpanAttributes['deployment.environment'], ''),
-          ResourceAttributes['deployment.environment']) = 'lens-eval'
 ), concat(leftPad(toString(cityHash64(concat(source,team_id,trace_ref,trace_id))),20,'0'),
     hex(concat(source,char(0),team_id,char(0),trace_ref,char(0),trace_id))) AS selection_key
 SELECT *, selection_key FROM (
@@ -70,6 +66,10 @@ SELECT *, selection_key FROM (
       AND ({service:String}='' OR model_group={service:String})
       AND {agent_name:String}=''
       AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+      AND (team_id,api_key,response_id) NOT IN (
+          SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
+          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
       AND ({source:String}!='both' OR (team_id,api_key,response_id) NOT IN (
           SELECT TeamId,ApiKeyHash,LiteLLMRequestId FROM otel_traces
           WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})

@@ -12,6 +12,7 @@ export interface LensHttpConfig {
   readonly getAuthHeaderName?: () => string;
   readonly onError?: (message: string) => void;
   readonly serverRootPath?: string;
+  readonly getServerRootPath?: () => string;
 }
 
 export function configureLensHttp(config: LensHttpConfig): void {
@@ -21,5 +22,5 @@ export function configureLensHttp(config: LensHttpConfig): void {
     config.getAuthHeaderName ?? (() => "Authorization"),
   );
   registerErrorHandler(config.onError ?? (() => {}));
-  setServerRootPath(config.serverRootPath ?? "/");
+  setServerRootPath(config.getServerRootPath ?? config.serverRootPath ?? "/");
 }

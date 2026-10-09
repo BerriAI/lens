@@ -1,10 +1,4 @@
-WITH eval_traces AS (
-    SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
-    WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
-      AND Timestamp < fromUnixTimestamp64Milli({end_ms:Int64})
-      AND coalesce(nullIf(SpanAttributes['deployment.environment'], ''),
-          ResourceAttributes['deployment.environment']) = 'lens-eval'
-), page AS (
+WITH page AS (
 SELECT TraceId AS trace_id,
        hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
        if(length(groupUniqArrayArray(UserIds)) = 1, arrayElement(groupUniqArrayArray(UserIds), 1), '') AS user_id, TeamId AS team_id, ApiKeyHash AS api_key_hash,
@@ -21,10 +15,15 @@ SELECT TraceId AS trace_id,
                         arrayConcat(groupArrayArray(RequestIds), ['']),
                         groupArrayArray(RequestIds))) AS request_ids
 FROM agent_traces_by_key
-WHERE (TeamId, ApiKeyHash, TraceId) NOT IN eval_traces
-  AND ({all_teams:UInt8} = 1
+WHERE ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND UserIds = [{user_id:String}])
        OR has({team_ids:Array(String)}, TeamId))
+  AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+      WHERE ({all_teams:UInt8} = 1
+             OR ({user_id:String} != '' AND has(UserIds, {user_id:String}))
+             OR has({team_ids:Array(String)}, TeamId))
+      GROUP BY TeamId, ApiKeyHash, TraceId
+      HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64}))
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})

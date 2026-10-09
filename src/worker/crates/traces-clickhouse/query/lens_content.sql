@@ -20,6 +20,8 @@ SELECT * FROM (
       AND Timestamp >= parseDateTime64BestEffortOrZero({start_time:String}, 9) - INTERVAL 7 DAY
       AND ({trace_ref:String}='' OR hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId)))={trace_ref:String})
       AND TraceId={id:String} AND TeamId={record_team:String} AND SpanId > {cursor:String}
+      AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+          WHERE TeamId={record_team:String} AND TraceId={id:String})
     ORDER BY SpanId LIMIT 1 BY SpanId LIMIT 40
 )
 UNION ALL
@@ -37,5 +39,8 @@ SELECT * FROM (
       AND ({all_teams:UInt8}=1 OR team_id={team:String})
       AND ({key_hash:String}='' OR api_key={key_hash:String})
       AND spend_logs.start_time >= parseDateTime64BestEffortOrZero({start_time:String}, 3) - INTERVAL 7 DAY
-      AND request_id={id:String} AND team_id={record_team:String} LIMIT 1
+      AND request_id={id:String} AND team_id={record_team:String}
+      AND (team_id, api_key, response_id) NOT IN (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds)
+          FROM lens_eval_traces WHERE TeamId={record_team:String})
+    LIMIT 1
 )

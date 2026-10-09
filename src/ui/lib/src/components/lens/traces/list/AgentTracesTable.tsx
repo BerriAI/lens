@@ -11,7 +11,11 @@ import { InspectorTable, useInspectorTable } from "../../../shared/InspectorTabl
 import { Button } from "../../../ui/button";
 import { Skeleton } from "../../../ui/skeleton";
 import { cn } from "../../../../lib/cva.config";
-import { formatActivityTimestamp, formatRunTimestamp, localTimeZoneAbbreviation } from "../../../../utils/activityTimestamp";
+import {
+  formatActivityTimestamp,
+  formatRunTimestamp,
+  localTimeZoneAbbreviation,
+} from "../../../../utils/activityTimestamp";
 
 import { SpanIcon } from "../ui/SpanIcon";
 import type { TraceFindingState } from "./useTraceFindings";
@@ -404,7 +408,16 @@ export function AgentTracesTable({
         <SignalsContext.Provider value={signals}>
           <SignalSetupContext.Provider value={{ configured: showSignals, onSetUp: onSetUpSignals }}>
             <InspectorTable.Root table={table} data-testid="runs-table">
-              <InspectorTable.Grid aria-label="Agent runs" aria-busy={isFetching} className="min-w-[900px] text-xs">
+              <InspectorTable.Grid
+                aria-label="Agent runs"
+                aria-busy={isFetching}
+                className="text-xs"
+                style={{
+                  minWidth: table
+                    .getVisibleLeafColumns()
+                    .reduce((width, column) => width + (column.columnDef.size ?? 240), 0),
+                }}
+              >
                 <InspectorTable.Header />
                 <InspectorTable.Body<TraceSummary>
                   className={bodyClassName(isPlaceholder)}

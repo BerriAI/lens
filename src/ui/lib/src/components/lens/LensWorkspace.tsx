@@ -2,12 +2,13 @@
 
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Aperture, ArrowUpRight, Loader2 } from "lucide-react";
+import { Tabs } from "@base-ui/react/tabs";
+import { ChevronRight, Loader2 } from "lucide-react";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
 import type { TraceSummary } from "./traces/types";
 import { Switch } from "../ui/switch";
-import { Tabs, TabsContent } from "../ui/tabs";
+import { TabsContent } from "../ui/tabs";
 import { LensServicesProvider, useLensAccessToken, useLensApi, useLiveLensServices } from "./data/LensServices";
 import { isProxyAdminRole, isProxyAdminTierRole } from "../../utils/roles";
 import { InvestigationsView } from "./investigations/InvestigationsView";
@@ -15,18 +16,23 @@ import { DatasetsView } from "./datasets/DatasetsView";
 import { LensSettings } from "./settings/LensSettings";
 import { createLensDemo } from "./data/demo/createLensDemo";
 import { lensQueries } from "./data/queries";
-import { LensModeSwitch } from "./LensModeSwitch";
+import { LensSidebar } from "./LensSidebar";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
-import { useDialogRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
+import { LENS_TABS, useDialogRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
 import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
-import { AgentBreadcrumb, useLensAgents } from "./agents/AgentScoped";
+import { useLensAgents } from "./agents/AgentScoped";
+import { AgentsView } from "./agents/AgentsView";
 
-type WorkspaceProps = { accessToken: string; userRole: string; readOnly: boolean };
+type WorkspaceProps = {
+  accessToken: string;
+  userRole: string;
+  readOnly: boolean;
+};
 
 export function LensWorkspace(props: WorkspaceProps) {
   const { demo } = useLensRoute();
@@ -145,103 +151,111 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     create: startFirstInvestigation,
     openTrace: showSentTrace,
   };
+  const navigate = (tab: LensTab) => {
+    leaveSetup();
+    setTab(tab);
+  };
   return (
     <OnboardingProvider value={onboarding}>
-      <main className="flex h-full w-full min-w-0 flex-1 flex-col px-3 pt-3 pb-3 sm:px-4 sm:pb-4">
-        <Tabs
+      <main className="relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background">
+        <Tabs.Root
           value={activeTab}
-          onValueChange={(value) => {
-            if (value === "settings") leaveSetup();
-            setTab(value as LensTab);
-          }}
-          className="@container/lens-frame min-h-0 flex-1 gap-0"
+          orientation="vertical"
+          onValueChange={(value) => navigate(value as LensTab)}
+          className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
         >
-          <header className="grid shrink-0 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b pb-2 @min-[42rem]/lens-frame:grid-cols-[auto_1fr_auto]">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="flex items-center gap-1.5 text-sm font-semibold">
-                <Aperture aria-hidden="true" className="size-4" strokeWidth={2} />
-                Lens
-              </h1>
-              <AgentBreadcrumb agents={agents} />
-            </div>
-            <div className="col-span-2 row-start-2 min-w-0 @min-[42rem]/lens-frame:col-span-1 @min-[42rem]/lens-frame:col-start-2 @min-[42rem]/lens-frame:row-start-1">
-              <LensModeSwitch activity={activity} workers={workers} />
-            </div>
-            <div className="col-start-2 row-start-1 flex items-center justify-end gap-4 @min-[42rem]/lens-frame:col-start-3">
-              <a
-                href="https://docs.litellm.ai/docs/proxy/lens"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Docs
-                <ArrowUpRight aria-hidden="true" className="size-3" />
-              </a>
-              <DemoToggle demo={demo} onChange={toggleDemo} />
-            </div>
-          </header>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-            {showSetup ? (
-              <TabsContent value={activeTab} keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
-                {setupState.loading ? (
-                  <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                    <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-                    Checking Lens setup…
-                  </p>
-                ) : (
-                  <LensGettingStarted state={setupState} onStart={startSetup} onExit={exitSetup} />
+          <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card px-4 pl-14 md:px-6">
+              <div className="flex min-w-0 items-center gap-2 text-sm">
+                {activeTab === "traces" && agents.agent && (
+                  <>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-muted-foreground"
+                      onClick={() => navigate("agents")}
+                    >
+                      Agents
+                    </Button>
+                    <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
+                    <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">{agents.agent}</span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"
+                    />
+                  </>
                 )}
-              </TabsContent>
-            ) : (
-              <>
-                <TabsContent value="traces" keepMounted className={PANEL}>
-                  <AgentTracesPage
-                    accessToken={accessToken}
-                    isActive={activeTab === "traces"}
-                    readOnly={readOnly}
-                    canMintTracingKey={isAdmin}
-                    canViewFindings={canViewInvestigations}
-                    onSetUpSignals={canConfigure ? showSettings : undefined}
+                <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
+              </div>
+              <DemoToggle demo={demo} onChange={toggleDemo} />
+            </header>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card px-3 md:px-5">
+              {showSetup ? (
+                <TabsContent value={activeTab} keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
+                  {setupState.loading ? (
+                    <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                      <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                      Checking Lens setup…
+                    </p>
+                  ) : (
+                    <LensGettingStarted state={setupState} onStart={startSetup} onExit={exitSetup} />
+                  )}
+                </TabsContent>
+              ) : (
+                <>
+                  <TabsContent value="agents" className={PANEL}>
+                    <AgentsView agents={agents} onOpenAgent={agents.select} />
+                  </TabsContent>
+                  <TabsContent value="traces" keepMounted className={PANEL}>
+                    <AgentTracesPage
+                      accessToken={accessToken}
+                      isActive={activeTab === "traces"}
+                      readOnly={readOnly}
+                      canMintTracingKey={isAdmin}
+                      canViewFindings={canViewInvestigations}
+                      onSetUpSignals={canConfigure ? showSettings : undefined}
+                    />
+                  </TabsContent>
+                  <TabsContent value="findings" className={PANEL}>
+                    {canViewInvestigations ? (
+                      <FindingsView readOnly={readOnly || !isAdmin} />
+                    ) : (
+                      <p className="py-6 text-sm text-muted-foreground">Findings require proxy administrator access.</p>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="investigations" className={PANEL}>
+                    {canViewInvestigations ? (
+                      <InvestigationsView readOnly={readOnly || !isAdmin} />
+                    ) : (
+                      <p className="py-6 text-sm text-muted-foreground">
+                        Investigations require proxy administrator access. You can still view your traces.
+                      </p>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="datasets" className={PANEL}>
+                    <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
+                  </TabsContent>
+                </>
+              )}
+              {workers && list && (
+                <TabsContent value="settings" keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
+                  <LensSettings
+                    list={list}
+                    workerReadyAction={
+                      list.lenses.length === 0 ? (
+                        <Button className="w-full" onClick={startFirstInvestigation}>
+                          New investigation
+                        </Button>
+                      ) : undefined
+                    }
+                    onOpenTraces={() => setTab("traces")}
                   />
                 </TabsContent>
-                <TabsContent value="findings" className={PANEL}>
-                  {canViewInvestigations ? (
-                    <FindingsView readOnly={readOnly || !isAdmin} />
-                  ) : (
-                    <p className="py-6 text-sm text-muted-foreground">Findings require proxy administrator access.</p>
-                  )}
-                </TabsContent>
-                <TabsContent value="investigations" className={PANEL}>
-                  {canViewInvestigations ? (
-                    <InvestigationsView readOnly={readOnly || !isAdmin} />
-                  ) : (
-                    <p className="py-6 text-sm text-muted-foreground">
-                      Investigations require proxy administrator access. You can still view your traces.
-                    </p>
-                  )}
-                </TabsContent>
-                <TabsContent value="datasets" className={PANEL}>
-                  <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
-                </TabsContent>
-              </>
-            )}
-            {workers && list && (
-              <TabsContent value="settings" keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
-                <LensSettings
-                  list={list}
-                  workerReadyAction={
-                    list.lenses.length === 0 ? (
-                      <Button className="w-full" onClick={startFirstInvestigation}>
-                        New investigation
-                      </Button>
-                    ) : undefined
-                  }
-                  onOpenTraces={() => setTab("traces")}
-                />
-              </TabsContent>
-            )}
+              )}
+            </div>
           </div>
-        </Tabs>
+        </Tabs.Root>
       </main>
     </OnboardingProvider>
   );
@@ -265,7 +279,7 @@ function needsSetup(
     issueKey: string | null;
   },
 ) {
-  if (location.tab === "settings" || location.tab === "datasets") return false;
+  if (location.tab === "settings" || location.tab === "datasets" || location.tab === "agents") return false;
   if (location.requested) return true;
   const selected = location.tab === "traces" ? location.trace : location.lensId || location.dialog || location.issueKey;
   if (!state.missingTraces || selected) return false;

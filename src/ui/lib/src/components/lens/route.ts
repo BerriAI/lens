@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
 
 export const LENS_TABS = {
+  agents: "Agents",
   traces: "Traces",
   findings: "Findings",
   investigations: "Investigations",
@@ -47,6 +48,7 @@ const DATASET_PARSERS = {
 };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
+const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 
 const RESULT_PARSERS = {
   run: parseAsString.withDefault("latest"),
@@ -67,6 +69,7 @@ const SESSION_PARSERS = {
   ...RUN_FILTER_PARSERS,
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
+  ...AGENT_LIST_PARSERS,
   ...INBOX_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
@@ -77,6 +80,19 @@ const nulls = <K extends string>(keys: readonly K[]) =>
 /** Switching the sample session clears every Lens key but the tab so ids never cross between live and sample data. */
 const CLEARED_SESSION = nulls(Object.keys(SESSION_PARSERS).filter((key) => key !== "tab"));
 const CLEARED_RESULTS = nulls(Object.keys(RESULT_PARSERS));
+const CLEARED_AGENT_VIEW = {
+  ...nulls(Object.keys(OPEN_TRACE_PARSERS)),
+  ...nulls(Object.keys(RESULT_PARSERS)),
+  ...nulls(Object.keys(DATASET_PARSERS)),
+  ...nulls(Object.keys(DIALOG_PARSERS)),
+  ...nulls(Object.keys(INBOX_PARSERS)),
+  lens: null,
+  issue: null,
+  setup: null,
+  search: null,
+  q: null,
+  status: null,
+} as const;
 
 export interface LensRoute {
   readonly tab: LensTab | null;
@@ -84,6 +100,7 @@ export interface LensRoute {
   readonly demo: boolean;
   readonly settingUp: boolean;
   setTab(tab: LensTab): void;
+  openAgent(agent: string): void;
   setLensId(lensId: string | null): void;
   setDemo(demo: boolean): void;
   setSetup(settingUp: boolean): void;
@@ -93,6 +110,10 @@ export interface LensRoute {
 export function useLensRoute(): LensRoute {
   const [{ tab, lens, demo, setup }, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
   const setTab = useCallback((next: LensTab) => void setParams({ tab: next }), [setParams]);
+  const openAgent = useCallback(
+    (agent: string) => void setParams({ ...CLEARED_AGENT_VIEW, agent, tab: "traces" }),
+    [setParams],
+  );
   const setLensId = useCallback(
     (next: string | null) => void setParams({ ...CLEARED_RESULTS, lens: next, issue: null }),
     [setParams],
@@ -102,7 +123,22 @@ export function useLensRoute(): LensRoute {
     [setParams],
   );
   const setSetup = useCallback((next: boolean) => void setParams({ setup: next ? "lens" : null }), [setParams]);
-  return { tab, lensId: lens, demo, settingUp: setup === "lens", setTab, setLensId, setDemo, setSetup };
+  return {
+    tab,
+    lensId: lens,
+    demo,
+    settingUp: setup === "lens",
+    setTab,
+    openAgent,
+    setLensId,
+    setDemo,
+    setSetup,
+  };
+}
+
+export function useAgentSearchRoute(): [string, (search: string) => void] {
+  const [{ agent_search }, setParams] = useQueryStates(AGENT_LIST_PARSERS);
+  return [agent_search, useCallback((next: string) => void setParams({ agent_search: next }), [setParams])];
 }
 
 const ISSUE_ROUTE_PARSERS = { ...ISSUE_PARSERS, lens: LENS_PARSERS.lens, ...RESULT_PARSERS };

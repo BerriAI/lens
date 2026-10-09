@@ -1,9 +1,7 @@
 eval_traces AS (
-    SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+    SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
     WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
-      AND coalesce(nullIf(SpanAttributes['deployment.environment'], ''),
-          ResourceAttributes['deployment.environment']) = 'lens-eval'
 )
 SELECT
     EXISTS(SELECT 1 FROM otel_traces
@@ -17,4 +15,8 @@ SELECT
               JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'
           AND NOT is_eval_request(team_id,api_key,response_id,provider_request_id,litellm_call_id,request_id,trace_id,span_id)
           AND ({key_hash:String}='' OR api_key={key_hash:String})
-          AND NOT JSONExtractBool(metadata,'litellm_lens_internal')) AS requests
+          AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+          AND (team_id,api_key,response_id) NOT IN (
+              SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
+              WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+                AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))) AS requests
