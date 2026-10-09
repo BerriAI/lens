@@ -22,10 +22,12 @@ use lens_contract::{
 use lens_signals::{SignalRepository, trace_signals};
 use std::{collections::BTreeMap, sync::Arc};
 
-struct App<R, S> {
+use crate::models::ModelCatalog;
+
+struct App<R, S, M> {
     authentication: Arc<Authentication<R>>,
     repository: S,
-    models: Vec<String>,
+    models: M,
 }
 
 pub fn router<R, S>(
@@ -37,9 +39,34 @@ where
     R: SessionRepository + 'static,
     S: SignalRepository + 'static,
 {
+    with_catalog(
+        authentication,
+        repository,
+        models
+            .into_iter()
+            .map(|model_group| lens_contract::activity::AnalysisModelInfo {
+                model_group,
+                providers: Vec::new(),
+                mode: "evaluation".into(),
+                supported_openai_params: None,
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+pub fn with_catalog<R, S, M>(
+    authentication: Arc<Authentication<R>>,
+    repository: S,
+    models: M,
+) -> Router
+where
+    R: SessionRepository + 'static,
+    S: SignalRepository + 'static,
+    M: ModelCatalog,
+{
     Router::new()
-        .public_route("/lens/signals", get(read::<R, S>).put(save::<R, S>))
-        .public_route("/lens/traces/signals", post(traces::<R, S>))
+        .public_route("/lens/signals", get(read::<R, S, M>).put(save::<R, S, M>))
+        .public_route("/lens/traces/signals", post(traces::<R, S, M>))
         .layer(DefaultBodyLimit::disable())
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
@@ -59,8 +86,8 @@ fn authorize(role: Role, write: bool) -> Result<(), InvestigationError> {
     }
 }
 
-async fn read<R: SessionRepository, S: SignalRepository>(
-    State(app): State<Arc<App<R, S>>>,
+async fn read<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
+    State(app): State<Arc<App<R, S, M>>>,
     headers: HeaderMap,
     method: Method,
 ) -> Result<Json<SignalConfig>, SignalError> {
@@ -69,8 +96,8 @@ async fn read<R: SessionRepository, S: SignalRepository>(
     Ok(Json(app.repository.get_config().await?))
 }
 
-async fn save<R: SessionRepository, S: SignalRepository>(
-    State(app): State<Arc<App<R, S>>>,
+async fn save<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
+    State(app): State<Arc<App<R, S, M>>>,
     headers: HeaderMap,
     method: Method,
     body: Bytes,
@@ -82,15 +109,21 @@ async fn save<R: SessionRepository, S: SignalRepository>(
         body_validation::Model::Signals(validation::Model::Config),
     )?;
     authorize(identity.user_role, true)?;
-    if !config.model.is_empty() && !app.models.contains(&config.model) {
+    if !config.model.is_empty()
+        && !app
+            .models
+            .model_groups()
+            .iter()
+            .any(|model| model.mode == "evaluation" && model.model_group == config.model)
+    {
         return Err(SignalError::Model);
     }
     app.repository.save_config(&config).await?;
     Ok(Json(config))
 }
 
-async fn traces<R: SessionRepository, S: SignalRepository>(
-    State(app): State<Arc<App<R, S>>>,
+async fn traces<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
+    State(app): State<Arc<App<R, S, M>>>,
     headers: HeaderMap,
     method: Method,
     body: Bytes,

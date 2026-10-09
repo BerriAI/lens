@@ -6,6 +6,23 @@ For optional help from your coding agent, copy the [provider setup prompt](setup
 
 Investigations send selected trace content to the provider you choose. Each investigation has its own monthly spending limit. Provider credentials stay on the server and are never returned to the browser
 
+## Connect a LiteLLM gateway
+
+Set the gateway URL and a gateway virtual key on the Lens service, then restart it:
+
+```dotenv
+LENS_GATEWAY_API_BASE=https://your-gateway.example.com
+LENS_GATEWAY_API_KEY=<gateway-virtual-key>
+```
+
+For Compose, put these values in `deploy/lens/.env`. For hosted services, use the service's environment and secret settings. Keep the key limited to models Lens should use; Lens fetches only the models accessible to that key from `/model_group/info`
+
+Open **Settings > LiteLLM gateway** to check the connection and refresh the model list without restarting Lens. Discovered chat models are available for analysis when their pricing and output-token limits are valid. Each call requests at most 4,096 output tokens, or the model's smaller supported limit. Discovered evaluation models are available separately for [Signals](signals.md#connect-a-litellm-gateway)
+
+A failed refresh shows an error and keeps the previous usable models. Explicit `LENS_ANALYSIS_MODELS` deployments remain available and take precedence over discovered aliases with the same name. Changing the gateway key or URL requires a restart; the browser never receives the key
+
+`LENS_GATEWAY_URL` and `LENS_GATEWAY_SECRET` are separate optional settings for signing internal Lens traffic. They do not provide model discovery or replace the gateway API key
+
 ## Add a provider
 
 For the bundled Compose deployment, add the following settings to `deploy/lens/.env`. Other deployments supply the same environment variables through their secret configuration
@@ -34,9 +51,15 @@ docker compose -f deploy/lens/compose.yaml up -d --wait
 
 Open **Settings > Analysis** and select **Check configuration**. Your `analysis` model should appear, followed by **Analysis is configured** when the investigation worker is ready. This confirms configuration and worker readiness; your first investigation verifies provider access
 
-## Run an investigation
+## Automatic analysis in Findings
 
-After your agent sends a trace, open **Investigations > New investigation**. Select the activity to review, describe the expected behavior, choose `analysis`, and set a monthly spending limit. Run the investigation, then open its finding and follow an evidence citation to the original trace
+Once an analysis model is connected, Lens creates an automatic analysis configuration for each agent discovered in production traces. The first run waits for 10 eligible traces from the last 24 hours. Traces settle for two minutes after receipt so incomplete runs are not analyzed immediately. Evaluation traffic and browser demo data do not create automatic analysis configurations
+
+Open **Findings** to see received trace counts, waiting or running status, the last result, and the next scheduled time. Select **Configure** beside an agent to choose its model, edit what to look for, change its frequency or monthly budget, or pause analysis
+
+Defaults are one analysis every 60 minutes, up to 10 traces per run, and a $10 monthly budget per agent. After the first run, the existing scheduler reviews new activity in the saved lookback window. The interval begins after a run finishes. Existing agent configurations, including paused configurations, are preserved; a configuration covering all agents also prevents automatic duplicates
+
+Open a finding and follow an evidence citation to the original trace. Previous investigation history and direct links remain available
 
 The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while an investigation is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
 

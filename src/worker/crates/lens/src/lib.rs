@@ -9,6 +9,7 @@ pub mod eval_judge;
 pub mod eval_runtime;
 pub mod eval_scoring;
 pub mod evidence;
+pub mod gateway;
 pub mod grouping;
 mod ingest;
 pub mod journal;
