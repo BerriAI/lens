@@ -584,6 +584,25 @@ pub(super) async fn report<R: SessionRepository>(
     Ok(Json(published))
 }
 
+pub(super) async fn progress<R: SessionRepository>(
+    State(app): State<Arc<App<R>>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<super::progress::ProgressInput>,
+) -> Result<Json<lens_contract::github::ProgressPublished>, GitHubError> {
+    let stored = authenticated(&app, &headers, &id, false).await?;
+    let binding = stored.connection;
+    let published = super::progress::publish_input(
+        enabled(&app)?,
+        &app.store.0,
+        &binding.id,
+        &binding.connection,
+        input,
+    )
+    .await?;
+    Ok(Json(published))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,7 @@
 mod client;
 mod credentials;
+mod progress;
+mod publication;
 mod remote;
 mod report;
 mod service;
@@ -92,6 +94,7 @@ pub fn router<R: SessionRepository + 'static>(
         .public_route("/lens/github/callback", get(callback::<R>))
         .public_route("/lens/github/setup", get(setup::<R>))
         .public_route("/lens/github/report", post(report::publish::<R>))
+        .public_route("/lens/github/progress", post(progress::publish::<R>))
         .public_route("/lens/github/service/authorize", post(service::start::<R>))
         .public_route(
             "/lens/github/service/connect/{id}",
@@ -105,6 +108,10 @@ pub fn router<R: SessionRepository + 'static>(
         .public_route(
             "/lens/github/service/connections/{id}/report",
             post(service::report::<R>),
+        )
+        .public_route(
+            "/lens/github/service/connections/{id}/progress",
+            post(service::progress::<R>),
         )
         .public_route(remote::CALLBACK_PATH, get(remote::callback::<R>))
         .layer(axum::middleware::map_response(
@@ -778,54 +785,83 @@ mod tests {
     }
 
     async fn reporting_provider(provider: &MockServer) {
-        Mock::given(method("GET")).and(path("/repos/org/renamed/actions/runs/50"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":50,"event":"pull_request","head_sha":"a".repeat(40),"repository":{"id":10},"pull_requests":[{"number":7}]}))).expect(1).mount(provider).await;
-        Mock::given(method("GET")).and(path("/repos/org/renamed/pulls/7"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"number":7,"head":{"sha":"a".repeat(40),"repo":{"id":10}},"base":{"sha":"b".repeat(40),"repo":{"id":10}},"merge_commit_sha":"c".repeat(40)}))).expect(1).mount(provider).await;
         Mock::given(method("GET"))
-            .and(path("/repos/org/renamed/issues/7/comments"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
-            .expect(1)
+            .and(path("/apps/lens-test"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"id":99,"slug":"lens-test"})),
+            )
+            .expect(2)
             .mount(provider)
             .await;
+        Mock::given(method("GET")).and(path("/repos/org/renamed/actions/runs/50"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":50,"run_attempt":1,"event":"pull_request","head_sha":"a".repeat(40),"repository":{"id":10},"pull_requests":[{"number":7}]})))
+            .expect(4).mount(provider).await;
+        Mock::given(method("GET")).and(path("/repos/org/renamed/pulls/7"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"number":7,"head":{"sha":"a".repeat(40),"repo":{"id":10}},"base":{"sha":"b".repeat(40),"repo":{"id":10}},"merge_commit_sha":"c".repeat(40)})))
+            .expect(4).mount(provider).await;
+        let comment = Arc::new(std::sync::Mutex::new(None::<Value>));
+        let check = Arc::new(std::sync::Mutex::new(None::<Value>));
+        let comments = comment.clone();
+        Mock::given(method("GET"))
+            .and(path("/repos/org/renamed/issues/7/comments"))
+            .respond_with(move |_: &wiremock::Request| {
+                ResponseTemplate::new(200).set_body_json(
+                    comments
+                        .lock()
+                        .unwrap()
+                        .clone()
+                        .into_iter()
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .expect(2)
+            .mount(provider)
+            .await;
+        let checks = check.clone();
         Mock::given(method("GET"))
             .and(path(format!(
                 "/repos/org/renamed/commits/{}/check-runs",
                 "a".repeat(40)
             )))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"check_runs":[]})))
-            .expect(1)
-            .mount(provider)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/repos/org/renamed/issues/7/comments"))
-            .and(|request: &wiremock::Request| {
-                let text = String::from_utf8_lossy(&request.body);
-                text.contains("https://customer.example/ui/?tab=evals")
-                    && !text.contains("untrusted-payload.example")
-            })
-            .respond_with(ResponseTemplate::new(201).set_body_json(
-                json!({"html_url":"https://github.com/org/renamed/pull/7#issuecomment-1"}),
-            ))
-            .expect(1)
-            .mount(provider)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/repos/org/renamed/check-runs"))
-            .and(|request: &wiremock::Request| {
-                let body: Value = serde_json::from_slice(&request.body).unwrap();
-                body["details_url"]
-                    .as_str()
-                    .unwrap()
-                    .starts_with("https://customer.example/ui/?tab=evals&eval=demo&eval_run=")
-            })
-            .respond_with(
-                ResponseTemplate::new(201)
-                    .set_body_json(json!({"html_url":"https://github.com/org/renamed/checks/1"})),
+            .respond_with(move |_: &wiremock::Request| {
+                ResponseTemplate::new(200).set_body_json(
+                json!({"check_runs":checks.lock().unwrap().clone().into_iter().collect::<Vec<_>>()})
             )
-            .expect(1)
+            })
+            .expect(2)
             .mount(provider)
             .await;
+        for (verb, endpoint) in [
+            ("POST", "/repos/org/renamed/issues/7/comments"),
+            ("PATCH", "/repos/org/renamed/issues/comments/1"),
+        ] {
+            let comment = comment.clone();
+            Mock::given(method(verb)).and(path(endpoint))
+                .respond_with(move |request: &wiremock::Request| {
+                    let body: Value = serde_json::from_slice(&request.body).unwrap();
+                    let text = body["body"].as_str().unwrap();
+                    if verb == "POST" { assert!(text.contains("Running evaluation")); }
+                    else { assert!(text.contains("https://customer.example/ui/?tab=evals")); }
+                    assert!(!text.contains("untrusted-payload.example"));
+                    *comment.lock().unwrap() = Some(json!({"id":1,"body":text,"user":{"type":"Bot","login":"lens-test[bot]"},"performed_via_github_app":{"id":99,"slug":"lens-test"}}));
+                    ResponseTemplate::new(200).set_body_json(json!({"html_url":"https://github.com/org/renamed/pull/7#issuecomment-1"}))
+                }).expect(1).mount(provider).await;
+        }
+        for (verb, endpoint) in [
+            ("POST", "/repos/org/renamed/check-runs"),
+            ("PATCH", "/repos/org/renamed/check-runs/1"),
+        ] {
+            let check = check.clone();
+            Mock::given(method(verb)).and(path(endpoint))
+                .respond_with(move |request: &wiremock::Request| {
+                    let body: Value = serde_json::from_slice(&request.body).unwrap();
+                    assert_eq!(body["status"], if verb == "POST" { "in_progress" } else { "completed" });
+                    if verb == "POST" { assert!(body.get("conclusion").is_none()); }
+                    else { assert!(body["details_url"].as_str().unwrap().starts_with("https://customer.example/ui/?tab=evals&eval=demo&eval_run=")); }
+                    *check.lock().unwrap() = Some(json!({"id":1,"external_id":body["external_id"],"app":{"id":99,"slug":"lens-test"}}));
+                    ResponseTemplate::new(200).set_body_json(json!({"html_url":"https://github.com/org/renamed/checks/1"}))
+                }).expect(1).mount(provider).await;
+        }
     }
 
     async fn save_remote(fixture: &Fixture, credential: &remote::RemoteCredentials) -> Connection {
@@ -1269,6 +1305,26 @@ mod tests {
         assert_eq!(saved.connection.lens_origin, "https://customer.example");
         let run = completed_run(&fixture).await;
         reporting_provider(&fixture.provider).await;
+        let progress = json!({"name":"demo","version":"a".repeat(40),"pr":7,
+            "ci_url":"https://github.com/org/renamed/actions/runs/50","state":"running"});
+        let progress_started = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/progress",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(progress.clone()),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(
+            progress_started.status(),
+            200,
+            "{}",
+            body(progress_started).await
+        );
         let response = broker
             .local
             .clone()
@@ -1296,6 +1352,28 @@ mod tests {
             .unwrap();
         assert_eq!(repeated.status(), 200);
         assert_eq!(body(repeated).await["reports"][0]["run_id"], run.id);
+        let late = broker.local.clone().oneshot(request(
+            "POST", "/lens/github/progress", Some(&token("team-a", "alice", "team")), None,
+            Some(json!({"name":"demo","version":"a".repeat(40),"pr":7,"ci_url":"https://github.com/org/renamed/actions/runs/50","state":"failed"})),
+        )).await.unwrap();
+        assert_eq!(late.status(), 200);
+        assert_eq!(
+            body(late).await["comment_url"],
+            "https://github.com/org/renamed/pull/7#issuecomment-1"
+        );
+        let foreign_progress = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/progress",
+                Some(&token("team-b", "bob", "team")),
+                None,
+                Some(progress),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(foreign_progress.status(), 400);
         let foreign_team = broker
             .local
             .clone()
@@ -2196,6 +2274,7 @@ mod tests {
     #[case("PUT", "/lens/github/connections/agent", json!({"authorization_id":"x","repository_id":1}))]
     #[case("DELETE", "/lens/github/connections/agent", Value::Null)]
     #[case("POST", "/lens/github/report", json!({"run_ids":["run"]}))]
+    #[case("POST", "/lens/github/progress", json!({"name":"demo","version":"a".repeat(40),"pr":7,"ci_url":"https://github.com/org/repo/actions/runs/50","state":"running"}))]
     #[tokio::test]
     async fn writes_require_authenticated_non_viewer_identity(
         #[case] method: &str,
