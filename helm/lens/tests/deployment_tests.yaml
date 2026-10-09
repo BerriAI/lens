@@ -67,7 +67,7 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: Lens clickhouseSecret.name is required when bundled storage is disabled
-  - it: reuses the gateway credential only on the server
+  - it: generates an independent signing secret when only a service credential is supplied
     set:
       gateway.enabled: true
       serviceTokenSecret: {name: gateway-delegation, key: signing-key}
@@ -80,7 +80,7 @@ tests:
           content:
             name: LENS_GATEWAY_SECRET
             valueFrom:
-              secretKeyRef: {name: gateway-delegation, key: signing-key}
+              secretKeyRef: {name: lens-gateway, key: gateway-secret}
       - contains:
           path: spec.template.spec.containers[0].env
           content:

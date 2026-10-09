@@ -42,9 +42,9 @@ Payloads and Keeper metadata must be backed up and restored together. An externa
 
 ## Connect a gateway
 
-Set `gateway.enabled=true` and `serviceTokenSecret.name` to the Secret also configured on the gateway. By default, this server credential authenticates internal requests and signs delegated user identity. The Lens admin login credential remains separate
+Set `gateway.enabled=true` and configure two separate values shared with the gateway. The service token authenticates internal data requests; the signing secret authenticates delegated user identities. The Lens admin login credential remains separate
 
-If your gateway uses a separate signing credential, configure both Secret references:
+Reference the two keys from your secret manager:
 
 ```yaml
 gateway:
@@ -56,11 +56,17 @@ serviceTokenSecret:
   key: service-token
 ```
 
-Create `lens-connection` through your existing secret manager. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. In either LiteLLM chart, the corresponding settings are `lensWorker.gateway.secretName`, `lensWorker.gateway.secretKey` and `lensWorker.serviceTokenSecret`
+Create `lens-connection` through your existing secret manager. Generate each value independently with `openssl rand -hex 32`. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. In either LiteLLM chart, the corresponding settings are `lensWorker.gateway.secretName`, `lensWorker.gateway.secretKey` and `lensWorker.serviceTokenSecret`. Bundled Helm installations generate separate credentials when these references are unset; external mode requires both references
 
 `publicUrl` is the Lens browser origin. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
 
 The LiteLLM charts consume this exact chart as a dependency with `library=true` and render its named templates through a small adapter. `lensWorker.mode` selects `bundled`, `external` or `disabled`; the legacy `lensWorker.enabled` switch still works when mode is empty. Both gateway charts keep the existing service and deployment names. An external Lens deployment can preserve `/lens-ingest` with `lensWorker.externalServiceName` in either gateway chart
+
+## Render with GitOps
+
+Helm installations generate credentials once and reuse them through a live cluster lookup. Argo CD and other offline renderers cannot perform that lookup. For those deployments, provision secrets through your existing secret manager and set `adminTokenSecret.name`, `gateway.secretName` and `serviceTokenSecret.name` before rendering. The gateway references are needed only when `gateway.enabled=true`
+
+The bundled database also generates a password. Use `clickhouseSecret.name` with your existing supported ClickHouse deployment for deterministic GitOps rendering. In the LiteLLM charts, prefix these settings with `lensWorker.`. Verify two consecutive renders produce identical Secret references before syncing; do not commit rendered secret values to Git
 
 ## Select versions independently
 

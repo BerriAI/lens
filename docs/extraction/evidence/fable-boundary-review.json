@@ -1,0 +1,110 @@
+{
+  "reviewed_at_utc": "2026-10-09T19:20:27Z",
+  "scope": "Lens extraction only. Do not fix pre-existing gateway problems, change unrelated CI policy, or upgrade dependency/tool versions. The Grype version matches the existing gateway scanner.",
+  "review_bases": {
+    "lens": "cb1ca19e4fec1425b3ded1769be657fd5b1ffa2a",
+    "litellm": "310295b24da5dd7dabe2e694eb29dafb1c406297"
+  },
+  "findings": [
+    {
+      "id": "chart-publication",
+      "disposition": "valid release gate, still open",
+      "detail": "No official Lens release exists. Both host chart publishers must consume the signed selected Lens release before a gateway chart can publish. Combined source selection and artifact wiring remain required; no registry publication was performed."
+    },
+    {
+      "id": "bundled-default-image",
+      "disposition": "same open release prerequisite",
+      "detail": "Source charts contain development defaults, Lens remains disabled by default, and source installation guides require a built image. Official release packaging must select the Lens release version and digest."
+    },
+    {
+      "id": "prebuilt-source-ui",
+      "disposition": "documented source build requirement",
+      "detail": "pip install . does not compile the dashboard. Contributor guide now identifies npm ci and build_ui.sh to refresh local output. Official images and wheels use the release UI build. No generated legacy bundle is replaced in source."
+    },
+    {
+      "id": "clock-skew",
+      "disposition": "fixed",
+      "detail": "Both token verifiers permit issued-at up to five seconds ahead. Expired tokens, lifetime over 60 seconds, zero/negative lifetime, wrong signatures and wrong scope remain rejected."
+    },
+    {
+      "id": "permitted-team-scope",
+      "disposition": "fixed",
+      "detail": "Delegated Lens identity now uses the same permitted-team lookup and own-user fallback as native gateway traces. Administrators avoid permission database lookup; failed lookup never broadens access."
+    },
+    {
+      "id": "shared-service-signing-secret",
+      "disposition": "fixed",
+      "detail": "Standalone and both host charts generate distinct signing and service secrets, preserve them on Helm upgrade, and require both external references. Canonical docs and host chart READMEs document the distinction."
+    },
+    {
+      "id": "lens-classified-as-inference",
+      "disposition": "fixed",
+      "detail": "Lens paths leave the inference group. Lens still authorizes delegated users, including viewer POST reads. enforce_user_param continues to reject inference requests without user while allowing Lens management requests."
+    },
+    {
+      "id": "unknown-identity-fields",
+      "disposition": "retain strict validation",
+      "detail": "No current field mismatch exists. Rejecting unknown authenticated claims is intentional. A future identity schema change requires compatibility qualification and a contract version change where needed; accepting unknown claims is not a fix for a current regression."
+    },
+    {
+      "id": "runtime-vulnerability-gate",
+      "disposition": "fixed gate, final candidate scan still required",
+      "detail": "Both Lens native container CI lanes and publisher-owned native staging now scan for fixable high/critical findings before staging. Reports are retained even on failure; no package upgrade or custom advisory suppression was added."
+    },
+    {
+      "id": "old-lens-data",
+      "disposition": "known explicit clean-cutover gate",
+      "detail": "PostgreSQL rows are preserved. The packaged lens-migrate path and populated migration/recovery receipts already exist. Actual installation must stop writers and migrate before switching; no runtime compatibility layer was added."
+    },
+    {
+      "id": "64-mib-forwarding-buffer",
+      "disposition": "valid capacity concern, follow-up open",
+      "detail": "Request and response buffers are capped at 64 MiB, but that is a per-call cap. Aggregate forwarding memory still needs qualification or a Lens-only resource bound before final readiness. No arbitrary lower data limit or unrelated gateway throttle was introduced."
+    },
+    {
+      "id": "gitops-secrets",
+      "disposition": "documented supported deterministic path",
+      "detail": "Offline rendering cannot reuse lookup-generated credentials. The Helm guide now requires preprovisioned references and external supported ClickHouse for this path; it does not claim random output is deterministic."
+    },
+    {
+      "id": "public-key-checksum",
+      "disposition": "informational, not an independent trust anchor",
+      "detail": "The configured public key is the trust root; a checksum stored alongside it detects accidental mismatch only. Repository settings access is trusted, and the artifact-provided key is not accepted as authority. No trust-policy weakening was made."
+    }
+  ],
+  "checks": {
+    "gateway_auth": "975 passed, 13 deselected across Lens, route checks and selected auth checks; final Lens-focused replay 59 passed",
+    "rust_auth": "129 tests passed; cargo fmt and clippy passed",
+    "helm": "17 standalone tests and 98 host Lens tests passed",
+    "mutation_controls": "Restoring strict issued-at comparison, empty delegated teams, or inference-route classification caused the corresponding regressions to fail",
+    "publisher": "2637 tests passed, 100% statement and branch coverage, Ruff and strict mypy; source selection and scan gate pushed as b863349001878576c0bd64b3c645813384e10b3e",
+    "scope": "No Helm version, OpenSSL version, general CodeQL configuration or non-Lens runtime behavior was changed",
+    "gateway_required_checks": "make check passed, including Python lint/type gates, test-tree checks, dashboard lint and API-type synchronization. Existing dashboard warnings remain; no unrelated fixes were made."
+  },
+  "scan": {
+    "image": "lens:qualification-58466979",
+    "source": "5846697965ba06a0370f83220b12d217884df9da",
+    "digest": "sha256:7761c6e4cfa3882f80831120122ba42eb8e0053fbbd71005d1d4a70bd084ad75",
+    "scanner_version": "0.114.0",
+    "report_sha256": "8cc80bc527e1970defc9102c4adcf8e695ad2becf89490fe514e4412e22ee92e",
+    "fixable_high_or_critical": 0,
+    "unfixed_high_matches": 8,
+    "unfixed_high_advisories": [
+      "CVE-2026-54873",
+      "CVE-2026-72897",
+      "CVE-2026-84782",
+      "CVE-2026-84784"
+    ],
+    "limitation": "This is the earlier qualified image, not a final-candidate scan. Advisory records remain visible; no pre-existing dependency upgrades are within scope."
+  },
+  "qualified_source_hashes": {
+    "lens/src/worker/crates/auth/src/gateway.rs": "fd93721b87cc6f5b9b4b15b394a8610e70c19726d21894768ed5970dcbde2e6c",
+    "lens/helm/lens/templates/_secrets.tpl": "9d05fc61fda2f1b22efd27c5f7ce4c4bf5601f7d17e7b0a4c2ddb228922fa4d4",
+    "lens/helm/lens/templates/_deployment.tpl": "1196a1ed2f0f5c129855f26a63d0556d10ad1f725731e5b19b0f9e51a61088bc",
+    "lens/.github/workflows/lens-server.yml": "77ce114759c43fc00ee947202487226f81c19c1d2144c030b9b78cd99397c029",
+    "litellm/litellm/proxy/lens/adapter.py": "2e7512a2b129c22e7285228faf36aacbf322ab7120f3d62afa73223c58857f12",
+    "litellm/litellm/proxy/lens/internal.py": "c118aac85804a0cffe994dfcd55f5f4778a4cab48dc6764b145270bfa981216c",
+    "litellm/litellm/proxy/_types.py": "9f4e1dd56955ba897852b1f6bb65b5c3f81b6349e0ebd05225cdf898969fe3c0",
+    "litellm/litellm/proxy/auth/route_checks.py": "f05a7747cb9071cdcff30ffe445bdccec4a02f0deb5b55146350f7bd96604540"
+  }
+}

@@ -23,4 +23,8 @@ data:
 {{- if not .Values.adminTokenSecret.name }}
 {{ include "lens.secret" (dict "context" . "name" (include "lens.adminTokenSecretName" .) "key" .Values.adminTokenSecret.key) }}
 {{- end }}
+---
+{{- if and .Values.gateway.enabled (not .Values.gateway.secretName) }}
+{{ include "lens.secret" (dict "context" . "name" (include "lens.gatewaySecretName" .) "key" .Values.gateway.secretKey) }}
+{{- end }}
 {{- end -}}
