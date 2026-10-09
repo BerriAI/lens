@@ -76,6 +76,10 @@ jobs:
           node-version: 24.14.1
       - name: Recover populated deployment
         run: node deploy/lens/recovery-smoke.mjs lens:ci
+      - name: Check authentication and storage outage recovery
+        run: node deploy/lens/qualify-runtime.mjs lens:ci
+      - name: Migrate a read-only PostgreSQL fixture using the packaged command
+        run: node deploy/lens/qualify-migration.mjs lens:ci
       - name: Build calculation sandbox tests
         run: docker build --target smoke --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:smoke .
       - name: Check calculation confinement on the native kernel

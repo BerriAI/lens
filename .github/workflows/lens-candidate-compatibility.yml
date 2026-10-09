@@ -38,7 +38,7 @@ env:
   LENS_CURRENT_SHA: ${{ inputs.lens_current_sha }}
   GATEWAY_BASELINE_SHA: ${{ inputs.gateway_baseline_sha }}
   GATEWAY_CURRENT_SHA: ${{ inputs.gateway_current_sha }}
-  SMOKE_SOURCE_SHA: d171e208a18d3f3559e3a338f7769387e01749e5
+  SMOKE_SOURCE_SHA: ${{ inputs.gateway_current_sha }}
   IMAGE_RUN_ID: ${{ inputs.image_run_id || github.run_id }}
 
 jobs:
@@ -162,6 +162,13 @@ jobs:
       actions: read
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: [litellm-helm, litellm]
+    env:
+      LENS_QUALIFICATION_MODE: boundaries
+      LENS_HELM_CHART: ${{ matrix.chart }}
     steps:
       - name: Validate the image-producing workflow and successful build jobs
         env:
@@ -202,7 +209,7 @@ jobs:
           repository: BerriAI/litellm
           ref: ${{ env.SMOKE_SOURCE_SHA }}
           persist-credentials: false
-      - name: Record the fixed compatibility harness
+      - name: Record the candidate compatibility harness and charts
         run: |
           test "$(uname -m)" = x86_64
           test "$(git rev-parse HEAD)" = "$SMOKE_SOURCE_SHA"
@@ -300,8 +307,9 @@ jobs:
           tar -xzf "$RUNNER_TEMP/helm.tar.gz" -C "$RUNNER_TEMP" linux-amd64/helm
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
           echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
-      - name: Exercise installation, independent upgrades, rollback, restart, external and disabled modes
+      - name: Exercise lifecycle, tenant isolation, revocation and Lens outages
         run: |
+          export LENS_QUALIFICATION_RESULTS_DIR="$RUNNER_TEMP/candidate-qualification"
           started_at=$(date -u +%FT%TZ)
           status=0
           bash tests/e2e/migrations/lens_helm_smoke.sh 2>&1 \
@@ -327,7 +335,7 @@ jobs:
       - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         if: always()
         with:
-          name: lens-candidate-qualification-${{ github.run_id }}
+          name: lens-candidate-qualification-${{ matrix.chart }}-${{ github.run_id }}
           path: ${{ runner.temp }}/candidate-qualification/
           retention-days: 7
           if-no-files-found: error
