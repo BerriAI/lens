@@ -124,12 +124,15 @@ async fn run() -> Result<(), litellm_lens::Error> {
         config.github_service_url,
         config.github_service_enabled,
     )?
-    .with_local(
+    .with_models(
         state.clone(),
-        config.analysis_models,
-        config.evaluation_models,
+        litellm_lens::gateway::Models::new(
+            config.analysis_models,
+            config.evaluation_models,
+            config.gateway_inference,
+            config.gateway_models,
+        )?,
         &config.query_secret,
-        config.gateway_inference,
     )
     .await?
     .with_evaluations()?

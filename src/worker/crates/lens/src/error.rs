@@ -7,6 +7,30 @@ use litellm_traces_cache::ReadError;
 use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
+pub enum GatewayError {
+    #[error(
+        "Cannot reach the LiteLLM gateway. Check the URL and network connection, then refresh."
+    )]
+    Connection,
+    #[error(
+        "The LiteLLM gateway rejected model discovery (HTTP {status}). Check the gateway API key and model access."
+    )]
+    Rejected { status: u16 },
+    #[error("The gateway model catalog exceeded the response size limit.")]
+    ResponseLimit,
+    #[error(
+        "The gateway returned an invalid model catalog. Check that this URL serves LiteLLM /model_group/info."
+    )]
+    Response,
+    #[error("The gateway model catalog could not be loaded. Existing models remain available.")]
+    Models,
+    #[error(
+        "{count} gateway models are unavailable because their model type, pricing or token limits are missing or invalid."
+    )]
+    Metadata { count: usize },
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     GitHub(#[from] lens_server::github::GitHubError),

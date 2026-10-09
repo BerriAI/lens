@@ -65,6 +65,7 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
     #[case] budget: f64,
     #[case] expected: JobStatus,
     #[case] calls: usize,
+    #[values(false, true)] gateway: bool,
 ) {
     let provider = MockServer::start().await;
     let completion = json!({"result":{"observations":[],"cannot_assess":false,"reasoning":"The trace reports the invoice status"}});
@@ -73,9 +74,55 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
         "choices":[{"index":0,"message":{"role":"assistant","content":completion.to_string()},"finish_reason":"stop"}],
         "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
     }))).mount(&provider).await;
-    let server = database
-        .serve_models(true, vec![deployment(format!("{}/v1", provider.uri()))])
-        .await;
+    let server = if gateway {
+        Mock::given(method("GET"))
+            .and(path("/model_group/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[]})))
+            .up_to_n_times(1)
+            .mount(&provider)
+            .await;
+        let models = litellm_lens::gateway::Models::new(
+            vec![],
+            vec![],
+            None,
+            Some(
+                litellm_lens::gateway::GatewayConfig::new(
+                    &provider.uri(),
+                    "gateway-fixture-key".into(),
+                )
+                .unwrap(),
+            ),
+        )
+        .unwrap();
+        let server = database.serve_registry(true, models).await;
+        let initial: LensList = reqwest::Client::new()
+            .get(format!("{}/lens", server.url))
+            .bearer_auth(ADMIN)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(initial.workers[0].analysis_key_id.is_none());
+        Mock::given(method("GET")).and(path("/model_group/info")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[{"model_group":"test-analysis","mode":"chat","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_input_tokens":1000000,"max_output_tokens":4096}]}))).mount(&provider).await;
+        let refreshed: Value = reqwest::Client::new()
+            .post(format!("{}/lens/gateway/refresh", server.url))
+            .bearer_auth(ADMIN)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(refreshed["connected"], true);
+        assert_eq!(refreshed["analysis_models"], 1);
+        server
+    } else {
+        database
+            .serve_models(true, vec![deployment(format!("{}/v1", provider.uri()))])
+            .await
+    };
     let client = reqwest::Client::new();
     let readiness: LensList = client
         .get(format!("{}/lens", server.url))
@@ -166,7 +213,13 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
         1
     );
     assert!(completed.reservations.is_empty());
-    let requests = provider.received_requests().await.unwrap();
+    let requests: Vec<_> = provider
+        .received_requests()
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|request| request.method == "POST")
+        .collect();
     assert_eq!(requests.len(), calls);
     if expected == JobStatus::Completed {
         assert_eq!(completed.jobs[0].coverage.screened, 1);

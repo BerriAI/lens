@@ -113,6 +113,18 @@ impl Database {
         standalone: bool,
         models: Vec<lens_analysis::Deployment>,
     ) -> Server {
+        self.serve_registry(
+            standalone,
+            litellm_lens::gateway::Models::new(models, vec![], None, None).unwrap(),
+        )
+        .await
+    }
+
+    pub async fn serve_registry(
+        &self,
+        standalone: bool,
+        models: litellm_lens::gateway::Models,
+    ) -> Server {
         let client = http_client().unwrap();
         let config = Config::new(self.name.clone(), &self.url, 14, 65_536).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
@@ -144,7 +156,7 @@ impl Database {
         .with_service(state.clone(), url.clone(), "standalone-test".into());
         let application = if standalone {
             application
-                .with_local(state.clone(), models, vec![], ADMIN, None)
+                .with_models(state.clone(), models, ADMIN)
                 .await
                 .unwrap()
                 .with_evaluations()

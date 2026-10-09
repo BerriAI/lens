@@ -7,6 +7,7 @@ import { liveEvalRunsApi, type EvalRunsApi } from "../evals/runs/client";
 import type {
   ActivitySelection,
   AnalysisModelInfo,
+  GatewayStatus,
   Job,
   Lens,
   LensList,
@@ -36,6 +37,8 @@ export interface LensApi {
   agents(): Promise<string[]>;
   models(): Promise<{ data: { id: string }[] }>;
   modelDetails(): Promise<{ data: AnalysisModelInfo[] }>;
+  gateway(): Promise<GatewayStatus>;
+  refreshGateway(): Promise<GatewayStatus>;
   saveLens(id: string | undefined, settings: Settings): Promise<Lens>;
   startRun(lensId: string, request?: RunWindow): Promise<void>;
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
@@ -118,6 +121,8 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     agents: () => required(client.GET("/lens/agents", { headers })),
     models: () => apiClient.get("/lens/models", { accessToken }),
     modelDetails: () => apiClient.get("/lens/model_group/info", { accessToken }),
+    gateway: () => apiClient.get("/lens/gateway", { accessToken }),
+    refreshGateway: () => apiClient.post("/lens/gateway/refresh", { accessToken }),
     saveLens: (id, settings) =>
       required(
         id

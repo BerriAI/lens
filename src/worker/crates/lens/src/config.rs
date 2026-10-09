@@ -22,6 +22,7 @@ pub struct Config {
     pub analysis_models: Vec<lens_analysis::Deployment>,
     pub evaluation_models: Vec<lens_decisions::Deployment>,
     pub gateway_inference: Option<lens_inference::GatewayIdentity>,
+    pub gateway_models: Option<crate::gateway::GatewayConfig>,
     pub gateway_service_token: Option<String>,
     pub eval_judge_api_key: Option<String>,
     pub eval_judge_model: Option<String>,
@@ -97,6 +98,7 @@ impl Config {
             analysis_models: analysis::read(&read)?,
             evaluation_models: evaluation::read(&read)?,
             gateway_inference: gateway_inference(&read)?,
+            gateway_models: gateway_models(&read)?,
             datasets: dataset_config(&read),
             traces: trace_config(&read)?,
             authentication: lens_auth::Settings::new(
@@ -174,6 +176,21 @@ fn gateway_inference(
         .map_err(|_| Error::Configuration("LENS_GATEWAY_URL and LENS_GATEWAY_SECRET"))
 }
 
+fn gateway_models(
+    read: &impl Fn(&str) -> Option<String>,
+) -> Result<Option<crate::gateway::GatewayConfig>, Error> {
+    match (
+        read("LENS_GATEWAY_API_BASE").filter(|value| !value.trim().is_empty()),
+        read("LENS_GATEWAY_API_KEY").filter(|value| !value.trim().is_empty()),
+    ) {
+        (None, None) => Ok(None),
+        (Some(base), Some(key)) => crate::gateway::GatewayConfig::new(&base, key).map(Some),
+        _ => Err(Error::Configuration(
+            "Set both LENS_GATEWAY_API_BASE and LENS_GATEWAY_API_KEY",
+        )),
+    }
+}
+
 fn dataset_config(read: impl Fn(&str) -> Option<String>) -> lens_server::datasets::DatasetConfig {
     lens_server::datasets::DatasetConfig {
         limits: lens_datasets::Limits {
@@ -248,6 +265,28 @@ mod tests {
     use crate::Error;
     use rstest::{fixture, rstest};
     use std::collections::BTreeMap;
+
+    #[rstest]
+    #[case::absent(None, None, true, false)]
+    #[case::key_only(None, Some("fixture-key"), false, false)]
+    #[case::base_only(Some("https://gateway.test"), None, false, false)]
+    #[case::connected(Some("https://gateway.test/v1"), Some("fixture-key"), true, true)]
+    fn gateway_discovery_requires_both_connection_fields(
+        #[case] base: Option<&str>,
+        #[case] key: Option<&str>,
+        #[case] valid: bool,
+        #[case] configured: bool,
+    ) {
+        let result = super::gateway_models(&|name| match name {
+            "LENS_GATEWAY_API_BASE" => base.map(str::to_owned),
+            "LENS_GATEWAY_API_KEY" => key.map(str::to_owned),
+            _ => None,
+        });
+        assert_eq!(result.is_ok(), valid);
+        if valid {
+            assert_eq!(result.unwrap().is_some(), configured);
+        }
+    }
 
     #[rstest]
     #[case::absent(None, None, true, false)]

@@ -287,6 +287,40 @@ async fn an_unconfigured_model_catalog_is_empty_and_authorized(
 }
 
 #[rstest]
+#[case::anonymous_read(None, "GET", "/lens/gateway", 401)]
+#[case::anonymous_refresh(None, "POST", "/lens/gateway/refresh", 401)]
+#[case::team_read(Some(Role::InternalUser), "GET", "/lens/gateway", 403)]
+#[case::viewer_read(Some(Role::ProxyAdminViewer), "GET", "/lens/gateway", 200)]
+#[case::viewer_refresh(Some(Role::ProxyAdminViewer), "POST", "/lens/gateway/refresh", 403)]
+#[case::admin_refresh(Some(Role::ProxyAdmin), "POST", "/lens/gateway/refresh", 200)]
+#[tokio::test]
+async fn gateway_discovery_is_admin_only_and_status_is_viewer_readable(
+    #[future(awt)] database: Database,
+    #[case] role: Option<Role>,
+    #[case] method: &str,
+    #[case] path: &str,
+    #[case] expected: u16,
+) {
+    let server = database.serve(true).await;
+    let request = server
+        .client
+        .request(method.parse().unwrap(), server.url.join(path).unwrap());
+    let request = match role {
+        Some(role) => request.bearer_auth(delegated(Identity {
+            user_role: role,
+            user_id: Some("caller".into()),
+            ..Identity::default()
+        })),
+        None => request,
+    };
+    let response = request.send().await.unwrap();
+    assert_eq!(response.status(), expected);
+    if expected == 200 {
+        assert_eq!(response.json::<Value>().await.unwrap()["configured"], false);
+    }
+}
+
+#[rstest]
 #[case::agents("/lens/agents")]
 #[case::availability("/lens/activity/available")]
 #[case::preview("/lens/preview/sample")]

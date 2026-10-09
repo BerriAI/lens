@@ -15,6 +15,7 @@ use tokio::task::JoinHandle;
 
 use crate::{Error, State, local_credentials::LocalCredentials, storage::TraceApi};
 use lens_investigations::WorkerRepository;
+use lens_server::models::ModelCatalog;
 use sha2::{Digest, Sha256};
 
 pub struct EvalConfig {
@@ -61,41 +62,31 @@ impl Application {
     }
 
     pub async fn with_local(
-        mut self,
+        self,
         state: Arc<State>,
         deployments: Vec<lens_analysis::Deployment>,
         evaluation_deployments: Vec<lens_decisions::Deployment>,
         seed: &str,
         gateway: Option<lens_inference::GatewayIdentity>,
     ) -> Result<Self, Error> {
-        let catalog = lens_analysis::bundled_catalog()?;
-        let models = Arc::new(
-            lens_analysis::AnalysisModels::new(catalog.clone(), deployments, Default::default())?
-                .with_gateway(gateway.clone()),
-        );
-        let evaluation = Arc::new(
-            lens_decisions::EvaluationModels::new(
-                catalog,
-                evaluation_deployments,
-                Default::default(),
-            )?
-            .with_gateway(gateway),
-        );
-        if evaluation
-            .models()
-            .iter()
-            .any(|alias| models.models().contains(alias))
-        {
-            return Err(Error::Configuration(
-                "Analysis and evaluation model aliases must be different",
-            ));
-        }
+        let models =
+            crate::gateway::Models::new(deployments, evaluation_deployments, gateway, None)?;
+        self.with_models(state, models, seed).await
+    }
+
+    pub async fn with_models(
+        mut self,
+        state: Arc<State>,
+        models: crate::gateway::Models,
+        seed: &str,
+    ) -> Result<Self, Error> {
+        models.refresh().await;
         let signals = crate::signals::SignalsWorker {
             repository: litellm_storage_clickhouse::signals::Signals(
                 self.authentication.sessions.0.clone(),
             ),
             sources: crate::SourceReader(state.clone()),
-            models: evaluation,
+            models: models.clone(),
         };
         let repository = litellm_storage_clickhouse::investigations::Investigations(
             self.authentication.sessions.0.clone(),
@@ -114,7 +105,7 @@ impl Application {
             },
             last_seen: chrono::Utc::now(),
             revoked: false,
-            analysis_key_id: (!models.models().is_empty()).then(|| token_hash.clone()),
+            analysis_key_id: (!models.analysis().models().is_empty()).then(|| token_hash.clone()),
         };
         repository
             .configure_service_worker(&worker, &token_hash)
@@ -122,7 +113,7 @@ impl Application {
         let control = crate::local::LocalControl::new(
             repository,
             crate::SourceReader(state),
-            models,
+            models.clone(),
             token_hash,
         );
         self.router = self
@@ -137,19 +128,14 @@ impl Application {
                 control.repository.clone(),
                 Some(control.sources.clone()),
             ))
-            .merge(lens_server::models::router(
+            .merge(lens_server::models::with_catalog(
                 self.authentication.clone(),
-                control
-                    .models
-                    .model_groups()
-                    .into_iter()
-                    .chain(signals.models.model_groups())
-                    .collect(),
+                models.clone(),
             ))
-            .merge(lens_server::signals::router(
+            .merge(lens_server::signals::with_catalog(
                 self.authentication.clone(),
                 signals.repository.clone(),
-                signals.models.models(),
+                models,
             ));
         self.local_worker = Some(control);
         self.signals_worker = Some(signals);

@@ -351,7 +351,7 @@ describe("AgentTracesSection", () => {
     expect(lead).toBeDefined();
     const failed = rows.find((row) => row.textContent?.includes("acme-404")) as HTMLElement;
     expect(within(failed).queryByLabelText("2 errors")).not.toBeInTheDocument();
-    expect(await within(failed).findByTitle("No conclusive investigation for this trace")).toHaveTextContent("-");
+    expect(await within(failed).findByTitle("No completed analysis for this trace")).toHaveTextContent("-");
     expect(screen.getByRole("columnheader", { name: "Findings" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Failed" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Cost" })).toBeInTheDocument();
@@ -369,9 +369,9 @@ describe("AgentTracesSection", () => {
       })),
     );
     renderSection();
-    expect(await screen.findByTitle("No conclusive investigation for this trace")).toHaveTextContent("-");
-    expect(await screen.findByTitle("0 findings from completed investigations")).toHaveTextContent("0");
-    expect(await screen.findByTitle("3 findings from completed investigations")).toHaveTextContent("3");
+    expect(await screen.findByTitle("No completed analysis for this trace")).toHaveTextContent("-");
+    expect(await screen.findByTitle("0 findings from completed analysis")).toHaveTextContent("0");
+    expect(await screen.findByTitle("3 findings from completed analysis")).toHaveTextContent("3");
   });
 
   it("keeps failure labels out of the run totals above the findings table", async () => {
@@ -390,7 +390,7 @@ describe("AgentTracesSection", () => {
     stubPost(() => Promise.reject(new ApiError("Unavailable", 503, {})));
     renderSection();
     expect(await screen.findByTitle("Could not load findings")).toHaveTextContent("Unavailable");
-    expect(screen.queryByTitle("No conclusive investigation for this trace")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("No completed analysis for this trace")).not.toBeInTheDocument();
   });
 
   it("keeps the column picker open when findings finish loading", async () => {
@@ -405,7 +405,7 @@ describe("AgentTracesSection", () => {
     await act(async () => {
       pending.resolve([{ trace_id: runs[0].trace_id, trace_ref: runs[0].trace_ref ?? "", finding_count: 1 }]);
     });
-    expect(await screen.findByTitle("1 findings from completed investigations")).toBeVisible();
+    expect(await screen.findByTitle("1 findings from completed analysis")).toBeVisible();
     expect(screen.getByTestId("view-option-cost")).toBeVisible();
   });
 

@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  Activity,
-  Bot,
-  Database,
-  FlaskConical,
-  House,
-  ScanSearch,
-  Settings,
-  Sparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { Activity, Bot, Database, FlaskConical, House, Settings, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cva.config";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
@@ -31,7 +21,6 @@ const NAVIGATION_ITEMS = [
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },
   { value: "findings", label: "Findings", icon: Sparkles },
-  { value: "investigations", label: "Investigations", icon: ScanSearch },
   { value: "datasets", label: "Datasets", icon: Database },
   { value: "evals", label: "Evals", icon: FlaskConical },
 ] as const;
@@ -45,9 +34,7 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
       value={value}
       title={status ?? (collapsed ? label : undefined)}
       onClick={() => onNavigate(value)}
-      aria-description={
-        value === "investigations" && activity !== "idle" ? `An investigation is ${activity}` : undefined
-      }
+      aria-description={value === "findings" && activity !== "idle" ? `Analysis is ${activity}` : undefined}
       className={cn(
         "flex-none gap-2.5 text-[13px] font-medium text-muted-foreground data-active:text-foreground data-active:shadow-none",
         vertical
@@ -58,7 +45,7 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
     >
       <Icon aria-hidden="true" className="size-4" />
       <span className={cn(collapsed && "sr-only")}>{label}</span>
-      {value === "investigations" && activity !== "idle" && (
+      {value === "findings" && activity !== "idle" && (
         <span
           aria-hidden="true"
           className={cn(

@@ -322,7 +322,7 @@ export function FindingDetails({
             </span>
             {runs > 0 && (
               <span className="font-mono text-[10px] tabular-nums">
-                Found across {runs} investigation {runs === 1 ? "run" : "runs"}
+                Found across {runs} analysis {runs === 1 ? "run" : "runs"}
               </span>
             )}
           </div>

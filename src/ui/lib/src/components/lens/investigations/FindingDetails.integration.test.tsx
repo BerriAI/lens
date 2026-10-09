@@ -180,7 +180,7 @@ it("shows contributing investigation runs and every affected trace, including ol
   };
   renderWithLens(<Harness current={current} onReview={vi.fn()} />);
   expect(screen.getByText("1 affected trace")).toBeVisible();
-  expect(screen.getByText("Found across 2 investigation runs")).toBeVisible();
+  expect(screen.getByText("Found across 2 analysis runs")).toBeVisible();
   const example = screen.getByRole("article", { name: "Trace older-tr" });
   expect(within(example).getByText("No quote was retained for this trace.")).toBeVisible();
   expect(within(example).getByRole("button", { name: "View trace" })).toBeVisible();
