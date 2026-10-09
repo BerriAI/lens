@@ -1,7 +1,10 @@
+#![forbid(unsafe_code)]
+
 mod error;
 mod insert;
 mod migrate;
 mod read;
+pub mod state;
 
 pub use error::Error;
 pub use insert::{insert_compressed_rows, insert_encoded_rows};

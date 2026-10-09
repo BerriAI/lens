@@ -29,7 +29,7 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    fn encoded(&self) -> String {
+    pub(crate) fn encoded(&self) -> String {
         match self {
             Self::Text(value) => escaped(value),
             Self::Integer(value) => value.to_string(),

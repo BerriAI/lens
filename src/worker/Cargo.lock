@@ -2237,15 +2237,18 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "litellm-http",
+ "rand 0.8.7",
  "rstest",
  "serde",
  "serde_json",
  "serde_with",
+ "sha2 0.10.9",
  "sqlx",
  "testcontainers-modules",
  "thiserror 2.0.19",
  "tokio",
  "url",
+ "uuid",
  "wiremock",
 ]
 

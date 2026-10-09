@@ -12,8 +12,11 @@ litellm-http.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
+sha2.workspace = true
+rand.workspace = true
 sqlx = { workspace = true, features = ["migrate"] }
 thiserror.workspace = true
+tokio.workspace = true
 url.workspace = true
 
 [dev-dependencies]
@@ -22,3 +25,4 @@ rstest.workspace = true
 testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 tokio.workspace = true
 wiremock.workspace = true
+uuid.workspace = true

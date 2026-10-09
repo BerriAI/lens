@@ -1,0 +1,20 @@
+[
+  {
+    "key": "scalars",
+    "revision": 1,
+    "digest": "bb0dce2e92fd562a76635a7c2624ff3647d54ec1bc3abe0950eed4824d8a4ad0",
+    "data": "[null,true,false,0,-1,0.25,1e-07,1e+30]"
+  },
+  {
+    "key": "unicode",
+    "revision": 1,
+    "digest": "d09ae9d64fa56ccec609ba9ad5664b6e5c5398e6011610e40db9a8e83fa9c9c9",
+    "data": "{\"nested\":[{\"a\":1,\"z\":2}],\"text\":\"λ 雪\\n\\t\\u0000 \\\\ \\\"quotes\\\"\"}"
+  },
+  {
+    "key": "tombstone",
+    "revision": 1,
+    "digest": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "data": "null"
+  }
+]

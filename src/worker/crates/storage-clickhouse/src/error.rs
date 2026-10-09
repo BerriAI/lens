@@ -30,4 +30,14 @@ pub enum Error {
     InvalidResponse,
     #[error("ClickHouse query transport failed")]
     Transport,
+    #[error("state changed before publication")]
+    StateConflict,
+    #[error("state head already exists")]
+    StateExists,
+    #[error("invalid state commit")]
+    InvalidState,
+    #[error("state payload is not available")]
+    StateUnavailable,
+    #[error("ClickHouse state command failed with HTTP status {status} and code {code:?}")]
+    StateFailed { status: u16, code: Option<u32> },
 }

@@ -1,0 +1,14 @@
+Found 90 mutants to test
+ok       Unmutated baseline in 43s build + 2s test
+MISSED   crates/storage-clickhouse/src/state.rs:141:56: replace * with + in ClickHouseState::read_many in 2s build + 3s test
+MISSED   crates/storage-clickhouse/src/state.rs:141:56: replace * with / in ClickHouseState::read_many in 3s build + 3s test
+MISSED   crates/storage-clickhouse/src/state.rs:141:67: replace + with * in ClickHouseState::read_many in 2s build + 3s test
+MISSED   crates/storage-clickhouse/src/state.rs:279:61: replace * with + in ClickHouseState::update in 2s build + 8s test
+MISSED   crates/storage-clickhouse/src/state.rs:279:61: replace * with / in ClickHouseState::update in 4s build + 4s test
+MISSED   crates/storage-clickhouse/src/state.rs:279:82: replace + with * in ClickHouseState::update in 5s build + 7s test
+MISSED   crates/storage-clickhouse/src/state/transport.rs:17:19: replace > with == in command in 3s build + 3s test
+MISSED   crates/storage-clickhouse/src/state/transport.rs:17:19: replace > with >= in command in 3s build + 4s test
+MISSED   crates/storage-clickhouse/src/state/transport.rs:70:24: replace > with == in command in 3s build + 3s test
+MISSED   crates/storage-clickhouse/src/state/transport.rs:70:24: replace > with >= in command in 3s build + 2s test
+MISSED   crates/storage-clickhouse/src/state/transport.rs:70:41: replace - with + in command in 3s build + 3s test
+90 mutants tested in 6m: 11 missed, 65 caught, 14 unviable

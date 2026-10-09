@@ -1,0 +1,11 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/runtime/crates/storage-clickhouse)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.28s
+     Running tests/state.rs (target/debug/deps/state-78d9f875e4378470)
+
+running 1 test
+test isolated_container_restart_preserves_commits_and_fencing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 6.38s

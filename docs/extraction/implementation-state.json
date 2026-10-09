@@ -17,7 +17,7 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Standalone tracing startup and browser sign-in work with Rust and ClickHouse; analysis setup, full E2E, storage migration and cross-repository qualification remain incomplete",
+    "readiness": "Standalone tracing still uses the Python API; the ClickHouse application-state foundation is ported to Rust. Rust HTTP/domain integration, analysis setup, full E2E, storage migration and cross-repository qualification remain incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
@@ -61,9 +61,11 @@
     "Verified configuration, API startup, session/key/dataset persistence and runtime readiness with 15 focused checks and three rejected mutations",
     "Replayed one copied OpenAI Agents fixture through the actual Rust service into ClickHouse and opened its six spans in the live standalone browser; delivery receipt confirmed",
     "Fixed standalone login remaining on the sign-in screen after a successful response; browser now enters Lens without reload",
-    "Fast-forwarded concurrent Lens SDK changes from main through a7e137b5 without changing their source"
+    "Fast-forwarded concurrent Lens SDK changes from main through a7e137b5 without changing their source",
+    "Removed unfinished Python analysis additions after the user changed the backend target to Rust",
+    "Ported generic ClickHouse/Keeper application state to the existing Rust storage crate, with Python storage fixtures, concurrency checks, corruption and size bounds, and a forced container restart"
   ],
-  "current_work": "Implement standalone analysis provider/model/key configuration, update onboarding for standalone use, qualify worker and signal operation with real providers, then finish migrations, release artifacts and LiteLLM/ops/publisher integration",
+  "current_work": "Port control-plane contracts, authentication, sessions and repositories to Rust following the layout move, then complete provider-backed analysis, migrations, release artifacts and LiteLLM/ops/publisher integration",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -335,7 +337,8 @@
       "status": "not_run",
       "evidence": [
         "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
       ]
     },
     "D3": {
@@ -366,7 +369,8 @@
       "evidence": [
         "docs/extraction/evidence/clickhouse-state-budget.log (partial: claims and settlement primitive)",
         "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
       ]
     },
     "C3": {
@@ -374,13 +378,15 @@
       "evidence": [
         "docs/extraction/evidence/clickhouse-state-budget.log (partial: coupled record publication primitive)",
         "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
       ]
     },
     "C4": {
       "status": "not_run",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-restart-result.json (partial: restart only; restore and reclamation pending)"
+        "docs/extraction/evidence/clickhouse-restart-result.json (partial: restart only; restore and reclamation pending)",
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
       ]
     },
     "C5": {
@@ -557,5 +563,13 @@
     "authorized_by": "User answer on 2026-10-08",
     "status": "retained"
   },
-  "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger"
+  "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger",
+  "rust_migration": {
+    "language_decision": "User superseded the earlier Rust/Python split and requires the backend in Rust",
+    "layout_specification": "docs/rust-migration.md",
+    "state_port": "Implemented in storage-clickhouse; not yet substituted into the application",
+    "api_routes_still_owned_by_python": 58,
+    "parity_and_completion_scope": "All completion-plan.md requirements retained, including embedded Lens and companion repositories",
+    "evidence": "docs/extraction/rust-state.md"
+  }
 }

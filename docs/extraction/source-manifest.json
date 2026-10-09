@@ -288,7 +288,7 @@
       "destination": "runtime/Cargo.lock",
       "sha256": "838afc5c347d3c085bdf4cea0921dfcec5927eaaee64918c8f51ac65edffa74d",
       "change": "adapted_during_extraction",
-      "extracted_sha256": "f8636392b26e8d3a208f0e89647b0084d2f75d1991d5e407f3da15ddafa00420",
+      "extracted_sha256": "b095a745d171c826f4399d38854138511bbf7b291584179e4efef95731ea0527",
       "baseline_identical": false
     },
     {
@@ -591,17 +591,17 @@
       "source": "litellm-rust/crates/storage-clickhouse/Cargo.toml",
       "destination": "runtime/crates/storage-clickhouse/Cargo.toml",
       "sha256": "065c580267c83791597da4f883c17fa33a40b52a901583d14ecd24a73d3cf28c",
-      "change": "unchanged",
-      "extracted_sha256": "065c580267c83791597da4f883c17fa33a40b52a901583d14ecd24a73d3cf28c",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "0d595d502d122af6ddbd194838fe72297c11310a97209f473aa36feb2c24c478",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/storage-clickhouse/src/error.rs",
       "destination": "runtime/crates/storage-clickhouse/src/error.rs",
       "sha256": "35eed94b4e17d659e4c1283e6b1fd050f485c5806a89b143e85d17a867f356c8",
-      "change": "unchanged",
-      "extracted_sha256": "35eed94b4e17d659e4c1283e6b1fd050f485c5806a89b143e85d17a867f356c8",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "e6736d1abee06bd7a792dd68e2b330467884c588173ba8cf7eb03ef8faa2cb2c",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/storage-clickhouse/src/insert.rs",
@@ -615,9 +615,9 @@
       "source": "litellm-rust/crates/storage-clickhouse/src/lib.rs",
       "destination": "runtime/crates/storage-clickhouse/src/lib.rs",
       "sha256": "219b13f5020c5b071b64ead1c4e87390d2c71aaf8b1dc3b5e69fd0975a4aa1e3",
-      "change": "unchanged",
-      "extracted_sha256": "219b13f5020c5b071b64ead1c4e87390d2c71aaf8b1dc3b5e69fd0975a4aa1e3",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "7ecd746fb82c1cc1cf76fd8f97f4ec2b79f212dea172cfa178d054f17d970cb3",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/storage-clickhouse/src/migrate.rs",
@@ -631,9 +631,9 @@
       "source": "litellm-rust/crates/storage-clickhouse/src/read.rs",
       "destination": "runtime/crates/storage-clickhouse/src/read.rs",
       "sha256": "efe37d30a3c2569cf376e3f9228806e1c1949e7d7ad73a05bb70c9d0014fef18",
-      "change": "unchanged",
-      "extracted_sha256": "efe37d30a3c2569cf376e3f9228806e1c1949e7d7ad73a05bb70c9d0014fef18",
-      "baseline_identical": true
+      "change": "adapted_during_extraction",
+      "extracted_sha256": "88cc9d453dd2ea37297e6cbcb67911aa7d9dc502e7f91600adec8d3d8021dca7",
+      "baseline_identical": false
     },
     {
       "source": "litellm-rust/crates/storage-clickhouse/tests/connection.rs",
