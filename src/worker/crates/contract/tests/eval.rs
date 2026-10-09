@@ -82,17 +82,24 @@ fn golden_fixtures_round_trip(#[case] fixture: &str) {
 }
 
 #[rstest]
-#[case::create_eval_run("CreateEvalRun", serialized_keys(&serde_json::from_str::<CreateEvalRun>(CREATE_RUN).unwrap()))]
-#[case::eval_run("EvalRun", serialized_keys(&serde_json::from_str::<EvalRun>(RUN_DONE).unwrap()))]
-#[case::case_result("CaseResult", serialized_keys(&serde_json::from_str::<CaseResult>(RESULT_TRACE).unwrap()))]
-#[case::gate("Gate", serialized_keys(&Gate::default()))]
-#[case::eval_definition("EvalDefinition", serialized_keys(&serde_json::from_str::<EvalDefinition>(DEFINITION).unwrap()))]
-#[case::run_case("RunCase", serialized_keys(&serde_json::from_str::<RunCase>(RUN_CASE).unwrap()))]
+#[case::create_eval_run("CreateEvalRun", serialized_keys(&serde_json::from_str::<CreateEvalRun>(CREATE_RUN).unwrap()), BTreeSet::from(["agent_io".into()]))]
+#[case::eval_run("EvalRun", serialized_keys(&serde_json::from_str::<EvalRun>(RUN_DONE).unwrap()), BTreeSet::new())]
+#[case::case_result("CaseResult", serialized_keys(&serde_json::from_str::<CaseResult>(RESULT_TRACE).unwrap()), BTreeSet::from(["output".into()]))]
+#[case::gate("Gate", serialized_keys(&Gate::default()), BTreeSet::new())]
+#[case::eval_definition("EvalDefinition", serialized_keys(&serde_json::from_str::<EvalDefinition>(DEFINITION).unwrap()), BTreeSet::new())]
+#[case::run_case("RunCase", serialized_keys(&serde_json::from_str::<RunCase>(RUN_CASE).unwrap()), BTreeSet::new())]
 fn rust_types_match_the_checked_in_schema(
     #[case] definition: &str,
     #[case] rust_keys: BTreeSet<String>,
+    #[case] absent_optional_keys: BTreeSet<String>,
 ) {
-    assert_eq!(rust_keys, schema_properties(definition));
+    assert_eq!(
+        rust_keys
+            .union(&absent_optional_keys)
+            .cloned()
+            .collect::<BTreeSet<_>>(),
+        schema_properties(definition)
+    );
 }
 
 #[rstest]
@@ -106,6 +113,13 @@ fn saved_eval_spec_keeps_the_defaults_used_by_a_new_run() {
     assert_eq!(spec.baseline, "main");
     assert_eq!(spec.gate, Gate::default());
     assert_eq!(spec.timeout_per_trial_ms, DEFAULT_TIMEOUT_PER_TRIAL_MS);
+    assert!(spec.agent_io.is_none());
+    assert!(
+        serde_json::to_value(spec)
+            .unwrap()
+            .get("agent_io")
+            .is_none()
+    );
 }
 
 #[test]
@@ -211,15 +225,26 @@ fn error(message: &str) -> Option<CaseError> {
 
 #[rstest]
 #[case::trace_only(CaseResult { trace: trace(), ..CaseResult::default() }, Ok(()))]
+#[case::output_only(CaseResult { output: Some("Answer".into()), ..CaseResult::default() }, Ok(()))]
+#[case::trace_and_output(CaseResult { trace: trace(), output: Some("Answer".into()), ..CaseResult::default() }, Ok(()))]
 #[case::error_only(CaseResult { error: error("boom"), ..CaseResult::default() }, Ok(()))]
 #[case::neither(
     CaseResult::default(),
-    Err(InvalidCaseResult::NeedsExactlyOneOfTraceOrError)
+    Err(InvalidCaseResult::NeedsOutputOrTraceOrError)
 )]
 #[case::both(
     CaseResult { trace: trace(), error: error("boom"), ..CaseResult::default() },
-    Err(InvalidCaseResult::NeedsExactlyOneOfTraceOrError)
+    Err(InvalidCaseResult::NeedsOutputOrTraceOrError)
 )]
+#[case::output_and_error(
+    CaseResult { output: Some("Answer".into()), error: error("boom"), ..CaseResult::default() },
+    Err(InvalidCaseResult::NeedsOutputOrTraceOrError)
+)]
+#[case::blank_output(
+    CaseResult { output: Some(" \n".into()), ..CaseResult::default() },
+    Ok(())
+)]
+#[case::empty_output(CaseResult { output: Some(String::new()), ..CaseResult::default() }, Ok(()))]
 #[case::blank_trace(
     CaseResult { trace: Some(TraceRef { attribute: TraceAttribute::SessionId, value: " ".into() }), ..CaseResult::default() },
     Err(InvalidCaseResult::EmptyTraceValue)
@@ -242,6 +267,17 @@ fn case_result_validation(
     #[case] expected: Result<(), InvalidCaseResult>,
 ) {
     assert_eq!(result.validate(), expected);
+}
+
+#[rstest]
+fn legacy_result_does_not_add_an_output_field() {
+    let result: CaseResult = serde_json::from_str(RESULT_TRACE).unwrap();
+    assert!(
+        serde_json::to_value(result)
+            .unwrap()
+            .get("output")
+            .is_none()
+    );
 }
 
 #[test]

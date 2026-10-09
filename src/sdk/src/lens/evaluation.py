@@ -115,9 +115,9 @@ class Eval:
 
         async def invoke(payload: str) -> str:
             if stopped.is_set():
-                return CaseResult(
-                    error=CaseError(type="CancelledError", message="Evaluation stopped")
-                ).model_dump_json()
+                return CaseResult(error=CaseError(type="CancelledError", message="Evaluation stopped")).model_dump_json(
+                    exclude={"output"}
+                )
             case: Final = TypeAdapter(Case).validate_json(payload)
 
             async def call() -> Run:
@@ -134,11 +134,11 @@ class Eval:
                 )
                 return CaseResult(
                     trace=TraceRef(attribute=attribute, value=value.trace[attribute]), cost_usd=value.cost_usd
-                ).model_dump_json()
+                ).model_dump_json(exclude={"output"})
             except Exception as error:
                 return CaseResult(
                     error=CaseError(type=type(error).__name__, message=redact(str(error)))
-                ).model_dump_json()
+                ).model_dump_json(exclude={"output"})
             finally:
                 running.discard(child)
 

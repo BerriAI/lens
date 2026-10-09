@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Self
 
@@ -38,3 +38,10 @@ class Execution:
     @classmethod
     def github(cls) -> Self:
         return TypeAdapter(cls).validate_json(_native.execution(str(Path.cwd()), True))
+
+    @classmethod
+    def named(cls, *, ci: bool | None = None) -> Self:
+        github: Final = os.environ.get("GITHUB_ACTIONS") == "true" if ci is None else ci
+        context: Final = cls.github() if github else cls.local()
+        version: Final = os.environ.get("LENS_VERSION", "").strip()
+        return replace(context, version=version) if version else context

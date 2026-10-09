@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Final, Literal
@@ -8,6 +9,7 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import _native
+from .client import Lens
 from .config import Execution, Settings
 from .discovery import discover
 from .errors import LensError
@@ -21,6 +23,7 @@ class Arguments(BaseModel):
     command: str
     path: str | None = None
     name: str | None = None
+    eval_name: str | None = None
     ci: bool = False
     json_output: bool = Field(default=False, alias="json")
     code: int = 0
@@ -49,6 +52,12 @@ async def run_one(evaluation: Eval, settings: Settings, execution: Execution) ->
 
 async def evaluate(args: Arguments, mode: Literal["eval", "doctor"]) -> int:
     settings: Final = Settings.load(Path.cwd())
+    if args.eval_name is not None:
+        execution: Final = Execution.named(ci=args.ci)
+        report: Final = await Lens(settings.endpoint(), os.environ.get("LENS_API_KEY", "")).evals.arun(
+            args.eval_name, execution=execution
+        )
+        return display((report,), args)
     with contextlib.redirect_stdout(sys.stderr):
         evaluations: Final = discover(Path(args.path or settings.evals), args.name)
     if mode == "doctor":
@@ -67,8 +76,12 @@ async def evaluate(args: Arguments, mode: Literal["eval", "doctor"]) -> int:
             )
         return 0 if diagnosis.ok else 2
     with contextlib.redirect_stdout(sys.stderr):
-        execution: Final = Execution.github() if args.ci else Execution.local()
-        outcomes: Final = tuple([await run_one(evaluation, settings, execution) for evaluation in evaluations])
+        local_execution: Final = Execution.github() if args.ci else Execution.local()
+        outcomes: Final = tuple([await run_one(evaluation, settings, local_execution) for evaluation in evaluations])
+    return display(outcomes, args)
+
+
+def display(outcomes: tuple[Report | LensError, ...], args: Arguments) -> int:
     reports: Final = tuple(outcome for outcome in outcomes if isinstance(outcome, Report))
     errors: Final = tuple(outcome for outcome in outcomes if isinstance(outcome, LensError))
     for error in errors:

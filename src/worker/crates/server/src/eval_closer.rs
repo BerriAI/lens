@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, future::Future, time::Duration};
 
 use chrono::{DateTime, Utc};
 use futures_util::{StreamExt, TryStreamExt, stream};
-use lens_contract::eval::{CaseError, CaseResult, RunStatus, Summary, TraceRef};
+use lens_contract::eval::{CaseError, CaseResult, RunStatus, Scorer, Summary, TraceRef};
 use litellm_storage_clickhouse::evals::{
     EvalStore, RunCompletion, ScoringLease, StoredRun, StoredTrial,
 };
@@ -205,6 +205,24 @@ fn resolve_trial(
             spans: Vec::new(),
         });
     }
+    if trial.result.trace.is_none() && trial.result.output.is_some() {
+        if run
+            .request
+            .scorers
+            .iter()
+            .any(|scorer| !matches!(scorer, Scorer::Judge(_)))
+        {
+            return Some(trial_error(
+                trial,
+                "MissingTraceEvidence",
+                "This eval includes trace scorers; return a trace reference or use only output judges",
+            ));
+        }
+        return Some(ResolvedTrial {
+            stored: trial.clone(),
+            spans: Vec::new(),
+        });
+    }
     let remaining = run
         .request
         .timeout_per_trial_ms
@@ -270,6 +288,7 @@ fn trial_error(trial: &StoredTrial, kind: &str, message: &str) -> ResolvedTrial 
         stored: StoredTrial {
             result: CaseResult {
                 trace: None,
+                output: None,
                 error: Some(CaseError {
                     r#type: kind.to_owned(),
                     message: message.to_owned(),
@@ -330,6 +349,7 @@ mod tests {
             scorers: vec![Scorer::TaskCompleted(TaskCompleted {})],
             gate: Gate::default(),
             timeout_per_trial_ms: 1_200_000,
+            agent_io: None,
         };
         StoredRun {
             team: "team-a".into(),
@@ -353,6 +373,8 @@ mod tests {
                 id: trial.case_id.clone(),
                 title: "case-1".into(),
                 critical: false,
+                input: String::new(),
+                followups: Vec::new(),
                 expected: String::new(),
             }],
             trials: vec![trial],
@@ -633,5 +655,55 @@ mod tests {
             resolve_trials(&MissingTrace, &run, run.created_at).await,
             Err(EvalCloserError::InvalidRun)
         ));
+    }
+
+    #[rstest]
+    #[case::judge_only(false)]
+    #[case::trace_required(true)]
+    fn output_without_trace_resolves_only_for_output_scorers(
+        mut run: StoredRun,
+        mut trial: StoredTrial,
+        #[case] trace_required: bool,
+    ) {
+        trial.result.trace = None;
+        trial.result.output = Some("completed answer".into());
+        if !trace_required {
+            run.request.scorers = vec![Scorer::Judge(lens_contract::eval::Judge {
+                prompt: "Check answer".into(),
+                model: String::new(),
+            })];
+        }
+        let resolved =
+            resolve_trial(&run, &trial, None, trial.submitted_at.timestamp_millis()).unwrap();
+        assert!(resolved.spans.is_empty());
+        assert!(resolved.stored.result.validate().is_ok());
+        if trace_required {
+            assert_eq!(
+                resolved.stored.result.error.as_ref().unwrap().r#type,
+                "MissingTraceEvidence"
+            );
+            assert!(resolved.stored.result.output.is_none());
+        } else {
+            assert_eq!(resolved.stored.result, trial.result);
+        }
+    }
+
+    #[rstest]
+    fn output_does_not_bypass_trace_identity_or_arrival(
+        run: StoredRun,
+        mut trial: StoredTrial,
+        mut trace: EvalTrace,
+    ) {
+        trial.result.output = Some("looks correct".into());
+        let now = trial.submitted_at.timestamp_millis();
+        assert!(resolve_trial(&run, &trial, None, now).is_none());
+        trace.version = "wrong-build".into();
+        let resolved = resolve_trial(&run, &trial, Some(trace), now).unwrap();
+        assert_eq!(
+            resolved.stored.result.error.as_ref().unwrap().r#type,
+            "VersionMismatch"
+        );
+        assert!(resolved.stored.result.output.is_none());
+        assert!(resolved.stored.result.validate().is_ok());
     }
 }

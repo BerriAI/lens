@@ -703,7 +703,7 @@ impl IntoResponse for SignalError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalApiError {
-    #[error("Unsupported Lens contract version; send X-Lens-Contract: 1")]
+    #[error("Unsupported Lens contract version; send X-Lens-Contract: 1 or 2")]
     ContractVersion,
     #[error("Dataset not found")]
     DatasetNotFound,

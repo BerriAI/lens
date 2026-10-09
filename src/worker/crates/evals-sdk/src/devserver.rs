@@ -116,11 +116,12 @@ async fn authorize(
     {
         return fault(StatusCode::UNAUTHORIZED, "unauthorized").into_response();
     }
-    if headers
-        .get("X-Lens-Contract")
-        .and_then(|value| value.to_str().ok())
-        != Some("1")
-    {
+    if !matches!(
+        headers
+            .get("X-Lens-Contract")
+            .and_then(|value| value.to_str().ok()),
+        Some("1" | "2")
+    ) {
         return fault(StatusCode::CONFLICT, "contract_version").into_response();
     }
     next.run(request).await

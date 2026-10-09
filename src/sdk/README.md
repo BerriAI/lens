@@ -4,6 +4,22 @@ Run your agent against a versioned Lens dataset, compare each case with main, an
 
 For optional help from your coding agent, copy the [eval setup prompt](../../docs/setup-with-agent.md#enable-investigations-signals-or-eval-judging). It inspects this project's agent and existing Lens connection before adding configuration
 
+Run a saved eval from your agent repository:
+
+```python
+import os
+
+from lens import Lens
+
+lens = Lens(base_url=os.environ["LENS_BASE_URL"], api_key=os.environ["LENS_API_KEY"])
+report = lens.evals.run("moyai-coding-regressions")
+report.assert_passed()
+```
+
+The saved definition supplies the dataset revision, scorers, gates, and agent input/output mapping. Your local connection profile supplies the agent's address and credentials. The Rust SDK executes requests from your machine or CI runner, then Lens scores the returned output and any correlated traces. Saving a definition does not start tasks
+
+For agents that need custom Python orchestration, the existing callback API remains available:
+
 ```python
 from lens import Eval, Gate, judge, scorers
 
@@ -38,10 +54,81 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@51651cc61bc3863b524683a34f02732e2717b7b7#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@bad22eb403ea402e00ee04c6e0c16d62693c4261#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
+
+## Run a saved eval
+
+This feature requires a Lens server that supports saved `agent_io` definitions and an SDK built from the same reviewed change. Earlier `0.1.0a3` wheels do not contain the named runner. For local development, install `src/sdk` from your checked-out Lens source with Rust 1.99.0 available
+
+Save the eval in Lens first, with an existing dataset ID and pinned revision. Its name is the value passed to `lens.evals.run(...)`; it is not a dataset name
+
+See [saved agent input/output definitions](../../docs/agent-io.md) for complete HTTP and Moyai contracts, the save endpoint, trace requirements, and output-only judging
+
+The definition's `agent_io.connection` names a profile in the current project's `pyproject.toml`:
+
+```toml
+[tool.lens]
+base_url = "https://lens.example.com"
+
+[tool.lens.connections.coding-agent]
+base_url_env = "AGENT_BASE_URL"
+auth = "bearer"
+token_env = "AGENT_API_KEY"
+```
+
+Set those environment variables through your shell or secret manager. The profile contains variable names, not secret values. The saved definition cannot select environment variables or supply an arbitrary destination URL. `auth = "none"` is also supported for an endpoint that does not require authentication
+
+For the built-in Moyai session protocol, use a dedicated eval deployment and a session profile:
+
+```toml
+[tool.lens.connections.moyai]
+base_url_env = "MOYAI_EVAL_URL"
+auth = "moyai_session"
+password_env = "MOYAI_EVAL_PASSWORD"
+```
+
+The Lens API key reads definitions and datasets and writes eval runs. It is separate from the agent credential and the agent's tracing key. Neither `Lens(...)` nor the named runner writes credentials into environment variables or project files
+
+```sh
+uv run lens eval --name moyai-coding-regressions
+uv run lens eval --name moyai-coding-regressions --json
+```
+
+`--name` runs a saved definition without importing a Python eval file. It cannot be combined with a path or the existing `--eval` filter. `lens doctor` checks file-based evals; it does not preflight a saved definition or prove that a live agent can complete it
+
+Async applications use `report = await lens.evals.arun("moyai-coding-regressions")`. Calling the synchronous method inside an active event loop raises a configuration error. Both methods return the existing `Report`, including `report.url`, per-trial results, baseline links, and `report.assert_passed()`
+
+An existing test suite can call the same API without a task callback:
+
+```python
+import os
+
+from lens import Lens
+
+
+def test_agent_regressions():
+    lens = Lens(base_url=os.environ["LENS_BASE_URL"], api_key=os.environ["LENS_API_KEY"])
+    lens.evals.run("moyai-coding-regressions").assert_passed()
+```
+
+Set `LENS_VERSION` to the build actually deployed at the agent endpoint. Defaults use the checked-out SHA locally or GitHub execution metadata in Actions; those defaults do not prove that the endpoint runs that build. The agent must stamp its own matching version on its traces. Explicit context is available when the deployed build differs from the current checkout:
+
+```python
+from lens.config import Execution
+
+report = lens.evals.run(
+    "moyai-coding-regressions",
+    execution=Execution(version=deployed_sha, branch="feature/my-change"),
+)
+report.assert_passed()
+```
+
+Establish a main run against the deployed main build, then run the same definition against the candidate build. Lens selects a compatible stored baseline and evaluates the saved gates. The SDK does not deploy builds, pick a baseline locally, or treat an accepted agent request as a successful eval
+
+Missing definitions, missing local profiles, unsupported mappings, absent credentials, and incompatible services produce errors. An individual agent request failure is recorded on its trial. A failing quality gate remains a completed `Report`; call `assert_passed()` to enforce it in Python. CLI exits remain `0` for pass, `1` for gate failure, and `2` for configuration or infrastructure failure
 
 ## Set up an existing agent
 
@@ -200,6 +287,7 @@ The SDK trusts the server's `Summary`. It does not compute production scores, ch
 uv run lens eval
 uv run lens eval evals/regressions.py
 uv run lens eval --eval agent-regressions --json
+uv run lens eval --name moyai-coding-regressions --json
 uv run lens doctor --json
 uv run lens eval --ci --json
 ```
@@ -229,7 +317,7 @@ steps:
       python-version: '3.11'
   - run: python -m pip install uv==0.10.9
   - run: uv sync --frozen
-  - uses: BerriAI/lens/src/sdk/action@51651cc61bc3863b524683a34f02732e2717b7b7
+  - uses: BerriAI/lens/src/sdk/action@bad22eb403ea402e00ee04c6e0c16d62693c4261
     with:
       python: .venv/bin/python
       install-from-source: 'true'
@@ -238,6 +326,26 @@ steps:
 ```
 
 The `python` input selects the agent's environment for execution and reporting. With `install-from-source: 'true'`, the Action installs Rust 1.99.0 through the runner's existing rustup and builds its own checked-out SDK using the pinned maturin build backend and Cargo lockfile. No release token is needed. GitHub-hosted runners include rustup; self-hosted runners need it installed
+
+For a saved eval, set `eval-name` instead of `path`. Commit its local connection profile and provide the named environment variables as CI secrets or variables. Set `LENS_VERSION` from the agent build deployed by your workflow. The Action does not deploy or update the agent
+
+Use the pinned Action with the same saved eval name:
+
+```yaml
+- uses: BerriAI/lens/src/sdk/action@bad22eb403ea402e00ee04c6e0c16d62693c4261
+  env:
+    AGENT_BASE_URL: ${{ vars.AGENT_BASE_URL }}
+    AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
+    LENS_VERSION: ${{ steps.deploy.outputs.agent-build-sha }}
+  with:
+    eval-name: my-agent-regressions
+    api-key: ${{ secrets.LENS_API_KEY }}
+    base-url: ${{ vars.LENS_BASE_URL }}
+    python: .venv/bin/python
+    install-from-source: 'true'
+```
+
+The example assumes your deployment step publishes `agent-build-sha`. The pinned source commit contains the named runner; use it after reviewing this feature for your deployment. Supplying both `eval-name` and `path` fails before installation; an older installed wheel without named-run support produces an actionable error
 
 The default `install-from-source: 'false'` reuses an installed `0.1.0a3` native package or downloads the matching release wheel and verifies its SHA-256 checksum. Once wheels are published, use that mode with `sdk-token: ${{ secrets.LENS_SDK_TOKEN }}` when the consuming repository needs separate contents-read access to the internal SDK release
 
@@ -283,7 +391,7 @@ The native core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk
 
 The Lens server owns lifecycle routes, trace scoring, baseline selection, and the comparison UI. This package provides the SDK, CLI, setup, Action, and development server
 
-The SDK uses contract version 1 through `X-Lens-Contract: 1`. Rust types in `lens-contract` define `schema/lens.v1.json`, which generates the Python wire models. Shared golden fixtures live at `src/worker/crates/contract/fixtures/lens_eval/`. From the repository root, run `npm run generate:eval-contract` after changing the canonical contract
+The callback SDK uses `X-Lens-Contract: 1`; named evals use `X-Lens-Contract: 2` for saved agent I/O and direct outputs. Rust types in `lens-contract` define `schema/lens.v1.json`, which generates the Python wire models. Shared golden fixtures live at `src/worker/crates/contract/fixtures/lens_eval/`. From the repository root, run `npm run generate:eval-contract` after changing the canonical contract
 
 Version `0.1.0a3` sends a positive integer `timeout_per_trial_ms` on every create-run request. The server default for clients that omit it is 1,200,000 ms. Lens enforces this cap while waiting for the trace and exposes finding IDs in `DatasetCase.meta["finding_id"]`
 

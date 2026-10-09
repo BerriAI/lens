@@ -134,3 +134,32 @@ fn uv_workflow_uses_agent_environment(root: TempDir, options: InitOptions) {
     assert!(workflow.contains("uv sync --frozen"));
     assert!(workflow.contains("python: .venv/bin/python"));
 }
+
+#[rstest]
+fn local_connections_do_not_change_public_settings(root: TempDir) {
+    fs::write(root.path().join("pyproject.toml"), "[tool.lens]\nproject='agent'\n[tool.lens.connections.local]\nauth='none'\nbase_url_env='AGENT_URL'\n").unwrap();
+    let settings = Settings::load(root.path()).unwrap();
+    assert!(settings.connections.contains_key("local"));
+    assert_eq!(
+        serde_json::to_value(settings).unwrap(),
+        serde_json::json!({"project":"agent","evals":"evals/","base_url":""})
+    );
+}
+
+#[rstest]
+#[case::named(vec!["lens", "eval", "--name", "saved"], 0)]
+#[case::conflicting_path(vec!["lens", "eval", "evals/", "--name", "saved"], 2)]
+#[case::conflicting_filter(vec!["lens", "eval", "--eval", "local", "--name", "saved"], 2)]
+fn saved_name_is_distinct_from_local_discovery(#[case] arguments: Vec<&str>, #[case] code: u64) {
+    let result = setup::parse(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>());
+    assert_eq!(
+        result
+            .get("code")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0),
+        code
+    );
+    if code == 0 {
+        assert_eq!(result["eval_name"], "saved");
+    }
+}

@@ -23,6 +23,7 @@ pub struct Client {
     key: String,
     attempts: usize,
     retry_delay: Duration,
+    contract: &'static str,
 }
 
 pub fn endpoint(value: &str) -> Result<String> {
@@ -65,6 +66,68 @@ impl Client {
             key: key.to_owned(),
             attempts: 3,
             retry_delay: Duration::from_millis(250),
+            contract: "1",
+        })
+    }
+
+    pub fn named(base: &str, key: &str) -> Result<Self> {
+        Ok(Self {
+            contract: "2",
+            ..Self::new(base, key)?
+        })
+    }
+
+    pub async fn definition(&self, name: &str) -> Result<lens_contract::eval::EvalDefinition> {
+        let definition: lens_contract::eval::EvalDefinition = Self::decode(
+            self.request(
+                Method::GET,
+                &format!("/lens/evals/{}", segment(name)),
+                None,
+                None,
+                true,
+            )
+            .await?,
+        )
+        .await?;
+        if definition.name != name {
+            return Err(Error::Infrastructure(
+                "Lens returned a different saved eval",
+            ));
+        }
+        Ok(definition)
+    }
+
+    pub async fn dataset(&self, id: &str, revision: Option<u64>) -> Result<ResolvedDataset> {
+        if let Some(revision) = revision {
+            if revision == 0 {
+                return Err(Error::Configuration("Dataset revision must be positive"));
+            }
+            return Ok(ResolvedDataset {
+                id: id.to_owned(),
+                name: String::new(),
+                revision,
+            });
+        }
+        let dataset: LegacyDataset = Self::decode(
+            self.request(
+                Method::GET,
+                &format!("/lens/datasets/{}", segment(id)),
+                None,
+                None,
+                true,
+            )
+            .await?,
+        )
+        .await?;
+        if dataset.id != id || dataset.revision == 0 {
+            return Err(Error::Infrastructure(
+                "Lens returned a different dataset or invalid revision",
+            ));
+        }
+        Ok(ResolvedDataset {
+            id: dataset.id,
+            name: dataset.name,
+            revision: dataset.revision,
         })
     }
 
@@ -82,7 +145,7 @@ impl Client {
                 .http
                 .request(method.clone(), format!("{}{path}", self.endpoint))
                 .bearer_auth(&self.key)
-                .header("X-Lens-Contract", "1")
+                .header("X-Lens-Contract", self.contract)
                 .header("Content-Type", "application/json");
             let request = if let Some(value) = body {
                 request.json(value)

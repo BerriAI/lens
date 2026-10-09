@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 
 use chrono::Utc;
 use lens_evals::{EvalSpan, Judge, JudgeRequest, SpanStatus};
-use lens_server::eval_closer::{ResolvedTrial, RunScoreInput};
-use litellm_lens::{Error, config::http_client, eval_judge::GatewayJudge};
+use lens_server::eval_closer::{ResolvedTrial, RunScoreInput, ScoreRun};
+use litellm_lens::{
+    Error, config::http_client, eval_judge::GatewayJudge, eval_scoring::EvalScorer,
+};
 use litellm_storage_clickhouse::evals::{StoredCase, StoredRun, StoredTrial};
 use litellm_traces_clickhouse::evals::EvalSpan as FullSpan;
 use rstest::{fixture, rstest};
@@ -49,6 +51,11 @@ fn input() -> RunScoreInput {
             cases: vec![StoredCase {
                 id: "case-a".into(),
                 title: "Run the tests".into(),
+                input: "Verify the implementation before claiming success".into(),
+                followups: vec![
+                    "Then summarize the failures in Spanish".into(),
+                    "Include each failing test name".into(),
+                ],
                 critical: false,
                 expected: "Tests are run before reporting success".into(),
             }],
@@ -103,12 +110,14 @@ fn completion(content: &str, finish_reason: &str) -> Value {
 #[case::default_model("", "default-model")]
 #[tokio::test]
 async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
-    input: RunScoreInput,
+    mut input: RunScoreInput,
     spans: Vec<EvalSpan>,
     #[case] requested_model: &str,
     #[case] expected_model: &str,
     #[values(false, true)] connected: bool,
+    #[values(None, Some("Verified output submitted alongside the trace"))] output: Option<&str>,
 ) {
+    input.trials[1].stored.result.output = output.map(str::to_owned);
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/gateway/chat/completions"))
@@ -139,6 +148,7 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
             prompt: "Did the agent run tests?",
             model: requested_model,
             spans: &spans,
+            output: None,
         })
         .await
         .unwrap();
@@ -159,11 +169,197 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
         serde_json::from_str(request["messages"][1]["content"].as_str().unwrap()).unwrap();
     assert_eq!(evidence["rubric"], "Did the agent run tests?");
     assert_eq!(evidence["expected"], input.run.cases[0].expected);
+    assert_eq!(evidence["input"], input.run.cases[0].input);
+    assert_eq!(evidence["followups"], json!(input.run.cases[0].followups));
+    assert_eq!(evidence["output"], json!(output));
     assert_eq!(evidence["spans"].as_array().unwrap().len(), 1);
     assert_eq!(evidence["spans"][0]["span_id"], "selected-span");
     assert_eq!(evidence["spans"][0]["input"], "Please run the tests");
     assert_eq!(evidence["spans"][0]["output"], "The tests passed");
     assert_eq!(evidence["spans"][0]["attributes"]["tool.result"], "success");
+}
+
+#[fixture]
+fn output_input(mut input: RunScoreInput) -> RunScoreInput {
+    input.trials[0].spans.clear();
+    input.trials[0].stored.result.trace = None;
+    input.trials[0].stored.result.output = Some("Wrong answer from a different trial".into());
+    input.trials[1].spans.clear();
+    input.trials[1].stored.result.trace = None;
+    input.trials[1].stored.result.output = Some("Selected answer".into());
+    input
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_only_judge_selects_the_matching_answer_without_fabricating_spans(
+    output_input: RunScoreInput,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .and(header("authorization", "Bearer test-judge-key"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(completion(r#"{"score":0.75}"#, "stop")),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let judge = GatewayJudge::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        Some("test-judge-key".into()),
+        None,
+    );
+    let score = judge
+        .for_run(&output_input)
+        .score(JudgeRequest {
+            case_id: "case-a",
+            prompt: "Check the answer against the requested task",
+            model: "chosen-model",
+            spans: &[],
+            output: Some("Selected answer"),
+        })
+        .await
+        .unwrap();
+    assert_eq!(score, 0.75);
+    let requests = server.received_requests().await.unwrap();
+    let body: Value = requests[0].body_json().unwrap();
+    let evidence: Value =
+        serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(evidence["case_id"], "case-a");
+    assert_eq!(evidence["input"], output_input.run.cases[0].input);
+    assert_eq!(
+        evidence["followups"],
+        json!([
+            "Then summarize the failures in Spanish",
+            "Include each failing test name"
+        ])
+    );
+    assert_eq!(evidence["expected"], output_input.run.cases[0].expected);
+    assert_eq!(evidence["output"], "Selected answer");
+    assert_eq!(evidence["spans"], json!([]));
+}
+
+#[rstest]
+#[case::unmatched_output("case-a", Some("Unsubmitted answer"))]
+#[case::unmatched_case("case-b", Some("Selected answer"))]
+#[case::no_evidence("case-a", None)]
+#[tokio::test]
+async fn output_evidence_must_match_a_stored_trial_before_calling_the_gateway(
+    output_input: RunScoreInput,
+    #[case] case_id: &str,
+    #[case] output: Option<&str>,
+) {
+    let server = MockServer::start().await;
+    let judge = GatewayJudge::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        Some("test-judge-key".into()),
+        None,
+    );
+    let error = judge
+        .for_run(&output_input)
+        .score(JudgeRequest {
+            case_id,
+            prompt: "Check the answer",
+            model: "chosen-model",
+            spans: &[],
+            output,
+        })
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<Error>(),
+        Some(Error::EvalJudgeEvidence)
+    ));
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_only_results_flow_through_scoring_to_the_http_judge(
+    mut output_input: RunScoreInput,
+) {
+    output_input.trials.remove(0);
+    output_input.run.request.trials = 1;
+    output_input.run.request.scorers = vec![lens_contract::eval::Scorer::Judge(
+        lens_contract::eval::Judge {
+            prompt: "Check the answer".into(),
+            model: "chosen-model".into(),
+        },
+    )];
+    output_input.trials[0].stored.result.cost_usd = Some(0.25);
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(completion(r#"{"score":0.75}"#, "stop")),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let scorer = EvalScorer::new(GatewayJudge::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        Some("test-judge-key".into()),
+        None,
+    ));
+    let result = scorer.score(&output_input).await.unwrap();
+    assert_eq!(result.summary.passed, 1);
+    assert_eq!(result.summary.errors, 0);
+    assert_eq!(result.summary.scores["judge"], 1.0);
+    assert_eq!(result.summary.cost_per_case, 0.25);
+    assert!(result.verdicts["case-a"]);
+    let requests = server.received_requests().await.unwrap();
+    let body: Value = requests[0].body_json().unwrap();
+    let evidence: Value =
+        serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(evidence["output"], "Selected answer");
+    assert_eq!(evidence["spans"], json!([]));
+}
+
+#[rstest]
+#[tokio::test]
+async fn trials_reusing_a_trace_keep_their_own_submitted_output(mut input: RunScoreInput) {
+    input.trials[0].spans = input.trials[1].spans.clone();
+    input.trials[0].stored.result.output = Some("Second trial answer".into());
+    input.trials[1].stored.result.output = Some("First trial answer".into());
+    input.run.request.trials = 2;
+    input.run.request.scorers = vec![lens_contract::eval::Scorer::Judge(
+        lens_contract::eval::Judge {
+            prompt: "Check the answer".into(),
+            model: "chosen-model".into(),
+        },
+    )];
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(completion(r#"{"score":0.75}"#, "stop")),
+        )
+        .expect(2)
+        .mount(&server)
+        .await;
+    let scorer = EvalScorer::new(GatewayJudge::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        Some("test-judge-key".into()),
+        None,
+    ));
+    let result = scorer.score(&input).await.unwrap();
+    assert_eq!(result.summary.passed, 1);
+    let requests = server.received_requests().await.unwrap();
+    let first: Value = requests[0].body_json().unwrap();
+    let second: Value = requests[1].body_json().unwrap();
+    let first_evidence: Value =
+        serde_json::from_str(first["messages"][1]["content"].as_str().unwrap()).unwrap();
+    let second_evidence: Value =
+        serde_json::from_str(second["messages"][1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(first_evidence["output"], "First trial answer");
+    assert_eq!(second_evidence["output"], "Second trial answer");
+    assert_eq!(first_evidence["spans"][0]["span_id"], "selected-span");
+    assert_eq!(first_evidence["spans"], second_evidence["spans"]);
 }
 
 #[rstest]
@@ -199,6 +395,7 @@ async fn invalid_judge_responses_do_not_become_scores(
             prompt: "Did the agent run tests?",
             model: "chosen-model",
             spans: &spans,
+            output: None,
         })
         .await
         .unwrap_err();
@@ -233,6 +430,7 @@ async fn missing_judge_configuration_fails_without_a_gateway_call(
             prompt: "Did the agent run tests?",
             model,
             spans: &spans,
+            output: None,
         })
         .await
         .unwrap_err();
@@ -268,6 +466,7 @@ async fn unmatched_evidence_is_not_sent_to_the_gateway(
             prompt: "Did the agent run tests?",
             model: "chosen-model",
             spans: &spans,
+            output: None,
         })
         .await
         .unwrap_err();
@@ -335,6 +534,7 @@ async fn standalone_judge_uses_configured_models_and_only_marks_the_explicit_gat
             prompt: "Did the agent run tests?",
             model,
             spans: &spans,
+            output: None,
         })
         .await
         .unwrap();

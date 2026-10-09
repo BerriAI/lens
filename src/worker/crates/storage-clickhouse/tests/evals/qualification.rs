@@ -676,6 +676,7 @@ async fn standalone_default_scope_remains_isolated_from_named_teams(
         baseline: "main".into(),
         gate: request.gate.clone(),
         timeout_per_trial_ms: request.timeout_per_trial_ms,
+        agent_io: None,
     };
     let definition = store
         .put_definition("", "default-eval", spec, now)

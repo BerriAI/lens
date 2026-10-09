@@ -172,6 +172,8 @@ pub struct CaseError {
 #[serde(deny_unknown_fields)]
 pub struct CaseResult {
     pub trace: Option<TraceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
     pub error: Option<CaseError>,
     pub cost_usd: Option<f64>,
     pub duration_ms: Option<u64>,
@@ -179,9 +181,9 @@ pub struct CaseResult {
 
 impl CaseResult {
     pub fn validate(&self) -> Result<()> {
-        if self.trace.is_some() == self.error.is_some() {
+        if (self.trace.is_some() || self.output.is_some()) == self.error.is_some() {
             return Err(Error::Configuration(
-                "A result requires exactly one of trace or error",
+                "A result requires trace or output, or an error without either",
             ));
         }
         if let Some(trace) = &self.trace
@@ -233,6 +235,8 @@ pub struct CreateEvalRun {
     pub scorers: Vec<Scorer>,
     #[serde(default)]
     pub gate: Gate,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_io: Option<lens_contract::agent_io::AgentIo>,
 }
 
 fn one_trial() -> usize {
