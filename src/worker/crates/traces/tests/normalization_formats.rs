@@ -1,4 +1,6 @@
-use litellm_traces::{CallEvidence, CallKey, DecodedSpan, ObservationType, decode_otlp};
+use litellm_traces::{
+    CallEvidence, CallEvidenceKind, CallKey, DecodedSpan, ObservationType, decode_otlp,
+};
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
     common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value},
@@ -711,6 +713,67 @@ fn openinference_provider_response_identity(
         ]))
     });
     assert_eq!(decoded.normalized.calls, expected);
+}
+
+const OPENINFERENCE_MESSAGE_ARRAY: &str =
+    r#"[{"role":"assistant","content":"answer","tool_names":[]}]"#;
+
+#[rstest]
+#[case::message_array(Some(OPENINFERENCE_MESSAGE_ARRAY), "chat", "response", CallEvidenceKind::Complete, &[])]
+#[case::missing_output(None, "chat", "response", CallEvidenceKind::Complete, &[])]
+#[case::empty_output(Some(""), "chat", "response", CallEvidenceKind::Complete, &[])]
+#[case::unstructured_output(Some("answer"), "chat", "response", CallEvidenceKind::Complete, &[])]
+#[case::gateway_only(Some(OPENINFERENCE_MESSAGE_ARRAY), "chat", "", CallEvidenceKind::Partial, &[])]
+#[case::absent_operation(Some(OPENINFERENCE_MESSAGE_ARRAY), "", "response", CallEvidenceKind::Partial, &[])]
+#[case::agent_operation(Some(OPENINFERENCE_MESSAGE_ARRAY), "invoke_agent", "response", CallEvidenceKind::Partial, &[])]
+#[case::provider_identity(Some(r#"{"id":"output-response"}"#), "chat", "response", CallEvidenceKind::Complete, &["output-response"])]
+#[case::partial_batch(Some(r#"{"generations":[[{"message":{"response_metadata":{"id":"a"}}}],[{"message":{}}]]}"#), "chat", "response", CallEvidenceKind::Partial, &["a"])]
+#[case::unidentified_batch(Some(r#"{"generations":[[{"message":{}}],[{"message":{}}]]}"#), "chat", "response", CallEvidenceKind::Partial, &[])]
+#[case::malformed_batch(Some(r#"{"generations":null}"#), "chat", "response", CallEvidenceKind::Partial, &[])]
+#[case::empty_batch(Some(r#"{"generations":[]}"#), "chat", "response", CallEvidenceKind::Partial, &[])]
+#[case::conflicting_candidates(Some(r#"{"generations":[[{"message":{"response_metadata":{"id":"a"}}},{"message":{"response_metadata":{"id":"b"}}}]]}"#), "chat", "response", CallEvidenceKind::Partial, &["a", "b"])]
+#[case::multiple_calls(Some(r#"{"generations":[[{"message":{"response_metadata":{"id":"a"}}}],[{"message":{"response_metadata":{"id":"b"}}}]]}"#), "chat", "response", CallEvidenceKind::Complete, &["a", "b"])]
+fn openinference_call_evidence_preserves_recorded_contracts(
+    span: Span,
+    #[case] output: Option<&str>,
+    #[case] operation: &str,
+    #[case] response: &str,
+    #[case] evidence: CallEvidenceKind,
+    #[case] output_ids: &[&str],
+) {
+    let attributes: Vec<_> = [
+        ("openinference.span.kind", "LLM"),
+        ("gen_ai.operation.name", operation),
+        ("gen_ai.response.id", response),
+        ("litellm.call_id", "gateway"),
+        (
+            "gen_ai.output.messages",
+            r#"[{"role":"assistant","parts":[{"type":"text","content":"answer"}]}]"#,
+        ),
+    ]
+    .into_iter()
+    .chain(output.map(|value| ("output.value", value)))
+    .collect();
+    let decoded = decode(span, "custom", &attributes, vec![]).unwrap();
+    let keys = output_ids
+        .iter()
+        .map(|id| CallKey::ProviderResponse((*id).to_owned()))
+        .chain((!response.is_empty()).then(|| CallKey::ProviderResponse(response.to_owned())))
+        .chain([CallKey::LiteLlmRequest("gateway".into())])
+        .collect();
+    assert_eq!(decoded.normalized.calls.kind(), evidence);
+    assert_eq!(decoded.normalized.calls.key_set(), Some(&keys));
+    assert_eq!(decoded.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(decoded.normalized.output, output.unwrap_or_default());
+    assert_eq!(
+        decoded.consumed_attributes.contains(&"output.value"),
+        output.is_some_and(|value| !value.is_empty())
+    );
+    assert!(
+        !decoded
+            .consumed_attributes
+            .contains(&"gen_ai.output.messages")
+    );
 }
 
 #[rstest]

@@ -11,6 +11,7 @@ macro_rules_attribute::attribute_alias! {
 }
 
 mod config;
+mod cost_rows;
 pub mod datasets;
 mod error;
 mod insert;
@@ -28,7 +29,9 @@ pub mod wire_schema;
 
 pub use config::Config;
 pub use error::Error;
-pub use insert::{InsertRow, InsertTable, encode_rows, insert_rows, insert_shared_rows};
+pub use insert::{
+    InsertRow, InsertTable, encode_rows, insert_rows, insert_shared_rows, project_spend_rows,
+};
 pub use litellm_storage_clickhouse::{Connection, Parameter};
 pub use litellm_traces::{QueryScope, ReadQuery};
 pub use query::evals;

@@ -67,7 +67,20 @@ async fn populated(#[future] database: TestResult<ClickHouseDatabase>) -> TestRe
         ],
     )
     .await?;
-    let reader = Connection::configured(&database.url, "eval_traces", "default", "")?;
+    for statement in [
+        "CREATE USER eval_reader",
+        "GRANT SELECT ON eval_traces.* TO eval_reader",
+        "REVOKE SELECT ON eval_traces.spend_logs FROM eval_reader",
+    ] {
+        database
+            .client
+            .post(writer.url().clone())
+            .body(statement)
+            .send()
+            .await?
+            .error_for_status()?;
+    }
+    let reader = Connection::configured(&database.url, "eval_traces", "eval_reader", "")?;
     Ok(Fixture {
         traces: EvalTraces::new(database.client.clone(), reader),
         database,
@@ -98,7 +111,7 @@ async fn source_root_attributes_are_team_scoped(
 #[case::team_session("team-a", "private-a", TraceAttribute::SessionId, "session-a")]
 #[case::team_trace("team-a", "private-a", TraceAttribute::TraceId, "trace-a")]
 #[tokio::test]
-async fn eval_reads_keep_spans_and_spend_within_the_authenticated_team(
+async fn eval_reads_keep_spans_and_spend_within_the_authenticated_team_without_raw_access(
     #[future] populated: TestResult<Fixture>,
     #[case] team: &str,
     #[case] expected_input: &str,
@@ -106,6 +119,17 @@ async fn eval_reads_keep_spans_and_spend_within_the_authenticated_team(
     #[case] value: &str,
 ) -> TestResult {
     let fixture = populated.await?;
+    let reader = Connection::configured(&fixture.database.url, "eval_traces", "eval_reader", "")?;
+    assert!(
+        litellm_traces_clickhouse::execute_read(
+            &fixture.database.client,
+            &reader,
+            "SELECT count() FROM spend_logs",
+            &BTreeMap::new(),
+        )
+        .await
+        .is_err()
+    );
     let trace = fixture
         .traces
         .read(

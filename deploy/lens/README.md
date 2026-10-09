@@ -61,6 +61,43 @@ Provider environment variables in `deploy/lens/.env` are passed to the Lens serv
 
 The container runs without root or Linux capabilities, with a read-only filesystem and bounded temporary space. Preserve those settings. Investigation calculations require a native Linux kernel with Landlock ABI 3 and seccomp support, as provided by supported Docker Linux hosts. See the [calculation sandbox](../../docs/sandbox.md) for its boundaries and verification command
 
+## Recorded gateway costs
+
+Lens uses the finalized amounts exported by LiteLLM. On the gateway, set `LITELLM_LENS_URL` to the private Lens service URL. Configure the same `LITELLM_LENS_SERVICE_TOKEN` on both services to enable authenticated spend ingestion. Trace credentials and gateway calls must belong to the same authorized user or key and team for their identifiers to match
+
+New gateway records write their recorded cost and call identifiers into compact Lens storage through the existing background export. Lens acknowledges an upload after both request-log and compact writes succeed. Trace browsing reads the compact records without selecting from `spend_logs`; it does not recalculate prices or accept amounts from agent traces. Calls made without a gateway spend record remain unpriced
+
+### Upgrade and recover historical costs
+
+Upgrade every Lens writer and wait for `/health/ready` before backfilling historical costs. Existing matched historical costs become unavailable until their retained request logs are projected into compact storage. Startup does not scan those logs, and trace browsing has no fallback to the raw table
+
+From the matching source checkout, build the operator command:
+
+```sh
+cargo build --manifest-path src/worker/Cargo.toml --locked \
+  -p litellm-traces-clickhouse --bin backfill_call_costs --release
+```
+
+Run it from a host with private ClickHouse access. Set `CLICKHOUSE_URL` through your secret manager to a credential allowed to select `spend_logs` and insert compact Lens cost records. Set `CLICKHOUSE_DATABASE` if it differs from the default `lens`. Pass one exact team ID, inclusive start and exclusive end as UTC Unix milliseconds. An explicit empty team argument, `''`, selects records with no team
+
+```sh
+src/worker/target/release/backfill_call_costs \
+  'team-id' 1791504000000 1791590400000
+```
+
+Each invocation permits at most a 24-hour window, 20 pages of 500 records and five minutes. Each page also has a ten-second query limit, a 4 MiB response limit, a million-row or 64 MiB scan limit, and a 128 MiB query memory limit. A rejected page leaves the last successful cursor usable; choose smaller time windows when scan limits prevent progress. Only call identifiers, ownership, timestamps and recorded amounts are read, with no prompts or response bodies
+
+Save the printed JSON lines. A cursor is printed and flushed only after its page is persisted. If `complete` is false, a timeout occurs, or the command fails, repeat the same team and time window with the last printed cursor as the fourth argument:
+
+```sh
+src/worker/target/release/backfill_call_costs \
+  'team-id' 1791504000000 1791590400000 '<cursor>'
+```
+
+A cursor is bound to its team and window. Replaying a page or the whole window replaces the existing record identity and version without adding its cost twice. Repeat bounded windows for the historical period you need, then verify trace costs before treating coverage as complete. Expired records cannot be recovered. Backfill restores recorded amounts only; spans with incomplete call evidence remain unmatched
+
+Accepted compact records survive service restarts. The gateway exporter retains its bounded memory queue, three delivery attempts and limited shutdown drain. Callbacks lost before successful ingestion are not recovered by this change. Backfill can recover a raw record retained after an incomplete compact write, but cannot recover a record absent from ClickHouse
+
 ## Check and restart
 
 From the repository root:
