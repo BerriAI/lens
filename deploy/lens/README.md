@@ -36,6 +36,8 @@ You can record traces without an analysis model. When you want Lens to investiga
 
 For Kubernetes, use the [Lens Helm chart](../../helm/lens/README.md). To move an existing gateway-hosted Lens installation and its saved records, follow [Migrate existing Lens data](../../docs/migration.md) before changing which service owns its writers
 
+The bundled deployment uses one ClickHouse server with Keeper. External storage supports that same topology: one stable endpoint reaching one ClickHouse server, shared by any Lens replicas. Lens payload tables are local to that server; Keeper does not replicate them between ClickHouse servers. Load balancing across ClickHouse nodes, distributed tables and automatic failover to a different ClickHouse server are unsupported. Use the [external ClickHouse settings](../../helm/lens/README.md#use-existing-clickhouse) for the required capabilities and permissions
+
 Keep `deploy/lens/.env` private and retain it alongside your persistent data. The generated secrets have different purposes:
 
 | Setting | Used by |
@@ -91,6 +93,7 @@ Use [Back up and restore Lens](../../docs/backup.md) before changing a persisten
 | A required secret is missing | Check the existing environment file. Setup deliberately preserves it rather than rotating credentials behind your back |
 | ClickHouse is unhealthy | Run `docker compose -f deploy/lens/compose.yaml logs --tail=100 clickhouse`; check disk space and the mounted Keeper configuration |
 | Lens cannot reach ClickHouse | Check both services in `ps`, their logs, and the retained database credential |
+| External ClickHouse answers queries but Lens exits before becoming ready | Check the server's KeeperMap and `keeper_map_path_prefix` configuration and the Lens database user's create, insert, read and alter permissions. An analytical query alone does not establish that Lens can initialize its state |
 | Setup says no analysis provider is configured | Tracing can still work. Follow the [analysis guide](../../docs/analysis.md) to enable investigations |
 | Login works locally but not through the public hostname | Check that `LENS_PUBLIC_URL` matches the browser origin and that your proxy forwards HTTPS correctly |
 

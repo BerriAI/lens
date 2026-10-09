@@ -23,7 +23,13 @@ The source chart defaults to the version in its `appVersion`. Before a public re
 
 ## Use existing ClickHouse
 
-Create a Kubernetes Secret containing the authenticated ClickHouse URL and set `clickhouseSecret.name` and `clickhouseSecret.key`. This suppresses the bundled ClickHouse resources. The server must support KeeperMap, have Keeper configured, and allow Lens to initialize its tables. Use `clickhouseDatabase` to select the existing database
+Skip this section when using the bundled database. Supported external storage is one ClickHouse server reached through a stable HTTP(S) endpoint. Several Lens replicas can share that endpoint and database. Every request must reach the same ClickHouse server; a load balancer that distributes requests across ClickHouse nodes, a distributed table deployment, and automatic failover to another ClickHouse server are unsupported
+
+Lens stores record payloads and indexes in local `ReplacingMergeTree` tables. Keeper coordinates publication of their current revisions; sharing Keeper across ClickHouse nodes does not replicate those payloads. This boundary applies to standalone Lens and Lens connected to a LiteLLM gateway
+
+Create a Kubernetes Secret containing the authenticated ClickHouse URL and set `clickhouseSecret.name` and `clickhouseSecret.key`. This suppresses the bundled ClickHouse resources. The server must support KeeperMap and have Keeper configured, including `keeper_map_path_prefix`; the bundled [Keeper configuration](../../deploy/clickhouse/keeper.xml) is the single-server example. Use `clickhouseDatabase` for a database dedicated to Lens. The database credential must allow Lens to create its database, tables and materialized views, read and insert rows, and alter tables for publication and cleanup. A dedicated user with `ALL ON <lens_database>.*` was qualified against ClickHouse 26.9.6.6
+
+Startup initializes the schema and writes initial application state before opening the HTTP listener. Missing Keeper configuration or insufficient database permissions causes startup to fail. Check `kubectl --namespace lens logs deployment/lens` and the ClickHouse server logs, correct the configuration or grants, then repeat the installation check. Startup does not detect whether an endpoint distributes requests across servers; the operator must establish the topology above
 
 Payloads and Keeper metadata must be backed up and restored together. An external database is never deleted by this chart. Existing installations need the documented writer handoff and data migration before changing their runtime, not just a Helm image update
 

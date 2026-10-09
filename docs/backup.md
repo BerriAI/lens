@@ -2,7 +2,7 @@
 
 The Compose installation provides a cold backup of Lens's complete ClickHouse volume, including coordination state, deployment credentials and the exact Lens image. The backup briefly stops ingestion and background work. Schedule it when your exporters can buffer or retry, and keep the resulting directory private: it contains credentials and trace content.
 
-This procedure applies to the bundled single-node ClickHouse installation from [Run Lens](../deploy/lens/README.md). External or replicated ClickHouse installations need a backup procedure covering their data and Keeper state together; the Compose helper does not manage those installations.
+This procedure applies to the bundled single-node ClickHouse installation from [Run Lens](../deploy/lens/README.md). A supported external single-server ClickHouse installation needs a backup procedure covering its data and Keeper state together; the Compose helper does not manage it. Multi-server ClickHouse storage is outside the [supported topology](../helm/lens/README.md#use-existing-clickhouse)
 
 ## Create a backup
 

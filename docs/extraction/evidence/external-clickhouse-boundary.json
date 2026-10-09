@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-09T07:34:31.162Z",
+  "binary_sha256": "28123bf8e10826ce0ee3b5ceb8fcded4ca4aa0de1bc4242c6ca566552f2b210e",
+  "storage": "One externally supplied ClickHouse HTTP endpoint with embedded Keeper; synthetic isolated database",
+  "cases": [
+    {
+      "name": "missing_keeper",
+      "code": 1,
+      "signal": null,
+      "listener_bound": false,
+      "diagnostic": "Error: StateStorage(StateFailed { status: 400, code: Some(36) })\n"
+    },
+    {
+      "name": "insufficient_permissions",
+      "code": 1,
+      "signal": null,
+      "listener_bound": false,
+      "diagnostic": "Error: Storage(Storage(SchemaFailed(403)))\n"
+    },
+    {
+      "name": "external_single_endpoint_two_lens_processes",
+      "ready_replicas": 2,
+      "shared_session": true,
+      "shared_dataset": true,
+      "one_replica_stopped_other_kept_serving": true,
+      "restart_preserved_dataset_and_cookie": true,
+      "logout_visible_across_replicas": true,
+      "database_grant": "ALL ON isolated_database.*",
+      "engines": [
+        {
+          "name": "lens_jobs",
+          "engine": "ReplacingMergeTree"
+        },
+        {
+          "name": "lens_schedule",
+          "engine": "ReplacingMergeTree"
+        },
+        {
+          "name": "lens_state_blobs",
+          "engine": "ReplacingMergeTree"
+        },
+        {
+          "name": "lens_state_heads",
+          "engine": "KeeperMap"
+        },
+        {
+          "name": "lens_workers",
+          "engine": "ReplacingMergeTree"
+        }
+      ]
+    }
+  ],
+  "subject": "Supported external ClickHouse topology and fail-closed startup",
+  "supported": {
+    "clickhouse": "One ClickHouse server with KeeperMap and durable local tables, addressed by a stable endpoint",
+    "lens": "Multiple Lens API/runtime processes sharing that same database and credentials",
+    "qualified_clickhouse_version": "26.9.6.6",
+    "unsupported": [
+      "Requests distributed across multiple ClickHouse servers",
+      "Distributed or replicated payload table substitution",
+      "Automatic failover to a different ClickHouse server"
+    ],
+    "reason": "The KeeperMap head is coordinated but record payloads and indexes use local ReplacingMergeTree storage"
+  },
+  "diagnostics": {
+    "preflight": "Startup initializes trace/state tables and publishes the service worker before binding HTTP",
+    "missing_keeper": "The unconfigured ClickHouse fixture exited with StateStorage(StateFailed { status: 400, code: Some(36) })",
+    "insufficient_permissions": "The SELECT-only database user exited with Storage(Storage(SchemaFailed(403)))",
+    "limitation": "Diagnostics currently expose a storage error or ClickHouse status/code; operators must consult the ClickHouse logs for the detailed rejected statement or capability",
+    "endpoint_topology_detection": false
+  },
+  "source_sha256": {
+    "src/worker/crates/lens/src/main.rs": "b2888b7cb411224eed075a64c86b2ed1a8db96ff15cd7b811075de17c46747df",
+    "src/worker/crates/lens/src/api.rs": "314ad4f2f094661553ec4b3a246e48b504cfd3ed64c3fc0656cc6ad5d5aaaac3",
+    "src/worker/crates/storage-clickhouse/src/state.rs": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518",
+    "src/worker/crates/storage-clickhouse/src/investigations/schema.rs": "ea7f26e3cd9998b115bf41d8f873501987b8a51bfb241261a6ec5b18143f854f"
+  },
+  "related_evidence": "investigation-writer-lease.json",
+  "limitations": [
+    "The two-process run checks shared sessions, dataset persistence, logout and restart; the separate writer-lease suite checks competing reservations, progress, fencing and cleanup",
+    "No multi-node ClickHouse, managed service compatibility, automatic storage failover or production capacity claim",
+    "The initial qualification driver checked a nonexistent authenticated property; it was corrected to compare session views across the two processes, without changing production code"
+  ],
+  "local_evidence_directory": "/tmp/lens-c5-external-20261009"
+}
