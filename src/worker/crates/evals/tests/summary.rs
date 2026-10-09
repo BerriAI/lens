@@ -68,7 +68,7 @@ async fn scores_are_per_scorer_trial_means() {
     let spans = |tools: Vec<lens_evals::EvalSpan>| Trial {
         outcome: TrialOutcome::Trace([vec![root(SpanStatus::Ok)], tools].concat()),
         cost_usd: Some(0.0),
-        trace_spend_usd: 0.0,
+        trace_spend_usd: None,
     };
     let input = RunInput {
         scorers: vec![
@@ -107,20 +107,27 @@ async fn scores_are_per_scorer_trial_means() {
     assert_eq!(summary.errors, 1);
 }
 
-#[rstest]
-#[case::cost_usd_wins(Some(0.25), 9.0, 0.5)]
-#[case::trace_spend_fallback(None, 0.125, 0.25)]
-#[tokio::test]
-async fn cost_per_case_sums_trials_over_cases(
-    #[case] cost_usd: Option<f64>,
-    #[case] spend: f64,
-    #[case] expected: f64,
-) {
-    let trial = Trial {
+fn priced(outcome: TrialOutcome, cost_usd: Option<f64>, spend: Option<f64>) -> Trial {
+    Trial {
+        outcome,
         cost_usd,
         trace_spend_usd: spend,
-        ..pass()
-    };
+    }
+}
+
+fn traced() -> TrialOutcome {
+    TrialOutcome::Trace(vec![root(SpanStatus::Ok)])
+}
+
+#[rstest]
+#[case::cost_usd_set(priced(traced(), Some(0.25), None), 0.5)]
+#[case::cost_usd_wins_over_spend(priced(traced(), Some(0.25), Some(9.0)), 0.5)]
+#[case::spend_when_cost_usd_missing(priced(traced(), None, Some(0.125)), 0.25)]
+#[case::neither_present(priced(traced(), None, None), 0.0)]
+#[case::error_trial_cost_usd(priced(TrialOutcome::Error, Some(0.25), None), 0.5)]
+#[case::error_trial_ignores_spend(priced(TrialOutcome::Error, None, Some(9.0)), 0.0)]
+#[tokio::test]
+async fn cost_per_case_sums_trials_over_cases(#[case] trial: Trial, #[case] expected: f64) {
     let input = run(
         2,
         vec![
