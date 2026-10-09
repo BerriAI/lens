@@ -1,0 +1,270 @@
+{
+  "tool": "cargo-mutants 27.1.0",
+  "sources": [
+    "rust-auth-mutants-initial.log",
+    "rust-auth-mutants-followup.log"
+  ],
+  "total": 64,
+  "caught": 58,
+  "unviable": 5,
+  "viable": 59,
+  "kill_rate": 0.9830508474576272,
+  "results": [
+    {
+      "name": "crates/auth/src/lib.rs:14:50: replace * with +",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:14:50: replace * with /",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:14:45: replace * with +",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:14:45: replace * with /",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:21:9: replace SessionId::for_token -> Self with Default::default()",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:25:9: replace SessionId::as_str -> &str with \"\"",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:25:9: replace SessionId::as_str -> &str with \"xyzzy\"",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:87:9: replace Settings::secure_cookie -> bool with true",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:87:9: replace Settings::secure_cookie -> bool with false",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:91:9: replace Settings::is_admin_token -> bool with true",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:91:9: replace Settings::is_admin_token -> bool with false",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:116:9: replace Authentication<R>::sign_in -> Result<SessionView, Error> with Ok(Default::default())",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:116:12: delete ! in Authentication<R>::sign_in",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:122:21: replace + with - in Authentication<R>::sign_in",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:122:21: replace + with * in Authentication<R>::sign_in",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:133:9: replace Authentication<R>::authenticate -> Result<Identity, Error> with Ok(Default::default())",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:135:30: delete ! in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:140:55: replace || with && in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:140:16: delete ! in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:157:13: replace && with || in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:156:12: delete ! in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:157:35: replace != with == in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:161:12: delete ! in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:165:44: replace > with == in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:165:44: replace > with < in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:165:44: replace > with >= in Authentication<R>::authenticate",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:177:9: replace Authentication<R>::sign_out -> Result<(), Error> with Ok(())",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:187:5: replace local_admin -> Identity with Default::default()",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:188:9: delete field user_id from struct Identity expression in local_admin",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:189:9: delete field user_role from struct Identity expression in local_admin",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:195:5: replace session_view -> SessionView with Default::default()",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:211:5: replace trace_read_scope -> Option<ReadScope> with None",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:211:5: replace trace_read_scope -> Option<ReadScope> with Some(Default::default())",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/auth/src/lib.rs:217:57: delete ! in trace_read_scope",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:22:5: replace identity -> Result<Identity, Error> with Ok(Default::default())",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:38:9: replace || with && in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:37:9: replace || with && in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:36:9: replace || with && in identity",
+      "result": "MissedMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:35:19: replace != with == in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:36:23: replace != with == in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:37:23: replace > with == in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:37:23: replace > with < in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:37:23: replace > with >= in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:38:23: replace <= with > in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:46:24: delete ! in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:52:9: replace || with && in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:51:41: replace > with == in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:51:41: replace > with < in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:51:41: replace > with >= in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:52:20: replace != with == in identity",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:60:5: replace numeric_date -> Result<i64, D::Error> with Ok(0)",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:60:5: replace numeric_date -> Result<i64, D::Error> with Ok(1)",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:60:5: replace numeric_date -> Result<i64, D::Error> with Ok(-1)",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:62:9: delete match arm serde_json::Value::Number(number) in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:67:9: delete match arm serde_json::Value::String(text) in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:68:9: delete match arm serde_json::Value::Bool(value) in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:65: replace && with || in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:36: replace && with || in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:29: replace == with != in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:46: replace >= with < in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:75: replace < with == in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:75: replace < with > in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:75: replace < with <= in numeric_date",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/auth/src/gateway.rs:64:77: delete - in numeric_date",
+      "result": "CaughtMutant"
+    }
+  ]
+}

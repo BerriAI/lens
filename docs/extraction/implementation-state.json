@@ -17,12 +17,12 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Standalone tracing still uses the Python API; the ClickHouse application-state foundation is ported to Rust. Rust HTTP/domain integration, analysis setup, full E2E, storage migration and cross-repository qualification remain incomplete",
+    "readiness": "Rust storage and opt-in authentication are implemented and tested. The standalone application still uses the Python control plane; complete Rust API replacement, analysis setup, full E2E, migration and cross-repository qualification remain incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "4ce7194c0c7d9f5ce19d22b330efa55ac936823b",
+    "candidate_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -65,9 +65,11 @@
     "Removed unfinished Python analysis additions after the user changed the backend target to Rust",
     "Ported generic ClickHouse/Keeper application state to the existing Rust storage crate, with Python storage fixtures, concurrency checks, corruption and size bounds, and a forced container restart",
     "Rebased the Rust state port onto the merged src/worker, src/ui and src/sdk layout at 514e1b9d",
-    "Validated the moved Rust workspace with 1,270 regular tests, four normally ignored HTTP/ClickHouse cases, workspace Clippy and formatting; new storage mutation testing caught 70 of 76 viable mutations"
+    "Validated the moved Rust workspace with 1,270 regular tests, four normally ignored HTTP/ClickHouse cases, workspace Clippy and formatting; new storage mutation testing caught 70 of 76 viable mutations",
+    "Implemented Rust authentication contracts and policy, a ClickHouse session repository and opt-in HTTP routes in the existing Rust binary, following the merged layout",
+    "Replayed 45 original Python auth responses over Rust HTTP and ClickHouse; validated session revocation and server/ClickHouse restarts, 27 cases against the actual binary, and auth/storage mutations"
   ],
-  "current_work": "Port control-plane contracts, authentication, sessions and repositories to Rust following the layout move, then complete provider-backed analysis, migrations, release artifacts and LiteLLM/ops/publisher integration",
+  "current_work": "Complete auth request parity and Rust contract ownership, then port the remaining control-plane domains and APIs; complete provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -94,7 +96,8 @@
       "evidence": [
         "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
         "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)",
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
+        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)",
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
       ]
     },
     "S3": {
@@ -207,7 +210,9 @@
     },
     "I4": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
+      ]
     },
     "I5": {
       "status": "not_run",
@@ -363,7 +368,8 @@
       "status": "not_run",
       "evidence": [
         "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
       ]
     },
     "C2": {
@@ -372,7 +378,8 @@
         "docs/extraction/evidence/clickhouse-state-budget.log (partial: claims and settlement primitive)",
         "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
         "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
       ]
     },
     "C3": {
@@ -388,7 +395,8 @@
       "status": "not_run",
       "evidence": [
         "docs/extraction/evidence/clickhouse-restart-result.json (partial: restart only; restore and reclamation pending)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
       ]
     },
     "C5": {
@@ -400,7 +408,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-08T23:43:04.969965+00:00",
+  "updated_at_utc": "2026-10-09T00:48:16.238Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -537,6 +545,35 @@
       "scope": "Provider-free local tracing path and assembled API; no published install, full browser parity, provider investigation, gateway embedding or complete lifecycle qualification",
       "candidate_commit": "ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d",
       "shutdown": "Live API and Rust test processes exited cleanly on SIGINT; the existing ClickHouse test services were preserved"
+    },
+    "rust_auth": {
+      "source_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
+      "based_on_main": "8d3ee87adb06fdb3529621c427775e361b4ff1e9",
+      "status": "Rust session routes wired into the binary behind LENS_ADMIN_TOKEN; complete replacement and Python removal remain open",
+      "evidence": "docs/extraction/rust-auth.md",
+      "recorded_http_cases": 45,
+      "actual_binary_boundary_replays": 27,
+      "session_storage_cases": 8,
+      "auth_policy_cases": 88,
+      "auth_contract_cases": 15,
+      "auth_mutations": {
+        "total": 64,
+        "unviable": 5,
+        "caught": 58,
+        "survived": 1
+      },
+      "session_storage_mutations": {
+        "total": 11,
+        "unviable": 5,
+        "caught": 6,
+        "survived": 0
+      },
+      "remaining_parity_gaps": [
+        "Malformed JSON diagnostics",
+        "Multiple extra-field error ordering",
+        "Request-body limit parity"
+      ],
+      "full_product_acceptance": "incomplete"
     }
   },
   "open_dependency_advisories": [
@@ -569,7 +606,7 @@
   "rust_migration": {
     "language_decision": "User superseded the earlier Rust/Python split and requires the backend in Rust",
     "layout_specification": "docs/rust-migration.md",
-    "state_port": "Implemented in storage-clickhouse; not yet substituted into the application",
+    "state_port": "Implemented in storage-clickhouse and used by the new Rust session repository; other application repositories remain in Python",
     "api_routes_still_owned_by_python": 58,
     "parity_and_completion_scope": "All completion-plan.md requirements retained, including embedded Lens and companion repositories",
     "evidence": "docs/extraction/rust-state.md",
@@ -577,7 +614,7 @@
     "workspace": "src/worker",
     "validation": {
       "workspace_tests": {
-        "passed": 1270,
+        "passed": 1384,
         "failed": 0,
         "ignored": 4
       },
@@ -587,6 +624,37 @@
       "mutation_caught": 70,
       "mutation_survived": 6,
       "mutation_unviable": 14,
+      "full_product_acceptance": "incomplete",
+      "additional_focused_tests_passed": 5,
+      "regular_distinct_cases_exercised": 1389
+    },
+    "auth_port": {
+      "source_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
+      "based_on_main": "8d3ee87adb06fdb3529621c427775e361b4ff1e9",
+      "status": "Rust session routes wired into the binary behind LENS_ADMIN_TOKEN; complete replacement and Python removal remain open",
+      "evidence": "docs/extraction/rust-auth.md",
+      "recorded_http_cases": 45,
+      "actual_binary_boundary_replays": 27,
+      "session_storage_cases": 8,
+      "auth_policy_cases": 88,
+      "auth_contract_cases": 15,
+      "auth_mutations": {
+        "total": 64,
+        "unviable": 5,
+        "caught": 58,
+        "survived": 1
+      },
+      "session_storage_mutations": {
+        "total": 11,
+        "unviable": 5,
+        "caught": 6,
+        "survived": 0
+      },
+      "remaining_parity_gaps": [
+        "Malformed JSON diagnostics",
+        "Multiple extra-field error ordering",
+        "Request-body limit parity"
+      ],
       "full_product_acceptance": "incomplete"
     }
   }

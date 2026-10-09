@@ -1,0 +1,54 @@
+{
+  "tool": "cargo-mutants 27.1.0",
+  "total": 11,
+  "caught": 6,
+  "unviable": 5,
+  "viable": 6,
+  "kill_rate": 1,
+  "results": [
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:21:5: replace key -> String with String::new()",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:21:5: replace key -> String with \"xyzzy\".into()",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:25:5: replace failure -> StoreError with Default::default()",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:33:9: replace <impl SessionRepository for Sessions>::create -> Result<(), StoreError> with Ok(())",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:34:12: delete ! in <impl SessionRepository for Sessions>::create",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:46:9: replace <impl SessionRepository for Sessions>::expires_at -> Result<Option<DateTime<Utc>>, StoreError> with Ok(None)",
+      "result": "CaughtMutant"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:46:9: replace <impl SessionRepository for Sessions>::expires_at -> Result<Option<DateTime<Utc>>, StoreError> with Ok(Some(DateTime::new()))",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:46:9: replace <impl SessionRepository for Sessions>::expires_at -> Result<Option<DateTime<Utc>>, StoreError> with Ok(Some(DateTime::from_iter([Default::default()])))",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:46:9: replace <impl SessionRepository for Sessions>::expires_at -> Result<Option<DateTime<Utc>>, StoreError> with Ok(Some(DateTime::new(Default::default())))",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:46:9: replace <impl SessionRepository for Sessions>::expires_at -> Result<Option<DateTime<Utc>>, StoreError> with Ok(Some(DateTime::from(Default::default())))",
+      "result": "Unviable"
+    },
+    {
+      "name": "crates/storage-clickhouse/src/sessions.rs:56:9: replace <impl SessionRepository for Sessions>::revoke -> Result<(), StoreError> with Ok(())",
+      "result": "CaughtMutant"
+    }
+  ]
+}
