@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { ScanLine } from "lucide-react";
 import { Inspector, useInspector } from "../../shared/Inspector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useNow } from "../../../hooks/useNow";
@@ -24,6 +25,7 @@ import {
 import type { Finding } from "../model/types";
 import { useEvidenceRoute, useInboxFilters, useIssueRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { EvidenceView } from "./Evidence";
 import { FindingDetails } from "./FindingDetails";
 import { InvestigationError, InvestigationsLoading } from "./InvestigationStates";
@@ -51,7 +53,7 @@ function FilterSelect<T extends string>({
     <Select items={items} value={value} onValueChange={(next: T | null) => next !== null && onChange(next)}>
       <SelectTrigger
         size="sm"
-        className="h-7 min-w-0 flex-1 border-transparent bg-muted/60 text-xs shadow-none hover:bg-muted"
+        className="h-8 min-w-0 flex-1 bg-background font-mono text-[11px] shadow-none hover:bg-muted"
         aria-label={label}
       >
         <SelectValue />
@@ -78,14 +80,14 @@ function FindingRow({ row, now }: { row: InboxRow; now: number }) {
           role="row"
           tabIndex={0}
           aria-label={row.title}
-          className="mx-2 block cursor-pointer space-y-1 rounded-md px-2 py-2 transition-[background-color] duration-150 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=selected]:bg-muted"
+          className="mx-2 block cursor-pointer space-y-2 rounded-md border border-transparent px-3 py-3 transition-colors duration-150 outline-none hover:border-border hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=selected]:border-indigo-200 data-[state=selected]:bg-indigo-50/70 dark:data-[state=selected]:border-indigo-400/30 dark:data-[state=selected]:bg-indigo-400/10"
         />
       }
     >
-      <div role="gridcell" className="line-clamp-2 text-xs leading-snug text-pretty text-foreground">
+      <div role="gridcell" className="line-clamp-2 text-[13px] leading-5 font-medium text-pretty text-foreground">
         {row.title}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-mono text-[10px] text-muted-foreground">
         <span className="tabular-nums" title={formatActivityTimestamp(row.lastSeen)}>
           {agoLabel(Date.parse(row.lastSeen), now)}
         </span>
@@ -111,13 +113,13 @@ function FindingList({ rows, now }: { rows: readonly InboxRow[]; now: number }) 
         <div role="rowgroup" key={group.priority} aria-label={`${PRIORITY_LABEL[group.priority]} priority findings`}>
           <div
             role="row"
-            className="sticky top-0 z-raised flex items-center gap-2 bg-background/95 px-4 pt-3 pb-1.5 text-xs font-medium text-muted-foreground backdrop-blur"
+            className="sticky top-0 z-raised flex items-center gap-2 border-b bg-background px-4 py-3 font-mono text-[10px] font-medium tracking-wide text-muted-foreground"
           >
             <PriorityDot priority={group.priority} />
             <span role="columnheader">{PRIORITY_LABEL[group.priority]} priority</span>
-            <span className="ml-auto tabular-nums">{group.rows.length}</span>
+            <span className="ml-auto rounded border bg-muted/30 px-1.5 tabular-nums">{group.rows.length}</span>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-1 py-2">
             {group.rows.map((row) => (
               <FindingRow key={row.key} row={row} now={now} />
             ))}
@@ -208,7 +210,12 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
       noun="finding"
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background">
+      <div className="@container/findings flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <LensPageHeader
+          section="03 / SIGNAL IN THE NOISE"
+          title="Findings"
+          description="Follow the evidence. Find what needs fixing."
+        />
         {(list.error || update.error) && (
           <InvestigationError
             message={(list.error ?? update.error)!.message}
@@ -218,12 +225,12 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
             }}
           />
         )}
-        <div className="flex min-h-0 flex-1">
+        <div className="lens-panel flex min-h-0 flex-1 overflow-hidden rounded-lg border">
           <section
             aria-label="Findings list"
-            className={`flex min-h-0 w-full flex-col border-r md:w-[22rem] md:shrink-0 lg:w-[28rem] ${selected ? "hidden md:flex" : "flex"}`}
+            className={`flex min-h-0 w-full flex-col border-r @3xl/findings:w-72 @3xl/findings:shrink-0 @5xl/findings:w-80 ${selected ? "hidden @3xl/findings:flex" : "flex"}`}
           >
-            <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+            <div className="lens-toolbar flex shrink-0 items-center gap-2 border-b px-3 py-3">
               <FilterSelect label="Filter by agent" value={filters.agent} items={agents} onChange={filters.setAgent} />
               <FilterSelect
                 label="Filter by priority"
@@ -234,13 +241,13 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
             </div>
             <FindingList rows={rows} now={now} />
             {!rows.length && !list.error && (
-              <p className="px-4 py-16 text-center text-xs text-muted-foreground">
+              <p className="lens-empty-state px-4 py-16 text-center text-xs leading-6 text-muted-foreground">
                 {all.length
                   ? "No findings match these filters."
                   : "No open findings yet. New problems show up here as soon as an investigation spots them."}
               </p>
             )}
-            <footer className="flex h-8 shrink-0 items-center border-t px-3 text-xs text-muted-foreground">
+            <footer className="flex h-9 shrink-0 items-center border-t px-3 font-mono text-[10px] text-muted-foreground">
               {rows.length} {rows.length === 1 ? "finding" : "findings"}
               {rows.length !== all.length && ` of ${all.length}`}
             </footer>
@@ -254,8 +261,15 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
               <InboxDetail row={selected} readOnly={readOnly} busy={update.isPending} onReview={review} />
             </aside>
           ) : (
-            <div className="hidden min-w-0 flex-1 items-center justify-center p-8 text-sm text-muted-foreground md:flex">
-              {rows.length ? "Select a finding to see how often it happens and where." : null}
+            <div className="lens-empty-state hidden min-w-0 flex-1 flex-col items-center justify-center gap-5 p-8 text-sm text-muted-foreground @3xl/findings:flex">
+              <span className="flex size-14 items-center justify-center rounded-xl border border-indigo-200 bg-background text-indigo-600 dark:border-indigo-400/30 dark:text-indigo-300">
+                <ScanLine aria-hidden="true" className="size-6" strokeWidth={1.5} />
+              </span>
+              {rows.length ? (
+                <p className="max-w-64 text-center text-xs leading-6">
+                  Select a finding to see how often it happens and where.
+                </p>
+              ) : null}
             </div>
           )}
         </div>

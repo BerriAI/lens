@@ -9,10 +9,15 @@ import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { useDatasets } from "../datasets/api";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { buildEvalSpec, EMPTY_DRAFT, type NewEvalDraft } from "./newEvalSpec";
 import { useSaveEval } from "./runs/api";
 
-export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
+export function NewEval({
+  onCancel,
+  onSaved,
+  initialAgent = "",
+}: {
   onCancel: () => void;
   onSaved: (name: string) => void;
   initialAgent?: string;
@@ -36,13 +41,17 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
     });
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-      <div className="flex h-10 shrink-0 items-center gap-3 border-b px-3 text-xs">
-        <Button variant="ghost" size="xs" onClick={onCancel}>
-          <ChevronLeft /> Evals
-        </Button>
-        <h2 className="font-medium">New eval</h2>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <LensPageHeader
+        section="06 / REGRESSION LAB"
+        title="New eval"
+        description="Turn real agent runs into your next release check."
+        actions={
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            <ChevronLeft /> Evals
+          </Button>
+        }
+      />
       <form
         aria-label="New eval"
         className="min-h-0 flex-1 overflow-y-auto"
@@ -51,7 +60,7 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
           submit();
         }}
       >
-        <div className="mx-auto max-w-2xl divide-y text-sm">
+        <div className="mx-auto my-5 grid max-w-3xl gap-4 px-4 text-sm">
           <Section title="Eval">
             <Field label="Name">
               <Input
@@ -83,7 +92,11 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
               </Select>
             </Field>
             <Field label="Agent">
-              <Input readOnly={Boolean(initialAgent)} value={draft.agent} onChange={(event) => set({ agent: event.target.value })} />
+              <Input
+                readOnly={Boolean(initialAgent)}
+                value={draft.agent}
+                onChange={(event) => set({ agent: event.target.value })}
+              />
             </Field>
           </Section>
           <Section title="Scorers">
@@ -92,11 +105,7 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
               checked={draft.taskCompleted}
               onChange={(taskCompleted) => set({ taskCompleted })}
             />
-            <Toggle
-              label="Tool order"
-              checked={draft.calledBefore}
-              onChange={(calledBefore) => set({ calledBefore })}
-            >
+            <Toggle label="Tool order" checked={draft.calledBefore} onChange={(calledBefore) => set({ calledBefore })}>
               <div className="flex items-center gap-2 font-mono text-xs">
                 <Input
                   aria-label="First tool"
@@ -125,7 +134,11 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
           <Section title="Gate">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Field label="Trials">
-                <Input inputMode="numeric" value={draft.trials} onChange={(event) => set({ trials: event.target.value })} />
+                <Input
+                  inputMode="numeric"
+                  value={draft.trials}
+                  onChange={(event) => set({ trials: event.target.value })}
+                />
               </Field>
               <Field label="Max regressions">
                 <Input
@@ -135,7 +148,11 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
                 />
               </Field>
               <Field label="Max critical">
-                <Input inputMode="numeric" value={draft.critical} onChange={(event) => set({ critical: event.target.value })} />
+                <Input
+                  inputMode="numeric"
+                  value={draft.critical}
+                  onChange={(event) => set({ critical: event.target.value })}
+                />
               </Field>
               <Field label="Min pass %">
                 <Input
@@ -155,7 +172,7 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
               </Field>
             </div>
           </Section>
-          <div className="flex items-center justify-end gap-2 px-4 py-3">
+          <div className="lens-toolbar flex items-center justify-end gap-2 rounded-xl border px-4 py-3">
             {error && (
               <p role="alert" className="mr-auto text-xs text-destructive">
                 {error}
@@ -176,8 +193,11 @@ export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid gap-3 px-4 py-4">
-      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
+    <section className="lens-panel grid gap-4 rounded-xl border px-5 py-5 [&_input]:bg-background [&_textarea]:bg-background">
+      <h3 className="lens-section-label flex items-center gap-2 text-xs font-medium">
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--lens-violet)]" />
+        {title}
+      </h3>
       {children}
     </section>
   );
@@ -186,7 +206,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="grid gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -204,7 +224,7 @@ function Toggle({
   children?: ReactNode;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3 rounded-lg border bg-background/60 p-3">
       <label className="flex items-center gap-2 text-xs">
         <Checkbox checked={checked} onCheckedChange={(next) => onChange(next === true)} />
         {label}

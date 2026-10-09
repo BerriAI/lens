@@ -29,7 +29,7 @@ export function EvidenceView({ lensId, evidence, backLabel, onBack }: EvidenceVi
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="evidence-view">
       {onBack && backLabel && (
-        <div className="flex h-9 shrink-0 items-center border-b px-3">
+        <div className="lens-toolbar flex h-10 shrink-0 items-center border-b px-3">
           <Inspector.BackLink label={backLabel} onClick={onBack} />
         </div>
       )}
@@ -100,15 +100,18 @@ function RequestEvidence({ lensId, evidenceId }: { lensId: string; evidenceId: s
   const evidence = useQuery(lensQueries.evidence(api, request));
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <header className="border-b px-4 py-4">
-        <h2 className="text-sm font-semibold">Request evidence</h2>
+      <header className="lens-toolbar border-b px-4 py-4">
+        <h2 className="mb-1 font-mono text-sm font-semibold">Request evidence</h2>
         <p className="text-xs text-muted-foreground">Original logged input and output</p>
       </header>
       <div className="space-y-3 p-4">
         {evidence.isLoading && <p role="status">Loading request…</p>}
         {evidence.error && <p role="alert">{evidence.error.message}</p>}
         {evidence.data?.parts.map((p) => (
-          <pre className="text-xs break-words whitespace-pre-wrap" key={p.span_id}>
+          <pre
+            className="rounded-md border border-l-2 border-l-cyan-400/60 bg-card p-4 font-mono text-xs leading-6 break-words whitespace-pre-wrap"
+            key={p.span_id}
+          >
             {p.content}
           </pre>
         ))}

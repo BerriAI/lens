@@ -58,7 +58,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <TabsContent value="findings" className="pt-4 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="lens-toolbar flex flex-wrap items-center justify-between gap-3 rounded-md border p-2">
           <div className="flex gap-1" aria-label="Finding category">
             <Button size="sm" variant={kind === "issue" ? "secondary" : "ghost"} onClick={() => setKind("issue")}>
               Needs attention ({openCount("issue")})
@@ -69,7 +69,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
           </div>
           <select
             aria-label="Finding status"
-            className="rounded-md border bg-background px-2 py-1 text-xs"
+            className="rounded-md border bg-background px-2 py-1 font-mono text-[11px]"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -84,7 +84,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
             ? "Problems worth investigating, highest priority first."
             : "Useful behavior and trends. These do not necessarily need a fix."}
         </p>
-        <div className="divide-y border-y">
+        <div className="lens-panel divide-y overflow-hidden rounded-lg border bg-card">
           {visible.map((f) => (
             <Inspector.Row
               key={f.id}
@@ -92,7 +92,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
               render={
                 <button
                   type="button"
-                  className="flex w-full gap-3 py-4 text-left hover:bg-muted/30 focus-visible:outline-2 focus-visible:outline-ring data-[state=selected]:bg-trace-row-selected data-[state=selected]:shadow-[inset_2px_0_0_var(--trace-brand)]"
+                  className="flex w-full gap-3 px-4 py-4 text-left hover:bg-indigo-50/50 focus-visible:outline-2 focus-visible:outline-ring data-[state=selected]:bg-trace-row-selected data-[state=selected]:shadow-[inset_2px_0_0_var(--trace-brand)] dark:hover:bg-indigo-400/5"
                 />
               }
             >
@@ -104,7 +104,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{f.title}</p>
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{f.description}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">
                   {f.occurrences?.length ?? 0} affected {f.occurrences?.length === 1 ? "trace" : "traces"} ·{" "}
                   {(f.investigation_runs?.length ?? 0) > 1 && `${f.investigation_runs.length} investigation runs · `}
                   {f.kind === "issue" ? `${f.priority} priority` : "Pattern"}
@@ -114,7 +114,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
             </Inspector.Row>
           ))}
           {visible.length === 0 && (
-            <div className="px-6 py-14 text-center">
+            <div className="lens-empty-state px-6 py-14 text-center">
               <CheckCircle2 className="mx-auto mb-3 size-5 text-muted-foreground" />
               <p className="text-sm font-medium">{emptyFindingTitle(active, !!lens.last_scan_at, job?.status)}</p>
               <p className="mt-2 text-xs text-muted-foreground">{emptyFindingDescription(active, job)}</p>

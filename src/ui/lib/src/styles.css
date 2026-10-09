@@ -477,24 +477,177 @@
   border: 1px solid var(--neutral-border);
 }
 
-.lens-shell,
+.lens-workspace,
 .lens-shell-overlay {
   --lens-brand: #0017b7;
+  --lens-cyan: #0785aa;
+  --lens-violet: #7951c8;
+  --lens-rose: #c75078;
+  --lens-amber: #a16c17;
   --lens-paper: #fafbff;
   --lens-grid: #d6daec;
   --lens-nav-active: #eef0ff;
+  --lens-soft: #f3f4fc;
+  --lens-border: #dfe3f2;
   --primary: var(--lens-brand);
   --primary-foreground: #ffffff;
   --ring: var(--lens-brand);
+  --trace-brand: var(--lens-brand);
+  --trace-row-hover: #f6f7ff;
+  --trace-row-selected: #eef0ff;
+  --trace-dot: #a6b0f2;
+  --trace-tab-active: #eef0ff;
+  --trace-tab-hover: #f3f4fc;
 }
 
-.dark .lens-shell,
+.dark .lens-workspace,
 .dark .lens-shell-overlay {
   --lens-brand: #8b9bff;
+  --lens-cyan: #62cde8;
+  --lens-violet: #b99aff;
+  --lens-rose: #f19bb6;
+  --lens-amber: #e9be75;
   --lens-paper: #202128;
   --lens-grid: #393c50;
   --lens-nav-active: #2d3147;
+  --lens-soft: #282b38;
+  --lens-border: #3b4055;
   --primary-foreground: #12142b;
+  --trace-row-hover: #292d3b;
+  --trace-row-selected: #303752;
+  --trace-dot: #5a669a;
+  --trace-tab-active: #303752;
+  --trace-tab-hover: #292d3b;
+}
+
+.lens-page-header {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--lens-border, var(--border));
+  background-color: var(--card);
+  background-image: linear-gradient(to right, var(--card) 40%, transparent),
+    radial-gradient(var(--lens-grid, var(--border)) 0.8px, transparent 0.8px);
+  background-size:
+    100% 100%,
+    10px 10px;
+}
+
+.lens-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+}
+
+.lens-spectrum {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.lens-spectrum i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--lens-violet, #7951c8);
+}
+
+.lens-spectrum i:nth-child(2) {
+  background: var(--lens-cyan, #0785aa);
+}
+.lens-spectrum i:nth-child(3) {
+  background: var(--lens-amber, #a16c17);
+}
+.lens-spectrum i:nth-child(4) {
+  background: var(--lens-rose, #c75078);
+}
+
+.lens-toolbar {
+  border-color: var(--lens-border, var(--border));
+  background: var(--lens-paper, var(--card));
+}
+
+.lens-panel {
+  border: 1px solid var(--lens-border, var(--border));
+  border-radius: 0.75rem;
+  background: var(--card);
+}
+
+.lens-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--lens-border, var(--border));
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--lens-soft, var(--muted));
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-workspace :is([data-slot="table-head"], .lens-table [role="columnheader"]) {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lens-workspace [data-slot="table-header"] {
+  background: var(--lens-paper);
+}
+
+.lens-workspace [data-slot="table-row"][data-state="selected"] {
+  background: var(--trace-row-selected);
+  box-shadow: inset 2px 0 0 var(--lens-brand);
+}
+
+.lens-workspace
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not([aria-invalid="true"]) {
+  border-color: var(--lens-border);
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+
+.lens-workspace
+  :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):not(
+    [aria-invalid="true"]
+  ):focus-visible {
+  border-color: var(--lens-brand);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--lens-brand) 12%, transparent);
+}
+
+.lens-workspace [data-slot="state-icon"][data-tone="muted"] {
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--lens-border);
+  border-radius: 0.75rem;
+  color: var(--lens-brand);
+  background: var(--lens-soft);
+  box-shadow: 5px 5px 0 color-mix(in oklab, var(--lens-violet) 10%, transparent);
+}
+
+.lens-workspace [data-slot="state-title"] {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.lens-empty-state {
+  background-image: radial-gradient(var(--lens-grid, var(--border)) 0.8px, transparent 0.8px);
+  background-size: 16px 16px;
+}
+
+.lens-empty-state [data-slot="state-message"] {
+  padding-inline: 1.5rem;
+  background: var(--card);
 }
 
 .lens-workspace-paper {

@@ -12,6 +12,7 @@ import { useDatasets } from "../datasets/api";
 import type { DatasetSummary } from "../datasets/types";
 import { useEvalRunRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { NewEval } from "./NewEval";
 import { useEvalDefinition, useEvals } from "./runs/api";
 import { RunDetail } from "./runs/RunDetail";
@@ -39,7 +40,21 @@ export function EvalsView() {
       />
     );
   if (evalName) return <EvalPage key={evalName} name={evalName} onBack={() => openEval(null)} onOpenRun={openRun} />;
-  return <EvalList onOpen={openEval} onNew={() => setCreating(true)} />;
+  return (
+    <>
+      <LensPageHeader
+        section="06 / REGRESSION LAB"
+        title="Evals"
+        description="Replay production. Catch regressions before they ship."
+        actions={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus /> New eval
+          </Button>
+        }
+      />
+      <EvalList onOpen={openEval} />
+    </>
+  );
 }
 
 const loading = (title: string) => (
@@ -67,47 +82,61 @@ const datasetLabel = (definition: EvalDefinition, datasets: readonly DatasetSumm
   return `${name}@${definition.spec.revision ?? dataset?.revision ?? "latest"}`;
 };
 
-function EvalList({ onOpen, onNew }: { onOpen: (name: string) => void; onNew: () => void }) {
+function EvalList({ onOpen }: { onOpen: (name: string) => void }) {
   const evals = useEvals();
   const datasets = useDatasets();
   if (evals.isPending) return loading("Loading evals…");
   if (evals.error) return failed("Couldn't load evals", evals.error);
   if (evals.data.length === 0)
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-card">
+      <div className="lens-empty-state flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <StateMessage
           role="status"
           icon={<FlaskConical className="size-5" />}
           title="No evals yet"
           description="An eval replays a dataset of production cases against every PR and fails the check on regressions."
         />
-        <Button size="sm" onClick={onNew}>
-          <Plus /> New eval
-        </Button>
       </div>
     );
-  return <EvalTable evals={evals.data} datasets={datasets.data ?? []} onOpen={onOpen} onNew={onNew} />;
+  return <EvalTable evals={evals.data} datasets={datasets.data ?? []} onOpen={onOpen} />;
 }
 
 function EvalTable({
   evals,
   datasets,
   onOpen,
-  onNew,
 }: {
   evals: readonly EvalDefinition[];
   datasets: readonly DatasetSummary[];
   onOpen: (name: string) => void;
-  onNew: () => void;
 }) {
   const columns: ColumnDef<EvalDefinition>[] = [
-    { id: "name", size: 220, header: "Eval", cell: ({ row }) => <span className="font-mono">{row.original.name}</span> },
-    { id: "agent", size: 160, header: "Agent", cell: ({ row }) => row.original.spec.agent },
+    {
+      id: "name",
+      size: 220,
+      header: "Eval",
+      cell: ({ row }) => (
+        <span className="flex min-w-0 items-center gap-2.5 font-mono">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-[var(--lens-violet)]/20 bg-[var(--lens-violet)]/10 text-[var(--lens-violet)]">
+            <FlaskConical aria-hidden="true" className="size-3.5" />
+          </span>
+          <span className="truncate">{row.original.name}</span>
+        </span>
+      ),
+    },
+    {
+      id: "agent",
+      size: 160,
+      header: "Agent",
+      cell: ({ row }) => <span className="font-mono">{row.original.spec.agent}</span>,
+    },
     {
       id: "dataset",
       size: 200,
       header: "Dataset",
-      cell: ({ row }) => <span className="font-mono text-muted-foreground">{datasetLabel(row.original, datasets)}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono text-muted-foreground">{datasetLabel(row.original, datasets)}</span>
+      ),
     },
     {
       id: "scorers",
@@ -151,16 +180,14 @@ function EvalTable({
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-        <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b px-3">
-          <span className="text-xs text-muted-foreground">
+        <div className="lens-toolbar flex h-9 shrink-0 items-center gap-2 border-b px-3">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--lens-violet)]" />
+          <span className="font-mono text-[11px] text-muted-foreground">
             {evals.length} {evals.length === 1 ? "eval" : "evals"}
           </span>
-          <Button size="sm" onClick={onNew}>
-            <Plus /> New eval
-          </Button>
         </div>
         <InspectorTable.Root table={table}>
-          <InspectorTable.Grid aria-label="Evals" className="text-xs" style={{ minWidth: 960 }}>
+          <InspectorTable.Grid aria-label="Evals" className="lens-table text-xs" style={{ minWidth: 960 }}>
             <InspectorTable.Header />
             <InspectorTable.Body<EvalDefinition> rowHeight={() => 36}>
               {(row) => (
@@ -197,11 +224,14 @@ function EvalPage({
   const dataset = datasets.data?.find((item) => item.id === spec.dataset_id);
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-      <div className="flex h-10 shrink-0 items-center gap-3 border-b px-3 text-xs">
+      <div className="lens-toolbar flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b px-3 py-2 text-xs">
         <Button variant="ghost" size="xs" onClick={onBack}>
           <ChevronLeft /> Evals
         </Button>
-        <h2 className="shrink-0 whitespace-nowrap font-mono font-medium">{name}</h2>
+        <h2 className="flex shrink-0 items-center gap-2 whitespace-nowrap font-mono font-medium">
+          <FlaskConical aria-hidden="true" className="size-4 text-[var(--lens-violet)]" />
+          {name}
+        </h2>
         <dl className="flex min-w-0 items-center gap-3 truncate font-mono text-muted-foreground">
           <dt className="sr-only">Agent</dt>
           <dd>{spec.agent}</dd>

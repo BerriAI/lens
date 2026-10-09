@@ -16,6 +16,7 @@ import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import { StateMessage } from "../../shared/StateMessage";
 import { useDatasetRoute } from "../route";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { useDatasets } from "./api";
 import { DatasetDetail } from "./DatasetDetail";
 import type { DatasetSummary } from "./types";
@@ -39,7 +40,14 @@ export function DatasetsView({ readOnly = false }: DatasetsViewProps) {
           onBack={() => openDataset(null)}
         />
       ) : (
-        <DatasetList onOpen={openDataset} />
+        <>
+          <LensPageHeader
+            section="05 / REPLAY LIBRARY"
+            title="Datasets"
+            description="Real conversations. Reproducible test cases."
+          />
+          <DatasetList onOpen={openDataset} />
+        </>
       )}
     </section>
   );
@@ -74,12 +82,14 @@ function DatasetList({ onOpen }: { onOpen: (id: string) => void }) {
     );
   if (datasets.data.length === 0)
     return (
-      <StateMessage
-        role="status"
-        icon={<Database className="size-5" />}
-        title="No datasets yet"
-        description="Open a trace or a finding and choose Add to dataset to save real conversations for an agent."
-      />
+      <div className="lens-empty-state flex min-h-0 flex-1">
+        <StateMessage
+          role="status"
+          icon={<Database className="size-5" />}
+          title="No datasets yet"
+          description="Open a trace or a finding and choose Add to dataset to save real conversations for an agent."
+        />
+      </div>
     );
   return <DatasetTable datasets={datasets.data} onOpen={onOpen} />;
 }
@@ -90,12 +100,17 @@ const DATASET_HEIGHT = 36;
 
 function NameCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="flex min-w-0 flex-col">
-      <span className="truncate font-medium text-foreground">
-        {dataset.name}
+    <span className="flex min-w-0 items-center gap-2.5">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-[var(--lens-cyan)]/20 bg-[var(--lens-cyan)]/10 text-[var(--lens-cyan)]">
+        <Database aria-hidden="true" className="size-3.5" />
       </span>
-      <span className="truncate text-xs text-muted-foreground md:hidden">
-        {dataset.agent_name || "Any agent"}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium text-foreground">
+          {dataset.name}
+        </span>
+        <span className="truncate font-mono text-xs text-muted-foreground md:hidden">
+          {dataset.agent_name || "Any agent"}
+        </span>
       </span>
     </span>
   );
@@ -103,7 +118,7 @@ function NameCell({ row: { original: dataset } }: Cell) {
 
 function AgentCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="block truncate text-muted-foreground">
+    <span className="block truncate font-mono text-muted-foreground">
       {dataset.agent_name || "Any agent"}
     </span>
   );
@@ -111,7 +126,7 @@ function AgentCell({ row: { original: dataset } }: Cell) {
 
 function RevisionCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="tabular-nums text-muted-foreground">
+    <span className="font-mono tabular-nums text-muted-foreground">
       {dataset.revision}
     </span>
   );
@@ -119,7 +134,7 @@ function RevisionCell({ row: { original: dataset } }: Cell) {
 
 function CasesCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="inline-flex min-w-5 justify-center rounded-full bg-muted px-1.5 font-mono text-xs tabular-nums text-foreground">
+    <span className="inline-flex min-w-6 justify-center rounded-md bg-[var(--lens-brand)]/10 px-1.5 py-0.5 font-mono text-xs tabular-nums text-[var(--lens-brand)]">
       {dataset.case_count}
     </span>
   );
@@ -204,7 +219,7 @@ function DatasetTable({
         <InspectorTable.Root table={table}>
           <InspectorTable.Grid
             aria-label="Datasets"
-            className="text-xs md:min-w-[720px]"
+            className="lens-table text-xs md:min-w-[720px]"
           >
             <InspectorTable.Header />
             <InspectorTable.Body<DatasetSummary>
@@ -222,7 +237,7 @@ function DatasetTable({
             </InspectorTable.Body>
           </InspectorTable.Grid>
         </InspectorTable.Root>
-        <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
+        <footer className="lens-toolbar flex h-8 shrink-0 items-center border-t px-3 font-mono text-[11px] text-muted-foreground">
           {datasets.length} {datasets.length === 1 ? "dataset" : "datasets"} ·{" "}
           {cases} {cases === 1 ? "case" : "cases"}
         </footer>

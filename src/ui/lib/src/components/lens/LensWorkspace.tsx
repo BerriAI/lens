@@ -186,7 +186,10 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   return (
     <OnboardingProvider value={onboarding}>
       <main
-        className={cn("relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background", !embedded && "lens-shell")}
+        className={cn(
+          "lens-workspace relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
+          !embedded && "lens-shell",
+        )}
       >
         <Tabs.Root
           value={activeTab}
@@ -341,7 +344,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 </>
               )}
               {workers && list && (
-                <TabsContent value="settings" keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
+                <TabsContent value="settings" keepMounted className={PANEL}>
                   <LensSettings
                     list={list}
                     workerReadyAction={

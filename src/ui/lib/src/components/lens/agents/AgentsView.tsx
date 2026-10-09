@@ -13,6 +13,7 @@ import { traceFramework } from "../traces/ui/TraceFramework";
 import { AgentMark, matchesAgent } from "./AgentPicker";
 import type { LensAgents } from "./AgentScoped";
 import { AGENT_WINDOW_DAYS } from "./useAgents";
+import { LensPageHeader } from "../ui/LensPageHeader";
 
 export function AgentsView({
   agents,
@@ -32,29 +33,31 @@ export function AgentsView({
 
   return (
     <section aria-label="Agents directory" className="flex flex-col gap-5 p-4 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
-        <div className="space-y-2">
-          <p className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground">YOUR AGENT FLEET</p>
-          <h2 className="flex items-center gap-2.5 text-2xl font-medium tracking-tight">
+      <LensPageHeader
+        section="01 / AGENT DIRECTORY"
+        title={
+          <>
             Agents
             {!isLoading && !error && (
               <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-xs font-medium text-indigo-700 tabular-nums dark:border-indigo-400/25 dark:bg-indigo-400/10 dark:text-indigo-300">
                 {all.length.toLocaleString()}
               </span>
             )}
-          </h2>
-          <p className="text-sm text-muted-foreground">Choose an agent to explore its traces and activity</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-[11px] text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
-          {onConnectProject && (
-            <Button size="sm" onClick={onConnectProject}>
-              <Plus aria-hidden className="size-4" />
-              Connect project
-            </Button>
-          )}
-        </div>
-      </div>
+          </>
+        }
+        description="Choose an agent to explore its traces and activity"
+        actions={
+          <>
+            <span className="font-mono text-[11px] text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
+            {onConnectProject && (
+              <Button size="sm" onClick={onConnectProject}>
+                <Plus aria-hidden className="size-4" />
+                Connect project
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="relative w-full sm:max-w-80">
         <Search
@@ -81,7 +84,7 @@ export function AgentsView({
         </p>
       )}
       {!isLoading && !error && all.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
+        <div className="lens-empty-state flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
           <span className="flex size-10 items-center justify-center rounded-lg border bg-muted/40">
             <Bot aria-hidden className="size-5 text-muted-foreground" />
           </span>
@@ -119,7 +122,7 @@ export function AgentsView({
                         onClick={() => onOpenAgent(agent.name)}
                         className="group -ml-2 h-auto max-w-full justify-start gap-3 px-2 py-1.5 text-left"
                       >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--lens-border)] bg-[var(--lens-soft)] text-[var(--lens-cyan)]">
                           <AgentMark agent={agent} />
                         </span>
                         <span className="flex min-w-0 flex-col gap-0.5">

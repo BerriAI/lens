@@ -69,7 +69,7 @@ function RunStrip({ run, onBack }: { run: EvalRun; onBack: () => void }) {
   return (
     <header
       aria-label="Run"
-      className="flex h-9 shrink-0 items-center overflow-x-auto border-b bg-muted/30 font-mono text-xs"
+      className="lens-toolbar flex h-11 shrink-0 items-center overflow-x-auto border-b font-mono text-xs"
     >
       <button
         type="button"
@@ -242,7 +242,7 @@ function CaseList({
   return (
     <nav
       aria-label="Changed cases"
-      className="w-72 shrink-0 overflow-y-auto border-r"
+      className="w-72 shrink-0 overflow-y-auto border-r bg-[var(--lens-soft)]"
     >
       <CaseGroup
         title="Regressed"
@@ -282,7 +282,7 @@ function CaseGroup({
   if (diffs.length === 0) return null;
   return (
     <section aria-label={title}>
-      <h4 className="flex items-center justify-between border-b bg-muted/30 px-3 py-1 font-mono text-[11px] text-muted-foreground uppercase">
+      <h4 className="lens-section-label flex items-center justify-between border-b px-3 py-2 font-mono text-[11px]">
         {title}
         <span className={tone}>{diffs.length}</span>
       </h4>
@@ -295,7 +295,8 @@ function CaseGroup({
               onClick={() => onOpen(diff.case_id)}
               className={cn(
                 "flex w-full items-start gap-2 border-b border-l-2 border-l-transparent px-3 py-1.5 text-left hover:bg-muted/50",
-                diff.case_id === selected && "border-l-foreground bg-muted",
+                diff.case_id === selected &&
+                  "border-l-[var(--lens-brand)] bg-[var(--lens-brand)]/10",
               )}
             >
               <span
