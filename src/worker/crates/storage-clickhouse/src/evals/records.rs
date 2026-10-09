@@ -56,6 +56,8 @@ pub struct RunFilter {
     pub eval: Option<String>,
     pub agent: Option<String>,
     pub branch: Option<String>,
+    pub dataset: Option<String>,
+    pub after: Option<String>,
     pub limit: u32,
 }
 
@@ -65,6 +67,8 @@ impl Default for RunFilter {
             eval: None,
             agent: None,
             branch: None,
+            dataset: None,
+            after: None,
             limit: 50,
         }
     }

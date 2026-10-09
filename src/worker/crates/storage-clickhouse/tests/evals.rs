@@ -663,12 +663,40 @@ async fn list_applies_all_filters_and_limit_without_crossing_teams(
     .await;
     create(&store, "other", request, cases, now + Duration::seconds(2)).await;
     let filter = RunFilter {
-        eval: Some(older.request.eval),
-        agent: Some(older.request.agent),
+        eval: Some(older.request.eval.clone()),
+        agent: Some(older.request.agent.clone()),
         branch: Some("main".into()),
+        dataset: Some(older.request.dataset_id.clone()),
+        after: None,
         limit: 1,
     };
-    assert_eq!(store.list("team", &filter).await.unwrap(), vec![newest]);
+    assert_eq!(store.list("team", &filter).await.unwrap(), vec![newest.clone()]);
+    assert_eq!(
+        store
+            .list(
+                "team",
+                &RunFilter {
+                    after: Some(newest.run.id.clone()),
+                    ..filter.clone()
+                }
+            )
+            .await
+            .unwrap(),
+        vec![older]
+    );
+    assert!(
+        store
+            .list(
+                "team",
+                &RunFilter {
+                    dataset: Some("missing".into()),
+                    ..filter.clone()
+                }
+            )
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert!(
         store
             .list(

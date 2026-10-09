@@ -182,11 +182,11 @@ async fn regressions_fixed_and_critical_follow_case_order() {
     assert!(summary.regressions[0].critical && !summary.regressions[1].critical);
     assert_eq!(
         summary.regressions[0].baseline_url,
-        "http://lens/runs/baseline?case=c"
+        "http://lens/runs/baseline?eval_case=c"
     );
     assert_eq!(
         summary.regressions[0].candidate_url,
-        "http://lens/runs/candidate?case=c"
+        "http://lens/runs/candidate?eval_case=c"
     );
     assert_eq!(summary.baseline_run_id.as_deref(), Some("baseline"));
     assert_eq!(summary.baseline_version.as_deref(), Some("base"));

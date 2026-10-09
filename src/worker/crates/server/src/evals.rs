@@ -264,6 +264,8 @@ struct ListQuery {
     eval: Option<String>,
     agent: Option<String>,
     branch: Option<String>,
+    dataset: Option<String>,
+    cursor: Option<String>,
     limit: Option<u32>,
 }
 
@@ -277,6 +279,8 @@ async fn list<R: SessionRepository>(
         eval: query.eval,
         agent: query.agent,
         branch: query.branch,
+        dataset: query.dataset,
+        after: query.cursor,
         limit: query.limit.unwrap_or(50),
     };
     Ok(Json(

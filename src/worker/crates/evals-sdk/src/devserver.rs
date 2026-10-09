@@ -388,11 +388,11 @@ fn summary(
             .get("priority")
             .is_some_and(|value| value == "high"),
         baseline_url: format!(
-            "{}?case={}",
+            "{}?eval_case={}",
             baseline.map(|id| store.runs[id].url.as_str()).unwrap_or(""),
             case.id
         ),
-        candidate_url: format!("{}?case={}", store.runs[id].url, case.id),
+        candidate_url: format!("{}?eval_case={}", store.runs[id].url, case.id),
     };
     let regressions = cases
         .iter()

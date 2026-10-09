@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use futures_util::{StreamExt, TryStreamExt, stream};
-use lens_contract::eval::{CreateEvalRun, ResolvedDataset};
+use lens_contract::eval::{CreateEvalRun, FINDING_ID_META_KEY, ResolvedDataset};
 use litellm_storage_clickhouse::{evals::StoredCase, state::ClickHouseState};
 use litellm_traces_clickhouse::evals::EvalTraces;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
@@ -261,6 +261,10 @@ impl Datasets {
             .into_iter()
             .map(|mut case| {
                 case.meta.retain(|key, _| key == "repo_url");
+                if !case.source.finding_id.is_empty() {
+                    case.meta
+                        .insert(FINDING_ID_META_KEY.into(), case.source.finding_id.clone());
+                }
                 if let Some(repo_url) = attributes
                     .get(&case.source.trace_id)
                     .and_then(|root| root.get("repo_url"))

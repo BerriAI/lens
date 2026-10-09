@@ -421,11 +421,11 @@ pub fn normalized(run: &EvalRun, baseline: Option<&EvalRun>) -> Summary {
     {
         assert_eq!(
             diff.candidate_url,
-            format!("{}?case={}", run.url, diff.case_id)
+            format!("{}&eval_case={}", run.url, diff.case_id)
         );
         assert_eq!(
             diff.baseline_url,
-            format!("{}?case={}", baseline.unwrap().url, diff.case_id)
+            format!("{}&eval_case={}", baseline.unwrap().url, diff.case_id)
         );
         diff.candidate_url = format!("candidate?case={}", diff.case_id);
         diff.baseline_url = format!("baseline?case={}", diff.case_id);

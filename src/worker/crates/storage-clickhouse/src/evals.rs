@@ -4,6 +4,7 @@ mod scoring;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use lens_contract::eval::{CaseError, CaseResult, CreateEvalRun, EvalRun, RunStatus};
 
 use crate::{
@@ -65,8 +66,9 @@ impl EvalStore {
                 branch: request.branch.clone(),
                 pr: request.pr,
                 url: format!(
-                    "{}/ui/?page=lens&run={id}",
-                    public_url.trim_end_matches('/')
+                    "{}/ui/?tab=datasets&dataset={}&dataset_tab=runs&eval_run={id}",
+                    public_url.trim_end_matches('/'),
+                    utf8_percent_encode(&request.dataset_id, NON_ALPHANUMERIC),
                 ),
                 expected_trials: cases.len() as u64 * u64::from(request.trials),
                 received_trials: 0,
@@ -263,7 +265,10 @@ impl EvalStore {
     pub async fn list(&self, team: &str, filter: &RunFilter) -> Result<Vec<StoredRun>, EvalError> {
         validate_limit(filter.limit)?;
         let prefix = format!("eval-run/{}/", digest(team.as_bytes()));
-        let mut after = String::new();
+        let mut after = filter
+            .after
+            .as_ref()
+            .map_or_else(String::new, |run| format!("{prefix}{run}"));
         let mut runs = Vec::new();
         loop {
             let keys = self.state.keys(&prefix, &after, PAGE_SIZE).await?;
@@ -291,6 +296,10 @@ impl EvalStore {
                         .branch
                         .as_ref()
                         .is_none_or(|branch| *branch == run.request.branch)
+                    && filter
+                        .dataset
+                        .as_ref()
+                        .is_none_or(|dataset| *dataset == run.request.dataset_id)
                 {
                     runs.push(run);
                     if runs.len() == filter.limit as usize {
