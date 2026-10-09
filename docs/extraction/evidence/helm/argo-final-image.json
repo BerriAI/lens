@@ -1,0 +1,139 @@
+{
+  "recorded_at": "2026-10-09T08:17:15.732Z",
+  "scope": "Local real Argo installation, immutable-image upgrade, provider-backed sandboxed investigation and rollback",
+  "runtime_source_commit": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "runtime_image": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+  "baseline_source_commit": "b0f3d5b447eae749b2665c7fbbaf19c71d4d3e38",
+  "baseline_image": "sha256:a25095ed12e3d4abbe798d0ab0b39982c6fc98401e562faf9c34aa4a7d86255f",
+  "ops_source_commit": "8e541e2fa89f41cd24c7fc4f22d5b325e39a8e5e",
+  "argo_version": "3.3.8",
+  "kubernetes_version": "1.35.0",
+  "chart_packages": {
+    "source_commit": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "snapshot_method": "git archive helm/lens",
+    "archive_sha256": "47635abc4249bae900dfb1666cb5ecee269071a154415aff336f77da0d5b5752",
+    "package_overrides": "Only chart version changes between qa.1 and qa.2; immutable image digests are supplied separately",
+    "packages": [
+      {
+        "path": "repo/lens-0.1.0-qa.1.tgz",
+        "sha256": "15dcc998a837fa65087f3dd224173866bf6be0991da442e36f26a97e30f45469"
+      },
+      {
+        "path": "repo/lens-0.1.0-qa.2.tgz",
+        "sha256": "526fd54e25b40698356c4e2616c6b0539d65085253bc0c4aad17c59617311294"
+      }
+    ]
+  },
+  "checks": {
+    "baseline_argo_synced_healthy": true,
+    "final_image_upgrade_synced_healthy": true,
+    "read_only_rollout_role_verified": true,
+    "read_only_role_denied_secret_reads": true,
+    "ui_served": true,
+    "unauthenticated_api_denied": true,
+    "trace_ingested_and_read": true,
+    "dataset_built_and_saved": true,
+    "trace_dataset_revision_export_and_session_preserved_on_upgrade": true,
+    "wrong_image_digest_rejected": true,
+    "zero_replica_deployment_rejected": true,
+    "recovery_synced_healthy": true,
+    "baseline_rollback_synced_healthy": true,
+    "trace_dataset_revision_export_session_and_investigation_preserved_on_rollback": true,
+    "admin_secret_deployment_service_and_pvc_identities_preserved": true
+  },
+  "provider_backed_investigation": {
+    "status": "completed",
+    "expected_total_cents": 85877,
+    "coverage": {
+      "candidates": 1,
+      "eligible": 1,
+      "failed_tasks": 0,
+      "grouped_batches": 1,
+      "grouping_batches": 1,
+      "inconclusive": 0,
+      "investigated": 1,
+      "partial": 0,
+      "reusable": 0,
+      "reused": 0,
+      "screened": 1,
+      "selected": 1,
+      "unassessable": 0
+    },
+    "spent": 0.0574467,
+    "remaining_reservations": [],
+    "evidence_backed_issue_found": true,
+    "python_results": [
+      {
+        "stdout": "total_cents: 85877\n",
+        "stderr": "",
+        "exit_code": 0,
+        "elapsed_seconds": 0.135760458,
+        "output_complete": true,
+        "error": ""
+      },
+      {
+        "stdout": "total_cents = 85877\n",
+        "stderr": "",
+        "exit_code": 0,
+        "elapsed_seconds": 0.060511167,
+        "output_complete": true,
+        "error": ""
+      }
+    ],
+    "provider_route": {
+      "model": "openai/gpt-6.1-sol",
+      "provider": "openai_compatible",
+      "route": "Same running hosted-provider gateway used by the current local investigation runtime",
+      "endpoint_change": "Only the loopback hostname changed to host.docker.internal for pod reachability"
+    },
+    "actual_pod_template_security": [
+      {
+        "name": "litellm-lens-worker-7444fb7f69",
+        "image": "localhost:15000/lens@sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+        "pod_security_context": {
+          "fsGroup": 65532,
+          "runAsGroup": 65532,
+          "runAsNonRoot": true,
+          "runAsUser": 65532,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "container_security_context": {
+          "allowPrivilegeEscalation": false,
+          "capabilities": {
+            "drop": [
+              "ALL"
+            ]
+          },
+          "readOnlyRootFilesystem": true
+        },
+        "volumes": [
+          {
+            "emptyDir": {
+              "medium": "Memory",
+              "sizeLimit": "1Gi"
+            },
+            "name": "tmp"
+          }
+        ]
+      }
+    ]
+  },
+  "final_argo_state": {
+    "sync": "Synced",
+    "health": "Healthy",
+    "operation": "Succeeded",
+    "chart_version": "0.1.0-qa.1"
+  },
+  "harness_correction": "Initial rollback byte comparison distinguished 2.0 from 2 and 0.0 from 0; complete parsed JSON deep equality passed without dropping fields or changing production code",
+  "local_evidence_directory": "/tmp/lens-argo-qa-20261008",
+  "cleanup": {
+    "isolated_kind_node_stopped": true,
+    "shared_services_unchanged": true
+  },
+  "limits": [
+    "Local registry and local Helm repository, no production deployment",
+    "The companion gateway chart lane is recorded separately"
+  ]
+}

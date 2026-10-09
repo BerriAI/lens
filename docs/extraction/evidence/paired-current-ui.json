@@ -1,0 +1,72 @@
+{
+  "recorded_at": "2026-10-09T08:47:17.082Z",
+  "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "candidate_ui": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "candidate_runtime": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "fixture": "Built-in synthetic demo support_agent; relative timestamps differ",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "checks": [
+    {
+      "flow": "Open first trace and expand failing tool group",
+      "observed": "Both show5steps,3errors,568tokens,$0.0030 and3/10feedback, selecting the first failing tool updates span=0000000000000011"
+    },
+    {
+      "flow": "Stored diagnostic",
+      "observed": "Both show Order service timed out and23characters"
+    },
+    {
+      "flow": "Thread and tool-work disclosure",
+      "observed": "Both preserve user and assistant content, three tool calls and step-failure disclosure"
+    },
+    {
+      "flow": "Trace/span/Thread reload and close",
+      "observed": "Both retain trace, span and Thread query after reload; closing removes selected trace route"
+    },
+    {
+      "flow": "Search and empty results",
+      "observed": "headphones returns same1row/content/duration/cost; unmatched query shows0runs and No runs match these filters in both"
+    },
+    {
+      "flow": "Status filter",
+      "observed": "With errors returns same3order traces and status=error route in both"
+    },
+    {
+      "flow": "Time range and refresh",
+      "observed": "With errors plus Last hour selects the same order1042 trace; refresh preserves selection and data"
+    },
+    {
+      "flow": "Investigation history and frozen criteria",
+      "observed": "Both show latest5/prior4reviewed runs,1issue+1pattern,$0.06/$0.048; selecting prior run changes run=support-scan-1 and shows the same frozen purpose/check"
+    },
+    {
+      "flow": "Reviewed trace coverage and findings",
+      "observed": "Prior run shows same4traces/outcomes; global findings show2items; selected repeated-lookups issue preserves summary/frequency/evidence links"
+    },
+    {
+      "flow": "Finding evidence to trace",
+      "observed": "View span opens the same evidence trace and response step in both UIs"
+    },
+    {
+      "flow": "Finding return navigation",
+      "observed": "Back to finding preserves issue selection and removes evidence route in both"
+    },
+    {
+      "flow": "Dataset demo empty state",
+      "observed": "Both show the same guidance to add real conversations from a trace or finding; live writes are covered separately"
+    },
+    {
+      "flow": "Research agent and alternate span display",
+      "observed": "Both show4research traces, matching durations/costs and9/10feedback; first trace has3steps/616tokens, same content and identifiers; Waterfall and Attributes controls work in both"
+    }
+  ],
+  "intentional_differences": [
+    "Standalone navigation/sidebar, Agents and Evals are newer shared UI additions; trace feature panels retain existing controls",
+    "Baseline uses an isolated preview shell and current pinned dependency install, not a deployed original gateway",
+    "Changing agent in the newer standalone sidebar navigates to Traces and clears status/issue selection; original dropdown preserves selected tab and filters. Selecting the same filters yields the same rows"
+  ],
+  "candidate_source": "105e7b0923a17311e527aad4d480b57bab431000",
+  "finished_at": "2026-10-09T09:04:01.954Z"
+}
