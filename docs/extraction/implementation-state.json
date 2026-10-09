@@ -2430,7 +2430,19 @@
     "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised",
     "follow_up_policy": "All implementation changes must be directly Lens-related and restricted to code added on or after September 30, 2026. Do not fix pre-existing bugs or upgrade unrelated versions.",
     "september30_audit": "docs/extraction/evidence/scope-september30.json",
-    "generated_metadata_exception": "Awaiting user answer to the explicit generated-metadata question; no exception assumed"
+    "generated_metadata_exception": "Approved after showing reproduced API generator output and distinguishing shared generated boilerplate from actual older handwritten code",
+    "oauth2_exception": {
+      "approved": true,
+      "scope": "Add route_is_lens to two June 27 OAuth2 dispatch conditions",
+      "commit": "8b8ea77a7ddd0d9f788270a92aa54aad0bdfa7f6",
+      "reason": "The extraction removed Lens from inference-route classification and unintentionally removed OAuth2 dispatch eligibility",
+      "validation": {
+        "oauth2_and_jwt_cases": 37,
+        "route_adapter_and_tracing_cases": 948,
+        "mutation_failures": 13,
+        "make_check": "passed"
+      }
+    }
   },
   "final_removal_audit": {
     "schema": 1,

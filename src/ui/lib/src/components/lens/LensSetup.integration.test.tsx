@@ -26,7 +26,7 @@ function serve({ enabled = false, traces = false, requests = false, connected = 
     if (path === "/lens/service") {
       const service = {
         url: "https://traces.test",
-        configured: enabled,
+        configured: enabled || connected,
         connected: enabled,
         status: { storage_ready: storageReady, credentials_ready: true },
       };
@@ -147,6 +147,29 @@ describe("Lens introduction", () => {
 });
 
 describe("Lens setup journey", () => {
+  it.each([false, true])("distinguishes an absent Lens service from a configured service failure (%s)", async (configured) => {
+    serve();
+    const normal = network.getMockImplementation()!;
+    network.mockImplementation((input, init) =>
+      requestPath(input) === "/lens/service"
+        ? Promise.resolve(Response.json({ url: "", configured, connected: false, status: { storage_ready: false } }))
+        : ["/lens", "/lens/activity/available"].includes(requestPath(input))
+        ? Promise.resolve(Response.json({ detail: "Lens service unavailable" }, { status: 503 }))
+        : normal(input, init),
+    );
+    const user = userEvent.setup();
+    renderWorkspace({ searchParams: "?setup=lens" });
+    await user.click(await screen.findByRole("button", { name: "Check setup" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Check setup" })).toBeEnabled());
+    if (configured) {
+      expect(await screen.findByText("Could not check setup. Lens service unavailable")).toBeVisible();
+    } else {
+      expect(screen.getByRole("link", { name: "Helm setup" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Set it up for me" })).toBeEnabled();
+      expect(screen.queryByText(/Could not check setup/)).not.toBeInTheDocument();
+    }
+  });
+
   it("should wait for storage readiness before completing explicit deployment setup", async () => {
     serve({ enabled: true, storageReady: false });
     const user = userEvent.setup();
