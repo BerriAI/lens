@@ -5,7 +5,7 @@ use lens_contract::{
     worker::{Job, JobStatus, JobTrigger, LensSettings, Result as RunResult},
 };
 use lens_investigations::*;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use serde_json::json;
 
 #[rstest]
@@ -210,11 +210,13 @@ fn one_off_settings_and_windows_leave_monitor_unchanged(
 }
 
 #[rstest]
-#[case::finding(true, false, "partial", TerminalStatus::Completed)]
-#[case::assessment(false, true, "partial", TerminalStatus::Completed)]
+#[case::finding_with_error(true, false, "partial", TerminalStatus::Failed)]
+#[case::assessment_with_error(false, true, "partial", TerminalStatus::Failed)]
 #[case::total_failure(false, false, "failed", TerminalStatus::Failed)]
 #[case::no_error(false, false, "", TerminalStatus::Completed)]
-fn partial_results_preserve_success(
+#[case::finding_without_error(true, false, "", TerminalStatus::Completed)]
+#[case::assessment_without_error(false, true, "", TerminalStatus::Completed)]
+fn results_with_errors_fail_even_after_partial_progress(
     #[case] finding: bool,
     #[case] assessable: bool,
     #[case] error: &str,
@@ -224,6 +226,22 @@ fn partial_results_preserve_success(
         json!({"coverage":{},"error":error,"findings":if finding {vec![draft("run")]} else {vec![]},"assessments":[{"execution_id":"run","cannot_assess":!assessable}]}),
     );
     assert_eq!(result_status(&result), expected);
+}
+
+#[fixture]
+fn incomplete_result() -> RunResult {
+    decode(json!({
+        "coverage": {"selected": 10, "screened": 7},
+        "error": "Lens storage failed: investigation write conflict",
+        "assessments": (0..7)
+            .map(|index| json!({"execution_id": format!("run-{index}"), "cannot_assess": false}))
+            .collect::<Vec<_>>()
+    }))
+}
+
+#[rstest]
+fn seven_of_ten_assessments_with_conflict_fail(incomplete_result: RunResult) {
+    assert_eq!(result_status(&incomplete_result), TerminalStatus::Failed);
 }
 
 #[rstest]
