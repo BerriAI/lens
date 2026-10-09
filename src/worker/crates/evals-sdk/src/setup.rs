@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{Error, Result, client, model::Execution};
 
-pub const ACTION: &str = "BerriAI/lens/src/sdk/action@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b";
+pub const ACTION: &str = "BerriAI/lens/src/sdk/action@bec4df25741e5a88563c36dbe240af18fad41f07";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

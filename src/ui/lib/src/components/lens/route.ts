@@ -288,7 +288,7 @@ export function useDatasetRoute() {
   return { datasetId: dataset, revision, caseId, openDataset, setRevision, setCaseId };
 }
 
-const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, ...EVAL_PARSERS };
+const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...EVAL_PARSERS };
 
 export function useEvalRunRoute() {
   const [{ eval: evalName, eval_run, eval_case }, setParams] = useQueryStates(EVAL_ROUTE_PARSERS, { history: "push" });
@@ -301,7 +301,12 @@ export function useEvalRunRoute() {
     [setParams],
   );
   const openCase = useCallback((next: string | null) => void setParams({ eval_case: next }), [setParams]);
-  return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase };
+  const openAgentRun = useCallback(
+    (agent: string, name: string, runId: string) =>
+      void setParams({ tab: "evals", agent, eval: name, eval_run: runId, eval_case: null }),
+    [setParams],
+  );
+  return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase, openAgentRun };
 }
 
 const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...OPEN_TRACE_PARSERS };

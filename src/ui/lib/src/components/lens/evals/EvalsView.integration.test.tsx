@@ -288,7 +288,7 @@ describe("Evals", () => {
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval")).toBe("refund-order");
   });
 
-  it("offers Connect to GitHub for an eval with no runs, then opens the first run once it arrives", async () => {
+  it("opens GitHub setup for an eval with no runs, then opens the first run once it arrives", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     let runs: EvalRun[] = [];
@@ -297,14 +297,18 @@ describe("Evals", () => {
     );
     renderWithLens(<EvalsView />, { searchParams: evalPage, onUrlUpdate });
 
-    const connect = await screen.findByRole("region", { name: "Connect agent" });
-    expect(within(connect).getByRole("button", { name: /Connect to GitHub/ })).toBeInTheDocument();
+    const connect = await screen.findByRole("region", {
+      name: "Connect agent",
+    });
+    expect(within(connect).getByRole("button", { name: "Connect GitHub" })).toBeEnabled();
     expect(within(connect).queryByRole("tabpanel")).not.toBeInTheDocument();
-    await user.click(within(connect).getByRole("button", { name: "Set up manually" }));
-    await user.click(within(connect).getByRole("tab", { name: "evals/agent_regressions.py" }));
-    expect(within(connect).getByRole("tabpanel", { name: "evals/agent_regressions.py" })).toHaveTextContent(
-      'scorers.called_before("check_refund_policy", "issue_refund")',
-    );
+    await user.click(within(connect).getByRole("button", { name: "Connect GitHub" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Connect GitHub",
+    });
+    expect(within(dialog).getByRole("textbox", { name: "GitHub repository" })).toBeVisible();
+    expect(await within(dialog).findByRole("combobox", { name: "Eval to run" })).toHaveTextContent("agent-regressions");
+    await user.keyboard("{Escape}");
 
     runs = [redRun];
     await testQueryClient.invalidateQueries();

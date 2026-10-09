@@ -38,7 +38,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@e420dbd248edec641833fbb743a5c8c9b49a1056#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@bec4df25741e5a88563c36dbe240af18fad41f07#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
@@ -210,6 +210,8 @@ Each normal invocation creates a separate execution, even at the same commit. Sa
 
 ## GitHub Action
 
+You can start from the agent’s **Connect GitHub** button in Lens. The [guided setup](../../docs/github-evals.md) selects an eval, prepares the workflow and adapter, and checks for the first PR eval received from that repository
+
 Setup generates a workflow for main pushes, same-repository PRs, and manual runs. Add `LENS_API_KEY` as a repository secret and `LENS_BASE_URL` as a repository variable. Enable private Action access for the consuming repository. Add your agent's dependencies, sandbox startup, and service credentials to that workflow. Run it on main first to establish the baseline, then open a same-repository PR to receive the comparison comment
 
 For a project using uv, the relevant steps are:
@@ -227,7 +229,7 @@ steps:
       python-version: '3.11'
   - run: python -m pip install uv==0.10.9
   - run: uv sync --frozen
-  - uses: BerriAI/lens/src/sdk/action@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b
+  - uses: BerriAI/lens/src/sdk/action@bec4df25741e5a88563c36dbe240af18fad41f07
     with:
       python: .venv/bin/python
       install-from-source: 'true'

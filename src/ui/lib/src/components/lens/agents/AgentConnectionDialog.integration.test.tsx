@@ -106,6 +106,30 @@ describe("Agent connection", () => {
     expect(screen.queryByText(/Instrumentation example/)).not.toBeInTheDocument();
   });
 
+  it("offers GitHub setup after the named agent’s first trace arrives", async () => {
+    const user = userEvent.setup();
+    const gateway = stubGateway();
+    const onConnectGitHub = vi.fn();
+    gateway.get.mockImplementation((path) =>
+      path === "/lens/service"
+        ? service
+        : { agents: [{ name: "qa-agent", runs: 1, failed_runs: 0, last_seen: new Date().toISOString(), frameworks: [] }] },
+    );
+    renderWithLens(
+      <AgentConnectionDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onConnectGitHub={onConnectGitHub}
+      />,
+    );
+    enterName("qa-agent");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Check for traces" }));
+    await user.click(await screen.findByRole("button", { name: "Connect GitHub" }));
+    expect(onConnectGitHub).toHaveBeenCalledExactlyOnceWith("qa-agent");
+  });
+
   it("should show instructions to viewers without allowing key creation", async () => {
     const user = userEvent.setup();
     const gateway = stubGateway();

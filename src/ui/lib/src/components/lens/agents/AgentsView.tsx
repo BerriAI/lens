@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bot, Plus, Search } from "lucide-react";
+import { ArrowRight, Bot, Github, Plus, Search } from "lucide-react";
 
 import { useNow } from "../../../hooks/useNow";
 import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
@@ -18,10 +18,12 @@ export function AgentsView({
   agents,
   onOpenAgent,
   onAddAgent,
+  onConnectGitHub,
 }: {
   agents: LensAgents;
   onOpenAgent: (agent: string) => void;
   onAddAgent?: () => void;
+  onConnectGitHub?: (agent: string) => void;
 }) {
   const [search, setSearch] = useAgentSearchRoute();
   const now = useNow(30_000);
@@ -97,6 +99,9 @@ export function AgentsView({
                 <TableHead className="px-4 text-right text-xs font-normal text-muted-foreground">Runs</TableHead>
                 <TableHead className="px-4 text-right text-xs font-normal text-muted-foreground">Errors</TableHead>
                 <TableHead className="px-4 text-right text-xs font-normal text-muted-foreground">Last active</TableHead>
+                {onConnectGitHub && (
+                  <TableHead className="px-4 text-right text-xs font-normal text-muted-foreground">PR evals</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -139,12 +144,27 @@ export function AgentsView({
                         {agoLabel(Date.parse(agent.last_seen), now)}
                       </time>
                     </TableCell>
+                    {onConnectGitHub && (
+                      <TableCell className="px-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Connect GitHub for ${agent.name}`}
+                          onClick={() => onConnectGitHub(agent.name)}
+                        >
+                          <Github aria-hidden="true" className="size-3.5" /> Connect GitHub
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
               {shown.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={onConnectGitHub ? 5 : 4}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
                     No agents match “{search}”
                   </TableCell>
                 </TableRow>

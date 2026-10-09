@@ -41,6 +41,7 @@ export interface EvalRun {
   readonly received_trials: number;
   readonly summary: Summary | null;
   readonly failure: string;
+  readonly ci_url?: string;
 }
 
 export interface ToolStep {
@@ -102,6 +103,7 @@ export interface EvalDefinition {
 }
 
 export interface EvalRunFilter {
+  readonly include_ci?: boolean;
   readonly eval?: string;
   readonly agent?: string;
   readonly branch?: string;

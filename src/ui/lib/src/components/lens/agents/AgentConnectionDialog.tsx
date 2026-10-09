@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Github, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
@@ -18,19 +18,28 @@ interface AgentConnectionDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onConnected: (agentName: string) => void;
+  readonly onConnectGitHub?: (agentName: string) => void;
 }
 
-export function AgentConnectionDialog({ open, onOpenChange, onConnected }: AgentConnectionDialogProps) {
+export function AgentConnectionDialog({
+  open,
+  onOpenChange,
+  onConnected,
+  onConnectGitHub,
+}: AgentConnectionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
-        {open && <AgentConnectionSetup onConnected={onConnected} />}
+        {open && <AgentConnectionSetup onConnected={onConnected} onConnectGitHub={onConnectGitHub} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function AgentConnectionSetup({ onConnected }: Pick<AgentConnectionDialogProps, "onConnected">) {
+function AgentConnectionSetup({
+  onConnected,
+  onConnectGitHub,
+}: Pick<AgentConnectionDialogProps, "onConnected" | "onConnectGitHub">) {
   const [name, setName] = useState("");
   const [integration, setIntegration] = useState("otel");
   const [connecting, setConnecting] = useState(false);
@@ -48,7 +57,12 @@ function AgentConnectionSetup({ onConnected }: Pick<AgentConnectionDialogProps, 
       </DialogHeader>
       {connecting ? (
         <>
-          <AgentConnectionInstructions name={trimmedName} integration={integration} onConnected={onConnected} />
+          <AgentConnectionInstructions
+            name={trimmedName}
+            integration={integration}
+            onConnected={onConnected}
+            onConnectGitHub={onConnectGitHub}
+          />
           <Button variant="ghost" className="w-fit" onClick={() => setConnecting(false)}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Back
           </Button>
@@ -136,10 +150,12 @@ function AgentConnectionInstructions({
   name,
   integration,
   onConnected,
+  onConnectGitHub,
 }: {
   readonly name: string;
   readonly integration: string;
   readonly onConnected: (agentName: string) => void;
+  readonly onConnectGitHub?: (agentName: string) => void;
 }) {
   const accessToken = useLensAccessToken();
   const { canMintTracingKey, readOnly } = useOnboarding();
@@ -172,10 +188,16 @@ function AgentConnectionInstructions({
     setReceipt("checking");
     const endMs = Date.now();
     try {
-      const agents = await traces.agents({ startMs: endMs - AGENT_WINDOW_DAYS * 86_400_000, endMs });
+      const agents = await traces.agents({
+        startMs: endMs - AGENT_WINDOW_DAYS * 86_400_000,
+        endMs,
+      });
       const received = agents.some((agent) => agent.name === name && agent.runs > 0);
       setReceipt(received ? "received" : "waiting");
-      if (received) void queryClient.invalidateQueries({ queryKey: ["lensAgents", accessToken] });
+      if (received)
+        void queryClient.invalidateQueries({
+          queryKey: ["lensAgents", accessToken],
+        });
     } catch {
       setReceipt("failed");
     }
@@ -284,9 +306,23 @@ function AgentConnectionInstructions({
           </p>
         )}
         {receipt === "received" ? (
-          <Button onClick={() => onConnected(name)}>
-            <Check aria-hidden="true" className="size-4" /> View traces
-          </Button>
+          <div className="space-y-3">
+            {onConnectGitHub && (
+              <p className="text-sm text-muted-foreground">
+                Next, connect its repository to run evals and get a Lens report on every pull request
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {onConnectGitHub && (
+                <Button onClick={() => onConnectGitHub(name)}>
+                  <Github aria-hidden="true" className="size-4" /> Connect GitHub
+                </Button>
+              )}
+              <Button variant={onConnectGitHub ? "outline" : "default"} onClick={() => onConnected(name)}>
+                <Check aria-hidden="true" className="size-4" /> View traces
+              </Button>
+            </div>
+          </div>
         ) : (
           <Button variant="outline" onClick={() => void check()} disabled={receipt === "checking" || !traces.live}>
             {receipt === "checking" && <Loader2 aria-hidden="true" className="size-4 animate-spin" />}

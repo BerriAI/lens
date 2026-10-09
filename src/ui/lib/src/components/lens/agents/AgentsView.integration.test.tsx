@@ -32,6 +32,19 @@ const agents: LensAgents = {
 };
 
 describe("Agents directory", () => {
+  it("connects GitHub for the chosen agent without opening another agent’s traces", async () => {
+    const user = userEvent.setup();
+    const onOpenAgent = vi.fn();
+    const onConnectGitHub = vi.fn();
+    renderWithProviders(
+      <AgentsView agents={agents} onOpenAgent={onOpenAgent} onConnectGitHub={onConnectGitHub} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Connect GitHub for research_agent" }));
+    expect(onConnectGitHub).toHaveBeenCalledExactlyOnceWith("research_agent");
+    expect(onOpenAgent).not.toHaveBeenCalled();
+  });
+
   it("should show agents with their run counts, errors, and framework", () => {
     renderWithProviders(<AgentsView agents={agents} onOpenAgent={vi.fn()} />);
 

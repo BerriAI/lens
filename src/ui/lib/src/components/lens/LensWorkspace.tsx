@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
-import { BookOpen, ChevronRight, Loader2 } from "lucide-react";
+import { BookOpen, ChevronRight, Github, Loader2 } from "lucide-react";
 import { useLensHost } from "../../host/LensHost";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
@@ -33,6 +33,7 @@ import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentConnectionDialog } from "./agents/AgentConnectionDialog";
+import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -97,6 +98,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const [connectingAgent, setConnectingAgent] = useState(false);
+  const [githubAgent, setGithubAgent] = useState<string | null>(null);
   const { dialog, openDialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
@@ -104,6 +106,13 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const canViewInvestigations = isProxyAdminTierRole(userRole);
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
+  const connectGitHub =
+    canConfigure && !demo
+      ? (name: string) => {
+          setConnectingAgent(false);
+          setGithubAgent(name);
+        }
+      : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
   const activeTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
   const setupState = useLensReadiness(canViewInvestigations);
@@ -217,6 +226,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-3">
+                {connectGitHub && agents.agent && activeTab !== "agents" && (
+                  <Button variant="outline" size="sm" onClick={() => connectGitHub(agents.agent!)}>
+                    <Github aria-hidden="true" className="size-4" /> Connect GitHub
+                  </Button>
+                )}
                 <DemoToggle demo={demo} onChange={toggleDemo} />
                 {embedded && (
                   <a
@@ -260,7 +274,12 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     />
                   </TabsContent>
                   <TabsContent value="agents" className={PANEL}>
-                    <AgentsView agents={agents} onOpenAgent={agents.select} onAddAgent={addAgent} />
+                    <AgentsView
+                      agents={agents}
+                      onOpenAgent={agents.select}
+                      onAddAgent={addAgent}
+                      onConnectGitHub={connectGitHub}
+                    />
                   </TabsContent>
                   <TabsContent value="traces" keepMounted className={PANEL}>
                     <AgentTracesPage
@@ -324,9 +343,23 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
         <AgentConnectionDialog
           open
           onOpenChange={setConnectingAgent}
+          onConnectGitHub={connectGitHub}
           onConnected={(name) => {
             setConnectingAgent(false);
             agents.select(name);
+          }}
+        />
+      )}
+      {githubAgent && connectGitHub && (
+        <AgentGitHubDialog
+          key={githubAgent}
+          agent={githubAgent}
+          onOpenChange={(open) => {
+            if (!open) setGithubAgent(null);
+          }}
+          onOpenDatasets={() => {
+            setGithubAgent(null);
+            setTab("datasets");
           }}
         />
       )}
