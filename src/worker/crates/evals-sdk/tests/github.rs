@@ -1,10 +1,93 @@
-use lens_evals_sdk::{github::GitHub, model::*};
+use lens_evals_sdk::{
+    client::Client,
+    github::{GitHub, publish_via_app},
+    model::*,
+};
 use rstest::rstest;
 use serde_json::json;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_partial_json, method, path},
+    matchers::{body_json, body_partial_json, header, method, path},
 };
+
+#[rstest]
+#[tokio::test]
+async fn app_reporting_sends_only_run_ids_to_authenticated_lens() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/lens/github/report"))
+        .and(header("Authorization", "Bearer lens-key"))
+        .and(header("X-Lens-Contract", "1"))
+        .and(body_json(json!({"run_ids": ["stored-run"]})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"reports": [{"run_id":"stored-run"}]})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    publish_via_app(
+        &Client::new(&server.uri(), "lens-key").unwrap(),
+        &["stored-run"],
+    )
+    .await
+    .unwrap();
+}
+
+#[rstest]
+#[tokio::test]
+async fn app_reporting_rejects_confirmation_for_a_different_run() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/lens/github/report"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"reports": [{"run_id":"different"}]})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = publish_via_app(
+        &Client::new(&server.uri(), "lens-key").unwrap(),
+        &["stored-run"],
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(lens_evals_sdk::Error::Infrastructure(_))
+    ));
+}
+
+#[rstest]
+#[tokio::test]
+async fn app_reporting_propagates_server_authorization_failure() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/lens/github/report"))
+        .respond_with(ResponseTemplate::new(403).set_body_json(json!({"code": "forbidden"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = publish_via_app(
+        &Client::new(&server.uri(), "lens-key").unwrap(),
+        &["stored-run"],
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(lens_evals_sdk::Error::Api { status: 403, .. })
+    ));
+}
+
+#[rstest]
+#[case::actions(vec!["lens", "report", "report.json"], false)]
+#[case::app(vec!["lens", "report", "report.json", "--via-app"], true)]
+fn reporting_mode(#[case] arguments: Vec<&str>, #[case] via_app: bool) {
+    let parsed =
+        lens_evals_sdk::setup::parse(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>());
+    assert_eq!(
+        parsed,
+        json!({"command":"report", "file":"report.json", "via_app": via_app})
+    );
+}
 
 #[rstest]
 #[case::human("human", "POST", "/repos/org/repo/issues/7/comments")]

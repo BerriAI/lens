@@ -32,6 +32,15 @@ pub struct Application {
 }
 
 impl Application {
+    pub fn with_github(mut self, github: Option<lens_server::github::GitHubApp>) -> Self {
+        self.router = self.router.merge(lens_server::github::router(
+            self.authentication.clone(),
+            litellm_storage_clickhouse::github::GitHubStore(self.authentication.sessions.0.clone()),
+            github,
+        ));
+        self
+    }
+
     pub fn with_evaluations(mut self) -> Result<Self, Error> {
         let worker = self.local_worker.as_ref().ok_or(Error::Unavailable)?;
         self.evals.judge = self.evals.judge.with_models(worker.models.clone());

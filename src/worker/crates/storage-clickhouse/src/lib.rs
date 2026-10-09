@@ -3,6 +3,7 @@
 pub mod datasets;
 mod error;
 pub mod evals;
+pub mod github;
 pub mod ingestion;
 mod insert;
 pub mod investigations;

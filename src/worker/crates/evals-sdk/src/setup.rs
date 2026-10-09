@@ -168,7 +168,12 @@ pub enum Operation {
         dataset_file: Option<PathBuf>,
     },
     #[command(hide = true)]
-    Report { file: PathBuf },
+    Report {
+        file: PathBuf,
+        #[arg(long)]
+        #[serde(default)]
+        via_app: bool,
+    },
 }
 
 pub fn parse(arguments: &[String]) -> serde_json::Value {

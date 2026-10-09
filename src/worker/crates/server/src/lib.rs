@@ -7,6 +7,7 @@ pub mod eval_closer;
 mod eval_datasets;
 pub mod evals;
 pub mod feedback;
+pub mod github;
 pub mod ingestion;
 pub mod investigations;
 pub mod routing;

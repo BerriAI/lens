@@ -25,6 +25,7 @@ pub struct Config {
     pub gateway_service_token: Option<String>,
     pub eval_judge_api_key: Option<String>,
     pub eval_judge_model: Option<String>,
+    pub github: Option<lens_server::github::GitHubApp>,
 }
 
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
@@ -74,6 +75,7 @@ impl Config {
             ));
         }
         Ok(Self {
+            github: github(&read, &public_url)?,
             gateway_service_token,
             eval_judge_api_key: read("LITELLM_API_KEY"),
             eval_judge_model: read("LENS_EVAL_JUDGE_MODEL"),
@@ -111,6 +113,35 @@ impl Config {
             )?,
         })
     }
+}
+
+fn github(
+    read: &impl Fn(&str) -> Option<String>,
+    public_url: &str,
+) -> Result<Option<lens_server::github::GitHubApp>, Error> {
+    let names = [
+        "LENS_GITHUB_APP_SLUG",
+        "LENS_GITHUB_CLIENT_ID",
+        "LENS_GITHUB_CLIENT_SECRET",
+        "LENS_GITHUB_PRIVATE_KEY",
+    ];
+    if !names
+        .iter()
+        .any(|name| read(name).is_some_and(|value| !value.trim().is_empty()))
+    {
+        return Ok(None);
+    }
+    lens_server::github::GitHubApp::new(
+        required(read, names[0])?,
+        required(read, names[1])?,
+        required(read, names[2])?,
+        &required(read, names[3])?,
+        public_url
+            .parse()
+            .map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?,
+    )
+    .map(Some)
+    .map_err(|_| Error::Configuration("GitHub App settings or private key are invalid"))
 }
 
 fn gateway_inference(
@@ -253,6 +284,41 @@ mod tests {
         assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
         assert_eq!(config.ingestion_url, "http://localhost:4318");
         assert_eq!(config.release, env!("CARGO_PKG_VERSION"));
+        assert!(config.github.is_none());
+    }
+
+    #[rstest]
+    #[case::partial(false, false)]
+    #[case::invalid_key(true, false)]
+    #[case::configured(true, true)]
+    fn github_requires_complete_valid_credentials(#[case] complete: bool, #[case] valid_key: bool) {
+        let settings = BTreeMap::from([
+            ("LENS_GITHUB_APP_SLUG", "lens-test"),
+            ("LENS_GITHUB_CLIENT_ID", "client-id"),
+            ("LENS_GITHUB_CLIENT_SECRET", "client-secret"),
+            (
+                "LENS_GITHUB_PRIVATE_KEY",
+                if valid_key {
+                    include_str!("../../server/tests/fixtures/github-test-key.pem")
+                } else {
+                    "invalid-pem"
+                },
+            ),
+        ]);
+        let result = super::github(
+            &|name| {
+                if !complete && name != "LENS_GITHUB_APP_SLUG" {
+                    None
+                } else {
+                    settings.get(name).map(|value| value.to_string())
+                }
+            },
+            "https://lens.test",
+        );
+        assert_eq!(result.is_ok(), complete && valid_key);
+        if complete && valid_key {
+            assert!(result.unwrap().is_some());
+        }
     }
 
     #[rstest]
