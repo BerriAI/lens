@@ -10,6 +10,8 @@ use litellm_traces_clickhouse::Error as StoreError;
 pub enum Error {
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),
+    #[error("Lens ingestion credential storage failed")]
+    Ingestion(#[from] lens_auth::IngestionError),
     #[error("Lens application state storage failed")]
     StateStorage(#[from] litellm_storage_clickhouse::Error),
     #[error("{schema} response invalid after two attempts: {detail}")]

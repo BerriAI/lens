@@ -3,8 +3,12 @@
 pub mod auth;
 pub mod datasets;
 mod error;
+pub mod ingestion;
 pub mod python_routes;
+pub mod service;
 pub mod sessions;
+pub mod tracing;
+pub mod ui;
 
 pub use error::ApiError;
 

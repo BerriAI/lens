@@ -2,6 +2,7 @@
 
 pub mod datasets;
 mod error;
+pub mod ingestion;
 mod insert;
 mod migrate;
 mod read;

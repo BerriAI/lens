@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, atomic::Ordering},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use lens_auth::Settings;
 use litellm_lens::{
@@ -95,41 +92,49 @@ impl Drop for Server {
 }
 
 impl Database {
-    pub async fn serve(&self) -> Server {
+    pub async fn serve(&self, standalone: bool) -> Server {
         let client = http_client().unwrap();
         let config = Config::new(self.name.clone(), &self.url, 14, 65_536).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
-        let state = Arc::new(State::new(
-            Storage::new(config, client, SERVICE.into()),
-            SERVICE.into(),
-        ));
+        let storage = Storage::new(config, client, SERVICE.into());
+        let state = Arc::new(if standalone {
+            State::standalone(storage)
+        } else {
+            State::new(storage, SERVICE.into())
+        });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let api = api::router(
+        let application = api::initialize(
             &state,
             Settings::new(ADMIN, None, &url).unwrap(),
             Default::default(),
+            Default::default(),
+            standalone,
         )
         .await
-        .unwrap();
-        state.schema_ready.store(true, Ordering::Release);
-        state
-            .credentials
-            .replace(Snapshot {
-                issued_at: unix_seconds(),
-                keys: vec![Credential {
-                    token_hash: format!("{:x}", Sha256::digest(INGEST)),
-                    tenant: Tenant {
-                        team_id: "dataset-team".into(),
-                        user_id: "dataset-owner".into(),
-                        api_key_hash: "dataset-key-hash".into(),
-                        ..Tenant::default()
-                    },
-                    expires_at: None,
-                }],
-            })
-            .unwrap();
-        let routes = litellm_lens::router(state).merge(api);
+        .unwrap()
+        .with_service(state.clone(), url.clone(), "standalone-test".into());
+        if standalone {
+            assert!(application.credentials.synchronize().await.unwrap());
+        } else {
+            state
+                .credentials
+                .replace(Snapshot {
+                    issued_at: unix_seconds(),
+                    keys: vec![Credential {
+                        token_hash: format!("{:x}", Sha256::digest(INGEST)),
+                        tenant: Tenant {
+                            team_id: "dataset-team".into(),
+                            user_id: "dataset-owner".into(),
+                            api_key_hash: "dataset-key-hash".into(),
+                            ..Tenant::default()
+                        },
+                        expires_at: None,
+                    }],
+                })
+                .unwrap();
+        }
+        let routes = litellm_lens::router(state).merge(application.router);
         let task = tokio::spawn(async move { axum::serve(listener, routes).await.unwrap() });
         Server { url, store, task }
     }

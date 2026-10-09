@@ -4,6 +4,7 @@ pub mod auth;
 pub mod datasets;
 pub mod error;
 pub mod eval;
+pub mod ingestion;
 pub mod schema;
 pub mod worker;
 

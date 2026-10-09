@@ -6,15 +6,18 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+base64.workspace = true
 lens-contract = { path = "../contract" }
 chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = { workspace = true, features = ["rust_crypto"] }
+rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 subtle.workspace = true
 thiserror.workspace = true
 url.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
