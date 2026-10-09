@@ -53,6 +53,15 @@ const LEGACY_PARSERS = { dataset_tab: parseAsString };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
+const CONNECT_PROJECT_PARSERS = {
+  connect_agent: parseAsString,
+  connect_integration: parseAsStringLiteral(["auto", "moyai"]).withDefault("auto"),
+};
+
+export interface ProjectConnection {
+  readonly name: string;
+  readonly integration: "auto" | "moyai";
+}
 
 const RESULT_PARSERS = {
   run: parseAsString.withDefault("latest"),
@@ -74,6 +83,7 @@ const SESSION_PARSERS = {
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
   ...AGENT_LIST_PARSERS,
+  ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
@@ -163,7 +173,27 @@ export function useAgentSearchRoute(): [string, (search: string) => void] {
   return [agent_search, useCallback((next: string) => void setParams({ agent_search: next }), [setParams])];
 }
 
-const ISSUE_ROUTE_PARSERS = { ...ISSUE_PARSERS, lens: LENS_PARSERS.lens, ...RESULT_PARSERS };
+export function useConnectProjectRoute(): [ProjectConnection | null, (project: ProjectConnection | null) => void] {
+  const [{ connect_agent, connect_integration }, setParams] = useQueryStates(CONNECT_PROJECT_PARSERS, {
+    history: "push",
+  });
+  const project = connect_agent?.trim() ? { name: connect_agent.trim(), integration: connect_integration } : null;
+  const setProject = useCallback(
+    (next: ProjectConnection | null) =>
+      void setParams({
+        connect_agent: next?.name ?? null,
+        connect_integration: next?.integration ?? null,
+      }),
+    [setParams],
+  );
+  return [project, setProject];
+}
+
+const ISSUE_ROUTE_PARSERS = {
+  ...ISSUE_PARSERS,
+  lens: LENS_PARSERS.lens,
+  ...RESULT_PARSERS,
+};
 
 /** A peeked finding takes the panel over from any open investigation and starts from its summary. */
 export function useIssueRoute() {

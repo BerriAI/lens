@@ -14,6 +14,18 @@ const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
 const expectUrl = (onUrlUpdate: ReturnType<typeof vi.fn>, check: (params: URLSearchParams) => void) =>
   waitFor(() => check(lastUrl(onUrlUpdate)));
 
+const defaultResponse = (path: string, connected: boolean) =>
+  Response.json(
+    path === "/lens/service"
+      ? {
+          configured: connected,
+          connected,
+          url: "https://lens.test",
+          status: { storage_ready: connected, credentials_ready: true },
+        }
+      : { data: [], traces: connected, requests: false },
+  );
+
 const network = vi.fn<typeof fetch>();
 beforeEach(() => {
   testQueryClient.clear();
@@ -26,26 +38,32 @@ beforeEach(() => {
     if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: false });
     if (path === "/v1/traces/agents") return Response.json({ agents: [] });
-    return Response.json({ data: [], traces: false, requests: false });
+    if (path === "/lens/service")
+      return Response.json({ configured: false, connected: false, url: "", status: { storage_ready: false } });
+    return defaultResponse(path, false);
   });
 });
 
-it.each(["home", "agents", "traces"])(
-  "should open agent connection from %s without deployment setup taking over",
-  async (tab) => {
-    const user = userEvent.setup();
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-      searchParams: `?tab=${tab}`,
-    });
-    await user.click(await screen.findByRole("button", { name: tab === "traces" ? "Set up manually" : "Add agent" }));
-    expect(await screen.findByRole("dialog", { name: "Add an agent" })).toBeVisible();
-    expect(screen.getByRole("textbox", { name: "Agent name" })).toBeVisible();
-    expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "The gateway that helps your agents improve" }),
-    ).not.toBeInTheDocument();
-  },
-);
+it.each(["home", "agents", "traces"])("should use the same inline project connection flow from %s", async (tab) => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: `?tab=${tab}`,
+    onUrlUpdate,
+  });
+  if (tab !== "home") {
+    await user.click(await screen.findByRole("button", { name: "Connect project" }));
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("home"));
+  }
+  expect(await screen.findByRole("heading", { name: "Connect your project" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
+  expect(screen.getByRole("textbox", { name: "Agent name" })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Your project" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Connect project" })).toBeDisabled();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "The gateway that helps your agents improve" })).not.toBeInTheDocument();
+});
 
 it("should keep Home selected when connected agents load and offer their directory", async () => {
   const user = userEvent.setup();
@@ -58,13 +76,13 @@ it("should keep Home selected when connected agents load and offer their directo
         agents: [{ name: "moyai", runs: 1, failed_runs: 0, frameworks: [], last_seen: new Date().toISOString() }],
       });
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
-    return Response.json({ data: [], traces: true, requests: false });
+    return defaultResponse(path, true);
   });
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { onUrlUpdate });
-  expect(await screen.findByRole("heading", { name: "Your workspace" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Connect your project" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(onUrlUpdate).not.toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "View agents" }));
+  await user.click(await screen.findByRole("button", { name: "View agents" }));
   expect(await screen.findByRole("button", { name: "Open moyai" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("agents"));
 });
@@ -83,7 +101,7 @@ it("keeps installation controls mounted while readiness retries and continues af
     if (path === "/v1/traces") return traceResponse();
     if (path === "/lens/service") return serviceResponse();
     if (path === "/v1/traces/agents") return Response.json({ agents: [] });
-    return Response.json({ data: [], traces: false, requests: false });
+    return defaultResponse(path, false);
   });
   renderWithProviders(
     <LensHostProvider host={{ surface: "embedded", analysis: "deployment" }}>
@@ -125,13 +143,13 @@ describe("Lens interactive demo", () => {
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />, {
       onUrlUpdate,
     });
-    expect(await screen.findByRole("heading", { name: "Get started with Lens" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Connect your project" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
     expect(await screen.findByText("Where is order #1042?")).toBeVisible();
     expect(screen.getByRole("switch", { name: "Demo data" })).toBeChecked();
     await expectUrl(onUrlUpdate, (url) => expect(url.get("demo")).toBe("true"));
-    expect(screen.getByRole("button", { name: "Set up tracing" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Connect project" })).toBeDisabled();
     network.mockClear();
     expect(screen.getByText("Where is order #1042?")).toBeVisible();
     const search = screen.getByRole("combobox", { name: "Search runs" });
@@ -275,7 +293,7 @@ describe("Lens interactive demo", () => {
       if (path === "/v1/traces") return Response.json({ data: data.runs.map((run) => run.trace.summary) });
       if (path === "/lens/traces/findings") return Response.json([]);
       if (path === "/lens/feedback/summary") return Response.json([]);
-      return Response.json({ data: [], traces: true, requests: false });
+      return defaultResponse(path, true);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: `?tab=investigations&lens=${saved.id}`,
@@ -285,7 +303,7 @@ describe("Lens interactive demo", () => {
     await user.click(within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Traces" }));
     expect(await screen.findByText("Where is order #1042?")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Set up tracing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect project" })).toBeEnabled();
   });
 
   it("uses one demo switch across setup, existing investigations, and demo traces", async () => {
@@ -303,7 +321,7 @@ describe("Lens interactive demo", () => {
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-      return Response.json({ data: [], traces: false, requests: false });
+      return defaultResponse(path, false);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />);
     expect(await screen.findByRole("region", { name: "Get started with Lens" })).toBeVisible();
@@ -336,7 +354,7 @@ describe("Lens interactive demo", () => {
           tracing_enabled: false,
         });
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-      return Response.json({ data: [], traces: false, requests: false });
+      return defaultResponse(path, false);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />);
     const tab = within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Investigations" });
@@ -363,7 +381,7 @@ describe("Lens interactive demo", () => {
       if (path === "/lens/agents") return Response.json([]);
       if (path.startsWith("/lens/preview")) return Response.json({ eligible: 0, selected: 0, executions: [] });
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-      return Response.json({ data: [], traces: true, requests: false });
+      return defaultResponse(path, true);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: "?tab=investigations&dialog=new",
@@ -407,7 +425,7 @@ describe("Lens interactive demo", () => {
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-      return Response.json({ data: [], traces: true, requests: false });
+      return defaultResponse(path, true);
     });
     renderWithProviders(
       <LensHostProvider host={{ surface }}>
@@ -449,7 +467,7 @@ describe("Lens interactive demo", () => {
           tracing_enabled: true,
         });
       if (path === "/v1/traces") return Response.json({ data: [{}] });
-      return Response.json({ data: [], traces: true, requests: false });
+      return defaultResponse(path, true);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: "?tab=investigations",
@@ -499,7 +517,7 @@ describe("Lens interactive demo", () => {
       if (path === "/v1/traces") return Response.json({ data: [createLensDemoData().runs[0].trace.summary] });
       if (path === "/lens/traces/findings") return Response.json([]);
       if (path === "/lens/feedback/summary") return Response.json([]);
-      return Response.json({ data: [], traces: true, requests: false });
+      return defaultResponse(path, true);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: "?tab=settings",
@@ -569,7 +587,7 @@ describe("Lens interactive demo", () => {
             tracing_enabled: true,
           });
         if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-        return Response.json({ data: [], traces: true, requests: false });
+        return defaultResponse(path, true);
       });
       renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />);
       const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
@@ -606,7 +624,7 @@ describe("Lens interactive demo", () => {
             tracing_enabled: true,
           });
         if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
-        return Response.json({ data: [], traces: true, requests: false });
+        return defaultResponse(path, true);
       });
       renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
         searchParams: "?tab=settings",

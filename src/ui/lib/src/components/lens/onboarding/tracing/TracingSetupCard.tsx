@@ -83,7 +83,7 @@ export const projectSetupPrompt = (traceUrl: string): string =>
   [
     "Connect this project's agent traces to Lens. Inspect the project and its existing tracing configuration first.",
     "Keep the existing model provider, model credentials, authentication, and application behavior. Never hardcode or commit secrets.",
-    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Get the tracing key from Lens > Traces > Connection details, then load it through this project's existing environment configuration. Never use a model or Lens admin key for ingestion.`,
+    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Get the tracing key from Lens > Home > Connect your project, then load it through this project's existing environment configuration. Never use a model or Lens admin key for ingestion.`,
     "If tracing already exists, only configure its exporter and preserve its agent names. For Moyai, set LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY; its endpoint requires HTTPS. Do not add another tracing SDK.",
     "Otherwise detect the framework, add its supported OpenTelemetry instrumentation, and include gen_ai.agent.name on the root agent span. Use OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_HEADERS, and http/protobuf where supported.",
     "Restart the project if needed. Run one task and verify its real trace arrives in Lens. Report configuration or credential gaps instead of claiming success.",
@@ -324,11 +324,13 @@ export function TracingKey({
   tracingKey,
   onCreated,
   name = TRACING_KEY_REQUEST.name,
+  compact = false,
 }: {
   accessToken: string;
   tracingKey: string | null;
-  onCreated: (key: string) => void;
+  onCreated: (key: string, active: boolean) => void;
   name?: string;
+  compact?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -343,7 +345,7 @@ export function TracingKey({
       });
       if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
-      onCreated(result.key);
+      onCreated(result.key, result.active);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not create a key");
     } finally {
@@ -360,9 +362,15 @@ export function TracingKey({
         )}
         <CodeBlock code={tracingKey} display={maskSecret(tracingKey)} tabs={<FileLabel>Your tracing key</FileLabel>} />
         <p className="text-sm text-muted-foreground">
-          Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only
-          send traces and check delivery. Your agent still needs its own key for model calls. Save this key before
-          leaving the page.
+          {compact ? (
+            "Copy and save this key before leaving. It only sends traces; keep your model credentials unchanged."
+          ) : (
+            <>
+              Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only
+              send traces and check delivery. Your agent still needs its own key for model calls. Save this key before
+              leaving the page.
+            </>
+          )}
         </p>
       </div>
     );
@@ -450,11 +458,12 @@ interface ConnectAgentProps {
   setTracingKey: (key: string) => void;
 }
 
-export function useLensService(accessToken: string) {
+export function useLensService(accessToken: string, options: { enabled?: boolean; refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: ["lens-service", accessToken],
     queryFn: () => apiClient.get<components["schemas"]["ServiceConnection"]>("/lens/service", { accessToken }),
-    refetchInterval: 15000,
+    enabled: options.enabled ?? true,
+    refetchInterval: options.refetchInterval ?? 15000,
   });
 }
 
@@ -539,20 +548,27 @@ export function CodingAgentSetup({
   traceUrl,
   guide,
   model = EXAMPLE_MODEL,
+  instructions: providedInstructions,
+  onCopied,
 }: {
   proxyUrl: string;
   traceUrl: string;
   guide?: FrameworkGuide;
   model?: string;
+  instructions?: string;
+  onCopied?: () => void;
 }) {
   const standalone = useLensHost().surface === "standalone";
   const [copied, setCopied] = useState<string | null>(null);
-  const instructions = guide
-    ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone)
-    : projectSetupPrompt(traceUrl);
+  const instructions =
+    providedInstructions ??
+    (guide ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone) : projectSetupPrompt(traceUrl));
   useTimeout(() => setCopied(null), copied === null ? null : COPIED_RESET_MS);
   const copy = async () => {
-    if (await copyToClipboard(instructions)) setCopied(instructions);
+    if (await copyToClipboard(instructions)) {
+      setCopied(instructions);
+      onCopied?.();
+    }
   };
   return (
     <section className="mt-6" aria-labelledby="connect-project">

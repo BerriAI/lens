@@ -49,7 +49,7 @@ describe("AgentTracesTable empty state", () => {
   ])("offers tracing setup when rangeEmpty is $rangeEmpty", ({ rangeEmpty, message }) => {
     const onSetUpTracing = renderEmpty(rangeEmpty);
     expect(screen.getByText(message)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Set up tracing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect project" }));
     expect(onSetUpTracing).toHaveBeenCalledOnce();
   });
 });
