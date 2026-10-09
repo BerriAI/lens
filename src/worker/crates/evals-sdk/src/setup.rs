@@ -362,7 +362,7 @@ pub fn initialize_with(
     }
     fs::write(&workflow, workflow_file(&options.action, root))?;
     Ok(format!(
-        "Created {} and {}\n{}Set LENS_API_KEY in your shell, then run: uv run lens doctor\nWhen ready: uv run lens eval\nFor CI, set the LENS_API_KEY and LENS_SDK_TOKEN secrets and LENS_BASE_URL variable\nAdd your agent's dependencies and startup steps to the generated workflow",
+        "Created {} and {}\n{}Set LENS_API_KEY in your shell, then run: uv run lens doctor\nWhen ready: uv run lens eval\nFor CI, set the LENS_API_KEY secret and LENS_BASE_URL variable\nAllow this repository to use the Lens Action, and add your agent's dependencies and startup steps\nRun the Lens workflow on main to establish a baseline, then open a same-repository pull request",
         target.display(),
         workflow.display(),
         if task.is_empty() {
@@ -435,6 +435,6 @@ pub fn workflow_file(action: &str, root: &Path) -> String {
         ""
     };
     format!(
-        "name: Lens\non:\n  push:\n    branches: [main]\n  pull_request:\npermissions:\n  contents: read\n  checks: write\n  pull-requests: write\nconcurrency:\n  group: lens-${{{{ github.event.pull_request.number || github.ref }}}}\n  cancel-in-progress: true\njobs:\n  eval:\n    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065\n        with:\n          python-version: '3.11'\n{install}      - uses: {action}\n        with:\n{python}          sdk-token: ${{{{ secrets.LENS_SDK_TOKEN }}}}\n          api-key: ${{{{ secrets.LENS_API_KEY }}}}\n          base-url: ${{{{ vars.LENS_BASE_URL }}}}\n"
+        "name: Lens\non:\n  push:\n    branches: [main]\n  pull_request:\n  workflow_dispatch:\npermissions:\n  contents: read\n  checks: write\n  pull-requests: write\nconcurrency:\n  group: lens-${{{{ github.event.pull_request.number || github.ref }}}}\n  cancel-in-progress: true\njobs:\n  eval:\n    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065\n        with:\n          python-version: '3.11'\n{install}      - uses: {action}\n        with:\n{python}          install-from-source: 'true'\n          api-key: ${{{{ secrets.LENS_API_KEY }}}}\n          base-url: ${{{{ vars.LENS_BASE_URL }}}}\n"
     )
 }

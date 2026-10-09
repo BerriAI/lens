@@ -19,6 +19,9 @@ inputs:
   sdk-token:
     description: Token with contents read access to BerriAI/lens for downloading release wheels
     default: ${{ github.token }}
+  install-from-source:
+    description: Build the SDK from this Action's pinned checkout instead of downloading a release wheel
+    default: 'false'
 outputs:
   passed:
     description: Whether every server gate passed
@@ -34,6 +37,7 @@ runs:
       env:
         LENS_PYTHON: ${{ inputs.python }}
         GH_TOKEN: ${{ inputs.sdk-token }}
+        LENS_INSTALL_FROM_SOURCE: ${{ inputs.install-from-source }}
       run: bash "$GITHUB_ACTION_PATH/install.sh"
     - name: Run evals
       id: eval

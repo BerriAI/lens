@@ -3,6 +3,39 @@ use super::{qualification_support::*, *};
 use litellm_storage_clickhouse::state::Change;
 
 #[rstest]
+#[case::legacy(None)]
+#[case::stale(Some("https://github.com/old/repo/actions/runs/1"))]
+#[tokio::test]
+async fn stored_request_preserves_ci_provenance_for_existing_runs(
+    #[future(awt)] live_run: LiveRun,
+    #[case] saved_url: Option<&str>,
+) {
+    let ci_url = "https://github.com/example/agent/actions/runs/42";
+    let mut saved = serde_json::to_value(&live_run.run).unwrap();
+    saved["request"]["ci_url"] = ci_url.into();
+    let run = saved["run"].as_object_mut().unwrap();
+    match saved_url {
+        Some(url) => run.insert("ci_url".into(), url.into()),
+        None => run.remove("ci_url"),
+    };
+    live_run.replace(saved).await;
+    let restored = live_run
+        .store
+        .get("team", &live_run.run.run.id)
+        .await
+        .unwrap();
+    assert_eq!(restored.run.ci_url, ci_url);
+    assert_eq!(
+        live_run
+            .store
+            .list("team", &RunFilter::default())
+            .await
+            .unwrap(),
+        vec![restored]
+    );
+}
+
+#[rstest]
 #[case::run("eval-run/")]
 #[case::idempotency("eval-idempotency/")]
 #[tokio::test]

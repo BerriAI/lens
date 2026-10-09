@@ -84,10 +84,6 @@ jobs:
           fi
           uv venv /tmp/lens-agent-env
           uv pip install --python /tmp/lens-agent-env/bin/python httpx==0.28.1
-          if [[ "$RELEASE_INSTALL" != true ]]; then
-            python -m pip wheel --no-deps './src/sdk' --wheel-dir /tmp/sdk-wheel
-            uv pip install --python /tmp/lens-agent-env/bin/python /tmp/sdk-wheel/*.whl
-          fi
           cp src/sdk/examples/demo.py /tmp/lens-action-demo.py
           sed -i '1i import httpx' /tmp/lens-action-demo.py
           lens dev-server > /tmp/lens-dev-server.log 2>&1 &
@@ -103,6 +99,7 @@ jobs:
           base-url: http://127.0.0.1:8765
           path: /tmp/lens-action-demo.py
           python: /tmp/lens-agent-env/bin/python
+          install-from-source: ${{ !inputs.release_install }}
       - name: Verify Action outputs
         env:
           PASSED: ${{ steps.lens.outputs.passed }}

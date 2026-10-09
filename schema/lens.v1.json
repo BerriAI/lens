@@ -244,6 +244,10 @@
         "branch": {
           "type": "string"
         },
+        "ci_url": {
+          "default": "",
+          "type": "string"
+        },
         "eval": {
           "type": "string"
         },

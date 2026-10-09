@@ -10,6 +10,53 @@ use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_a
 use tower::ServiceExt;
 
 #[rstest]
+#[case::local("")]
+#[case::github("https://github.com/example/agent/actions/runs/42")]
+#[tokio::test]
+async fn ci_provenance_is_returned_when_creating_reading_and_listing_runs(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] ci_url: &str,
+) {
+    let mut payload = create_payload();
+    payload["ci_url"] = ci_url.into();
+    let created = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("POST", "/lens/evals/runs", "team-a", Some(payload)))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201);
+    let created: EvalRun = body(created).await;
+    assert_eq!(created.ci_url, ci_url);
+    let read = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs/{}", created.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(read.status(), 200);
+    assert_eq!(body::<EvalRun>(read).await.ci_url, ci_url);
+    let list = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            "/lens/evals/runs?agent=agent",
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(list.status(), 200);
+    assert_eq!(body::<Vec<EvalRun>>(list).await, vec![created]);
+}
+
+#[rstest]
 #[tokio::test]
 async fn should_create_once_per_team_and_snapshot_included_cases(
     #[future(awt)] eval_fixture: EvalFixture,

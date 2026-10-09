@@ -1,6 +1,28 @@
 set -euo pipefail
 
 version=0.1.0a3
+if [[ "${LENS_INSTALL_FROM_SOURCE:-false}" == true ]]; then
+  sdk=$(cd "$(dirname "$0")/.." && pwd)
+  if [[ ! -f "$sdk/../worker/Cargo.lock" || ! -f "$sdk/pyproject.toml" ]]; then
+    echo '::error::The Lens Action checkout is missing its SDK source or Cargo.lock. Use the Action from a complete, pinned Lens commit'
+    exit 2
+  fi
+  if ! command -v rustup >/dev/null; then
+    echo '::error::Source installation requires rustup. Use a GitHub-hosted runner or install rustup on the self-hosted runner'
+    exit 2
+  fi
+  if ! rustup toolchain install 1.99.0 --profile minimal; then
+    echo '::error::Could not install Rust 1.99.0 for the Lens SDK source build. Check the runner network and rustup configuration'
+    exit 2
+  fi
+  if ! RUSTUP_TOOLCHAIN=1.99.0 MATURIN_NO_INSTALL_RUST=1 python -m pip --python "$LENS_PYTHON" install \
+    --config-settings build-args=--locked "$sdk"; then
+    echo '::error::Lens SDK source installation failed. Check the build output, Python 3.11+ environment, and access to pinned Cargo dependencies'
+    exit 2
+  fi
+  exit 0
+fi
+
 if "$LENS_PYTHON" -c "from lens import _native; from importlib.metadata import version; assert version('lens-evals') == '$version'" 2>/dev/null; then
   exit 0
 fi

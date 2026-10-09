@@ -27,7 +27,7 @@ The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported.
 
 ## Install
 
-This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI; the Action download path requires that release before use. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
+This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI. Generated workflows use `install-from-source: 'true'` to build the SDK from the Action's pinned checkout without a release download. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
 
 ```sh
 uv add --dev /absolute/path/to/lens_evals-0.1.0a3-cp311-abi3-PLATFORM.whl
@@ -210,7 +210,7 @@ Each normal invocation creates a separate execution, even at the same commit. Sa
 
 ## GitHub Action
 
-Setup generates a workflow for main pushes and same-repository PRs. Add `LENS_API_KEY` and `LENS_SDK_TOKEN` as repository secrets and `LENS_BASE_URL` as a repository variable. `LENS_SDK_TOKEN` needs contents-read access to `BerriAI/lens` to download its internal release; the consuming repo’s `GITHUB_TOKEN` is used separately for checks and comments. Add your agent's dependencies, sandbox startup, and service credentials to that workflow
+Setup generates a workflow for main pushes, same-repository PRs, and manual runs. Add `LENS_API_KEY` as a repository secret and `LENS_BASE_URL` as a repository variable. Enable private Action access for the consuming repository. Add your agent's dependencies, sandbox startup, and service credentials to that workflow. Run it on main first to establish the baseline, then open a same-repository PR to receive the comparison comment
 
 For a project using uv, the relevant steps are:
 
@@ -230,12 +230,14 @@ steps:
   - uses: BerriAI/lens/src/sdk/action@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b
     with:
       python: .venv/bin/python
-      sdk-token: ${{ secrets.LENS_SDK_TOKEN }}
+      install-from-source: 'true'
       api-key: ${{ secrets.LENS_API_KEY }}
       base-url: ${{ vars.LENS_BASE_URL }}
 ```
 
-The `python` input selects the agent's environment for execution and reporting. The Action uses an installed `0.1.0a3` native package or downloads the matching wheel from the versioned GitHub release, verifies its SHA-256 checksum, and installs it. It never compiles Rust on the consuming runner. A missing wheel or missing release access produces an actionable error. Private Action access must be enabled for consuming repositories
+The `python` input selects the agent's environment for execution and reporting. With `install-from-source: 'true'`, the Action installs Rust 1.99.0 through the runner's existing rustup and builds its own checked-out SDK using the pinned maturin build backend and Cargo lockfile. No release token is needed. GitHub-hosted runners include rustup; self-hosted runners need it installed
+
+The default `install-from-source: 'false'` reuses an installed `0.1.0a3` native package or downloads the matching release wheel and verifies its SHA-256 checksum. Once wheels are published, use that mode with `sdk-token: ${{ secrets.LENS_SDK_TOKEN }}` when the consuming repository needs separate contents-read access to the internal SDK release
 
 The Action updates its own PR comment, creates `Lens / <eval-name>`, and exposes `passed` and `run-urls`. The comment includes baseline/candidate pass counts, costs, scores, broken cases, and Lens-provided trace links
 

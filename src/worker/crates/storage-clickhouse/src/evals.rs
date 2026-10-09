@@ -69,6 +69,7 @@ impl EvalStore {
                 version: request.version.clone(),
                 branch: request.branch.clone(),
                 pr: request.pr,
+                ci_url: request.ci_url.clone(),
                 url: format!(
                     "{}/ui/?tab=evals&eval={}&eval_run={id}",
                     public_url.trim_end_matches('/'),

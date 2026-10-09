@@ -341,6 +341,7 @@ mod tests {
                 version: request.version.clone(),
                 branch: request.branch.clone(),
                 pr: None,
+                ci_url: request.ci_url.clone(),
                 url: "http://localhost/ui/?run=run-1".into(),
                 expected_trials: 1,
                 received_trials: 1,

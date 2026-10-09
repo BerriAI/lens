@@ -247,6 +247,7 @@ async fn create(
         version: spec.version.clone(),
         branch: spec.branch.clone(),
         pr: spec.pr,
+        ci_url: spec.ci_url.clone(),
         url: format!("http://{host}/lens/evals/runs/{id}"),
         expected_trials: ids.len() * spec.trials,
         received_trials: 0,
