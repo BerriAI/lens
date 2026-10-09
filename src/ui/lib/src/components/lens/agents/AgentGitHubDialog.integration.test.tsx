@@ -80,7 +80,7 @@ beforeEach(() => {
 });
 
 describe("GitHub App connection", () => {
-  it("explains missing deployment configuration and authorizes only once configuration becomes available", async () => {
+  it("should wait for an explicit choice after configuration becomes available", async () => {
     const user = userEvent.setup();
     const onAuthorize = vi.fn();
     gateway.get.mockReturnValue({
@@ -114,6 +114,9 @@ describe("GitHub App connection", () => {
     await user.click(
       screen.getByRole("button", { name: "Check configuration" }),
     );
+    await screen.findByRole("button", { name: "Install GitHub App" });
+    expect(onAuthorize).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Install GitHub App" }));
     await waitFor(() =>
       expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
     );
@@ -123,37 +126,27 @@ describe("GitHub App connection", () => {
     );
   });
 
-  it("opens GitHub App installation for this agent once before authorization without requiring workflow fields", async () => {
+  it.each([
+    ["Install GitHub App", true, installationUrl],
+    ["I already installed it", false, authorizationUrl],
+  ] as const)("should wait for the user to choose %s before opening GitHub", async (label, install, destination) => {
+    const user = userEvent.setup();
     const onAuthorize = vi.fn();
     renderWithLens(
-      <AgentGitHubDialog
-        agent={agent}
-        onOpenChange={vi.fn()}
-        onAuthorize={onAuthorize}
-      />,
+      <AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} onAuthorize={onAuthorize} />,
     );
-    await waitFor(() =>
-      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
-    );
+    const choice = await screen.findByRole("button", { name: label });
+    expect(choice).toBeEnabled();
+    expect(gateway.post).not.toHaveBeenCalled();
+    expect(onAuthorize).not.toHaveBeenCalled();
+    await user.click(choice);
+    await waitFor(() => expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(destination));
     expect(gateway.post).toHaveBeenCalledExactlyOnceWith(
       "/lens/github/authorize",
-      expect.objectContaining({ body: { agent, install: true } }),
+      expect.objectContaining({ body: { agent, install } }),
     );
-    expect(gateway.get).toHaveBeenCalledWith(
-      "/lens/github/status",
-      expect.objectContaining({ query: { agent } }),
-    );
-    expect(
-      screen.getByText(
-        /Choose your GitHub account or organization and install/,
-      ),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("textbox", { name: "Lens URL" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Set up PR evals" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Lens URL" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up PR evals" })).not.toBeInTheDocument();
     await testQueryClient.invalidateQueries();
     expect(gateway.post).toHaveBeenCalledOnce();
     expect(onAuthorize).toHaveBeenCalledOnce();
@@ -172,12 +165,13 @@ describe("GitHub App connection", () => {
         onAuthorize={onAuthorize}
       />,
     );
+    await user.click(await screen.findByRole("button", { name: "Install GitHub App" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not start GitHub installation",
     );
     expect(onAuthorize).not.toHaveBeenCalled();
     await user.click(
-      screen.getByRole("button", { name: "Continue to GitHub" }),
+      screen.getByRole("button", { name: "Install GitHub App" }),
     );
     await waitFor(() =>
       expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
@@ -193,6 +187,7 @@ describe("GitHub App connection", () => {
   });
 
   it("opens the official connection service returned by the agent status", async () => {
+    const user = userEvent.setup();
     const onAuthorize = vi.fn();
     const serviceOrigin = "https://connections.example.test";
     const url = `${serviceOrigin}/authorize?state=qa-broker-state`;
@@ -211,6 +206,7 @@ describe("GitHub App connection", () => {
         onAuthorize={onAuthorize}
       />,
     );
+    await user.click(await screen.findByRole("button", { name: "Install GitHub App" }));
 
     await waitFor(() =>
       expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(url),
@@ -249,6 +245,7 @@ describe("GitHub App connection", () => {
         onAuthorize={onAuthorize}
       />,
     );
+    await user.click(await screen.findByRole("button", { name: "Install GitHub App" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not open GitHub. Try again",
@@ -257,7 +254,7 @@ describe("GitHub App connection", () => {
     await testQueryClient.invalidateQueries();
     expect(gateway.post).toHaveBeenCalledOnce();
     await user.click(
-      screen.getByRole("button", { name: "Continue to GitHub" }),
+      screen.getByRole("button", { name: "Install GitHub App" }),
     );
     await waitFor(() =>
       expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(trustedUrl),
@@ -528,7 +525,7 @@ describe("GitHub App connection", () => {
     );
     await user.click(await screen.findByRole("button", { name: "Disconnect" }));
     expect(
-      await screen.findByRole("button", { name: "Continue to GitHub" }),
+      await screen.findByRole("button", { name: "Install GitHub App" }),
     ).toBeVisible();
     expect(gateway.delete).toHaveBeenCalledWith(
       connectionPath,
@@ -559,6 +556,7 @@ describe("GitHub App connection", () => {
     expect(gateway.post).not.toHaveBeenCalled();
     gateway.get.mockReturnValue(disconnected);
     await user.click(screen.getByRole("button", { name: "Try again" }));
+    await user.click(await screen.findByRole("button", { name: "Install GitHub App" }));
     await waitFor(() =>
       expect(onAuthorize).toHaveBeenCalledWith(installationUrl),
     );
@@ -640,6 +638,7 @@ describe("GitHub App connection", () => {
   });
 
   it("rechecks a cached disconnected agent before reopening authorization", async () => {
+    const user = userEvent.setup();
     const onAuthorize = vi.fn();
     const view = renderWithLens(
       <AgentGitHubDialog
@@ -648,6 +647,7 @@ describe("GitHub App connection", () => {
         onAuthorize={onAuthorize}
       />,
     );
+    await user.click(await screen.findByRole("button", { name: "Install GitHub App" }));
     await waitFor(() => expect(onAuthorize).toHaveBeenCalledOnce());
     view.unmount();
     gateway.get.mockReturnValue({ ...disconnected, connection });

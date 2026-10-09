@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, ExternalLink, Github, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
@@ -32,7 +32,6 @@ export function AgentGitHubDialog({
   const [repositoryId, setRepositoryId] = useState<string | null>(null);
   const [settingUpEvals, setSettingUpEvals] = useState(false);
   const [redirectError, setRedirectError] = useState<string | null>(null);
-  const started = useRef(false);
   const connection = github.status.data?.connection;
   const authorized = github.authorization.data;
   const repositories = authorized?.repositories ?? [];
@@ -53,29 +52,6 @@ export function AgentGitHubDialog({
     },
     [startAuthorization, onAuthorize, github.status.data?.service_origin],
   );
-
-  useEffect(() => {
-    if (
-      started.current ||
-      authorizationId ||
-      !github.status.isFetchedAfterMount ||
-      github.status.isFetching ||
-      github.status.isError ||
-      !github.status.data?.configured ||
-      connection
-    )
-      return;
-    started.current = true;
-    begin(true);
-  }, [
-    authorizationId,
-    github.status.data,
-    github.status.isFetchedAfterMount,
-    github.status.isFetching,
-    github.status.isError,
-    connection,
-    begin,
-  ]);
 
   useEffect(() => {
     if (authorizationId && (github.connect.isSuccess || (connection && authorized?.status === "connected")))
@@ -187,10 +163,7 @@ export function AgentGitHubDialog({
               <Button
                 variant="ghost"
                 disabled={github.disconnect.isPending}
-                onClick={() => {
-                  started.current = true;
-                  github.disconnect.mutate();
-                }}
+                onClick={() => github.disconnect.mutate()}
               >
                 Disconnect
               </Button>
@@ -263,14 +236,19 @@ export function AgentGitHubDialog({
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            <p role="status" className="text-sm text-muted-foreground">
-              Choose your GitHub account or organization and install the Lens App. Then authorize access and return
-              here to select your repository
+            <p className="text-sm text-muted-foreground">
+              Install the Lens App for your GitHub account or organization. If it is already installed, authorize
+              Lens to choose a repository
             </p>
-            <Button disabled={github.start.isPending} onClick={() => begin(true)}>
-              {github.start.isPending && <Loader2 aria-hidden="true" className="size-4 animate-spin" />} Continue to
-              GitHub
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={github.start.isPending || github.status.isFetching} onClick={() => begin(true)}>
+                {github.start.isPending ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : <Github aria-hidden="true" className="size-4" />}
+                Install GitHub App
+              </Button>
+              <Button variant="outline" disabled={github.start.isPending || github.status.isFetching} onClick={() => begin(false)}>
+                I already installed it
+              </Button>
+            </div>
           </div>
         )}
         {error && (
