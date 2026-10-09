@@ -36,6 +36,11 @@ jobs:
       - name: Run Clippy
         working-directory: src/worker
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Check trace schema drift
+        working-directory: src/worker
+        run: |
+          cargo run --locked --quiet -p litellm-traces --features schema --bin export-traces-schema -- --conversation > "$RUNNER_TEMP/lens-traces.json"
+          diff -u ../../schema/lens-traces.json "$RUNNER_TEMP/lens-traces.json"
       - name: Start shared ClickHouse state fixture
         run: |
           set -euo pipefail
@@ -81,6 +86,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run check:worker-contract
+      - run: npm run check:trace-contract
       - run: npm run typecheck:ui
       - name: Check setup and workspace behavior
         run: >-
@@ -90,6 +96,7 @@ jobs:
           src/components/lens/evals
           src/components/lens/settings
           src/components/lens/investigations
+          src/components/lens/traces
           src/components/lens/LensNavigation.integration.test.tsx
           src/components/lens/LensSetup.integration.test.tsx
           src/components/lens/LensWorkspace.integration.test.tsx
