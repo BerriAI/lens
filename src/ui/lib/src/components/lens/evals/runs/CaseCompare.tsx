@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
+
+import { Button } from "../../../ui/button";
+import { useOpenTraceRouting } from "../../traces/routing";
 
 import { cn } from "../../../../lib/cva.config";
 
@@ -9,15 +13,15 @@ import { diagnose } from "./diagnosis";
 import { shortSha } from "./format";
 import { CriticalTag } from "./RunBadges";
 import { compareSteps, unchangedSteps, type ComparedStep } from "./steps";
-import type { CaseDiff, RunCase, TrialSteps } from "./types";
+import type { RunCaseSummary, RunCase, TrialSteps } from "./types";
 
 export interface CaseCompareProps {
-  readonly diff: CaseDiff;
+  readonly diff: Pick<RunCaseSummary, "case_id" | "title" | "critical">;
   readonly runId: string;
   readonly baselineRunId: string | null;
   readonly baselineVersion: string | null;
   readonly candidateVersion: string;
-  readonly regressed: boolean;
+  readonly change: "regressed" | "fixed" | "unchanged";
 }
 
 export function CaseCompare({
@@ -26,7 +30,7 @@ export function CaseCompare({
   baselineRunId,
   baselineVersion,
   candidateVersion,
-  regressed,
+  change,
 }: CaseCompareProps) {
   const baseline = useRunCase(baselineRunId, diff.case_id);
   const candidate = useRunCase(runId, diff.case_id);
@@ -62,10 +66,16 @@ export function CaseCompare({
           aria-label="Diagnosis"
           className={cn(
             "mt-1 font-mono text-xs",
-            regressed ? "text-destructive" : "text-success",
+            change === "regressed"
+              ? "text-destructive"
+              : "text-muted-foreground",
           )}
         >
-          {regressed ? "✕ regressed: " : "✓ fixed: "}
+          {change === "regressed"
+            ? "✕ regressed: "
+            : change === "fixed"
+              ? "✓ fixed: "
+              : ""}
           {diagnosis
             ? diagnosis.headline
             : candidate.error
@@ -171,6 +181,8 @@ interface TraceProps {
 }
 
 function Trace({ title, version, runCase, trial, steps, state }: TraceProps) {
+  const { openTrace } = useOpenTraceRouting();
+  const traces = trial?.traces ?? [];
   return (
     <section aria-label={`${title} trace`} className="min-w-0">
       <h5 className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1 font-mono text-[11px]">
@@ -187,6 +199,27 @@ function Trace({ title, version, runCase, trial, steps, state }: TraceProps) {
           )}
         </span>
       </h5>
+      {traces.length > 0 && (
+        <div className="flex flex-wrap gap-1 border-b px-2 py-1">
+          {traces.map((trace, index) => (
+            <Button
+              key={trace.trace_ref}
+              size="xs"
+              variant="ghost"
+              onClick={() =>
+                openTrace({
+                  traceId: trace.trace_id,
+                  traceRef: trace.trace_ref,
+                })
+              }
+              aria-label={`View ${title} eval trace${traces.length > 1 ? ` ${index + 1}` : ""}`}
+            >
+              View eval trace{traces.length > 1 ? ` ${index + 1}` : ""}
+              <ArrowUpRight aria-hidden="true" />
+            </Button>
+          ))}
+        </div>
+      )}
       {trial && trial.checks.length > 0 && (
         <ul
           aria-label={`${title} checks`}

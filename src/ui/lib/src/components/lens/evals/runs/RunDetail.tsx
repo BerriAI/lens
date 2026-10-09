@@ -2,16 +2,25 @@
 
 import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 
+import { Inspector } from "../../../shared/Inspector";
+import { Badge } from "../../../ui/badge";
+import { useLensAccessToken } from "../../data/LensServices";
+import { RunView } from "../../traces/detail/run/RunView";
+import {
+  traceKey,
+  useOpenTraceRouting,
+  type TraceRef,
+} from "../../traces/routing";
 import { StateMessage } from "../../../shared/StateMessage";
 import { Button } from "../../../ui/button";
 import { cn } from "../../../../lib/cva.config";
 
 import { IdChip } from "../../traces/ui/IdChip";
-import { useEvalRun } from "./api";
+import { useEvalRun, useRunCases } from "./api";
 import { CaseCompare } from "./CaseCompare";
 import { costPerCase, passedLabel, shortSha } from "./format";
 import { CriticalTag, GateStatus } from "./RunBadges";
-import type { CaseDiff, EvalRun, Summary } from "./types";
+import type { CaseDiff, EvalRun, RunCaseSummary, Summary } from "./types";
 
 export interface RunDetailProps {
   readonly runId: string;
@@ -27,6 +36,9 @@ export function RunDetail({
   onOpenCase,
 }: RunDetailProps) {
   const run = useEvalRun(runId);
+  const accessToken = useLensAccessToken();
+  const { trace, openTrace, selection, fullScreen, setFullScreen } =
+    useOpenTraceRouting();
   if (run.isPending)
     return (
       <StateMessage
@@ -53,10 +65,39 @@ export function RunDetail({
       </StateMessage>
     );
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <RunStrip run={run.data} onBack={onBack} />
-      <RunBody run={run.data} caseId={caseId} onOpenCase={onOpenCase} />
-    </div>
+    <Inspector.Root
+      items={[]}
+      itemKey={traceKey}
+      selected={trace}
+      onSelectedChange={openTrace}
+      noun="eval trace"
+      storageKey="litellm.evalTraces.drawerWidth"
+      fullScreen={fullScreen}
+      onFullScreenChange={setFullScreen}
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <RunStrip run={run.data} onBack={onBack} />
+        <RunBody run={run.data} caseId={caseId} onOpenCase={onOpenCase} />
+        <Inspector.Panel label="Eval trace details">
+          {(shown: TraceRef) => (
+            <>
+              <div className="flex items-center gap-2 border-b px-3 py-2 font-mono text-xs">
+                <Badge variant="outline">Eval trace</Badge>
+                <span className="truncate">{run.data.eval}</span>
+              </div>
+              <RunView
+                traceId={shown.traceId}
+                traceRef={shown.traceRef}
+                selection={selection}
+                accessToken={accessToken}
+                onBack={() => openTrace(null)}
+                embedded
+              />
+            </>
+          )}
+        </Inspector.Panel>
+      </div>
+    </Inspector.Root>
   );
 }
 
@@ -149,6 +190,7 @@ function RunBody({
   caseId: string | null;
   onOpenCase: RunDetailProps["onOpenCase"];
 }) {
+  const cases = useRunCases(run.id);
   if (run.status === "failed")
     return (
       <p
@@ -170,18 +212,42 @@ function RunBody({
       </p>
     );
   const summary = run.summary;
-  const requested = caseId === null ? null : findDiff(summary, caseId);
+  if (cases.isPending)
+    return (
+      <p role="status" className="px-3 py-3 text-xs text-muted-foreground">
+        Loading cases…
+      </p>
+    );
+  if (cases.error)
+    return (
+      <p role="alert" className="px-3 py-3 text-xs text-destructive">
+        Couldn’t load cases: {cases.error.message}
+      </p>
+    );
+  const requested = cases.data.find((item) => item.case_id === caseId) ?? null;
   const selected =
     requested ??
     (caseId === null
-      ? summary.regressions[0] ?? summary.fixed[0] ?? null
+      ? cases.data.find(
+          (item) => item.case_id === summary.regressions[0]?.case_id,
+        ) ??
+        cases.data[0] ??
+        null
       : null);
+  const change = summary.regressions.some(
+    (item) => item.case_id === selected?.case_id,
+  )
+    ? "regressed"
+    : summary.fixed.some((item) => item.case_id === selected?.case_id)
+      ? "fixed"
+      : "unchanged";
   return (
     <>
       <GateReasons summary={summary} />
       <div className="flex min-h-0 flex-1">
         <CaseList
           summary={summary}
+          cases={cases.data}
           selected={selected?.case_id ?? null}
           onOpen={onOpenCase}
         />
@@ -196,13 +262,11 @@ function RunBody({
               baselineRunId={summary.baseline_run_id}
               baselineVersion={summary.baseline_version}
               candidateVersion={run.version}
-              regressed={summary.regressions.includes(selected)}
+              change={change}
             />
           ) : (
             <p className="px-3 py-6 font-mono text-xs text-muted-foreground">
-              {summary.baseline_run_id === null
-                ? "No main baseline yet, so nothing to compare against."
-                : "No case changed verdict against main."}
+              No cases in this run.
             </p>
           )}
         </div>
@@ -232,16 +296,18 @@ function GateReasons({ summary }: { summary: Summary }) {
 
 function CaseList({
   summary,
+  cases,
   selected,
   onOpen,
 }: {
   summary: Summary;
+  cases: readonly RunCaseSummary[];
   selected: string | null;
   onOpen: (caseId: string) => void;
 }) {
   return (
     <nav
-      aria-label="Changed cases"
+      aria-label="Cases"
       className="w-72 shrink-0 overflow-y-auto border-r bg-[var(--lens-soft)]"
     >
       <CaseGroup
@@ -258,10 +324,13 @@ function CaseList({
         selected={selected}
         onOpen={onOpen}
       />
-      <p className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-        {summary.total - summary.regressions.length - summary.fixed.length}{" "}
-        unchanged
-      </p>
+      <CaseGroup
+        title={summary.baseline_run_id === null ? "Cases" : "Unchanged"}
+        tone="text-muted-foreground"
+        diffs={cases.filter((item) => !findDiff(summary, item.case_id))}
+        selected={selected}
+        onOpen={onOpen}
+      />
     </nav>
   );
 }
@@ -275,7 +344,7 @@ function CaseGroup({
 }: {
   title: string;
   tone: string;
-  diffs: readonly CaseDiff[];
+  diffs: readonly Pick<RunCaseSummary, "case_id" | "title" | "critical">[];
   selected: string | null;
   onOpen: (caseId: string) => void;
 }) {
@@ -340,8 +409,8 @@ function MissingCase({
         className="size-3.5 shrink-0 text-warning"
       />
       <p className="min-w-0 flex-1 text-muted-foreground">
-        Case <span className="text-foreground">{caseId}</span> did not regress
-        or get fixed in this run.
+        Case <span className="text-foreground">{caseId}</span> was not found in
+        this run.
       </p>
       <Button size="sm" variant="outline" onClick={onDismiss}>
         Dismiss
