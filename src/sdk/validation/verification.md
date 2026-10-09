@@ -16,7 +16,7 @@ The same evaluation version was run again using the built wheel installed into a
 
 The local verification suite passes 50 behavioral tests with 92% statement coverage, including subprocess tests over real local HTTP. It checks the 36-by-3 golden lifecycle, majority ties, missing trials, baseline compatibility, regression/fix cycles, distinct executions at one SHA, bounded concurrency, task timeout/error conversion, retry/idempotency recovery, immutable subset/gate operations, dataset identity checks, JSON isolation, exit codes, partial multi-eval failure, protected initialization, GitHub comment ownership/upserts and authoritative check verdicts
 
-The targeted mutation run killed 20 of 20 deliberate behavioral faults. `mutations.json` names each one; this is a focused regression check, not a claim of exhaustive mutation coverage. Run it with `uv run --project packages/sdk python packages/sdk/scripts/mutation_check.py`
+The targeted mutation run killed 20 of 20 deliberate behavioral faults. `mutations.json` names each one; this is a focused regression check, not a claim of exhaustive mutation coverage. Run it with `uv run --project src/sdk python src/sdk/scripts/mutation_check.py`
 
 Ruff checks, formatting, strict mypy, and provisional schema drift checks pass. The wheel and source distribution build. A clean environment imports both `lens` from `lens-evals==0.1.0a1` and `litellm_lens` from `litellm-lens==0.1.0`; the latter was installed without its server dependencies for this namespace-conflict check
 
@@ -24,7 +24,7 @@ The GitHub workflow runs SDK tests on Python 3.11 and 3.13 and exercises the act
 
 Still pending: the Rust-exported eval schema and shared Rust fixture validation, production eval lifecycle/scoring/baseline integration, and the agent's service-token/sandbox adapter plus real regression PR ship test. The live smoke task generates a support response and traces it; it does not launch the deployed agent or establish the quality of its responses
 
-To reproduce the real-data smoke test, download an accessible `EvalCases` response through `Client.resolve` and `Client.cases`, save it outside the repository, and start `lens dev-server --dataset-file /absolute/path/cases.json`. In another terminal configure `[tool.lens].project="lens-sdk-smoke"`, set `LENS_API_KEY=lens-dev`, `LENS_BASE_URL=http://127.0.0.1:8765`, and the live gateway/trace environment variables described in the README. Run `lens eval packages/sdk/examples/live_gateway.py --json` from the configured project. This deliberately sends the selected dataset input to that gateway and trace store
+To reproduce the real-data smoke test, download an accessible `EvalCases` response through `Client.resolve` and `Client.cases`, save it outside the repository, and start `lens dev-server --dataset-file /absolute/path/cases.json`. In another terminal configure `[tool.lens].project="lens-sdk-smoke"`, set `LENS_API_KEY=lens-dev`, `LENS_BASE_URL=http://127.0.0.1:8765`, and the live gateway/trace environment variables described in the README. Run `lens eval src/sdk/examples/live_gateway.py --json` from the configured project. This deliberately sends the selected dataset input to that gateway and trace store
 
 The temporary validation key was blocked after testing (HTTP 200). A subsequent dataset request using that key returned HTTP 401. Temporary credential snapshots and the downloaded case payload were removed locally
 

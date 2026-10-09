@@ -6,7 +6,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/BerriAI/litellm-lens.git",
-    "directory": "packages/ui"
+    "directory": "src/ui/lib"
   },
   "exports": {
     ".": "./src/index.ts",

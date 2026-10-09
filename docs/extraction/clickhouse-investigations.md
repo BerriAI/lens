@@ -26,7 +26,7 @@ Evidence: [repository tests](evidence/clickhouse-investigations.log), [affected-
 
 The independently merged HTTP fixture runner now also uses ClickHouse sessions. All 43 committed authentication and dataset fixtures from `01bd40dfd310a6279488030cc0e509ce2e3db1a4` replay unchanged against a real Uvicorn server, with PostgreSQL absent. The candidate harness is `caaf53d4bc2c4b77257e9a69be2cb6cfa468eb3a`. This covers bearer/cookie/JWT authentication, session revocation and expiry, dataset revisions, exports and role/scope decisions; analysis is deliberately unavailable in this fixture harness
 
-Run `uv run python runtime/crates/parity/harness/serve.py`, then `cargo run --manifest-path runtime/Cargo.toml -p lens-parity -- replay --base-url http://127.0.0.1:4100`. Each harness start uses a fresh ClickHouse database. See [replay output](evidence/clickhouse-http-parity.log) and [server log](evidence/clickhouse-http-parity-server.log)
+Run `uv run python src/worker/crates/parity/harness/serve.py`, then `cargo run --manifest-path src/worker/Cargo.toml -p lens-parity -- replay --base-url http://127.0.0.1:4100`. Each harness start uses a fresh ClickHouse database. See [replay output](evidence/clickhouse-http-parity.log) and [server log](evidence/clickhouse-http-parity-server.log)
 
 ## Limits still open
 

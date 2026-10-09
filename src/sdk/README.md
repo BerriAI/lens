@@ -17,10 +17,10 @@ Python 3.11+ is required. The package is not on PyPI yet; install from this repo
 ```bash
 uv init --bare --python 3.11 lens-evals-demo
 cd lens-evals-demo
-uv add --dev "lens-evals[dev-server] @ git+https://github.com/BerriAI/lens.git@main#subdirectory=packages/sdk"
+uv add --dev "lens-evals[dev-server] @ git+https://github.com/BerriAI/lens.git@main#subdirectory=src/sdk"
 ```
 
-For an existing project, run just `uv add`. The `dev-server` extra is needed only for the local server. From a Lens checkout, the equivalent source install is `uv add --dev './packages/sdk[dev-server]'`
+For an existing project, run just `uv add`. The `dev-server` extra is needed only for the local server. From a Lens checkout, the equivalent source install is `uv add --dev './src/sdk[dev-server]'`
 
 Once the package is published, installation will be `uv add --dev lens-evals`
 
@@ -459,7 +459,7 @@ The SDK suite has 50 passing behavioral tests with 92% statement coverage. A foc
 
 The accepted package name is `lens-evals`, with `import lens`. Rust's `lens-contract` crate owns `schema/lens.v1.json`; the SDK generates its Pydantic wire models with pinned `datamodel-code-generator`. The HTTP routes, request/response bodies, status/error codes, `X-Lens-Contract: 1` header, and Summary semantics remain the agreed v1 contract
 
-The canonical schema is not in this checkout yet. CI explicitly uses the provisional appendix schema and switches to the canonical path when it appears. Shared fixtures are expected at `runtime/crates/contract/fixtures/lens_eval/`; tests consume that path when present, otherwise the SDK's local copies. Both languages still need to validate the shared fixtures together
+The canonical schema is not in this checkout yet. CI explicitly uses the provisional appendix schema and switches to the canonical path when it appears. Shared fixtures are expected at `src/worker/crates/contract/fixtures/lens_eval/`; tests consume that path when present, otherwise the SDK's local copies. Both languages still need to validate the shared fixtures together
 
 Once the Rust schema and eval endpoints land, regenerate the models, run the shared fixtures, and repeat the lifecycle against the deployed eval API. The SDK already implements create, per-trial result upload, finish, polling, and baseline-report retrieval
 
@@ -468,24 +468,24 @@ Once the Rust schema and eval endpoints land, regenerate the models, run the sha
 Run these from a Lens checkout
 
 ```bash
-uv sync --project packages/sdk --frozen
-uv run --project packages/sdk pytest packages/sdk/tests --cov=lens --cov-config=packages/sdk/pyproject.toml
-uv run --project packages/sdk mypy packages/sdk/src/lens packages/sdk/scripts/generate_contract.py
-uv run --project packages/sdk ruff check packages/sdk
-uv run --project packages/sdk ruff format --check packages/sdk
-uv run --project packages/sdk python packages/sdk/scripts/mutation_check.py
-uv build --project packages/sdk --out-dir packages/sdk/dist
+uv sync --project src/sdk --frozen
+uv run --project src/sdk pytest src/sdk/tests --cov=lens --cov-config=src/sdk/pyproject.toml
+uv run --project src/sdk mypy src/sdk/src/lens src/sdk/scripts/generate_contract.py
+uv run --project src/sdk ruff check src/sdk
+uv run --project src/sdk ruff format --check src/sdk
+uv run --project src/sdk python src/sdk/scripts/mutation_check.py
+uv build --project src/sdk --out-dir src/sdk/dist
 ```
 
 Check generated models against the canonical Rust schema once it lands
 
 ```bash
-uv run --project packages/sdk python packages/sdk/scripts/generate_contract.py --check
+uv run --project src/sdk python src/sdk/scripts/generate_contract.py --check
 ```
 
 Until then, the explicit provisional check is
 
 ```bash
-uv run --project packages/sdk python packages/sdk/scripts/generate_contract.py \
-  --schema packages/sdk/tests/fixtures/appendix.v1.json --check
+uv run --project src/sdk python src/sdk/scripts/generate_contract.py \
+  --schema src/sdk/tests/fixtures/appendix.v1.json --check
 ```

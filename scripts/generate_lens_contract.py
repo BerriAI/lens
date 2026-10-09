@@ -49,7 +49,7 @@ MODELS: Final[tuple[type[BaseModel], ...]] = (
     Checkpoint,
     FindingGroups,
 )
-TARGET: Final = Path(__file__).resolve().parents[1] / "runtime/crates/lens/contract.json"
+TARGET: Final = Path(__file__).resolve().parents[1] / "src/worker/crates/lens/contract.json"
 
 
 def draft_seven(value: JsonValue, names: bool = False) -> JsonValue:

@@ -12,7 +12,7 @@ Install the Python, Node and Rust prerequisites described in the repository, the
 uv sync --dev
 npm ci
 npm run build:ui
-cargo build --manifest-path runtime/Cargo.toml -p litellm-lens --bin litellm-lens --locked
+cargo build --manifest-path src/worker/Cargo.toml -p litellm-lens --bin litellm-lens --locked
 docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
 mkdir -p .lens-dev
 uv run python - <<'PY'
@@ -33,7 +33,7 @@ if not path.exists():
             'export LITELLM_LENS_URL=http://127.0.0.1:14318\n'
             'export LITELLM_LENS_PUBLIC_URL=http://127.0.0.1:14318\n'
             'export LITELLM_LENS_LISTEN=127.0.0.1:14318\n'
-            'export LENS_UI_DIRECTORY=apps/web/out\n'
+            'export LENS_UI_DIRECTORY=src/ui/app/out\n'
         )
 PY
 source .lens-dev/startup.env
@@ -46,7 +46,7 @@ In a second terminal, from the same checkout
 ```sh
 source .lens-dev/startup.env
 export LITELLM_RELEASE_TAG="sha-$(git rev-parse HEAD)"
-runtime/target/debug/litellm-lens
+src/worker/target/debug/litellm-lens
 ```
 
 The retained `LITELLM_URL` variable points to this Python API, not a gateway. Both processes must use the same database, service secret and release identity. Credentials refresh every 30 seconds, so readiness can initially return 503 while startup converges

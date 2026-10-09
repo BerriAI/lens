@@ -162,7 +162,7 @@ async def test_session_id_resolves_to_the_trace_lens_derives_at_ingest() -> None
 
 
 def test_session_trace_id_matches_the_rust_ingest_hash() -> None:
-    # Pinned in runtime/crates/traces/tests/otlp.rs (session_capture_joins_native_logs_...).
+    # Pinned in src/worker/crates/traces/tests/otlp.rs (session_capture_joins_native_logs_...).
     assert session_trace_id("session-one") == "5fddf060372c8501dca4f331b9da882b"
 
 
