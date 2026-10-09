@@ -4,8 +4,8 @@ import { Chat } from "./chat.js";
 import { configFrom } from "./config.js";
 import { startInvestigator } from "./investigator.js";
 import { answerBlocks } from "./slack.js";
-import { prepareChart } from "./chart.js";
-import { postWithChart } from "./slack-transport.js";
+import { prepareChart, renderChartPng } from "./chart.js";
+import { updateWithChart } from "./slack-transport.js";
 
 async function main() {
   const config = configFrom(process.env);
@@ -43,24 +43,48 @@ async function main() {
       const measured = answer.opportunities?.find((item) => item.frequency);
       if (answer.opportunities?.length && !measured?.frequency)
         throw new Error("A report needs verified chart data");
-      const chart = measured?.frequency
-        ? await prepareChart(app.client, {
+      const payload = measured?.frequency
+        ? {
             title: measured.frequency.title.slice(0, 80),
             category: measured.category,
             affected: measured.frequency.count,
             total: measured.frequency.total,
             unit: measured.frequency.unit,
-          })
+          }
         : undefined;
-      await postWithChart(app.client, {
+      const png = payload ? await renderChartPng(payload) : undefined;
+      const blocks = answerBlocks(answer);
+      const posted = await app.client.chat.postMessage({
         channel,
         thread_ts: thread,
         text: "Lens replied in this thread",
         unfurl_links: false,
         unfurl_media: false,
         parse: "none",
-        blocks: [...answerBlocks(answer), ...(chart ? [chart.block] : [])],
+        blocks,
       });
+      if (payload && png) {
+        if (!posted.ts)
+          throw new Error("Slack did not return a report timestamp");
+        try {
+          const chart = await prepareChart(
+            app.client,
+            payload,
+            { channel, thread },
+            png,
+          );
+          await updateWithChart(app.client, {
+            channel,
+            ts: posted.ts,
+            text: "Lens replied in this thread",
+            parse: "none",
+            blocks: [...blocks, chart.block],
+          });
+        } catch (error) {
+          console.error("Slack reply chart delivery is incomplete");
+          throw error;
+        }
+      }
     },
   );
   let stopInvestigator = () => {};

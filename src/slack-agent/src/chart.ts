@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { access } from "node:fs/promises";
 import { Resvg } from "@resvg/resvg-js";
-import type { WebClient } from "@slack/web-api";
+import type { FilesUploadV2Arguments, WebClient } from "@slack/web-api";
 
 export interface ChartBucket {
   readonly label: string;
@@ -19,6 +19,11 @@ export interface ChartPayload {
   readonly buckets?: readonly ChartBucket[];
 }
 export type ChartSlack = Pick<WebClient, "filesUploadV2">;
+export interface ChartDestination {
+  readonly channel: string;
+  readonly thread: string;
+  readonly blocks?: FilesUploadV2Arguments["blocks"];
+}
 
 const fontFile = fileURLToPath(
   new URL("../assets/LensSans.ttf", import.meta.url),
@@ -227,15 +232,28 @@ export async function renderChartPng(payload: ChartPayload): Promise<Buffer> {
     .asPng();
 }
 
-export async function prepareChart(slack: ChartSlack, payload: ChartPayload) {
+export async function prepareChart(
+  slack: ChartSlack,
+  payload: ChartPayload,
+  destination: ChartDestination,
+  rendered?: Buffer,
+) {
   try {
-    const file = await renderChartPng(payload);
+    if (
+      !/^[CG][A-Z0-9]+$/.test(destination.channel) ||
+      !/^\d+\.\d+$/.test(destination.thread)
+    )
+      throw new Error("Invalid chart destination");
+    const file = rendered ?? (await renderChartPng(payload));
     const altText = description(payload);
     const result = await slack.filesUploadV2({
       file,
       filename: "lens-frequency.png",
       title: payload.title,
       alt_text: altText,
+      channel_id: destination.channel,
+      thread_ts: destination.thread,
+      blocks: destination.blocks,
     });
     const completion = result.files[0];
     const uploaded = completion?.files?.[0];
@@ -246,7 +264,6 @@ export async function prepareChart(slack: ChartSlack, payload: ChartPayload) {
       completion.files?.length !== 1 ||
       !uploaded?.id ||
       !/^F[A-Z0-9]+$/.test(uploaded.id) ||
-      uploaded.is_public === true ||
       uploaded.public_url_shared === true
     ) {
       throw new Error("Invalid private upload receipt.");

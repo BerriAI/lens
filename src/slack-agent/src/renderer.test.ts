@@ -7,6 +7,8 @@ import type { Config } from "./config.js";
 
 test("a proposed issue has its stable number, status border and private chart in the first message, with receipts in the thread", async () => {
   const messages: Record<string, unknown>[] = [];
+  const updates: Record<string, unknown>[] = [];
+  const uploads: Record<string, unknown>[] = [];
   const candidate: VerifiedCandidate = {
     issueNumber: 7,
     fingerprint: "fingerprint",
@@ -49,14 +51,21 @@ test("a proposed issue has its stable number, status border and private chart in
     },
   };
   const slack = {
-    filesUploadV2: async () => ({
-      ok: true,
-      files: [{ ok: true, files: [{ id: "F0123ABC" }] }],
-    }),
+    filesUploadV2: async (options: Record<string, unknown>) => {
+      uploads.push(options);
+      return {
+        ok: true,
+        files: [{ ok: true, files: [{ id: "F0123ABC" }] }],
+      };
+    },
     chat: {
       postMessage: async (message: Record<string, unknown>) => {
         messages.push(message);
         return { ok: true, ts: "123.4" };
+      },
+      update: async (message: Record<string, unknown>) => {
+        updates.push(message);
+        return { ok: true };
       },
     },
   } as unknown as Parameters<typeof postCandidate>[0];
@@ -75,8 +84,10 @@ test("a proposed issue has its stable number, status border and private chart in
     sample,
     source,
   );
-  assert.equal(messages.length, 2);
-  const first = JSON.stringify(messages[0]);
+  assert.equal(messages.length, 1);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0]?.ts, "123.4");
+  const first = JSON.stringify(updates[0]);
   assert(
     first.includes("#8058F4") &&
       first.includes("Lens Issue #7") &&
@@ -88,9 +99,11 @@ test("a proposed issue has its stable number, status border and private chart in
   );
   assert(first.includes('"slack_file":{"id":"F0123ABC"}'));
   assert(!first.includes("User tried"));
-  assert.equal(messages[1]?.thread_ts, "123.4");
-  assert(JSON.stringify(messages[1]).includes("User tried"));
+  assert.equal(uploads[0]?.thread_ts, "123.4");
+  assert.equal(uploads[0]?.channel_id, "C123");
+  assert(JSON.stringify(uploads[0]?.blocks).includes("User tried"));
   messages.length = 0;
+  updates.length = 0;
   slack.filesUploadV2 = async () => {
     throw new Error("private upload failed");
   };
@@ -103,5 +116,6 @@ test("a proposed issue has its stable number, status border and private chart in
       source,
     ),
   );
-  assert.equal(messages.length, 0);
+  assert.equal(messages.length, 1);
+  assert.equal(updates.length, 0);
 });

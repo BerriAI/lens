@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { postWithChart } from "./slack-transport.js";
+import { postWithChart, updateWithChart } from "./slack-transport.js";
 
 const rejection = {
   code: "slack_webapi_platform_error",
@@ -79,4 +79,27 @@ test("network errors and other invalid blocks cannot blindly duplicate a deliver
     );
     assert.equal(attempts, 1);
   }
+});
+
+test("an image-ready update retries only the existing report timestamp", async () => {
+  const updates: unknown[] = [];
+  const slack = {
+    chat: {
+      update: async (args: unknown) => {
+        updates.push(args);
+        if (updates.length === 1) throw rejection;
+        return { ok: true };
+      },
+      postMessage: async () => {
+        assert.fail("updates must not create another report");
+      },
+    },
+  } as unknown as Parameters<typeof updateWithChart>[0];
+  await updateWithChart(
+    slack,
+    { channel: "C123", ts: "123.4", text: "report" },
+    async () => {},
+  );
+  assert.equal(updates.length, 2);
+  assert.deepEqual(updates[0], updates[1]);
 });
