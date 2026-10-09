@@ -118,6 +118,14 @@ describe("AgentTracesSection", () => {
     stubPost(async (traces) => traces.map((trace) => ({ ...trace, finding_count: null })));
   });
 
+  it("keeps the inactive production inspector closed when an eval owns the trace URL", () => {
+    renderWithProviders(
+      <AgentTracesSection accessToken="sk-test" isActive={false} range={ROLLING_DAY} />,
+      { searchParams: "?tab=evals&eval_run=run-a&trace=eval-trace&trace_ref=owner-a" },
+    );
+    expect(screen.queryByRole("complementary", { name: "Trace details" })).not.toBeInTheDocument();
+  });
+
   it("loads the next page only once the list scrolls near its end, then stops at the last page", async () => {
     vi.mocked(agentTraceListCall)
       .mockResolvedValueOnce({ data: runs.slice(0, 1), next_cursor: "next" })

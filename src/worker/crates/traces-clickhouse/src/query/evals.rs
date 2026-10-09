@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use lens_contract::eval::{TraceAttribute, TraceRef};
+use lens_contract::eval::{TraceAttribute, TraceRef, TrialTrace};
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Query, ReadLimits, fetch};
 use litellm_traces::{
@@ -33,6 +33,7 @@ pub struct EvalSpan {
 
 #[derive(Clone, Debug)]
 pub struct EvalTrace {
+    pub traces: Vec<TrialTrace>,
     pub spans: Vec<EvalSpan>,
     pub root_ended_at_ms: Option<i64>,
     pub last_received_at_ms: i64,
@@ -355,9 +356,19 @@ impl EvalTraces {
         if !cost.is_finite() || cost < 0.0 {
             return Err(Error::InvalidResponse);
         }
+        let traces = rows
+            .iter()
+            .map(|row| TrialTrace {
+                trace_id: row.summary.0.trace_id.clone(),
+                trace_ref: row.trace_ref.clone(),
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
         let mut spans: Vec<EvalSpan> = rows.into_iter().map(Into::into).collect();
         spans.sort_by_key(|span| span.start_ns);
         Ok(Some(EvalTrace {
+            traces,
             spans,
             root_ended_at_ms,
             last_received_at_ms,

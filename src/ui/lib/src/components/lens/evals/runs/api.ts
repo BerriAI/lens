@@ -1,6 +1,11 @@
 "use client";
 
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useLensApi } from "../../data/LensServices";
 import { datasetKeys } from "../../datasets/api";
 import type { EvalRunsApi } from "./client";
@@ -14,7 +19,10 @@ const evalKeys = {
 
 export function useEvals() {
   const api = useLensApi();
-  return useQuery({ queryKey: evalKeys.list(api.scope), queryFn: () => api.evalRuns.evals() });
+  return useQuery({
+    queryKey: evalKeys.list(api.scope),
+    queryFn: () => api.evalRuns.evals(),
+  });
 }
 
 export function useEvalDefinition(name: string) {
@@ -41,6 +49,8 @@ const evalRunKeys = {
     [...evalRunKeys.all(), "list", { scope, ...filter }] as const,
   detail: (scope: string, runId: string) =>
     [...evalRunKeys.all(), "detail", { scope, runId }] as const,
+  cases: (scope: string, runId: string) =>
+    [...evalRunKeys.all(), "cases", { scope, runId }] as const,
   runCase: (scope: string, runId: string, caseId: string) =>
     [...evalRunKeys.all(), "case", { scope, runId, caseId }] as const,
 };
@@ -94,4 +104,12 @@ export function useRunCase(runId: string | null, caseId: string) {
   return useQuery(
     evalRunQueries.runCase(api.evalRuns, api.scope, runId, caseId),
   );
+}
+
+export function useRunCases(runId: string) {
+  const api = useLensApi();
+  return useQuery({
+    queryKey: evalRunKeys.cases(api.scope, runId),
+    queryFn: () => api.evalRuns.cases(runId),
+  });
 }

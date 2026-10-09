@@ -22,6 +22,7 @@ function demoLensApi(data: LensDemoData): LensApi {
       list: async () => [],
       get: notInDemo,
       runCase: notInDemo,
+      cases: notInDemo,
       evals: async () => [],
       evalDefinition: notInDemo,
       saveEval: notInDemo,

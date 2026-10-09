@@ -18,14 +18,22 @@ export interface TraceRef {
 export const traceRefOf = (run: TraceSummary): TraceRef => ({ traceId: run.trace_id, traceRef: run.trace_ref });
 export const traceKey = (ref: TraceRef): string => ref.traceRef || ref.traceId;
 
-/** A shareable link that opens just this run on the current page, dropping list filters and step selection. */
+/** Opens this trace in its eval context when present, dropping list filters and step selection. */
 export const traceShareUrl = (ref: TraceRef, location: Pick<Location, "origin" | "pathname" | "search">): string => {
-  const demo = new URLSearchParams(location.search).get("demo") === "true";
+  const current = new URLSearchParams(location.search);
+  const demo = current.get("demo") === "true";
   const params = new URLSearchParams({
     ...(demo ? { demo: "true" } : {}),
     trace: ref.traceId,
     ...(ref.traceRef ? { trace_ref: ref.traceRef } : {}),
   });
+  if (current.get("eval_run") && (!current.has("tab") || current.get("tab") === "evals")) {
+    params.set("tab", "evals");
+    for (const key of ["agent", "eval", "eval_run", "eval_case"]) {
+      const value = current.get(key);
+      if (value) params.set(key, value);
+    }
+  }
   return `${location.origin}${location.pathname}?${params}`;
 };
 

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const postgresImage = "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea";
-const clickhouseImage = "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e";
+const clickhouseImage = "mirror.gcr.io/clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e";
 const secrets = new Set();
 export const privateValue = (value = randomBytes(32).toString("hex")) => { secrets.add(value); return value; };
 const redact = (text) => [...secrets].reduce((result, secret) => result.replaceAll(secret, "[redacted]"), text);

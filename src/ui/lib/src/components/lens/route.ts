@@ -100,8 +100,9 @@ const nulls = <K extends string>(keys: readonly K[]) =>
 /** Switching the sample session clears every Lens key but the tab so ids never cross between live and sample data. */
 const CLEARED_SESSION = nulls(Object.keys(SESSION_PARSERS).filter((key) => key !== "tab"));
 const CLEARED_RESULTS = nulls(Object.keys(RESULT_PARSERS));
+const CLEARED_TRACE = nulls(Object.keys(OPEN_TRACE_PARSERS));
 const CLEARED_AGENT_VIEW = {
-  ...nulls(Object.keys(OPEN_TRACE_PARSERS)),
+  ...CLEARED_TRACE,
   ...nulls(Object.keys(RESULT_PARSERS)),
   ...nulls(Object.keys(DATASET_PARSERS)),
   ...nulls(Object.keys(EVAL_PARSERS)),
@@ -357,22 +358,27 @@ export function useDatasetRoute() {
   return { datasetId: dataset, revision, caseId, openDataset, setRevision, setCaseId };
 }
 
-const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...EVAL_PARSERS };
+const EVAL_ROUTE_PARSERS = {
+  tab: LENS_PARSERS.tab,
+  agent: RUN_FILTER_PARSERS.agent,
+  ...EVAL_PARSERS,
+  ...OPEN_TRACE_PARSERS,
+};
 
 export function useEvalRunRoute() {
   const [{ eval: evalName, eval_run, eval_case }, setParams] = useQueryStates(EVAL_ROUTE_PARSERS, { history: "push" });
   const openEval = useCallback(
-    (next: string | null) => void setParams({ tab: "evals", eval: next, eval_run: null, eval_case: null }),
+    (next: string | null) => void setParams({ ...CLEARED_TRACE, tab: "evals", eval: next, eval_run: null, eval_case: null }),
     [setParams],
   );
   const openRun = useCallback(
-    (next: string | null) => void setParams({ tab: "evals", eval_run: next, eval_case: null }),
+    (next: string | null) => void setParams({ ...CLEARED_TRACE, tab: "evals", eval_run: next, eval_case: null }),
     [setParams],
   );
-  const openCase = useCallback((next: string | null) => void setParams({ eval_case: next }), [setParams]);
+  const openCase = useCallback((next: string | null) => void setParams({ ...CLEARED_TRACE, eval_case: next }), [setParams]);
   const openAgentRun = useCallback(
     (agent: string, name: string, runId: string) =>
-      void setParams({ tab: "evals", agent, eval: name, eval_run: runId, eval_case: null }),
+      void setParams({ ...CLEARED_TRACE, tab: "evals", agent, eval: name, eval_run: runId, eval_case: null }),
     [setParams],
   );
   return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase, openAgentRun };
