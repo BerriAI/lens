@@ -45,3 +45,38 @@ pub struct Authorization {
     #[serde(flatten)]
     pub state: AuthorizationState,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum BrokerHandshakeState {
+    Pending,
+    Selected {
+        code_hash: String,
+        connection: Connection,
+    },
+    Redeemed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrokerHandshake {
+    pub id: String,
+    pub browser_claimed: bool,
+    pub browser_hash: String,
+    pub lens_origin: String,
+    pub redirect_uri: String,
+    pub local_state: String,
+    pub code_challenge: String,
+    pub agent: String,
+    pub expires_at: DateTime<Utc>,
+    #[serde(flatten)]
+    pub state: BrokerHandshakeState,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrokerConnection {
+    pub id: String,
+    pub lens_origin: String,
+    pub connection: Connection,
+    pub capability_hash: String,
+    pub revoked: bool,
+}

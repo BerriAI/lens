@@ -26,6 +26,8 @@ pub struct Config {
     pub eval_judge_api_key: Option<String>,
     pub eval_judge_model: Option<String>,
     pub github: Option<lens_server::github::GitHubApp>,
+    pub github_service_url: Option<url::Url>,
+    pub github_service_enabled: bool,
 }
 
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
@@ -75,6 +77,19 @@ impl Config {
             ));
         }
         Ok(Self {
+            github_service_url: read("LENS_GITHUB_SERVICE_URL")
+                .filter(|value| !value.is_empty())
+                .map(|value| {
+                    value
+                        .parse()
+                        .map_err(|_| Error::Configuration("LENS_GITHUB_SERVICE_URL"))
+                })
+                .transpose()?,
+            github_service_enabled: match read("LENS_GITHUB_SERVICE_ENABLED").as_deref() {
+                None | Some("") | Some("false") => false,
+                Some("true") => true,
+                Some(_) => return Err(Error::Configuration("LENS_GITHUB_SERVICE_ENABLED")),
+            },
             github: github(&read, &public_url)?,
             gateway_service_token,
             eval_judge_api_key: read("LITELLM_API_KEY"),

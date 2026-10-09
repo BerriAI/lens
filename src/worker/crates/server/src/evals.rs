@@ -206,7 +206,7 @@ fn parse_body<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, EvalApiE
         .map_err(|_| ApiError::InvalidRequest("body does not match the eval contract").into())
 }
 
-fn valid_eval_name(name: &str) -> bool {
+pub(crate) fn valid_eval_name(name: &str) -> bool {
     !name.is_empty()
         && name.bytes().enumerate().all(|(index, character)| {
             character.is_ascii_lowercase()

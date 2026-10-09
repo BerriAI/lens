@@ -7,6 +7,10 @@ use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum GitHubError {
+    #[error(
+        "The stored GitHub connection could not be opened. Reconnect GitHub or restore the Lens admin credential used when connecting"
+    )]
+    Credentials,
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),
     #[error("GitHub connection storage is unavailable")]
@@ -21,6 +25,8 @@ pub enum GitHubError {
     Forbidden,
     #[error("GitHub authorization expired or was already used. Connect again")]
     Expired,
+    #[error("Too many GitHub connection requests. Try again in a minute")]
+    RateLimited,
     #[error("GitHub rejected the request (HTTP {status})")]
     Upstream { status: u16 },
     #[error("GitHub could not be reached. Try connecting again")]
@@ -43,6 +49,7 @@ impl IntoResponse for GitHubError {
             Self::Invalid(_) => StatusCode::BAD_REQUEST,
             Self::Forbidden => StatusCode::FORBIDDEN,
             Self::Expired => StatusCode::GONE,
+            Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             Self::Storage(litellm_storage_clickhouse::Error::StateConflict) => StatusCode::CONFLICT,
             Self::Upstream { .. } | Self::Transport(_) | Self::Decode(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::SERVICE_UNAVAILABLE,

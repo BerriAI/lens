@@ -36,6 +36,53 @@ pub(super) struct Response {
     reports: Vec<Published>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ReportInput {
+    pub run: lens_contract::eval::EvalRun,
+    pub baseline: Option<lens_contract::eval::EvalRun>,
+    pub ci_url: String,
+}
+
+impl ReportInput {
+    pub(super) fn bind_urls(&mut self, origin: &str) -> Result<(), GitHubError> {
+        let base = Url::parse(origin).map_err(|_| GitHubError::Credentials)?;
+        let link = |eval: &str, id: &str, case: Option<&str>| -> String {
+            let mut url = base.join("/ui/").expect("validated origin");
+            url.query_pairs_mut()
+                .append_pair("tab", "evals")
+                .append_pair("eval", eval)
+                .append_pair("eval_run", id);
+            if let Some(case) = case {
+                url.query_pairs_mut().append_pair("eval_case", case);
+            }
+            url.into()
+        };
+        let bind = |run: &mut lens_contract::eval::EvalRun| -> Result<(), GitHubError> {
+            if !crate::evals::valid_eval_name(&run.eval) || run.eval.len() > 200 {
+                return Err(GitHubError::Invalid("Provide a valid eval identifier"));
+            }
+            run.url = link(&run.eval, &run.id, None);
+            if let Some(summary) = &mut run.summary {
+                for case in summary.regressions.iter_mut().chain(&mut summary.fixed) {
+                    case.candidate_url = link(&run.eval, &run.id, Some(&case.case_id));
+                    case.baseline_url = summary
+                        .baseline_run_id
+                        .as_deref()
+                        .map(|id| link(&run.eval, id, Some(&case.case_id)))
+                        .unwrap_or_default();
+                }
+            }
+            Ok(())
+        };
+        bind(&mut self.run)?;
+        if let Some(baseline) = &mut self.baseline {
+            bind(baseline)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 struct Publication {
     token: String,
@@ -131,7 +178,6 @@ pub(super) async fn publish<R: SessionRepository>(
             "Provide between 1 and 10 distinct Lens run IDs",
         ));
     }
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
     let store = EvalStore::new(app.store.0.clone());
     let mut reports = Vec::new();
     for id in request.run_ids {
@@ -148,7 +194,21 @@ pub(super) async fn publish<R: SessionRepository>(
             .ok_or(GitHubError::Invalid(
                 "Connect this agent to a GitHub repository first",
             ))?;
-        let report = publish_stored(github, &app.store.0, &store, &connection, &stored).await?;
+        let input = stored_input(&store, &stored).await?;
+        let report = match (&app.settings.remote, &app.settings.github) {
+            (Some(remote), _) => {
+                super::remote::cleanup_retired(&app, remote, &owner.scope, &stored.run.agent)
+                    .await?;
+                let credentials = super::remote::credentials(&app, &owner.scope, &stored.run.agent)
+                    .await?
+                    .ok_or(GitHubError::Credentials)?;
+                remote.report(&credentials, input).await?
+            }
+            (_, Some(github)) => {
+                publish_input(github, &app.store.0, &stored.team, &connection, input).await?
+            }
+            _ => return Err(GitHubError::NotConfigured),
+        };
         reports.push(report);
     }
     Ok(Json(Response { reports }))
@@ -260,18 +320,62 @@ fn validate_workflow(
     }
 }
 
-async fn publish_stored(
+async fn stored_input(store: &EvalStore, stored: &StoredRun) -> Result<ReportInput, GitHubError> {
+    let baseline = match stored
+        .run
+        .summary
+        .as_ref()
+        .and_then(|summary| summary.baseline_run_id.as_deref())
+    {
+        Some(id) => Some(store.get(&stored.team, id).await.map_err(eval_error)?.run),
+        None => None,
+    };
+    Ok(ReportInput {
+        run: stored.run.clone(),
+        baseline,
+        ci_url: stored.request.ci_url.clone(),
+    })
+}
+
+pub(super) async fn publish_input(
     github: &GitHubApp,
     state: &ClickHouseState,
-    store: &EvalStore,
+    namespace: &str,
     connection: &Connection,
-    stored: &StoredRun,
+    input: ReportInput,
 ) -> Result<Published, GitHubError> {
+    if input.run.status != RunStatus::Done
+        || input.run.summary.is_none()
+        || input.run.agent != connection.agent
+        || input.run.id.is_empty()
+        || input.run.id.len() > 200
+        || !crate::evals::valid_eval_name(&input.run.eval)
+        || input.run.eval.len() > 200
+        || input.ci_url.len() > 2048
+    {
+        return Err(GitHubError::Invalid(
+            "Provide a completed eval run for the connected agent",
+        ));
+    }
+    if input.baseline.as_ref().is_some_and(|baseline| {
+        baseline.agent != input.run.agent
+            || baseline.eval != input.run.eval
+            || input
+                .run
+                .summary
+                .as_ref()
+                .and_then(|summary| summary.baseline_run_id.as_ref())
+                != Some(&baseline.id)
+    }) {
+        return Err(GitHubError::Invalid(
+            "The eval baseline does not match this report",
+        ));
+    }
     let key = format!(
         "github-report/{:x}",
         Sha256::digest(format!(
             "{}\0{}\0{}",
-            stored.team, stored.run.id, connection.repository_id
+            namespace, input.run.id, connection.repository_id
         ))
     );
     let previous = state.read(&key).await?;
@@ -303,7 +407,7 @@ async fn publish_stored(
     let report = tokio::time::timeout(Duration::from_secs(25), async {
         let token = github.installation_token(connection).await?;
         let WorkflowTarget { id, path } =
-            workflow_target(github, &token, connection, &stored.request.ci_url).await?;
+            workflow_target(github, &token, connection, &input.ci_url).await?;
         let workflow: WorkflowRun = github
             .request(
                 Method::GET,
@@ -312,7 +416,7 @@ async fn publish_stored(
                 None,
             )
             .await?;
-        let pull = match stored.run.pr {
+        let pull = match input.run.pr {
             Some(number) => Some(
                 github
                     .request(Method::GET, &format!("{path}/pulls/{number}"), &token, None)
@@ -320,21 +424,10 @@ async fn publish_stored(
             ),
             None => None,
         };
-        validate_workflow(&stored.run, connection, id, &workflow, pull.as_ref())?;
-        let baseline = match stored
-            .run
-            .summary
-            .as_ref()
-            .and_then(|summary| summary.baseline_run_id.as_deref())
-        {
-            Some(id) => Some(sdk_run(
-                store.get(&stored.team, id).await.map_err(eval_error)?.run,
-            )?),
-            None => None,
-        };
+        validate_workflow(&input.run, connection, id, &workflow, pull.as_ref())?;
         let report = Report {
-            run: sdk_run(stored.run.clone())?,
-            baseline,
+            run: sdk_run(input.run)?,
+            baseline: input.baseline.map(sdk_run).transpose()?,
             trials: Vec::new(),
         };
         publish_report(github, &token, &path, &key, &report).await
@@ -517,6 +610,65 @@ mod tests {
         run.version = "a".repeat(40);
         run.pr = Some(7);
         run
+    }
+
+    #[rstest]
+    fn report_links_are_rebuilt_from_confirmed_origin(mut run: lens_contract::eval::EvalRun) {
+        let summary = run.summary.as_mut().unwrap();
+        summary.baseline_run_id = Some("previous".into());
+        summary.regressions = vec![lens_contract::eval::CaseDiff {
+            case_id: "case&redirect=elsewhere".into(),
+            title: "Case".into(),
+            critical: false,
+            baseline_url: "https://attacker.example/baseline".into(),
+            candidate_url: "https://attacker.example/candidate".into(),
+        }];
+        summary.fixed = summary.regressions.clone();
+        let mut input = ReportInput {
+            baseline: Some(run.clone()),
+            run,
+            ci_url: String::new(),
+        };
+        input.bind_urls("https://confirmed.example").unwrap();
+        let serialized = serde_json::to_string(&input).unwrap();
+        assert!(!serialized.contains("attacker.example"));
+        assert!(!serialized.contains("localhost:8765"));
+        let summary = input.run.summary.unwrap();
+        let candidate = Url::parse(&summary.regressions[0].candidate_url).unwrap();
+        assert_eq!(
+            candidate.origin().ascii_serialization(),
+            "https://confirmed.example"
+        );
+        assert_eq!(
+            candidate
+                .query_pairs()
+                .find(|(key, _)| key == "eval_case")
+                .unwrap()
+                .1,
+            "case&redirect=elsewhere"
+        );
+        assert!(
+            summary.regressions[0]
+                .baseline_url
+                .contains("eval_run=previous")
+        );
+    }
+
+    #[rstest]
+    #[case::markdown("demo\n[click](https://attacker.example)")]
+    #[case::html("demo --> <img src='https://attacker.example'>")]
+    #[case::empty("")]
+    fn report_rejects_eval_markup(mut run: lens_contract::eval::EvalRun, #[case] name: &str) {
+        run.eval = name.into();
+        let mut input = ReportInput {
+            run,
+            baseline: None,
+            ci_url: String::new(),
+        };
+        assert!(matches!(
+            input.bind_urls("https://confirmed.example"),
+            Err(GitHubError::Invalid(_))
+        ));
     }
 
     #[rstest]

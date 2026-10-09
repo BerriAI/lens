@@ -32,13 +32,26 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn with_github(mut self, github: Option<lens_server::github::GitHubApp>) -> Self {
+    pub fn with_github(
+        mut self,
+        github: Option<lens_server::github::GitHubApp>,
+        public_url: url::Url,
+        admin_token: &str,
+        service_url: Option<url::Url>,
+        service_enabled: bool,
+    ) -> Result<Self, Error> {
         self.router = self.router.merge(lens_server::github::router(
             self.authentication.clone(),
             litellm_storage_clickhouse::github::GitHubStore(self.authentication.sessions.0.clone()),
-            github,
+            lens_server::github::GitHubSettings::new(
+                github,
+                public_url,
+                admin_token,
+                service_url,
+                service_enabled,
+            )?,
         ));
-        self
+        Ok(self)
     }
 
     pub fn with_evaluations(mut self) -> Result<Self, Error> {

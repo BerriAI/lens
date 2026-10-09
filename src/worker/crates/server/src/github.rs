@@ -1,5 +1,8 @@
 mod client;
+mod credentials;
+mod remote;
 mod report;
+mod service;
 
 use std::{sync::Arc, time::Duration};
 
@@ -19,23 +22,64 @@ use lens_contract::{
 use litellm_storage_clickhouse::github::{GitHubStore, StoredAuthorization};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use url::Url;
 
 pub use crate::error::GitHubError;
 use crate::{auth, routing::PublicRoutes};
 pub use client::GitHubApp;
+use credentials::CredentialCipher;
+use remote::Remote;
 
 const STATE_COOKIE: &str = "lens_github_state";
+
+pub struct GitHubSettings {
+    github: Option<GitHubApp>,
+    remote: Option<Remote>,
+    public_url: Url,
+    cipher: CredentialCipher,
+    service_enabled: bool,
+}
+
+impl GitHubSettings {
+    pub fn new(
+        github: Option<GitHubApp>,
+        public_url: Url,
+        admin_token: &str,
+        service_url: Option<Url>,
+        service_enabled: bool,
+    ) -> Result<Self, GitHubError> {
+        if (github.is_some() && service_url.is_some()) || (service_enabled && github.is_none()) {
+            return Err(GitHubError::Configuration(
+                "Use official App credentials on the service, or LENS_GITHUB_SERVICE_URL on a self-hosted instance",
+            ));
+        }
+        let remote = service_url.map(Remote::new).transpose()?;
+        if (remote.is_some() || service_enabled) && !remote::secure_origin(&public_url) {
+            return Err(GitHubError::Configuration(
+                "LENS_PUBLIC_URL must use HTTPS (HTTP localhost is supported for development)",
+            ));
+        }
+        Ok(Self {
+            github,
+            remote,
+            public_url,
+            cipher: CredentialCipher::new(admin_token)?,
+            service_enabled,
+        })
+    }
+}
 
 struct App<R> {
     authentication: Arc<Authentication<R>>,
     store: GitHubStore,
-    github: Option<GitHubApp>,
+    settings: GitHubSettings,
+    admission: service::Admission,
 }
 
 pub fn router<R: SessionRepository + 'static>(
     authentication: Arc<Authentication<R>>,
     store: GitHubStore,
-    github: Option<GitHubApp>,
+    settings: GitHubSettings,
 ) -> Router {
     Router::new()
         .public_route("/lens/github/status", get(status::<R>))
@@ -48,10 +92,39 @@ pub fn router<R: SessionRepository + 'static>(
         .public_route("/lens/github/callback", get(callback::<R>))
         .public_route("/lens/github/setup", get(setup::<R>))
         .public_route("/lens/github/report", post(report::publish::<R>))
+        .public_route("/lens/github/service/authorize", post(service::start::<R>))
+        .public_route(
+            "/lens/github/service/connect/{id}",
+            get(service::connect::<R>).post(service::consent::<R>),
+        )
+        .public_route("/lens/github/service/redeem", post(service::redeem::<R>))
+        .public_route(
+            "/lens/github/service/connections/{id}",
+            get(service::status::<R>).delete(service::disconnect::<R>),
+        )
+        .public_route(
+            "/lens/github/service/connections/{id}/report",
+            post(service::report::<R>),
+        )
+        .public_route(remote::CALLBACK_PATH, get(remote::callback::<R>))
+        .layer(axum::middleware::map_response(
+            |mut response: Response| async move {
+                response.headers_mut().insert(
+                    header::CACHE_CONTROL,
+                    "no-store".parse().expect("fixed header"),
+                );
+                response.headers_mut().insert(
+                    header::REFERRER_POLICY,
+                    "no-referrer".parse().expect("fixed header"),
+                );
+                response
+            },
+        ))
         .with_state(Arc::new(App {
             authentication,
             store,
-            github,
+            settings,
+            admission: service::Admission::default(),
         }))
 }
 
@@ -116,6 +189,8 @@ struct ConnectionStatus {
 #[derive(Serialize)]
 struct Status {
     configured: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    service_origin: Option<String>,
     app_slug: Option<String>,
     connection: Option<ConnectionStatus>,
 }
@@ -128,10 +203,13 @@ async fn status<R: SessionRepository>(
     let identity = auth::identity(&app.authentication, &headers, &Method::GET).await?;
     let owner = owner(&identity, false)?;
     agent(&query.agent)?;
+    if let Some(remote) = &app.settings.remote {
+        return remote::status(&app, remote, &owner.scope, &query.agent).await;
+    }
     let connection = app.store.connection(&owner.scope, &query.agent).await?;
     let connection = match connection {
         Some(connection) => {
-            let verification = match &app.github {
+            let verification = match &app.settings.github {
                 Some(github) => github.verify_connection(&connection).await,
                 None => Err(GitHubError::NotConfigured),
             };
@@ -156,8 +234,13 @@ async fn status<R: SessionRepository>(
         None => None,
     };
     Ok(Json(Status {
-        configured: app.github.is_some(),
-        app_slug: app.github.as_ref().map(|github| github.slug.clone()),
+        configured: app.settings.github.is_some(),
+        service_origin: None,
+        app_slug: app
+            .settings
+            .github
+            .as_ref()
+            .map(|github| github.slug.clone()),
         connection,
     }))
 }
@@ -178,7 +261,14 @@ async fn authorize<R: SessionRepository>(
     let identity = auth::identity(&app.authentication, &headers, &Method::POST).await?;
     let owner = owner(&identity, true)?;
     agent(&request.agent)?;
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
+    if let Some(remote) = &app.settings.remote {
+        return remote::authorize(&app, remote, owner, request.agent, request.install).await;
+    }
+    let github = app
+        .settings
+        .github
+        .as_ref()
+        .ok_or(GitHubError::NotConfigured)?;
     let authorization = Authorization {
         id: uuid::Uuid::new_v4().to_string(),
         owner,
@@ -264,7 +354,11 @@ async fn connect<R: SessionRepository>(
 ) -> Result<Json<Connection>, GitHubError> {
     let identity = auth::identity(&app.authentication, &headers, &Method::PUT).await?;
     let owner = owner(&identity, true)?;
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
+    let github = app
+        .settings
+        .github
+        .as_ref()
+        .ok_or(GitHubError::NotConfigured)?;
     let stored = load(&app.store, &request.authorization_id).await?;
     if stored.authorization.owner != owner || stored.authorization.agent != agent {
         return Err(GitHubError::Forbidden);
@@ -301,6 +395,9 @@ async fn disconnect<R: SessionRepository>(
 ) -> Result<StatusCode, GitHubError> {
     let identity = auth::identity(&app.authentication, &headers, &Method::DELETE).await?;
     let owner = owner(&identity, true)?;
+    if let Some(remote) = &app.settings.remote {
+        return remote::disconnect(&app, remote, &owner.scope, &agent).await;
+    }
     app.store.disconnect(&owner.scope, &agent).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -314,9 +411,13 @@ struct Callback {
 }
 
 fn cookie_state(headers: &HeaderMap) -> Option<String> {
+    cookie_named(headers, STATE_COOKIE)
+}
+
+fn cookie_named(headers: &HeaderMap, name: &str) -> Option<String> {
     cookie::Cookie::split_parse(headers.get(header::COOKIE)?.to_str().ok()?)
         .filter_map(Result::ok)
-        .find(|cookie| cookie.name() == STATE_COOKIE)
+        .find(|cookie| cookie.name() == name)
         .map(|cookie| cookie.value().to_owned())
 }
 
@@ -325,16 +426,23 @@ async fn callback_state<R>(
     headers: &HeaderMap,
     state: &str,
 ) -> Result<StoredAuthorization, GitHubError> {
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
+    let github = app
+        .settings
+        .github
+        .as_ref()
+        .ok_or(GitHubError::NotConfigured)?;
     let id = github.authorization_id(state)?;
     if cookie_state(headers).as_deref() != Some(state) {
         return Err(GitHubError::Forbidden);
     }
+    if app.settings.service_enabled && app.store.handshake(&id).await?.is_some() {
+        service::browser(app, headers, &id).await?;
+    }
     load(&app.store, &id).await
 }
 
-fn return_to_agent(github: &GitHubApp, authorization: &Authorization) -> Response {
-    let mut url = github.public_url.join("/ui/").expect("fixed path");
+fn return_to_agent(public_url: &Url, authorization: &Authorization) -> Response {
+    let mut url = public_url.join("/ui/").expect("fixed path");
     url.query_pairs_mut()
         .append_pair("tab", "agents")
         .append_pair("github_agent", &authorization.agent)
@@ -343,7 +451,7 @@ fn return_to_agent(github: &GitHubApp, authorization: &Authorization) -> Respons
         .path("/lens/github")
         .http_only(true)
         .same_site(cookie::SameSite::Lax)
-        .secure(github.public_url.scheme() == "https")
+        .secure(public_url.scheme() == "https")
         .max_age(cookie::time::Duration::ZERO)
         .build();
     (
@@ -369,12 +477,12 @@ async fn callback<R: SessionRepository>(
 }
 
 async fn callback_failure<R>(app: &App<R>, headers: &HeaderMap, state: &str) -> Response {
-    if let Some(github) = &app.github
+    if let Some(github) = &app.settings.github
         && cookie_state(headers).as_deref() == Some(state)
         && let Ok(id) = github.authorization_id(state)
         && let Ok(Some(stored)) = app.store.authorization(&id).await
     {
-        return return_to_agent(github, &stored.authorization);
+        return return_to_agent(&github.public_url, &stored.authorization);
     }
     (
         StatusCode::BAD_REQUEST,
@@ -391,7 +499,11 @@ async fn callback_inner<R>(
     headers: &HeaderMap,
     query: &Callback,
 ) -> Result<Response, GitHubError> {
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
+    let github = app
+        .settings
+        .github
+        .as_ref()
+        .ok_or(GitHubError::NotConfigured)?;
     let stored = callback_state(app, headers, &query.state).await?;
     if stored.authorization.state != AuthorizationState::Pending {
         return Err(GitHubError::Expired);
@@ -430,7 +542,13 @@ async fn callback_inner<R>(
     };
     let stored = load(&app.store, &authorization.id).await?;
     app.store.transition(stored, state).await?;
-    Ok(return_to_agent(github, &authorization))
+    if app.settings.service_enabled && app.store.handshake(&authorization.id).await?.is_some() {
+        return Ok(service::redirect_to_consent(
+            &app.settings.public_url,
+            &authorization.id,
+        ));
+    }
+    Ok(return_to_agent(&github.public_url, &authorization))
 }
 
 #[derive(Deserialize)]
@@ -455,7 +573,11 @@ async fn setup_inner<R>(
     headers: &HeaderMap,
     query: &Setup,
 ) -> Result<Response, GitHubError> {
-    let github = app.github.as_ref().ok_or(GitHubError::NotConfigured)?;
+    let github = app
+        .settings
+        .github
+        .as_ref()
+        .ok_or(GitHubError::NotConfigured)?;
     let stored = callback_state(app, headers, &query.state).await?;
     if stored.authorization.state != AuthorizationState::Installing {
         return Err(GitHubError::Expired);
@@ -502,6 +624,904 @@ mod tests {
 
     const SECRET: &str = "github-test-gateway-signing-secret-32-characters";
     const ADMIN: &str = "github-test-admin-token-32-characters";
+
+    struct Broker {
+        app: Router,
+        local: Router,
+        origin: Url,
+        task: tokio::task::JoinHandle<()>,
+    }
+
+    impl Drop for Broker {
+        fn drop(&mut self) {
+            self.task.abort();
+        }
+    }
+
+    async fn broker(fixture: &Fixture) -> Broker {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin: Url = format!("http://{}", listener.local_addr().unwrap())
+            .parse()
+            .unwrap();
+        let mut github = github(&fixture.provider);
+        github.public_url = origin.clone();
+        let app = super::router(
+            authentication(fixture.store.0.clone()),
+            fixture.store.clone(),
+            GitHubSettings::new(Some(github), origin.clone(), ADMIN, None, true).unwrap(),
+        );
+        let server = app.clone();
+        let task = tokio::spawn(async move { axum::serve(listener, server).await.unwrap() });
+        let local = super::router(
+            authentication(fixture.store.0.clone()),
+            fixture.store.clone(),
+            GitHubSettings::new(
+                None,
+                "https://customer.example".parse().unwrap(),
+                ADMIN,
+                Some(origin.clone()),
+                false,
+            )
+            .unwrap(),
+        );
+        Broker {
+            app,
+            local,
+            origin,
+            task,
+        }
+    }
+
+    fn cookies(response: &Response) -> String {
+        response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(|cookie| cookie.to_str().unwrap().split(';').next().unwrap())
+            .collect::<Vec<_>>()
+            .join("; ")
+    }
+
+    fn form(uri: &str, origin: &Url, cookie: &str, state: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header(header::ORIGIN, origin.origin().ascii_serialization())
+            .header(header::COOKIE, cookie)
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .body(Body::from(
+                url::form_urlencoded::Serializer::new(String::new())
+                    .append_pair("state", state)
+                    .append_pair("repository_id", "10")
+                    .finish(),
+            ))
+            .unwrap()
+    }
+
+    async fn local_start(broker: &Broker) -> (Value, String) {
+        let response = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/authorize",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(json!({"agent":"agent","install":true})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let cookie = cookies(&response);
+        (body(response).await, cookie)
+    }
+
+    async fn completed_run(fixture: &Fixture) -> lens_contract::eval::EvalRun {
+        use litellm_storage_clickhouse::evals::{EvalStore, RunCompletion, StoredCase};
+        let store = EvalStore::new(fixture.store.0.clone());
+        let created = store
+            .create(
+                "team-a",
+                serde_json::from_value(json!({
+                        "eval":"demo", "agent":"agent", "dataset_id":"test", "revision":1,
+                        "version":"a".repeat(40), "branch":"topic", "pr":7,
+                        "ci_url":"https://github.com/org/renamed/actions/runs/50", "trials":1,
+                "scorers":[{"kind":"task_completed"}]
+                    }))
+                .unwrap(),
+                vec![StoredCase {
+                    id: "case".into(),
+                    title: "Case".into(),
+                    critical: false,
+                    expected: String::new(),
+                }],
+                None,
+                "https://untrusted-payload.example",
+                Utc::now(),
+            )
+            .await
+            .unwrap();
+        let finished = store
+            .finish("team-a", &created.run.id, Utc::now())
+            .await
+            .unwrap();
+        let lease = store
+            .claim_scoring("team-a", &created.run.id, Utc::now())
+            .await
+            .unwrap()
+            .unwrap();
+        let template: lens_contract::eval::EvalRun = serde_json::from_str(include_str!(
+            "../../../../sdk/tests/fixtures/lens_eval/eval_run_no_baseline.json"
+        ))
+        .unwrap();
+        let mut summary = template.summary.unwrap();
+        summary.total = 1;
+        summary.passed = 0;
+        summary.pass_rate = 0.0;
+        store
+            .complete(
+                "team-a",
+                &created.run.id,
+                &lease,
+                RunCompletion {
+                    summary,
+                    trials: finished.trials,
+                    verdicts: std::collections::BTreeMap::from([("case".into(), false)]),
+                },
+                Utc::now(),
+            )
+            .await
+            .unwrap()
+            .run
+    }
+
+    async fn reporting_provider(provider: &MockServer) {
+        Mock::given(method("GET")).and(path("/repos/org/renamed/actions/runs/50"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":50,"event":"pull_request","head_sha":"a".repeat(40),"repository":{"id":10},"pull_requests":[{"number":7}]}))).expect(1).mount(provider).await;
+        Mock::given(method("GET")).and(path("/repos/org/renamed/pulls/7"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"number":7,"head":{"sha":"a".repeat(40),"repo":{"id":10}},"base":{"sha":"b".repeat(40),"repo":{"id":10}},"merge_commit_sha":"c".repeat(40)}))).expect(1).mount(provider).await;
+        Mock::given(method("GET"))
+            .and(path("/repos/org/renamed/issues/7/comments"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .expect(1)
+            .mount(provider)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/repos/org/renamed/commits/{}/check-runs",
+                "a".repeat(40)
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"check_runs":[]})))
+            .expect(1)
+            .mount(provider)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/repos/org/renamed/issues/7/comments"))
+            .and(|request: &wiremock::Request| {
+                let text = String::from_utf8_lossy(&request.body);
+                text.contains("https://customer.example/ui/?tab=evals")
+                    && !text.contains("untrusted-payload.example")
+            })
+            .respond_with(ResponseTemplate::new(201).set_body_json(
+                json!({"html_url":"https://github.com/org/renamed/pull/7#issuecomment-1"}),
+            ))
+            .expect(1)
+            .mount(provider)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/repos/org/renamed/check-runs"))
+            .and(|request: &wiremock::Request| {
+                let body: Value = serde_json::from_slice(&request.body).unwrap();
+                body["details_url"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("https://customer.example/ui/?tab=evals&eval=demo&eval_run=")
+            })
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_json(json!({"html_url":"https://github.com/org/renamed/checks/1"})),
+            )
+            .expect(1)
+            .mount(provider)
+            .await;
+    }
+
+    async fn save_remote(fixture: &Fixture, credential: &remote::RemoteCredentials) -> Connection {
+        let auth = Authorization {
+            id: uuid::Uuid::new_v4().to_string(),
+            owner: Owner {
+                scope: "team-a".into(),
+                subject: "alice".into(),
+            },
+            agent: "agent".into(),
+            expires_at: Utc::now() + TimeDelta::minutes(10),
+            state: AuthorizationState::Exchanging,
+        };
+        fixture.store.create_authorization(&auth).await.unwrap();
+        let stored = fixture
+            .store
+            .authorization(&auth.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let connection = Connection {
+            agent: "agent".into(),
+            repository_id: 10,
+            repository: "org/repo".into(),
+            installation_id: 42,
+            default_branch: "main".into(),
+            connected_at: Utc::now(),
+        };
+        let encrypted = CredentialCipher::new(ADMIN)
+            .unwrap()
+            .encrypt(
+                credential,
+                &litellm_storage_clickhouse::github::remote_credentials_key("team-a", "agent"),
+            )
+            .unwrap();
+        fixture
+            .store
+            .connect_remote(stored, &connection, encrypted)
+            .await
+            .unwrap();
+        connection
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn official_service_keeps_failed_revocations_for_retry(#[future] fixture: Fixture) {
+        let fixture = fixture.await;
+        let old = remote::RemoteCredentials {
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            capability: "a".repeat(64),
+        };
+        let new = remote::RemoteCredentials {
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            capability: "b".repeat(64),
+        };
+        save_remote(&fixture, &old).await;
+        let connection = save_remote(&fixture, &new).await;
+        let app = super::router(
+            authentication(fixture.store.0.clone()),
+            fixture.store.clone(),
+            GitHubSettings::new(
+                None,
+                "https://customer.example".parse().unwrap(),
+                ADMIN,
+                Some(fixture.provider.uri().parse().unwrap()),
+                false,
+            )
+            .unwrap(),
+        );
+        Mock::given(method("DELETE"))
+            .and(path(format!(
+                "/lens/github/service/connections/{}",
+                old.connection_id
+            )))
+            .respond_with(ResponseTemplate::new(503))
+            .mount(&fixture.provider)
+            .await;
+        let response = app
+            .clone()
+            .oneshot(request(
+                "GET",
+                "/lens/github/status?agent=agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        assert_eq!(body(response).await["connection"]["available"], false);
+        assert_eq!(
+            fixture
+                .store
+                .retired_remote_credentials("team-a", "agent")
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        fixture.provider.reset().await;
+        Mock::given(method("DELETE"))
+            .and(path(format!(
+                "/lens/github/service/connections/{}",
+                old.connection_id
+            )))
+            .and(match_header(
+                "authorization",
+                format!("Bearer {}", old.capability),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"disconnected":true})))
+            .expect(1)
+            .mount(&fixture.provider)
+            .await;
+        Mock::given(method("GET")).and(path(format!("/lens/github/service/connections/{}", new.connection_id)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"connection":connection,"app_slug":"lens-test","available":true,"availability_error":""}))).expect(1).mount(&fixture.provider).await;
+        let response = app
+            .oneshot(request(
+                "GET",
+                "/lens/github/status?agent=agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(body(response).await["connection"]["available"], true);
+        assert!(
+            fixture
+                .store
+                .retired_remote_credentials("team-a", "agent")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn official_service_allows_recovery_after_local_key_rotation(#[future] fixture: Fixture) {
+        let fixture = fixture.await;
+        let credential = remote::RemoteCredentials {
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            capability: "a".repeat(64),
+        };
+        save_remote(&fixture, &credential).await;
+        let app = super::router(
+            authentication(fixture.store.0.clone()),
+            fixture.store.clone(),
+            GitHubSettings::new(
+                None,
+                "https://customer.example".parse().unwrap(),
+                "rotated-admin-secret-with-at-least-32-bytes",
+                Some(fixture.provider.uri().parse().unwrap()),
+                false,
+            )
+            .unwrap(),
+        );
+        let response = app
+            .clone()
+            .oneshot(request(
+                "GET",
+                "/lens/github/status?agent=agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let response = body(response).await;
+        assert_eq!(response["configured"], true);
+        assert_eq!(response["connection"]["available"], false);
+        assert!(
+            response["connection"]["availability_error"]
+                .as_str()
+                .unwrap()
+                .contains("Reconnect")
+        );
+        let response = app
+            .oneshot(request(
+                "DELETE",
+                "/lens/github/connections/agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 204);
+        assert!(
+            fixture
+                .store
+                .connection("team-a", "agent")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            fixture
+                .store
+                .retired_remote_credentials("team-a", "agent")
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            fixture
+                .provider
+                .received_requests()
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn official_service_handoff_requires_browser_consent_and_stores_scoped_credentials(
+        #[future] fixture: Fixture,
+    ) {
+        let fixture = fixture.await;
+        let broker = broker(&fixture).await;
+        let (started, local_cookie) = local_start(&broker).await;
+        let landing: Url = started["authorization_url"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let id = landing.path().rsplit('/').next().unwrap();
+        let response = broker
+            .app
+            .clone()
+            .oneshot(request("GET", landing.path(), None, None, None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 303);
+        let broker_cookie = cookies(&response);
+        let install: Url = response.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(install.path(), "/apps/lens-test/installations/new");
+        let state = install
+            .query_pairs()
+            .find(|(key, _)| key == "state")
+            .unwrap()
+            .1
+            .into_owned();
+        let exposed_cookie = format!("lens_github_state={state}");
+        let second_browser = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                landing.path(),
+                None,
+                Some(&exposed_cookie),
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(second_browser.status(), 403);
+        assert!(!second_browser.headers().contains_key(header::SET_COOKIE));
+        let setup = format!("/lens/github/setup?state={state}&installation_id=999");
+        let response = broker
+            .app
+            .clone()
+            .oneshot(request("GET", &setup, None, Some(&broker_cookie), None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 303);
+        let oauth = response.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert!(oauth.contains("code_challenge="));
+        mock_oauth(&fixture.provider, &oauth).await;
+        let callback = format!("/lens/github/callback?state={state}&code=one-time-code");
+        let response = broker
+            .app
+            .clone()
+            .oneshot(request("GET", &callback, None, Some(&broker_cookie), None))
+            .await
+            .unwrap();
+        assert_eq!(response.headers()[header::LOCATION], landing.as_str());
+        let response = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                landing.path(),
+                None,
+                Some(&broker_cookie),
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let html = String::from_utf8(
+            to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(html.contains("https://customer.example"));
+        assert!(html.contains("org/repo"));
+        assert!(!html.contains("org/read-only"));
+        assert!(!html.contains("transient-user-token"));
+        if let Ok(path) = std::env::var("LENS_TEST_CONSENT_HTML") {
+            std::fs::write(path, &html).unwrap();
+        }
+        let unauthorized = broker
+            .app
+            .clone()
+            .oneshot(form(
+                landing.path(),
+                &broker.origin,
+                &exposed_cookie,
+                &state,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), 403);
+        let foreign_origin: Url = "https://attacker.example".parse().unwrap();
+        let csrf = broker
+            .app
+            .clone()
+            .oneshot(form(
+                landing.path(),
+                &foreign_origin,
+                &broker_cookie,
+                &state,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(csrf.status(), 403);
+        mock_installation(&fixture.provider, 10, 200).await;
+        let response = broker
+            .app
+            .clone()
+            .oneshot(form(landing.path(), &broker.origin, &broker_cookie, &state))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 303);
+        let callback: Url = response.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(
+            callback.origin().ascii_serialization(),
+            "https://customer.example"
+        );
+        assert_eq!(callback.path(), remote::CALLBACK_PATH);
+        let code = callback
+            .query_pairs()
+            .find(|(key, _)| key == "code")
+            .unwrap()
+            .1
+            .into_owned();
+        let wrong = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/service/redeem",
+                None,
+                None,
+                Some(json!({"code":code,"code_verifier":"x".repeat(43)})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(wrong.status(), 403);
+        let response = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "GET",
+                &format!("{}?{}", callback.path(), callback.query().unwrap()),
+                None,
+                Some(&local_cookie),
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 303);
+        assert!(
+            !response.headers()[header::LOCATION]
+                .to_str()
+                .unwrap()
+                .contains("code=")
+        );
+        let status = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "GET",
+                "/lens/github/status?agent=agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        let status = body(status).await;
+        assert_eq!(status["configured"], true);
+        assert_eq!(
+            status["service_origin"],
+            broker.origin.origin().ascii_serialization()
+        );
+        assert_eq!(status["connection"]["available"], true);
+        let encrypted = fixture
+            .store
+            .remote_credentials("team-a", "agent")
+            .await
+            .unwrap()
+            .unwrap();
+        let cipher = CredentialCipher::new(ADMIN).unwrap();
+        let credential: remote::RemoteCredentials = cipher
+            .decrypt(
+                &encrypted,
+                &litellm_storage_clickhouse::github::remote_credentials_key("team-a", "agent"),
+            )
+            .unwrap();
+        assert!(!encrypted.to_string().contains(&credential.capability));
+        let saved = fixture
+            .store
+            .broker_connection(&credential.connection_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !serde_json::to_string(&saved.connection)
+                .unwrap()
+                .contains(&credential.capability)
+        );
+        assert_eq!(saved.connection.connection.repository_id, 10);
+        assert_eq!(saved.connection.lens_origin, "https://customer.example");
+        let run = completed_run(&fixture).await;
+        reporting_provider(&fixture.provider).await;
+        let response = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/report",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(json!({"run_ids":[run.id]})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200, "{}", body(response).await);
+        let repeated = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/report",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(json!({"run_ids":[run.id]})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(repeated.status(), 200);
+        assert_eq!(body(repeated).await["reports"][0]["run_id"], run.id);
+        let foreign_team = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/report",
+                Some(&token("team-b", "bob", "team")),
+                None,
+                Some(json!({"run_ids":[run.id]})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(foreign_team.status(), 400);
+        let mut foreign_run = run.clone();
+        foreign_run.agent = "another-agent".into();
+        let foreign_report = broker.app.clone().oneshot(request("POST", &format!("/lens/github/service/connections/{}/report",credential.connection_id), Some(&credential.capability), None, Some(json!({"run":foreign_run,"baseline":null,"ci_url":"https://github.com/org/renamed/actions/runs/50"})))).await.unwrap();
+        assert_eq!(foreign_report.status(), 403);
+        let replay = broker.app.clone().oneshot(request("POST", "/lens/github/service/redeem", None, None, Some(json!({"code":code,"code_verifier":cipher.verifier(started["authorization_id"].as_str().unwrap())})))).await.unwrap();
+        assert_eq!(replay.status(), 410);
+        let foreign = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                &format!("/lens/github/service/connections/{}", uuid::Uuid::new_v4()),
+                Some(&credential.capability),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(foreign.status(), 403);
+        let wrong = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                &format!(
+                    "/lens/github/service/connections/{}",
+                    credential.connection_id
+                ),
+                Some(&"0".repeat(64)),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(wrong.status(), 403);
+        let auth = fixture.store.authorization(id).await.unwrap().unwrap();
+        assert_eq!(auth.authorization.state, AuthorizationState::Connected);
+        let response = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "DELETE",
+                "/lens/github/connections/agent",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 204);
+        assert!(
+            fixture
+                .store
+                .connection("team-a", "agent")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            fixture
+                .store
+                .remote_credentials("team-a", "agent")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let revoked = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                &format!(
+                    "/lens/github/service/connections/{}",
+                    credential.connection_id
+                ),
+                Some(&credential.capability),
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(revoked.status(), 403);
+        fixture.provider.verify().await;
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn official_service_browser_claim_has_one_winner(#[future] fixture: Fixture) {
+        let fixture = fixture.await;
+        let broker = broker(&fixture).await;
+        let (started, _) = local_start(&broker).await;
+        let url: Url = started["authorization_url"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let (first, second) = tokio::join!(
+            broker
+                .app
+                .clone()
+                .oneshot(request("GET", url.path(), None, None, None)),
+            broker
+                .app
+                .clone()
+                .oneshot(request("GET", url.path(), None, None, None))
+        );
+        let first = first.unwrap();
+        let second = second.unwrap();
+        assert_eq!(
+            usize::from(first.status() == 303) + usize::from(second.status() == 303),
+            1
+        );
+        let rejected = if first.status() == 303 { second } else { first };
+        assert!(matches!(rejected.status().as_u16(), 403 | 409));
+        assert!(!rejected.headers().contains_key(header::SET_COOKIE));
+    }
+
+    #[rstest]
+    #[case::remote_http("http://customer.example/lens/github/service/callback")]
+    #[case::userinfo("https://user@customer.example/lens/github/service/callback")]
+    #[case::different_path("https://customer.example/somewhere")]
+    #[case::query("https://customer.example/lens/github/service/callback?redirect=elsewhere")]
+    #[case::fragment("https://customer.example/lens/github/service/callback#secret")]
+    #[tokio::test]
+    async fn official_service_rejects_unsafe_callback_before_storage(#[case] redirect_uri: &str) {
+        use base64::Engine;
+        let provider = MockServer::start().await;
+        let state = ClickHouseState::new(
+            Client::no_redirect_for_test(),
+            DatabaseConnection::reader("http://127.0.0.1:9", "unreachable").unwrap(),
+        );
+        let public: Url = "https://service.example".parse().unwrap();
+        let mut github = github(&provider);
+        github.public_url = public.clone();
+        let app = super::router(
+            authentication(state.clone()),
+            GitHubStore(state),
+            GitHubSettings::new(Some(github), public, ADMIN, None, true).unwrap(),
+        );
+        let response = app.oneshot(request("POST", "/lens/github/service/authorize", None, None, Some(json!({"redirect_uri":redirect_uri,"state":"browser-state","agent":"agent","code_challenge":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest("verifier"))})))).await.unwrap();
+        assert_eq!(response.status(), 400);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert!(provider.received_requests().await.unwrap().is_empty());
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn official_service_expired_handoff_cannot_claim_browser_or_redeem(
+        #[future] fixture: Fixture,
+    ) {
+        let fixture = fixture.await;
+        let broker = broker(&fixture).await;
+        let auth = Authorization {
+            id: uuid::Uuid::new_v4().to_string(),
+            owner: Owner {
+                scope: "team-a".into(),
+                subject: "alice".into(),
+            },
+            agent: "agent".into(),
+            expires_at: Utc::now() - TimeDelta::minutes(1),
+            state: AuthorizationState::Pending,
+        };
+        let handshake = lens_contract::github::BrokerHandshake {
+            id: auth.id.clone(),
+            lens_origin: "https://customer.example".into(),
+            redirect_uri: "https://customer.example/lens/github/service/callback".into(),
+            local_state: "state".into(),
+            code_challenge: "challenge".into(),
+            agent: auth.agent.clone(),
+            expires_at: auth.expires_at,
+            browser_claimed: false,
+            browser_hash: String::new(),
+            state: lens_contract::github::BrokerHandshakeState::Pending,
+        };
+        fixture
+            .store
+            .create_handshake(&auth, &handshake)
+            .await
+            .unwrap();
+        let response = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                &format!("/lens/github/service/connect/{}", auth.id),
+                None,
+                None,
+                None,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 410);
+        assert!(!response.headers().contains_key(header::SET_COOKIE));
+        let response = broker.app.clone().oneshot(request("POST", "/lens/github/service/redeem", None, None, Some(json!({"code":format!("{}.{}",auth.id,"a".repeat(64)),"code_verifier":"a".repeat(43)})))).await.unwrap();
+        assert_eq!(response.status(), 410);
+    }
+
+    fn router(
+        authentication: Arc<Authentication<Sessions>>,
+        store: GitHubStore,
+        github: Option<GitHubApp>,
+    ) -> Router {
+        super::router(
+            authentication,
+            store,
+            GitHubSettings::new(
+                github,
+                "http://lens.test".parse().unwrap(),
+                ADMIN,
+                None,
+                false,
+            )
+            .unwrap(),
+        )
+    }
 
     fn github(provider: &MockServer) -> GitHubApp {
         GitHubApp::new(
@@ -643,6 +1663,12 @@ mod tests {
 
     async fn mock_oauth(provider: &MockServer, authorization_url: &str) {
         let url = url::Url::parse(authorization_url).unwrap();
+        let redirect_uri = url
+            .query_pairs()
+            .find(|(key, _)| key == "redirect_uri")
+            .unwrap()
+            .1
+            .into_owned();
         let challenge = url
             .query_pairs()
             .find(|(key, _)| key == "code_challenge")
@@ -659,7 +1685,7 @@ mod tests {
                 form.get("code").is_some_and(|code| code == "one-time-code")
                     && form
                         .get("redirect_uri")
-                        .is_some_and(|url| url == "http://lens.test/lens/github/callback")
+                        .is_some_and(|url| url == &redirect_uri)
                     && form.get("code_verifier").is_some_and(|verifier| {
                         base64::engine::general_purpose::URL_SAFE_NO_PAD
                             .encode(Sha256::digest(verifier))
