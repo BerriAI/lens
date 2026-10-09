@@ -22,7 +22,7 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "8937b00150c6643a1a997ebbd3e8c53da3140b6c",
+    "candidate_commit": "7ae28fbea3ba8a897457d18a5d430db54938ee9c",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -73,7 +73,8 @@
     "Reconciled the contract increment with the eval-runs UI merged on main at 76fa69ab and preserved its added test coverage",
     "Incorporated the concurrently merged SDK fixes at d04caacd; checked its updated schema with the locked SDK generator and formatter",
     "Reconciled worker contracts with the public eval contract on main at fd817339, preserving both protocol versions and passing SDK generation against schema/lens.v1.json",
-    "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes"
+    "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes",
+    "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open"
   ],
   "current_work": "Complete remaining public HTTP contracts and Rust dataset/domain/API ports, then standalone provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
   "acceptance": {

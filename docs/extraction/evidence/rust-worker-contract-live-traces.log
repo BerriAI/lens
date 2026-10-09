@@ -13,4 +13,3 @@ test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_2_own_spa
 test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_1_own_trace ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
-
