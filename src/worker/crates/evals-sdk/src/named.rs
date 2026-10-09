@@ -5,34 +5,30 @@ use crate::{
     agent::Executor,
     client::{Client, value},
     engine,
-    model::{CreateEvalRun, EvalSpec, Execution, Report},
+    model::{Case, CreateEvalRun, EvalSpec, Execution, Report},
     setup::{self, Settings},
 };
 
-pub async fn evaluate(
-    name: &str,
-    endpoint: &str,
-    key: &str,
-    execution: &Execution,
-    root: &Path,
-) -> Result<Report> {
-    evaluate_with_environment(name, endpoint, key, execution, root, setup::env_value).await
+pub(crate) struct PreparedEvaluation {
+    pub client: Client,
+    pub spec: EvalSpec,
+    pub execution: Execution,
+    pub body: CreateEvalRun,
+    pub cases: Vec<Case>,
 }
 
-pub async fn evaluate_with_environment(
+pub(crate) async fn prepare(
     name: &str,
     endpoint: &str,
     key: &str,
     execution: &Execution,
-    root: &Path,
-    environment: impl Fn(&str) -> Option<String>,
-) -> Result<Report> {
+) -> Result<PreparedEvaluation> {
     if execution.version.trim().is_empty() || execution.branch.trim().is_empty() {
         return Err(Error::Configuration(
             "An eval execution requires a version and branch",
         ));
     }
-    let execution = &Execution {
+    let execution = Execution {
         identity: if execution.identity.trim().is_empty() {
             uuid::Uuid::new_v4().simple().to_string()
         } else {
@@ -41,21 +37,7 @@ pub async fn evaluate_with_environment(
         ..execution.clone()
     };
     let client = Client::named(endpoint, key)?;
-    let definition = client.definition(name).await?;
-    let saved = definition.spec;
-    let io = saved.agent_io.ok_or(Error::Configuration(
-        "The saved eval requires an agent_io contract",
-    ))?;
-    io.validate()
-        .map_err(|_| Error::Configuration("Invalid saved agent_io contract"))?;
-    let configured = Settings::load(root)?;
-    let connection = configured
-        .connections
-        .get(&io.connection)
-        .ok_or(Error::Configuration(
-            "Configure the saved agent connection in [tool.lens.connections]",
-        ))?
-        .resolve(environment)?;
+    let saved = client.definition(name).await?.spec;
     let spec = EvalSpec {
         name: name.to_owned(),
         data: saved.dataset_id.clone(),
@@ -76,7 +58,6 @@ pub async fn evaluate_with_environment(
     }
     let dataset = client.dataset(&saved.dataset_id, saved.revision).await?;
     let cases = spec.select(&client.cases(&dataset).await?)?;
-    let executor = Executor::connect(io.clone(), connection).await?;
     let body = CreateEvalRun {
         eval: name.to_owned(),
         agent: saved.agent,
@@ -91,21 +72,58 @@ pub async fn evaluate_with_environment(
         timeout_per_trial_ms: saved.timeout_per_trial_ms,
         scorers: spec.scores.clone(),
         gate: spec.gate.clone(),
-        agent_io: Some(io),
+        agent_io: saved.agent_io,
     };
-    engine::evaluate_resolved(
-        &client,
-        &spec,
+    Ok(PreparedEvaluation {
+        client,
+        spec,
         execution,
         body,
         cases,
-        |case, request_id| {
-            executor.run(
-                case,
-                request_id,
-                Duration::from_millis(saved.timeout_per_trial_ms),
-            )
-        },
+    })
+}
+
+pub async fn evaluate(
+    name: &str,
+    endpoint: &str,
+    key: &str,
+    execution: &Execution,
+    root: &Path,
+) -> Result<Report> {
+    evaluate_with_environment(name, endpoint, key, execution, root, setup::env_value).await
+}
+
+pub async fn evaluate_with_environment(
+    name: &str,
+    endpoint: &str,
+    key: &str,
+    execution: &Execution,
+    root: &Path,
+    environment: impl Fn(&str) -> Option<String>,
+) -> Result<Report> {
+    let prepared = prepare(name, endpoint, key, execution).await?;
+    let io = prepared.body.agent_io.clone().ok_or(Error::Configuration(
+        "The saved eval requires an agent_io contract",
+    ))?;
+    io.validate()
+        .map_err(|_| Error::Configuration("Invalid saved agent_io contract"))?;
+    let configured = Settings::load(root)?;
+    let connection = configured
+        .connections
+        .get(&io.connection)
+        .ok_or(Error::Configuration(
+            "Configure the saved agent connection in [tool.lens.connections]",
+        ))?
+        .resolve(environment)?;
+    let executor = Executor::connect(io, connection).await?;
+    let timeout = Duration::from_millis(prepared.body.timeout_per_trial_ms);
+    engine::evaluate_resolved(
+        &prepared.client,
+        &prepared.spec,
+        &prepared.execution,
+        prepared.body,
+        prepared.cases,
+        |case, request_id| executor.run(case, request_id, timeout),
     )
     .await
 }
