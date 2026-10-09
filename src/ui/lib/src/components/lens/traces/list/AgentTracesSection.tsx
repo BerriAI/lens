@@ -30,6 +30,8 @@ import { TracingSetupCard } from "../../onboarding/tracing/TracingSetupCard";
 import { useTracesLive } from "../api";
 import { type AgentTracesResult, useAgentTraces, useTraceAvailability } from "./useAgentTraces";
 import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
+import { LensPageHeader } from "../../ui/LensPageHeader";
+import styles from "../TraceAppearance.module.css";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
 
@@ -203,6 +205,9 @@ export function AgentTracesSection({
       onFullScreenChange={setFullScreen}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+        {!(openTrace && fullScreen) && (
+          <LensPageHeader section="02 / TRACE EXPLORER" title="Traces" description="Every run leaves a trail" />
+        )}
         {checkHistory && <TraceHistoryError history={history} />}
         <TracesReceived received={setup.received} />
         <Inspector.Panel label="Trace details" testId="run-drawer">
@@ -289,17 +294,26 @@ function TracesReceived({ received }: { received: boolean }) {
 
 function TraceCounts({ runs }: { runs: readonly TraceSummary[] }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 text-xs text-muted-foreground">
-      <span>
-        {runs.length} {runs.length === 1 ? "run" : "runs"} from {new Set(runs.flatMap(traceAgentNames)).size} agents
-      </span>
-    </div>
+    <dl className={styles.counts} aria-label="Loaded trace summary">
+      <div className="lens-metric">
+        <dt>Loaded runs</dt>
+        <dd>{runs.length.toLocaleString()}</dd>
+      </div>
+      <div className="lens-metric">
+        <dt>Agents</dt>
+        <dd>{new Set(runs.flatMap(traceAgentNames)).size.toLocaleString()}</dd>
+      </div>
+      <div className="lens-metric">
+        <dt>Recorded steps</dt>
+        <dd>{runs.reduce((total, run) => total + run.span_count, 0).toLocaleString()}</dd>
+      </div>
+    </dl>
   );
 }
 
 function TraceFooter({ runs, hasMore }: { runs: readonly TraceSummary[]; hasMore: boolean }) {
   return (
-    <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
+    <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 font-mono text-[11px] text-muted-foreground">
       {runs.length} {runs.length === 1 ? "run" : "runs"}
       {hasMore ? " loaded" : ""}
     </footer>

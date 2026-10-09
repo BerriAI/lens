@@ -25,6 +25,7 @@ import { itemValues } from "../../shared/search/valueSource";
 import { type Finding, type Lens } from "../model/types";
 import { useLensRoute, useListSearchRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { filterInvestigations, INVESTIGATION_INDEX, INVESTIGATION_QUERY } from "./investigationQuery";
 
 const ACTION =
@@ -63,20 +64,22 @@ const ROW_LABEL = { investigation: "Investigation details", finding: "Finding de
 function NameCell({ row: { original: item } }: Cell) {
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="truncate font-medium text-foreground">{item.lens.settings.name}</span>
+      <span className="truncate font-mono text-xs font-medium text-foreground">{item.lens.settings.name}</span>
       <span className="truncate text-xs text-muted-foreground md:hidden">{scopeLabel(item.lens.settings)}</span>
     </span>
   );
 }
 
 function AgentCell({ row: { original: item } }: Cell) {
-  return <span className="block truncate text-muted-foreground">{scopeLabel(item.lens.settings)}</span>;
+  return (
+    <span className="block truncate font-mono text-[11px] text-muted-foreground">{scopeLabel(item.lens.settings)}</span>
+  );
 }
 
 function ScheduleCell({ row: { original: item } }: Cell) {
   const { now } = useList();
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[10px] text-muted-foreground">
       <span
         aria-hidden="true"
         className={cn("size-1.5 rounded-full", item.lens.settings.enabled ? "bg-info" : "bg-muted-foreground/40")}
@@ -91,7 +94,7 @@ function StatusCell({ row: { original: item } }: Cell) {
   const latest = item.lens.jobs[0];
   return (
     <span
-      className="flex items-center gap-1.5 truncate"
+      className="flex items-center gap-1.5 truncate font-mono text-[10px]"
       title={latest ? formatActivityTimestamp(latest.created_at) : undefined}
     >
       <span className={cn(latest?.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
@@ -109,7 +112,7 @@ function FindingCount({ row: { original: item } }: Cell) {
   return (
     <span
       title={`${count} open ${count === 1 ? "finding" : "findings"}`}
-      className="inline-flex min-w-5 justify-center rounded-full bg-muted px-1.5 font-mono text-xs tabular-nums text-foreground"
+      className="inline-flex min-w-5 justify-center rounded border border-violet-200 bg-violet-50 px-1.5 font-mono text-xs text-violet-700 tabular-nums dark:border-violet-400/30 dark:bg-violet-400/10 dark:text-violet-300"
     >
       {count}
     </span>
@@ -220,7 +223,13 @@ export function InvestigationList({
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-        <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card p-2">
+        <LensPageHeader
+          section="04 / CONTINUOUS FEEDBACK"
+          title="Investigations"
+          description="Focused checks that turn agent runs into your next fix."
+          actions={actions}
+        />
+        <div className="lens-toolbar flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-border p-3">
           <SearchBox.Root
             className="sm:max-w-96"
             language={INVESTIGATION_QUERY}
@@ -229,14 +238,13 @@ export function InvestigationList({
             onValueChange={setSearch}
             label="Search investigations"
           >
-            <SearchBox.Input className="rounded-md" placeholder="Search investigations" />
+            <SearchBox.Input className="rounded-md font-mono text-xs" placeholder="Search investigations" />
             <SearchBox.Suggestions />
           </SearchBox.Root>
-          {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
         </div>
         <ListContext.Provider value={{ now, connected, readOnly, demo, onEdit, onRunNow }}>
           <InspectorTable.Root table={table}>
-            <InspectorTable.Grid aria-label="Investigations" className="text-xs md:min-w-[860px]">
+            <InspectorTable.Grid aria-label="Investigations" className="lens-table text-xs md:min-w-[860px]">
               <InspectorTable.Header />
               <InspectorTable.Body<InvestigationRow> rowHeight={() => (desktop ? INVESTIGATION_HEIGHT : 48)}>
                 {(row) => (
@@ -247,19 +255,19 @@ export function InvestigationList({
                     aria-label={
                       row.original.kind === "finding" ? row.original.finding.title : row.original.lens.settings.name
                     }
-                    className="group h-12 md:h-9"
+                    className="group h-12 hover:bg-trace-row-hover md:h-9"
                   />
                 )}
               </InspectorTable.Body>
             </InspectorTable.Grid>
             {!shown.length && (
-              <div className="py-16 text-center text-xs text-muted-foreground">
+              <div className="lens-empty-state py-16 text-center font-mono text-xs text-muted-foreground">
                 No investigations match your search.
               </div>
             )}
           </InspectorTable.Root>
         </ListContext.Provider>
-        <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
+        <footer className="flex h-9 shrink-0 items-center border-t bg-muted/30 px-3 font-mono text-[10px] text-muted-foreground">
           {shown.length} {shown.length === 1 ? "investigation" : "investigations"} ·{" "}
           {shown.filter((lens) => lens.settings.enabled).length} watching
         </footer>

@@ -30,10 +30,7 @@ export function DeploymentAnalysis({
   };
   return (
     <SettingsCard className="space-y-4">
-      <SetupAgentPrompt
-        goal="analysis"
-        featureConfigured={models.isSuccess ? configured.length > 0 : undefined}
-      />
+      <SetupAgentPrompt goal="analysis" featureConfigured={models.isSuccess ? configured.length > 0 : undefined} />
       {models.isPending ? (
         <p role="status" className="text-sm text-muted-foreground">
           Checking analysis models…
@@ -55,10 +52,10 @@ export function DeploymentAnalysis({
           <p role="status" className="text-sm">
             {connected ? "Analysis is configured" : "Models are configured; waiting for the investigation worker"}
           </p>
-          <ul aria-label="Analysis models" className="space-y-1 text-sm">
+          <ul aria-label="Analysis models" className="space-y-1.5 font-mono text-xs">
             {configured.map((model) => (
-              <li key={model.model_group}>
-                <span className="font-medium">{model.model_group}</span>
+              <li key={model.model_group} className="rounded-md border bg-background px-3 py-2">
+                <span className="font-medium text-[var(--lens-brand)]">{model.model_group}</span>
                 <span className="text-muted-foreground"> · {model.providers.join(", ")}</span>
               </li>
             ))}

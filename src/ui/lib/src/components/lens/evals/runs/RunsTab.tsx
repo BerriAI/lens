@@ -161,7 +161,7 @@ function RunTable({ runs, onOpen }: { runs: readonly EvalRun[]; onOpen: (id: str
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <InspectorTable.Root table={table}>
-          <InspectorTable.Grid aria-label="Eval runs" className="text-xs" style={{ minWidth: 960 }}>
+          <InspectorTable.Grid aria-label="Eval runs" className="lens-table text-xs" style={{ minWidth: 960 }}>
             <InspectorTable.Header />
             <InspectorTable.Body<EvalRun> rowHeight={() => ROW_HEIGHT}>
               {(row) => (
@@ -176,7 +176,7 @@ function RunTable({ runs, onOpen }: { runs: readonly EvalRun[]; onOpen: (id: str
             </InspectorTable.Body>
           </InspectorTable.Grid>
         </InspectorTable.Root>
-        <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
+        <footer className="lens-toolbar flex h-8 shrink-0 items-center border-t px-3 font-mono text-[11px] text-muted-foreground">
           {runs.length} {runs.length === 1 ? "run" : "runs"}
         </footer>
       </div>

@@ -51,7 +51,7 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
       className={cn(
         "flex-none gap-2.5 text-[13px] font-medium text-muted-foreground data-active:text-foreground data-active:shadow-none",
         vertical
-          ? "h-9 w-full justify-start rounded-md px-2.5 after:hidden data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
+          ? "lens-nav-tab h-9 w-full justify-start rounded-md px-2.5 after:hidden data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
           : "h-11 rounded-none px-2 after:inset-x-0 after:bottom-0 after:h-0.5",
         collapsed && "justify-center px-0",
       )}

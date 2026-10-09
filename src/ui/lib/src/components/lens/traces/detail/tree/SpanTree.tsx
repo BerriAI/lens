@@ -20,6 +20,7 @@ import type { TraceSummary } from "../../types";
 import { treeGuides } from "../../utils";
 import { BAR_TRACK, tickLabel, timeTicks } from "./timeline";
 import { GroupRow, LoadMoreRow, type RowContext, SpanRow, type TreeLayout } from "./TreeRows";
+import styles from "../../TraceAppearance.module.css";
 
 interface SpanTreeProps {
   rows: TreeRow[];
@@ -50,7 +51,7 @@ const LAYOUTS: readonly { id: TreeLayout; label: string; icon: typeof ListTree }
 
 function LayoutSwitch({ layout, onChange }: { layout: TreeLayout; onChange: (layout: TreeLayout) => void }) {
   return (
-    <div role="radiogroup" aria-label="Step layout" className="flex items-center rounded-md bg-muted p-0.5">
+    <div role="radiogroup" aria-label="Step layout" className="flex items-center rounded-md border bg-background p-0.5">
       {LAYOUTS.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
@@ -62,7 +63,7 @@ function LayoutSwitch({ layout, onChange }: { layout: TreeLayout; onChange: (lay
           onClick={() => onChange(id)}
           className={cn(
             "grid h-6 w-7 place-items-center rounded-sm transition-colors duration-150 motion-reduce:transition-none",
-            layout === id ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
+            layout === id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Icon className="size-3.5" />
@@ -87,8 +88,8 @@ function FilterChip({
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs transition-colors duration-150 motion-reduce:transition-none",
-        pressed ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+        "flex h-7 shrink-0 items-center gap-1 rounded-md px-2 font-mono text-[11px] transition-colors duration-150 motion-reduce:transition-none",
+        pressed ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
@@ -104,7 +105,7 @@ function TimeAxis({ totalMs }: { totalMs: number }) {
         {timeTicks(totalMs, 4).map((tick) => (
           <span
             key={tick}
-            className="absolute bottom-1 -translate-x-1/2 text-xs text-muted-foreground tabular-nums first:translate-x-0"
+            className="absolute bottom-1 -translate-x-1/2 font-mono text-[11px] text-muted-foreground tabular-nums first:translate-x-0"
             style={{ left: `${totalMs > 0 ? (tick / totalMs) * 100 : 0}%` }}
           >
             {tickLabel(tick)}
@@ -151,11 +152,11 @@ export function SpanTree({
       className="flex h-full min-h-0 min-w-0 flex-col border-r border-border bg-background"
       aria-label="Run spans"
     >
-      <div className="flex shrink-0 flex-col gap-2 border-b px-3 py-2.5">
+      <div className={cn(styles.stepHeader, "flex shrink-0 flex-col gap-2 border-b px-3 py-2.5")}>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-foreground">
+          <span className="font-mono text-xs font-semibold text-foreground">
             Steps{" "}
-            <span className="ml-0.5 text-xs font-normal text-muted-foreground tabular-nums">
+            <span className="ml-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-normal text-primary tabular-nums">
               {filtering && `${rows.length.toLocaleString()} of `}
               {summary.span_count.toLocaleString()}
             </span>
@@ -189,7 +190,7 @@ export function SpanTree({
               placeholder="Filter steps"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              className="h-7 pr-7 pl-7 text-xs shadow-none md:text-xs"
+              className="h-7 bg-background pr-7 pl-7 font-mono text-[11px] shadow-none md:text-[11px]"
             />
             {query && (
               <Button

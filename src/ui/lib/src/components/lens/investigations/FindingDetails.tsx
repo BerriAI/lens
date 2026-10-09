@@ -25,7 +25,7 @@ export const ownedFindingKey = (owned: OwnedFinding): string => findingKey(owned
 
 type Quote = Finding["evidence"][number];
 
-const SECTION_LABEL = "text-xs font-medium text-muted-foreground";
+const SECTION_LABEL = "lens-section-label font-mono text-[10px] font-medium tracking-wide text-muted-foreground";
 
 export interface FindingDetailsProps {
   readonly finding: Finding;
@@ -42,7 +42,7 @@ export interface FindingDetailsProps {
 function TopBar({ finding, onClose }: Pick<FindingDetailsProps, "finding" | "onClose">) {
   const now = useNow(30000);
   return (
-    <div className="sticky top-0 z-raised flex h-11 items-center justify-between gap-2 bg-background/95 px-4 backdrop-blur">
+    <div className="lens-toolbar sticky top-0 z-raised flex h-12 items-center justify-between gap-2 border-b bg-background px-4">
       <p className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
         <span className="truncate" title={finding.id}>
           {finding.id.slice(0, 8)}
@@ -81,7 +81,7 @@ function TopBar({ finding, onClose }: Pick<FindingDetailsProps, "finding" | "onC
 
 function Disclosure({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <details className="group rounded-lg">
+    <details className="lens-panel group rounded-lg border bg-card p-4">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <ChevronRight
           aria-hidden="true"
@@ -96,8 +96,8 @@ function Disclosure({ title, children }: { title: string; children: React.ReactN
 
 function ProseSection({ title, children }: { title: string; children: string }) {
   return (
-    <section>
-      <h2 className="mb-1.5 text-sm font-semibold">{title}</h2>
+    <section className="rounded-lg border border-l-2 border-l-violet-400/60 bg-card p-4">
+      <h2 className={`mb-2.5 ${SECTION_LABEL}`}>{title}</h2>
       <p className="max-w-[70ch] text-sm leading-relaxed text-pretty whitespace-pre-wrap text-foreground/85">
         {children}
       </p>
@@ -128,9 +128,9 @@ const MARK = {
 function QuoteCard({ quote, onOpen }: { quote: Quote; onOpen: () => void }) {
   const isTrace = evidenceTarget(quote.execution_id)?.source === "traces";
   return (
-    <div className="-mx-1 rounded-lg border border-transparent bg-background p-2.5 shadow-finding-ring">
+    <div className="-mx-1 rounded-md border border-l-2 border-l-cyan-400/60 bg-background p-3">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-medium">{quoteLabel(quote, isTrace)}</span>
+        <span className="min-w-0 truncate font-mono text-[11px] font-medium">{quoteLabel(quote, isTrace)}</span>
         <Button variant="outline" size="xs" className="enabled:active:scale-[0.96]" onClick={onOpen}>
           {isTrace ? "View span" : "View request"}
         </Button>
@@ -156,11 +156,11 @@ function EvidenceRail({ children }: { children: React.ReactNode }) {
       <div className="relative flex gap-2">
         <div className="relative flex w-3 shrink-0 flex-col items-center">
           <div className="flex h-5 w-full items-center justify-center">
-            <div className="size-1 rounded-full bg-border" />
+            <div className="size-1.5 rounded-full bg-cyan-500 dark:bg-cyan-300" />
           </div>
           <div aria-hidden="true" className="h-2 w-px bg-border" />
         </div>
-        <div className="min-w-0 flex-1 text-xs leading-5 font-medium text-muted-foreground">Evidence</div>
+        <div className={`min-w-0 flex-1 leading-5 ${SECTION_LABEL}`}>Evidence</div>
       </div>
       <div className="relative">
         <div aria-hidden="true" className="absolute inset-y-0 left-[5px] w-px bg-border" />
@@ -180,12 +180,15 @@ function Example({ group, onOpenEvidence }: { group: ExampleGroup; onOpenEvidenc
   const traceId = evidenceTarget(group.id)?.id;
   const name = group.run?.name ?? (traceId ? `Trace ${traceId.slice(0, 8)}` : "Recorded run");
   return (
-    <article aria-label={name} className="flex w-full flex-col items-start gap-3 rounded-xl bg-muted/50 p-3.5">
+    <article
+      aria-label={name}
+      className="lens-panel flex w-full flex-col items-start gap-3 rounded-lg border bg-card p-4"
+    >
       <div className="flex w-full items-baseline justify-between gap-3">
-        <h3 className="min-w-0 truncate text-sm font-medium" title={traceId}>
+        <h3 className="min-w-0 truncate font-mono text-xs font-medium" title={traceId}>
           {name}
         </h3>
-        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
           {[group.run?.service, group.run && runTime(group.run.start_time)].filter(Boolean).join(" · ")}
         </span>
       </div>
@@ -223,7 +226,12 @@ function Examples({
   onOpenEvidence: (e: EvidenceRef) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  if (groups.length === 0) return <p className="text-sm text-muted-foreground">No examples were recorded.</p>;
+  if (groups.length === 0)
+    return (
+      <p className="lens-empty-state rounded-lg border px-4 py-8 text-sm text-muted-foreground">
+        No examples were recorded.
+      </p>
+    );
   const shown = expanded ? groups : groups.slice(0, VISIBLE_EXAMPLES);
   const hidden = groups.length - shown.length;
   return (
@@ -295,21 +303,25 @@ export function FindingDetails({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <TopBar finding={finding} onClose={onClose} />
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 pt-4 pb-16">
-        <header className="flex flex-col gap-3">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-5 pb-16 sm:px-6">
+        <header className="flex flex-col gap-3 border-b pb-5">
           <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{finding.title}</h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
             {finding.kind === "issue" ? (
               <PriorityPill priority={finding.priority} />
             ) : (
-              <span className="inline-flex h-5 items-center rounded-full bg-muted px-2 font-medium">Pattern</span>
+              <span className="inline-flex h-5 items-center rounded border border-violet-200 bg-violet-50 px-2 font-mono text-violet-700 dark:border-violet-400/30 dark:bg-violet-400/10 dark:text-violet-300">
+                Pattern
+              </span>
             )}
-            {agents.length > 0 && <span className="font-medium text-foreground">{agents.join(", ")}</span>}
-            <span className="tabular-nums">
+            {agents.length > 0 && (
+              <span className="font-mono text-[11px] font-medium text-foreground">{agents.join(", ")}</span>
+            )}
+            <span className="font-mono text-[10px] tabular-nums">
               {affected} affected {affected === 1 ? "trace" : "traces"}
             </span>
             {runs > 0 && (
-              <span className="tabular-nums">
+              <span className="font-mono text-[10px] tabular-nums">
                 Found across {runs} investigation {runs === 1 ? "run" : "runs"}
               </span>
             )}

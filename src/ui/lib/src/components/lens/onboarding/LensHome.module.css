@@ -1,0 +1,88 @@
+.hero {
+  margin-bottom: 2rem;
+  padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem) 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background-color: var(--card);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in oklab, var(--muted-foreground) 18%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 20px 20px;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.spectrum {
+  display: flex;
+  gap: 4px;
+}
+
+.spectrum i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #8b5cf6;
+}
+
+.spectrum i:nth-child(2) {
+  background: #22b3e8;
+}
+
+.spectrum i:nth-child(3) {
+  background: #e3a32b;
+}
+
+.spectrum i:nth-child(4) {
+  background: #eb6b93;
+}
+
+.headline {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: clamp(1.875rem, 4vw, 3rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.headline span {
+  color: #0017b7;
+}
+
+:global(.dark) .headline span {
+  color: #8b9bff;
+}
+
+.description {
+  max-width: 28rem;
+  margin: 0.75rem auto 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.demoNote {
+  padding: 1rem 1.25rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}

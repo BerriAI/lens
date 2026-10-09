@@ -333,7 +333,7 @@ function LoadMoreRows({ isFetching, onLoadMore }: { isFetching: boolean; onLoadM
 function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetUpTracing: () => void }) {
   if (!rangeEmpty)
     return (
-      <div className="flex items-center justify-center gap-3 py-16 text-xs text-muted-foreground">
+      <div className="lens-empty-state flex items-center justify-center gap-3 py-16 text-xs text-muted-foreground">
         <span>No runs match these filters.</span>
         <Button size="xs" variant="outline" onClick={onSetUpTracing}>
           Connect project
@@ -341,7 +341,7 @@ function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetU
       </div>
     );
   return (
-    <div className="flex flex-col items-center gap-1 py-16 text-center">
+    <div className="lens-empty-state flex flex-col items-center gap-1 py-16 text-center">
       <p className="text-sm font-medium">No runs in this time range</p>
       <p className="text-xs text-muted-foreground">Connect an agent to start sending traces.</p>
       <Button size="sm" className="mt-3" onClick={onSetUpTracing}>
@@ -407,7 +407,7 @@ export function AgentTracesTable({
       <FeedbackContext.Provider value={feedbackOrEmpty(feedback)}>
         <SignalsContext.Provider value={signals}>
           <SignalSetupContext.Provider value={{ configured: showSignals, onSetUp: onSetUpSignals }}>
-            <InspectorTable.Root table={table} data-testid="runs-table">
+            <InspectorTable.Root table={table} data-testid="runs-table" className="lens-table border-t">
               <InspectorTable.Grid
                 aria-label="Agent runs"
                 aria-busy={isFetching}
