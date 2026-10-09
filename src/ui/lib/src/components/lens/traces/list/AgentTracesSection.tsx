@@ -2,9 +2,9 @@
 
 import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
 import { traceAgentNames } from "../utils";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { filterRuns } from "./runSearch/runQuery";
 import { RunsToolbar } from "./runSearch/RunsToolbar";
@@ -30,7 +30,6 @@ import { TracingSetupCard } from "../../onboarding/tracing/TracingSetupCard";
 import { useTracesLive } from "../api";
 import { type AgentTracesResult, useAgentTraces, useTraceAvailability } from "./useAgentTraces";
 import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
-import { LensPageHeader } from "../../ui/LensPageHeader";
 import styles from "../TraceAppearance.module.css";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
@@ -110,6 +109,8 @@ export function AgentTracesSection({
   const { trace: openTrace, openTrace: openRun, selection, fullScreen, setFullScreen } = useOpenTraceRouting();
   const { query, setQuery, agent, status } = useRunFilterRouting();
   const [showSetup, setShowSetup] = useState(false);
+  const [showActivity, setShowActivity] = useState(true);
+  const activityId = useId();
   const [zoom, setZoom] = useZoomRouting();
   const [rangeChanged, setRangeChanged] = useState(false);
   const traceQuery = { accessToken, range, enabled: isActive };
@@ -205,9 +206,6 @@ export function AgentTracesSection({
       onFullScreenChange={setFullScreen}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-        {!(openTrace && fullScreen) && (
-          <LensPageHeader section="02 / TRACE EXPLORER" title="Traces" description="Every run leaves a trail" />
-        )}
         {checkHistory && <TraceHistoryError history={history} />}
         <TracesReceived received={setup.received} />
         <Inspector.Panel label="Trace details" testId="run-drawer">
@@ -256,8 +254,37 @@ export function AgentTracesSection({
             />
           )}
         </RunsToolbar>
-        <TraceCounts runs={filtered} />
-        <TracesTimeline runs={filtered} range={window} selection={zoom} onSelect={setZoom} />
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b px-3 py-1">
+          <TraceCounts runs={filtered} />
+          <div className="ml-auto flex items-center gap-2">
+            {!showActivity && zoom && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setZoom(null)}
+                aria-label="Clear time zoom"
+              >
+                Zoomed <X className="size-3" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+              aria-expanded={showActivity}
+              aria-controls={activityId}
+              onClick={() => setShowActivity((shown) => !shown)}
+            >
+              <ChartNoAxesColumn className="size-3.5" />
+              {showActivity ? "Hide activity" : "Show activity"}
+              {showActivity ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+            </Button>
+          </div>
+        </div>
+        <div id={activityId} hidden={!showActivity} className="shrink-0">
+          <TracesTimeline runs={filtered} range={window} selection={zoom} onSelect={setZoom} />
+        </div>
         <AgentTracesTable
           traces={runs}
           findings={findings}
@@ -295,15 +322,15 @@ function TracesReceived({ received }: { received: boolean }) {
 function TraceCounts({ runs }: { runs: readonly TraceSummary[] }) {
   return (
     <dl className={styles.counts} aria-label="Loaded trace summary">
-      <div className="lens-metric">
+      <div>
         <dt>Loaded runs</dt>
         <dd>{runs.length.toLocaleString()}</dd>
       </div>
-      <div className="lens-metric">
+      <div>
         <dt>Agents</dt>
         <dd>{new Set(runs.flatMap(traceAgentNames)).size.toLocaleString()}</dd>
       </div>
-      <div className="lens-metric">
+      <div>
         <dt>Recorded steps</dt>
         <dd>{runs.reduce((total, run) => total + run.span_count, 0).toLocaleString()}</dd>
       </div>

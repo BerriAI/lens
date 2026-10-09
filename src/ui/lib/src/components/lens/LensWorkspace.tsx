@@ -134,6 +134,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     issueKey,
   };
   const showSetup = !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
+  const traceWorkspace = activeTab === "traces" && !showSetup;
   const connectProject = !demo
     ? () => {
         setSetup(false);
@@ -271,8 +272,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             )}
             <div
               className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card px-3 md:px-5",
-                !embedded && "m-2 rounded-xl border md:m-4",
+                "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card",
+                !traceWorkspace && "px-3 md:px-5",
+                !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
               )}
             >
               {showSetup ? (
