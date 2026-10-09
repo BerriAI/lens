@@ -61,6 +61,10 @@ pub fn schemas() -> BTreeMap<&'static str, Schema> {
         ("Tenant", received::<crate::Tenant>()),
         ("TracePage", emitted::<crate::TracePage>()),
         ("Trace", emitted::<crate::Trace>()),
+        (
+            "TraceConversationPage",
+            emitted::<crate::TraceConversationPage>(),
+        ),
         ("SpanDetail", emitted::<crate::SpanDetail>()),
         ("SpanErrorPage", emitted::<crate::SpanErrorPage>()),
     ])
@@ -68,6 +72,10 @@ pub fn schemas() -> BTreeMap<&'static str, Schema> {
 
 pub fn request_schemas() -> BTreeMap<&'static str, Schema> {
     BTreeMap::from([
+        (
+            "TraceConversationRequest",
+            requested::<crate::request::TraceConversationRequest>(),
+        ),
         (
             "TraceListRequest",
             requested::<crate::request::TraceListRequest>(),
@@ -96,4 +104,17 @@ pub fn response_schemas() -> BTreeMap<&'static str, Schema> {
         "TraceSQLResponse",
         emitted::<crate::response::TraceSQLResponse>(),
     )])
+}
+
+pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
+    BTreeMap::from([
+        (
+            "TraceConversationPage",
+            emitted::<crate::TraceConversationPage>(),
+        ),
+        (
+            "TraceConversationRequest",
+            requested::<crate::request::TraceConversationRequest>(),
+        ),
+    ])
 }

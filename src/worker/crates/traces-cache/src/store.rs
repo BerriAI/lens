@@ -2,8 +2,9 @@ use std::future::Future;
 
 use litellm_traces::query::named::{
     ListTracesParams, ListTracesRow, SpanDetailParams, SpanDetailRow, SpanErrorParams,
-    SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow, TraceIdentityParams,
-    TracePageSpansParams, TraceSpansParams, TraceSpansRow,
+    SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow, TraceConversationAnchor,
+    TraceConversationAnchorParams, TraceConversationRow, TraceConversationTurnsParams,
+    TraceIdentityParams, TracePageSpansParams, TraceSpansParams, TraceSpansRow,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -24,6 +25,16 @@ pub trait TraceStore: Sync {
         &self,
         params: &TraceIdentityParams,
     ) -> impl Future<Output = Result<Vec<String>, StoreError<Self::Error>>> + Send;
+
+    fn conversation_anchor(
+        &self,
+        params: &TraceConversationAnchorParams,
+    ) -> impl Future<Output = Result<Option<TraceConversationAnchor>, StoreError<Self::Error>>> + Send;
+
+    fn conversation_turns(
+        &self,
+        params: &TraceConversationTurnsParams,
+    ) -> impl Future<Output = Result<Vec<TraceConversationRow>, StoreError<Self::Error>>> + Send;
 
     /// Returns `TooLarge` when the response exceeds the storage limit so the reader can halve `limit`.
     fn list_runs(
