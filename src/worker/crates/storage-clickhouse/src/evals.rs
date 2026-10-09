@@ -31,6 +31,25 @@ const PAGE_SIZE: u32 = 100;
 const MAX_CASES: usize = 1_000;
 pub const SCORING_LEASE_SECONDS: i64 = 60;
 
+fn compatible_baseline(candidate: &StoredRun, baseline: &StoredRun) -> Result<bool, EvalError> {
+    Ok(baseline.team == candidate.team
+        && baseline.run.id != candidate.run.id
+        && baseline.run.status == RunStatus::Done
+        && baseline.request.branch == "main"
+        && baseline_prefix(baseline)? == baseline_prefix(candidate)?
+        && baseline.request.trials == candidate.request.trials
+        && baseline
+            .cases
+            .iter()
+            .map(|case| &case.id)
+            .collect::<BTreeSet<_>>()
+            == candidate
+                .cases
+                .iter()
+                .map(|case| &case.id)
+                .collect::<BTreeSet<_>>())
+}
+
 #[derive(Clone)]
 pub struct EvalStore {
     state: ClickHouseState,
@@ -90,6 +109,9 @@ impl EvalStore {
             scoring_lease: None,
         };
         let key = run_key(team, &id);
+        if run.request.baseline_run_id.is_some() {
+            self.baseline(&run).await?;
+        }
         let idempotency = idempotency_key.map(|key| {
             format!(
                 "eval-idempotency/{}/{}",
@@ -318,6 +340,27 @@ impl EvalStore {
     }
 
     pub async fn baseline(&self, candidate: &StoredRun) -> Result<Option<StoredRun>, EvalError> {
+        if let Some(id) = &candidate.request.baseline_run_id {
+            if id.trim().is_empty() {
+                return Err(EvalError::InvalidRequest(
+                    "baseline_run_id must be nonempty",
+                ));
+            }
+            let baseline = match self.get(&candidate.team, id).await {
+                Ok(run) => run,
+                Err(EvalError::RunNotFound) => {
+                    return Err(EvalError::InvalidRequest("explicit baseline was not found"));
+                }
+                Err(error) => return Err(error),
+            };
+            return if compatible_baseline(candidate, &baseline)? {
+                Ok(Some(baseline))
+            } else {
+                Err(EvalError::InvalidRequest(
+                    "explicit baseline must be a completed compatible main run",
+                ))
+            };
+        }
         let prefix = baseline_prefix(candidate)?;
         let mut after = String::new();
         loop {
@@ -338,21 +381,7 @@ impl EvalStore {
                     continue;
                 }
                 let run = self.get(&candidate.team, &reference.id).await?;
-                if run.run.status == RunStatus::Done
-                    && run.request.branch == "main"
-                    && baseline_prefix(&run)? == prefix
-                    && run.request.trials == candidate.request.trials
-                    && run
-                        .cases
-                        .iter()
-                        .map(|case| &case.id)
-                        .collect::<BTreeSet<_>>()
-                        == candidate
-                            .cases
-                            .iter()
-                            .map(|case| &case.id)
-                            .collect::<BTreeSet<_>>()
-                {
+                if compatible_baseline(candidate, &run)? {
                     return Ok(Some(run));
                 }
             }

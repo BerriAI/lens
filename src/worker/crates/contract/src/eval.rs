@@ -110,6 +110,9 @@ pub struct CreateEvalRun {
     pub revision: u64,
     #[serde(default)]
     pub case_ids: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1))]
+    pub baseline_run_id: Option<String>,
     #[schemars(length(min = 1))]
     pub version: String,
     #[schemars(length(min = 1))]

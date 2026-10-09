@@ -315,6 +315,13 @@
             }
           ]
         },
+        "baseline_run_id": {
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "branch": {
           "minLength": 1,
           "type": "string"

@@ -670,6 +670,67 @@ async fn should_return_scoped_dataset_errors(
 
 struct NoTraces;
 
+#[rstest]
+#[case::selected(true, 201)]
+#[case::missing(false, 422)]
+#[tokio::test]
+async fn explicit_baseline_is_bound_or_rejected_without_implicit_fallback(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] selected: bool,
+    #[case] status: u16,
+) {
+    let baseline = create(&eval_fixture).await;
+    let now = Utc::now();
+    let finished = eval_fixture
+        .store
+        .finish("team-a", &baseline.id, now)
+        .await
+        .unwrap();
+    lens_server::eval_closer::EvalCloser::new(eval_fixture.store.clone(), NoTraces, ErrorScorer)
+        .advance(&finished, now)
+        .await
+        .unwrap();
+    let mut payload = create_payload();
+    payload["branch"] = json!("candidate");
+    payload["baseline_run_id"] = json!(if selected {
+        baseline.id.as_str()
+    } else {
+        "missing"
+    });
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("POST", "/lens/evals/runs", "team-a", Some(payload)))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), status);
+    if selected {
+        let candidate: EvalRun = body(response).await;
+        let stored = eval_fixture
+            .store
+            .get("team-a", &candidate.id)
+            .await
+            .unwrap();
+        assert_eq!(
+            stored.request.baseline_run_id.as_deref(),
+            Some(baseline.id.as_str())
+        );
+        assert_eq!(
+            eval_fixture
+                .store
+                .baseline(&stored)
+                .await
+                .unwrap()
+                .unwrap()
+                .run
+                .id,
+            baseline.id
+        );
+    } else {
+        assert_eq!(body::<Value>(response).await["code"], "invalid_request");
+    }
+}
+
 impl lens_server::eval_closer::TraceSource for NoTraces {
     async fn trace(
         &self,
