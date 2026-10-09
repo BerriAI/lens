@@ -28,4 +28,6 @@ pub enum Error {
     Http(#[from] litellm_http::Error),
     #[error("Evaluation provider returned invalid JSON")]
     Json(#[from] serde_json::Error),
+    #[error("Evaluation provider returned invalid question names or probabilities")]
+    InvalidAnswers,
 }

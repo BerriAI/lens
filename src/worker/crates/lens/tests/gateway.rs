@@ -62,7 +62,7 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
         {"model_group":"embeddings","mode":"embedding"},
         {"model_group":"unknown-mode","mode":null}
     ]})).await;
-    let decisions = json!({"answers":{"quality":{"type":"noul","noul":0.9}}});
+    let decisions = json!({"answers":[{"type":"predicate","name":"quality","probability":0.9}]});
     Mock::given(method("POST"))
         .and(path("/gateway/v1/decisions"))
         .and(header("authorization", format!("Bearer {KEY}")))
@@ -82,7 +82,7 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
     assert_eq!(models.model_groups().len(), 2);
     assert_eq!(
         models.evaluation().evaluate(&decision).await.unwrap(),
-        decisions
+        json!({"answers":{"quality":{"type":"noul","noul":0.9}}})
     );
     let analysis = models.analysis();
     let prepared = analysis
@@ -108,6 +108,14 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
     let requests = server.received_requests().await.unwrap();
     let decision_body: Value = requests[1].body_json().unwrap();
     assert_eq!(decision_body["model"], "team/system-one");
+    assert_eq!(
+        decision_body["input"],
+        serde_json::to_string(&decision.state).unwrap()
+    );
+    assert_eq!(
+        decision_body["questions"],
+        json!([{"type":"predicate","name":"quality","instructions":"Was the task completed?"}])
+    );
     assert_eq!(
         decision_body["metadata"]["tags"],
         json!(["litellm-lens-signals"])

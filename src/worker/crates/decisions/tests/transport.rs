@@ -26,7 +26,13 @@ async fn gateway_marker_only_reaches_the_configured_compatible_transport(
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path(endpoint))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"answers":{}})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            if provider == Provider::DecisionsCompatible {
+                json!({"answers":[]})
+            } else {
+                json!({"answers":{}})
+            },
+        ))
         .expect(1)
         .mount(&server)
         .await;
@@ -303,13 +309,6 @@ fn models(
     "/api/alpha/decisions",
     "typesafe/test-evaluator"
 )]
-#[case::compatible(
-    Provider::DecisionsCompatible,
-    "gateway/model-alias",
-    "/gateway/v1",
-    "/gateway/v1/decisions",
-    "gateway/model-alias"
-)]
 #[case::strands(
     Provider::StrandsDecider,
     "strands_decider/test-evaluator",
@@ -377,14 +376,7 @@ async fn adapters_preserve_provider_paths_model_names_and_decision_body(
         body["questions"],
         serde_json::to_value(&request.questions).unwrap()
     );
-    assert_eq!(
-        body.get("metadata").cloned(),
-        if provider == Provider::DecisionsCompatible {
-            Some(json!({"tags":["litellm-lens-signals"]}))
-        } else {
-            None
-        }
-    );
+    assert!(body.get("metadata").is_none());
 }
 
 #[rstest]

@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod compatible;
 mod config;
 mod error;
 mod transport;
