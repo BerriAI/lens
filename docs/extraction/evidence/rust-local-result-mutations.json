@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "kind": "rust-local-result-mutation-qualification",
+  "recorded_at": "2026-10-09T08:36:07.476Z",
+  "scope": {
+    "source_path": "src/worker/crates/lens/src/local/results.rs",
+    "change": "Tests only: checkpoint-write recovery, terminal-result immutability, successful-review consolidation, and sampled trace citation verification",
+    "production_changed": false,
+    "test_cases_added": 4,
+    "source_sha256": "177b3093eebd53356a0c346f0959b980100bfa7b0ec0d9c86502df628042ce65",
+    "production_prefix_sha256": "e93ec21914283abdb2bdfc0ca50990b80403001d77f64766425ef1ce296bb09a",
+    "production_prefix_equal_at": [
+      "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+      "27cd04cee08b6c43d3988317342801cac024249e"
+    ],
+    "storage": "Real ClickHouse; existing StoredJob fixture with a unique database per test; fault constraint names are fully database-qualified"
+  },
+  "merged_source_verification": {
+    "base_commit": "27cd04cee08b6c43d3988317342801cac024249e",
+    "overlay": "The test-only results.rs change identified by source_sha256",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "litellm-lens",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2",
+      "--lib",
+      "local::results::tests",
+      "--",
+      "--test-threads=2"
+    ],
+    "working_directory": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+    "environment": {
+      "CLICKHOUSE_STATE_TEST_URL": "http://127.0.0.1:18124",
+      "CARGO_TARGET_DIR": "/Users/mfkhalil/Code/litellm-lens/runtime/standalone-target"
+    },
+    "result": {
+      "passed": 28,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 126,
+      "exit_code": 0
+    },
+    "log": {
+      "path": "/tmp/lens-result-merged-tests.log",
+      "sha256": "10e48e604dfb6fc9002dfd3808e05806fba682d2ca43797b26866fc960e6f68b"
+    }
+  },
+  "preliminary_verification": {
+    "focused_tests": {
+      "passed": 28,
+      "failed": 0,
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/lens-result-final-tests.log",
+        "sha256": "9b10e6a05910d98ca21d8ad348d1783178328b0ea00898a97d2fcde9e7f56992"
+      }
+    },
+    "strict_clippy": {
+      "package": "litellm-lens",
+      "all_targets": true,
+      "warnings_denied": true,
+      "result": "passed",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/lens-result-final-clippy.log",
+        "sha256": "f4fa274557d895d8a27696cdfb851ce02a847996c9c048bec27b847dfd5844bc"
+      }
+    }
+  },
+  "focused_mutation_verification": {
+    "snapshot_base": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "overlay": "Final test-only results.rs; production prefix unchanged",
+    "method": "Exact seeded substitutions and spans for all 14 local-result survivors from the broad campaign, applied individually to an isolated git archive. Each mutant compiled and failed a new behavioral test against real ClickHouse. The source was restored after each batch and its hash checked",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "litellm-lens",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2",
+      "--lib",
+      "local::results::tests",
+      "--",
+      "--test-threads=2"
+    ],
+    "started_at": "2026-10-09T08:18:17.508Z",
+    "completed_at": "2026-10-09T08:29:06.531Z",
+    "baseline": {
+      "log": "/tmp/lens-result-mutants.LyK6s4/baseline.log",
+      "exit_code": 0,
+      "signal": null,
+      "elapsed_ms": 46065,
+      "sha256": "e5bc953b0522f8d50a9271d73d16d05996af6d795571220d6433d7f53553e440",
+      "passed": true
+    },
+    "total": 14,
+    "caught": 14,
+    "source_restored": true,
+    "results": [
+      {
+        "id": "completed_retry_or",
+        "location": "crates/lens/src/local/results.rs:23:51",
+        "before": "old.status == JobStatus::Completed && !old.review_versions.is_empty()",
+        "after": "old.status == JobStatus::Completed || !old.review_versions.is_empty()",
+        "failure": "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed",
+        "log": "/tmp/lens-result-mutants.LyK6s4/completed_retry_or.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 17860,
+        "sha256": "42dd347c5adc9735eadf4e866adc988e9324ff1fc08a3518f98757005f753940",
+        "mutated_sha256": "7059ae8b02971ba649a412c71f895ef54011c8feb1809e97036f09d99217e1ff",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "completed_retry_not_equal",
+        "location": "crates/lens/src/local/results.rs:23:27",
+        "before": "old.status == JobStatus::Completed && !old.review_versions.is_empty()",
+        "after": "old.status != JobStatus::Completed && !old.review_versions.is_empty()",
+        "failure": "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed",
+        "log": "/tmp/lens-result-mutants.LyK6s4/completed_retry_not_equal.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 29559,
+        "sha256": "b7f9ba08b0012151bdc790fbca5f0c34055be39c9a3ff7a7977b63349ce87e7f",
+        "mutated_sha256": "5e1c00087314efe187176442386f5c3e62848ec84ceb3b0008328cd01ad99563",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED",
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "completed_retry_empty",
+        "location": "crates/lens/src/local/results.rs:23:54",
+        "before": "old.status == JobStatus::Completed && !old.review_versions.is_empty()",
+        "after": "old.status == JobStatus::Completed && old.review_versions.is_empty()",
+        "failure": "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed",
+        "log": "/tmp/lens-result-mutants.LyK6s4/completed_retry_empty.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 26207,
+        "sha256": "88831d8b244bf5daadac9491983d2323205aa95c032cf079352963226f5ee8f9",
+        "mutated_sha256": "f322525e396f44916820b63f2bc399267bfa0ae7260532db3da7c4e86c888531",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "evidence_wrong_execution",
+        "location": "crates/lens/src/local/results.rs:66:52",
+        "before": "execution.id == evidence.execution_id",
+        "after": "execution.id != evidence.execution_id",
+        "failure": "test local::results::tests::finding_evidence_is_verified_against_its_sampled_execution::case_1_recorded_quote",
+        "log": "/tmp/lens-result-mutants.LyK6s4/evidence_wrong_execution.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 25418,
+        "sha256": "f1faf68bfe2d59e25175bba098489efe76404c3415635a2bb2246e7870714b82",
+        "mutated_sha256": "45b03f12e802eb748a74555717a6605f7e44f128877fc32c060ff7c0f464d926",
+        "failed_tests": [
+          "test local::results::tests::finding_evidence_is_verified_against_its_sampled_execution::case_1_recorded_quote ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "evidence_verification_inverted",
+        "location": "crates/lens/src/local/results.rs:68:20",
+        "before": "if !self\n                    .control\n                    .sources\n                    .verify_evidence",
+        "after": "if self\n                    .control\n                    .sources\n                    .verify_evidence",
+        "failure": "test local::results::tests::finding_evidence_is_verified_against_its_sampled_execution::case_1_recorded_quote",
+        "log": "/tmp/lens-result-mutants.LyK6s4/evidence_verification_inverted.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 29795,
+        "sha256": "0b7b0c8125fe9f0c637b192c5ec4548b9ec619c3dacbfb42f4640f2c34c6f26c",
+        "mutated_sha256": "8ae2ea77b5007e7461bb2a5a3342ca03ac12ca63877e4da75039a6d7581c299e",
+        "failed_tests": [
+          "test local::results::tests::finding_evidence_is_verified_against_its_sampled_execution::case_1_recorded_quote ... FAILED",
+          "test local::results::tests::finding_evidence_is_verified_against_its_sampled_execution::case_2_invented_quote ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "finished_reviews_or",
+        "location": "crates/lens/src/local/results.rs:103:13",
+        "before": "if !body.review_versions.is_empty()\n            && finished.jobs.iter().any(|job| {",
+        "after": "if !body.review_versions.is_empty()\n            || finished.jobs.iter().any(|job| {",
+        "failure": "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed",
+        "log": "/tmp/lens-result-mutants.LyK6s4/finished_reviews_or.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 20277,
+        "sha256": "b37cee9cd69fbccdc8011923ba4f2d18e3b8f5fbe507555d618862af11e7283e",
+        "mutated_sha256": "0dd987c5212bd18889946a6a29cd72c629fbaeae39fdb3e582a3d691fd8a145c",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_102_col_12",
+        "location": "crates/lens/src/local/results.rs:102:12",
+        "name": "crates/lens/src/local/results.rs:102:12: delete ! in LocalJob::save_result",
+        "before": "!",
+        "after": "",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_102_col_12.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 19028,
+        "sha256": "c64811ea28128f025681bd89124b3bbc9c2c45853c2187fdf089a5ce35dcfba7",
+        "mutated_sha256": "a7951b5f570681f2b6f78c613017d85de374adebbfd2d4bc45736f7eb635b62d",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_107_col_21",
+        "location": "crates/lens/src/local/results.rs:107:21",
+        "name": "crates/lens/src/local/results.rs:107:21: replace && with || in LocalJob::save_result",
+        "before": "&&",
+        "after": "||",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_107_col_21.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 28957,
+        "sha256": "6734c1b18863b5ac64ce525f92b58ad3d2788a040e92026fd1b4fd5d5d3f25cb",
+        "mutated_sha256": "0b10e3bec2cc3b0846713515eefe5399d4405f3d86a7f7df8c6a90bd7f9aec8a",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_106_col_21",
+        "location": "crates/lens/src/local/results.rs:106:21",
+        "name": "crates/lens/src/local/results.rs:106:21: replace && with || in LocalJob::save_result",
+        "before": "&&",
+        "after": "||",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_106_col_21.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 30666,
+        "sha256": "fc62b8988a84283e4cb6fb77b975542168dab864ee51a4f5ea0e6c0fec6799d5",
+        "mutated_sha256": "c3c919807ce8e39e149eaf66fbadae23edee21f84eaa31cef4c5666c4ab33a9d",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_105_col_21",
+        "location": "crates/lens/src/local/results.rs:105:21",
+        "name": "crates/lens/src/local/results.rs:105:21: replace && with || in LocalJob::save_result",
+        "before": "&&",
+        "after": "||",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_105_col_21.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 26328,
+        "sha256": "08016496ee23bf527c2269fd342940c1a217c9222508a0e0bca0c9a0614cdc1e",
+        "mutated_sha256": "86e1f31d89173c285e212d8571e4895275d589d630f06ff9d9e7b3bf993ee309",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_104_col_24",
+        "location": "crates/lens/src/local/results.rs:104:24",
+        "name": "crates/lens/src/local/results.rs:104:24: replace == with != in LocalJob::save_result",
+        "before": "==",
+        "after": "!=",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_104_col_24.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 19732,
+        "sha256": "f2fac56ab962d5ed62e4441e8cd0f21e1ac525f9e1178b8e9872a1c1467b8513",
+        "mutated_sha256": "41251242bd30a46abee73944abf1aa36437a119fb4ff1ac9bea5df8f7363fa7a",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_105_col_35",
+        "location": "crates/lens/src/local/results.rs:105:35",
+        "name": "crates/lens/src/local/results.rs:105:35: replace == with != in LocalJob::save_result",
+        "before": "==",
+        "after": "!=",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_105_col_35.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 21827,
+        "sha256": "bf5263e013fe88b000482114af61ea659ba2865fa6c120e59363aeab6cb63e5a",
+        "mutated_sha256": "ad18041b8e91f81e4a629b01c4bcd68eb87a4c12cb9d07cad76bfd5187e25f7f",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED",
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_2_failed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_106_col_37",
+        "location": "crates/lens/src/local/results.rs:106:37",
+        "name": "crates/lens/src/local/results.rs:106:37: replace == with != in LocalJob::save_result",
+        "before": "==",
+        "after": "!=",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_106_col_37.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 24999,
+        "sha256": "4bed779eab48528abede7b1746e81ce18a91d5e0b90a3f0abff728cea72342d1",
+        "mutated_sha256": "3aff7cb36577dcaf6738e4d262bd7ef9de856f9ceb7c255d2ff65ad5da057034",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED"
+        ],
+        "caught": true
+      },
+      {
+        "id": "line_107_col_49",
+        "location": "crates/lens/src/local/results.rs:107:49",
+        "name": "crates/lens/src/local/results.rs:107:49: replace == with != in LocalJob::save_result",
+        "before": "==",
+        "after": "!=",
+        "log": "/tmp/lens-result-mutants.LyK6s4/line_107_col_49.log",
+        "exit_code": 101,
+        "signal": null,
+        "elapsed_ms": 29668,
+        "sha256": "29f3b503a69f1c4df3d4551702343dc7816c60172a05cf0eebfab558bcc9add1",
+        "mutated_sha256": "38686702ab05d4161acf0dd34acc3381c699a80bf9bdd657dbc564e5bc0b2c6e",
+        "failed_tests": [
+          "test local::results::tests::result_retries_consolidate_only_the_saved_successful_review::case_1_completed ... FAILED"
+        ],
+        "caught": true
+      }
+    ],
+    "limitation": "This mutation snapshot predates the independent eval-definition fix in 27cd04c. The merged-source 28-case run above validates the affected result tests with that fix; the mutation snapshot was not rerun on the merged head"
+  },
+  "broad_campaign_history": {
+    "tool": "cargo-mutants 27.1.0",
+    "log": {
+      "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/qualified/mutants.out/outcomes.json",
+      "sha256": "035b8de7ccf02273a3c406028810a07f5b7ea098fd76343cbe6bcf65fa56f190"
+    },
+    "start_time": "2026-10-09T07:27:51.103345Z",
+    "end_time": "2026-10-09T08:34:30.939015Z",
+    "total_mutants": 82,
+    "original_results": {
+      "caught": 51,
+      "missed": 16,
+      "timeout": 3,
+      "unviable": 12
+    },
+    "local_result_survivors": 14,
+    "local_result_survivors_caught_in_focused_proof": 14,
+    "other_survivors": [
+      "crates/lens/src/local.rs:90:58: replace && with || in LocalControl::claim",
+      "crates/lens/src/local.rs:107:82: replace != with == in LocalControl::claim"
+    ],
+    "timeouts": [
+      "crates/lens/src/local.rs:123:27: replace < with == in LocalControl::claim",
+      "crates/lens/src/local.rs:123:27: replace < with > in LocalControl::claim",
+      "crates/lens/src/control/job.rs:56:9: replace JobClient::heartbeat -> Result<(), Error> with Ok(())"
+    ],
+    "scope_note": "Historical raw counts are preserved. Scheduler survivors and campaign timeouts belong to the integration lane and are not counted as passes by this receipt. This receipt makes no whole-product parity or performance claim"
+  },
+  "retained_fixture_debugging_logs": [
+    {
+      "path": "/tmp/lens-result-checkpoint-tests-initial.log",
+      "sha256": "79a4a4f4e37827fe0f38702600bdaf8aaf44e04113ca1cee235b63fc93f3cfd0"
+    },
+    {
+      "path": "/tmp/lens-result-final-tests-fixture-before.log",
+      "sha256": "4b39ce295772a2dc39d114369bbd1540b63eb4befde3f0d348f002e7b2af1dbf"
+    }
+  ]
+}

@@ -298,10 +298,12 @@ fn finish(
 mod tests {
     use super::*;
     use crate::local::fixtures::{StoredJob, stored_job};
-    use lens_contract::worker::{Finding, FindingDraft, JobTrigger};
+    use lens_contract::worker::{Finding, FindingDraft, JobTrigger, Progress, Review};
     use lens_investigations::LensRepository;
+    use litellm_storage_clickhouse::execute_statement;
     use rstest::{fixture, rstest};
     use serde_json::{Value, json};
+    use std::time::Duration;
 
     fn decode<T: serde::de::DeserializeOwned>(value: Value) -> T {
         serde_json::from_value(value).unwrap()
@@ -425,6 +427,191 @@ mod tests {
             serde_json::to_value(after).unwrap(),
             serde_json::to_value(persisted).unwrap()
         );
+    }
+
+    #[rstest]
+    #[case::completed("", JobStatus::Completed, true)]
+    #[case::failed("Analysis failed", JobStatus::Failed, false)]
+    #[tokio::test]
+    async fn result_retries_consolidate_only_the_saved_successful_review(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] error: &str,
+        #[case] status: JobStatus,
+        #[case] consolidated: bool,
+    ) {
+        let caller = &stored_job.job;
+        let repository = &caller.control.repository;
+        let lens = caller.lens().await.unwrap();
+        let assigned = Job {
+            sample: Some(
+                serde_json::from_str(include_str!("../../tests/fixtures/sample.json")).unwrap(),
+            ),
+            ..lens.jobs[0].clone()
+        };
+        repository
+            .replace(&lens, &replace_job(&lens, assigned.clone()))
+            .await
+            .unwrap();
+        let review: Review = decode(json!({
+            "execution_id":"run-test", "trace_id":"trace-test", "agent":"Refund agent",
+            "name":"Refund review", "model":"test-analysis", "duration_ms":1,
+            "at":Utc::now(), "content_version":"current-content", "extraction":{}
+        }));
+        repository
+            .progress(
+                &lens.id,
+                &assigned,
+                &Progress {
+                    review: Some(review.clone()),
+                    ..Progress::default()
+                },
+                Utc::now(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let storage = &caller.control.sources.0.storage;
+        execute_statement(
+            &storage.client,
+            storage.config.storage().writer(),
+            &format!(
+                "ALTER TABLE `{}`.lens_state_blobs ADD CONSTRAINT reject_review_completion CHECK NOT \
+                 (startsWith(key, 'review/') AND JSONExtractBool(data, 'consolidated'))",
+                storage.config.storage().database()
+            ),
+            Duration::from_secs(30),
+        )
+        .await
+        .unwrap();
+        let body = InvestigationResult {
+            coverage: Coverage::default(),
+            findings: vec![],
+            assessments: vec![],
+            review_versions: vec![crate::wire::ReviewVersion {
+                execution_id: review.execution_id.clone(),
+                content_version: review.content_version.clone(),
+            }],
+            error: error.into(),
+        };
+        let first = caller.save_result(&body).await;
+        if consolidated {
+            assert!(
+                matches!(first, Err(Error::InvestigationStorage(_))),
+                "{first:?}"
+            );
+        } else {
+            first.unwrap();
+        }
+        let saved = caller.lens().await.unwrap();
+        assert_eq!(saved.jobs[0].status, status);
+        assert_eq!(saved.jobs[0].error, error);
+        assert_eq!(
+            json!(saved.jobs[0].review_versions),
+            json!(body.review_versions)
+        );
+        assert_eq!(
+            json!(repository.reviews(&lens.id, &assigned).await.unwrap()),
+            json!([review.clone()])
+        );
+        execute_statement(
+            &storage.client,
+            storage.config.storage().writer(),
+            &format!(
+                "ALTER TABLE `{}`.lens_state_blobs DROP CONSTRAINT reject_review_completion",
+                storage.config.storage().database()
+            ),
+            Duration::from_secs(30),
+        )
+        .await
+        .unwrap();
+        let retry = InvestigationResult {
+            review_versions: vec![],
+            error: "Retry payload must not replace the saved result".into(),
+            ..body
+        };
+        caller.save_result(&retry).await.unwrap();
+        assert_eq!(json!(caller.lens().await.unwrap()), json!(saved));
+        assert_eq!(
+            json!(repository.reviews(&lens.id, &assigned).await.unwrap()),
+            json!([Review {
+                consolidated,
+                ..review
+            }])
+        );
+    }
+
+    #[rstest]
+    #[case::recorded_quote("Refund failed", true)]
+    #[case::invented_quote("Refund completed", false)]
+    #[tokio::test]
+    async fn finding_evidence_is_verified_against_its_sampled_execution(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] quote: &str,
+        #[case] accepted: bool,
+    ) {
+        let caller = &stored_job.job;
+        let state = &caller.control.sources.0;
+        let storage = &state.storage;
+        storage.ensure_schema().await.unwrap();
+        state
+            .schema_ready
+            .store(true, std::sync::atomic::Ordering::Release);
+        litellm_traces_clickhouse::insert_rows(
+            &storage.client,
+            storage.config.storage().writer(),
+            storage.config.storage().database(),
+            litellm_traces_clickhouse::InsertTable::OtelTraces,
+            vec![decode(json!({
+                "Timestamp":Utc::now().timestamp_nanos_opt().unwrap(), "TraceId":"trace-test",
+                "SpanId":"span-test", "TeamId":"team-test", "Output":"Refund failed"
+            }))],
+        )
+        .await
+        .unwrap();
+        let lens = caller.lens().await.unwrap();
+        let assigned = Job {
+            sample: Some(
+                serde_json::from_str(include_str!("../../tests/fixtures/sample.json")).unwrap(),
+            ),
+            ..lens.jobs[0].clone()
+        };
+        let saved = caller
+            .control
+            .repository
+            .replace(&lens, &replace_job(&lens, assigned))
+            .await
+            .unwrap();
+        let finding: FindingDraft = decode(json!({
+            "title":"Refund outcome", "description":"Verify the recorded refund result",
+            "check_id":"correct", "kind":"issue",
+            "evidence":[{"execution_id":"run-test", "span_id":"span-test", "quote":quote}]
+        }));
+        let body = InvestigationResult {
+            coverage: Coverage {
+                eligible: 1,
+                selected: 1,
+                screened: 1,
+                ..Coverage::default()
+            },
+            findings: vec![finding.clone()],
+            assessments: vec![],
+            review_versions: vec![],
+            error: String::new(),
+        };
+        let result = caller.save_result(&body).await;
+        let after = caller.lens().await.unwrap();
+        if accepted {
+            result.unwrap();
+            assert_eq!(after.jobs[0].status, JobStatus::Completed);
+            assert_eq!(after.findings.len(), 1);
+            assert_eq!(json!(after.findings[0].evidence), json!(finding.evidence));
+        } else {
+            assert!(
+                matches!(result, Err(Error::Control { status: 422, .. })),
+                "{result:?}"
+            );
+            assert_eq!(json!(after), json!(saved));
+        }
     }
 
     #[rstest]
