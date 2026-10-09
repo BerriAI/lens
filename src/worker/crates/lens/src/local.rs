@@ -31,6 +31,12 @@ pub struct LocalControl {
     slots: Arc<Semaphore>,
 }
 
+#[derive(Clone, Copy)]
+enum ClaimPhase {
+    ExistingJobs,
+    ScheduledJobs,
+}
+
 impl LocalControl {
     pub fn new(
         repository: Investigations,
@@ -82,6 +88,20 @@ impl LocalControl {
 
     async fn claim_at(&self, worker: &Worker, now: DateTime<Utc>) -> Result<Option<Claim>, Error> {
         self.repository.heartbeat(&worker.id, now).await?;
+        for phase in [ClaimPhase::ExistingJobs, ClaimPhase::ScheduledJobs] {
+            if let Some(claim) = self.claim_due(worker, now, phase).await? {
+                return Ok(Some(claim));
+            }
+        }
+        Ok(None)
+    }
+
+    async fn claim_due(
+        &self,
+        worker: &Worker,
+        now: DateTime<Utc>,
+        phase: ClaimPhase,
+    ) -> Result<Option<Claim>, Error> {
         let models = self.models.get().models();
         let mut after = None;
         loop {
@@ -92,14 +112,24 @@ impl LocalControl {
             for candidate in &page {
                 let lens = &candidate.lens;
                 let active = current_job(lens);
+                if matches!(phase, ClaimPhase::ExistingJobs) != active.is_some() {
+                    continue;
+                }
                 let settings = active.map_or(&lens.settings, |job| &job.settings);
                 if !can_access(&worker.scope, &lens.scope)
                     || !models.iter().any(|model| model == settings.model.as_str())
                 {
                     continue;
                 }
-                if active.is_none() && !self.automatic_ready(lens, now).await? {
-                    continue;
+                if active.is_none() {
+                    match self.automatic_ready(lens, now).await {
+                        Ok(true) => (),
+                        Ok(false) => continue,
+                        Err(error) => {
+                            tracing::warn!(lens_id = %lens.id, error = %error, "Lens could not check automatic analysis readiness; skipping this agent");
+                            continue;
+                        }
+                    }
                 }
                 let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
                     queue_job(
@@ -459,11 +489,80 @@ mod fixtures {
             database,
         }
     }
+
+    pub(super) struct ReadinessQueue {
+        pub stored: StoredJob,
+        pub control: LocalControl,
+        pub source: wiremock::MockServer,
+        pub initial: Vec<Lens>,
+        pub now: DateTime<Utc>,
+    }
+
+    #[fixture]
+    pub(super) async fn readiness_queue(#[future(awt)] stored_job: StoredJob) -> ReadinessQueue {
+        let source = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(503))
+            .mount(&source)
+            .await;
+        let config = litellm_traces_clickhouse::Config::new(
+            "unavailable_traces".into(),
+            &source.uri(),
+            14,
+            65_536,
+        )
+        .unwrap();
+        let state = State::standalone(Storage::new(
+            config,
+            http_client().unwrap(),
+            "fixture-service-secret".into(),
+        ));
+        state
+            .schema_ready
+            .store(true, std::sync::atomic::Ordering::Release);
+        let control = LocalControl {
+            sources: SourceReader(Arc::new(state)),
+            ..stored_job.job.control.clone()
+        };
+        let original = control
+            .repository
+            .get(&stored_job.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let now = Utc::now();
+        let mut initial = Vec::new();
+        for index in 0..21 {
+            let lens = Lens {
+                jobs: Vec::new(),
+                ..lens_investigations::create_lens(
+                    LensSettings {
+                        enabled: true,
+                        agent_name: format!("waiting-agent-{index}"),
+                        ..original.settings.clone()
+                    },
+                    original.scope.clone(),
+                    now - chrono::TimeDelta::minutes(10),
+                    &format!("auto-agent-{index:02}"),
+                    "initial",
+                )
+                .unwrap()
+            };
+            initial.push(control.repository.create(&lens).await.unwrap());
+        }
+        ReadinessQueue {
+            stored: stored_job,
+            control,
+            source,
+            initial,
+            now,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::fixtures::{StoredJob, stored_job};
+    use super::fixtures::{ReadinessQueue, StoredJob, readiness_queue, stored_job};
     use super::*;
     use crate::{control::JobBackend, wire};
     use futures_util::future::BoxFuture;
@@ -528,6 +627,125 @@ mod tests {
         }
         assert!(claim.job.lease_until.is_some_and(|lease| lease > due));
         assert!(control.claim_at(&worker, due).await.unwrap().is_none());
+    }
+
+    #[rstest]
+    #[case::queued(false)]
+    #[case::reclaimable(true)]
+    #[tokio::test]
+    async fn queued_jobs_on_later_pages_do_not_wait_for_failing_readiness_queries(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+        #[case] reclaimable: bool,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let original = control
+            .repository
+            .get(&fixture.stored.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let waiting = Lens {
+            jobs: vec![wire::Job {
+                status: if reclaimable {
+                    wire::JobStatus::Running
+                } else {
+                    wire::JobStatus::Queued
+                },
+                attempts: i64::from(reclaimable),
+                worker_id: reclaimable.then(|| "previous-worker".into()),
+                lease_until: reclaimable.then_some(fixture.now - chrono::TimeDelta::minutes(1)),
+                created_at: fixture.now - chrono::TimeDelta::minutes(1),
+                ..original.jobs[0].clone()
+            }],
+            ..original.clone()
+        };
+        control
+            .repository
+            .replace(&original, &waiting)
+            .await
+            .unwrap();
+        let page = control
+            .repository
+            .due(&worker.scope, &fixture.now, 20, None)
+            .await
+            .unwrap();
+        assert_eq!(page.len(), 20);
+        assert!(!page.iter().any(|entry| entry.lens.id == original.id));
+        assert!(
+            control
+                .automatic_ready(&fixture.initial[0], fixture.now)
+                .await
+                .is_err()
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+
+        let claim = control
+            .claim_at(&worker, fixture.now)
+            .await
+            .unwrap()
+            .expect("Queued work must not depend on another agent's trace source");
+
+        assert_eq!(claim.lens_id, original.id);
+        assert_eq!(claim.job.id, original.jobs[0].id);
+        assert_eq!(claim.job.status, wire::JobStatus::Running);
+        assert_eq!(claim.job.worker_id.as_deref(), Some(worker.id.as_str()));
+        assert_eq!(claim.job.attempts, i64::from(reclaimable) + 1);
+        assert!(
+            claim
+                .job
+                .lease_until
+                .is_some_and(|lease| lease > fixture.now)
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+        let unchanged: Vec<_> = control
+            .repository
+            .lenses(&worker.scope)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|lens| lens.id.starts_with("auto-agent-"))
+            .collect();
+        assert_eq!(
+            serde_json::to_value(unchanged).unwrap(),
+            serde_json::to_value(fixture.initial).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn failing_readiness_queries_leave_every_candidate_unchanged_and_return_no_claim(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let before = control.repository.lenses(&worker.scope).await.unwrap();
+        assert!(
+            control
+                .automatic_ready(&fixture.initial[0], fixture.now)
+                .await
+                .is_err()
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+
+        assert!(
+            control
+                .claim_at(&worker, fixture.now)
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        assert_eq!(
+            fixture.source.received_requests().await.unwrap().len(),
+            fixture.initial.len() + 1
+        );
+        assert_eq!(
+            serde_json::to_value(control.repository.lenses(&worker.scope).await.unwrap()).unwrap(),
+            serde_json::to_value(before).unwrap()
+        );
     }
 
     fn unavailable() -> Error {
