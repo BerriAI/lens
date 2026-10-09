@@ -54,7 +54,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@51651cc61bc3863b524683a34f02732e2717b7b7#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@bad22eb403ea402e00ee04c6e0c16d62693c4261#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
@@ -317,7 +317,7 @@ steps:
       python-version: '3.11'
   - run: python -m pip install uv==0.10.9
   - run: uv sync --frozen
-  - uses: BerriAI/lens/src/sdk/action@51651cc61bc3863b524683a34f02732e2717b7b7
+  - uses: BerriAI/lens/src/sdk/action@bad22eb403ea402e00ee04c6e0c16d62693c4261
     with:
       python: .venv/bin/python
       install-from-source: 'true'
@@ -329,10 +329,10 @@ The `python` input selects the agent's environment for execution and reporting. 
 
 For a saved eval, set `eval-name` instead of `path`. Commit its local connection profile and provide the named environment variables as CI secrets or variables. Set `LENS_VERSION` from the agent build deployed by your workflow. The Action does not deploy or update the agent
 
-This repository tests the new path against a local HTTP fixture through the Action from the checked-out PR source:
+Use the pinned Action with the same saved eval name:
 
 ```yaml
-- uses: ./src/sdk/action
+- uses: BerriAI/lens/src/sdk/action@bad22eb403ea402e00ee04c6e0c16d62693c4261
   env:
     AGENT_BASE_URL: ${{ vars.AGENT_BASE_URL }}
     AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
@@ -345,7 +345,7 @@ This repository tests the new path against a local HTTP fixture through the Acti
     install-from-source: 'true'
 ```
 
-The example assumes your deployment step publishes `agent-build-sha`. In another repository, check out Lens at a reviewed full commit SHA that contains this feature and use that checkout's local Action path. The older pinned Action shown above does not include named evals. Do not point production CI at an unreviewed moving branch. Supplying both `eval-name` and `path` fails before installation; an older installed wheel without named-run support produces an actionable error
+The example assumes your deployment step publishes `agent-build-sha`. The pinned source commit contains the named runner; use it after reviewing this feature for your deployment. Supplying both `eval-name` and `path` fails before installation; an older installed wheel without named-run support produces an actionable error
 
 The default `install-from-source: 'false'` reuses an installed `0.1.0a3` native package or downloads the matching release wheel and verifies its SHA-256 checksum. Once wheels are published, use that mode with `sdk-token: ${{ secrets.LENS_SDK_TOKEN }}` when the consuming repository needs separate contents-read access to the internal SDK release
 
@@ -391,7 +391,7 @@ The native core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk
 
 The Lens server owns lifecycle routes, trace scoring, baseline selection, and the comparison UI. This package provides the SDK, CLI, setup, Action, and development server
 
-The SDK uses contract version 1 through `X-Lens-Contract: 1`. Rust types in `lens-contract` define `schema/lens.v1.json`, which generates the Python wire models. Shared golden fixtures live at `src/worker/crates/contract/fixtures/lens_eval/`. From the repository root, run `npm run generate:eval-contract` after changing the canonical contract
+The callback SDK uses `X-Lens-Contract: 1`; named evals use `X-Lens-Contract: 2` for saved agent I/O and direct outputs. Rust types in `lens-contract` define `schema/lens.v1.json`, which generates the Python wire models. Shared golden fixtures live at `src/worker/crates/contract/fixtures/lens_eval/`. From the repository root, run `npm run generate:eval-contract` after changing the canonical contract
 
 Version `0.1.0a3` sends a positive integer `timeout_per_trial_ms` on every create-run request. The server default for clients that omit it is 1,200,000 ms. Lens enforces this cap while waiting for the trace and exposes finding IDs in `DatasetCase.meta["finding_id"]`
 
