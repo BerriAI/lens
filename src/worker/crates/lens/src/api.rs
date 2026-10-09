@@ -72,8 +72,15 @@ pub async fn router(
     datasets: DatasetConfig,
     evals: EvalConfig,
 ) -> Result<(Router, JoinHandle<()>), Error> {
-    let application =
-        initialize(state, settings, datasets, TraceConfig::default(), false, evals).await?;
+    let application = initialize(
+        state,
+        settings,
+        datasets,
+        TraceConfig::default(),
+        false,
+        evals,
+    )
+    .await?;
     Ok((application.router, application.evals))
 }
 
