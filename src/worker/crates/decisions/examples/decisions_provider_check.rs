@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             max_response_bytes: 65536,
         },
     )?;
-    let request=DecisionRequest{model:"qualification".into(),state:SignalState{task:"An AI agent run recorded as a trace. Judge only what the user and the agent said and did in these steps.",steps:vec![SignalStep{kind:"user".into(),name:"message".into(),content:"I am frustrated. You have ignored my request three times. Please stop repeating the same answer.".into()}]},questions:BTreeMap::from([("frustration".into(),Question{r#type:"noul",instructions:"Does the user express frustration with the agent?".into()})]),timeout:Duration::from_secs(60),tags:vec!["litellm-lens-signals"]};
+    let request=DecisionRequest{model:"qualification".into(),state:SignalState{task:"An AI agent run recorded as a trace. Judge only what the user and the agent said and did in these steps.",steps:vec![SignalStep{kind:"user".into(),name:"message".into(),content:"I am frustrated. You have ignored my request three times. Please stop repeating the same answer.".into()}]},questions:BTreeMap::from([("frustration".into(),Question::Noul{instructions:"Does the user express frustration with the agent?".into()})]),timeout:Duration::from_secs(60),tags:vec!["litellm-lens-signals"]};
     let response = models.evaluate(&request).await?;
     let NoulAnswer::Noul { noul } =
         serde_json::from_value(response["answers"]["frustration"].clone())?;

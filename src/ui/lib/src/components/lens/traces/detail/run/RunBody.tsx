@@ -9,7 +9,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../.
 import { TabsContent } from "../../../../ui/tabs";
 
 import type { RunSelection } from "../../routing";
-import type { Trace } from "../../types";
+import type { SignalFlag, Trace } from "../../types";
+import { SignalEvidence } from "../../ui/SignalEvidence";
 import { TraceThread, type ConversationTracePaging } from "../conversation/TraceThread";
 import { DetailPane } from "../span/DetailPane";
 import { SpanTree } from "../tree/SpanTree";
@@ -26,12 +27,14 @@ interface RunBodyProps {
   embedded: boolean;
   stale: boolean;
   conversationPaging: ConversationTracePaging;
+  signal?: SignalFlag;
 }
 
 /** Tree + detail pane for one loaded run. Arrows move and fold steps; J/K also move unless the drawer owns them. */
-export function RunBody({ trace, accessToken, selection, embedded, stale, conversationPaging }: RunBodyProps) {
+export function RunBody({ trace, accessToken, selection, embedded, stale, conversationPaging, signal }: RunBodyProps) {
   const { view, setView, stepQuery, setStepQuery, errorsOnly, setErrorsOnly } = selection;
   const tree = useRunTree(trace, selection);
+  const evidence = signal?.evidence;
   const [detailOpen, setDetailOpen] = useState(true);
   const [layout, setLayout] = useState<TreeLayout>("tree");
   const splitRef = useRef<HTMLDivElement>(null);
@@ -103,14 +106,25 @@ export function RunBody({ trace, accessToken, selection, embedded, stale, conver
           <>
             <ResizableHandle withHandle className="bg-border hover:bg-trace-chain" />
             <ResizablePanel id="detail" minSize={orientation === "horizontal" ? 360 : 200} className="min-w-0">
-              <DetailPane
-                trace={trace}
-                row={tree.selectedRow}
-                accessToken={accessToken}
-                spanTab={selection.spanTab}
-                onSpanTabChange={selection.setSpanTab}
-                onClose={() => setDetailOpen(false)}
-              />
+              <div className="flex h-full min-h-0 flex-col">
+                {signal && evidence && evidence.span_id === tree.selectedRow?.id && (
+                  <SignalEvidence
+                    name={signal.name}
+                    quote={evidence.quote}
+                    onDismiss={() => selection.selectSpan(evidence.span_id)}
+                  />
+                )}
+                <div className="min-h-0 flex-1">
+                  <DetailPane
+                    trace={trace}
+                    row={tree.selectedRow}
+                    accessToken={accessToken}
+                    spanTab={selection.spanTab}
+                    onSpanTabChange={selection.setSpanTab}
+                    onClose={() => setDetailOpen(false)}
+                  />
+                </div>
+              </div>
             </ResizablePanel>
           </>
         )}

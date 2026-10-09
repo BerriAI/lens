@@ -1,9 +1,10 @@
-use crate::{eval, worker};
+use crate::{eval, signals, worker};
 use schemars::generate::SchemaSettings;
 use serde_json::{Map, Value, json};
 
 pub fn worker_contract() -> Value {
     let mut generator = SchemaSettings::draft07().into_generator();
+    let _ = generator.subschema_for::<signals::TraceSignals>();
     let _ = generator.subschema_for::<worker::Activity>();
     let _ = generator.subschema_for::<worker::AgentTestCase>();
     let _ = generator.subschema_for::<worker::Candidate>();

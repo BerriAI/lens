@@ -1875,6 +1875,54 @@
       ],
       "type": "object"
     },
+    "SignalEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "quote": {
+          "type": "string"
+        },
+        "span_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "span_id",
+        "quote"
+      ],
+      "type": "object"
+    },
+    "SignalFlag": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SignalEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "signal_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal_id",
+        "name",
+        "score"
+      ],
+      "type": "object"
+    },
     "Step": {
       "additionalProperties": false,
       "properties": {
@@ -1994,6 +2042,57 @@
         "name",
         "kind",
         "content"
+      ],
+      "type": "object"
+    },
+    "TraceSignalStatus": {
+      "enum": [
+        "unclassified",
+        "pending",
+        "classified",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "TraceSignals": {
+      "additionalProperties": false,
+      "properties": {
+        "classified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "flags": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/SignalFlag"
+          },
+          "type": "array"
+        },
+        "model": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/TraceSignalStatus"
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "status"
       ],
       "type": "object"
     }

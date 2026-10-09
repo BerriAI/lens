@@ -160,6 +160,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
                 model: "actual-model".into(),
                 error: String::new(),
                 scores: BTreeMap::from([("first".into(), 0.5), ("second".into(), 0.8)]),
+                evidence: BTreeMap::new(),
             },
         )
         .await
