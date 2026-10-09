@@ -1,61 +1,22 @@
 mod support;
 
-use lens_evals::{Error, EvalSpan, SpanStatus, scorer};
+use std::sync::{
+    Mutex,
+    atomic::{AtomicUsize, Ordering::SeqCst},
+};
+
+use lens_evals::{
+    EvalSpan, JudgeError, JudgeRequest, RunInput, SpanStatus, Trial, TrialOutcome, evaluate,
+};
 use rstest::rstest;
-use support::{FakeJudge, judge_scorer, root, span, tool};
+use support::{FakeJudge, case, judge_scorer, pass, root, run};
 
-#[rstest]
-#[case::never_called(vec![tool("a", "search", 1)], true)]
-#[case::no_tools_at_all(vec![], true)]
-#[case::first_missing(vec![tool("a", "write", 1)], false)]
-#[case::then_before_first(vec![tool("a", "write", 1), tool("b", "search", 2)], false)]
-#[case::first_then_ordered(vec![tool("a", "search", 1), tool("b", "write", 2)], true)]
-#[case::same_start(vec![tool("a", "search", 5), tool("b", "write", 5)], false)]
-#[case::interleaved_ok(
-    vec![tool("a", "search", 1), tool("b", "write", 2), tool("c", "search", 3), tool("d", "write", 4)],
-    true
-)]
-#[case::interleaved_early_then(
-    vec![tool("a", "write", 1), tool("b", "search", 2), tool("c", "write", 3)],
-    false
-)]
-#[case::multiple_then_after_one_first(
-    vec![tool("a", "search", 1), tool("b", "write", 2), tool("c", "write", 3)],
-    true
-)]
-#[case::unordered_input(vec![tool("b", "write", 9), tool("a", "search", 3)], true)]
-#[case::span_name_is_not_tool(
-    vec![span("search", "root", 1, SpanStatus::Ok), tool("b", "write", 2)],
-    false
-)]
-fn called_before_edges(#[case] spans: Vec<EvalSpan>, #[case] expected: bool) {
-    assert_eq!(scorer::called_before(&spans, "search", "write"), expected);
-}
-
-#[rstest]
-#[case::ok(vec![root(SpanStatus::Ok)], true)]
-#[case::unset(vec![root(SpanStatus::Unset)], true)]
-#[case::error(vec![root(SpanStatus::Error)], false)]
-#[case::no_spans(vec![], false)]
-#[case::child_error_root_ok(
-    vec![root(SpanStatus::Ok), span("child", "root", 1, SpanStatus::Error)],
-    true
-)]
-#[case::orphan_is_root(vec![span("orphan", "gone", 0, SpanStatus::Ok)], true)]
-#[case::empty_parent_is_root(
-    vec![root(SpanStatus::Ok), span("", "gone", 1, SpanStatus::Error)],
-    true
-)]
-#[case::earliest_root_wins(
-    vec![span("late", "", 9, SpanStatus::Ok), span("early", "", 1, SpanStatus::Error)],
-    false
-)]
-#[case::self_parent_is_root(
-    vec![span("loop", "loop", 0, SpanStatus::Ok), span("child", "loop", 1, SpanStatus::Error)],
-    true
-)]
-fn task_completed_reads_root_status(#[case] spans: Vec<EvalSpan>, #[case] expected: bool) {
-    assert_eq!(scorer::task_completed(&spans), expected);
+async fn judged(score: f64) -> lens_evals::Evaluation {
+    let input = RunInput {
+        scorers: vec![judge_scorer("p")],
+        ..run(1, vec![case("c", false, vec![pass()])], None)
+    };
+    evaluate(&input, &FakeJudge::constant(score)).await.unwrap()
 }
 
 #[rstest]
@@ -66,16 +27,9 @@ fn task_completed_reads_root_status(#[case] spans: Vec<EvalSpan>, #[case] expect
 #[case::one(1.0, true)]
 #[tokio::test]
 async fn judge_threshold(#[case] score: f64, #[case] expected: bool) {
-    let judge = judge_scorer("p");
-    let passed = scorer::passes(
-        &judge,
-        "c",
-        &[root(SpanStatus::Ok)],
-        &FakeJudge::constant(score),
-    )
-    .await
-    .unwrap();
-    assert_eq!(passed, expected);
+    let result = judged(score).await;
+    assert_eq!(result.verdicts["c"], expected);
+    assert_eq!(result.summary.errors, 0);
 }
 
 #[rstest]
@@ -83,17 +37,79 @@ async fn judge_threshold(#[case] score: f64, #[case] expected: bool) {
 #[case::above_one(1.5)]
 #[case::nan(f64::NAN)]
 #[tokio::test]
-async fn judge_rejects_out_of_range(#[case] score: f64) {
-    let judge = judge_scorer("p");
-    let result = scorer::passes(&judge, "c", &[], &FakeJudge::constant(score)).await;
-    assert!(matches!(result, Err(Error::JudgeScore { .. })));
+async fn out_of_range_judge_score_is_an_error_trial(#[case] score: f64) {
+    let result = judged(score).await;
+    assert!(!result.verdicts["c"]);
+    assert_eq!(result.summary.errors, 1);
+    assert_eq!(result.summary.scores["judge"], 0.0);
+}
+
+type Call = (String, usize, String, String, usize);
+
+struct Recording(Mutex<Vec<Call>>);
+
+impl lens_evals::Judge for Recording {
+    async fn score(&self, request: JudgeRequest<'_>) -> Result<f64, JudgeError> {
+        self.0.lock().unwrap().push((
+            request.case_id.to_owned(),
+            request.trial,
+            request.prompt.to_owned(),
+            request.model.to_owned(),
+            request.spans.len(),
+        ));
+        Ok(1.0)
+    }
 }
 
 #[tokio::test]
-async fn judge_failure_propagates() {
-    let judge = judge_scorer("missing");
-    let result = scorer::passes(&judge, "c", &[], &FakeJudge(Default::default())).await;
-    assert!(matches!(result, Err(Error::Judge(_))));
+async fn judge_request_carries_case_trial_prompt_model_and_spans() {
+    let input = RunInput {
+        scorers: vec![judge_with_model("grade it", "gpt-x")],
+        ..run(2, vec![case("c", false, vec![pass(), pass()])], None)
+    };
+    let judge = Recording(Mutex::new(Vec::new()));
+    evaluate(&input, &judge).await.unwrap();
+    let mut calls = judge.0.into_inner().unwrap();
+    calls.sort();
+    assert_eq!(
+        calls,
+        vec![
+            ("c".into(), 0, "grade it".into(), "gpt-x".into(), 1),
+            ("c".into(), 1, "grade it".into(), "gpt-x".into(), 1),
+        ]
+    );
+}
+
+fn judge_with_model(prompt: &str, model: &str) -> lens_contract::eval::Scorer {
+    lens_contract::eval::Scorer::Judge(lens_contract::eval::Judge {
+        prompt: prompt.into(),
+        model: model.into(),
+    })
+}
+
+#[rstest]
+#[case::root_ok(vec![root(SpanStatus::Ok)], true, 0)]
+#[case::root_error(vec![root(SpanStatus::Error)], false, 0)]
+#[case::no_spans_is_error(vec![], false, 1)]
+#[tokio::test]
+async fn task_completed_through_evaluate(
+    #[case] spans: Vec<EvalSpan>,
+    #[case] passed: bool,
+    #[case] errors: u64,
+) {
+    let trial = Trial {
+        outcome: TrialOutcome::Trace(spans),
+        cost_usd: None,
+        trace_spend_usd: None,
+    };
+    let result = evaluate(
+        &run(1, vec![case("c", false, vec![trial])], None),
+        &FakeJudge::constant(1.0),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.verdicts["c"], passed);
+    assert_eq!(result.summary.errors, errors);
 }
 
 #[rstest]
@@ -101,4 +117,37 @@ async fn judge_failure_propagates() {
 #[case::clickhouse("\"STATUS_CODE_OK\"", SpanStatus::Ok)]
 fn span_status_accepts_clickhouse_alias(#[case] json: &str, #[case] expected: SpanStatus) {
     assert_eq!(serde_json::from_str::<SpanStatus>(json).unwrap(), expected);
+}
+
+struct InFlight {
+    current: AtomicUsize,
+    peak: AtomicUsize,
+}
+
+impl lens_evals::Judge for InFlight {
+    async fn score(&self, _request: JudgeRequest<'_>) -> Result<f64, JudgeError> {
+        let now = self.current.fetch_add(1, SeqCst) + 1;
+        self.peak.fetch_max(now, SeqCst);
+        tokio::task::yield_now().await;
+        self.current.fetch_sub(1, SeqCst);
+        Ok(1.0)
+    }
+}
+
+#[tokio::test]
+async fn judge_calls_overlap() {
+    let input = RunInput {
+        scorers: vec![judge_scorer("p")],
+        ..run(
+            3,
+            vec![case("c", false, vec![pass(), pass(), pass()])],
+            None,
+        )
+    };
+    let judge = InFlight {
+        current: AtomicUsize::new(0),
+        peak: AtomicUsize::new(0),
+    };
+    evaluate(&input, &judge).await.unwrap();
+    assert!(judge.peak.into_inner() > 1);
 }

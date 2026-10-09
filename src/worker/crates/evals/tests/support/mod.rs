@@ -3,7 +3,7 @@
     reason = "Each integration test binary uses a different subset of these helpers"
 )]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lens_contract::eval::{Gate, Scorer, TaskCompleted};
 use lens_evals::{
@@ -26,6 +26,31 @@ impl Judge for FakeJudge {
             .or_else(|| self.0.get(""))
             .copied()
             .ok_or_else(|| format!("no score for prompt {}", request.prompt).into())
+    }
+}
+
+pub struct FlakyJudge(BTreeSet<(String, usize)>);
+
+impl FlakyJudge {
+    pub fn failing(trials: &[(&str, usize)]) -> Self {
+        Self(
+            trials
+                .iter()
+                .map(|(case_id, trial)| ((*case_id).to_owned(), *trial))
+                .collect(),
+        )
+    }
+}
+
+impl Judge for FlakyJudge {
+    async fn score(&self, request: JudgeRequest<'_>) -> Result<f64, JudgeError> {
+        if self
+            .0
+            .contains(&(request.case_id.to_owned(), request.trial))
+        {
+            return Err("gateway returned 429".into());
+        }
+        Ok(1.0)
     }
 }
 
@@ -85,6 +110,7 @@ pub fn judge_scorer(prompt: &str) -> Scorer {
 pub fn case(id: &str, critical: bool, trials: Vec<Trial>) -> CaseInput {
     CaseInput {
         case_id: id.into(),
+        title: format!("Title {id}"),
         critical,
         trials,
     }

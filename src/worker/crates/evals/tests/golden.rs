@@ -1,7 +1,7 @@
 mod support;
 
 use lens_contract::eval::{Gate, Summary};
-use lens_evals::{Baseline, CaseInput, RunInput, evaluate};
+use lens_evals::{Baseline, CaseInput, RunInput, evaluate, is_critical};
 use lens_evals_sdk::{client::Client, devserver, engine, model as sdk};
 use rstest::rstest;
 use serde_json::Value;
@@ -25,15 +25,23 @@ fn passing() -> lens_evals::Trial {
 }
 
 fn cases(failing: Option<&str>) -> Vec<CaseInput> {
-    (0..CASES)
-        .map(|index| {
-            let id = format!("case-{index}");
-            let trial = if failing == Some(id.as_str()) {
+    devserver::sample_cases(CASES)
+        .cases
+        .iter()
+        .map(|dataset_case| {
+            let trial = if failing == Some(dataset_case.id.as_str()) {
                 error()
             } else {
                 passing()
             };
-            case(&id, index < 2, vec![trial; TRIALS])
+            CaseInput {
+                title: dataset_case.id.clone(),
+                ..case(
+                    &dataset_case.id,
+                    is_critical(&dataset_case.meta),
+                    vec![trial; TRIALS],
+                )
+            }
         })
         .collect()
 }

@@ -3,26 +3,12 @@ mod support;
 use std::collections::BTreeMap;
 
 use lens_contract::eval::{CalledBefore, CaseDiff, Gate, Scorer, TaskCompleted};
-use lens_evals::{
-    Error, GateFacts, RunInput, SpanStatus, Trial, TrialOutcome, check_gate, evaluate, majority,
-};
+use lens_evals::{Error, RunInput, SpanStatus, Trial, TrialOutcome, evaluate, is_critical};
 use rstest::rstest;
 use support::{FakeJudge, baseline, case, error, fail, judge_scorer, pass, root, run, tool};
 
 fn judge() -> FakeJudge {
     FakeJudge::constant(1.0)
-}
-
-#[rstest]
-#[case::one_of_one(1, 1, true)]
-#[case::zero_of_one(0, 1, false)]
-#[case::tie_one_of_two(1, 2, false)]
-#[case::two_of_two(2, 2, true)]
-#[case::two_of_three(2, 3, true)]
-#[case::one_of_three(1, 3, false)]
-#[case::tie_two_of_four(2, 4, false)]
-fn majority_ties_fail(#[case] passing: usize, #[case] trials: usize, #[case] expected: bool) {
-    assert_eq!(majority(passing, trials), expected);
 }
 
 #[rstest]
@@ -126,6 +112,7 @@ fn traced() -> TrialOutcome {
 #[case::neither_present(priced(traced(), None, None), 0.0)]
 #[case::error_trial_cost_usd(priced(TrialOutcome::Error, Some(0.25), None), 0.5)]
 #[case::error_trial_ignores_spend(priced(TrialOutcome::Error, None, Some(9.0)), 0.0)]
+#[case::zero_cost_usd_wins_over_spend(priced(traced(), Some(0.0), Some(9.0)), 0.0)]
 #[tokio::test]
 async fn cost_per_case_sums_trials_over_cases(#[case] trial: Trial, #[case] expected: f64) {
     let input = run(
@@ -149,6 +136,16 @@ async fn no_baseline_skips_diffs_and_regression_gates() {
     assert!(summary.regressions.is_empty() && summary.fixed.is_empty());
     assert!(summary.gate.passed);
     assert_eq!(summary.gate.reasons, vec!["no baseline on main for rev 1"]);
+}
+
+#[tokio::test]
+async fn no_baseline_reason_names_the_run_revision() {
+    let input = RunInput {
+        revision: 7,
+        ..run(1, vec![case("a", false, vec![pass()])], None)
+    };
+    let summary = evaluate(&input, &judge()).await.unwrap().summary;
+    assert_eq!(summary.gate.reasons, vec!["no baseline on main for rev 7"]);
 }
 
 #[tokio::test]
@@ -178,7 +175,7 @@ async fn regressions_fixed_and_critical_follow_case_order() {
     };
     assert_eq!(ids(&summary.regressions), vec!["c", "a"]);
     assert_eq!(ids(&summary.fixed), vec!["b"]);
-    assert_eq!(summary.regressions[0].title, "c");
+    assert_eq!(summary.regressions[0].title, "Title c");
     assert!(summary.regressions[0].critical && !summary.regressions[1].critical);
     assert_eq!(
         summary.regressions[0].baseline_url,
@@ -200,6 +197,7 @@ async fn regressions_fixed_and_critical_follow_case_order() {
 #[rstest]
 #[case::no_cases(run(1, vec![], None))]
 #[case::zero_trials(run(0, vec![case("a", false, vec![])], None))]
+#[case::no_scorers(RunInput { scorers: vec![], ..run(1, vec![case("a", false, vec![pass()])], None) })]
 #[tokio::test]
 async fn empty_runs_are_rejected(#[case] input: RunInput) {
     assert!(matches!(
@@ -209,15 +207,23 @@ async fn empty_runs_are_rejected(#[case] input: RunInput) {
 }
 
 #[tokio::test]
-async fn judge_failure_aborts_evaluate() {
+async fn judge_failure_is_an_error_trial_only() {
     let input = RunInput {
         scorers: vec![judge_scorer("p")],
-        ..run(1, vec![case("c", false, vec![pass()])], None)
+        ..run(
+            3,
+            vec![
+                case("c", false, vec![pass(), pass(), pass()]),
+                case("d", false, vec![pass(), pass(), pass()]),
+            ],
+            None,
+        )
     };
-    assert!(matches!(
-        evaluate(&input, &FakeJudge(BTreeMap::new())).await,
-        Err(Error::Judge(_))
-    ));
+    let judge = support::FlakyJudge::failing(&[("c", 1)]);
+    let result = evaluate(&input, &judge).await.unwrap();
+    assert!(result.verdicts["c"] && result.verdicts["d"]);
+    assert_eq!(result.summary.errors, 1);
+    assert_eq!(result.summary.scores["judge"], 5.0 / 6.0);
 }
 
 #[tokio::test]
@@ -249,95 +255,41 @@ async fn extra_trials_are_rejected() {
     ));
 }
 
-fn facts(scores: &BTreeMap<String, f64>) -> GateFacts<'_> {
-    GateFacts {
-        has_baseline: true,
-        revision: 4,
-        regressions: 3,
-        critical_regressions: 1,
-        pass_rate: 0.8,
-        cost_per_case: 0.2,
-        scores,
-    }
-}
-
-fn gate(build: fn(&mut Gate)) -> Gate {
-    let mut gate = Gate {
-        regressions: None,
-        critical: None,
-        ..Gate::default()
-    };
-    build(&mut gate);
-    gate
-}
-
-#[rstest]
-#[case::regressions_over(gate(|g| g.regressions = Some(0)), vec!["3 regressions (max 0)"])]
-#[case::regressions_at_max(gate(|g| g.regressions = Some(3)), vec![])]
-#[case::critical_over(gate(|g| g.critical = Some(0)), vec!["1 critical regressions (max 0)"])]
-#[case::critical_at_max(gate(|g| g.critical = Some(1)), vec![])]
-#[case::pass_rate_below(gate(|g| g.pass_rate = Some(0.9)), vec!["Pass rate below minimum"])]
-#[case::pass_rate_equal(gate(|g| g.pass_rate = Some(0.8)), vec![])]
-#[case::cost_above(gate(|g| g.cost_per_case = Some(0.1)), vec!["Cost per case above maximum"])]
-#[case::cost_equal(gate(|g| g.cost_per_case = Some(0.2)), vec![])]
-#[case::min_below(
-    gate(|g| { g.min.insert("judge".into(), 0.95); }),
-    vec!["judge below minimum 0.95"]
-)]
-#[case::min_equal(gate(|g| { g.min.insert("judge".into(), 0.9); }), vec![])]
-#[case::min_missing_score(
-    gate(|g| { g.min.insert("other".into(), 1.0); }),
-    vec!["other below minimum 1"]
-)]
-#[case::all_in_order(
-    gate(|g| {
-        g.min.insert("z".into(), 1.0);
-        g.min.insert("judge".into(), 1.0);
-        g.cost_per_case = Some(0.0);
-        g.pass_rate = Some(1.0);
-        g.critical = Some(0);
-        g.regressions = Some(0);
-    }),
-    vec![
-        "3 regressions (max 0)",
-        "1 critical regressions (max 0)",
-        "Pass rate below minimum",
-        "Cost per case above maximum",
-        "judge below minimum 1",
-        "z below minimum 1",
-    ]
-)]
-fn gate_conditions(#[case] gate: Gate, #[case] reasons: Vec<&str>) {
-    let scores = BTreeMap::from([("judge".to_owned(), 0.9)]);
-    let result = check_gate(&gate, &facts(&scores));
-    assert_eq!(result.passed, reasons.is_empty());
-    assert_eq!(result.reasons, reasons);
-}
-
-#[rstest]
-#[case::regressions_ignored(gate(|g| g.regressions = Some(0)), true, vec!["no baseline on main for rev 4"])]
-#[case::critical_ignored(gate(|g| g.critical = Some(0)), true, vec!["no baseline on main for rev 4"])]
-#[case::pass_rate_still_applies(
-    gate(|g| g.pass_rate = Some(0.9)),
-    false,
-    vec!["Pass rate below minimum", "no baseline on main for rev 4"]
-)]
-fn gate_without_baseline(#[case] gate: Gate, #[case] passed: bool, #[case] reasons: Vec<&str>) {
-    let scores = BTreeMap::new();
-    let result = check_gate(
-        &gate,
-        &GateFacts {
-            has_baseline: false,
-            ..facts(&scores)
-        },
-    );
-    assert_eq!(result.passed, passed);
-    assert_eq!(result.reasons, reasons);
-}
-
 #[test]
 fn gate_defaults_match_contract() {
     let gate: Gate = serde_json::from_str("{}").unwrap();
     assert_eq!(gate, Gate::default());
     assert_eq!((gate.regressions, gate.critical), (Some(0), Some(0)));
+}
+
+#[rstest]
+#[case::nan_spend(None, Some(f64::NAN))]
+#[case::negative_spend(None, Some(-1.0))]
+#[case::infinite_cost(Some(f64::INFINITY), None)]
+#[case::negative_cost(Some(-0.5), None)]
+#[tokio::test]
+async fn invalid_costs_are_rejected(#[case] cost_usd: Option<f64>, #[case] spend: Option<f64>) {
+    let trial = Trial {
+        cost_usd,
+        trace_spend_usd: spend,
+        ..pass()
+    };
+    let input = run(1, vec![case("a", false, vec![trial])], None);
+    assert!(matches!(
+        evaluate(&input, &judge()).await,
+        Err(Error::InvalidCost { case_id }) if case_id == "a"
+    ));
+}
+
+#[rstest]
+#[case::high(&[("priority", "high")], true)]
+#[case::low(&[("priority", "low")], false)]
+#[case::missing(&[("finding_id", "1")], false)]
+#[case::case_sensitive(&[("priority", "HIGH")], false)]
+fn critical_comes_from_high_priority(#[case] meta: &[(&str, &str)], #[case] expected: bool) {
+    let meta: BTreeMap<String, String> = meta
+        .iter()
+        .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+        .collect();
+    assert_eq!(is_critical(&meta), expected);
 }
