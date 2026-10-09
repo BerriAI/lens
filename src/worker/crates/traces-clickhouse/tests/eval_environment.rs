@@ -66,6 +66,7 @@ impl Source {
 enum ReadPath {
     Named(ReadQuery, Source),
     RawSql(TraceTable),
+    RawCosts,
 }
 
 #[derive(Deserialize)]
@@ -342,6 +343,13 @@ async fn visible(seeded: &Seeded, path: ReadPath, trace: Trace) -> TestResult<bo
             let sql = format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE {condition}) AS matched");
             raw_sql_matches(seeded, trace.team, &sql).await
         }
+        ReadPath::RawCosts => {
+            let sql = format!(
+                "SELECT EXISTS(SELECT 1 FROM lens_call_costs WHERE key_kind = 'canonical' AND request_id = '{}') AS matched",
+                trace.request
+            );
+            raw_sql_matches(seeded, trace.team, &sql).await
+        }
     }
 }
 
@@ -363,6 +371,7 @@ async fn visible(seeded: &Seeded, path: ReadPath, trace: Trace) -> TestResult<bo
 #[case::raw_sql_spans(ReadPath::RawSql(TraceTable::OtelTraces), EVAL)]
 #[case::raw_sql_rollup(ReadPath::RawSql(TraceTable::AgentTracesByKey), EVAL)]
 #[case::raw_sql_requests(ReadPath::RawSql(TraceTable::SpendLogs), EVAL)]
+#[case::raw_sql_costs(ReadPath::RawCosts, EVAL)]
 #[tokio::test]
 async fn eval_traces_never_reach_findings_or_dashboard_reads(
     #[future(awt)] seeded: TestResult<Seeded>,
