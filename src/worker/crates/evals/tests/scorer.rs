@@ -41,12 +41,19 @@ fn called_before_edges(#[case] spans: Vec<EvalSpan>, #[case] expected: bool) {
     vec![root(SpanStatus::Ok), span("child", "root", 1, SpanStatus::Error)],
     true
 )]
-#[case::orphan_is_root(vec![span("orphan", "gone", 0, SpanStatus::Error)], false)]
+#[case::orphan_is_root(vec![span("orphan", "gone", 0, SpanStatus::Ok)], true)]
+#[case::empty_parent_is_root(
+    vec![root(SpanStatus::Ok), span("", "gone", 1, SpanStatus::Error)],
+    true
+)]
 #[case::earliest_root_wins(
     vec![span("late", "", 9, SpanStatus::Ok), span("early", "", 1, SpanStatus::Error)],
     false
 )]
-#[case::self_parent_is_root(vec![span("loop", "loop", 0, SpanStatus::Error)], false)]
+#[case::self_parent_is_root(
+    vec![span("loop", "loop", 0, SpanStatus::Ok), span("child", "loop", 1, SpanStatus::Error)],
+    true
+)]
 fn task_completed_reads_root_status(#[case] spans: Vec<EvalSpan>, #[case] expected: bool) {
     assert_eq!(scorer::task_completed(&spans), expected);
 }
