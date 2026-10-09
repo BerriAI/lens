@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use litellm_traces::request::{
-    TraceDetailRequest, TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
+    CONVERSATION_PAGE_SIZE_MAX, TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest,
+    TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
 };
 use serde_json::json;
 
@@ -94,6 +95,21 @@ pub(super) fn agents(
 }
 
 pub(super) fn detail(query: Option<&str>) -> Result<TraceDetailRequest, TraceHttpError> {
+    paged(query, TRACE_PAGE_SIZE_MAX)
+}
+
+pub(super) fn conversation(
+    query: Option<&str>,
+) -> Result<TraceConversationRequest, TraceHttpError> {
+    let request = paged(query, CONVERSATION_PAGE_SIZE_MAX)?;
+    Ok(TraceConversationRequest {
+        trace_ref: request.trace_ref,
+        cursor: request.cursor,
+        page_size: request.page_size,
+    })
+}
+
+fn paged(query: Option<&str>, max_size: u16) -> Result<TraceDetailRequest, TraceHttpError> {
     let params = parameters(query);
     let mut errors = Vec::new();
     let cursor = cursor(&params, &mut errors);
@@ -102,14 +118,17 @@ pub(super) fn detail(query: Option<&str>) -> Result<TraceDetailRequest, TraceHtt
         let (kind, message, context) = if value.negative() || value.exact() == Some(0) {
             (
                 "greater_than_equal",
-                "Input should be greater than or equal to 1",
+                "Input should be greater than or equal to 1".to_owned(),
                 json!({"ge":1}),
             )
-        } else if value.exact().is_none_or(|value| value > 500) {
+        } else if value
+            .exact()
+            .is_none_or(|value| value > i64::from(max_size))
+        {
             (
                 "less_than_equal",
-                "Input should be less than or equal to 500",
-                json!({"le":500}),
+                format!("Input should be less than or equal to {max_size}"),
+                json!({"le":max_size}),
             )
         } else {
             return value.exact().map(|value| value as u16);
@@ -117,7 +136,7 @@ pub(super) fn detail(query: Option<&str>) -> Result<TraceDetailRequest, TraceHtt
         errors.push(failure(
             kind,
             &[json!("query"), json!("page_size")],
-            message,
+            &message,
             json!(params["page_size"]),
             Some(context),
         ));

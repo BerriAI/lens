@@ -10,9 +10,11 @@ use axum::{
 use chrono::{DateTime, Utc};
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TracePage,
+    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
-    request::{TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest},
+    request::{
+        TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest,
+    },
 };
 use serde::Serialize;
 
@@ -65,6 +67,12 @@ pub trait TraceReader: Send + Sync {
         span_id: String,
         request: TraceSpanRequest,
     ) -> impl Future<Output = Result<Option<SpanDetail>, TraceReadError>> + Send;
+    fn conversation(
+        &self,
+        scope: ReadAccessParams,
+        trace_id: String,
+        request: TraceConversationRequest,
+    ) -> impl Future<Output = Result<Option<TraceConversationPage>, TraceReadError>> + Send;
     fn span_error(
         &self,
         scope: ReadAccessParams,
@@ -119,6 +127,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         .public_route("/v1/traces/query", post(query::<R, B>))
         .public_route("/v1/traces/query/help", get(help::<R, B>))
         .public_route("/v1/traces/{trace_id}", get(trace::<R, B>))
+        .public_route(
+            "/v1/traces/{trace_id}/conversation",
+            get(conversation::<R, B>),
+        )
         .public_route("/v1/traces/{trace_id}/spans/{span_id}", get(span::<R, B>))
         .public_route(
             "/v1/traces/{trace_id}/spans/{span_id}/error",
@@ -249,6 +261,24 @@ async fn span<R: SessionRepository, B: TraceReader>(
         .await
         .map_err(|error| read_error(error, app.config))?
         .ok_or(TraceHttpError::MissingSpan(span))?;
+    Ok(Json(value))
+}
+
+async fn conversation<R: SessionRepository, B: TraceReader>(
+    State(app): State<Arc<App<R, B>>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    method: Method,
+    RawQuery(query): RawQuery,
+) -> Result<Json<TraceConversationPage>, TraceHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let request = validation::conversation(query.as_deref())?;
+    let value = app
+        .reader
+        .conversation(scope(&identity)?, id.clone(), request)
+        .await
+        .map_err(|error| read_error(error, app.config))?
+        .ok_or(TraceHttpError::MissingTrace(id))?;
     Ok(Json(value))
 }
 

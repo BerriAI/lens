@@ -5,6 +5,7 @@ use litellm_traces_cache::{StoreError, TraceStore};
 
 use crate::{
     Connection, Error,
+    query::conversation::{ConversationAnchor, ConversationTurns},
     query::named::{
         ListTracesParams, ListTracesRow, SpanDetail as SpanDetailQuery, SpanError, SpanErrorParams,
         SpendByResponseIdsParams, TraceIdentity, TracePageSpansParams,
@@ -115,6 +116,27 @@ impl TraceStore for ClickHouseTraces {
         let storage_params = SpanErrorParams::from(params.clone());
         match fetch::<SpanError>(&self.client, &self.connection, &storage_params).await {
             Ok(rows) => Ok(rows.into_iter().next().map(|row| row.0)),
+            Err(error) => Err(failed(error)),
+        }
+    }
+
+    async fn conversation_anchor(
+        &self,
+        params: &contracts::TraceConversationAnchorParams,
+    ) -> Result<Option<contracts::TraceConversationAnchor>, StoreError<Self::Error>> {
+        fetch::<ConversationAnchor>(&self.client, &self.connection, params)
+            .await
+            .map(|rows| rows.into_iter().next().map(|row| row.0))
+            .map_err(failed)
+    }
+
+    async fn conversation_turns(
+        &self,
+        params: &contracts::TraceConversationTurnsParams,
+    ) -> Result<Vec<contracts::TraceConversationRow>, StoreError<Self::Error>> {
+        match fetch::<ConversationTurns>(&self.client, &self.connection, params).await {
+            Ok(rows) => Ok(rows.into_iter().map(|row| row.0).collect()),
+            Err(StorageError::ResponseTooLarge) => Err(StoreError::TooLarge),
             Err(error) => Err(failed(error)),
         }
     }

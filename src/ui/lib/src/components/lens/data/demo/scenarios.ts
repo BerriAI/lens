@@ -5,12 +5,14 @@ export type Scenario = {
   result: string;
   answer: string;
   failed?: boolean;
+  session?: string;
 };
 
 export const scenarios: Scenario[] = [
   {
     agent: "support_agent",
     question: "Where is order #1042?",
+    session: "demo-order-thread",
     tool: "lookup_order",
     result: "Order service timed out",
     answer: "I will check that for you.",
@@ -94,5 +96,13 @@ export const scenarios: Scenario[] = [
     tool: "search_docs",
     result: "Retry requests with exponential backoff after a 429 or 503 response.",
     answer: "Yes. Use exponential backoff for 429 and 503 responses, as documented.",
+  },
+  {
+    agent: "support_agent",
+    session: "demo-order-thread",
+    question: "Can you help me track my order?",
+    tool: "lookup_order_help",
+    result: "Order tracking requires the order number.",
+    answer: "Of course. What is your order number?",
   },
 ];

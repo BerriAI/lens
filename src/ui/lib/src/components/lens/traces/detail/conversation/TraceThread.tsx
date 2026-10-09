@@ -26,6 +26,7 @@ import {
   type ThreadWork,
 } from "./thread";
 import { useConversationDetails } from "./useConversationDetails";
+import { EarlierConversation, type useEarlierConversation } from "./EarlierConversation";
 
 export interface ConversationTracePaging {
   loading: boolean;
@@ -40,9 +41,10 @@ interface TraceThreadProps {
   accessToken: string;
   onOpenStep: (id: string) => void;
   paging?: ConversationTracePaging;
+  earlierConversation?: ReturnType<typeof useEarlierConversation>;
 }
 
-export function TraceThread({ trace, accessToken, onOpenStep, paging }: TraceThreadProps) {
+export function TraceThread({ trace, accessToken, onOpenStep, paging, earlierConversation }: TraceThreadProps) {
   const { details, entries, complete, loading, failed, hasMore, loadMore } = useConversationDetails(trace, accessToken);
   const pending = pendingConversationBranches(trace.spans, details, Boolean(trace.next_cursor));
   const groups = groupConversation(buildConversation(trace.spans, details, complete, pending), trace.spans);
@@ -78,6 +80,7 @@ export function TraceThread({ trace, accessToken, onOpenStep, paging }: TraceThr
   return (
     <section aria-label="Trace thread" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto min-w-0 max-w-3xl space-y-8 px-3 py-4 sm:px-6 sm:py-6">
+        {earlierConversation && <EarlierConversation history={earlierConversation} />}
         {rootErrors.map((span) => (
           <ErrorBlock key={span.span_id} span={span} />
         ))}
@@ -136,7 +139,7 @@ function ThreadFooter({ turnCount, busy, stepsFailed, traceFailed, complete, onR
       )}
       {complete && !turnCount && <p className="text-sm text-muted-foreground">No conversation content recorded.</p>}
       <div className="flex items-center justify-between gap-3 border-t pt-4 text-xs text-muted-foreground">
-        <span>{complete ? "End of thread" : `${turnCount} ${turnCount === 1 ? "turn" : "turns"} loaded`}</span>
+        <span>{complete ? "End of run" : `${turnCount} ${turnCount === 1 ? "turn" : "turns"} loaded`}</span>
         {onLoadMore && (
           <Button variant="outline" size="sm" onClick={onLoadMore}>
             Load more

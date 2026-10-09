@@ -144,6 +144,32 @@ function demoTracesApi(data: LensDemoData): TracesApi {
     },
     anyRecorded: async () => data.runs.length > 0,
     trace: (traceId) => found(run(traceId)?.trace),
+    conversation: async (traceId) => {
+      const current = await found(run(traceId));
+      const session = current.details[0]?.attributes["session.id"];
+      const earlier = session
+        ? data.runs
+            .filter(
+              (candidate) =>
+                candidate.details[0]?.attributes["session.id"] === session &&
+                candidate.trace.summary.start_time < current.trace.summary.start_time,
+            )
+            .toSorted((a, b) => a.trace.summary.start_time.localeCompare(b.trace.summary.start_time))
+        : [];
+      return {
+        turns: earlier.map(({ trace, details }) => ({
+          trace_id: trace.summary.trace_id,
+          trace_ref: trace.summary.trace_ref ?? "",
+          span_id: details[0].span_id,
+          start_time: trace.summary.start_time,
+          input: details[0].input,
+          output: details[0].output,
+          input_ui: { kind: "text" as const, text: details[0].input },
+          output_ui: { kind: "text" as const, text: details[0].output },
+        })),
+        next_cursor: null,
+      };
+    },
     span: (traceId, spanId) => found(run(traceId)?.details.find((span) => span.span_id === spanId)),
     spanError: async (traceId, spanId) => {
       const span = run(traceId)?.trace.spans.find((item) => item.span_id === spanId);

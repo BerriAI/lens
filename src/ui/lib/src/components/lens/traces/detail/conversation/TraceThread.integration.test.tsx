@@ -10,6 +10,11 @@ import type { SpanDetail, Trace } from "../../types";
 import { RunView } from "../run/RunView";
 
 vi.mock("../../../../../lib/http/requests", () => ({
+  apiClient: {
+    get: vi.fn(async (path: string) =>
+      path.endsWith("/conversation") ? { turns: [], next_cursor: null } : { feedback: [] },
+    ),
+  },
   agentTraceCall: vi.fn(),
   agentTraceSpanCall: vi.fn(),
   getProxyBaseUrl: () => "http://proxy.test",
@@ -140,7 +145,7 @@ describe("TraceThread", () => {
     );
     await user.click(await screen.findByRole("tab", { name: "Thread" }));
     const thread = await screen.findByRole("region", { name: "Trace thread" });
-    expect(await within(thread).findByText("End of thread")).toBeVisible();
+    expect(await within(thread).findByText("End of run")).toBeVisible();
     expect(vi.mocked(agentTraceCall).mock.calls.map((call) => call[3])).toEqual([null, "next-page"]);
     vi.mocked(agentTraceCall).mockRejectedValue(new Error("refresh unavailable"));
     await user.click(screen.getByRole("button", { name: "Refresh run" }));
@@ -199,7 +204,7 @@ describe("TraceThread", () => {
     );
     await user.click(await screen.findByRole("tab", { name: "Thread" }));
     const thread = await screen.findByRole("region", { name: "Trace thread" });
-    expect(await within(thread).findByText("End of thread")).toBeVisible();
+    expect(await within(thread).findByText("End of run")).toBeVisible();
     expect(within(thread).getAllByText("Agent exceeded its execution limit")).toHaveLength(1);
     await user.click(within(thread).getByRole("button", { name: /^Worked/ }));
     expect(within(thread).getAllByText("Agent exceeded its execution limit")).toHaveLength(1);

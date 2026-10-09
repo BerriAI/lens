@@ -65,6 +65,51 @@ pub struct TraceSpansParams {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TraceConversationAnchorParams {
+    #[serde(flatten)]
+    pub access: ReadAccessParams,
+    pub trace_id: String,
+    pub trace_ref: String,
+    pub snapshot_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TraceConversationAnchor {
+    pub trace_ref: String,
+    pub team_id: String,
+    pub api_key_hash: String,
+    pub session_id: String,
+    pub start_ns: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TraceConversationTurnsParams {
+    #[serde(flatten)]
+    pub access: ReadAccessParams,
+    pub team_id: String,
+    pub api_key_hash: String,
+    pub session_id: String,
+    pub current_trace_id: String,
+    pub before_ns: i64,
+    pub snapshot_ms: u64,
+    pub has_cursor: u8,
+    pub after_start_ns: i64,
+    pub after_trace_ref: String,
+    pub after_span_id: String,
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TraceConversationRow {
+    pub trace_id: String,
+    pub trace_ref: String,
+    pub span_id: String,
+    pub start_ns: i64,
+    pub input: String,
+    pub output: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TraceSpansRow {
     #[serde(default)]
     pub trace_id: String,
