@@ -1,0 +1,247 @@
+{
+  "started_at": "2026-10-09T12:10:10.718Z",
+  "updated_at": "2026-10-09T12:10:10.858Z",
+  "scope": "Stateless read/auth denials, existing trace only; no ingestion, paid inference or shared-service changes",
+  "checks": [
+    {
+      "label": "Valid delegated session accepted",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Signed owner log-team grant can read existing team trace",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Owner identity without log-team grant cannot read team trace",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "Other user cannot read existing trace directly",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "Browser query cannot expand signed trace scope",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add?all_teams=1&user_id=lens-qa-owner",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "Browser headers cannot expand signed trace scope",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects expired",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects future",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects excessive lifetime",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects wrong issuer",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects wrong audience",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects subject mismatch",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects unknown role",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects unknown claim",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects missing expiry",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects unknown identity field",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects wrong signature",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects alternate algorithm",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Gateway delegation rejects unsigned token",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Service credential cannot become browser identity",
+      "method": "GET",
+      "path": "/auth/session",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Admin credential cannot become service credential",
+      "method": "GET",
+      "path": "/internal/status",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Service status accepts proper service credential",
+      "method": "GET",
+      "path": "/internal/status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Ordinary gateway credential cannot call Lens internals",
+      "method": "GET",
+      "path": "/internal/status",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Viewer cannot create ingestion key",
+      "method": "POST",
+      "path": "/lens/tracing/keys",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "Unauthenticated gateway trace read rejected",
+      "method": "GET",
+      "path": "/v1/traces/01a8ca446a5875c6cf64712040596add",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Unauthenticated gateway Lens read rejected",
+      "method": "GET",
+      "path": "/lens/signals",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Forged internal marker rejected before gateway service read",
+      "method": "GET",
+      "path": "/lens/service",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Valid internal marker does not bypass gateway authentication",
+      "method": "GET",
+      "path": "/lens/service",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Duplicate internal markers rejected",
+      "method": "GET",
+      "path": "/lens/service",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Internal marker never authorizes inference",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    }
+  ]
+}

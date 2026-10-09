@@ -1,0 +1,1608 @@
+{
+  "schema": 1,
+  "status": "passed_final_domain_audit",
+  "lane": "dataset_domain",
+  "audit_window_start": "2026-10-09T11:59:21Z",
+  "earliest_audit_completion_at": "2026-10-09T12:59:21.000Z",
+  "execution_started_at": "2026-10-09T12:01:28.682Z",
+  "execution_finished_at": "2026-10-09T12:09:42.710Z",
+  "recorded_at": "2026-10-09T13:01:34.095Z",
+  "candidate_shas": {
+    "lens": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "lens_production": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "gateway": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "gateway_production": "d83eab03962545fa328222557e193e5519c26ad6",
+    "publisher": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+    "ops": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+    "docs": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+    "codex_integration": "2e0920128158046c8a3f0de230c366574c130672",
+    "examples_local": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+    "shared_rust_dependency": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
+  },
+  "lens_rust_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+  "production_rust_tree_unchanged": true,
+  "provider_calls": 0,
+  "provider_credentials_supplied": false,
+  "shared_services_mutated": false,
+  "qualified_test_cases": 297,
+  "qualified_command_groups": 10,
+  "tests": [
+    {
+      "label": "ignored_external_clickhouse_scope",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-lens",
+        "--test",
+        "clickhouse",
+        "--",
+        "--ignored",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:01:32.683Z",
+      "finished_at": "2026-10-09T12:02:19.003Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/ignored_external_clickhouse_scope.log",
+      "log_sha256": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+      "passed_test_names": [
+        "traces_round_trip_through_real_clickhouse_with_scoped_reads::case_1_own_trace",
+        "traces_round_trip_through_real_clickhouse_with_scoped_reads::case_2_own_span",
+        "traces_round_trip_through_real_clickhouse_with_scoped_reads::case_3_missing_span",
+        "traces_round_trip_through_real_clickhouse_with_scoped_reads::case_4_other_key"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/ignored_external_clickhouse_scope.log"
+    },
+    {
+      "label": "state_cas_atomicity_tombstones",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "state",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:05:05.330Z",
+      "finished_at": "2026-10-09T12:05:40.429Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/state_cas_atomicity_tombstones.log",
+      "log_sha256": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+      "passed_test_names": [
+        "compaction::abandoned_first_write_cannot_publish_after_reclamation",
+        "compaction::compaction_bounds_history_for_a_full_batch",
+        "compaction::compaction_checks_batch_size_before_writing::case_1_empty",
+        "compaction::compaction_checks_batch_size_before_writing::case_2_over_limit",
+        "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+        "compaction::compaction_preserves_unselected_keys_and_new_writes",
+        "compaction::concurrent_compaction_preserves_atomic_counters",
+        "compaction::deleted_revision_cannot_resolve_to_changed_content",
+        "concurrent_claims_have_one_winner",
+        "invalid_commits_fail_before_writing",
+        "isolated_container_restart_preserves_commits_and_fencing",
+        "missing_payload_is_unavailable_and_never_returns_null",
+        "payload_roundtrip_and_historical_resolve::case_1_text",
+        "payload_roundtrip_and_historical_resolve::case_2_scalars",
+        "publication_is_atomic_and_repeating_it_cannot_advance_state",
+        "reads_python_payloads_and_advances_the_existing_head::case_1_scalars",
+        "reads_python_payloads_and_advances_the_existing_head::case_2_unicode",
+        "reads_python_payloads_and_advances_the_existing_head::case_3_tombstone",
+        "session_authentication_survives_forced_clickhouse_restart",
+        "session_storage_failure_does_not_look_like_missing_session",
+        "sessions_preserve_python_keys_conflicts_and_tombstones",
+        "stale_progress_cannot_publish_its_checkpoint",
+        "stored_session_validation::case_1_python_timestamp",
+        "stored_session_validation::case_2_offset_timestamp",
+        "stored_session_validation::case_3_no_timezone",
+        "stored_session_validation::case_4_missing_field",
+        "stored_session_validation::case_5_unknown_field",
+        "tombstones_fence_stale_writes_and_keys_page_over_prepared_records",
+        "update_retries_contention_and_noop_preserves_revision"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/state_cas_atomicity_tombstones.log"
+    },
+    {
+      "label": "investigation_writer_budget_cancellation",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "investigations",
+        "writes::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:05:40.431Z",
+      "finished_at": "2026-10-09T12:06:46.310Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 125
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/investigation_writer_budget_cancellation.log",
+      "log_sha256": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+      "passed_test_names": [
+        "writes::abandoned_writers_expire_but_live_writers_time_out_without_publishing::case_1_expired",
+        "writes::abandoned_writers_expire_but_live_writers_time_out_without_publishing::case_2_live",
+        "writes::abort_during_acquisition_publication_releases_the_committed_owner",
+        "writes::budget_writes_finish_while_independent_clients_publish_progress::case_1_reserve",
+        "writes::budget_writes_finish_while_independent_clients_publish_progress::case_2_renew",
+        "writes::budget_writes_finish_while_independent_clients_publish_progress::case_3_settle",
+        "writes::delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence::case_1_expired_without_replacement",
+        "writes::delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence::case_2_expired_with_replacement",
+        "writes::expired_owner_cannot_begin_publication_even_without_a_successor",
+        "writes::locked_update_cannot_rename_a_lens",
+        "writes::replaced_writer_cannot_publish_or_release_the_successor_lease",
+        "writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_1_noop",
+        "writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_2_missing",
+        "writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_3_transform_error"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/investigation_writer_budget_cancellation.log"
+    },
+    {
+      "label": "eval_leases_publication_and_scope",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "qualification::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:06:46.311Z",
+      "finished_at": "2026-10-09T12:07:04.836Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 36,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 22
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/eval_leases_publication_and_scope.log",
+      "log_sha256": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+      "passed_test_names": [
+        "qualification::array_encoded_run_records_fail_closed::case_1_get",
+        "qualification::array_encoded_run_records_fail_closed::case_2_list",
+        "qualification::delayed_renewal_cannot_shorten_the_current_lease",
+        "qualification::expired_owner_cannot_renew_without_a_takeover::case_1_exact",
+        "qualification::expired_owner_cannot_renew_without_a_takeover::case_2_after",
+        "qualification::failed_creation_publishes_neither_run_nor_idempotency::case_1_run",
+        "qualification::failed_creation_publishes_neither_run_nor_idempotency::case_2_idempotency",
+        "qualification::failed_result_publication_keeps_original_receipt",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_1_submission_time",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_2_invalid_result",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_3_missing_trial",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_4_duplicate_trial",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_5_foreign_verdict",
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_6_total",
+        "qualification::invalid_creation_never_writes_a_record::case_1_empty_key",
+        "qualification::invalid_creation_never_writes_a_record::case_2_long_key",
+        "qualification::invalid_creation_never_writes_a_record::case_3_cases",
+        "qualification::invalid_creation_never_writes_a_record::case_4_duplicate_case",
+        "qualification::invalid_creation_never_writes_a_record::case_5_empty_case",
+        "qualification::invalid_creation_never_writes_a_record::case_6_zero_trials",
+        "qualification::invalid_creation_never_writes_a_record::case_7_too_many_trials",
+        "qualification::invalid_page_sizes_fail_before_reading_runs::case_1_empty",
+        "qualification::invalid_page_sizes_fail_before_reading_runs::case_2_too_large",
+        "qualification::listing_crosses_full_pages_and_skips_deleted_records",
+        "qualification::missing_run_operations_return_not_found",
+        "qualification::replaced_owner_cannot_change_or_release_successor::case_1_complete",
+        "qualification::replaced_owner_cannot_change_or_release_successor::case_2_fail",
+        "qualification::replaced_owner_cannot_change_or_release_successor::case_3_renew",
+        "qualification::replaced_owner_cannot_change_or_release_successor::case_4_release",
+        "qualification::run_and_first_receipt_survive_abrupt_restart",
+        "qualification::scoring_claim_recovery_obeys_expiration_boundary::case_1_before",
+        "qualification::scoring_claim_recovery_obeys_expiration_boundary::case_2_exact",
+        "qualification::scoring_claim_recovery_obeys_expiration_boundary::case_3_after",
+        "qualification::standalone_default_scope_remains_isolated_from_named_teams",
+        "qualification::successful_completion_persists_enriched_results_with_original_times",
+        "qualification::unpublished_future_run_never_replaces_published_result"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/eval_leases_publication_and_scope.log"
+    },
+    {
+      "label": "tracing_key_revocation_races",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "ingestion",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:07:04.837Z",
+      "finished_at": "2026-10-09T12:07:27.100Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/tracing_key_revocation_races.log",
+      "log_sha256": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+      "passed_test_names": [
+        "concurrent_creations_and_revocations_never_restore_removed_keys",
+        "concurrent_distinct_creations_retain_every_key",
+        "concurrent_duplicate_ids_have_one_winner",
+        "duplicate_id_cannot_replace_key_or_owner",
+        "empty_catalog_can_revoke_missing_keys",
+        "full_catalog_requires_revocation_before_another_creation",
+        "independent_clients_read_hash_only_records_in_id_order",
+        "legacy_python_records_preserve_precision_and_filter_negative_expiry",
+        "malformed_catalog_is_not_silently_replaced::case_1_object",
+        "malformed_catalog_is_not_silently_replaced::case_2_malformed_record",
+        "malformed_catalog_is_not_silently_replaced::case_3_missing_expiry",
+        "malformed_catalog_is_not_silently_replaced::case_4_unknown_fields",
+        "oversized_catalog_fails_closed_but_revocation_can_repair_it",
+        "restart_preserves_creation_expiry_and_revocation",
+        "unavailable_storage_does_not_claim_success"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/tracing_key_revocation_races.log"
+    },
+    {
+      "label": "signals_stale_owner_fencing",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "signals",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:07:27.100Z",
+      "finished_at": "2026-10-09T12:07:42.320Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 34,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/signals_stale_owner_fencing.log",
+      "log_sha256": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+      "passed_test_names": [
+        "arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_1_null",
+        "arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_2_array",
+        "arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_3_number",
+        "classified_unchanged_trace_requires_changed_configuration::case_1_same_config",
+        "classified_unchanged_trace_requires_changed_configuration::case_2_changed_config",
+        "concurrent_claims_have_one_durable_owner",
+        "configuration_and_results_survive_abrupt_restart",
+        "configuration_roundtrips_and_same_configuration_preserves_head",
+        "failed_writes_leave_published_state_intact::case_1_configuration",
+        "failed_writes_leave_published_state_intact::case_2_claim",
+        "failed_writes_leave_published_state_intact::case_3_store",
+        "legacy_lease_formats_preserve_completion_ownership::case_1_naive",
+        "legacy_lease_formats_preserve_completion_ownership::case_2_offset",
+        "live_lease_blocks_config_changes_at_exact_expiry",
+        "malformed_records_fail_closed::case_1_configuration",
+        "malformed_records_fail_closed::case_2_traces",
+        "malformed_records_fail_closed::case_3_claim",
+        "malformed_records_fail_closed::case_4_store",
+        "malformed_records_fail_closed::case_5_positional_configuration",
+        "malformed_records_fail_closed::case_6_positional_traces",
+        "malformed_records_fail_closed::case_7_positional_claim",
+        "malformed_records_fail_closed::case_8_positional_store",
+        "reads_preserve_first_requested_order_deduplicate_and_separate_references",
+        "reclassification_intervals_are_strict_and_reset_previous_result::case_1_grown_trace",
+        "reclassification_intervals_are_strict_and_reset_previous_result::case_2_failed_retry",
+        "storing_an_unknown_trace_does_not_create_a_record",
+        "superseded_claim_cannot_overwrite_its_successor::case_1_changed_lease",
+        "superseded_claim_cannot_overwrite_its_successor::case_2_changed_config",
+        "unavailable_storage_is_reported_for_every_operation::case_1_configuration",
+        "unavailable_storage_is_reported_for_every_operation::case_2_save_configuration",
+        "unavailable_storage_is_reported_for_every_operation::case_3_traces",
+        "unavailable_storage_is_reported_for_every_operation::case_4_claim",
+        "unavailable_storage_is_reported_for_every_operation::case_5_store",
+        "unpublished_result_cannot_replace_the_current_claim"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/signals_stale_owner_fencing.log"
+    },
+    {
+      "label": "migration_conflicts_resume_validation",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "lens-migrate",
+        "--test",
+        "target",
+        "--test",
+        "plan",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:07:42.321Z",
+      "finished_at": "2026-10-09T12:07:51.057Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 53,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "outcome": "ok",
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/migration_conflicts_resume_validation.log",
+      "log_sha256": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+      "passed_test_names": [
+        "arbitrary_legacy_row_order_does_not_change_fingerprint",
+        "archived_jobs_keep_full_body_and_zero_version",
+        "dataset_identity_revision_is_nonnegative::case_1_negative",
+        "dataset_identity_revision_is_nonnegative::case_2_initial",
+        "dataset_identity_revision_is_nonnegative::case_3_higher",
+        "duplicate_identities_never_replace_source_records::case_1_lens",
+        "duplicate_identities_never_replace_source_records::case_2_run",
+        "duplicate_identities_never_replace_source_records::case_3_review",
+        "duplicate_identities_never_replace_source_records::case_4_worker",
+        "duplicate_identities_never_replace_source_records::case_5_ingestion",
+        "duplicate_identities_never_replace_source_records::case_6_dataset",
+        "duplicate_identities_never_replace_source_records::case_7_configuration",
+        "duplicate_identities_never_replace_source_records::case_8_trace",
+        "empty_source_produces_no_synthetic_live_records",
+        "identifiers_use_python_compatible_utf8_percent_encoding",
+        "inconsistent_source_rows_are_rejected::case_01_lens",
+        "inconsistent_source_rows_are_rejected::case_02_lens_version",
+        "inconsistent_source_rows_are_rejected::case_03_run",
+        "inconsistent_source_rows_are_rejected::case_04_review",
+        "inconsistent_source_rows_are_rejected::case_05_worker",
+        "inconsistent_source_rows_are_rejected::case_06_worker_hash",
+        "inconsistent_source_rows_are_rejected::case_07_ingestion",
+        "inconsistent_source_rows_are_rejected::case_08_dataset",
+        "inconsistent_source_rows_are_rejected::case_09_revision",
+        "inconsistent_source_rows_are_rejected::case_10_configuration",
+        "inconsistent_source_rows_are_rejected::case_11_span_count",
+        "inconsistent_source_rows_are_rejected::case_12_trace_data",
+        "ingestion_credentials_require_unique_hashes::case_1_same_hash",
+        "ingestion_credentials_require_unique_hashes::case_2_distinct_hash",
+        "invalid_ingestion_hashes_are_rejected::case_1_empty",
+        "invalid_ingestion_hashes_are_rejected::case_2_short",
+        "invalid_ingestion_hashes_are_rejected::case_3_long",
+        "invalid_ingestion_hashes_are_rejected::case_4_nonhex",
+        "invalid_ingestion_hashes_are_rejected::case_5_nonascii",
+        "lens_versions_are_independent_nonnegative_counters::case_1_initial_row_version",
+        "lens_versions_are_independent_nonnegative_counters::case_2_advanced_versions",
+        "lens_versions_are_independent_nonnegative_counters::case_3_zero_revision",
+        "lens_versions_are_independent_nonnegative_counters::case_4_negative_stored_version",
+        "lens_versions_are_independent_nonnegative_counters::case_5_negative_public_version",
+        "lens_versions_are_independent_nonnegative_counters::case_6_negative_revision",
+        "null_scheduling_is_preserved_without_recomputation",
+        "populated_plan_preserves_authority_hashes_revisions_and_scheduling",
+        "positional_arrays_are_never_treated_as_object_records::case_1_lens",
+        "positional_arrays_are_never_treated_as_object_records::case_2_run",
+        "positional_arrays_are_never_treated_as_object_records::case_3_review",
+        "positional_arrays_are_never_treated_as_object_records::case_4_worker",
+        "positional_arrays_are_never_treated_as_object_records::case_5_ingestion",
+        "positional_arrays_are_never_treated_as_object_records::case_6_dataset",
+        "positional_arrays_are_never_treated_as_object_records::case_7_configuration",
+        "source_change_changes_fingerprint",
+        "valid_ingestion_hashes_are_preserved::case_1_lowercase",
+        "valid_ingestion_hashes_are_preserved::case_2_uppercase",
+        "zero_span_signal_is_preserved",
+        "changed_source_is_rejected_on_resume",
+        "checkpoint_prepare_without_publish_can_be_retried",
+        "existing_or_changed_target_data_is_never_overwritten::case_1_existing",
+        "existing_or_changed_target_data_is_never_overwritten::case_2_new_key_after_checkpoint",
+        "existing_or_changed_target_data_is_never_overwritten::case_3_changed_expected_value",
+        "interrupted_import_resumes_the_same_snapshot::case_1_empty",
+        "interrupted_import_resumes_the_same_snapshot::case_2_partial",
+        "migrated_state_is_verified_and_retry_is_idempotent::case_1_fresh",
+        "migrated_state_is_verified_and_retry_is_idempotent::case_2_repeated",
+        "migration_and_resume_preserve_records_across_multiple_batches"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/migration_conflicts_resume_validation.log"
+    },
+    {
+      "label": "inference_budget_negative_boundaries",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "lens-inference",
+        "--test",
+        "budget",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:07:51.057Z",
+      "finished_at": "2026-10-09T12:08:28.418Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 47,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/inference_budget_negative_boundaries.log",
+      "log_sha256": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+      "passed_test_names": [
+        "admission_keeps_recent_expirations_for_late_settlement::case_1_expired_yesterday",
+        "admission_keeps_recent_expirations_for_late_settlement::case_2_retention_boundary",
+        "admission_keeps_recent_expirations_for_late_settlement::case_3_recent_expiry",
+        "admission_keeps_recent_expirations_for_late_settlement::case_4_no_expiry",
+        "admission_keeps_recent_expirations_for_late_settlement::case_5_no_clock",
+        "admission_rechecks_the_job_attempt::case_01_other_job",
+        "admission_rechecks_the_job_attempt::case_02_queued",
+        "admission_rechecks_the_job_attempt::case_03_completed",
+        "admission_rechecks_the_job_attempt::case_04_cancelled",
+        "admission_rechecks_the_job_attempt::case_05_other_worker",
+        "admission_rechecks_the_job_attempt::case_06_unassigned",
+        "admission_rechecks_the_job_attempt::case_07_reclaimed",
+        "admission_rechecks_the_job_attempt::case_08_no_lease",
+        "admission_rechecks_the_job_attempt::case_09_expired_lease",
+        "admission_rechecks_the_job_attempt::case_10_lease_boundary",
+        "admission_reports_actionable_budget_error::case_1_exhausted",
+        "admission_reports_actionable_budget_error::case_2_overspent",
+        "admission_reports_actionable_budget_error::case_3_insufficient",
+        "admission_uses_remaining_monthly_budget::case_1_request_fits",
+        "admission_uses_remaining_monthly_budget::case_2_request_can_wait",
+        "admission_uses_remaining_monthly_budget::case_3_request_too_large",
+        "another_live_reservation_does_not_allow_renewing_a_released_request",
+        "current_owner_can_reserve_after_the_month_rolls_over",
+        "failed_call_releases_allowance_without_charging",
+        "held_budget_waits_without_charging_or_reporting_exhaustion::case_1_sufficient_room",
+        "held_budget_waits_without_charging_or_reporting_exhaustion::case_2_exactly_full",
+        "held_budget_waits_without_charging_or_reporting_exhaustion::case_3_pending_call",
+        "late_old_month_settlement_only_charges_the_job::case_1_recorded_job",
+        "late_old_month_settlement_only_charges_the_job::case_2_archived_job",
+        "missing_job_still_settles_monthly_spend",
+        "month_reset_preserves_pending_settlement_and_job_accounting",
+        "only_live_current_month_reservations_hold_budget::case_1_previous_month",
+        "only_live_current_month_reservations_hold_budget::case_2_unexpired",
+        "only_live_current_month_reservations_hold_budget::case_3_at_expiry",
+        "only_live_current_month_reservations_hold_budget::case_4_expired",
+        "only_live_current_month_reservations_hold_budget::case_5_permanent",
+        "only_live_current_month_reservations_hold_budget::case_6_no_clock",
+        "renewal_checks_the_selected_reservations_lease::case_1_selected_expired",
+        "renewal_checks_the_selected_reservations_lease::case_2_unrelated_expired",
+        "renewal_extends_only_the_selected_reservation::case_1_leased",
+        "renewal_extends_only_the_selected_reservation::case_2_legacy_permanent",
+        "renewal_never_resurrects_expired_or_released_allowance::case_1_missing",
+        "renewal_never_resurrects_expired_or_released_allowance::case_2_expired",
+        "renewal_never_resurrects_expired_or_released_allowance::case_3_exact_expiry",
+        "settlement_finds_the_reserved_job_and_preserves_other_jobs",
+        "settlement_releases_unused_allowance_and_is_idempotent",
+        "waiting_does_not_prune_reservations"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/inference_budget_negative_boundaries.log"
+    },
+    {
+      "label": "job_lifecycle_cancellation_and_expiry",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "lens-investigations",
+        "--test",
+        "behavior",
+        "lifecycle::",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:08:28.419Z",
+      "finished_at": "2026-10-09T12:08:36.359Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 42,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 124
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt3/job_lifecycle_cancellation_and_expiry.log",
+      "log_sha256": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+      "passed_test_names": [
+        "investigations::lifecycle::active_queue_is_idempotent_with_frozen_settings::case_1_queued",
+        "investigations::lifecycle::active_queue_is_idempotent_with_frozen_settings::case_2_running",
+        "investigations::lifecycle::budget_month_renewal_preserves_job_costs_and_reservations::case_1_same_month",
+        "investigations::lifecycle::budget_month_renewal_preserves_job_costs_and_reservations::case_2_next_month",
+        "investigations::lifecycle::cancellation_and_idle_operations",
+        "investigations::lifecycle::current_job_and_replacement_preserve_history_order",
+        "investigations::lifecycle::due_times::case_1_idle",
+        "investigations::lifecycle::due_times::case_2_disabled",
+        "investigations::lifecycle::due_times::case_3_queued_disabled",
+        "investigations::lifecycle::due_times::case_4_running",
+        "investigations::lifecycle::due_times::case_5_running_without_lease",
+        "investigations::lifecycle::due_times::case_6_completed",
+        "investigations::lifecycle::due_times::case_7_failed_disabled",
+        "investigations::lifecycle::due_times::case_8_cancelled",
+        "investigations::lifecycle::first_scan_uses_full_configured_lookback::case_1_one_day",
+        "investigations::lifecycle::first_scan_uses_full_configured_lookback::case_2_one_week",
+        "investigations::lifecycle::first_scan_uses_full_configured_lookback::case_3_long_history",
+        "investigations::lifecycle::lease_and_scope_control_reclaims::case_1_live_lease",
+        "investigations::lifecycle::lease_and_scope_control_reclaims::case_2_expired_lease",
+        "investigations::lifecycle::lease_and_scope_control_reclaims::case_3_late_worker",
+        "investigations::lifecycle::lease_and_scope_control_reclaims::case_4_foreign_team",
+        "investigations::lifecycle::one_off_settings_and_windows_leave_monitor_unchanged::case_1_settings_lookback",
+        "investigations::lifecycle::one_off_settings_and_windows_leave_monitor_unchanged::case_2_explicit_lookback",
+        "investigations::lifecycle::one_off_settings_and_windows_leave_monitor_unchanged::case_3_window_precedence",
+        "investigations::lifecycle::only_successful_matching_schedule_advances_scan::case_1_scheduled",
+        "investigations::lifecycle::only_successful_matching_schedule_advances_scan::case_2_failed",
+        "investigations::lifecycle::only_successful_matching_schedule_advances_scan::case_3_manual",
+        "investigations::lifecycle::only_successful_matching_schedule_advances_scan::case_4_criteria_changed",
+        "investigations::lifecycle::only_successful_matching_schedule_advances_scan::case_5_never_backwards",
+        "investigations::lifecycle::partial_results_preserve_success::case_1_finding",
+        "investigations::lifecycle::partial_results_preserve_success::case_2_assessment",
+        "investigations::lifecycle::partial_results_preserve_success::case_3_total_failure",
+        "investigations::lifecycle::partial_results_preserve_success::case_4_no_error",
+        "investigations::lifecycle::reclaim_resets_live_reviews_but_keeps_result_state",
+        "investigations::lifecycle::repeated_disconnects_fail_and_schedule_the_next_run",
+        "investigations::lifecycle::scheduled_scan_window_resumes_and_clamps::case_1_recent",
+        "investigations::lifecycle::scheduled_scan_window_resumes_and_clamps::case_2_old",
+        "investigations::lifecycle::scheduled_scan_window_resumes_and_clamps::case_3_future",
+        "investigations::lifecycle::scheduled_scan_window_resumes_and_clamps::case_4_settling",
+        "investigations::lifecycle::termination_clears_live_activity_only::case_1_completed",
+        "investigations::lifecycle::termination_clears_live_activity_only::case_2_failed",
+        "investigations::lifecycle::termination_clears_live_activity_only::case_3_cancelled"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt3/job_lifecycle_cancellation_and_expiry.log"
+    },
+    {
+      "label": "local_inference_cancellation",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "litellm-lens",
+        "--lib",
+        "local::inference::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/mfkhalil/Code/litellm-lens/src/worker",
+      "started_at": "2026-10-09T12:09:21.964Z",
+      "finished_at": "2026-10-09T12:09:42.242Z",
+      "code": 0,
+      "signal": null,
+      "summaries": [
+        {
+          "outcome": "ok",
+          "passed": 13,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 141
+        }
+      ],
+      "log_path": "docs/extraction/evidence/final-removal/domain/attempt4/local_inference_cancellation.log",
+      "log_sha256": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+      "passed_test_names": [
+        "local::inference::tests::cancellation_before_provider_response_releases_without_charge",
+        "local::inference::tests::cancelling_paid_settlement_preserves_cost_exactly_once::case_1_before_commit",
+        "local::inference::tests::cancelling_paid_settlement_preserves_cost_exactly_once::case_2_after_commit",
+        "local::inference::tests::completed_settlement_disarms_cleanup",
+        "local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_1_monthly_budget",
+        "local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_2_request_budget",
+        "local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_3_reassigned",
+        "local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_4_expired",
+        "local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_5_invalid_prompt",
+        "local::inference::tests::provider_call_holds_a_live_lease_and_cancellation_releases_it",
+        "local::inference::tests::rejected_budget_preserves_policy_status_without_calling_provider::case_1_monthly_budget",
+        "local::inference::tests::rejected_budget_preserves_policy_status_without_calling_provider::case_2_request_budget",
+        "local::inference::tests::releasing_reservation_finishes_cleanup_before_returning"
+      ],
+      "original_log_path": "/tmp/lens-final-audit-domain/attempt4/local_inference_cancellation.log"
+    }
+  ],
+  "exact_upstream_progress_regression": {
+    "upstream_commit": "4ed0267b5a",
+    "cases": [
+      "writes::budget_writes_finish_while_independent_clients_publish_progress::case_1_reserve",
+      "writes::budget_writes_finish_while_independent_clients_publish_progress::case_2_renew",
+      "writes::budget_writes_finish_while_independent_clients_publish_progress::case_3_settle"
+    ],
+    "passed": true
+  },
+  "source_review": {
+    "recorded_at": "2026-10-09T12:07:05.162Z",
+    "audit_window_start": "2026-10-09T11:59:21Z",
+    "source": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "production_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "groups": [
+      {
+        "subject": "State publication",
+        "files": [
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/state.rs",
+            "sha256": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518"
+          },
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/state/transport.rs",
+            "sha256": "aa1071b1dbd1b200b27d79f64309df87cf5b7834c347679612ab2f2a842c6f76"
+          },
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/state/maintenance.rs",
+            "sha256": "88badd76e8dcf68d06a713ea5bb399479d15ce98ee6234828759d73648f1600d"
+          }
+        ],
+        "observations": [
+          "Prepared blobs do not become visible until revision-fenced KeeperMap publication; strict mode, synchronous insertion and wait_end_of_query are forced by storage transport",
+          "Multi-record reads confirm heads before and after value reads; missing or mismatched blobs fail closed rather than becoming null",
+          "Compaction republishes the same content at a newer revision before deleting obsolete history, preserving stale-writer fences"
+        ],
+        "validation_targets": [
+          "state_cas_atomicity_tombstones"
+        ]
+      },
+      {
+        "subject": "Investigation writer and progress ownership",
+        "files": [
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/investigations/writes.rs",
+            "sha256": "0c199e7c81af2b139f1affcff26347e897d970f87bdf53c8074b576904f7df0f"
+          },
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/investigations/reviews.rs",
+            "sha256": "6c986ee655805a50034f7870fb60c4199a71fab8f4112482195dc32d637106fa"
+          },
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/investigations.rs",
+            "sha256": "b21ba23fac345474355fcb99dfa455126b8f0d323766a647377b434c146159f9"
+          }
+        ],
+        "observations": [
+          "Budget transforms and progress publication acquire the same per-investigation writer; publication includes the held writer revision and releases it atomically with updated records",
+          "Acquisition verifies token and expiry; abandoned acquisition or cancelled publication schedules bounded cleanup only when the stored token still belongs to the cancelled owner",
+          "Progress checks job id, worker, attempt, running state and strictly live lease after elapsed wait; stale owners cannot publish a review checkpoint"
+        ],
+        "validation_targets": [
+          "investigation_writer_budget_cancellation"
+        ]
+      },
+      {
+        "subject": "Budget and cancellation",
+        "files": [
+          {
+            "path": "src/worker/crates/inference/src/budget.rs",
+            "sha256": "d7d03b77abde444c1b058c30aae605b4fff7355138d6ecc5cd58b4dbb6a08981"
+          },
+          {
+            "path": "src/worker/crates/lens/src/local/inference.rs",
+            "sha256": "055f0cfde0a0ab5c7a9e45dfffc5808a870eb2d8565234b89cd02afadb2ab87e"
+          },
+          {
+            "path": "src/worker/crates/investigations/src/lifecycle.rs",
+            "sha256": "7558de1527adec5f17b8ef4fed4d43945b434b0ae7cbfed4d51c5aec5b8307d5"
+          }
+        ],
+        "observations": [
+          "Reservation admission rechecks active job ownership and attempt under storage lock; held live current-month amounts reduce remaining capacity without charging them",
+          "Settlement removes the reservation by identity and is therefore idempotent, charges the originating job, and does not add old-month cost to a new month",
+          "Cancellation cleanup carries already observed provider cost and step; pre-response cancellation releases unused allowance. Provider behavior and unknown cost after network loss are outside synthetic test guarantees"
+        ],
+        "validation_targets": [
+          "inference_budget_negative_boundaries",
+          "job_lifecycle_cancellation_and_expiry",
+          "local_inference_cancellation"
+        ]
+      },
+      {
+        "subject": "Eval and signal lease ownership",
+        "files": [
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/evals/scoring.rs",
+            "sha256": "6e604b9b1e8a3451f97be2853830203d2f982829692edef0518b12837872212b"
+          },
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/signals.rs",
+            "sha256": "a92e5b78ea654616418ccfaaca73bdca838039c640acee8a5ef536e714c4a47e"
+          }
+        ],
+        "observations": [
+          "Eval renewal validates a matching live token and cannot shorten its stored deadline; completion atomically seals the run, clears its scoring index and writes the baseline reference",
+          "Signal completion requires both the same configuration fingerprint and exact persisted claim deadline; a replaced claim is not overwritten"
+        ],
+        "validation_targets": [
+          "eval_leases_publication_and_scope",
+          "signals_stale_owner_fencing"
+        ]
+      },
+      {
+        "subject": "Credential revocation and migration",
+        "files": [
+          {
+            "path": "src/worker/crates/storage-clickhouse/src/ingestion.rs",
+            "sha256": "128577b8a62551e355a2761f55b981eac64d40933fa00129e0f5f1dc6b783f31"
+          },
+          {
+            "path": "src/worker/crates/migrate/src/source.rs",
+            "sha256": "cd03577d091f32aeac0005a3270930752710290eebe5d4b4d4e2f410c0a309e5"
+          },
+          {
+            "path": "src/worker/crates/migrate/src/plan.rs",
+            "sha256": "6e4751a96372388b11e60fdcd30e271c54e36f3de360f4c3ee6d0da3934ee670"
+          },
+          {
+            "path": "src/worker/crates/migrate/src/target.rs",
+            "sha256": "417f8702d0687fa37c433e466220abc72002b865a31db8886cfc7e15fc6762f7"
+          },
+          {
+            "path": "src/worker/crates/migrate/src/main.rs",
+            "sha256": "e2df1f1330a539e8861aa22d259b0d3a4a2f0f4dc15da2080835d7334abdc3f5"
+          }
+        ],
+        "observations": [
+          "Tracing-key catalog creation and revocation retry revision conflicts against the latest catalog; creation cannot replace an existing key identity",
+          "Importer obtains all eight Lens source groups in one repeatable-read read-only transaction and validates the complete plan before target setup",
+          "Target import checks the exact plan fingerprint, rejects existing unknown or changed state and verifies each batch before publishing completion; explicit stopped-writer handoff remains a deployment prerequisite"
+        ],
+        "validation_targets": [
+          "tracing_key_revocation_races",
+          "migration_conflicts_resume_validation"
+        ]
+      }
+    ],
+    "confirmed_product_findings": [],
+    "limitations": [
+      "Review is scoped to the frozen Rust implementation and these executable boundaries",
+      "No production storage, provider call or managed migration is performed by this lane"
+    ]
+  },
+  "fixture_attempts": [
+    {
+      "status": "failed",
+      "started_at": "2026-10-09T12:01:28.682Z",
+      "finished_at": "2026-10-09T12:02:48.828Z",
+      "container": {
+        "name": "lens-audit-domain-1791547288631",
+        "owner_label": "lens.audit.domain=4717548c-8e49-459f-b110-bde5ad9e6c54",
+        "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "image_id": "sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "keeper_config_sha256": "62a189360cf156b123bc75c1787b5f96da79413e6bdd8452042d4eee97278a71",
+        "id": "f10a89b08d9c63adcf351c4e1553ab4e499bf1b5a941fcfe06b0b08cfa732caa",
+        "url": "http://127.0.0.1:59351",
+        "actual_version": "26.9.6.6"
+      },
+      "test_summaries": [
+        {
+          "label": "ignored_external_clickhouse_scope",
+          "summaries": [
+            {
+              "outcome": "ok",
+              "passed": 4,
+              "failed": 0,
+              "ignored": 0,
+              "measured": 0,
+              "filtered_out": 0
+            }
+          ],
+          "log_path": "docs/extraction/evidence/final-removal/domain/ignored_external_clickhouse_scope.log",
+          "log_sha256": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+          "original_log_path": "/tmp/lens-final-audit-domain/ignored_external_clickhouse_scope.log"
+        },
+        {
+          "label": "state_cas_atomicity_tombstones",
+          "summaries": [
+            {
+              "outcome": "FAILED",
+              "passed": 8,
+              "failed": 21,
+              "ignored": 0,
+              "measured": 0,
+              "filtered_out": 0
+            }
+          ],
+          "log_path": "docs/extraction/evidence/final-removal/domain/state_cas_atomicity_tombstones.log",
+          "log_sha256": "6430bd06ee708ccefed4a8cb98d2e520cd278632db33b95b580f2f61fa533eb9",
+          "original_log_path": "/tmp/lens-final-audit-domain/state_cas_atomicity_tombstones.log"
+        }
+      ],
+      "reason": "Audit-only ClickHouse PID cap256; concurrent compaction failed with503/code439, container exited133, then following cases reported transport failure",
+      "docker_events": {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt1-container-events.jsonl",
+        "sha256": "a9577f911b359dee63f543b1e068a627400ae167315f3eccbcaa92b8b2777747",
+        "original_path": "/tmp/lens-final-audit-domain/attempt1-container-events.jsonl"
+      },
+      "cleanup": {
+        "databases_before_removal": null,
+        "exact_owned_container_removed": true,
+        "shared_services_mutated": false,
+        "anonymous_volume": {
+          "removed_at": "2026-10-09T12:10:19.560Z",
+          "volume": "6a646c5ae85b47dfa0efa35a23d72ad37acfd8cd9e27d6332de8978eb8a7cdc8",
+          "created_at": "2026-10-09T12:01:28Z",
+          "ownership_basis": "Unique volume created with first audit container; read-only helper verified exact failed test database lens_rust_state_01c2e5a0925e4c3cb2d3a4f30b2131a7 metadata file; no container references remain",
+          "removed": true,
+          "shared_volumes_modified": false
+        }
+      },
+      "original_server_error_log_available": false
+    },
+    {
+      "status": "failed",
+      "started_at": "2026-10-09T12:04:18.642Z",
+      "finished_at": "2026-10-09T12:04:22.741Z",
+      "container": {
+        "name": "lens-audit-domain-1791547458591",
+        "owner_label": "lens.audit.domain=c5823933-e0d0-4164-8bef-1211cbf2c199",
+        "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "image_id": "sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "keeper_config_sha256": "62a189360cf156b123bc75c1787b5f96da79413e6bdd8452042d4eee97278a71",
+        "id": "12e86e6ad3504dbcb0481dda16464823e74537a8509cecced9b426f0f7c8bacc",
+        "url": "http://127.0.0.1:60579",
+        "actual_version": "26.9.6.6"
+      },
+      "test_summaries": [
+        {
+          "label": "reproduce_pids256_concurrent_compaction",
+          "summaries": [
+            {
+              "outcome": "FAILED",
+              "passed": 0,
+              "failed": 1,
+              "ignored": 0,
+              "measured": 0,
+              "filtered_out": 28
+            }
+          ],
+          "log_path": "docs/extraction/evidence/final-removal/domain/attempt2/reproduce_pids256_concurrent_compaction.log",
+          "log_sha256": "306947db125bee98422f577dadf9cef16d8edf79ca48ae3c51cd54393e8a6897",
+          "original_log_path": "/tmp/lens-final-audit-domain/attempt2/reproduce_pids256_concurrent_compaction.log"
+        }
+      ],
+      "reason": "Independent fresh cap256 reproduction returned500/code236 and503/code439 for the same concurrent-compaction case",
+      "cleanup": {
+        "databases_before_removal": null,
+        "container_state_before_removal": {
+          "running": true,
+          "exit_code": 0,
+          "oom_killed": false
+        },
+        "clickhouse_log_sha256": "d8c4ab2302d835faddf6808b13fd028adfa0ae18338bde699030cbdc4dc191f0",
+        "exact_owned_container_removed": true,
+        "shared_services_mutated": false
+      }
+    },
+    {
+      "status": "passed",
+      "started_at": "2026-10-09T12:05:02.464Z",
+      "finished_at": "2026-10-09T12:08:37.245Z",
+      "container": {
+        "name": "lens-audit-domain-1791547502421",
+        "owner_label": "lens.audit.domain=c8874633-a500-4ad8-b948-4be48791021b",
+        "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "image_id": "sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "keeper_config_sha256": "62a189360cf156b123bc75c1787b5f96da79413e6bdd8452042d4eee97278a71",
+        "id": "239a71ebf83870f8ece5e758dd40e3f33ff666ee35b13e71aecdb7c615735157",
+        "url": "http://127.0.0.1:60795",
+        "actual_version": "26.9.6.6"
+      },
+      "reason": "Removed only audit PID cap to match deployment Compose ClickHouse policy; retained2GB/2CPU, source and test assertions; all280 selected cases passed",
+      "cleanup": {
+        "databases_before_removal": [
+          "INFORMATION_SCHEMA",
+          "default",
+          "information_schema",
+          "system"
+        ],
+        "container_state_before_removal": {
+          "running": true,
+          "exit_code": 0,
+          "oom_killed": false,
+          "pids_limit": null,
+          "memory_bytes": 2147483648
+        },
+        "server_error_log_copied": true,
+        "server_error_log_sha256": "da41f991aa323827742d84cf9e985204db83d55650c7af3110374a89a1873edb",
+        "clickhouse_log_sha256": "d8c4ab2302d835faddf6808b13fd028adfa0ae18338bde699030cbdc4dc191f0",
+        "exact_owned_container_removed": true,
+        "shared_services_mutated": false
+      }
+    },
+    {
+      "status": "passed",
+      "started_at": "2026-10-09T12:09:18.998Z",
+      "finished_at": "2026-10-09T12:09:42.710Z",
+      "container": {
+        "name": "lens-audit-domain-1791547758923",
+        "owner_label": "lens.audit.domain=60b219c4-b534-4adf-8d7a-5f6ed55660ab",
+        "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "image_id": "sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+        "keeper_config_sha256": "62a189360cf156b123bc75c1787b5f96da79413e6bdd8452042d4eee97278a71",
+        "id": "4d048c991af50ff3f7c22ecc37406fee52dce1dda07df6a5da40b3127dccb4f9",
+        "url": "http://127.0.0.1:63745",
+        "actual_version": "26.9.6.6"
+      },
+      "reason": "Additional13 local-control cancellation and budget-refusal tests; provider transport is a local fixture, no external provider traffic",
+      "cleanup": {
+        "databases_before_removal": [
+          "INFORMATION_SCHEMA",
+          "default",
+          "information_schema",
+          "system"
+        ],
+        "container_state_before_removal": {
+          "running": true,
+          "exit_code": 0,
+          "oom_killed": false,
+          "pids_limit": null,
+          "memory_bytes": 2147483648
+        },
+        "server_error_log_copied": true,
+        "server_error_log_sha256": "16c38b89e7356e05ebe6bcfd52f51dc503579aa6f129729a0f265a67511cb2d6",
+        "clickhouse_log_sha256": "d8c4ab2302d835faddf6808b13fd028adfa0ae18338bde699030cbdc4dc191f0",
+        "exact_owned_container_removed": true,
+        "shared_services_mutated": false
+      }
+    }
+  ],
+  "cleanup": {
+    "owned_labeled_containers_remaining": 0,
+    "successful_fixture_databases_removed": true,
+    "first_attempt_anonymous_volume_removed": true,
+    "acceptance_credentials_cleanup_executed": false
+  },
+  "cross_review": {
+    "status": "passed_product_and_documentation_reviews",
+    "observations": [
+      {
+        "lane": "dataset_http",
+        "finding": "Fresh HTTP receipt hardcoded earlierba4 backend source as whole production source despite frozen full productd83",
+        "disposition": "Resolved by HTTP owner: receipt distinguishes backend source and complete production image/UI source, and records identical litellm/ and litellm-rust/ Git trees across ba4,d83,d171. No source or behavior change",
+        "product_change": false
+      },
+      {
+        "lane": "dataset_storage",
+        "finding": "Retiring stale coupled rollout guide would remove current named-reader permission preflight and bootstrap-source remediation; dev-setup also still described pre-Lens Role resource set",
+        "disposition": "Resolved and independently reviewed by this lane. Ops docs-only commit167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3 retires coupled worker instructions, preserves current bootstrap/read-access checks with --lens-only and updates role resources and type:lens ownership. CI37928931469 passed",
+        "product_change": false
+      }
+    ]
+  },
+  "confirmed_product_findings": [],
+  "limits": [
+    "This lane is a scoped fresh audit slice of frozen Rust source, not a rerun of the complete native suite",
+    "Original cap256 container server error log was not retained before removal; Docker exit133 and independent236/439 reproduction are retained, and the unchanged source passed after matching deployed PID policy",
+    "Selected migration checks use representative fixtures; final packaged PostgreSQL read-only migration and populated restore remain separately recorded earlier qualification",
+    "No official release, managed cutover, provider billing call or shared-state cleanup is performed",
+    "This domain attestation completes only the owned audit lane; root aggregates other lanes and controls acceptance cleanup and release/cutover boundaries"
+  ],
+  "independent_reviews": [
+    {
+      "reviewer": "root",
+      "receipt": "docs/extraction/evidence/final-removal/domain/root-domain-cross-review.json",
+      "sha256": "714f0846c5169e26142b96a8629c024285a42315a7e0e9e7cabed13eb54e29a6",
+      "result": {
+        "at": "2026-10-09T12:13:44.647Z",
+        "reviewer": "root",
+        "lane": "dataset_domain",
+        "log_checks": [
+          {
+            "label": "ignored_external_clickhouse_scope",
+            "recorded": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+            "actual": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+            "code": 0,
+            "passed": 4,
+            "start_after_audit": true
+          },
+          {
+            "label": "state_cas_atomicity_tombstones",
+            "recorded": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+            "actual": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+            "code": 0,
+            "passed": 29,
+            "start_after_audit": true
+          },
+          {
+            "label": "investigation_writer_budget_cancellation",
+            "recorded": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+            "actual": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+            "code": 0,
+            "passed": 14,
+            "start_after_audit": true
+          },
+          {
+            "label": "eval_leases_publication_and_scope",
+            "recorded": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+            "actual": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+            "code": 0,
+            "passed": 36,
+            "start_after_audit": true
+          },
+          {
+            "label": "tracing_key_revocation_races",
+            "recorded": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+            "actual": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+            "code": 0,
+            "passed": 15,
+            "start_after_audit": true
+          },
+          {
+            "label": "signals_stale_owner_fencing",
+            "recorded": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+            "actual": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+            "code": 0,
+            "passed": 34,
+            "start_after_audit": true
+          },
+          {
+            "label": "migration_conflicts_resume_validation",
+            "recorded": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+            "actual": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+            "code": 0,
+            "passed": 63,
+            "start_after_audit": true
+          },
+          {
+            "label": "inference_budget_negative_boundaries",
+            "recorded": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+            "actual": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+            "code": 0,
+            "passed": 47,
+            "start_after_audit": true
+          },
+          {
+            "label": "job_lifecycle_cancellation_and_expiry",
+            "recorded": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+            "actual": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+            "code": 0,
+            "passed": 42,
+            "start_after_audit": true
+          },
+          {
+            "label": "local_inference_cancellation",
+            "recorded": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+            "actual": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+            "code": 0,
+            "passed": 13,
+            "start_after_audit": true
+          }
+        ],
+        "total_passed": 297,
+        "runtime_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+        "current_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+        "confirmed_product_findings": [],
+        "retained_failed_attempts": 4,
+        "source_review": [
+          "KeeperMap compare-and-publish checks every expected revision in one update; payload inserted first with synchronous durable settings",
+          "Compaction publishes a newer fence before deleting older blobs; concurrent future revisions and unrelated records survive",
+          "Writer token+expiry checked after acquisition and bounded before publication; cleanup verifies its token and preserves successor ownership",
+          "Importer rejects source fingerprint drift and unknown target records; partial matching imports read back and resume"
+        ]
+      },
+      "original_receipt": "/tmp/lens-final-removal-audit/root-domain-cross-review.json"
+    },
+    {
+      "reviewer": "dataset_http",
+      "receipt": "docs/extraction/evidence/final-removal/domain/http-domain-cross-review.json",
+      "sha256": "be949004746950d66bc924b894574cabd1a18569e39fbda5fcaa6285b9700c0c",
+      "result": {
+        "reviewed_at": "2026-10-09T12:17:50.985436+00:00",
+        "reviewer": "dataset_http",
+        "domain_receipt_sha256": "fdc7a60f8e5f402719300bfbebaecf41a3e3d9afef58e2beb5410a1ae17fa55f",
+        "verified_test_groups": 10,
+        "verified_cases": 297,
+        "source_hashes_verified": 16,
+        "git_objects": {
+          "9e4974603aa1e3f638ebe93284eb309110dc5ec8": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+          "70c2d61e36503116241dcc2fbf5f51ed69cbf430": "f2369c5095eb7370c3ae81736a917c812bcb91c2"
+        },
+        "failed_attempt_log_hashes_verified": true,
+        "owned_containers_remaining": 0,
+        "manual_source_review": "complete",
+        "status": "passed_scoped_independent_review",
+        "reviewed_source_sha256": {
+          "deploy/lens/compose.yaml": "fce67c8e6dd6dfe608dc7144b6d6d25103bbc587897e261a4eb5b24e3b55586f",
+          "src/worker/crates/storage-clickhouse/tests/investigations/writes.rs": "a9fbd510e1d27af781bc72cda444c72c78f7fc56e8ecefd94a1106914e22f21f",
+          "src/worker/crates/storage-clickhouse/src/investigations/writes.rs": "0c199e7c81af2b139f1affcff26347e897d970f87bdf53c8074b576904f7df0f",
+          "src/worker/crates/storage-clickhouse/src/investigations/reviews.rs": "6c986ee655805a50034f7870fb60c4199a71fab8f4112482195dc32d637106fa",
+          "src/worker/crates/storage-clickhouse/src/state.rs": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518",
+          "src/worker/crates/storage-clickhouse/src/state/transport.rs": "aa1071b1dbd1b200b27d79f64309df87cf5b7834c347679612ab2f2a842c6f76",
+          "src/worker/crates/storage-clickhouse/src/evals/scoring.rs": "6e604b9b1e8a3451f97be2853830203d2f982829692edef0518b12837872212b",
+          "src/worker/crates/lens/src/local/inference.rs": "055f0cfde0a0ab5c7a9e45dfffc5808a870eb2d8565234b89cd02afadb2ab87e",
+          "src/worker/crates/lens/src/local.rs": "1ca4f9f913d73a288d64a8e39bc4d0cdb4b88b092a114051cb878c2616df668c",
+          "src/worker/crates/migrate/src/source.rs": "cd03577d091f32aeac0005a3270930752710290eebe5d4b4d4e2f410c0a309e5",
+          "src/worker/crates/migrate/src/target.rs": "417f8702d0687fa37c433e466220abc72002b865a31db8886cfc7e15fc6762f7"
+        },
+        "observations": [
+          "Read original upstream 4ed0267b5a081ac4884431fd7f5ef41fce20a4d1 Python change and integration assertions. Rust reserve and renewal call LocalControl.update, which delegates to update_locked; progress takes the same per-investigation writer. The three Rust cases exercise reserve, renewal, and settlement under four active independent progress writers and verify persistence, bounded completion, budget/job costs and renewed expiry. This is behavior regression coverage, not literal copying of the PostgreSQL blocking test.",
+          "Publication includes writer ownership revision in the same fenced KeeperMap update as Lens data and writer release. Prepared blobs alone do not advance published state. Missing or mismatched published payloads fail closed.",
+          "Storage transport forces strict KeeperMap mode, synchronous inserts and query completion; source/hash verification and fresh state tests include stale writer, compaction, atomic multi-record publication, restart and tombstone boundaries.",
+          "Progress revalidates job, worker, attempt, running status and live lease after waiting. Eval completion validates matching live scoring token, seals run and clears scoring index with one state commit.",
+          "Migration reads eight legacy Lens groups within a REPEATABLE READ READ ONLY PostgreSQL transaction; target rejects unknown published state, requires equal plan report/fingerprint on resume, verifies each chunk and marks completion last.",
+          "Deploy Compose pids_limit:128 belongs to Lens only; ClickHouse has no pids_limit. Audit fixture correction removed only its own cap256 while retaining source, assertions and CPU/memory caps. Original failed attempts remain recorded; original first server error log was lost and this limitation is explicit.",
+          "Checked current Docker label inventory: no domain-owned audit containers remain."
+        ],
+        "confirmed_product_findings": [],
+        "limitations": [
+          "Independent review validates raw logs, recorded execution source and selected code behavior; no duplicate full-suite rerun was performed.",
+          "Qualified tests are 297 scoped cases, not full Lens suite or production provider verification.",
+          "Managed cutover still requires stopped source/target writers; migration fixture tests do not establish a live production cutover.",
+          "This lane review does not end the required overall audit window."
+        ]
+      },
+      "original_receipt": "/tmp/lens-final-removal-audit/http-domain-evidence-verification.json"
+    }
+  ],
+  "durable_evidence": {
+    "recorded_at": "2026-10-09T12:34:07.081Z",
+    "directory": "docs/extraction/evidence/final-removal/domain",
+    "sanitization": "Isolated test-only logs were scanned for authenticated URLs, Bearer credentials and common provider/GitHub credential formats. None found. No shared credentials or external provider requests were supplied to the tests. Original bytes are retained; the two large server logs are losslessly gzip-compressed.",
+    "artifacts": [
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/ignored_external_clickhouse_scope.log",
+        "sha256": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+        "bytes": 3871,
+        "original_path": "/tmp/lens-final-audit-domain/ignored_external_clickhouse_scope.log",
+        "original_sha256": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+        "original_bytes": 3871,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/state_cas_atomicity_tombstones.log",
+        "sha256": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+        "bytes": 2275,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/state_cas_atomicity_tombstones.log",
+        "original_sha256": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+        "original_bytes": 2275,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/investigation_writer_budget_cancellation.log",
+        "sha256": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+        "bytes": 1792,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/investigation_writer_budget_cancellation.log",
+        "original_sha256": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+        "original_bytes": 1792,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/eval_leases_publication_and_scope.log",
+        "sha256": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+        "bytes": 3535,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/eval_leases_publication_and_scope.log",
+        "original_sha256": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+        "original_bytes": 3535,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/tracing_key_revocation_races.log",
+        "sha256": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+        "bytes": 1389,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/tracing_key_revocation_races.log",
+        "original_sha256": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+        "original_bytes": 1389,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/signals_stale_owner_fencing.log",
+        "sha256": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+        "bytes": 2966,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/signals_stale_owner_fencing.log",
+        "original_sha256": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+        "original_bytes": 2966,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/migration_conflicts_resume_validation.log",
+        "sha256": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+        "bytes": 5063,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/migration_conflicts_resume_validation.log",
+        "original_sha256": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+        "original_bytes": 5063,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/inference_budget_negative_boundaries.log",
+        "sha256": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+        "bytes": 5468,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/inference_budget_negative_boundaries.log",
+        "original_sha256": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+        "original_bytes": 5468,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/job_lifecycle_cancellation_and_expiry.log",
+        "sha256": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+        "bytes": 4705,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/job_lifecycle_cancellation_and_expiry.log",
+        "original_sha256": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+        "original_bytes": 4705,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt4/local_inference_cancellation.log",
+        "sha256": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+        "bytes": 1743,
+        "original_path": "/tmp/lens-final-audit-domain/attempt4/local_inference_cancellation.log",
+        "original_sha256": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+        "original_bytes": 1743,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/state_cas_atomicity_tombstones.log",
+        "sha256": "6430bd06ee708ccefed4a8cb98d2e520cd278632db33b95b580f2f61fa533eb9",
+        "bytes": 9728,
+        "original_path": "/tmp/lens-final-audit-domain/state_cas_atomicity_tombstones.log",
+        "original_sha256": "6430bd06ee708ccefed4a8cb98d2e520cd278632db33b95b580f2f61fa533eb9",
+        "original_bytes": 9728,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt2/reproduce_pids256_concurrent_compaction.log",
+        "sha256": "306947db125bee98422f577dadf9cef16d8edf79ca48ae3c51cd54393e8a6897",
+        "bytes": 1490,
+        "original_path": "/tmp/lens-final-audit-domain/attempt2/reproduce_pids256_concurrent_compaction.log",
+        "original_sha256": "306947db125bee98422f577dadf9cef16d8edf79ca48ae3c51cd54393e8a6897",
+        "original_bytes": 1490,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt1-container-events.jsonl",
+        "sha256": "a9577f911b359dee63f543b1e068a627400ae167315f3eccbcaa92b8b2777747",
+        "bytes": 1775,
+        "original_path": "/tmp/lens-final-audit-domain/attempt1-container-events.jsonl",
+        "original_sha256": "a9577f911b359dee63f543b1e068a627400ae167315f3eccbcaa92b8b2777747",
+        "original_bytes": 1775,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt1-volume-cleanup.json",
+        "sha256": "b4c2e12aa68e9761cc36d7ec0f2085d9d1068ab87684069062a603ae5baae972",
+        "bytes": 444,
+        "original_path": "/tmp/lens-final-audit-domain/attempt1-volume-cleanup.json",
+        "original_sha256": "b4c2e12aa68e9761cc36d7ec0f2085d9d1068ab87684069062a603ae5baae972",
+        "original_bytes": 444,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/source-review.json",
+        "sha256": "0d0168f5e1d9145bbff4d50dc4662efeff25ee1b80d0ace104124576586d4afe",
+        "bytes": 6989,
+        "original_path": "/tmp/lens-final-audit-domain/source-review.json",
+        "original_sha256": "0d0168f5e1d9145bbff4d50dc4662efeff25ee1b80d0ace104124576586d4afe",
+        "original_bytes": 6989,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/durable-log-scan.json",
+        "sha256": "b4afccf2514f755009aa26e4b0e4661dbc26847a40c0f317ba1d0780c2d753dc",
+        "bytes": 3213,
+        "original_path": "/tmp/lens-final-audit-domain/durable-log-scan.json",
+        "original_sha256": "b4afccf2514f755009aa26e4b0e4661dbc26847a40c0f317ba1d0780c2d753dc",
+        "original_bytes": 3213,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/execution.json",
+        "sha256": "1ca730f20c538203c58b0fbede455e2d3f631d74d7e408d7e8a7a6a833cc3bc5",
+        "bytes": 4055,
+        "original_path": "/tmp/lens-final-audit-domain/execution.json",
+        "original_sha256": "1ca730f20c538203c58b0fbede455e2d3f631d74d7e408d7e8a7a6a833cc3bc5",
+        "original_bytes": 4055,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt2/execution.json",
+        "sha256": "c27d43b2e680afd1b0578130249b73188f0c7adbd844e5ccbc6fd77db8c2010a",
+        "bytes": 2532,
+        "original_path": "/tmp/lens-final-audit-domain/attempt2/execution.json",
+        "original_sha256": "c27d43b2e680afd1b0578130249b73188f0c7adbd844e5ccbc6fd77db8c2010a",
+        "original_bytes": 2532,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/execution.json",
+        "sha256": "1e3b2d0b52d93afb1ebd4c617c6ba3c45e920b9a8c37ff91ee9fe0c26ee0a3d1",
+        "bytes": 31100,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/execution.json",
+        "original_sha256": "1e3b2d0b52d93afb1ebd4c617c6ba3c45e920b9a8c37ff91ee9fe0c26ee0a3d1",
+        "original_bytes": 31100,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt4/execution.json",
+        "sha256": "22c06224ddddfcd1855cc96f9d7c667070b34421f5a1e532cb10f5bc9284463b",
+        "bytes": 3974,
+        "original_path": "/tmp/lens-final-audit-domain/attempt4/execution.json",
+        "original_sha256": "22c06224ddddfcd1855cc96f9d7c667070b34421f5a1e532cb10f5bc9284463b",
+        "original_bytes": 3974,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt2/clickhouse.log",
+        "sha256": "d8c4ab2302d835faddf6808b13fd028adfa0ae18338bde699030cbdc4dc191f0",
+        "bytes": 426,
+        "original_path": "/tmp/lens-final-audit-domain/attempt2/clickhouse.log",
+        "original_sha256": "d8c4ab2302d835faddf6808b13fd028adfa0ae18338bde699030cbdc4dc191f0",
+        "original_bytes": 426,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt3/clickhouse-server.err.log.gz",
+        "sha256": "80a2e7f651ce593558d7ddc9e2f2287fde98a8c2723b8872377f71bd8c86cc48",
+        "bytes": 308561,
+        "original_path": "/tmp/lens-final-audit-domain/attempt3/clickhouse-server.err.log",
+        "original_sha256": "da41f991aa323827742d84cf9e985204db83d55650c7af3110374a89a1873edb",
+        "original_bytes": 16319053,
+        "encoding": "gzip"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/attempt4/clickhouse-server.err.log.gz",
+        "sha256": "0d430eff75b5d5364fe27485f79f7bfd287b43be6c48b81c07e5f9a4d5d8132b",
+        "bytes": 5463,
+        "original_path": "/tmp/lens-final-audit-domain/attempt4/clickhouse-server.err.log",
+        "original_sha256": "16c38b89e7356e05ebe6bcfd52f51dc503579aa6f129729a0f265a67511cb2d6",
+        "original_bytes": 241968,
+        "encoding": "gzip"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/root-domain-cross-review.json",
+        "sha256": "714f0846c5169e26142b96a8629c024285a42315a7e0e9e7cabed13eb54e29a6",
+        "bytes": 3928,
+        "original_path": "/tmp/lens-final-removal-audit/root-domain-cross-review.json",
+        "original_sha256": "714f0846c5169e26142b96a8629c024285a42315a7e0e9e7cabed13eb54e29a6",
+        "original_bytes": 3928,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/http-domain-cross-review.json",
+        "sha256": "be949004746950d66bc924b894574cabd1a18569e39fbda5fcaa6285b9700c0c",
+        "bytes": 4455,
+        "original_path": "/tmp/lens-final-removal-audit/http-domain-evidence-verification.json",
+        "original_sha256": "be949004746950d66bc924b894574cabd1a18569e39fbda5fcaa6285b9700c0c",
+        "original_bytes": 4455,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-build-509b3d73.log",
+        "sha256": "7b3c3e0e9978b885abc9e5afa37421b40a21e22518341d5037b5ef1213d6f578",
+        "bytes": 4439,
+        "original_path": "/tmp/lens-final-audit-domain/docs-build-509b3d73.log",
+        "original_sha256": "7b3c3e0e9978b885abc9e5afa37421b40a21e22518341d5037b5ef1213d6f578",
+        "original_bytes": 4439,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-structural-final.log",
+        "sha256": "bc0b34416cff65768830a9612082e62279465d07fcb719601e250cfc2165c5fb",
+        "bytes": 186,
+        "original_path": "/tmp/lens-final-audit-domain/docs-structural-final.log",
+        "original_sha256": "bc0b34416cff65768830a9612082e62279465d07fcb719601e250cfc2165c5fb",
+        "original_bytes": 186,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-writing-final.log",
+        "sha256": "b9aeb021a61d8c4b19e613d251afa7248d6c77d103ef3fd62216e90e39b76397",
+        "bytes": 234,
+        "original_path": "/tmp/lens-final-audit-domain/docs-writing-final.log",
+        "original_sha256": "b9aeb021a61d8c4b19e613d251afa7248d6c77d103ef3fd62216e90e39b76397",
+        "original_bytes": 234,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-sync-final.log",
+        "sha256": "5fd56bab6ac41e8e1bb479be06fb45a5e89454dfe317eb6161e3b1ab14217420",
+        "bytes": 771,
+        "original_path": "/tmp/lens-final-audit-domain/docs-sync-final.log",
+        "original_sha256": "5fd56bab6ac41e8e1bb479be06fb45a5e89454dfe317eb6161e3b1ab14217420",
+        "original_bytes": 771,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-authenticated-links.json",
+        "sha256": "0f824c2bcd83dc57bfb5fb35c380a3decab1e46ce3a5b8820668517e7e7cfcbb",
+        "bytes": 1181,
+        "original_path": "/tmp/lens-final-audit-domain/docs-authenticated-links.json",
+        "original_sha256": "0f824c2bcd83dc57bfb5fb35c380a3decab1e46ce3a5b8820668517e7e7cfcbb",
+        "original_bytes": 1181,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/docs-external-links.json",
+        "sha256": "f99e63771b22cfec4e1fc501940a38bb8a577ff57e1db1b63ed2c63d30ccdefa",
+        "bytes": 2490,
+        "original_path": "/tmp/lens-final-audit-domain/docs-external-links.json",
+        "original_sha256": "f99e63771b22cfec4e1fc501940a38bb8a577ff57e1db1b63ed2c63d30ccdefa",
+        "original_bytes": 2490,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/cleanup-guard-independent-review.json",
+        "sha256": "4fbd1a6a89968bb61aace8a8919132a3eb4bcad4c78327ffc32b431cec8b5405",
+        "bytes": 5535,
+        "original_path": "/tmp/lens-final-removal-audit/domain-cleanup-guard-review.json",
+        "original_sha256": "4fbd1a6a89968bb61aace8a8919132a3eb4bcad4c78327ffc32b431cec8b5405",
+        "original_bytes": 5535,
+        "encoding": "identity"
+      },
+      {
+        "path": "docs/extraction/evidence/final-removal/domain/cleanup-guard-independent.log",
+        "sha256": "5f9542ecbfa1bd5810d286e98e936b19f0e89414e00f90d5a0401aab56617b44",
+        "bytes": 3048,
+        "original_path": "/tmp/lens-final-audit-domain/cleanup-guard-independent.log",
+        "original_sha256": "5f9542ecbfa1bd5810d286e98e936b19f0e89414e00f90d5a0401aab56617b44",
+        "original_bytes": 3048,
+        "encoding": "identity"
+      }
+    ]
+  },
+  "documentation_correction": {
+    "status": "published_to_existing_draft_pr",
+    "baseline": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+    "successor": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "repository": "BerriAI/litellm-docs",
+    "pull_request": "https://github.com/BerriAI/litellm-docs/pull/2210",
+    "files_changed": 13,
+    "implementation_changed": false,
+    "structural_and_writing_checks": {
+      "passed": true,
+      "pages": 13
+    },
+    "importer_tests": {
+      "passed": 7
+    },
+    "full_strict_build": {
+      "passed": true,
+      "source": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+      "log": "docs/extraction/evidence/final-removal/domain/docs-build-509b3d73.log"
+    },
+    "rendered_review": {
+      "path": "docs/extraction/evidence/final-removal/root/root-public-docs-browser.json",
+      "sha256": "31148b7dce7f4b1c86e3ec13bb4008e75ef003f1e02a1fe0f8951f0d34afc92e"
+    },
+    "findings_resolved": [
+      "Old gateway-coupled source/deployment commands, worker enrollment, equal-version release requirements and provider/storage ownership replaced with current standalone runtime and optional gateway contract",
+      "Current investigation instructions matched to Settings > Analysis, Criteria/Watch for, Activity sampling and per-investigation model/budget/run flow",
+      "Historical scalability page and removed worker-claim diagram scoped to archived implementation",
+      "Internal Lens repository access prerequisite made explicit rather than claiming source publicly accessible"
+    ],
+    "remaining_prerequisites": [
+      "Lens repository is INTERNAL, so source links require authenticated repository access",
+      "Examples source494724 remains unpublished on its public remote; current account has READ permission",
+      "Official independent Lens artifacts and compatible gateway release adoption remain separately controlled"
+    ],
+    "provider_calls": 0,
+    "shared_service_changes": false,
+    "independent_review": {
+      "reviewer": "dataset_storage",
+      "receipt": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review.json",
+      "sha256": "d54630c04222f2219560c3e577a7da8733680b106eddc03b504358324cee0c93",
+      "reviewed_files": 13,
+      "actual_final_file_hashes_match": true,
+      "shell_fences": 14,
+      "local_targets": 41,
+      "configuration_renders": 2
+    },
+    "github_ci": {
+      "receipt": "docs/extraction/evidence/final-removal/domain/docs-509b3d73-ci.json",
+      "sha256": "cf0de944c338a611cf36f9a6c3cbc177e1a0da0fb1436294af2e97aa675c45b5",
+      "run_id": 37930761602,
+      "conclusion": "success",
+      "vercel_preview": "success",
+      "draft": true
+    }
+  },
+  "cleanup_harness_independent_review": {
+    "receipt": "docs/extraction/evidence/final-removal/domain/cleanup-guard-independent-review.json",
+    "sha256": "4fbd1a6a89968bb61aace8a8919132a3eb4bcad4c78327ffc32b431cec8b5405",
+    "status": "passed_scoped_independent_review_not_executed",
+    "synthetic_cases": 45,
+    "live_mutations": 0
+  },
+  "audit_completed_at": "2026-10-09T13:01:34.095Z",
+  "final_attestation": {
+    "recorded_at": "2026-10-09T13:01:34.095Z",
+    "root_finalize_dispatch_received": true,
+    "earliest_audit_completion_at": "2026-10-09T12:59:21.000Z",
+    "window_elapsed_seconds": 3733,
+    "frozen_product_worker_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+    "working_worker_tree_clean": true,
+    "retained_durable_artifacts_verified": 33,
+    "qualified_product_cases": 297,
+    "qualified_product_command_groups": 10,
+    "synthetic_cleanup_guard_cases_separately_counted": 45,
+    "owned_domain_containers_remaining": 0,
+    "unresolved_product_findings": 0,
+    "provider_calls": 0,
+    "shared_service_mutations": false,
+    "cleanup_executed": false,
+    "documentation_candidate": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "documentation_checkout_clean": true,
+    "documentation_preview_retained_on_port": 3205,
+    "independent_codex_readme_review": {
+      "result": "approved_docs_only",
+      "readme_sha256": "4fcbc427436e042cbc9c07f11283496ebb51133f3eb139b7e16e4e4393b1de7b",
+      "fresh_github_repository_visibility": "INTERNAL",
+      "fresh_github_release_inventory": [],
+      "product_source_retained": "2e0920128158046c8a3f0de230c366574c130672",
+      "change": "One setup prerequisite sentence states internal source access and unavailable public standalone release before the Lens quickstart"
+    }
+  }
+}

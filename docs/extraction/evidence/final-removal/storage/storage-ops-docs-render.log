@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-09T12:14:23.500Z",
+  "passed": true,
+  "records": [
+    {
+      "name": "lens-independent-deployment",
+      "source_sha256": "23dc993e00697a15adadff9c966f5b596acf939d1792e2c5f82c1aaa9839a3b6",
+      "html_sha256": "d8fcb7c597a1d5e6bf9e755155c954ca9ded645637532df90f30c4e067526e76",
+      "shell_snippets_syntax_checked": 2,
+      "local_links_checked": 1
+    },
+    {
+      "name": "lens-worker-dev-rollout",
+      "source_sha256": "a19aa397760fc3691b920da5523d050a4a5465b1b5233e29f73143c036e9659d",
+      "html_sha256": "833c42f7a47222132cd5ea8013dc0b776637f29b4b83d7f213f8f8a70f6fc762",
+      "shell_snippets_syntax_checked": 0,
+      "local_links_checked": 2
+    },
+    {
+      "name": "berrie-litellm-dev-setup",
+      "source_sha256": "674b76339c7cd78acc788924fafe9e0e67c9446ac704967fff139312764376f7",
+      "html_sha256": "aac06b988d8ea24e56e5f1122ef0e2693e6da5f0f4dee000d7aaca942384a4a9",
+      "shell_snippets_syntax_checked": 2,
+      "local_links_checked": 4
+    }
+  ],
+  "browser_visual_review": false,
+  "limit": "Bounded Markdown correction; rendered and source reviewed with local ReactMarkdown, no new browser visual claim"
+}

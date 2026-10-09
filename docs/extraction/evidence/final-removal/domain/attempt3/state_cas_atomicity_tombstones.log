@@ -1,0 +1,36 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.64s
+     Running tests/state.rs (target/debug/deps/state-6ac00e61fb54a84c)
+
+running 29 tests
+test compaction::abandoned_first_write_cannot_publish_after_reclamation ... ok
+test compaction::compaction_bounds_history_for_a_full_batch ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_1_empty ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_2_over_limit ... ok
+test compaction::compaction_keeps_current_values_and_fences_prepared_losers ... ok
+test compaction::compaction_preserves_unselected_keys_and_new_writes ... ok
+test compaction::concurrent_compaction_preserves_atomic_counters ... ok
+test compaction::deleted_revision_cannot_resolve_to_changed_content ... ok
+test concurrent_claims_have_one_winner ... ok
+test invalid_commits_fail_before_writing ... ok
+test isolated_container_restart_preserves_commits_and_fencing ... ok
+test missing_payload_is_unavailable_and_never_returns_null ... ok
+test payload_roundtrip_and_historical_resolve::case_1_text ... ok
+test payload_roundtrip_and_historical_resolve::case_2_scalars ... ok
+test publication_is_atomic_and_repeating_it_cannot_advance_state ... ok
+test reads_python_payloads_and_advances_the_existing_head::case_1_scalars ... ok
+test reads_python_payloads_and_advances_the_existing_head::case_2_unicode ... ok
+test reads_python_payloads_and_advances_the_existing_head::case_3_tombstone ... ok
+test session_authentication_survives_forced_clickhouse_restart ... ok
+test session_storage_failure_does_not_look_like_missing_session ... ok
+test sessions_preserve_python_keys_conflicts_and_tombstones ... ok
+test stale_progress_cannot_publish_its_checkpoint ... ok
+test stored_session_validation::case_1_python_timestamp ... ok
+test stored_session_validation::case_2_offset_timestamp ... ok
+test stored_session_validation::case_3_no_timezone ... ok
+test stored_session_validation::case_4_missing_field ... ok
+test stored_session_validation::case_5_unknown_field ... ok
+test tombstones_fence_stale_writes_and_keys_page_over_prepared_records ... ok
+test update_retries_contention_and_noop_preserves_revision ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.40s
+

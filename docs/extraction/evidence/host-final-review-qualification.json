@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-09T11:56:55.639985+00:00",
+  "recorded_at": "2026-10-09T12:21:38.195423+00:00",
   "qualification": "Exact current-tip checks and reviews, with separately attributed historical qualification; final release attestation remains pending",
   "pr": "https://github.com/BerriAI/litellm/pull/45529",
   "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
@@ -96,10 +96,8 @@
   "check_summary": {
     "WAITING": 1,
     "SKIPPED": 1,
-    "SUCCESS": 102,
+    "SUCCESS": 109,
     "FAILURE": 1,
-    "IN_PROGRESS": 5,
-    "PENDING": 1,
     "NEUTRAL": 1
   },
   "shared_ui": {
@@ -208,16 +206,16 @@
     "veria": {
       "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
       "check_id": 113804721518,
-      "status": "in_progress",
-      "conclusion": null,
+      "status": "completed",
+      "conclusion": "success",
       "started_at": "2026-10-09T11:47:40Z",
-      "completed_at": null,
-      "summary": "Analyzing changes for security issues...",
+      "completed_at": "2026-10-09T11:58:45Z",
+      "summary": "No security issues found",
       "url": "https://github.com/BerriAI/litellm/runs/113804721518"
     },
     "bugbot": {
       "status": "absent",
-      "observed_at": "2026-10-09T11:56:55.639985+00:00",
+      "observed_at": "2026-10-09T11:59:03.174124+00:00",
       "interpretation": "No current-tip result; absence is not a pass"
     }
   },
@@ -264,8 +262,8 @@
       "approval_attempted": false
     },
     "buildkite": {
-      "state": "PENDING",
-      "started_at": "2026-10-09T11:39:55Z",
+      "state": "SUCCESS",
+      "started_at": "2026-10-09T12:09:04Z",
       "url": "https://buildkite.com/berriai-1/e2e-tests/builds/25996"
     }
   },
@@ -300,7 +298,13 @@
   "raw_receipts": [
     {
       "name": "d171e20_check_snapshot",
-      "sha256": "f0db548ea44a1894af21180d8d55f06dfa47392076d43f615b442ebdd58d7c80",
+      "sha256": "543a6925d7d5923172db7ce3f4986fd8c090acad76e6aaca539e188e9a070bb1",
+      "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
+    },
+    {
+      "name": "d171e20_dedicated_audit_check_snapshot",
+      "observed_at": "2026-10-09T12:21:38.195423+00:00",
+      "sha256": "3304c14755468acd58620edd3cca7f3c86d4b92511434d0a268881022c7541b0",
       "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
     }
   ],
@@ -825,5 +829,16 @@
       "url": "https://github.com/BerriAI/lens/actions/runs/37924154315",
       "qualification": "Actual run retained at its original628 harness source, with final runtime/image identities unchanged; published d171 adds only smoke-test Job TTL3600, covered by independent24-case harness regression"
     }
+  },
+  "dedicated_audit_ci_snapshot": {
+    "observed_at": "2026-10-09T12:21:38.195423+00:00",
+    "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "draft": true,
+    "all_ten_required_passed": true,
+    "greptile_body_unchanged": true,
+    "new_inline_comments_after_refresh": 0,
+    "oauth_approval_attempted": false,
+    "raw_checks_sha256": "b5efb56fc0245e15cdb604207dbf0c776839382d7d0235ab852804fcfc5efce8",
+    "raw_review_comments_sha256": "38c2b06f598c70c3db2bc31963cf3fdbc29fb419cb51a7c13036ba8d43fc3430"
   }
 }

@@ -1,0 +1,49 @@
+{
+  "status": "completed_and_browser_verified",
+  "completed_at": "2026-10-09T13:24:16.109Z",
+  "scope": "Post-audit local acceptance cleanup; no production deployment or shared-provider credential mutation",
+  "timed_removal_audit_unchanged": true,
+  "task_credentials_rotated": 4,
+  "session_records": {
+    "previously_live_retired": 2,
+    "existing_tombstones_preserved": 2,
+    "all_four_retired": true
+  },
+  "original_state_records_preserved": 64,
+  "new_internal_worker_records": 2,
+  "original_spend_rows_preserved": 43,
+  "expected_new_spend_rows": {
+    "count": 2,
+    "cause": "Intentional retired gateway master authentication denials",
+    "cost": 0,
+    "tokens": 0,
+    "original_rows_checksum_unchanged": true
+  },
+  "fresh_recovery_http_checks": 19,
+  "prior_old_master_denials": 2,
+  "paid_calls": 0,
+  "provider_credentials_changed": false,
+  "source_image_unchanged": true,
+  "runtime_security_settings_preserved": true,
+  "superseded_preview_retired": "http://127.0.0.1:4490",
+  "retained_previews": [
+    "http://127.0.0.1:4326/ui/",
+    "http://127.0.0.1:4494/ui/lens/"
+  ],
+  "guard_refusals_and_disposition": [
+    "Stopped before session mutation on a verified task-owned orphan Prisma process; narrowly retired it",
+    "Stopped before starting an incomplete replacement container; recreated original runtime and security options",
+    "Accepted only equivalent Docker OomKillDisable null/false representations; disabled OOM killing remains forbidden",
+    "Accounted for the two exact zero-cost denial records while preserving every original billing row",
+    "Retired superseded task gateway4490 that still held the retired task master, preserving its database and files"
+  ],
+  "limits": [
+    "Unknown plaintext session cookies were not replayed; all four exact persisted sessions remain tombstoned",
+    "Previously provisioned unvisited scoped ClickHouse reader passwords can remain valid until that scope is reprovisioned; no broad ClickHouse user mutation performed",
+    "The inherited shared provider credential still needs rotation by its owner; it was deliberately not changed during local cleanup"
+  ],
+  "evidence_directory": "docs/extraction/evidence/local-acceptance-cleanup",
+  "browser_readback": "docs/extraction/evidence/local-acceptance-cleanup/browser/readback.json",
+  "post_cleanup_new_login_sessions": 1,
+  "browser_verification_at": "2026-10-09T13:29:29.178740+00:00"
+}

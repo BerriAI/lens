@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "status": "independent_focused_review_passed_not_executed",
+  "reviewer": "dataset_http",
+  "reviewed_at": "2026-10-09T13:10:40.639Z",
+  "script": "resume-verified-container.mjs",
+  "script_sha256": "a77807d47638a4bda70ea585203bfb3db8bc508fd86ad29b55902198bff6b2cb",
+  "actual_container_id": "053d441c609d129fb7f80eb4cae5d86bdcde312daa052a6eccfde685e2ab8cd4",
+  "read_only_checks": {
+    "exact_null_to_false_oom_default": true,
+    "all_other_normalized_config_fields_exact": true,
+    "never_started": true,
+    "rotated_task_fields_exact": true,
+    "syntax_exit_code": 0
+  },
+  "retained_guards": [
+    "Original retired startup manifest hashes",
+    "Receipt database/source and both freshness checks",
+    "Original gateway PIDs absent and no writers",
+    "Complete retained state and fixture equality",
+    "Entire existing HTTP/data/worker verification suffix"
+  ],
+  "remaining_findings": [],
+  "service_mutations_by_reviewer": 0,
+  "frozen_audit_evidence_modified": false
+}

@@ -1,0 +1,22 @@
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.71s
+     Running tests/investigations.rs (target/debug/deps/investigations-72dffd25820ca612)
+
+running 14 tests
+test writes::abandoned_writers_expire_but_live_writers_time_out_without_publishing::case_1_expired ... ok
+test writes::abandoned_writers_expire_but_live_writers_time_out_without_publishing::case_2_live ... ok
+test writes::abort_during_acquisition_publication_releases_the_committed_owner ... ok
+test writes::budget_writes_finish_while_independent_clients_publish_progress::case_1_reserve ... ok
+test writes::budget_writes_finish_while_independent_clients_publish_progress::case_2_renew ... ok
+test writes::budget_writes_finish_while_independent_clients_publish_progress::case_3_settle ... ok
+test writes::delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence::case_1_expired_without_replacement ... ok
+test writes::delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence::case_2_expired_with_replacement ... ok
+test writes::expired_owner_cannot_begin_publication_even_without_a_successor ... ok
+test writes::locked_update_cannot_rename_a_lens ... ok
+test writes::replaced_writer_cannot_publish_or_release_the_successor_lease ... ok
+test writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_1_noop ... ok
+test writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_2_missing ... ok
+test writes::unchanged_or_rejected_updates_release_the_writer_without_changing_data::case_3_transform_error ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 125 filtered out; finished in 56.43s
+

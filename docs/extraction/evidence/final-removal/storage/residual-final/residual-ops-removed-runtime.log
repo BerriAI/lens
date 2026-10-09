@@ -1,0 +1,12 @@
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/deploy-dev.yml:47:            deploy/lens/Dockerfile
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/deploy-dev.yml:48:            litellm/proxy/lens/release.py
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/deploy-dev.yml:71:          if [[ -f litellm/deploy/lens/Dockerfile && -f litellm/litellm/proxy/lens/release.py ]]; then
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/litellm-pr-componentized-ecr-build.yml:188:          if (Path("litellm/deploy/lens/Dockerfile").is_file()
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/litellm-pr-componentized-ecr-build.yml:189:                  and Path("litellm/litellm/proxy/lens/release.py").is_file()):
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/litellm-pr-componentized-ecr-build.yml:190:              images.append({"component": "lens-worker", "dockerfile": "deploy/lens/Dockerfile",
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:.github/workflows/litellm-pr-componentized-ecr-build.yml:389:          import lens.worker
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:scripts/test_lens_release_workflow.py:102:        for source, count in (((), 4), (("deploy/lens/Dockerfile",), 4),
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:scripts/test_lens_release_workflow.py:103:                              (("deploy/lens/Dockerfile", "litellm/proxy/lens/release.py"), 5)):
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:scripts/test_lens_release_workflow.py:115:        self.assertNotIn("deploy/lens/smoke.sh", script)
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:scripts/test_lens_release_workflow.py:119:                smoke = root / "litellm/deploy/lens/smoke.sh"
+167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3:scripts/test_lens_release_workflow.py:176:                    add_source(root, ("deploy/lens/Dockerfile", "litellm/proxy/lens/release.py"))

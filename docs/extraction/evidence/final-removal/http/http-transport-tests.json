@@ -1,0 +1,78 @@
+[
+  {
+    "name": "analysis-marker",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "lens-analysis",
+      "--test",
+      "transport",
+      "gateway_marker",
+      "--",
+      "--test-threads=2"
+    ],
+    "started_at": "2026-10-09T12:12:36.048300+00:00",
+    "finished_at": "2026-10-09T12:12:59.604701+00:00",
+    "exit_code": 0,
+    "log_sha256": "6d7086e2800b96eda004d73f4894448bc802dc4af217329eb494ba179decbb7b"
+  },
+  {
+    "name": "analysis-redirect",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "lens-analysis",
+      "--test",
+      "transport",
+      "redirects_cannot_forward_credentials",
+      "--",
+      "--test-threads=2"
+    ],
+    "started_at": "2026-10-09T12:12:59.605285+00:00",
+    "finished_at": "2026-10-09T12:13:00.209126+00:00",
+    "exit_code": 0,
+    "log_sha256": "13797c3c54419e3085488b4045e7e3dbc6765cf32e82ae042b05ad1c39168ae8"
+  },
+  {
+    "name": "signals-marker",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "lens-decisions",
+      "--test",
+      "transport",
+      "gateway_marker",
+      "--",
+      "--test-threads=2"
+    ],
+    "started_at": "2026-10-09T12:13:00.209503+00:00",
+    "finished_at": "2026-10-09T12:13:03.694668+00:00",
+    "exit_code": 0,
+    "log_sha256": "32f8ca1612579c02ab4b1caae62e7613e5ef60600015d56fd4f77561b3c0a95d"
+  },
+  {
+    "name": "signals-redirect",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "lens-decisions",
+      "--test",
+      "transport",
+      "failures_are_sanitized_and_never_retried_or_redirected",
+      "--",
+      "--test-threads=2"
+    ],
+    "started_at": "2026-10-09T12:13:03.695550+00:00",
+    "finished_at": "2026-10-09T12:13:03.924709+00:00",
+    "exit_code": 0,
+    "log_sha256": "aa19b27cf56ac80676c08ba680407a6913194552f39c158357469e968fb8f17e"
+  }
+]

@@ -1,0 +1,495 @@
+ruff + mypy + pytest	Set up job	﻿2026-10-09T12:40:41.0457654Z Current runner version: '2.337.0'
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0484818Z ##[group]Runner Image Provisioner
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0486001Z Hosted Compute Agent
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0486698Z Version: 20261002.596
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0487473Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0488373Z Build Date: 2026-10-02T22:28:27Z
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0489107Z Worker ID: {35e22528-2284-4bae-9f3f-8129ffb027d4}
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0490023Z Region: centralus
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0490669Z Cloud: Azure
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0491305Z ##[endgroup]
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0493356Z ##[group]Operating System
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0494100Z Ubuntu
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0494794Z 24.04.5
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0495379Z LTS
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0495935Z ##[endgroup]
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0496680Z ##[group]Runner Image
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0497376Z Image: ubuntu-24.04
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0498095Z Version: 20261004.327.1
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0499366Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0501427Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0502778Z ##[endgroup]
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0504116Z ##[group]GITHUB_TOKEN Permissions
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0506355Z Contents: read
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0507091Z Metadata: read
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0507750Z ##[endgroup]
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0510125Z Secret source: Actions
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0512483Z Cache mode: write
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.0513316Z Prepare workflow directory
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.1045999Z Prepare all required actions
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.1102903Z Getting action download info
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.4261478Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:41.5484191Z Download action repository 'astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39' (SHA:fac544c07dec837d0ccb6301d7b5580bf5edae39)
+ruff + mypy + pytest	Set up job	2026-10-09T12:40:42.3524662Z Complete job name: ruff + mypy + pytest
+ruff + mypy + pytest	Checkout	﻿2026-10-09T12:40:42.4124094Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4125078Z with:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4125649Z   persist-credentials: false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4126237Z   repository: BerriAI/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4129908Z   token: ***
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4130411Z   ssh-strict: true
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4130890Z   ssh-user: git
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4131404Z   clean: true
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4132125Z   sparse-checkout-cone-mode: true
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4132708Z   fetch-depth: 1
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4133199Z   fetch-tags: false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4133718Z   show-progress: true
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4134235Z   lfs: false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4134732Z   submodules: false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4135260Z   set-safe-directory: true
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4135847Z   allow-unsafe-pr-checkout: false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.4136582Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5023342Z Syncing repository: BerriAI/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5026568Z ##[group]Getting Git version info
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5028083Z Working directory is '/home/runner/work/project-releaser/project-releaser'
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5040666Z [command]/usr/bin/git version
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5093378Z git version 2.55.0
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5100570Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5113969Z Temporarily overriding HOME='/home/runner/work/_temp/b1d1156c-bbd8-47ac-9db7-590c344fdd37' before making global git config changes
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5117726Z Adding repository directory to the temporary git global config as a safe directory
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5120289Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/project-releaser/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5153415Z Deleting the contents of '/home/runner/work/project-releaser/project-releaser'
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5161883Z ##[group]Determining repository object format
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5164033Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5165785Z ##[group]Initializing the repository
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5167651Z [command]/usr/bin/git init /home/runner/work/project-releaser/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5229607Z hint: Using 'master' as the name for the initial branch. This default branch name
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5231610Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5234185Z hint: to use in all of your new repositories, which will suppress this warning,
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5236784Z hint: call:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5237952Z hint:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5239021Z hint: 	git config --global init.defaultBranch <name>
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5240463Z hint:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5241894Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5243837Z hint: 'development'. The just-created branch can be renamed via this command:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5245263Z hint:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5248338Z hint: 	git branch -m <name>
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5249932Z hint:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5251430Z hint: Disable this message with "git config set advice.defaultBranchName false"
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5253770Z Initialized empty Git repository in /home/runner/work/project-releaser/project-releaser/.git/
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5257863Z [command]/usr/bin/git remote add origin https://github.com/BerriAI/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5281149Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5283044Z ##[group]Disabling automatic garbage collection
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5284697Z [command]/usr/bin/git config --local gc.auto 0
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5309994Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5311278Z ##[group]Setting up auth
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5312532Z Removing SSH command configuration
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5314403Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5338222Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5565205Z Removing HTTP extra header
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5569486Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5594142Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5762929Z Removing includeIf entries pointing to credentials config files
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5764744Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5782553Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5936003Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5961263Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.5984923Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.6010851Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.6036301Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.6058176Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.6059639Z ##[group]Fetching the repository
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:42.6063680Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7564a9fc2221d9019dacdb3f947e62e25df55243:refs/remotes/pull/305/merge
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3473606Z From https://github.com/BerriAI/project-releaser
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3475599Z  * [new ref]         7564a9fc2221d9019dacdb3f947e62e25df55243 -> pull/305/merge
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3479797Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3481588Z ##[group]Determining the checkout info
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3483769Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3492188Z [command]/usr/bin/git sparse-checkout disable
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3528094Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3553489Z ##[group]Checking out the ref
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3557386Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/305/merge
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3748795Z Note: switching to 'refs/remotes/pull/305/merge'.
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3750820Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3753632Z You are in 'detached HEAD' state. You can look around, make experimental
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3756779Z changes and commit them, and you can discard any commits you make in this
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3759448Z state without impacting any branches by switching back to a branch.
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3760907Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3763614Z If you want to create a new branch to retain commits you create, you may
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3767173Z do so (now or later) by using -c with the switch command. Example:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3769431Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3770345Z   git switch -c <new-branch-name>
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3772200Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3773261Z Or undo this operation with:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3775825Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3776826Z   git switch -
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3778181Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3779907Z Turn off this advice by setting config variable advice.detachedHead to false
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3782902Z 
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3784945Z HEAD is now at 7564a9f Merge 8ef5236c571c2c264a5a05696f2fe835a74ede6b into 0903cc12133d35144d33916efcd779db5d2e6e7a
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3793366Z ##[endgroup]
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3799049Z [command]/usr/bin/git log -1 --format=%H
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3830039Z 7564a9fc2221d9019dacdb3f947e62e25df55243
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3837354Z ##[group]Removing auth
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3839440Z Removing SSH command configuration
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3842514Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.3867314Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4018301Z Removing HTTP extra header
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4021869Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4056607Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4218747Z Removing includeIf entries pointing to credentials config files
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4223478Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4246137Z includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4249009Z includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4251485Z includeif.gitdir:/github/workspace/.git.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4259355Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4845350Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4859248Z /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4868848Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4880439Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4885584Z /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4894132Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4902266Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4905647Z /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4912290Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4919382Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4923394Z /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4930539Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4938545Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4945293Z Removing credentials config '/home/runner/work/_temp/git-credentials-d619e419-569a-4c02-a3d5-a07fdaf9878d.config'
+ruff + mypy + pytest	Checkout	2026-10-09T12:40:43.4950306Z ##[endgroup]
+ruff + mypy + pytest	Setup uv	﻿2026-10-09T12:40:43.5273953Z ##[group]Run astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5275419Z with:
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5276276Z   enable-cache: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5277182Z   python-version: 3.12
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5278121Z   activate-environment: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5279180Z   no-project: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5280430Z   working-directory: /home/runner/work/project-releaser/project-releaser
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5288169Z   github-token: ***
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5290178Z   cache-dependency-glob: **/*requirements*.txt
+ruff + mypy + pytest	Setup uv	**/*requirements*.in
+ruff + mypy + pytest	Setup uv	**/*constraints*.txt
+ruff + mypy + pytest	Setup uv	**/*constraints*.in
+ruff + mypy + pytest	Setup uv	**/pyproject.toml
+ruff + mypy + pytest	Setup uv	**/uv.lock
+ruff + mypy + pytest	Setup uv	**/*.py.lock
+ruff + mypy + pytest	Setup uv	
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5292405Z   restore-cache: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5293358Z   save-cache: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5294228Z   prune-cache: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5295122Z   cache-python: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5296079Z   ignore-nothing-to-cache: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5297200Z   ignore-empty-workdir: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5298342Z   download-from-astral-mirror: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5299518Z   add-problem-matchers: true
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5300511Z   quiet: false
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5301394Z   resolution-strategy: highest
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.5302465Z ##[endgroup]
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6789657Z Trying to find version for uv in: /home/runner/work/project-releaser/project-releaser/uv.toml
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6794364Z Could not find file: /home/runner/work/project-releaser/project-releaser/uv.toml
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6797383Z Trying to find version for uv in: /home/runner/work/project-releaser/project-releaser/pyproject.toml
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6800674Z Could not find file: /home/runner/work/project-releaser/project-releaser/pyproject.toml
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6804098Z Could not determine uv version from uv.toml or pyproject.toml. Falling back to latest.
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.6808313Z Fetching manifest data from https://raw.githubusercontent.com/astral-sh/versions/main/v1/uv.ndjson ...
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:43.8126162Z Downloading uv from "https://releases.astral.sh/github/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz" ...
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.1035564Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/7d261758-79f4-46ed-8b77-f22bb7d19d08 -f /home/runner/work/_temp/05b1b23a-8d06-46da-89ff-f812221c1f06
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6755855Z Added /home/runner/.local/bin to the path
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6758236Z Added /opt/hostedtoolcache/uv/0.12.24/x86_64 to the path
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6760170Z Set UV_PYTHON_INSTALL_DIR to /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6760887Z Added /home/runner/work/_temp/uv-python-dir to the path
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6761463Z Set UV_PYTHON to 3.12
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6784060Z Set UV_CACHE_DIR to /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6784876Z Successfully installed uv version 0.12.24
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.6789151Z Searching files using cache dependency glob: /home/runner/work/project-releaser/project-releaser/**/*requirements*.txt,/home/runner/work/project-releaser/project-releaser/**/*requirements*.in,/home/runner/work/project-releaser/project-releaser/**/*constraints*.txt,/home/runner/work/project-releaser/project-releaser/**/*constraints*.in,/home/runner/work/project-releaser/project-releaser/**/pyproject.toml,/home/runner/work/project-releaser/project-releaser/**/uv.lock,/home/runner/work/project-releaser/project-releaser/**/*.py.lock
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7102150Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-build.in
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7115434Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-build.txt
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7123121Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-cloudsmith.in
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7131599Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-cloudsmith.txt
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7145312Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-maturin.in
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7151466Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-maturin.txt
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7164528Z /home/runner/work/project-releaser/project-releaser/.github/scripts/pyproject.toml
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7345391Z /home/runner/work/project-releaser/project-releaser/.github/scripts/uv.lock
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7382624Z Found 8 files to hash.
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.7430493Z Trying to restore cache from GitHub Actions cache with key: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:44.8822673Z Cache hit for: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:45.2551864Z Received 96734 of 96734 (100.0%), 0.4 MBs/sec
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:45.2552755Z Cache Size: ~0 MB (96734 B)
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:45.2575900Z [command]/usr/bin/tar -xf /home/runner/work/_temp/de45578a-b8dc-46c2-8316-2b308ece469d/cache.tzst -P -C /home/runner/work/project-releaser/project-releaser --use-compress-program unzstd
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:45.2640288Z Cache restored successfully
+ruff + mypy + pytest	Setup uv	2026-10-09T12:40:45.2644242Z cache restored from GitHub Actions cache with key: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	﻿2026-10-09T12:40:45.3747297Z ##[group]Run uv sync --frozen
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3747670Z ^[[36;1muv sync --frozen^[[0m
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3898198Z shell: /usr/bin/bash -e {0}
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3898457Z env:
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3898729Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3899033Z   UV_PYTHON: 3.12
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3899271Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.3899540Z ##[endgroup]
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.4052200Z Using CPython 3.12.3 interpreter at: /usr/bin/python3.12
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.4052905Z Creating virtual environment at: .venv
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.4080611Z    Building litellm-release-scripts @ file:///home/runner/work/project-releaser/project-releaser/.github/scripts
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.5031450Z Downloading pygments (1.2MiB)
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.5033465Z Downloading ruff (11.0MiB)
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.5034404Z Downloading ast-serialize (1.2MiB)
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.5035170Z Downloading mypy (14.4MiB)
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.6052160Z  Downloaded pygments
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.6068794Z  Downloaded ast-serialize
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.7775584Z  Downloaded ruff
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:45.8522547Z  Downloaded mypy
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.4360394Z       Built litellm-release-scripts @ file:///home/runner/work/project-releaser/project-releaser/.github/scripts
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.4401544Z Prepared 17 packages in 1.03s
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5497052Z Installed 17 packages in 109ms
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5498742Z  + ast-serialize==0.5.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5499208Z  + coverage==7.14.3
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5499675Z  + hypothesis==6.155.7
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5500100Z  + iniconfig==2.3.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5500484Z  + librt==0.11.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5501253Z  + litellm-release-scripts==0.1.0 (from file:///home/runner/work/project-releaser/project-releaser/.github/scripts)
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5502133Z  + mypy==2.1.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5502631Z  + mypy-extensions==1.1.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5503082Z  + packaging==26.2
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5503440Z  + pathspec==1.1.1
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5503814Z  + pluggy==1.6.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5504184Z  + pygments==2.20.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5504564Z  + pytest==9.1.1
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5504955Z  + pytest-cov==7.1.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5505224Z  + ruff==0.15.20
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5505472Z  + sortedcontainers==2.4.0
+ruff + mypy + pytest	Install (frozen -- fails if uv.lock is stale)	2026-10-09T12:40:46.5505938Z  + typing-extensions==4.15.0
+ruff + mypy + pytest	Lint (ruff)	﻿2026-10-09T12:40:46.5714403Z ##[group]Run uv run ruff check .
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5714907Z ^[[36;1muv run ruff check .^[[0m
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5715280Z ^[[36;1muv run ruff format --check .^[[0m
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5752627Z shell: /usr/bin/bash -e {0}
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5752887Z env:
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5753146Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5753453Z   UV_PYTHON: 3.12
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5753680Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.5753941Z ##[endgroup]
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.6745024Z All checks passed!
+ruff + mypy + pytest	Lint (ruff)	2026-10-09T12:40:46.7370624Z 124 files already formatted
+ruff + mypy + pytest	Type-check (mypy --strict)	﻿2026-10-09T12:40:46.7404092Z ##[group]Run uv run mypy
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7404333Z ^[[36;1muv run mypy^[[0m
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7439304Z shell: /usr/bin/bash -e {0}
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7439561Z env:
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7439827Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7440125Z   UV_PYTHON: 3.12
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7440352Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:46.7440620Z ##[endgroup]
+ruff + mypy + pytest	Type-check (mypy --strict)	2026-10-09T12:40:50.7283284Z Success: no issues found in 124 source files
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	﻿2026-10-09T12:40:50.7412311Z ##[group]Run uv run pytest
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7412599Z ^[[36;1muv run pytest^[[0m
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7447739Z shell: /usr/bin/bash -e {0}
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7448003Z env:
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7448276Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7448575Z   UV_PYTHON: 3.12
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7448809Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:50.7449094Z ##[endgroup]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5277402Z ============================= test session starts ==============================
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5278246Z platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5278989Z rootdir: /home/runner/work/project-releaser/project-releaser/.github/scripts
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5279716Z configfile: pyproject.toml
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5280131Z testpaths: tests
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5280577Z plugins: hypothesis-6.155.7, cov-7.1.0
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5281061Z collected 2553 items
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5281339Z 
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5374070Z tests/test_actions.py ......                                             [  0%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.5816806Z tests/test_build_push.py ............................................... [  2%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.6146275Z ..........                                                               [  2%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.6516499Z tests/test_buildkite.py ...............................                  [  3%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.6828573Z tests/test_cargo.py ................................                     [  4%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.7152810Z tests/test_channel_alias.py ...................................          [  6%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.7269876Z tests/test_chart_path.py ........                                        [  6%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.7333243Z tests/test_cli.py ...                                                    [  6%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.7714808Z tests/test_componentized.py ............................................ [  8%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.8509359Z ....................................................................     [ 11%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:55.8649960Z tests/test_config.py .............                                       [ 11%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.2175456Z tests/test_deploy_shape.py ...........................                   [ 12%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.2381030Z tests/test_detect_published.py ................                          [ 13%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.2594487Z tests/test_discover_counters.py .................                        [ 13%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.2874492Z tests/test_dist_name.py .......................                          [ 14%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.3112132Z tests/test_docker.py .......................                             [ 15%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.3649618Z tests/test_docker_build.py ............................................. [ 17%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.3820058Z ...........                                                              [ 17%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.3914464Z tests/test_docker_preflight.py ..........                                [ 18%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:40:59.4044667Z tests/test_dockerfile_args.py ............                               [ 18%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.3850528Z tests/test_e2e_build_image.py .............                              [ 19%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.4278026Z tests/test_e2e_gate.py ................................................. [ 21%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.4745141Z .......................................                                  [ 22%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.7012647Z tests/test_e2e_idp.py ...............                                    [ 23%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.7162718Z tests/test_e2e_lifecycle_contract.py ......                              [ 23%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.7286446Z tests/test_e2e_router.py .........                                       [ 23%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.7315150Z tests/test_git.py ...                                                    [ 24%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.7373761Z tests/test_github.py .......                                             [ 24%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.8040609Z tests/test_github_release.py ........................................... [ 26%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.8599340Z ............................                                             [ 27%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.9013677Z tests/test_guards.py ..........................................          [ 28%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.9421309Z tests/test_helm.py .........................................             [ 30%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.9469603Z tests/test_http.py .....                                                 [ 30%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:01.9652529Z tests/test_imagetools.py ......................                          [ 31%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:02.0015885Z tests/test_ingress_nginx.py ............................                 [ 32%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:02.0109881Z tests/test_inputs.py ..........                                          [ 32%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:02.1313489Z tests/test_lens.py ..................................................... [ 35%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:03.3151174Z .............................................                            [ 36%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:03.4978228Z tests/test_lens_host.py .....................................            [ 38%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:04.6937929Z tests/test_lens_release_security.py ..................                   [ 38%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.6855428Z tests/test_lens_workflows.py ....................                        [ 39%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.6877738Z tests/test_main.py .                                                     [ 39%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.7003591Z tests/test_notion.py .........                                           [ 40%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.7098647Z tests/test_oci_tags.py .........                                         [ 40%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.7445425Z tests/test_parse_version.py ...................                          [ 41%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.7812819Z tests/test_pep440.py ....................................                [ 42%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.8335469Z tests/test_private_dist.py ............................................. [ 44%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.8808983Z ..........................................                               [ 46%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.9264737Z tests/test_private_pypi.py ............................................. [ 47%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.9897535Z .................................                                        [ 49%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:10.9976742Z tests/test_proc.py .........                                             [ 49%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.0342244Z tests/test_promote.py ...................................                [ 50%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.8707794Z tests/test_properties.py ......                                          [ 51%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.8999443Z tests/test_publish.py .......................                            [ 51%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.9084861Z tests/test_pypi.py ..........                                            [ 52%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.9290028Z tests/test_pyproject.py .....................                            [ 53%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.9464659Z tests/test_registry.py ....................                              [ 53%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:11.9515911Z tests/test_render_plan.py .....                                          [ 54%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.0224752Z tests/test_routing.py .................................................. [ 56%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.1252344Z ........................................................................ [ 58%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.2279814Z ........................................................................ [ 61%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.3356719Z ........................................................................ [ 64%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.3839488Z .........................................                                [ 66%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.4429520Z tests/test_runbook_drift.py ..................................           [ 67%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.4633949Z tests/test_rust.py .....................                                 [ 68%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.4697696Z tests/test_selection.py ........                                         [ 68%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.4877052Z tests/test_sign.py ...................                                   [ 69%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.5148200Z tests/test_specifier.py .............................                    [ 70%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.5696918Z tests/test_staging.py .................................................. [ 72%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.6733325Z ........................................................................ [ 75%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.7434241Z ........................................................................ [ 78%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.8066527Z ..............................................                           [ 79%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.8528810Z tests/test_steps.py .................................................... [ 81%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.9640845Z ........................................................................ [ 84%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:12.9845744Z ..........                                                               [ 85%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:13.2423624Z tests/test_suite_mocks.py ...........                                    [ 85%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:13.2437372Z tests/test_summary_golden.py .                                           [ 85%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:13.2688700Z tests/test_ui_bundle.py .................                                [ 86%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:15.9286515Z tests/test_ui_deploy.py .............                                    [ 86%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:15.9723071Z tests/test_validate.py ................................................. [ 88%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:15.9926398Z ........................                                                 [ 89%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:16.0158802Z tests/test_wheel_coverage.py ...........................                 [ 90%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:16.1110407Z tests/test_workflow.py .............                                     [ 91%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:16.1753479Z tests/test_workflow_contract.py ........................................ [ 92%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:16.2619046Z ........................................................................ [ 95%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:16.3979432Z ........................................................................ [ 98%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4514637Z ........................................                                 [100%]
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4515456Z 
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4515938Z ================================ tests coverage ================================
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4517022Z _______________ coverage: platform linux, python 3.12.3-final-0 ________________
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4517727Z 
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4518205Z Name                                          Stmts   Miss Branch BrPart  Cover   Missing
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4519219Z -----------------------------------------------------------------------------------------
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4520256Z src/litellm_release/__init__.py                   0      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4521238Z src/litellm_release/__main__.py                   5      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4522481Z src/litellm_release/config.py                    29      0      4      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4523500Z src/litellm_release/inputs.py                   123      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4524475Z src/litellm_release/lens.py                     128      0     48      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4525476Z src/litellm_release/lens_assets.py               64      0     26      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4526558Z src/litellm_release/steps.py                     22      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4527566Z src/litellm_release/steps_build_push.py         101      0     30      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4528610Z src/litellm_release/steps_changelog_base.py      29      0      4      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4529667Z src/litellm_release/steps_componentized.py      208      0     46      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4530705Z src/litellm_release/steps_docker.py              73      0      8      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4531853Z src/litellm_release/steps_docker_build.py       115      0     34      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4533269Z src/litellm_release/steps_e2e_gate.py           205      0     54      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4534281Z src/litellm_release/steps_e2e_router.py          37      0      4      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4535316Z src/litellm_release/steps_github_release.py      21      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4536364Z src/litellm_release/steps_guards.py              68      0     24      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4537388Z src/litellm_release/steps_helm.py                56      0     12      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4538382Z src/litellm_release/steps_lens.py               100      0     22      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4539383Z src/litellm_release/steps_lens_host.py          122      0     40      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4540424Z src/litellm_release/steps_preflight.py           86      0     30      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4541457Z src/litellm_release/steps_private_dist.py       149      0     56      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4542668Z src/litellm_release/steps_private_pypi.py       186      0     70      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4543728Z src/litellm_release/steps_promote.py            147      0     46      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4544752Z src/litellm_release/steps_publish.py             58      0     22      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4545751Z src/litellm_release/steps_pypi.py               370      0     88      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4546985Z src/litellm_release/steps_routing.py            199      0     46      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4548011Z src/litellm_release/steps_runbook_drift.py      114      0      8      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4549025Z src/litellm_release/steps_rust.py                40      0      8      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4550027Z src/litellm_release/steps_sign.py                86      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4551015Z src/litellm_release/steps_staging.py            218      0     64      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4552105Z src/litellm_release/steps_version.py            328      0    102      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4553039Z src/releng/__init__.py                            0      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4553928Z src/releng/actions.py                            20      0      2      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4554838Z src/releng/buildkite.py                          88      0     26      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4555728Z src/releng/cargo.py                              63      0     28      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4556666Z src/releng/chart_path.py                         18      0      8      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4557573Z src/releng/cli.py                                15      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4558480Z src/releng/dist_name.py                          20      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4559429Z src/releng/dockerfile_args.py                    25      0     10      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4560357Z src/releng/git.py                                 7      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4561262Z src/releng/github.py                             19      0     10      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4562343Z src/releng/github_release.py                    163      0     60      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4563279Z src/releng/http.py                               32      0      4      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4564188Z src/releng/imagetools.py                         49      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4565148Z src/releng/ingress_nginx.py                      79      0     30      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4566068Z src/releng/notion.py                             57      0     22      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4567016Z src/releng/oci_tags.py                           13      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4567902Z src/releng/pep440.py                             35      0     12      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4568751Z src/releng/proc.py                               23      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4569614Z src/releng/pypi.py                               26      0      6      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4570716Z src/releng/pyproject.py                          41      0     12      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4571641Z src/releng/registry.py                           76      0     22      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4572677Z src/releng/selection.py                          31      0     16      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4573620Z src/releng/specifier.py                          50      0     30      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4574557Z src/releng/ui_bundle.py                          74      0     26      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4575472Z src/releng/validate.py                           23      0      0      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4576416Z src/releng/wheel_coverage.py                     43      0      8      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4577367Z src/releng/workflow.py                           87      0     14      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4578307Z -----------------------------------------------------------------------------------------
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4579199Z TOTAL                                          4664      0   1272      0   100%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4580169Z Required test coverage of 100% reached. Total coverage: 100.00%
+ruff + mypy + pytest	Test (pytest, 100% coverage gate)	2026-10-09T12:41:17.4580869Z ============================ 2553 passed in 26.14s =============================
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	﻿2026-10-09T12:41:17.6963667Z ##[group]Run uv run --with pytest-xdist==3.8.0 --with pytest-rerunfailures==15.1 pytest ../../.buildkite/tests -o addopts=
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6964472Z ^[[36;1muv run --with pytest-xdist==3.8.0 --with pytest-rerunfailures==15.1 pytest ../../.buildkite/tests -o addopts=^[[0m
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6997786Z shell: /usr/bin/bash -e {0}
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6998045Z env:
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6998303Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6998604Z   UV_PYTHON: 3.12
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6998837Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.6999096Z ##[endgroup]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:17.9169928Z Installed 8 packages in 5ms
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5325081Z ============================= test session starts ==============================
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5325843Z platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5326552Z rootdir: /home/runner/work/project-releaser/project-releaser
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5327308Z plugins: rerunfailures-15.1, xdist-3.8.0, hypothesis-6.155.7, cov-7.1.0
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5327993Z collected 342 items
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5328285Z 
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:18.5654038Z ../../.buildkite/tests/test_e2e_retries.py ............................. [  8%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.7347338Z ........................................................................ [ 29%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.7395667Z .                                                                        [ 29%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.7507357Z ../../.buildkite/tests/test_emit_e2e_results.py ........................ [ 36%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.7791178Z ........................................................                 [ 53%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.7927478Z ../../.buildkite/tests/test_seed_e2e.py .......................          [ 59%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.8030967Z ../../.buildkite/tests/test_select_e2e_tests.py ........................ [ 66%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.8346425Z ........................................................................ [ 88%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:30.8454752Z ......................                                                   [ 94%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:31.1501140Z ../../.buildkite/tests/test_staged_images.py ...................         [100%]
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:31.1502292Z 
+ruff + mypy + pytest	Test Buildkite selection, retries, and status reports	2026-10-09T12:41:31.1502817Z ============================= 342 passed in 12.80s =============================
+ruff + mypy + pytest	Post Setup uv	﻿2026-10-09T12:41:31.2079304Z Post job cleanup.
+ruff + mypy + pytest	Post Setup uv	2026-10-09T12:41:31.3011909Z UV_CACHE_DIR is already set to /home/runner/work/_temp/setup-uv-cache
+ruff + mypy + pytest	Post Setup uv	2026-10-09T12:41:31.3018811Z UV_PYTHON_INSTALL_DIR is already set to /home/runner/work/_temp/uv-python-dir
+ruff + mypy + pytest	Post Setup uv	2026-10-09T12:41:31.3020066Z Cache hit occurred on key setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9, not saving cache.
+ruff + mypy + pytest	Post Checkout	﻿2026-10-09T12:41:31.4149566Z Post job cleanup.
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4857206Z [command]/usr/bin/git version
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4887963Z git version 2.55.0
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4917170Z Temporarily overriding HOME='/home/runner/work/_temp/9f06cfa1-6d8f-45ae-bda9-33d232a0f610' before making global git config changes
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4918366Z Adding repository directory to the temporary git global config as a safe directory
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4920387Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/project-releaser/project-releaser
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4945171Z Removing SSH command configuration
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4951284Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.4979820Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5143322Z Removing HTTP extra header
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5144100Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5173030Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5347504Z Removing includeIf entries pointing to credentials config files
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5352698Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+ruff + mypy + pytest	Post Checkout	2026-10-09T12:41:31.5366213Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+ruff + mypy + pytest	Complete job	﻿2026-10-09T12:41:31.5605669Z Cleaning up orphan processes

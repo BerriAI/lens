@@ -1,0 +1,21 @@
+   Compiling litellm-lens v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/lens)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.98s
+     Running unittests src/lib.rs (target/debug/deps/litellm_lens-68e2b25d9d65b024)
+
+running 13 tests
+test local::inference::tests::cancellation_before_provider_response_releases_without_charge ... ok
+test local::inference::tests::cancelling_paid_settlement_preserves_cost_exactly_once::case_1_before_commit ... ok
+test local::inference::tests::cancelling_paid_settlement_preserves_cost_exactly_once::case_2_after_commit ... ok
+test local::inference::tests::completed_settlement_disarms_cleanup ... ok
+test local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_1_monthly_budget ... ok
+test local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_2_request_budget ... ok
+test local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_3_reassigned ... ok
+test local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_4_expired ... ok
+test local::inference::tests::inference_policy_preserves_status_and_diagnostic::case_5_invalid_prompt ... ok
+test local::inference::tests::provider_call_holds_a_live_lease_and_cancellation_releases_it ... ok
+test local::inference::tests::rejected_budget_preserves_policy_status_without_calling_provider::case_1_monthly_budget ... ok
+test local::inference::tests::rejected_budget_preserves_policy_status_without_calling_provider::case_2_request_budget ... ok
+test local::inference::tests::releasing_reservation_finishes_cleanup_before_returning ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 141 filtered out; finished in 3.25s
+

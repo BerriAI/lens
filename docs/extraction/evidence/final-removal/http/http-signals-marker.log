@@ -1,0 +1,16 @@
+   Compiling getrandom v0.3.4
+   Compiling lens-signals v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/signals)
+   Compiling ahash v0.8.12
+   Compiling jiter v0.17.0
+   Compiling lens-inference v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/inference)
+   Compiling lens-decisions v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/decisions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.04s
+     Running tests/transport.rs (target/debug/deps/transport-373871906ed7594e)
+
+running 3 tests
+test gateway_marker_only_reaches_the_configured_compatible_transport::case_2_different_base ... ok
+test gateway_marker_only_reaches_the_configured_compatible_transport::case_1_gateway ... ok
+test gateway_marker_only_reaches_the_configured_compatible_transport::case_3_native_passthrough ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.01s
+

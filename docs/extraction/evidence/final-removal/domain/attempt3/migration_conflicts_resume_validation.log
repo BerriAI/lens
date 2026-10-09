@@ -1,0 +1,76 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running tests/plan.rs (target/debug/deps/plan-7a3d97fad4eb791f)
+
+running 53 tests
+test arbitrary_legacy_row_order_does_not_change_fingerprint ... ok
+test archived_jobs_keep_full_body_and_zero_version ... ok
+test dataset_identity_revision_is_nonnegative::case_1_negative ... ok
+test dataset_identity_revision_is_nonnegative::case_2_initial ... ok
+test dataset_identity_revision_is_nonnegative::case_3_higher ... ok
+test duplicate_identities_never_replace_source_records::case_1_lens ... ok
+test duplicate_identities_never_replace_source_records::case_2_run ... ok
+test duplicate_identities_never_replace_source_records::case_3_review ... ok
+test duplicate_identities_never_replace_source_records::case_4_worker ... ok
+test duplicate_identities_never_replace_source_records::case_5_ingestion ... ok
+test duplicate_identities_never_replace_source_records::case_6_dataset ... ok
+test duplicate_identities_never_replace_source_records::case_7_configuration ... ok
+test duplicate_identities_never_replace_source_records::case_8_trace ... ok
+test empty_source_produces_no_synthetic_live_records ... ok
+test identifiers_use_python_compatible_utf8_percent_encoding ... ok
+test inconsistent_source_rows_are_rejected::case_01_lens ... ok
+test inconsistent_source_rows_are_rejected::case_02_lens_version ... ok
+test inconsistent_source_rows_are_rejected::case_03_run ... ok
+test inconsistent_source_rows_are_rejected::case_04_review ... ok
+test inconsistent_source_rows_are_rejected::case_05_worker ... ok
+test inconsistent_source_rows_are_rejected::case_06_worker_hash ... ok
+test inconsistent_source_rows_are_rejected::case_07_ingestion ... ok
+test inconsistent_source_rows_are_rejected::case_08_dataset ... ok
+test inconsistent_source_rows_are_rejected::case_09_revision ... ok
+test inconsistent_source_rows_are_rejected::case_10_configuration ... ok
+test inconsistent_source_rows_are_rejected::case_11_span_count ... ok
+test inconsistent_source_rows_are_rejected::case_12_trace_data ... ok
+test ingestion_credentials_require_unique_hashes::case_1_same_hash ... ok
+test ingestion_credentials_require_unique_hashes::case_2_distinct_hash ... ok
+test invalid_ingestion_hashes_are_rejected::case_1_empty ... ok
+test invalid_ingestion_hashes_are_rejected::case_2_short ... ok
+test invalid_ingestion_hashes_are_rejected::case_3_long ... ok
+test invalid_ingestion_hashes_are_rejected::case_4_nonhex ... ok
+test invalid_ingestion_hashes_are_rejected::case_5_nonascii ... ok
+test lens_versions_are_independent_nonnegative_counters::case_1_initial_row_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_2_advanced_versions ... ok
+test lens_versions_are_independent_nonnegative_counters::case_3_zero_revision ... ok
+test lens_versions_are_independent_nonnegative_counters::case_4_negative_stored_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_5_negative_public_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_6_negative_revision ... ok
+test null_scheduling_is_preserved_without_recomputation ... ok
+test populated_plan_preserves_authority_hashes_revisions_and_scheduling ... ok
+test positional_arrays_are_never_treated_as_object_records::case_1_lens ... ok
+test positional_arrays_are_never_treated_as_object_records::case_2_run ... ok
+test positional_arrays_are_never_treated_as_object_records::case_3_review ... ok
+test positional_arrays_are_never_treated_as_object_records::case_4_worker ... ok
+test positional_arrays_are_never_treated_as_object_records::case_5_ingestion ... ok
+test positional_arrays_are_never_treated_as_object_records::case_6_dataset ... ok
+test positional_arrays_are_never_treated_as_object_records::case_7_configuration ... ok
+test source_change_changes_fingerprint ... ok
+test valid_ingestion_hashes_are_preserved::case_1_lowercase ... ok
+test valid_ingestion_hashes_are_preserved::case_2_uppercase ... ok
+test zero_span_signal_is_preserved ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/target.rs (target/debug/deps/target-64a54c948514c93a)
+
+running 10 tests
+test changed_source_is_rejected_on_resume ... ok
+test checkpoint_prepare_without_publish_can_be_retried ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_1_existing ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_2_new_key_after_checkpoint ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_3_changed_expected_value ... ok
+test interrupted_import_resumes_the_same_snapshot::case_1_empty ... ok
+test interrupted_import_resumes_the_same_snapshot::case_2_partial ... ok
+test migrated_state_is_verified_and_retry_is_idempotent::case_1_fresh ... ok
+test migrated_state_is_verified_and_retry_is_idempotent::case_2_repeated ... ok
+test migration_and_resume_preserve_records_across_multiple_batches ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.06s
+

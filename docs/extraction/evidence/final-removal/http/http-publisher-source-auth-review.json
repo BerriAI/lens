@@ -1,0 +1,41 @@
+{
+  "reviewer": "dataset_http",
+  "reviewed_at": "2026-10-09T12:39:04.541315+00:00",
+  "base": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+  "scope": "Three-file publisher internal Lens checkout authentication fix; working tree under independent review",
+  "files": {
+    ".github/workflows/lens-stage.yml": "89efdc3fcb8f21b0d9cf1db59e7c0e7900914d022e9837c94d9d09c135469fef",
+    ".github/scripts/tests/test_lens_workflows.py": "d56980213767e51b5d3caa173475a7f8eca065021cbe4458b35ca4b40092fae3",
+    "LENS_RELEASE_SETUP.md": "6ae9c87083962ff66338ec4bba821028db3b88cd89b77aa98069207ff6b66fe8"
+  },
+  "status": "passed_scoped_review",
+  "observations": [
+    "Plan/native/assets each mint an installation token scoped owner BerriAI, repositories lens, permission-contents read and pass it exactly once to source checkout with persist-credentials false.",
+    "Pinned create-github-app-token action metadata independently fetched from exact1b10c78 commit; it supports owner, repositories and permission-contents read.",
+    "Source ref remains validated immutable SHA; native and assets verify checkout. Token is not exported to container build arguments or passed to source-owned scripts.",
+    "Existing approved promotion still uses a separate write token; no visibility, ACL, official release or production deployment change is introduced.",
+    "Setup guide correctly states internal release asset URLs need authenticated retrieval or verified vendoring."
+  ],
+  "tests": {
+    "command": "uv run pytest -q tests/test_lens_workflows.py -k staging_authenticates_each_internal_source_checkout --no-cov",
+    "exit_code": 0,
+    "passed": 3,
+    "deselected": 17,
+    "log_sha256": "bb4561c4c0b72ab39a622d89802619e2edb40253a541825fc3c2ee4a4a748417"
+  },
+  "findings": [],
+  "limits": [
+    "Independent source/targeted-test review does not prove app installation secret availability or a real staging workflow run."
+  ],
+  "reviewed_successor": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+  "successor_review": "Workflow and tests exactly match reviewed working tree; final documentation punctuation adjustment independently reviewed",
+  "full_check": {
+    "producer": "dataset_storage",
+    "command": "make check",
+    "passed": 2553,
+    "coverage_percent": 100,
+    "ruff_passed": true,
+    "mypy_passed": true,
+    "log_sha256": "b00bf85568acd0c1e00070ffcac1ba90e4641f0af2619e3e4e5aba3ffc2c4a07"
+  }
+}

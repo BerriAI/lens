@@ -1,0 +1,17 @@
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/src/litellm_release/steps_componentized.py:43:    ("lens-worker", "deploy/lens/Dockerfile"),
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/src/litellm_release/steps_version.py:495:        (src / "deploy/lens/Dockerfile").is_file()
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/src/litellm_release/steps_version.py:496:        and (src / "litellm/proxy/lens/release.py").is_file()
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_componentized.py:937:                "dockerfile": "deploy/lens/Dockerfile",
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_lens_release_security.py:79:    (source / "deploy/lens/smoke.sh").write_text(f'touch "{sentinel}"; exit 1\n')
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_lens_release_security.py:105:        assert "import lens.worker" in command
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_parse_version.py:247:    dockerfile = tmp_path / "deploy/lens/Dockerfile"
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_parse_version.py:251:        metadata = tmp_path / "litellm/proxy/lens/release.py"
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/scripts/tests/test_workflow_contract.py:3786:        assert "deploy/lens/smoke.sh" not in block
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/workflows/lens-release-runtime-validation.yml:58:        run: docker build --build-arg LITELLM_RELEASE_TAG=v0.0.0-lens-ci -f deploy/lens/Dockerfile -t lens-runtime-fixture .
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/workflows/lens-release-runtime-validation.yml:79:          Path('source/deploy/lens/smoke.sh').write_text('echo SOURCE_SCRIPT_EXECUTED; exit 99\n')
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/workflows/release-componentized-impl.yml:95:        description: "Build the Lens worker when the selected source contains deploy/lens/Dockerfile"
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/workflows/release-componentized-impl.yml:484:          import lens.worker
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:.github/workflows/release-componentized-impl.yml:712:          import lens.worker
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:LENS_RELEASE_SETUP.md:201:For public LiteLLM source commits with `deploy/lens/Dockerfile` and
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:LENS_RELEASE_SETUP.md:202:`litellm/proxy/lens/release.py`, stable, RC, and dev staging builds include the
+cca09f3b6a00327ccf056181d2fb1ea2636dd96d:README.md:490:| lens-worker (source commits before extraction) | `deploy/lens/Dockerfile` | `ghcr.io/berriai/litellm-lens-worker` |

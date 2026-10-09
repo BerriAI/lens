@@ -1,0 +1,49 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________ test_staging_authenticates_each_internal_source_checkout[plan] ________
+
+job_name = 'plan'
+
+    @pytest.mark.parametrize("job_name", ["plan", "native", "assets"])
+    def test_staging_authenticates_each_internal_source_checkout(job_name: str) -> None:
+        text = STAGE.read_text()
+        job = re.split(r"\n  [a-z][a-z0-9_-]*:\n", text.split(f"\n  {job_name}:\n", 1)[1])[0]
+        steps = job.split("\n      - ")
+        source = next(step for step in steps if "repository: BerriAI/lens\n" in step)
+>       assert "token: ${{ steps.lens_source_token.outputs.token }}\n" in source
+E       AssertionError: assert 'token: ${{ steps.lens_source_token.outputs.token }}\n' in 'uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0\n        with:\n          repository: BerriAI/lens\n          ref: ${{ steps.inputs.outputs.source_sha }}\n          persist-credentials: false\n          path: source'
+
+tests/test_lens_workflows.py:166: AssertionError
+_______ test_staging_authenticates_each_internal_source_checkout[native] _______
+
+job_name = 'native'
+
+    @pytest.mark.parametrize("job_name", ["plan", "native", "assets"])
+    def test_staging_authenticates_each_internal_source_checkout(job_name: str) -> None:
+        text = STAGE.read_text()
+        job = re.split(r"\n  [a-z][a-z0-9_-]*:\n", text.split(f"\n  {job_name}:\n", 1)[1])[0]
+        steps = job.split("\n      - ")
+        source = next(step for step in steps if "repository: BerriAI/lens\n" in step)
+>       assert "token: ${{ steps.lens_source_token.outputs.token }}\n" in source
+E       AssertionError: assert 'token: ${{ steps.lens_source_token.outputs.token }}\n' in 'uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0\n        with:\n          repository: BerriAI/lens\n          ref: ${{ needs.plan.outputs.source_sha }}\n          persist-credentials: false\n          path: source'
+
+tests/test_lens_workflows.py:166: AssertionError
+_______ test_staging_authenticates_each_internal_source_checkout[assets] _______
+
+job_name = 'assets'
+
+    @pytest.mark.parametrize("job_name", ["plan", "native", "assets"])
+    def test_staging_authenticates_each_internal_source_checkout(job_name: str) -> None:
+        text = STAGE.read_text()
+        job = re.split(r"\n  [a-z][a-z0-9_-]*:\n", text.split(f"\n  {job_name}:\n", 1)[1])[0]
+        steps = job.split("\n      - ")
+        source = next(step for step in steps if "repository: BerriAI/lens\n" in step)
+>       assert "token: ${{ steps.lens_source_token.outputs.token }}\n" in source
+E       AssertionError: assert 'token: ${{ steps.lens_source_token.outputs.token }}\n' in 'uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0\n        with:\n          repository: BerriAI/lens\n          ref: ${{ needs.plan.outputs.source_sha }}\n          persist-credentials: false\n          path: source'
+
+tests/test_lens_workflows.py:166: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_lens_workflows.py::test_staging_authenticates_each_internal_source_checkout[plan]
+FAILED tests/test_lens_workflows.py::test_staging_authenticates_each_internal_source_checkout[native]
+FAILED tests/test_lens_workflows.py::test_staging_authenticates_each_internal_source_checkout[assets]
+3 failed, 17 deselected in 0.22s

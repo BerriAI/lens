@@ -1,0 +1,8 @@
+{
+  "status": "audit_harness_assumption_corrected",
+  "failure": "Expected own-user access to a team-owned fixture with an empty signed log-team grant",
+  "actual_fixture": "Original auth.mjs creates ingestion key as gateway admin with explicit fixture team_id; owner gateway reads are authorized by permitted log-team lookup",
+  "source_regression": false,
+  "correction": "Use signed fixture-team grant for authorized direct read; preserve empty-grant404 as explicit negative test",
+  "product_changes": false
+}

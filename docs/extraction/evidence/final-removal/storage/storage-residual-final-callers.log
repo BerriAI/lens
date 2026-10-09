@@ -1,0 +1,98 @@
+[
+  {
+    "repository": "publisher",
+    "source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+    "category": "removed-runtime",
+    "matches": 17
+  },
+  {
+    "repository": "publisher",
+    "source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+    "category": "removed-worker-protocol",
+    "matches": 0
+  },
+  {
+    "repository": "publisher",
+    "source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+    "category": "old-product-repo",
+    "matches": 0
+  },
+  {
+    "repository": "publisher",
+    "source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+    "category": "canonical-product-repo",
+    "matches": 10
+  },
+  {
+    "repository": "ops",
+    "source": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "category": "removed-runtime",
+    "matches": 12
+  },
+  {
+    "repository": "ops",
+    "source": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "category": "removed-worker-protocol",
+    "matches": 0
+  },
+  {
+    "repository": "ops",
+    "source": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "category": "old-product-repo",
+    "matches": 0
+  },
+  {
+    "repository": "ops",
+    "source": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "category": "canonical-product-repo",
+    "matches": 6
+  },
+  {
+    "repository": "codex",
+    "source": "2e0920128158046c8a3f0de230c366574c130672",
+    "category": "removed-runtime",
+    "matches": 0
+  },
+  {
+    "repository": "codex",
+    "source": "2e0920128158046c8a3f0de230c366574c130672",
+    "category": "removed-worker-protocol",
+    "matches": 0
+  },
+  {
+    "repository": "codex",
+    "source": "2e0920128158046c8a3f0de230c366574c130672",
+    "category": "old-product-repo",
+    "matches": 0
+  },
+  {
+    "repository": "codex",
+    "source": "2e0920128158046c8a3f0de230c366574c130672",
+    "category": "canonical-product-repo",
+    "matches": 2
+  },
+  {
+    "repository": "docs",
+    "source": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "category": "removed-runtime",
+    "matches": 0
+  },
+  {
+    "repository": "docs",
+    "source": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "category": "removed-worker-protocol",
+    "matches": 2
+  },
+  {
+    "repository": "docs",
+    "source": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "category": "old-product-repo",
+    "matches": 0
+  },
+  {
+    "repository": "docs",
+    "source": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "category": "canonical-product-repo",
+    "matches": 69
+  }
+]

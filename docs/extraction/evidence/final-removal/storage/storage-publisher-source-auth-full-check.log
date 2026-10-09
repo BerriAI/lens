@@ -1,0 +1,170 @@
+uv run ruff check .
+All checks passed!
+uv run ruff format --check .
+124 files already formatted
+uv run mypy
+Success: no issues found in 124 source files
+uv run pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/mfkhalil/Code/project-releaser/.github/scripts
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, hypothesis-6.155.7
+collected 2553 items
+
+tests/test_actions.py ......                                             [  0%]
+tests/test_build_push.py ............................................... [  2%]
+..........                                                               [  2%]
+tests/test_buildkite.py ...............................                  [  3%]
+tests/test_cargo.py ................................                     [  4%]
+tests/test_channel_alias.py ...................................          [  6%]
+tests/test_chart_path.py ........                                        [  6%]
+tests/test_cli.py ...                                                    [  6%]
+tests/test_componentized.py ............................................ [  8%]
+....................................................................     [ 11%]
+tests/test_config.py .............                                       [ 11%]
+tests/test_deploy_shape.py ...........................                   [ 12%]
+tests/test_detect_published.py ................                          [ 13%]
+tests/test_discover_counters.py .................                        [ 13%]
+tests/test_dist_name.py .......................                          [ 14%]
+tests/test_docker.py .......................                             [ 15%]
+tests/test_docker_build.py ............................................. [ 17%]
+...........                                                              [ 17%]
+tests/test_docker_preflight.py ..........                                [ 18%]
+tests/test_dockerfile_args.py ............                               [ 18%]
+tests/test_e2e_build_image.py .............                              [ 19%]
+tests/test_e2e_gate.py ................................................. [ 21%]
+.......................................                                  [ 22%]
+tests/test_e2e_idp.py ...............                                    [ 23%]
+tests/test_e2e_lifecycle_contract.py ......                              [ 23%]
+tests/test_e2e_router.py .........                                       [ 23%]
+tests/test_git.py ...                                                    [ 24%]
+tests/test_github.py .......                                             [ 24%]
+tests/test_github_release.py ........................................... [ 26%]
+............................                                             [ 27%]
+tests/test_guards.py ..........................................          [ 28%]
+tests/test_helm.py .........................................             [ 30%]
+tests/test_http.py .....                                                 [ 30%]
+tests/test_imagetools.py ......................                          [ 31%]
+tests/test_ingress_nginx.py ............................                 [ 32%]
+tests/test_inputs.py ..........                                          [ 32%]
+tests/test_lens.py ..................................................... [ 35%]
+.............................................                            [ 36%]
+tests/test_lens_host.py .....................................            [ 38%]
+tests/test_lens_release_security.py ..................                   [ 38%]
+tests/test_lens_workflows.py ....................                        [ 39%]
+tests/test_main.py .                                                     [ 39%]
+tests/test_notion.py .........                                           [ 40%]
+tests/test_oci_tags.py .........                                         [ 40%]
+tests/test_parse_version.py ...................                          [ 41%]
+tests/test_pep440.py ....................................                [ 42%]
+tests/test_private_dist.py ............................................. [ 44%]
+..........................................                               [ 46%]
+tests/test_private_pypi.py ............................................. [ 47%]
+.................................                                        [ 49%]
+tests/test_proc.py .........                                             [ 49%]
+tests/test_promote.py ...................................                [ 50%]
+tests/test_properties.py ......                                          [ 51%]
+tests/test_publish.py .......................                            [ 51%]
+tests/test_pypi.py ..........                                            [ 52%]
+tests/test_pyproject.py .....................                            [ 53%]
+tests/test_registry.py ....................                              [ 53%]
+tests/test_render_plan.py .....                                          [ 54%]
+tests/test_routing.py .................................................. [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+.........................................                                [ 66%]
+tests/test_runbook_drift.py ..................................           [ 67%]
+tests/test_rust.py .....................                                 [ 68%]
+tests/test_selection.py ........                                         [ 68%]
+tests/test_sign.py ...................                                   [ 69%]
+tests/test_specifier.py .............................                    [ 70%]
+tests/test_staging.py .................................................. [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+..............................................                           [ 79%]
+tests/test_steps.py .................................................... [ 81%]
+........................................................................ [ 84%]
+..........                                                               [ 85%]
+tests/test_suite_mocks.py ...........                                    [ 85%]
+tests/test_summary_golden.py .                                           [ 85%]
+tests/test_ui_bundle.py .................                                [ 86%]
+tests/test_ui_deploy.py .............                                    [ 86%]
+tests/test_validate.py ................................................. [ 88%]
+........................                                                 [ 89%]
+tests/test_wheel_coverage.py ...........................                 [ 90%]
+tests/test_workflow.py .............                                     [ 91%]
+tests/test_workflow_contract.py ........................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 98%]
+........................................                                 [100%]
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.12.14-final-0 _______________
+
+Name                                          Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------------
+src/litellm_release/__init__.py                   0      0      0      0   100%
+src/litellm_release/__main__.py                   5      0      0      0   100%
+src/litellm_release/config.py                    29      0      4      0   100%
+src/litellm_release/inputs.py                   123      0      0      0   100%
+src/litellm_release/lens.py                     128      0     48      0   100%
+src/litellm_release/lens_assets.py               64      0     26      0   100%
+src/litellm_release/steps.py                     22      0      0      0   100%
+src/litellm_release/steps_build_push.py         101      0     30      0   100%
+src/litellm_release/steps_changelog_base.py      29      0      4      0   100%
+src/litellm_release/steps_componentized.py      208      0     46      0   100%
+src/litellm_release/steps_docker.py              73      0      8      0   100%
+src/litellm_release/steps_docker_build.py       115      0     34      0   100%
+src/litellm_release/steps_e2e_gate.py           205      0     54      0   100%
+src/litellm_release/steps_e2e_router.py          37      0      4      0   100%
+src/litellm_release/steps_github_release.py      21      0      0      0   100%
+src/litellm_release/steps_guards.py              68      0     24      0   100%
+src/litellm_release/steps_helm.py                56      0     12      0   100%
+src/litellm_release/steps_lens.py               100      0     22      0   100%
+src/litellm_release/steps_lens_host.py          122      0     40      0   100%
+src/litellm_release/steps_preflight.py           86      0     30      0   100%
+src/litellm_release/steps_private_dist.py       149      0     56      0   100%
+src/litellm_release/steps_private_pypi.py       186      0     70      0   100%
+src/litellm_release/steps_promote.py            147      0     46      0   100%
+src/litellm_release/steps_publish.py             58      0     22      0   100%
+src/litellm_release/steps_pypi.py               370      0     88      0   100%
+src/litellm_release/steps_routing.py            199      0     46      0   100%
+src/litellm_release/steps_runbook_drift.py      114      0      8      0   100%
+src/litellm_release/steps_rust.py                40      0      8      0   100%
+src/litellm_release/steps_sign.py                86      0      6      0   100%
+src/litellm_release/steps_staging.py            218      0     64      0   100%
+src/litellm_release/steps_version.py            328      0    102      0   100%
+src/releng/__init__.py                            0      0      0      0   100%
+src/releng/actions.py                            20      0      2      0   100%
+src/releng/buildkite.py                          88      0     26      0   100%
+src/releng/cargo.py                              63      0     28      0   100%
+src/releng/chart_path.py                         18      0      8      0   100%
+src/releng/cli.py                                15      0      0      0   100%
+src/releng/dist_name.py                          20      0      6      0   100%
+src/releng/dockerfile_args.py                    25      0     10      0   100%
+src/releng/git.py                                 7      0      0      0   100%
+src/releng/github.py                             19      0     10      0   100%
+src/releng/github_release.py                    163      0     60      0   100%
+src/releng/http.py                               32      0      4      0   100%
+src/releng/imagetools.py                         49      0      6      0   100%
+src/releng/ingress_nginx.py                      79      0     30      0   100%
+src/releng/notion.py                             57      0     22      0   100%
+src/releng/oci_tags.py                           13      0      6      0   100%
+src/releng/pep440.py                             35      0     12      0   100%
+src/releng/proc.py                               23      0      6      0   100%
+src/releng/pypi.py                               26      0      6      0   100%
+src/releng/pyproject.py                          41      0     12      0   100%
+src/releng/registry.py                           76      0     22      0   100%
+src/releng/selection.py                          31      0     16      0   100%
+src/releng/specifier.py                          50      0     30      0   100%
+src/releng/ui_bundle.py                          74      0     26      0   100%
+src/releng/validate.py                           23      0      0      0   100%
+src/releng/wheel_coverage.py                     43      0      8      0   100%
+src/releng/workflow.py                           87      0     14      0   100%
+-----------------------------------------------------------------------------------------
+TOTAL                                          4664      0   1272      0   100%
+Required test coverage of 100% reached. Total coverage: 100.00%
+============================ 2553 passed in 45.37s =============================

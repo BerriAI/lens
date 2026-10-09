@@ -1,0 +1,95 @@
+{
+  "at": "2026-10-09T13:24:15.653Z",
+  "checks": [
+    {
+      "label": "old Lens admin denied",
+      "status": 401
+    },
+    {
+      "label": "new Lens admin accepted",
+      "status": 200
+    },
+    {
+      "label": "old gateway service credential denied",
+      "status": 401
+    },
+    {
+      "label": "new gateway service credential accepted",
+      "status": 200
+    },
+    {
+      "label": "fresh retired-key delegated identity denied",
+      "status": 401
+    },
+    {
+      "label": "fresh new-key delegated identity accepted",
+      "status": 200
+    },
+    {
+      "label": "new gateway master accepted on 4494",
+      "status": 200
+    },
+    {
+      "label": "fresh retired-key internal marker denied on 4494",
+      "status": 401
+    },
+    {
+      "label": "fresh new-key internal marker accepted on 4494",
+      "status": 200
+    },
+    {
+      "label": "gateway service connection uses new credential on 4494",
+      "status": 200
+    },
+    {
+      "label": "gateway delegated Lens read accepted on 4494",
+      "status": 200
+    },
+    {
+      "label": "new gateway master accepted on 4496",
+      "status": 200
+    },
+    {
+      "label": "fresh retired-key internal marker denied on 4496",
+      "status": 401
+    },
+    {
+      "label": "fresh new-key internal marker accepted on 4496",
+      "status": 200
+    },
+    {
+      "label": "gateway service connection uses new credential on 4496",
+      "status": 200
+    },
+    {
+      "label": "gateway delegated Lens read accepted on 4496",
+      "status": 200
+    },
+    {
+      "label": "tracing key catalog remains empty",
+      "status": 200
+    },
+    {
+      "label": "new admin reads retained trace after seed rotation",
+      "status": 200
+    },
+    {
+      "label": "new query-reader credential reads retained trace after seed rotation",
+      "status": 200
+    }
+  ],
+  "prior_old_master_denials": {
+    "verifier_sha256": "a77807d47638a4bda70ea585203bfb3db8bc508fd86ad29b55902198bff6b2cb",
+    "passed_control_flow_checks": 21,
+    "old_master_denials": 2,
+    "request_ids": [
+      "22bd95b7-b5e7-4b6b-8475-39fb62625ea9",
+      "dc9660e4-da94-4165-938d-042035874cc5"
+    ],
+    "window": [
+      "2026-10-09T13:11:13.395Z",
+      "2026-10-09T13:11:13.903Z"
+    ],
+    "basis": "Exact verified script advanced past all 21 awaited checks to the retained-fixture guard. Two failure spend records are correlated by retired-master hash, endpoint and time. No separate raw HTTP response receipt survived the interrupted process."
+  }
+}

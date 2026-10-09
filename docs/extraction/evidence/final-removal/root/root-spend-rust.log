@@ -1,0 +1,51 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.79s
+     Running unittests src/lib.rs (target/debug/deps/litellm_spend_clickhouse-ae0a46a85966cfa6)
+
+running 11 tests
+test insert::tests::encoded_limit_counts_utf8_bytes_across_rows ... ok
+test insert::tests::invalid_spend_dates_fail_before_transport::case_1_fractional ... ok
+test insert::tests::invalid_spend_dates_fail_before_transport::case_2_string ... ok
+test insert::tests::invalid_spend_dates_fail_before_transport::case_3_null ... ok
+test insert::tests::invalid_spend_dates_fail_before_transport::case_4_out_of_range ... ok
+test insert::tests::retry_token_excludes_receive_time_and_input_is_unchanged::case_1_absent ... ok
+test insert::tests::retry_token_excludes_receive_time_and_input_is_unchanged::case_2_submitted ... ok
+test insert::tests::spend_dates_preserve_precision_and_null::case_1_milliseconds ... ok
+test insert::tests::spend_dates_preserve_precision_and_null::case_2_negative ... ok
+test insert::tests::spend_dates_preserve_precision_and_null::case_3_nullable ... ok
+test insert::tests::stamped_insert_enforces_the_encoded_limit ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/storage.rs (target/debug/deps/storage-435a82f4e35373d3)
+
+running 7 tests
+test changed_applied_spend_migration_is_rejected ... ok
+test fresh_spend_schema_does_not_create_lens_tables ... ok
+test spend_rows_preserve_fields_and_retries::case_1_unknown ... ok
+test spend_rows_preserve_fields_and_retries::case_2_free ... ok
+test spend_rows_preserve_fields_and_retries::case_3_paid ... ok
+test spend_schema_preserves_existing_tables_and_reconciles_retention ... ok
+test unexpected_columns_are_rejected_without_writing_rows ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.32s
+
+     Running tests/transport.rs (target/debug/deps/transport-bcc57e4d08b4e291)
+
+running 8 tests
+test empty_spend_insert_does_not_contact_storage ... ok
+test failed_schema_setup_is_reported ... ok
+test invalid_configuration_is_rejected::case_1_database ... ok
+test invalid_configuration_is_rejected::case_2_retention ... ok
+test invalid_configuration_is_rejected::case_3_url ... ok
+test spend_insert_controls_target_and_retry_settings ... ok
+test spend_insert_preserves_storage_failure::case_1_denied ... ok
+test spend_insert_preserves_storage_failure::case_2_unavailable ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests litellm_spend_clickhouse
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

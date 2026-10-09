@@ -1,0 +1,131 @@
+{
+  "at": "2026-10-09T12:33:29.568Z",
+  "checks": [
+    {
+      "file": "ignored_external_clickhouse_scope.log",
+      "bytes": 3871,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/state_cas_atomicity_tombstones.log",
+      "bytes": 2275,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/investigation_writer_budget_cancellation.log",
+      "bytes": 1792,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/eval_leases_publication_and_scope.log",
+      "bytes": 3535,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/tracing_key_revocation_races.log",
+      "bytes": 1389,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/signals_stale_owner_fencing.log",
+      "bytes": 2966,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/migration_conflicts_resume_validation.log",
+      "bytes": 5063,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/inference_budget_negative_boundaries.log",
+      "bytes": 5468,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/job_lifecycle_cancellation_and_expiry.log",
+      "bytes": 4705,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt4/local_inference_cancellation.log",
+      "bytes": 1743,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "state_cas_atomicity_tombstones.log",
+      "bytes": 9728,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt2/reproduce_pids256_concurrent_compaction.log",
+      "bytes": 1490,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt1-container-events.jsonl",
+      "bytes": 1775,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt1-volume-cleanup.json",
+      "bytes": 444,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "source-review.json",
+      "bytes": 6989,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt2/clickhouse.log",
+      "bytes": 426,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt3/clickhouse-server.err.log",
+      "bytes": 16319053,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    },
+    {
+      "file": "attempt4/clickhouse-server.err.log",
+      "bytes": 241968,
+      "credential_url": false,
+      "bearer": false,
+      "provider_token": false
+    }
+  ]
+}

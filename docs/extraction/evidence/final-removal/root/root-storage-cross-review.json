@@ -1,0 +1,74 @@
+{
+  "at": "2026-10-09T12:18:07.771Z",
+  "reviewer": "root",
+  "lane": "dataset_storage",
+  "checked": [
+    {
+      "name": "storage-publisher-focused",
+      "started_at": "2026-10-09T12:01:38.850111+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-ops-negative-suite",
+      "started_at": "2026-10-09T12:02:26.609225+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-helm-lifecycle-negative",
+      "started_at": "2026-10-09T12:04:03.106765+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-pod-controller-negative",
+      "started_at": "2026-10-09T12:06:37.523030+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-http-negative-replay",
+      "started_at": "2026-10-09T12:10:10.676346+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-residual-callers",
+      "started_at": "2026-10-09T12:11:18.801422+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-ops-docs-render",
+      "started_at": "2026-10-09T12:14:23.301700+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    },
+    {
+      "name": "storage-exact-provenance-negatives",
+      "started_at": "2026-10-09T12:15:48.004116+00:00",
+      "fresh": true,
+      "log_hash_matches": true,
+      "exit_code": 0
+    }
+  ],
+  "ops_docs_review": {
+    "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "files": 3,
+    "observed": [
+      "Retired legacy token/enrollment/equal-tag procedure",
+      "Preserved named get-only RBAC and actual bootstrap source inspection",
+      "Aligned existing-deployment instructions with type:lens routing, /lens-ingest/v1/traces and independent ClickHouse ownership"
+    ],
+    "findings": []
+  },
+  "followup": "Canonical shared dependency remains open and mergeState BLOCKED; receipt wording correction requested"
+}

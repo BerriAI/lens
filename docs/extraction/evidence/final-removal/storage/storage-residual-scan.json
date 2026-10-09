@@ -1,0 +1,326 @@
+{
+  "at": "2026-10-09T12:11:20.452614+00:00",
+  "scope": "Tracked files at frozen companion heads; includes tests and explicitly historical paths for manual attribution",
+  "results": [
+    {
+      "repository": "publisher",
+      "source": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "category": "removed-runtime",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "litellm/proxy/lens/(endpoints|release|repository|state)|lens\\.worker|litellm_lens\\.application|deploy/lens/(Dockerfile|smoke\\.sh)|make lens-dev",
+        "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 17,
+      "log": "/tmp/lens-final-removal-audit/residual-publisher-removed-runtime.log",
+      "sha256": "65356c47bcb87e576c682ac78ca6da29246fce200d35cc0bc09fec7d126f302b"
+    },
+    {
+      "repository": "publisher",
+      "source": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "category": "removed-worker-protocol",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "/lens/workers/|/lens/worker/|LENS_WORKER_TOKEN|LITELLM_LENS_WORKER_TOKEN|LENS_CONTROL_PLANE_URL",
+        "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-publisher-removed-worker-protocol.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "publisher",
+      "source": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "category": "old-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/litellm-lens([/.#?]|$)",
+        "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-publisher-old-product-repo.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "publisher",
+      "source": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "category": "canonical-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/lens([/.#?]|$)|repository: BerriAI/lens|SOURCE_REPO = \"BerriAI/lens\"",
+        "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 9,
+      "log": "/tmp/lens-final-removal-audit/residual-publisher-canonical-product-repo.log",
+      "sha256": "56a24aca1f51a5d3edeca7f874fe41b09acc20c46fd9751e809ab261c89d5d1b"
+    },
+    {
+      "repository": "ops",
+      "source": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+      "category": "removed-runtime",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "litellm/proxy/lens/(endpoints|release|repository|state)|lens\\.worker|litellm_lens\\.application|deploy/lens/(Dockerfile|smoke\\.sh)|make lens-dev",
+        "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 12,
+      "log": "/tmp/lens-final-removal-audit/residual-ops-removed-runtime.log",
+      "sha256": "505c5297df5ca1dc82dcdfeb6deefaffdf1ccf2b6c03b40ffd2509dd98b65bc7"
+    },
+    {
+      "repository": "ops",
+      "source": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+      "category": "removed-worker-protocol",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "/lens/workers/|/lens/worker/|LENS_WORKER_TOKEN|LITELLM_LENS_WORKER_TOKEN|LENS_CONTROL_PLANE_URL",
+        "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-ops-removed-worker-protocol.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "ops",
+      "source": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+      "category": "old-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/litellm-lens([/.#?]|$)",
+        "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-ops-old-product-repo.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "ops",
+      "source": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+      "category": "canonical-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/lens([/.#?]|$)|repository: BerriAI/lens|SOURCE_REPO = \"BerriAI/lens\"",
+        "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 6,
+      "log": "/tmp/lens-final-removal-audit/residual-ops-canonical-product-repo.log",
+      "sha256": "9456c4964a733723a60555263950adbb0fe12c304ba7267d21089441c4282541"
+    },
+    {
+      "repository": "codex",
+      "source": "2e0920128158046c8a3f0de230c366574c130672",
+      "category": "removed-runtime",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "litellm/proxy/lens/(endpoints|release|repository|state)|lens\\.worker|litellm_lens\\.application|deploy/lens/(Dockerfile|smoke\\.sh)|make lens-dev",
+        "2e0920128158046c8a3f0de230c366574c130672",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-codex-removed-runtime.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "codex",
+      "source": "2e0920128158046c8a3f0de230c366574c130672",
+      "category": "removed-worker-protocol",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "/lens/workers/|/lens/worker/|LENS_WORKER_TOKEN|LITELLM_LENS_WORKER_TOKEN|LENS_CONTROL_PLANE_URL",
+        "2e0920128158046c8a3f0de230c366574c130672",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-codex-removed-worker-protocol.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "codex",
+      "source": "2e0920128158046c8a3f0de230c366574c130672",
+      "category": "old-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/litellm-lens([/.#?]|$)",
+        "2e0920128158046c8a3f0de230c366574c130672",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-codex-old-product-repo.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "codex",
+      "source": "2e0920128158046c8a3f0de230c366574c130672",
+      "category": "canonical-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/lens([/.#?]|$)|repository: BerriAI/lens|SOURCE_REPO = \"BerriAI/lens\"",
+        "2e0920128158046c8a3f0de230c366574c130672",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 2,
+      "log": "/tmp/lens-final-removal-audit/residual-codex-canonical-product-repo.log",
+      "sha256": "024dca66f91fc71c5dc0fde47691f604f4d13e3657fd08f59f5c992727981050"
+    },
+    {
+      "repository": "docs",
+      "source": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "category": "removed-runtime",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "litellm/proxy/lens/(endpoints|release|repository|state)|lens\\.worker|litellm_lens\\.application|deploy/lens/(Dockerfile|smoke\\.sh)|make lens-dev",
+        "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 2,
+      "log": "/tmp/lens-final-removal-audit/residual-docs-removed-runtime.log",
+      "sha256": "6d5079852a9124fc98842de52e0bc6d547b2758adc471c37dfb614ea82579445"
+    },
+    {
+      "repository": "docs",
+      "source": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "category": "removed-worker-protocol",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "/lens/workers/|/lens/worker/|LENS_WORKER_TOKEN|LITELLM_LENS_WORKER_TOKEN|LENS_CONTROL_PLANE_URL",
+        "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 2,
+      "log": "/tmp/lens-final-removal-audit/residual-docs-removed-worker-protocol.log",
+      "sha256": "d2a51de8651ad3006164cc06072b539635b75565eacc5e983e92e872ebc0a2e9"
+    },
+    {
+      "repository": "docs",
+      "source": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "category": "old-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/litellm-lens([/.#?]|$)",
+        "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+        "--",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "log": "/tmp/lens-final-removal-audit/residual-docs-old-product-repo.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "repository": "docs",
+      "source": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "category": "canonical-product-repo",
+      "command": [
+        "git",
+        "grep",
+        "-n",
+        "-I",
+        "-E",
+        "github\\.com/BerriAI/lens([/.#?]|$)|repository: BerriAI/lens|SOURCE_REPO = \"BerriAI/lens\"",
+        "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+        "--",
+        "."
+      ],
+      "exit_code": 0,
+      "matches": 38,
+      "log": "/tmp/lens-final-removal-audit/residual-docs-canonical-product-repo.log",
+      "sha256": "d457a6ae861fb713b4ca95fc57b49d818686230eaa5b145c0c59b2ea94517cdf"
+    }
+  ]
+}

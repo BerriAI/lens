@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-09T12:32:31.619809+00:00",
+  "scope": "Rendered public Lens docs audit corrections; source installation and first real trace, existing gateway integration, analysis setup and release availability",
+  "browser": "Codex in-app browser, tab28, local strict Docusaurus production build on127.0.0.1:3205",
+  "desktop_pages": [
+    "deployment",
+    "deployment/development",
+    "deployment/kubernetes",
+    "deployment/server",
+    "deployment/docker-compose",
+    "deployment/releases"
+  ],
+  "narrow_pages": [
+    "deployment/releases",
+    "investigations",
+    "deployment/local"
+  ],
+  "viewport_narrow": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    "Reviewed main article text, links, prerequisites and source-versus-release claims",
+    "Kubernetes and existing-gateway Compose pages render code blocks and shared docs navigation",
+    "Local first-trace path distinguishes model credentials from tracing keys and demo from actual traces",
+    "Investigation guide uses Settings > Analysis and retained activity/criteria/run flow",
+    "Narrow local guide and releases page document widths equal390px; no page-wide horizontal overflow",
+    "Narrow On this page button expands current heading links",
+    "Temporary viewport override reset after verification"
+  ],
+  "findings": [
+    {
+      "issue": "Ambiguous gateway/PostgreSQL wording in landing and Kubernetes introductions",
+      "resolution": "Corrected to standalone Lens requires neither gateway nor PostgreSQL; reviewed refreshed render"
+    },
+    {
+      "issue": "Existing-gateway tracing store instruction only dotted prose",
+      "resolution": "Implemented nested tracing.store YAML and contextual existing-gateway setup prompt in public docs509b3d73; exact source independently reviewed and strict build passed"
+    }
+  ],
+  "limits": [
+    "No infrastructure commands or provider calls performed during rendered documentation QA",
+    "Source links require internal repository access; examples publication and official artifacts remain separate gates",
+    "Desktop screenshots precede final tiny architecture/anchor/Compose snippet edits; domain and storage separately validate exact final source/build"
+  ],
+  "screenshots": [
+    {
+      "path": "docs/extraction/evidence/final-removal/root/browser/docs-kubernetes-desktop.png",
+      "sha256": "6e9fcfed2f81850ecf5078c9bd1e427210e26cdc3500e61c6413824941d072c0",
+      "bytes": 118266
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/root/browser/docs-investigation-narrow.png",
+      "sha256": "43a8692869c6a1db518bf3c890ec5ac9504cb9a1f46c912100476d5e6cae0c04",
+      "bytes": 55811
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/root/browser/docs-compose-desktop.png",
+      "sha256": "ca3288ec2eea69c93491c7ab444a391401bc224d4ae829e5934ec046817a68ad",
+      "bytes": 128769
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/root/browser/docs-release-narrow.png",
+      "sha256": "b4761db21b9ff66b6de818a3082d81e4bfac5d2da69fcb8c8b62898ebc594421",
+      "bytes": 61600
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/root/browser/docs-local-narrow.png",
+      "sha256": "df3eb64411ce3e8788de8afb1daf2dd70ba186860fcdce03813e42e5a2b3369e",
+      "bytes": 54225
+    }
+  ]
+}

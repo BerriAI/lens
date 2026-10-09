@@ -1,0 +1,45 @@
+{
+  "reviewed_at": "2026-10-09T12:17:50.985436+00:00",
+  "reviewer": "dataset_http",
+  "domain_receipt_sha256": "fdc7a60f8e5f402719300bfbebaecf41a3e3d9afef58e2beb5410a1ae17fa55f",
+  "verified_test_groups": 10,
+  "verified_cases": 297,
+  "source_hashes_verified": 16,
+  "git_objects": {
+    "9e4974603aa1e3f638ebe93284eb309110dc5ec8": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+    "70c2d61e36503116241dcc2fbf5f51ed69cbf430": "f2369c5095eb7370c3ae81736a917c812bcb91c2"
+  },
+  "failed_attempt_log_hashes_verified": true,
+  "owned_containers_remaining": 0,
+  "manual_source_review": "complete",
+  "status": "passed_scoped_independent_review",
+  "reviewed_source_sha256": {
+    "deploy/lens/compose.yaml": "fce67c8e6dd6dfe608dc7144b6d6d25103bbc587897e261a4eb5b24e3b55586f",
+    "src/worker/crates/storage-clickhouse/tests/investigations/writes.rs": "a9fbd510e1d27af781bc72cda444c72c78f7fc56e8ecefd94a1106914e22f21f",
+    "src/worker/crates/storage-clickhouse/src/investigations/writes.rs": "0c199e7c81af2b139f1affcff26347e897d970f87bdf53c8074b576904f7df0f",
+    "src/worker/crates/storage-clickhouse/src/investigations/reviews.rs": "6c986ee655805a50034f7870fb60c4199a71fab8f4112482195dc32d637106fa",
+    "src/worker/crates/storage-clickhouse/src/state.rs": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518",
+    "src/worker/crates/storage-clickhouse/src/state/transport.rs": "aa1071b1dbd1b200b27d79f64309df87cf5b7834c347679612ab2f2a842c6f76",
+    "src/worker/crates/storage-clickhouse/src/evals/scoring.rs": "6e604b9b1e8a3451f97be2853830203d2f982829692edef0518b12837872212b",
+    "src/worker/crates/lens/src/local/inference.rs": "055f0cfde0a0ab5c7a9e45dfffc5808a870eb2d8565234b89cd02afadb2ab87e",
+    "src/worker/crates/lens/src/local.rs": "1ca4f9f913d73a288d64a8e39bc4d0cdb4b88b092a114051cb878c2616df668c",
+    "src/worker/crates/migrate/src/source.rs": "cd03577d091f32aeac0005a3270930752710290eebe5d4b4d4e2f410c0a309e5",
+    "src/worker/crates/migrate/src/target.rs": "417f8702d0687fa37c433e466220abc72002b865a31db8886cfc7e15fc6762f7"
+  },
+  "observations": [
+    "Read original upstream 4ed0267b5a081ac4884431fd7f5ef41fce20a4d1 Python change and integration assertions. Rust reserve and renewal call LocalControl.update, which delegates to update_locked; progress takes the same per-investigation writer. The three Rust cases exercise reserve, renewal, and settlement under four active independent progress writers and verify persistence, bounded completion, budget/job costs and renewed expiry. This is behavior regression coverage, not literal copying of the PostgreSQL blocking test.",
+    "Publication includes writer ownership revision in the same fenced KeeperMap update as Lens data and writer release. Prepared blobs alone do not advance published state. Missing or mismatched published payloads fail closed.",
+    "Storage transport forces strict KeeperMap mode, synchronous inserts and query completion; source/hash verification and fresh state tests include stale writer, compaction, atomic multi-record publication, restart and tombstone boundaries.",
+    "Progress revalidates job, worker, attempt, running status and live lease after waiting. Eval completion validates matching live scoring token, seals run and clears scoring index with one state commit.",
+    "Migration reads eight legacy Lens groups within a REPEATABLE READ READ ONLY PostgreSQL transaction; target rejects unknown published state, requires equal plan report/fingerprint on resume, verifies each chunk and marks completion last.",
+    "Deploy Compose pids_limit:128 belongs to Lens only; ClickHouse has no pids_limit. Audit fixture correction removed only its own cap256 while retaining source, assertions and CPU/memory caps. Original failed attempts remain recorded; original first server error log was lost and this limitation is explicit.",
+    "Checked current Docker label inventory: no domain-owned audit containers remain."
+  ],
+  "confirmed_product_findings": [],
+  "limitations": [
+    "Independent review validates raw logs, recorded execution source and selected code behavior; no duplicate full-suite rerun was performed.",
+    "Qualified tests are 297 scoped cases, not full Lens suite or production provider verification.",
+    "Managed cutover still requires stopped source/target writers; migration fixture tests do not establish a live production cutover.",
+    "This lane review does not end the required overall audit window."
+  ]
+}

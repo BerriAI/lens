@@ -1,0 +1,277 @@
+zizmor	Set up job	﻿2026-10-09T12:33:57.7728812Z Current runner version: '2.337.0'
+zizmor	Set up job	2026-10-09T12:33:57.7759817Z ##[group]Runner Image Provisioner
+zizmor	Set up job	2026-10-09T12:33:57.7760881Z Hosted Compute Agent
+zizmor	Set up job	2026-10-09T12:33:57.7761657Z Version: 20261002.596
+zizmor	Set up job	2026-10-09T12:33:57.7762373Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+zizmor	Set up job	2026-10-09T12:33:57.7763904Z Build Date: 2026-10-02T22:28:27Z
+zizmor	Set up job	2026-10-09T12:33:57.7765062Z Worker ID: {6bf42eed-4907-427a-935c-e07c0a10dce3}
+zizmor	Set up job	2026-10-09T12:33:57.7766332Z Region: westus3
+zizmor	Set up job	2026-10-09T12:33:57.7767220Z Cloud: Azure
+zizmor	Set up job	2026-10-09T12:33:57.7768043Z ##[endgroup]
+zizmor	Set up job	2026-10-09T12:33:57.7770252Z ##[group]Operating System
+zizmor	Set up job	2026-10-09T12:33:57.7771127Z Ubuntu
+zizmor	Set up job	2026-10-09T12:33:57.7771795Z 24.04.5
+zizmor	Set up job	2026-10-09T12:33:57.7772483Z LTS
+zizmor	Set up job	2026-10-09T12:33:57.7773518Z ##[endgroup]
+zizmor	Set up job	2026-10-09T12:33:57.7774240Z ##[group]Runner Image
+zizmor	Set up job	2026-10-09T12:33:57.7775080Z Image: ubuntu-24.04
+zizmor	Set up job	2026-10-09T12:33:57.7775806Z Version: 20261004.327.1
+zizmor	Set up job	2026-10-09T12:33:57.7777085Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+zizmor	Set up job	2026-10-09T12:33:57.7779395Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+zizmor	Set up job	2026-10-09T12:33:57.7780726Z ##[endgroup]
+zizmor	Set up job	2026-10-09T12:33:57.7782107Z ##[group]GITHUB_TOKEN Permissions
+zizmor	Set up job	2026-10-09T12:33:57.7788946Z Contents: read
+zizmor	Set up job	2026-10-09T12:33:57.7789671Z Metadata: read
+zizmor	Set up job	2026-10-09T12:33:57.7790463Z ##[endgroup]
+zizmor	Set up job	2026-10-09T12:33:57.7793213Z Secret source: Actions
+zizmor	Set up job	2026-10-09T12:33:57.7794314Z Cache mode: write
+zizmor	Set up job	2026-10-09T12:33:57.7795282Z Prepare workflow directory
+zizmor	Set up job	2026-10-09T12:33:57.8307668Z Prepare all required actions
+zizmor	Set up job	2026-10-09T12:33:57.8363069Z Getting action download info
+zizmor	Set up job	2026-10-09T12:33:58.1722269Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+zizmor	Set up job	2026-10-09T12:33:58.6099147Z Download action repository 'astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39' (SHA:fac544c07dec837d0ccb6301d7b5580bf5edae39)
+zizmor	Set up job	2026-10-09T12:33:59.6079519Z Complete job name: zizmor
+zizmor	Checkout	﻿2026-10-09T12:33:59.6676365Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+zizmor	Checkout	2026-10-09T12:33:59.6677288Z with:
+zizmor	Checkout	2026-10-09T12:33:59.6677669Z   persist-credentials: false
+zizmor	Checkout	2026-10-09T12:33:59.6678138Z   repository: BerriAI/project-releaser
+zizmor	Checkout	2026-10-09T12:33:59.6681483Z   token: ***
+zizmor	Checkout	2026-10-09T12:33:59.6681858Z   ssh-strict: true
+zizmor	Checkout	2026-10-09T12:33:59.6682241Z   ssh-user: git
+zizmor	Checkout	2026-10-09T12:33:59.6682753Z   clean: true
+zizmor	Checkout	2026-10-09T12:33:59.6683150Z   sparse-checkout-cone-mode: true
+zizmor	Checkout	2026-10-09T12:33:59.6683597Z   fetch-depth: 1
+zizmor	Checkout	2026-10-09T12:33:59.6683963Z   fetch-tags: false
+zizmor	Checkout	2026-10-09T12:33:59.6684341Z   show-progress: true
+zizmor	Checkout	2026-10-09T12:33:59.6684733Z   lfs: false
+zizmor	Checkout	2026-10-09T12:33:59.6685096Z   submodules: false
+zizmor	Checkout	2026-10-09T12:33:59.6685508Z   set-safe-directory: true
+zizmor	Checkout	2026-10-09T12:33:59.6685941Z   allow-unsafe-pr-checkout: false
+zizmor	Checkout	2026-10-09T12:33:59.6686748Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.7566428Z Syncing repository: BerriAI/project-releaser
+zizmor	Checkout	2026-10-09T12:33:59.7568939Z ##[group]Getting Git version info
+zizmor	Checkout	2026-10-09T12:33:59.7570257Z Working directory is '/home/runner/work/project-releaser/project-releaser'
+zizmor	Checkout	2026-10-09T12:33:59.7571923Z [command]/usr/bin/git version
+zizmor	Checkout	2026-10-09T12:33:59.7652205Z git version 2.55.0
+zizmor	Checkout	2026-10-09T12:33:59.7670959Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.7680865Z Temporarily overriding HOME='/home/runner/work/_temp/5cb494ea-04e1-479e-a27b-5ece40bcaeb4' before making global git config changes
+zizmor	Checkout	2026-10-09T12:33:59.7683573Z Adding repository directory to the temporary git global config as a safe directory
+zizmor	Checkout	2026-10-09T12:33:59.7688088Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/project-releaser/project-releaser
+zizmor	Checkout	2026-10-09T12:33:59.7729566Z Deleting the contents of '/home/runner/work/project-releaser/project-releaser'
+zizmor	Checkout	2026-10-09T12:33:59.7734342Z ##[group]Determining repository object format
+zizmor	Checkout	2026-10-09T12:33:59.7736120Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.7737592Z ##[group]Initializing the repository
+zizmor	Checkout	2026-10-09T12:33:59.7739659Z [command]/usr/bin/git init /home/runner/work/project-releaser/project-releaser
+zizmor	Checkout	2026-10-09T12:33:59.7855063Z hint: Using 'master' as the name for the initial branch. This default branch name
+zizmor	Checkout	2026-10-09T12:33:59.7856720Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+zizmor	Checkout	2026-10-09T12:33:59.7857955Z hint: to use in all of your new repositories, which will suppress this warning,
+zizmor	Checkout	2026-10-09T12:33:59.7858815Z hint: call:
+zizmor	Checkout	2026-10-09T12:33:59.7859400Z hint:
+zizmor	Checkout	2026-10-09T12:33:59.7860089Z hint: 	git config --global init.defaultBranch <name>
+zizmor	Checkout	2026-10-09T12:33:59.7860820Z hint:
+zizmor	Checkout	2026-10-09T12:33:59.7861583Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+zizmor	Checkout	2026-10-09T12:33:59.7862850Z hint: 'development'. The just-created branch can be renamed via this command:
+zizmor	Checkout	2026-10-09T12:33:59.7863925Z hint:
+zizmor	Checkout	2026-10-09T12:33:59.7864505Z hint: 	git branch -m <name>
+zizmor	Checkout	2026-10-09T12:33:59.7865164Z hint:
+zizmor	Checkout	2026-10-09T12:33:59.7866026Z hint: Disable this message with "git config set advice.defaultBranchName false"
+zizmor	Checkout	2026-10-09T12:33:59.7878193Z Initialized empty Git repository in /home/runner/work/project-releaser/project-releaser/.git/
+zizmor	Checkout	2026-10-09T12:33:59.7880875Z [command]/usr/bin/git remote add origin https://github.com/BerriAI/project-releaser
+zizmor	Checkout	2026-10-09T12:33:59.7927029Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.7928338Z ##[group]Disabling automatic garbage collection
+zizmor	Checkout	2026-10-09T12:33:59.7929483Z [command]/usr/bin/git config --local gc.auto 0
+zizmor	Checkout	2026-10-09T12:33:59.7956045Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.7957680Z ##[group]Setting up auth
+zizmor	Checkout	2026-10-09T12:33:59.7959524Z Removing SSH command configuration
+zizmor	Checkout	2026-10-09T12:33:59.7961349Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	Checkout	2026-10-09T12:33:59.7990669Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	Checkout	2026-10-09T12:33:59.8406801Z Removing HTTP extra header
+zizmor	Checkout	2026-10-09T12:33:59.8408701Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	Checkout	2026-10-09T12:33:59.8463191Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	Checkout	2026-10-09T12:33:59.8750318Z Removing includeIf entries pointing to credentials config files
+zizmor	Checkout	2026-10-09T12:33:59.8752345Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	Checkout	2026-10-09T12:33:59.8785430Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	Checkout	2026-10-09T12:33:59.8983419Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+zizmor	Checkout	2026-10-09T12:33:59.9017389Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:33:59.9061797Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:33:59.9083599Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:33:59.9113328Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:33:59.9135762Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:33:59.9137443Z ##[group]Fetching the repository
+zizmor	Checkout	2026-10-09T12:33:59.9140283Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +1a684845db7dc1213b041e2277be04837d6f81d4:refs/remotes/pull/305/merge
+zizmor	Checkout	2026-10-09T12:34:01.0862036Z From https://github.com/BerriAI/project-releaser
+zizmor	Checkout	2026-10-09T12:34:01.0871022Z  * [new ref]         1a684845db7dc1213b041e2277be04837d6f81d4 -> pull/305/merge
+zizmor	Checkout	2026-10-09T12:34:01.0874061Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:34:01.0875045Z ##[group]Determining the checkout info
+zizmor	Checkout	2026-10-09T12:34:01.0875886Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:34:01.0876494Z [command]/usr/bin/git sparse-checkout disable
+zizmor	Checkout	2026-10-09T12:34:01.1374073Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+zizmor	Checkout	2026-10-09T12:34:01.1458319Z ##[group]Checking out the ref
+zizmor	Checkout	2026-10-09T12:34:01.1460948Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/305/merge
+zizmor	Checkout	2026-10-09T12:34:01.1748660Z Note: switching to 'refs/remotes/pull/305/merge'.
+zizmor	Checkout	2026-10-09T12:34:01.1749515Z 
+zizmor	Checkout	2026-10-09T12:34:01.1749992Z You are in 'detached HEAD' state. You can look around, make experimental
+zizmor	Checkout	2026-10-09T12:34:01.1751209Z changes and commit them, and you can discard any commits you make in this
+zizmor	Checkout	2026-10-09T12:34:01.1752416Z state without impacting any branches by switching back to a branch.
+zizmor	Checkout	2026-10-09T12:34:01.1754747Z 
+zizmor	Checkout	2026-10-09T12:34:01.1755320Z If you want to create a new branch to retain commits you create, you may
+zizmor	Checkout	2026-10-09T12:34:01.1756103Z do so (now or later) by using -c with the switch command. Example:
+zizmor	Checkout	2026-10-09T12:34:01.1756537Z 
+zizmor	Checkout	2026-10-09T12:34:01.1756767Z   git switch -c <new-branch-name>
+zizmor	Checkout	2026-10-09T12:34:01.1757236Z 
+zizmor	Checkout	2026-10-09T12:34:01.1757442Z Or undo this operation with:
+zizmor	Checkout	2026-10-09T12:34:01.1757775Z 
+zizmor	Checkout	2026-10-09T12:34:01.1757954Z   git switch -
+zizmor	Checkout	2026-10-09T12:34:01.1758232Z 
+zizmor	Checkout	2026-10-09T12:34:01.1758713Z Turn off this advice by setting config variable advice.detachedHead to false
+zizmor	Checkout	2026-10-09T12:34:01.1759350Z 
+zizmor	Checkout	2026-10-09T12:34:01.1759877Z HEAD is now at 1a68484 Merge cca09f3b6a00327ccf056181d2fb1ea2636dd96d into 0903cc12133d35144d33916efcd779db5d2e6e7a
+zizmor	Checkout	2026-10-09T12:34:01.1763676Z ##[endgroup]
+zizmor	Checkout	2026-10-09T12:34:01.1806031Z [command]/usr/bin/git log -1 --format=%H
+zizmor	Checkout	2026-10-09T12:34:01.1829040Z 1a684845db7dc1213b041e2277be04837d6f81d4
+zizmor	Checkout	2026-10-09T12:34:01.1836774Z ##[group]Removing auth
+zizmor	Checkout	2026-10-09T12:34:01.1838029Z Removing SSH command configuration
+zizmor	Checkout	2026-10-09T12:34:01.1841030Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	Checkout	2026-10-09T12:34:01.1866799Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	Checkout	2026-10-09T12:34:01.2065067Z Removing HTTP extra header
+zizmor	Checkout	2026-10-09T12:34:01.2067526Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	Checkout	2026-10-09T12:34:01.2098716Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	Checkout	2026-10-09T12:34:01.2304338Z Removing includeIf entries pointing to credentials config files
+zizmor	Checkout	2026-10-09T12:34:01.2306192Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	Checkout	2026-10-09T12:34:01.2329411Z includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path
+zizmor	Checkout	2026-10-09T12:34:01.2331843Z includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path
+zizmor	Checkout	2026-10-09T12:34:01.2333278Z includeif.gitdir:/github/workspace/.git.path
+zizmor	Checkout	2026-10-09T12:34:01.2334203Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+zizmor	Checkout	2026-10-09T12:34:01.2338743Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path
+zizmor	Checkout	2026-10-09T12:34:01.2358694Z /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2369189Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git.path /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2455892Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path
+zizmor	Checkout	2026-10-09T12:34:01.2476034Z /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2485446Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/project-releaser/project-releaser/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2655273Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+zizmor	Checkout	2026-10-09T12:34:01.2675508Z /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2708141Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2875635Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+zizmor	Checkout	2026-10-09T12:34:01.2895301Z /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.2928445Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config
+zizmor	Checkout	2026-10-09T12:34:01.3174452Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	Checkout	2026-10-09T12:34:01.3436420Z Removing credentials config '/home/runner/work/_temp/git-credentials-c063c21f-1e4d-4aa4-855e-746c821850ec.config'
+zizmor	Checkout	2026-10-09T12:34:01.3448212Z ##[endgroup]
+zizmor	Setup uv	﻿2026-10-09T12:34:01.3933879Z ##[group]Run astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
+zizmor	Setup uv	2026-10-09T12:34:01.3934216Z with:
+zizmor	Setup uv	2026-10-09T12:34:01.3934389Z   enable-cache: true
+zizmor	Setup uv	2026-10-09T12:34:01.3934584Z   activate-environment: false
+zizmor	Setup uv	2026-10-09T12:34:01.3934792Z   no-project: false
+zizmor	Setup uv	2026-10-09T12:34:01.3935077Z   working-directory: /home/runner/work/project-releaser/project-releaser
+zizmor	Setup uv	2026-10-09T12:34:01.3937455Z   github-token: ***
+zizmor	Setup uv	2026-10-09T12:34:01.3937899Z   cache-dependency-glob: **/*requirements*.txt
+zizmor	Setup uv	**/*requirements*.in
+zizmor	Setup uv	**/*constraints*.txt
+zizmor	Setup uv	**/*constraints*.in
+zizmor	Setup uv	**/pyproject.toml
+zizmor	Setup uv	**/uv.lock
+zizmor	Setup uv	**/*.py.lock
+zizmor	Setup uv	
+zizmor	Setup uv	2026-10-09T12:34:01.3938381Z   restore-cache: true
+zizmor	Setup uv	2026-10-09T12:34:01.3938570Z   save-cache: true
+zizmor	Setup uv	2026-10-09T12:34:01.3938746Z   prune-cache: true
+zizmor	Setup uv	2026-10-09T12:34:01.3938930Z   cache-python: false
+zizmor	Setup uv	2026-10-09T12:34:01.3939125Z   ignore-nothing-to-cache: false
+zizmor	Setup uv	2026-10-09T12:34:01.3939346Z   ignore-empty-workdir: false
+zizmor	Setup uv	2026-10-09T12:34:01.3939568Z   download-from-astral-mirror: true
+zizmor	Setup uv	2026-10-09T12:34:01.3939796Z   add-problem-matchers: true
+zizmor	Setup uv	2026-10-09T12:34:01.3940031Z   quiet: false
+zizmor	Setup uv	2026-10-09T12:34:01.3940208Z   resolution-strategy: highest
+zizmor	Setup uv	2026-10-09T12:34:01.3940416Z ##[endgroup]
+zizmor	Setup uv	2026-10-09T12:34:01.6133591Z Trying to find version for uv in: /home/runner/work/project-releaser/project-releaser/uv.toml
+zizmor	Setup uv	2026-10-09T12:34:01.6153318Z Could not find file: /home/runner/work/project-releaser/project-releaser/uv.toml
+zizmor	Setup uv	2026-10-09T12:34:01.6173312Z Trying to find version for uv in: /home/runner/work/project-releaser/project-releaser/pyproject.toml
+zizmor	Setup uv	2026-10-09T12:34:01.6193235Z Could not find file: /home/runner/work/project-releaser/project-releaser/pyproject.toml
+zizmor	Setup uv	2026-10-09T12:34:01.6213222Z Could not determine uv version from uv.toml or pyproject.toml. Falling back to latest.
+zizmor	Setup uv	2026-10-09T12:34:01.6253301Z Fetching manifest data from https://raw.githubusercontent.com/astral-sh/versions/main/v1/uv.ndjson ...
+zizmor	Setup uv	2026-10-09T12:34:01.7095700Z Downloading uv from "https://releases.astral.sh/github/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz" ...
+zizmor	Setup uv	2026-10-09T12:34:01.8990024Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/32ea4a23-901b-42ab-8f71-dadd39dab1a0 -f /home/runner/work/_temp/17cfcd0e-c582-46bb-952d-99da504678c5
+zizmor	Setup uv	2026-10-09T12:34:02.9231235Z Added /home/runner/.local/bin to the path
+zizmor	Setup uv	2026-10-09T12:34:02.9242356Z Added /opt/hostedtoolcache/uv/0.12.24/x86_64 to the path
+zizmor	Setup uv	2026-10-09T12:34:02.9254486Z Set UV_PYTHON_INSTALL_DIR to /home/runner/work/_temp/uv-python-dir
+zizmor	Setup uv	2026-10-09T12:34:02.9255128Z Added /home/runner/work/_temp/uv-python-dir to the path
+zizmor	Setup uv	2026-10-09T12:34:02.9272112Z Set UV_CACHE_DIR to /home/runner/work/_temp/setup-uv-cache
+zizmor	Setup uv	2026-10-09T12:34:02.9282367Z Successfully installed uv version 0.12.24
+zizmor	Setup uv	2026-10-09T12:34:03.0246051Z Searching files using cache dependency glob: /home/runner/work/project-releaser/project-releaser/**/*requirements*.txt,/home/runner/work/project-releaser/project-releaser/**/*requirements*.in,/home/runner/work/project-releaser/project-releaser/**/*constraints*.txt,/home/runner/work/project-releaser/project-releaser/**/*constraints*.in,/home/runner/work/project-releaser/project-releaser/**/pyproject.toml,/home/runner/work/project-releaser/project-releaser/**/uv.lock,/home/runner/work/project-releaser/project-releaser/**/*.py.lock
+zizmor	Setup uv	2026-10-09T12:34:03.0543851Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-build.in
+zizmor	Setup uv	2026-10-09T12:34:03.0557931Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-build.txt
+zizmor	Setup uv	2026-10-09T12:34:03.0564937Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-cloudsmith.in
+zizmor	Setup uv	2026-10-09T12:34:03.0573658Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-cloudsmith.txt
+zizmor	Setup uv	2026-10-09T12:34:03.0583985Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-maturin.in
+zizmor	Setup uv	2026-10-09T12:34:03.0595909Z /home/runner/work/project-releaser/project-releaser/.github/requirements/requirements-maturin.txt
+zizmor	Setup uv	2026-10-09T12:34:03.0604765Z /home/runner/work/project-releaser/project-releaser/.github/scripts/pyproject.toml
+zizmor	Setup uv	2026-10-09T12:34:03.0763606Z /home/runner/work/project-releaser/project-releaser/.github/scripts/uv.lock
+zizmor	Setup uv	2026-10-09T12:34:03.0792787Z Found 8 files to hash.
+zizmor	Setup uv	2026-10-09T12:34:03.0844748Z Trying to restore cache from GitHub Actions cache with key: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12.3-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+zizmor	Setup uv	2026-10-09T12:34:03.2853636Z Cache hit for: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12.3-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+zizmor	Setup uv	2026-10-09T12:34:03.7871577Z Received 91029 of 91029 (100.0%), 0.3 MBs/sec
+zizmor	Setup uv	2026-10-09T12:34:03.7872454Z Cache Size: ~0 MB (91029 B)
+zizmor	Setup uv	2026-10-09T12:34:03.7898807Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8c7a3f03-86b9-43e8-838d-34113dafa9aa/cache.tzst -P -C /home/runner/work/project-releaser/project-releaser --use-compress-program unzstd
+zizmor	Setup uv	2026-10-09T12:34:03.8033535Z Cache restored successfully
+zizmor	Setup uv	2026-10-09T12:34:03.8037521Z cache restored from GitHub Actions cache with key: setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12.3-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9
+zizmor	Run zizmor	﻿2026-10-09T12:34:03.9180032Z ##[group]Run uvx zizmor==1.24.1 --no-progress .github/workflows/
+zizmor	Run zizmor	2026-10-09T12:34:03.9180460Z ^[[36;1muvx zizmor==1.24.1 --no-progress .github/workflows/^[[0m
+zizmor	Run zizmor	2026-10-09T12:34:03.9470893Z shell: /usr/bin/bash -e {0}
+zizmor	Run zizmor	2026-10-09T12:34:03.9471145Z env:
+zizmor	Run zizmor	2026-10-09T12:34:03.9471384Z   UV_PYTHON_INSTALL_DIR: /home/runner/work/_temp/uv-python-dir
+zizmor	Run zizmor	2026-10-09T12:34:03.9471712Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+zizmor	Run zizmor	2026-10-09T12:34:03.9474315Z   GH_TOKEN: ***
+zizmor	Run zizmor	2026-10-09T12:34:03.9474500Z ##[endgroup]
+zizmor	Run zizmor	2026-10-09T12:34:04.0487036Z Downloading zizmor (8.8MiB)
+zizmor	Run zizmor	2026-10-09T12:34:04.1099247Z  Downloaded zizmor
+zizmor	Run zizmor	2026-10-09T12:34:04.1112908Z Installed 1 package in 1ms
+zizmor	Run zizmor	2026-10-09T12:34:04.1481356Z ^[[32m INFO^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 zizmor v1.24.1
+zizmor	Run zizmor	2026-10-09T12:34:05.2587395Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/build-and-push.yml
+zizmor	Run zizmor	2026-10-09T12:34:05.4761506Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/docker-publish.yml
+zizmor	Run zizmor	2026-10-09T12:34:05.7390320Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/lens-release-runtime-validation.yml
+zizmor	Run zizmor	2026-10-09T12:34:05.9676055Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/lens-release.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.2014666Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/lens-stage.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.4319861Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/promote-tag.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.7705176Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/publish-enterprise.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.7763722Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/publish-helm.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.7818032Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/publish-litellm.yml
+zizmor	Run zizmor	2026-10-09T12:34:06.7845128Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/publish-proxy-extras.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0296249Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-componentized-impl.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0313514Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-componentized.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0352729Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-docker-build.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0404283Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-helm-build.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0432234Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-plan.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0444398Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-private-pypi.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0527254Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-private.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0602261Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-pypi-build.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0609932Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-scripts-ci.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0629146Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-sign-attest.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0645494Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release-ui-build.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.0830442Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/release.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4082819Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/renovate.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4090556Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/runbook-drift.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4135357Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/rust-publish.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4165971Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/sign-and-attest.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4187846Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/stage.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4194665Z ^[[32m INFO^[[0m ^[[1maudit^[[0m^[[2m:^[[0m ^[[2mzizmor^[[0m^[[2m:^[[0m 🌈 completed .github/workflows/zizmor.yml
+zizmor	Run zizmor	2026-10-09T12:34:07.4203600Z ^[[32mNo findings to report. Good job!^[[39m (^[[1m^[[93m20^[[39m ignored, ^[[93m76^[[39m suppressed^[[0m)
+zizmor	Post Setup uv	﻿2026-10-09T12:34:07.4386178Z Post job cleanup.
+zizmor	Post Setup uv	2026-10-09T12:34:07.5265703Z UV_CACHE_DIR is already set to /home/runner/work/_temp/setup-uv-cache
+zizmor	Post Setup uv	2026-10-09T12:34:07.5270818Z UV_PYTHON_INSTALL_DIR is already set to /home/runner/work/_temp/uv-python-dir
+zizmor	Post Setup uv	2026-10-09T12:34:07.5272718Z Cache hit occurred on key setup-uv-2-x86_64-unknown-linux-gnu-ubuntu-24.04-3.12.3-pruned-70c56bfdb6ed8a0a6f43302eed97ea62366263df64d98d49ea796cd2fd8ab4b9, not saving cache.
+zizmor	Post Checkout	﻿2026-10-09T12:34:07.6402978Z Post job cleanup.
+zizmor	Post Checkout	2026-10-09T12:34:07.7117958Z [command]/usr/bin/git version
+zizmor	Post Checkout	2026-10-09T12:34:07.7160114Z git version 2.55.0
+zizmor	Post Checkout	2026-10-09T12:34:07.7192420Z Temporarily overriding HOME='/home/runner/work/_temp/564de793-b1c4-4b82-9f21-f8b7907648ee' before making global git config changes
+zizmor	Post Checkout	2026-10-09T12:34:07.7194475Z Adding repository directory to the temporary git global config as a safe directory
+zizmor	Post Checkout	2026-10-09T12:34:07.7195526Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/project-releaser/project-releaser
+zizmor	Post Checkout	2026-10-09T12:34:07.7223546Z Removing SSH command configuration
+zizmor	Post Checkout	2026-10-09T12:34:07.7228801Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+zizmor	Post Checkout	2026-10-09T12:34:07.7259624Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+zizmor	Post Checkout	2026-10-09T12:34:07.7451300Z Removing HTTP extra header
+zizmor	Post Checkout	2026-10-09T12:34:07.7456248Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+zizmor	Post Checkout	2026-10-09T12:34:07.7485341Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+zizmor	Post Checkout	2026-10-09T12:34:07.7671611Z Removing includeIf entries pointing to credentials config files
+zizmor	Post Checkout	2026-10-09T12:34:07.7677803Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+zizmor	Post Checkout	2026-10-09T12:34:07.7704462Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+zizmor	Complete job	﻿2026-10-09T12:34:07.8018792Z Cleaning up orphan processes

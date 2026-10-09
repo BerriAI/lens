@@ -1,0 +1,48 @@
+{
+  "at": "2026-10-09T12:13:06.101Z",
+  "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "reconciled_source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "frozen": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+  "baseline_routes": 55,
+  "current": 43,
+  "intentionally_retired": 12,
+  "unmapped": 0,
+  "owner_modules": [
+    {
+      "path": "src/worker/crates/server/src/datasets.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/service.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/ingestion.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/investigations.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/activity.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/signals.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/feedback.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/lens/src/lib.rs",
+      "byte_identical": true
+    },
+    {
+      "path": "src/worker/crates/server/src/tracing.rs",
+      "byte_identical": true
+    }
+  ]
+}

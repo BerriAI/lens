@@ -1,0 +1,42 @@
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.61s
+     Running tests/signals.rs (target/debug/deps/signals-efb548189346f3c3)
+
+running 34 tests
+test arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_1_null ... ok
+test arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_2_array ... ok
+test arbitrary_legacy_data_is_preserved_and_new_configuration_can_claim_it::case_3_number ... ok
+test classified_unchanged_trace_requires_changed_configuration::case_1_same_config ... ok
+test classified_unchanged_trace_requires_changed_configuration::case_2_changed_config ... ok
+test concurrent_claims_have_one_durable_owner ... ok
+test configuration_and_results_survive_abrupt_restart ... ok
+test configuration_roundtrips_and_same_configuration_preserves_head ... ok
+test failed_writes_leave_published_state_intact::case_1_configuration ... ok
+test failed_writes_leave_published_state_intact::case_2_claim ... ok
+test failed_writes_leave_published_state_intact::case_3_store ... ok
+test legacy_lease_formats_preserve_completion_ownership::case_1_naive ... ok
+test legacy_lease_formats_preserve_completion_ownership::case_2_offset ... ok
+test live_lease_blocks_config_changes_at_exact_expiry ... ok
+test malformed_records_fail_closed::case_1_configuration ... ok
+test malformed_records_fail_closed::case_2_traces ... ok
+test malformed_records_fail_closed::case_3_claim ... ok
+test malformed_records_fail_closed::case_4_store ... ok
+test malformed_records_fail_closed::case_5_positional_configuration ... ok
+test malformed_records_fail_closed::case_6_positional_traces ... ok
+test malformed_records_fail_closed::case_7_positional_claim ... ok
+test malformed_records_fail_closed::case_8_positional_store ... ok
+test reads_preserve_first_requested_order_deduplicate_and_separate_references ... ok
+test reclassification_intervals_are_strict_and_reset_previous_result::case_1_grown_trace ... ok
+test reclassification_intervals_are_strict_and_reset_previous_result::case_2_failed_retry ... ok
+test storing_an_unknown_trace_does_not_create_a_record ... ok
+test superseded_claim_cannot_overwrite_its_successor::case_1_changed_lease ... ok
+test superseded_claim_cannot_overwrite_its_successor::case_2_changed_config ... ok
+test unavailable_storage_is_reported_for_every_operation::case_1_configuration ... ok
+test unavailable_storage_is_reported_for_every_operation::case_2_save_configuration ... ok
+test unavailable_storage_is_reported_for_every_operation::case_3_traces ... ok
+test unavailable_storage_is_reported_for_every_operation::case_4_claim ... ok
+test unavailable_storage_is_reported_for_every_operation::case_5_store ... ok
+test unpublished_result_cannot_replace_the_current_claim ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.01s
+

@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-09T13:05:37.625Z",
+  "new_container_id": "f53fe8f35774e5a2cc15dd615baf0761779629549b1f3e9165cfddb2b5d6cb84",
+  "running": false,
+  "differences": [
+    {
+      "path": "/config/AttachStdout",
+      "before": "boolean",
+      "after": "boolean"
+    },
+    {
+      "path": "/config/AttachStderr",
+      "before": "boolean",
+      "after": "boolean"
+    },
+    {
+      "path": "/host_config/CapDrop",
+      "before": "object",
+      "after": "object"
+    },
+    {
+      "path": "/host_config/ReadonlyRootfs",
+      "before": "boolean",
+      "after": "boolean"
+    },
+    {
+      "path": "/host_config/SecurityOpt",
+      "before": "object",
+      "after": "object"
+    },
+    {
+      "path": "/host_config/Tmpfs",
+      "before": "object",
+      "after": "undefined"
+    },
+    {
+      "path": "/host_config/OomKillDisable",
+      "before": "object",
+      "after": "boolean"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "recorded_at": "2026-10-09T12:41:08.993Z",
+  "run": {
+    "conclusion": "success",
+    "event": "pull_request",
+    "headSha": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "status": "completed",
+    "url": "https://github.com/BerriAI/litellm-docs/actions/runs/37930761602"
+  },
+  "pr": {
+    "headRefOid": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "isDraft": true,
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-09T12:33:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/BerriAI/litellm-docs/actions/runs/37930761602/job/113820596593",
+        "name": "social-cards",
+        "startedAt": "2026-10-09T12:32:59Z",
+        "status": "COMPLETED",
+        "workflowName": "Docs checks"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-09T12:33:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/BerriAI/litellm-docs/actions/runs/37930761602/job/113820597150",
+        "name": "writing-style",
+        "startedAt": "2026-10-09T12:32:59Z",
+        "status": "COMPLETED",
+        "workflowName": "Docs checks"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-09T12:33:28Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/BerriAI/litellm-docs/actions/runs/37930761602/job/113820597075",
+        "name": "structure",
+        "startedAt": "2026-10-09T12:32:59Z",
+        "status": "COMPLETED",
+        "workflowName": "Docs checks"
+      },
+      {
+        "__typename": "StatusContext",
+        "context": "Vercel",
+        "startedAt": "2026-10-09T12:35:51Z",
+        "state": "SUCCESS",
+        "targetUrl": "https://vercel.com/clerkieai/litellm/GAzgqPDUBFmV2Lu6Lv7bwsxBkWpk"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-09T12:35:52Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://vercel.com/github",
+        "name": "Vercel Preview Comments",
+        "startedAt": "2026-10-09T12:35:52Z",
+        "status": "COMPLETED",
+        "workflowName": ""
+      }
+    ],
+    "url": "https://github.com/BerriAI/litellm-docs/pull/2210"
+  }
+}

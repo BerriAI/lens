@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-09T12:07:52.139Z",
+  "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+  "base": "a3236ba9479e32ee914d43f12082f4423403e3ca",
+  "migrations": [
+    {
+      "name": "0006_spend_logs.sql",
+      "source": "litellm-rust/crates/traces-clickhouse/migrations/0006_spend_logs.sql",
+      "equal": true,
+      "sha256": "712dd7c5c482795c20a05bbce29cbb7299bc6b7374653be23fe278ee248b4915"
+    },
+    {
+      "name": "0007_spend_logs_ttl.sql",
+      "source": "litellm-rust/crates/traces-clickhouse/migrations/0007_spend_logs_ttl.sql",
+      "equal": true,
+      "sha256": "ee488d46eca4d3fc1e60ca72087fc7a1d537fca7f376a5021e7746a1f7b4f878"
+    },
+    {
+      "name": "0014_spend_unknown_cost.sql",
+      "source": "litellm-rust/crates/traces-clickhouse/migrations/0014_spend_unknown_cost.sql",
+      "equal": true,
+      "sha256": "f4d654ed2011742f2808f75e4f4a9bea54eefe6420708767fb9efc1802a90b0d"
+    },
+    {
+      "name": "0015_spend_gateway_call_id.sql",
+      "source": "litellm-rust/crates/traces-clickhouse/migrations/0015_spend_gateway_call_id.sql",
+      "equal": true,
+      "sha256": "067b299c3350c39bf585b199c4d9ba1b8786048cdb250354507aa4a158c5cd95"
+    },
+    {
+      "name": "0016_spend_provider_request_id.sql",
+      "source": "litellm-rust/crates/traces-clickhouse/migrations/0016_spend_provider_request_id.sql",
+      "equal": true,
+      "sha256": "e915788fa6c42e5aa2f15aac2d63d1690ed88894a3afc21f0e396199033f100b"
+    }
+  ],
+  "preservedPaths": [
+    {
+      "path": "litellm/proxy/schema.prisma",
+      "diff": ""
+    },
+    {
+      "path": "litellm-proxy-extras",
+      "diff": ""
+    },
+    {
+      "path": "litellm/proxy/auth",
+      "diff": ""
+    },
+    {
+      "path": "litellm/proxy/management_endpoints",
+      "diff": ""
+    },
+    {
+      "path": "litellm/proxy/hooks",
+      "diff": ""
+    }
+  ]
+}

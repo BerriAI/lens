@@ -1,0 +1,510 @@
+{
+  "reviewed_at": "2026-10-09T12:19:38.757257+00:00",
+  "baseline": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+  "status": "pass",
+  "scope": "Legacy Python Lens product-route declarations compared with registered Rust public routes; source check only, not a live mutation replay",
+  "supported_baseline_routes": [
+    {
+      "method": "GET",
+      "path": "/lens/datasets",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "list_datasets",
+      "current": {
+        "method": "GET",
+        "path": "/lens/datasets",
+        "file": "src/worker/crates/server/src/routing.rs",
+        "line": 221
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "create_dataset",
+      "current": {
+        "method": "POST",
+        "path": "/lens/datasets",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 64
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets/build",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "build_dataset_cases",
+      "current": {
+        "method": "POST",
+        "path": "/lens/datasets/build",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 68
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/datasets/{dataset_id}",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "read_dataset",
+      "current": {
+        "method": "GET",
+        "path": "/lens/datasets/{dataset_id}",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 69
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets/{dataset_id}/revisions",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "save_revision",
+      "current": {
+        "method": "POST",
+        "path": "/lens/datasets/{dataset_id}/revisions",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 70
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/datasets/{dataset_id}/export",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "export_dataset",
+      "current": {
+        "method": "GET",
+        "path": "/lens/datasets/{dataset_id}/export",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 74
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
+      "file": "litellm/proxy/lens/dataset_endpoints.py",
+      "function": "eval_cases",
+      "current": {
+        "method": "GET",
+        "path": "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
+        "file": "src/worker/crates/server/src/datasets.rs",
+        "line": 75
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/service",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "service_connection",
+      "current": {
+        "method": "GET",
+        "path": "/lens/service",
+        "file": "src/worker/crates/server/src/service.rs",
+        "line": 47
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/tracing/keys",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "create_ingestion_key",
+      "current": {
+        "method": "POST",
+        "path": "/lens/tracing/keys",
+        "file": "src/worker/crates/server/src/ingestion.rs",
+        "line": 158
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/tracing/keys",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "list_ingestion_keys",
+      "current": {
+        "method": "GET",
+        "path": "/lens/tracing/keys",
+        "file": "src/worker/crates/server/src/ingestion.rs",
+        "line": 158
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/lens/tracing/keys/{key_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "revoke_ingestion_key",
+      "current": {
+        "method": "DELETE",
+        "path": "/lens/tracing/keys/{key_id}",
+        "file": "src/worker/crates/server/src/ingestion.rs",
+        "line": 162
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "list_lenses",
+      "current": {
+        "method": "GET",
+        "path": "/lens",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 64
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "create_lens",
+      "current": {
+        "method": "POST",
+        "path": "/lens",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 64
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/activity/available",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "activity_available",
+      "current": {
+        "method": "GET",
+        "path": "/lens/activity/available",
+        "file": "src/worker/crates/server/src/activity.rs",
+        "line": 73
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/agents",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "list_agents",
+      "current": {
+        "method": "GET",
+        "path": "/lens/agents",
+        "file": "src/worker/crates/server/src/activity.rs",
+        "line": 74
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/signals",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "get_signals",
+      "current": {
+        "method": "GET",
+        "path": "/lens/signals",
+        "file": "src/worker/crates/server/src/signals.rs",
+        "line": 41
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/signals",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "put_signals",
+      "current": {
+        "method": "PUT",
+        "path": "/lens/signals",
+        "file": "src/worker/crates/server/src/signals.rs",
+        "line": 41
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/traces/signals",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "trace_signal_statuses",
+      "current": {
+        "method": "POST",
+        "path": "/lens/traces/signals",
+        "file": "src/worker/crates/server/src/signals.rs",
+        "line": 42
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/traces/findings",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "trace_findings",
+      "current": {
+        "method": "POST",
+        "path": "/lens/traces/findings",
+        "file": "src/worker/crates/server/src/activity.rs",
+        "line": 76
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/watch-all",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "watch_all",
+      "current": {
+        "method": "POST",
+        "path": "/lens/watch-all",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 65
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/{lens_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "update_lens",
+      "current": {
+        "method": "PUT",
+        "path": "/lens/{lens_id}",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 66
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/{lens_id}/runs",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "run_lens",
+      "current": {
+        "method": "POST",
+        "path": "/lens/{lens_id}/runs",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 70
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/{lens_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "read_lens",
+      "current": {
+        "method": "GET",
+        "path": "/lens/{lens_id}",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 66
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/{lens_id}/runs",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "list_runs",
+      "current": {
+        "method": "GET",
+        "path": "/lens/{lens_id}/runs",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 70
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/{lens_id}/runs/{job_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "read_run",
+      "current": {
+        "method": "GET",
+        "path": "/lens/{lens_id}/runs/{job_id}",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 74
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/{lens_id}/runs/{job_id}/reviews",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "read_reviews",
+      "current": {
+        "method": "GET",
+        "path": "/lens/{lens_id}/runs/{job_id}/reviews",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 75
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/{lens_id}/cancel",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "cancel_lens",
+      "current": {
+        "method": "POST",
+        "path": "/lens/{lens_id}/cancel",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 79
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/lens/{lens_id}/findings/{finding_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "update_finding",
+      "current": {
+        "method": "PATCH",
+        "path": "/lens/{lens_id}/findings/{finding_id}",
+        "file": "src/worker/crates/server/src/investigations.rs",
+        "line": 80
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/preview/sample",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "preview_sample",
+      "current": {
+        "method": "POST",
+        "path": "/lens/preview/sample",
+        "file": "src/worker/crates/server/src/activity.rs",
+        "line": 75
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/{lens_id}/executions/{execution_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "evidence_content",
+      "current": {
+        "method": "GET",
+        "path": "/lens/{lens_id}/executions/{execution_id}",
+        "file": "src/worker/crates/server/src/activity.rs",
+        "line": 77
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/lens/feedback",
+      "file": "litellm/proxy/lens/feedback_endpoints.py",
+      "function": "read_feedback",
+      "current": {
+        "method": "GET",
+        "path": "/lens/feedback",
+        "file": "src/worker/crates/server/src/feedback.rs",
+        "line": 69
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/feedback",
+      "file": "litellm/proxy/lens/feedback_endpoints.py",
+      "function": "submit_feedback",
+      "current": {
+        "method": "PUT",
+        "path": "/lens/feedback",
+        "file": "src/worker/crates/server/src/feedback.rs",
+        "line": 69
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/lens/feedback",
+      "file": "litellm/proxy/lens/feedback_endpoints.py",
+      "function": "delete_feedback",
+      "current": {
+        "method": "DELETE",
+        "path": "/lens/feedback",
+        "file": "src/worker/crates/server/src/feedback.rs",
+        "line": 69
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/lens/feedback/summary",
+      "file": "litellm/proxy/lens/feedback_endpoints.py",
+      "function": "feedback_summary",
+      "current": {
+        "method": "POST",
+        "path": "/lens/feedback/summary",
+        "file": "src/worker/crates/server/src/feedback.rs",
+        "line": 73
+      }
+    }
+  ],
+  "supported_count": 34,
+  "retired_remote_worker_routes": [
+    {
+      "method": "GET",
+      "path": "/lens/internal/ingestion-credentials",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "ingestion_credentials",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/workers/register",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "register_worker",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/workers/{worker_id}/billing-key",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "set_worker_billing",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "DELETE",
+      "path": "/lens/workers/{worker_id}",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "revoke_worker",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/worker/claim",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "claim",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/worker/{lens_id}/{job_id}/progress",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "progress",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "GET",
+      "path": "/lens/worker/{lens_id}/{job_id}/reviews",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "cached_reviews",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "GET",
+      "path": "/lens/worker/{lens_id}/{job_id}/sample",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "sample",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "GET",
+      "path": "/lens/worker/{lens_id}/{job_id}/content",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "content",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/worker/{lens_id}/{job_id}/model",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "model",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/worker/{lens_id}/{job_id}/result",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "result",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    },
+    {
+      "method": "POST",
+      "path": "/lens/worker/{lens_id}/{job_id}/heartbeat",
+      "file": "litellm/proxy/lens/endpoints.py",
+      "function": "heartbeat",
+      "disposition": "Retired remote gateway-worker/delegated credential mechanism; local Rust service owns execution and direct ingestion"
+    }
+  ],
+  "retired_count": 12,
+  "missing": [],
+  "gateway_forwarding": "Existing authenticated service route is retained locally; other Lens paths forward via generic /lens and /lens/{path:path} adapter for GET/POST/PUT/PATCH/DELETE. Rust API merges these routers in the running Application.",
+  "limits": [
+    "Source presence alone does not prove each flow; live/browser/product suite receipts remain separate evidence.",
+    "Retired gateway-worker mode is outside current clean-cut scope per completion plan."
+  ]
+}
