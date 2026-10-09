@@ -42,11 +42,11 @@ function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {
   const connection = github.status.data?.connection;
   const source =
     connection &&
-    runs.find(
+    (runs.find(
       (run) =>
         githubRunRepository(run.ci_url)?.fullName.toLowerCase() ===
         connection.repository.toLowerCase(),
-    );
+    ) ?? runs.find((run) => githubRunRepository(run.ci_url)));
   const rerun = useMutation({
     mutationFn: (runId: string) =>
       apiClient.post<RerunResponse>("/lens/github/rerun", {
@@ -73,12 +73,13 @@ function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {
   useEffect(() => {
     if (!waiting) return;
     const timer = window.setInterval(() => void onRefresh(), 5000);
-    const timeout = window.setTimeout(() => setWaitExpired(true), 300_000);
-    return () => {
-      window.clearInterval(timer);
-      window.clearTimeout(timeout);
-    };
+    return () => window.clearInterval(timer);
   }, [waiting, onRefresh]);
+  useEffect(() => {
+    if (!waiting) return;
+    const timeout = window.setTimeout(() => setWaitExpired(true), 300_000);
+    return () => window.clearTimeout(timeout);
+  }, [waiting]);
   const canRun = connection?.available && source && !onboarding?.readOnly;
   return (
     <section aria-label="Run eval" className="shrink-0 border-b px-6 py-4">

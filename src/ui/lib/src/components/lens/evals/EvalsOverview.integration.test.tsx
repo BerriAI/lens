@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,6 +8,7 @@ import {
 } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
 import { EvalsView } from "./EvalsView";
+import { RunEval } from "./runs/RunEval";
 import { evalRun } from "./runs/testRuns";
 import type { EvalDefinition, EvalRun } from "./runs/types";
 
@@ -127,6 +128,68 @@ describe("Eval execution overview", () => {
     await testQueryClient.invalidateQueries();
     expect(await screen.findByText(/New results received/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Run again" })).toBeEnabled();
+  });
+
+  it("should let the server verify a previous run after the repository is renamed", async () => {
+    const user = userEvent.setup();
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
+      path === "/lens/github/status"
+        ? {
+            ...connection,
+            connection: {
+              ...connection.connection,
+              repository: "test-owner/renamed-agent",
+            },
+          }
+        : serve(path, request),
+    );
+    proxy.post.mockResolvedValue({
+      ci_url: "https://github.com/test-owner/renamed-agent/actions/runs/1234",
+      requested_at: "2026-10-09T00:00:00Z",
+    });
+    renderWithLens(<EvalsView />, {
+      searchParams: `?tab=evals&eval=${definition.name}`,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Run again" }));
+    await waitFor(() =>
+      expect(proxy.post).toHaveBeenCalledWith(
+        "/lens/github/rerun",
+        expect.objectContaining({ body: { run_id: completed.id } }),
+      ),
+    );
+    expect(await screen.findByRole("link", { name: "Open workflow" })).toHaveAttribute(
+      "href",
+      "https://github.com/test-owner/renamed-agent/actions/runs/1234",
+    );
+  });
+
+  it("should stop waiting after five minutes even when the refresh callback changes", async () => {
+    proxy.post.mockResolvedValue({
+      ci_url: ciUrl,
+      requested_at: "2026-10-09T00:00:00Z",
+    });
+    const view = renderWithLens(
+      <RunEval definition={definition} runs={runs} onRefresh={vi.fn().mockResolvedValue(undefined)} />,
+    );
+    const button = await screen.findByRole("button", { name: "Run again" });
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(button);
+        await vi.advanceTimersByTimeAsync(10);
+      });
+      expect(screen.getByRole("button", { name: "Run requested" })).toBeDisabled();
+      await act(() => vi.advanceTimersByTimeAsync(120_000));
+      view.rerender(
+        <RunEval definition={definition} runs={runs} onRefresh={vi.fn().mockResolvedValue(undefined)} />,
+      );
+      await act(() => vi.advanceTimersByTimeAsync(180_000));
+      expect(screen.getByText(/No new results received after 5 minutes/)).toBeVisible();
+      expect(screen.getByRole("button", { name: "Run again" })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows a rejected rerun as an error and leaves retry available", async () => {
