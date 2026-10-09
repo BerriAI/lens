@@ -35,6 +35,7 @@ const readyService = {
 it.each([
   ["name", "Choose your project and agent name to watch for its traces here."],
   ["key", "Get a tracing key, then connect your project using the setup instructions."],
+  ["instructions", "Finish connecting your project, then continue to verify its traces."],
 ] as const)("should explain the next action at the %s stage without asking for a run", async (stage, guidance) => {
   const gateway = stubGateway();
   gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : { agents: [] }));
@@ -46,6 +47,38 @@ it.each([
   expect(screen.getByText("Waiting for traces")).toBeVisible();
   expect(screen.queryByText(/Run one task/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Nothing arriving/)).not.toBeInTheDocument();
+});
+
+it("should preserve the arrival baseline when entering verification and confirm only a newly observed trace", async () => {
+  const user = userEvent.setup();
+  const gateway = stubGateway();
+  const onOpenTraces = vi.fn();
+  const agent = {
+    name: "support-agent",
+    runs: 1,
+    failed_runs: 0,
+    last_seen: new Date().toISOString(),
+    frameworks: [],
+  };
+  const agents = vi.fn(() => ({ agents: [agent] }));
+  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : agents()));
+  const view = renderWithLens(
+    <HomeConnectionStatus name={agent.name} enabled stage="instructions" onOpenTraces={onOpenTraces} />,
+  );
+  expect(await screen.findByText("Waiting for new traces")).toBeVisible();
+
+  view.rerender(<HomeConnectionStatus name={agent.name} enabled stage="verify" onOpenTraces={onOpenTraces} />);
+  expect(screen.getByRole("heading", { name: "Run one task" })).toHaveFocus();
+  expect(screen.getByText("Run your agent once. Lens will confirm a new trace here.")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Traces received" })).not.toBeInTheDocument();
+  expect(screen.getByText("Waiting for new traces")).toBeVisible();
+
+  agents.mockReturnValue({ agents: [{ ...agent, runs: 2 }] });
+  await user.click(screen.getByRole("button", { name: "Check connection" }));
+  expect(await screen.findByRole("heading", { name: "Traces received" })).toBeVisible();
+  expect(screen.getByText("Receiving traces")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "View traces" }));
+  expect(onOpenTraces).toHaveBeenCalledWith(agent.name);
 });
 
 it("should explain a storage blocker and recheck both service health and named trace progress", async () => {
@@ -67,10 +100,13 @@ it("should explain a storage blocker and recheck both service health and named t
   const health = vi.fn(() => service);
   const agents = vi.fn(() => ({ agents: [agent] }));
   gateway.get.mockImplementation((path) => (path === "/lens/service" ? health() : agents()));
-  renderWithLens(<HomeConnectionStatus name={agent.name} enabled keyReady={false} onOpenTraces={onOpenTraces} />);
+  renderWithLens(
+    <HomeConnectionStatus name={agent.name} enabled stage="verify" keyReady={false} onOpenTraces={onOpenTraces} />,
+  );
 
   expect(screen.getByRole("region", { name: "Live connection" })).toBeVisible();
   expect(await screen.findByText("Connection needs attention")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Check your connection" })).toBeVisible();
   expect(screen.getByText("Not ready")).toBeVisible();
   expect(await screen.findByRole("button", { name: "View traces" })).toBeVisible();
   expect(screen.queryByText("Receiving traces")).not.toBeInTheDocument();
@@ -82,6 +118,7 @@ it("should explain a storage blocker and recheck both service health and named t
   agents.mockReturnValue({ agents: [{ ...agent, runs: 2 }] });
   await user.click(screen.getByRole("button", { name: "Check connection" }));
   expect(await screen.findByText("Receiving traces")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Traces received" })).toBeVisible();
   expect(screen.getByText("Activation unconfirmed")).toBeVisible();
   expect(screen.queryByText("Not ready")).not.toBeInTheDocument();
   expect(screen.getByText(/^Last checked /)).toBeVisible();

@@ -29,8 +29,8 @@ function serve(url = "https://lens.example") {
 
 async function connectProject(user: ReturnType<typeof userEvent.setup>, name = "research_agent") {
   act(() => fireEvent.change(screen.getByRole("textbox", { name: "Agent name" }), { target: { value: name } }));
-  await user.click(screen.getByRole("button", { name: "Connect project" }));
-  expect(screen.getByRole("heading", { name: name.trim(), exact: true })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Continue", exact: true }));
+  expect(screen.getByRole("heading", { name: "Connect your project", exact: true })).toHaveFocus();
   return within(await screen.findByRole("region", { name: "Project credentials" }));
 }
 
@@ -45,13 +45,13 @@ describe("Lens Home connection", () => {
     const gateway = serve();
     renderWithLens(home());
 
-    expect(screen.getByRole("heading", { name: "Connect your project" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Get your first trace" })).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Agent name" })).toHaveValue("");
     expect(screen.getByRole("textbox", { name: "Agent name" })).toHaveAccessibleDescription(
       "Already instrumented? Use the name your app sends with its traces.",
     );
     expect(screen.getByRole("combobox", { name: "Your project" })).toHaveTextContent("Any agent or framework");
-    expect(screen.getByRole("button", { name: "Connect project" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const status = within(screen.getByRole("region", { name: "Live connection" }));
     await user.click(status.getByRole("button", { name: "Connection details" }));
@@ -128,7 +128,7 @@ describe("Lens Home connection", () => {
     renderWithLens(home());
     await chooseSelectOption(user, screen.getByRole("combobox", { name: "Your project" }), "Moyai");
     expect(screen.getByRole("textbox", { name: "Agent name" })).toHaveValue("moyai");
-    await user.click(screen.getByRole("button", { name: "Connect project" }));
+    await user.click(screen.getByRole("button", { name: "Continue", exact: true }));
     const credentials = within(await screen.findByRole("region", { name: "Project credentials" }));
     await user.click(credentials.getByRole("button", { name: "I already have a tracing key" }));
     const moyai = within(screen.getByRole("region", { name: "Configure Moyai" }));
@@ -255,6 +255,42 @@ describe("Lens Home connection", () => {
     expect(params.get("connect_agent")).toBe("current-agent");
     expect(params.has("connect_step")).toBe(false);
     expect(JSON.stringify(onUrlUpdate.mock.calls)).not.toContain("lens-private-key-for-first-agent");
+    expect(gateway.post).toHaveBeenCalledOnce();
+  });
+
+  it("should guide all three steps, preserve the key when revisiting instructions, and resume verification", async () => {
+    const user = userEvent.setup();
+    const gateway = serve();
+    const onUrlUpdate = vi.fn();
+    const secret = "lens-trace-local-only-test-key";
+    gateway.post.mockReturnValue({ key: secret, active: true });
+    const view = renderWithLens(home(), { onUrlUpdate });
+    expect(screen.getByRole("button", { name: "Step 1: Name agent" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("button", { name: "Step 3: Verify trace" })).toBeDisabled();
+    const credentials = await connectProject(user);
+    expect(screen.getByRole("button", { name: "Step 2: Connect project" })).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByRole("button", { name: "Continue to verification" })).not.toBeInTheDocument();
+    await user.click(credentials.getByRole("button", { name: "Generate tracing key" }));
+    await user.click(await screen.findByRole("button", { name: "Continue to verification" }));
+    expect(screen.getByRole("button", { name: "Step 3: Verify trace" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("heading", { name: "Run one task" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Copy setup instructions" })).not.toBeInTheDocument();
+    expect(screen.getByText("Waiting for traces")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Step 2: Connect project" }));
+    expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+    await user.click(screen.getByText("Set up manually"));
+    await user.click(screen.getByRole("button", { name: "Copy project environment" }));
+    expect(copyToClipboard).toHaveBeenLastCalledWith(expect.stringContaining(secret));
+    await user.click(screen.getByRole("button", { name: "Continue to verification" }));
+    await waitFor(() =>
+      expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("connect_step")).toBe("verify"),
+    );
+    const searchParams = String(onUrlUpdate.mock.lastCall?.[0].queryString);
+    expect(searchParams).not.toContain(secret);
+    view.unmount();
+    renderWithLens(home(), { searchParams });
+    expect(await screen.findByRole("heading", { name: "Run one task" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Step 3: Verify trace" })).toHaveAttribute("aria-current", "step");
     expect(gateway.post).toHaveBeenCalledOnce();
   });
 

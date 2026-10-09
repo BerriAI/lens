@@ -565,6 +565,7 @@ export function CodingAgentSetup({
   instructions: providedInstructions,
   onCopied,
   heading = "Connect your project",
+  embedded = false,
 }: {
   proxyUrl: string;
   traceUrl: string;
@@ -573,6 +574,7 @@ export function CodingAgentSetup({
   instructions?: string;
   onCopied?: () => void;
   heading?: string;
+  embedded?: boolean;
 }) {
   const standalone = useLensHost().surface === "standalone";
   const [copied, setCopied] = useState<string | null>(null);
@@ -588,11 +590,11 @@ export function CodingAgentSetup({
   };
   return (
     <section className="mt-6" aria-labelledby="connect-project">
-      <h3 id="connect-project" className="text-sm font-medium">
+      <h3 id="connect-project" className={embedded ? "sr-only" : "text-sm font-medium"}>
         {heading}
       </h3>
-      <div className="mt-3 overflow-hidden rounded-md border">
-        <div className="flex flex-wrap items-center gap-5 border-b bg-muted/30 px-4 py-3">
+      <div className={embedded ? "" : "mt-3 overflow-hidden rounded-md border"}>
+        <div className={cn("flex flex-wrap items-center gap-5", !embedded && "border-b bg-muted/30 px-4 py-3")}>
           <span className="inline-flex items-center gap-2 text-sm font-medium">
             <img src={claudeCodeLogo.src} alt="Claude Code logo" className="size-6 object-contain" />
             Claude Code
@@ -602,9 +604,9 @@ export function CodingAgentSetup({
             Codex
           </span>
         </div>
-        <div className="p-4">
-          <p className="text-sm leading-6 text-muted-foreground">
-            Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens.
+        <div className={embedded ? "pt-3" : "p-4"}>
+          <p className="text-[13px] leading-5 text-muted-foreground">
+            {embedded ? "Paste the setup instructions into your coding agent, inside your project." : "Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens."}
           </p>
           <Button className="mt-3 min-h-11 sm:min-h-9" onClick={() => void copy()}>
             {copied === instructions ? (

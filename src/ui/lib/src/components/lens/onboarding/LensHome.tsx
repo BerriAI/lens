@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Pencil } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
+import { cn } from "../../../lib/cva.config";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import type { LensAgents } from "../agents/AgentScoped";
 import { useLensAccessToken } from "../data/LensServices";
@@ -38,6 +39,16 @@ export function LensHome({
   const [integration, setIntegration] = useState<ProjectConnection["integration"]>(project?.integration ?? "auto");
   const [keyStatus, setKeyStatus] = useState<(ProjectConnection & { readonly active: boolean }) | null>(null);
   const [configurationIssue, setConfigurationIssue] = useState<string | null>(null);
+  const step = !project ? 1 : setup.verifying ? 3 : 2;
+  const changeProject = () => {
+    if (!project) return;
+    setName(project.name);
+    setIntegration(project.integration);
+    moveFocus.current = true;
+    setProject(null);
+    setKeyStatus(null);
+    setConfigurationIssue(null);
+  };
   const keyReady =
     keyStatus?.name === project?.name && keyStatus?.integration === project?.integration ? keyStatus?.active : null;
   const nameInput = useRef<HTMLInputElement>(null);
@@ -47,14 +58,18 @@ export function LensHome({
     if (!moveFocus.current) return;
     (project ? projectTitle.current : nameInput.current)?.focus();
     moveFocus.current = false;
-  }, [project?.name, project?.integration]);
+  }, [project?.name, project?.integration, setup.verifying]);
+  const returnToInstructions = () => {
+    moveFocus.current = true;
+    setup.setVerifying(false);
+  };
   return (
-    <section aria-label="Get started with Lens" className="mx-auto w-full max-w-6xl px-3 py-8 sm:px-6 sm:py-10">
+    <section aria-label="Get started with Lens" className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-tight">Connect your project</h2>
-          <p className="text-sm text-muted-foreground">
-            Send your agent’s traces to Lens. We’ll confirm when they arrive.
+          <h2 className="text-xl font-medium tracking-tight">Get your first trace</h2>
+          <p className="text-[13px] text-muted-foreground">
+            Connect your agent in three steps. See exactly what happens when it runs.
           </p>
         </div>
         {agents.list.agents.length > 0 && (
@@ -67,120 +82,163 @@ export function LensHome({
       {!enabled ? (
         <p className="text-sm text-muted-foreground">Turn off demo data to connect your project.</p>
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <HomeConnectionStatus
-            name={project?.name ?? ""}
-            enabled={enabled}
-            stage={!project ? "name" : setup.showInstructions ? "instructions" : "key"}
-            keyReady={keyReady}
-            setupIssue={project && setup.showInstructions ? configurationIssue : null}
-            onOpenTraces={onOpenAgent}
-            onSetup={onSetup}
-          />
-          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-            {project ? (
-              <>
-                <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3">
-                  <div className="min-w-0">
-                    <h3 ref={projectTitle} tabIndex={-1} className="truncate text-sm font-medium outline-none">
-                      {project.name}
-                    </h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {project.integration === "moyai"
-                        ? "Moyai · tracing included"
-                        : "Claude Code or Codex can detect your framework"}
+        <>
+          <nav aria-label="Setup progress" className="mb-6">
+            <ol className="flex gap-4 border-b sm:gap-6">
+              {["Name agent", "Connect project", "Verify trace"].map((label, index) => {
+                const number = index + 1;
+                return (
+                  <li key={label} className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      aria-current={step === number ? "step" : undefined}
+                      aria-label={`Step ${number}: ${label}`}
+                      disabled={number > step}
+                      onClick={() => {
+                        if (number === 1) changeProject();
+                        if (number === 2 && setup.verifying) returnToInstructions();
+                      }}
+                      className={cn(
+                        "-mb-px flex min-h-12 w-full items-center gap-2 border-b-2 px-0.5 py-3 text-left text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2.5 sm:text-[13px]",
+                        step === number
+                          ? "border-foreground text-foreground"
+                          : "border-transparent text-muted-foreground",
+                        number < step && "hover:text-foreground",
+                        number > step && "opacity-50",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px]",
+                          step === number && "border-foreground bg-foreground text-background",
+                          number < step && "border-border text-foreground",
+                        )}
+                      >
+                        {number < step ? <Check aria-hidden className="size-3" /> : number}
+                      </span>
+                      <span>{label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <HomeConnectionStatus
+              name={project?.name ?? ""}
+              enabled={enabled}
+              stage={!project ? "name" : setup.verifying ? "verify" : setup.showInstructions ? "instructions" : "key"}
+              keyReady={keyReady}
+              setupIssue={project && setup.showInstructions ? configurationIssue : null}
+              onOpenTraces={onOpenAgent}
+              onSetup={onSetup}
+            />
+            <div
+              hidden={setup.verifying && Boolean(project)}
+              className="order-first min-w-0 lg:col-start-1 lg:row-start-1"
+            >
+              {project ? (
+                <div className="overflow-hidden rounded-md border bg-card">
+                  <div className="flex items-start justify-between gap-3 border-b px-5 py-4 sm:px-6">
+                    <div className="min-w-0">
+                      <p className="mb-1 text-xs text-muted-foreground">Step 2 of 3</p>
+                      <h3 ref={projectTitle} tabIndex={-1} className="text-sm font-medium outline-none">
+                        Connect your project
+                      </h3>
+                      <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="truncate font-mono text-foreground">{project.name}</span>
+                        {project.integration === "moyai" ? "Tracing included" : "Any framework"}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={changeProject}>
+                      <Pencil aria-hidden className="size-3.5" />
+                      Change
+                    </Button>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <ProjectInstructions
+                      key={`${project.name}:${project.integration}`}
+                      project={project}
+                      setup={setup}
+                      onConfigurationIssue={setConfigurationIssue}
+                      onKeyReady={(active) => setKeyStatus({ ...project, active })}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <form
+                  className="space-y-5 rounded-md border bg-card p-5 sm:p-6"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!name.trim()) return;
+                    moveFocus.current = true;
+                    setProject({ name: name.trim(), integration });
+                  }}
+                >
+                  <div className="space-y-1">
+                    <p className="mb-2 text-xs text-muted-foreground">Step 1 of 3</p>
+                    <h3 className="text-sm font-medium">Name your agent</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your agent will appear automatically when it sends its first trace.
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setName(project.name);
-                      setIntegration(project.integration);
-                      moveFocus.current = true;
-                      setProject(null);
-                      setKeyStatus(null);
-                    }}
-                  >
-                    <Pencil aria-hidden className="size-3.5" />
-                    Change
+                  <div className="space-y-2">
+                    <label htmlFor="home-agent-name" className="text-sm font-medium">
+                      Agent name
+                    </label>
+                    <Input
+                      id="home-agent-name"
+                      ref={nameInput}
+                      name="agent-name"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      aria-describedby="home-agent-name-help"
+                      placeholder="e.g. moyai"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      maxLength={128}
+                      required
+                    />
+                    <p id="home-agent-name-help" className="text-xs text-muted-foreground">
+                      Already instrumented? Use the name your app sends with its traces.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label id="home-integration-label" className="text-sm font-medium">
+                      Your project
+                    </label>
+                    <Select
+                      value={integration}
+                      onValueChange={(value) => {
+                        if (value !== "auto" && value !== "moyai") return;
+                        setIntegration(value);
+                        if (value === "moyai" && !name.trim()) setName("moyai");
+                      }}
+                    >
+                      <SelectTrigger aria-labelledby="home-integration-label" className="w-full">
+                        <SelectValue>{integration === "auto" ? "Any agent or framework" : "Moyai"}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Any agent or framework</SelectItem>
+                        <SelectItem value="moyai">Moyai</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="min-h-11 sm:min-h-9" disabled={!name.trim()}>
+                    Continue
+                    <ArrowRight aria-hidden className="size-4" />
                   </Button>
-                </div>
-                <ProjectInstructions
-                  key={`${project.name}:${project.integration}`}
-                  project={project}
-                  setup={setup}
-                  onConfigurationIssue={setConfigurationIssue}
-                  onKeyReady={(active) => setKeyStatus({ ...project, active })}
-                />
-              </>
-            ) : (
-              <form
-                className="space-y-5 rounded-xl border bg-card p-5 sm:p-6"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!name.trim()) return;
-                  moveFocus.current = true;
-                  setProject({ name: name.trim(), integration });
-                }}
-              >
-                <div className="space-y-1">
-                  <h3 className="font-medium">What are you connecting?</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your agent will appear automatically when it sends its first trace.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="home-agent-name" className="text-sm font-medium">
-                    Agent name
-                  </label>
-                  <Input
-                    id="home-agent-name"
-                    ref={nameInput}
-                    name="agent-name"
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    aria-describedby="home-agent-name-help"
-                    placeholder="e.g. moyai"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    maxLength={128}
-                    required
-                  />
-                  <p id="home-agent-name-help" className="text-xs text-muted-foreground">
-                    Already instrumented? Use the name your app sends with its traces.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label id="home-integration-label" className="text-sm font-medium">
-                    Your project
-                  </label>
-                  <Select
-                    value={integration}
-                    onValueChange={(value) => {
-                      if (value !== "auto" && value !== "moyai") return;
-                      setIntegration(value);
-                      if (value === "moyai" && !name.trim()) setName("moyai");
-                    }}
-                  >
-                    <SelectTrigger aria-labelledby="home-integration-label" className="w-full">
-                      <SelectValue>{integration === "auto" ? "Any agent or framework" : "Moyai"}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Any agent or framework</SelectItem>
-                      <SelectItem value="moyai">Moyai</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" disabled={!name.trim()}>
-                  Connect project
-                  <ArrowRight aria-hidden className="size-4" />
-                </Button>
-              </form>
-            )}
+                </form>
+              )}
+            </div>
           </div>
-        </div>
+          {project && setup.verifying && (
+            <Button variant="ghost" size="sm" className="mt-4 text-muted-foreground" onClick={returnToInstructions}>
+              <ArrowLeft aria-hidden className="size-3.5" /> Back to connection instructions
+            </Button>
+          )}
+        </>
       )}
       {onSetup && (
         <Button variant="link" size="sm" className="mt-5 px-0 text-xs text-muted-foreground" onClick={onSetup}>
@@ -255,8 +313,8 @@ function ProjectInstructions({
       <section
         className={
           hasKey && !tracingKey
-            ? "flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 px-4 py-3"
-            : "space-y-4 rounded-xl border bg-card p-5 sm:p-6"
+            ? "flex flex-wrap items-center justify-between gap-2 border-b pb-4"
+            : "space-y-4 border-b pb-5"
         }
         aria-label="Project credentials"
       >
@@ -324,6 +382,7 @@ function ProjectInstructions({
             <CodingAgentSetup
               proxyUrl={traceUrl}
               traceUrl={traceUrl}
+              embedded
               heading="Connect with your coding agent"
               instructions={instructions}
               onCopied={() => setCopiedInstructions(true)}
@@ -387,7 +446,7 @@ function ProjectInstructions({
               )}
             </section>
           ) : validEndpoint ? (
-            <details className="rounded-lg border bg-muted/20 px-4 py-3">
+            <details className="border-t pt-4">
               <summary className="cursor-pointer text-sm font-medium">Set up manually</summary>
               <p className="my-3 text-sm text-muted-foreground">Set these variables where your agent runs.</p>
               <CodeBlock
@@ -409,13 +468,18 @@ function ProjectInstructions({
             </p>
           )}
           {validEndpoint && (
-            <p className="text-sm leading-6 text-muted-foreground" role="status">
-              {native
-                ? "Restart Moyai, then run one task. Keep this page open to confirm its traces arrive."
-                : copiedInstructions
-                  ? "Instructions copied. Paste them in your project, then run one task. Lens will confirm delivery here."
-                  : "After setup, run one task in your app. Lens will confirm delivery here."}
-            </p>
+            <div className="space-y-4 border-t pt-4">
+              <p className="text-xs leading-5 text-muted-foreground" role="status">
+                {native
+                  ? "Restart Moyai, then run one task. Keep this page open to confirm its traces arrive."
+                  : copiedInstructions
+                    ? "Instructions copied. Paste them in your project, then run one task. Lens will confirm delivery here."
+                    : "After setup, run one task in your app. Lens will confirm delivery here."}
+              </p>
+              <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setup.setVerifying(true)}>
+                Continue to verification <ArrowRight aria-hidden className="size-4" />
+              </Button>
+            </div>
           )}
         </>
       )}

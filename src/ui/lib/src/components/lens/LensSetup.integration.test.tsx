@@ -109,9 +109,9 @@ describe("Lens introduction", () => {
         name: "Get started with Lens",
       }),
     ).toBe(intro);
-    expect(within(intro).getByRole("heading", { name: "Connect your project" })).toBeVisible();
+    expect(within(intro).getByRole("heading", { name: "Get your first trace" })).toBeVisible();
     expect(within(intro).getByRole("textbox", { name: "Agent name" })).toHaveValue("");
-    expect(within(intro).getByRole("button", { name: "Connect project" })).toBeDisabled();
+    expect(within(intro).getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
     expect(within(intro).getAllByRole("button", { name: "Deployment setup" })[0]).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Before you start" })).not.toBeInTheDocument();

@@ -56,7 +56,7 @@ const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
   connect_integration: parseAsStringLiteral(["auto", "moyai"]).withDefault("auto"),
-  connect_step: parseAsStringLiteral(["instructions"]),
+  connect_step: parseAsStringLiteral(["instructions", "verify"]),
   connect_endpoint: parseAsString,
 };
 
@@ -196,10 +196,15 @@ export function useConnectProjectRoute(): [ProjectConnection | null, (project: P
 export function useProjectSetupRoute() {
   const [{ connect_step, connect_endpoint }, setParams] = useQueryStates(CONNECT_PROJECT_PARSERS);
   return {
-    showInstructions: connect_step === "instructions",
+    showInstructions: connect_step === "instructions" || connect_step === "verify",
+    verifying: connect_step === "verify",
     endpoint: connect_endpoint,
     setInstructions: useCallback(
       (show: boolean) => void setParams({ connect_step: show ? "instructions" : null }),
+      [setParams],
+    ),
+    setVerifying: useCallback(
+      (verifying: boolean) => void setParams({ connect_step: verifying ? "verify" : "instructions" }),
       [setParams],
     ),
     setEndpoint: useCallback(

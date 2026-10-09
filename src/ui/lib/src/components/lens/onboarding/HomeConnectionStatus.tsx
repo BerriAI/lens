@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Activity, ArrowRight, Check, ChevronDown, Circle, RefreshCw } from "lucide-react";
 import { useMediaQuery } from "usehooks-ts";
 import { Button } from "../../ui/button";
@@ -16,7 +16,7 @@ interface HomeConnectionStatusProps {
   readonly onOpenTraces: (name: string) => void;
   readonly onSetup?: () => void;
   readonly keyReady?: boolean | null;
-  readonly stage?: "name" | "key" | "instructions";
+  readonly stage?: "name" | "key" | "instructions" | "verify";
   readonly setupIssue?: string | null;
 }
 
@@ -31,6 +31,12 @@ export function HomeConnectionStatus({
 }: HomeConnectionStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
+  const verificationHeading = useRef<HTMLHeadingElement>(null);
+  const previousStage = useRef(stage);
+  useEffect(() => {
+    if (stage === "verify" && previousStage.current !== "verify") verificationHeading.current?.focus();
+    previousStage.current = stage;
+  }, [stage]);
   const desktop = useMediaQuery("(min-width: 1024px)", {
     initializeWithValue: false,
   });
@@ -47,6 +53,7 @@ export function HomeConnectionStatus({
   const blocked =
     apiReady === false || storageReady === false || credentialsPending || endpointMissing || Boolean(setupIssue);
   const receiving = !unavailable && !blocked && receipt.status === "receiving";
+  const verifying = stage === "verify";
   const checking = service.isFetching || receipt.isChecking;
   const title =
     authStatus === 401
@@ -81,22 +88,31 @@ export function HomeConnectionStatus({
                     ? setupIssue
                     : receiving
                       ? "A recent run is visible in Lens. Open it to inspect your agent's work."
-                      : receipt.match
-                        ? "Previous runs are available. Open them to inspect your agent's work."
-                        : stage === "name" || !agentName
-                          ? "Choose your project and agent name to watch for its traces here."
-                          : stage === "key"
-                            ? "Get a tracing key, then connect your project using the setup instructions."
-                            : "Run one task in your project. Keep this page open while Lens checks for your agent.";
+                      : stage === "name" || !agentName
+                        ? "Choose your project and agent name to watch for its traces here."
+                        : stage === "key"
+                          ? "Get a tracing key, then connect your project using the setup instructions."
+                          : verifying
+                            ? "Run your agent once. Lens will confirm a new trace here."
+                            : "Finish connecting your project, then continue to verify its traces.";
 
   return (
     <section
       aria-label="Live connection"
-      className="overflow-hidden rounded-xl border bg-card lg:col-start-2 lg:row-start-1"
+      className={cn(
+        "min-w-0",
+        verifying
+          ? "overflow-hidden rounded-md border bg-card lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:grid lg:grid-cols-[minmax(0,1fr)_300px]"
+          : "lg:col-start-2 lg:row-start-1 lg:border-l",
+      )}
     >
-      <div className="px-5 py-4">
-        <div className="hidden items-center justify-between gap-3 lg:flex">
-          <h3 className="text-sm font-medium">Live connection</h3>
+      <div className={cn(verifying ? "p-5 sm:p-6" : "py-4 lg:px-5")}>
+        <div className={cn("items-center justify-between gap-3", verifying ? "flex" : "hidden lg:flex")}>
+          {verifying ? (
+            <p className="font-mono text-[11px] text-muted-foreground">Step 3 of 3</p>
+          ) : (
+            <h3 className="text-sm font-medium">Live connection</h3>
+          )}
           {enabled && agentName && !authStatus && (
             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse" aria-hidden="true" />
@@ -104,14 +120,22 @@ export function HomeConnectionStatus({
             </span>
           )}
         </div>
+        {verifying && (
+          <h3 ref={verificationHeading} tabIndex={-1} className="mt-3 text-base font-medium outline-none">
+            {unavailable || blocked ? "Check your connection" : receiving ? "Traces received" : "Run one task"}
+          </h3>
+        )}
         <div
           className={cn(
-            "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium lg:mt-5",
+            "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
+            verifying ? "mt-4" : "lg:mt-4",
             receiving
               ? "bg-success/10 text-success"
               : unavailable || blocked
                 ? "bg-warning/10 text-warning"
-                : "bg-indigo-600 text-white dark:bg-indigo-500",
+                : verifying
+                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
+                  : "bg-muted text-muted-foreground",
           )}
           role="status"
           aria-live="polite"
@@ -166,7 +190,11 @@ export function HomeConnectionStatus({
           </div>
         )}
       </div>
-      <div id={detailsId} hidden={!desktop && !detailsOpen} className="space-y-5 border-t p-5">
+      <div
+        id={detailsId}
+        hidden={!desktop && !detailsOpen}
+        className={cn("space-y-5 border-t", verifying ? "p-5 lg:border-t-0 lg:border-l lg:bg-muted/10" : "py-4 lg:p-5")}
+      >
         <dl className="space-y-3 text-sm">
           <ConnectionCheck
             label="Lens API"
@@ -184,9 +212,9 @@ export function HomeConnectionStatus({
             />
           )}
         </dl>
-        <div className="rounded-lg border bg-muted/30 p-3.5">
+        <div>
           <p className="text-xs text-muted-foreground">Watching for agent</p>
-          <p className="mt-1 break-all text-sm font-medium">{agentName || "Name your agent to begin"}</p>
+          <p className="mt-1 font-mono text-xs break-all">{agentName || "Name your agent to begin"}</p>
           {receipt.match && (
             <dl className="mt-3 space-y-2 border-t pt-3 text-xs">
               <div className="flex justify-between gap-3">
@@ -200,7 +228,7 @@ export function HomeConnectionStatus({
             </dl>
           )}
         </div>
-        {stage === "instructions" && !receiving && agentName && !unavailable && !blocked && (
+        {verifying && !receiving && agentName && !unavailable && !blocked && (
           <p className="text-xs leading-5 text-muted-foreground">
             Nothing arriving? Check the endpoint and tracing key, restart your project, and confirm its trace name is{" "}
             <span className="font-medium text-foreground">{agentName}</span>.
@@ -221,7 +249,7 @@ export function HomeConnectionStatus({
           </Button>
         </div>
         {receipt.lastChecked !== null && (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="font-mono text-[11px] text-muted-foreground">
             Last checked {new Date(receipt.lastChecked).toLocaleTimeString()}
           </p>
         )}
