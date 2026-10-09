@@ -208,3 +208,43 @@ it("should allow pausing when the saved model is no longer in the gateway catalo
     ),
   );
 });
+
+it("should flag an agent's removed model after a successful refresh even when another model remains", async () => {
+  const next = new Date(Date.now() + 3600000).toISOString();
+  const completed: Lens = {
+    ...initial,
+    next_run_at: next,
+    jobs: [{ ...fixture.jobs[0], status: "completed", findings: [], finished_at: new Date().toISOString() }],
+  };
+  renderWithLens(<AutomaticAnalysis lenses={[completed]} ready readOnly={false} />);
+  expect(await screen.findByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
+  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/models", expect.anything()));
+  proxy.get.mockImplementation(async (path) =>
+    path === "/lens/models"
+      ? { data: [{ id: "other-chat" }] }
+      : { data: [{ model_group: "other-chat", mode: "chat", providers: [] }] },
+  );
+  await testQueryClient.refetchQueries();
+  expect(await screen.findByText("Selected model unavailable")).toBeVisible();
+  expect(screen.getByText(/Configure another model or pause analysis/)).toBeVisible();
+  expect(screen.getByTitle("chat-alias")).toBeVisible();
+  expect(screen.getByRole("button", { name: `Configure analysis for ${initial.settings.agent_name}` })).toBeEnabled();
+  expect(screen.queryByText(`Next run: ${new Date(next).toLocaleString()}`)).not.toBeInTheDocument();
+  expect(proxy.put).not.toHaveBeenCalled();
+});
+
+it("should not treat a transient catalogue request failure as a removed model", async () => {
+  const next = new Date(Date.now() + 3600000).toISOString();
+  const completed: Lens = {
+    ...initial,
+    next_run_at: next,
+    jobs: [{ ...fixture.jobs[0], status: "completed", findings: [], finished_at: new Date().toISOString() }],
+  };
+  renderWithLens(<AutomaticAnalysis lenses={[completed]} ready readOnly={false} />);
+  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/model_group/info", expect.anything()));
+  proxy.get.mockRejectedValue(new Error("Gateway unavailable"));
+  await testQueryClient.refetchQueries();
+  expect(screen.getByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
+  expect(screen.queryByText("Selected model unavailable")).not.toBeInTheDocument();
+  expect(proxy.put).not.toHaveBeenCalled();
+});
