@@ -59,8 +59,7 @@ impl LocalControl {
         if worker.analysis_key_id.is_none() {
             return Ok(());
         }
-        let models = self.models.get().models();
-        let Some(model) = models.first() else {
+        let Some(model) = self.models.default_model() else {
             return Ok(());
         };
         let lenses = self.repository.lenses(&worker.scope).await?;
@@ -68,7 +67,7 @@ impl LocalControl {
             if !uncovered(&agent, &lenses) {
                 continue;
             }
-            let lens = new_analysis(&agent, model, worker.scope.clone(), Utc::now())?;
+            let lens = new_analysis(&agent, &model, worker.scope.clone(), Utc::now())?;
             match self.repository.create(&lens).await {
                 Ok(_) | Err(RepositoryError::Conflict) => {}
                 Err(error) => return Err(error.into()),
