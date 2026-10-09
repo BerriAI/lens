@@ -14,6 +14,8 @@ pub enum Error {
         received: usize,
         expected: usize,
     },
+    #[error("Case {case_id} appears more than once in the run")]
+    DuplicateCase { case_id: String },
     #[error("The judge could not score the trial")]
     Judge(#[source] JudgeError),
     #[error("The judge returned {score}, outside 0..=1")]
