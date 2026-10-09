@@ -2,6 +2,7 @@
 
 mod error;
 mod gateway;
+pub mod ingestion;
 
 use chrono::{DateTime, Utc};
 use lens_contract::auth::{Identity, Role, SessionView};
@@ -9,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::future::Future;
 use subtle::ConstantTimeEq;
 
-pub use error::{Error, StoreError};
+pub use error::{Error, IngestionError, StoreError};
 
 pub const SESSION_LIFETIME_SECONDS: i64 = 8 * 60 * 60;
 

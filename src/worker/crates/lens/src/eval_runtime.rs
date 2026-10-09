@@ -53,17 +53,19 @@ pub fn start(
     traces: EvalTraces,
     judge: GatewayJudge,
 ) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let closer = EvalCloser::new(store, TraceReader::new(traces), EvalScorer::new(judge));
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        loop {
-            interval.tick().await;
-            if let Err(error) = closer.tick(Utc::now()).await {
-                tracing::warn!(%error, "Eval closer could not complete its storage scan");
-            }
+    tokio::spawn(serve(store, traces, judge))
+}
+
+pub async fn serve(store: EvalStore, traces: EvalTraces, judge: GatewayJudge) {
+    let closer = EvalCloser::new(store, TraceReader::new(traces), EvalScorer::new(judge));
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        interval.tick().await;
+        if let Err(error) = closer.tick(Utc::now()).await {
+            tracing::warn!(%error, "Eval closer could not complete its storage scan");
         }
-    })
+    }
 }
 
 #[cfg(test)]

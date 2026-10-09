@@ -7,6 +7,9 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
 
+mod tracing;
+pub use tracing::TraceApi;
+
 pub struct Storage {
     pub config: Config,
     pub client: Client,

@@ -4,7 +4,7 @@ The Rust server exposes contract v1 eval routes under `/lens/evals/runs` and dat
 
 Runs, idempotency keys, trial results, baseline indexes, and scoring leases use the ClickHouse state store. The background closer resolves stored traces, waits for a completed root or 120 seconds without new spans, and calls `lens_evals::evaluate`. Missing or late trials become errors. Comparable completed runs on main supply the baseline
 
-`task_completed` and `called_before` need no model credentials. A `judge` scorer calls `LITELLM_URL/chat/completions` using the operator's `LITELLM_API_KEY`. Its explicit model takes precedence; an empty model uses `LENS_EVAL_JUDGE_MODEL`. Missing configuration or a failed judge response fails scoring instead of inventing a score
+`task_completed` and `called_before` need no model credentials and work in gateway or standalone mode. A `judge` scorer requires gateway mode and calls `LITELLM_URL/chat/completions` using the operator's `LITELLM_API_KEY`. Its explicit model takes precedence; an empty model uses `LENS_EVAL_JUDGE_MODEL`. Missing configuration or a failed judge response fails scoring instead of inventing a score
 
 Judge requests include the rubric, expected outcome, and recorded trial spans. They are marked as internal eval traffic and carry Lens team/run/case metadata. That attribution does not change the gateway credential's billing or access permissions
 

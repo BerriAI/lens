@@ -3,32 +3,131 @@ use litellm_http::{
     Client, ClientVariant, HttpClientPool, HttpSettings, Resolution, media::PublicDnsResolver,
 };
 use litellm_traces_clickhouse::Config as StorageConfig;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 pub struct Config {
     pub address: SocketAddr,
+    pub mode: Mode,
+    pub storage: StorageConfig,
+    pub authentication: Option<lens_auth::Settings>,
+    pub datasets: lens_server::datasets::DatasetConfig,
+    pub traces: lens_server::tracing::TraceConfig,
+    pub ui_directory: Option<PathBuf>,
+    pub query_secret: String,
+    pub ingestion_url: String,
+    pub public_url: String,
+    pub release: String,
+}
+
+pub enum Mode {
+    Standalone,
+    Gateway(Box<Gateway>),
+}
+
+pub struct Gateway {
     pub proxy_url: url::Url,
     pub worker_token: String,
     pub service_token: String,
     pub release: String,
-    pub storage: StorageConfig,
-    pub authentication: Option<lens_auth::Settings>,
-    pub public_url: String,
     pub eval_judge_api_key: Option<String>,
     pub eval_judge_model: Option<String>,
-    pub datasets: lens_server::datasets::DatasetConfig,
 }
 
-fn required(name: &'static str) -> Result<String, Error> {
-    std::env::var(name)
-        .ok()
+fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
+    read(name)
         .filter(|value| !value.is_empty())
         .ok_or(Error::Configuration(name))
 }
 
 impl Config {
     pub fn from_env() -> Result<Self, Error> {
-        let proxy_url = url::Url::parse(&required("LITELLM_URL")?)
+        Self::read(|name| std::env::var(name).ok())
+    }
+
+    fn read(read: impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
+        let mode = match read("LENS_MODE").as_deref() {
+            Some("standalone") => Mode::Standalone,
+            Some("gateway") => Mode::Gateway(Box::new(Gateway::read(&read)?)),
+            None if read("LITELLM_URL").is_some() => Mode::Gateway(Box::new(Gateway::read(&read)?)),
+            None => Mode::Standalone,
+            _ => {
+                return Err(Error::Configuration(
+                    "LENS_MODE must be standalone or gateway",
+                ));
+            }
+        };
+        let (admin_token, query_secret, database, public_url) = match &mode {
+            Mode::Standalone => {
+                let token = required(&read, "LENS_ADMIN_TOKEN")?;
+                (Some(token.clone()), token, "lens", "http://localhost:4318")
+            }
+            Mode::Gateway(gateway) => (
+                read("LENS_ADMIN_TOKEN"),
+                gateway.service_token.clone(),
+                "litellm",
+                "http://localhost:4000",
+            ),
+        };
+        let public_url = read("LENS_PUBLIC_URL").unwrap_or_else(|| public_url.into());
+        let ingestion_url = read("LITELLM_LENS_PUBLIC_URL").unwrap_or_else(|| public_url.clone());
+        let parsed = url::Url::parse(&ingestion_url)
+            .map_err(|_| Error::Configuration("LITELLM_LENS_PUBLIC_URL"))?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || !parsed.path().trim_matches('/').is_empty()
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+        {
+            return Err(Error::Configuration("LITELLM_LENS_PUBLIC_URL"));
+        }
+        let release = match &mode {
+            Mode::Standalone => read("LENS_VERSION")
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| env!("CARGO_PKG_VERSION").into()),
+            Mode::Gateway(gateway) => gateway.release.clone(),
+        };
+        Ok(Self {
+            datasets: dataset_config(&read),
+            traces: trace_config(&read)?,
+            authentication: admin_token
+                .map(|token| {
+                    lens_auth::Settings::new(
+                        &token,
+                        read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
+                        &public_url,
+                    )
+                })
+                .transpose()?,
+            address: read("LITELLM_LENS_LISTEN")
+                .unwrap_or_else(|| "0.0.0.0:4318".into())
+                .parse()
+                .map_err(|_| Error::Configuration("LITELLM_LENS_LISTEN"))?,
+            ui_directory: read("LENS_UI_DIRECTORY")
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from),
+            query_secret,
+            ingestion_url: ingestion_url.trim_end_matches('/').into(),
+            public_url,
+            release,
+            storage: StorageConfig::new(
+                read("CLICKHOUSE_DATABASE").unwrap_or_else(|| database.into()),
+                &clickhouse_url(&read, matches!(mode, Mode::Standalone))?,
+                read("AGENT_TRACING_RETENTION_DAYS")
+                    .unwrap_or_else(|| "14".into())
+                    .parse()
+                    .map_err(|_| Error::Configuration("AGENT_TRACING_RETENTION_DAYS"))?,
+                65_536,
+            )?,
+            mode,
+        })
+    }
+}
+
+impl Gateway {
+    fn read(read: &impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
+        let proxy_url = url::Url::parse(&required(read, "LITELLM_URL")?)
             .map_err(|_| Error::Configuration("LITELLM_URL"))?;
         if !matches!(proxy_url.scheme(), "http" | "https")
             || !proxy_url.username().is_empty()
@@ -38,9 +137,8 @@ impl Config {
         {
             return Err(Error::Configuration("LITELLM_URL"));
         }
-        let service_token = required("LITELLM_LENS_SERVICE_TOKEN")?;
-        let worker_token = std::env::var("LENS_WORKER_TOKEN")
-            .ok()
+        let service_token = required(read, "LITELLM_LENS_SERVICE_TOKEN")?;
+        let worker_token = read("LENS_WORKER_TOKEN")
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| service_token.clone());
         if service_token.len() < 32 {
@@ -49,41 +147,12 @@ impl Config {
             ));
         }
         Ok(Self {
-            eval_judge_api_key: std::env::var("LITELLM_API_KEY").ok(),
-            eval_judge_model: std::env::var("LENS_EVAL_JUDGE_MODEL").ok(),
-            public_url: std::env::var("LENS_PUBLIC_URL")
-                .unwrap_or_else(|_| "http://localhost:4000".into()),
-            datasets: dataset_config(|name| std::env::var(name).ok()),
-            authentication: std::env::var("LENS_ADMIN_TOKEN")
-                .ok()
-                .map(|token| {
-                    lens_auth::Settings::new(
-                        &token,
-                        std::env::var("LENS_GATEWAY_SECRET")
-                            .ok()
-                            .filter(|value| !value.is_empty()),
-                        &std::env::var("LENS_PUBLIC_URL")
-                            .unwrap_or_else(|_| "http://localhost:4000".into()),
-                    )
-                })
-                .transpose()?,
-            address: std::env::var("LITELLM_LENS_LISTEN")
-                .unwrap_or_else(|_| "0.0.0.0:4318".into())
-                .parse()
-                .map_err(|_| Error::Configuration("LITELLM_LENS_LISTEN"))?,
             proxy_url,
             worker_token,
             service_token,
-            release: required("LITELLM_RELEASE_TAG")?,
-            storage: StorageConfig::new(
-                std::env::var("CLICKHOUSE_DATABASE").unwrap_or_else(|_| "litellm".into()),
-                &clickhouse_url()?,
-                std::env::var("AGENT_TRACING_RETENTION_DAYS")
-                    .unwrap_or_else(|_| "14".into())
-                    .parse()
-                    .map_err(|_| Error::Configuration("AGENT_TRACING_RETENTION_DAYS"))?,
-                65_536,
-            )?,
+            release: required(read, "LITELLM_RELEASE_TAG")?,
+            eval_judge_api_key: read("LITELLM_API_KEY"),
+            eval_judge_model: read("LENS_EVAL_JUDGE_MODEL"),
         })
     }
 }
@@ -109,17 +178,41 @@ fn integer_or_default(raw: Option<&str>, default: i64) -> i64 {
         .unwrap_or(default)
 }
 
-fn clickhouse_url() -> Result<String, Error> {
-    if let Ok(url) = required("CLICKHOUSE_URL") {
+fn trace_config(
+    read: &impl Fn(&str) -> Option<String>,
+) -> Result<lens_server::tracing::TraceConfig, Error> {
+    Ok(lens_server::tracing::TraceConfig {
+        list_limit: integer_or_default(read("AGENT_TRACING_LIST_PAGE_SIZE").as_deref(), 50)
+            .try_into()
+            .map_err(|_| Error::Configuration("AGENT_TRACING_LIST_PAGE_SIZE"))?,
+        agent_limit: integer_or_default(read("AGENT_TRACING_AGENT_LIST_LIMIT").as_deref(), 500)
+            .try_into()
+            .map_err(|_| Error::Configuration("AGENT_TRACING_AGENT_LIST_LIMIT"))?,
+        retention_days: integer_or_default(read("AGENT_TRACING_RETENTION_DAYS").as_deref(), 14),
+        retry_after_seconds: integer_or_default(
+            read("TRACE_READ_RETRY_AFTER_SECONDS").as_deref(),
+            2,
+        ),
+    })
+}
+
+fn clickhouse_url(
+    read: &impl Fn(&str) -> Option<String>,
+    standalone: bool,
+) -> Result<String, Error> {
+    if let Ok(url) = required(read, "CLICKHOUSE_URL") {
         return Ok(url);
+    }
+    if standalone && read("CLICKHOUSE_HOST").is_none() {
+        return Ok("http://localhost:8123".into());
     }
     let mut url = url::Url::parse("http://localhost:8123")
         .map_err(|_| Error::Configuration("CLICKHOUSE_HOST"))?;
-    url.set_host(Some(&required("CLICKHOUSE_HOST")?))
+    url.set_host(Some(&required(read, "CLICKHOUSE_HOST")?))
         .map_err(|_| Error::Configuration("CLICKHOUSE_HOST"))?;
-    url.set_username(&std::env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".into()))
+    url.set_username(&read("CLICKHOUSE_USER").unwrap_or_else(|| "default".into()))
         .map_err(|_| Error::Configuration("CLICKHOUSE_USER"))?;
-    url.set_password(Some(&required("CLICKHOUSE_PASSWORD")?))
+    url.set_password(Some(&required(read, "CLICKHOUSE_PASSWORD")?))
         .map_err(|_| Error::Configuration("CLICKHOUSE_PASSWORD"))?;
     Ok(url.into())
 }
@@ -137,8 +230,199 @@ pub fn http_client() -> Result<Client, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{dataset_config, integer_or_default};
-    use rstest::rstest;
+    use super::{Config, Mode, dataset_config, integer_or_default};
+    use crate::Error;
+    use rstest::{fixture, rstest};
+    use std::collections::BTreeMap;
+
+    #[fixture]
+    fn standalone() -> BTreeMap<&'static str, &'static str> {
+        BTreeMap::from([(
+            "LENS_ADMIN_TOKEN",
+            "standalone-setup-token-at-least-32-characters",
+        )])
+    }
+
+    #[fixture]
+    fn gateway() -> BTreeMap<&'static str, &'static str> {
+        BTreeMap::from([
+            ("LITELLM_URL", "http://localhost:4000/gateway"),
+            (
+                "LITELLM_LENS_SERVICE_TOKEN",
+                "gateway-service-token-at-least-32-characters",
+            ),
+            ("LITELLM_RELEASE_TAG", "test-release"),
+            ("CLICKHOUSE_URL", "http://localhost:8123"),
+            ("LITELLM_API_KEY", "gateway-eval-judge-key"),
+            ("LENS_EVAL_JUDGE_MODEL", "judge-deployment"),
+        ])
+    }
+
+    #[rstest]
+    fn standalone_requires_no_gateway_settings(standalone: BTreeMap<&str, &str>) {
+        let config =
+            Config::read(|key| standalone.get(key).map(|value| value.to_string())).unwrap();
+        assert!(matches!(config.mode, Mode::Standalone));
+        assert!(config.authentication.is_some());
+        assert_eq!(config.storage.storage().database(), "lens");
+        assert_eq!(config.address.to_string(), "0.0.0.0:4318");
+        assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
+        assert_eq!(config.ingestion_url, "http://localhost:4318");
+        assert_eq!(config.public_url, "http://localhost:4318");
+        assert_eq!(config.release, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[rstest]
+    #[case::missing(None)]
+    #[case::empty(Some(""))]
+    #[case::short(Some("short"))]
+    fn standalone_never_starts_without_strong_authentication(#[case] token: Option<&str>) {
+        let result = Config::read(|key| {
+            (key == "LENS_ADMIN_TOKEN")
+                .then_some(token)
+                .flatten()
+                .map(str::to_owned)
+        });
+        assert!(matches!(
+            result,
+            Err(Error::Configuration("LENS_ADMIN_TOKEN") | Error::Authentication(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::legacy(None)]
+    #[case::explicit(Some("gateway"))]
+    fn gateway_configuration_preserves_existing_worker_contract(
+        gateway: BTreeMap<&str, &str>,
+        #[case] mode: Option<&str>,
+    ) {
+        let config = Config::read(|key| {
+            if key == "LENS_MODE" {
+                mode
+            } else {
+                gateway.get(key).copied()
+            }
+            .map(str::to_owned)
+        })
+        .unwrap();
+        let Mode::Gateway(worker) = config.mode else {
+            panic!("expected gateway mode")
+        };
+        assert_eq!(worker.proxy_url.as_str(), gateway["LITELLM_URL"]);
+        assert_eq!(worker.worker_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
+        assert_eq!(worker.service_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
+        assert_eq!(worker.release, gateway["LITELLM_RELEASE_TAG"]);
+        assert_eq!(
+            worker.eval_judge_api_key.as_deref(),
+            gateway.get("LITELLM_API_KEY").copied()
+        );
+        assert_eq!(
+            worker.eval_judge_model.as_deref(),
+            gateway.get("LENS_EVAL_JUDGE_MODEL").copied()
+        );
+        assert_eq!(config.public_url, "http://localhost:4000");
+        assert_eq!(config.query_secret, worker.service_token);
+        assert_eq!(config.storage.storage().database(), "litellm");
+        assert!(config.authentication.is_none());
+    }
+
+    #[rstest]
+    fn explicit_standalone_ignores_legacy_worker_variables(standalone: BTreeMap<&str, &str>) {
+        let config = Config::read(|key| match key {
+            "LENS_MODE" => Some("standalone".into()),
+            "LITELLM_URL" => Some("invalid-gateway-url".into()),
+            _ => standalone.get(key).map(|value| value.to_string()),
+        })
+        .unwrap();
+        assert!(matches!(config.mode, Mode::Standalone));
+        assert!(config.authentication.is_some());
+    }
+
+    #[rstest]
+    #[case::unknown("other")]
+    #[case::empty("")]
+    fn invalid_mode_is_rejected(#[case] mode: &str) {
+        let result = Config::read(|key| (key == "LENS_MODE").then(|| mode.into()));
+        assert!(matches!(
+            result,
+            Err(Error::Configuration(
+                "LENS_MODE must be standalone or gateway"
+            ))
+        ));
+    }
+
+    #[rstest]
+    #[case::url("LITELLM_URL")]
+    #[case::token("LITELLM_LENS_SERVICE_TOKEN")]
+    #[case::release("LITELLM_RELEASE_TAG")]
+    fn explicit_gateway_still_requires_its_settings(
+        gateway: BTreeMap<&str, &str>,
+        #[case] missing: &str,
+    ) {
+        let result = Config::read(|key| match key {
+            "LENS_MODE" => Some("gateway".into()),
+            key if key == missing => None,
+            key => gateway.get(key).map(|value| value.to_string()),
+        });
+        assert!(matches!(result, Err(Error::Configuration(name)) if name == missing));
+    }
+
+    #[rstest]
+    fn standalone_uses_configured_storage_and_ui(standalone: BTreeMap<&str, &str>) {
+        let config = Config::read(|key| match key {
+            "CLICKHOUSE_DATABASE" => Some("lens_custom".into()),
+            "LITELLM_LENS_LISTEN" => Some("127.0.0.1:4100".into()),
+            "LENS_UI_DIRECTORY" => Some("/app/ui".into()),
+            _ => standalone.get(key).map(|value| value.to_string()),
+        })
+        .unwrap();
+        assert_eq!(config.storage.storage().database(), "lens_custom");
+        assert_eq!(config.address.to_string(), "127.0.0.1:4100");
+        assert_eq!(config.ui_directory.unwrap().to_str(), Some("/app/ui"));
+    }
+
+    #[rstest]
+    #[case::public_origin(None, "https://lens.example.test")]
+    #[case::separate_ingestion(Some("https://traces.example.test/"), "https://traces.example.test")]
+    fn standalone_advertises_the_configured_ingestion_origin(
+        standalone: BTreeMap<&str, &str>,
+        #[case] ingestion: Option<&str>,
+        #[case] expected: &str,
+    ) {
+        let config = Config::read(|key| match key {
+            "LENS_PUBLIC_URL" => Some("https://lens.example.test".into()),
+            "LITELLM_LENS_PUBLIC_URL" => ingestion.map(str::to_owned),
+            "LENS_VERSION" => Some("test-candidate".into()),
+            _ => standalone.get(key).map(|value| value.to_string()),
+        })
+        .unwrap();
+        assert_eq!(config.ingestion_url, expected);
+        assert_eq!(config.release, "test-candidate");
+        assert!(config.authentication.unwrap().secure_cookie());
+    }
+
+    #[rstest]
+    #[case::scheme("file:///tmp/traces")]
+    #[case::credentials("https://user:password@lens.example.test")]
+    #[case::path("https://lens.example.test/path")]
+    #[case::query("https://lens.example.test?token=secret")]
+    #[case::fragment("https://lens.example.test#fragment")]
+    fn invalid_ingestion_origins_are_rejected(
+        standalone: BTreeMap<&str, &str>,
+        #[case] origin: &str,
+    ) {
+        let result = Config::read(|key| {
+            if key == "LITELLM_LENS_PUBLIC_URL" {
+                Some(origin.into())
+            } else {
+                standalone.get(key).map(|value| value.to_string())
+            }
+        });
+        assert!(matches!(
+            result,
+            Err(Error::Configuration("LITELLM_LENS_PUBLIC_URL"))
+        ));
+    }
 
     #[rstest]
     #[case::absent(None, 200)]

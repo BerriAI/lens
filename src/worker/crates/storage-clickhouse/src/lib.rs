@@ -3,6 +3,7 @@
 pub mod datasets;
 mod error;
 pub mod evals;
+pub mod ingestion;
 mod insert;
 mod migrate;
 mod read;

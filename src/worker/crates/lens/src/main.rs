@@ -1,6 +1,6 @@
 use litellm_lens::{
     State, Storage, api, auth,
-    config::{Config, http_client},
+    config::{Config, Mode, http_client},
     control::Control,
     provision, router,
     worker::Worker,
@@ -26,7 +26,9 @@ fn main() -> Result<(), litellm_lens::Error> {
     if std::env::args().any(|arg| arg == "--version") {
         println!(
             "litellm-lens {} protocol={}",
-            std::env::var("LITELLM_RELEASE_TAG").unwrap_or_else(|_| "development".into()),
+            std::env::var("LENS_VERSION")
+                .or_else(|_| std::env::var("LITELLM_RELEASE_TAG"))
+                .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
             litellm_lens::wire::PROTOCOL_VERSION
         );
         return Ok(());
@@ -45,57 +47,85 @@ fn main() -> Result<(), litellm_lens::Error> {
 async fn run() -> Result<(), litellm_lens::Error> {
     let config = Config::from_env()?;
     let client = http_client()?;
-    let control = Control::new(
-        client.clone(),
-        config.proxy_url.clone(),
-        config.worker_token.clone(),
-    );
-    let storage = Storage::new(config.storage, client.clone(), config.service_token.clone());
-    let state = Arc::new(State::new(storage, config.service_token.clone()));
-    let (api, eval_task) = match config.authentication {
-        Some(settings) => {
-            let authentication = api::authentication(&state, settings).await?;
-            let connection = state.storage.config.storage();
-            let store = authentication.sessions.0.clone();
-            let traces = litellm_traces_clickhouse::evals::EvalTraces::new(
-                client.clone(),
-                connection.reader().clone(),
-            );
-            let eval_task = litellm_lens::eval_runtime::start(
-                litellm_storage_clickhouse::evals::EvalStore::new(store),
-                traces.clone(),
-                litellm_lens::eval_judge::GatewayJudge::new(
-                    client.clone(),
-                    config.proxy_url.clone(),
-                    config.eval_judge_api_key.clone(),
-                    config.eval_judge_model.clone(),
-                ),
-            );
-            (
-                api::router_with_evals(
-                    &state,
-                    authentication,
-                    config.datasets,
-                    config.public_url,
-                    traces,
-                ),
-                Some(eval_task),
+    let storage = Storage::new(config.storage, client.clone(), config.query_secret);
+    let state = Arc::new(match &config.mode {
+        Mode::Standalone => State::standalone(storage),
+        Mode::Gateway(gateway) => State::new(storage, gateway.service_token.clone()),
+    });
+    let application = match config.authentication {
+        Some(settings) => Some(
+            api::initialize(
+                &state,
+                settings,
+                config.datasets,
+                config.traces,
+                matches!(config.mode, Mode::Standalone),
+                config.public_url,
             )
+            .await?
+            .with_service(state.clone(), config.ingestion_url, config.release),
+        ),
+        None => None,
+    };
+    let mut tasks = tokio::task::JoinSet::new();
+    if let Some(application) = application.as_ref() {
+        let judge = match &config.mode {
+            Mode::Standalone => litellm_lens::eval_judge::GatewayJudge::unconfigured(),
+            Mode::Gateway(gateway) => litellm_lens::eval_judge::GatewayJudge::new(
+                client.clone(),
+                gateway.proxy_url.clone(),
+                gateway.eval_judge_api_key.clone(),
+                gateway.eval_judge_model.clone(),
+            ),
+        };
+        tasks.spawn(litellm_lens::eval_runtime::serve(
+            application.eval_store(),
+            litellm_traces_clickhouse::evals::EvalTraces::new(
+                client.clone(),
+                state.storage.config.storage().reader().clone(),
+            ),
+            judge,
+        ));
+    }
+    match config.mode {
+        Mode::Standalone => {
+            let credentials = application
+                .as_ref()
+                .ok_or(litellm_lens::Error::Configuration("LENS_ADMIN_TOKEN"))?
+                .credentials
+                .clone();
+            if !credentials.synchronize().await? {
+                return Err(litellm_lens::Error::Unavailable);
+            }
+            tasks.spawn(credentials.serve());
         }
-        None => (lens_server::router(), None),
+        Mode::Gateway(gateway) => {
+            let control = Control::new(client.clone(), gateway.proxy_url, gateway.worker_token);
+            tasks.spawn(auth::refresh_loop(
+                state.credentials.clone(),
+                client,
+                control.url("lens/internal/ingestion-credentials")?,
+                gateway.service_token,
+            ));
+            tasks.spawn(Worker::new(control, gateway.release).serve());
+        }
+    }
+    tasks.spawn(provision(state.clone()));
+    let routes = router(state).merge(application.map(|app| app.router).unwrap_or_default());
+    let routes = if let Some(directory) = config.ui_directory {
+        if !std::fs::metadata(directory.join("index.html"))?.is_file() {
+            return Err(litellm_lens::Error::Configuration(
+                "LENS_UI_DIRECTORY must contain the built UI index.html",
+            ));
+        }
+        routes.merge(lens_server::ui::router(directory))
+    } else {
+        routes
     };
     let listener = tokio::net::TcpListener::bind(config.address).await?;
-    let auth_task = tokio::spawn(auth::refresh_loop(
-        state.credentials.clone(),
-        client,
-        control.url("lens/internal/ingestion-credentials")?,
-        config.service_token,
-    ));
-    let provision_task = tokio::spawn(provision(state.clone()));
-    let mut worker = tokio::spawn(Worker::new(control, config.release).serve());
     let (shutdown, stopping) = tokio::sync::oneshot::channel::<()>();
     let mut server = tokio::spawn(async move {
-        axum::serve(listener, router(state).merge(api))
+        axum::serve(listener, routes)
             .with_graceful_shutdown(async {
                 let _ = stopping.await;
             })
@@ -103,21 +133,15 @@ async fn run() -> Result<(), litellm_lens::Error> {
     });
     let outcome = tokio::select! {
         _ = shutdown_signal() => Ok(()),
-        _ = &mut worker => Err(litellm_lens::Error::Unavailable),
+        _ = tasks.join_next() => Err(litellm_lens::Error::Unavailable),
         result = &mut server => {
-            auth_task.abort(); provision_task.abort(); worker.abort();
-            if let Some(task) = eval_task { task.abort(); }
+            tasks.abort_all();
             return result.map_err(|_| litellm_lens::Error::Unavailable)?.map_err(Into::into);
         }
     };
     let _ = shutdown.send(());
-    auth_task.abort();
-    provision_task.abort();
-    worker.abort();
-    if let Some(task) = eval_task {
-        task.abort();
-    }
-    let _ = worker.await;
+    tasks.abort_all();
+    while tasks.join_next().await.is_some() {}
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await
         .is_err()

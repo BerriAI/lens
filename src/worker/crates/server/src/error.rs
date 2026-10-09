@@ -5,6 +5,129 @@ use axum::{
 };
 use serde::Serialize;
 
+#[derive(Debug, thiserror::Error)]
+pub enum TraceReadError {
+    #[error("{0}")]
+    InvalidRequest(String),
+    #[error("Trace changed while paging; refresh the trace to continue")]
+    Changed,
+    #[error("Trace is too large for this view. Use a filtered trace query.")]
+    TooLarge,
+    #[error("Traces are temporarily unavailable. Please try again.")]
+    Unavailable,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum TraceHttpError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Validation(#[from] DatasetError),
+    #[error("{0}")]
+    Forbidden(&'static str),
+    #[error("Trace {0} not found")]
+    MissingTrace(String),
+    #[error("Span {0} not found")]
+    MissingSpan(String),
+    #[error("Span diagnostic not found or no longer available")]
+    MissingDiagnostic,
+    #[error("{source}")]
+    Read {
+        source: TraceReadError,
+        retry_after_seconds: i64,
+    },
+    #[error("{0}")]
+    Query(TraceReadError),
+    #[error("Trace query help is temporarily unavailable")]
+    Help,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum IngestionHttpError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Validation(#[from] DatasetError),
+    #[error(transparent)]
+    Ingestion(#[from] lens_auth::IngestionError),
+}
+
+impl IntoResponse for IngestionHttpError {
+    fn into_response(self) -> Response {
+        use lens_auth::IngestionError;
+        let error = match self {
+            Self::Authentication(error) => return SessionError::from(error).into_response(),
+            Self::Validation(error) => return error.into_response(),
+            Self::Ingestion(error) => error,
+        };
+        let status = match &error {
+            IngestionError::Forbidden(_) => StatusCode::FORBIDDEN,
+            IngestionError::InvalidExpiry | IngestionError::InvalidLength { .. } => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            IngestionError::AlreadyExists | IngestionError::KeyLimit => StatusCode::CONFLICT,
+            IngestionError::Store(lens_auth::StoreError::Conflict) => StatusCode::CONFLICT,
+            IngestionError::CatalogLimit | IngestionError::Random(_) | IngestionError::Store(_) => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+        };
+        (
+            status,
+            Json(serde_json::json!({"detail":error.to_string()})),
+        )
+            .into_response()
+    }
+}
+
+impl IntoResponse for TraceHttpError {
+    fn into_response(self) -> Response {
+        use serde_json::json;
+        let (status, detail) = match self {
+            Self::Authentication(error) => return SessionError::from(error).into_response(),
+            Self::Validation(error) => return error.into_response(),
+            error @ Self::Forbidden(_) => (StatusCode::FORBIDDEN, error.to_string()),
+            error @ (Self::MissingTrace(_) | Self::MissingSpan(_) | Self::MissingDiagnostic) => {
+                (StatusCode::NOT_FOUND, error.to_string())
+            }
+            Self::Read {
+                source,
+                retry_after_seconds,
+            } => {
+                let (status, code) = match source {
+                    TraceReadError::InvalidRequest(_) => {
+                        (StatusCode::BAD_REQUEST, "invalid_request")
+                    }
+                    TraceReadError::Changed => (StatusCode::CONFLICT, "trace_changed"),
+                    TraceReadError::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "too_large"),
+                    TraceReadError::Unavailable => (StatusCode::SERVICE_UNAVAILABLE, "unavailable"),
+                };
+                let mut response = (
+                    status,
+                    Json(json!({"detail":{"code":code,"message":source.to_string()}})),
+                )
+                    .into_response();
+                if matches!(source, TraceReadError::Unavailable)
+                    && let Ok(header) = retry_after_seconds.to_string().parse()
+                {
+                    response
+                        .headers_mut()
+                        .insert(axum::http::header::RETRY_AFTER, header);
+                }
+                return response;
+            }
+            Self::Query(TraceReadError::InvalidRequest(message)) => {
+                (StatusCode::BAD_REQUEST, message)
+            }
+            Self::Query(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Trace SQL query failed or exceeded reader limits".to_owned(),
+            ),
+            Self::Help => (StatusCode::SERVICE_UNAVAILABLE, self.to_string()),
+        };
+        (status, Json(json!({"detail":detail}))).into_response()
+    }
+}
+
 #[derive(Debug)]
 pub struct ValidationError {
     pub(crate) value: serde_json::Value,

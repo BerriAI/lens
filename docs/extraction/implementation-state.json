@@ -17,7 +17,7 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Rust storage and opt-in authentication are implemented and tested. The standalone application still uses the Python control plane; complete Rust API replacement, analysis setup, full E2E, migration and cross-repository qualification remain incomplete",
+    "readiness": "Rust standalone startup, login, ingestion keys, public traces and datasets are qualified. Local investigation execution, direct-provider setup, feedback, signals, deployment and full cross-repository acceptance remain incomplete",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
@@ -74,9 +74,10 @@
     "Incorporated the concurrently merged SDK fixes at d04caacd; checked its updated schema with the locked SDK generator and formatter",
     "Reconciled worker contracts with the public eval contract on main at fd817339, preserving both protocol versions and passing SDK generation against schema/lens.v1.json",
     "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes",
-    "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open"
+    "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open",
+    "Qualified the frozen Rust standalone bootstrap with 2,500 regular workspace tests, Clippy, formatting, real binary login/ingestion/trace/dataset flows and restart persistence; full milestone 1 remains open"
   ],
-  "current_work": "Milestone 1: make standalone Lens self-deployable with ClickHouse and a complete Rust backend, no LiteLLM gateway. Finish datasets and security qualification, then standalone provider/investigation/configuration/API/deployment gaps. Preserve local embedded preview for milestone 2; project-releaser, litellm-ops and remaining plan requirements are milestone 3",
+  "current_work": "Finish milestone 1 Rust local investigation execution and standalone setup, then qualify the coordinated LiteLLM/project-releaser/ops changes and remove replaced Lens implementations. Lens releases independently; companion changes may merge together",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -804,5 +805,59 @@
       "version": "0.23.45",
       "verification": "Frozen dataset candidate workspace tests and Clippy pass"
     }
-  ]
+  ],
+  "required_workflows": [
+    {
+      "skill": "design-product-onboarding",
+      "path": "/Users/mfkhalil/.codex/skills/design-product-onboarding/SKILL.md",
+      "use_when": "Designing, auditing or implementing onboarding and setup flows, including defaults, automation and effort to first useful result",
+      "status": "required_at_applicable_work"
+    },
+    {
+      "skill": "write-product-docs",
+      "path": "/Users/mfkhalil/.codex/skills/write-product-docs/SKILL.md",
+      "use_when": "Creating, revising or auditing product documentation, including setup, maintenance and upgrade guides",
+      "status": "required_at_applicable_work"
+    }
+  ],
+  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign",
+  "onboarding_journeys": [
+    {
+      "starting_point": "Admin using the existing LiteLLM dashboard",
+      "milestone": 2,
+      "success": "Existing login -> verified Lens capability -> agent-specific instrumentation -> real trace -> authorized investigation",
+      "requirements": [
+        "Reuse configured service, endpoint and authorized model",
+        "No simulated infrastructure provisioning",
+        "Concrete operator handoff when service is absent",
+        "Resume partial setup and distinguish connectivity, compatibility and permission failures"
+      ]
+    },
+    {
+      "starting_point": "Developer self-hosting Lens",
+      "milestone": 1,
+      "success": "Complete supported installation -> Lens login -> real agent trace -> direct-provider investigation -> retained data after restart",
+      "requirements": [
+        "Lens and supported ClickHouse stack only",
+        "Generated private credentials and supported defaults",
+        "Analysis-provider setup deferred until needed",
+        "Complete local instructions and separate persistent deployment concerns"
+      ]
+    }
+  ],
+  "release_independence": {
+    "publisher": "project-releaser",
+    "lens": "Own repository, source SHA, product version, trigger and immutable release manifest; no LiteLLM release required",
+    "first_release": "Standalone Lens may be published before LiteLLM integration is ready",
+    "gateway_ui": "Exact shared UI package pin with integrity/provenance for reproducible bundled frontend builds",
+    "lens_backend": "Selected independently in deployment configuration, bounded by supported API/protocol compatibility",
+    "bundled_default": "Optional tested Lens deployment default, never a requirement for equal product versions",
+    "qualification": "Standalone every release; existing published host/UI combinations for integrations claimed by that release",
+    "policy": "Never resolve executable UI code at runtime from mutable remote sources"
+  },
+  "review_requirements": {
+    "greptile": "Request on companion PRs, require at least 4/5 and resolve actionable findings",
+    "veria": "Use where available; record missing or pending results, never treat them as passing",
+    "merge_order": "Coordinated merge of all affected repositories is authorized"
+  }
 }
