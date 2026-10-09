@@ -82,7 +82,7 @@ export function FrequencyCard({ frequency }: { frequency: Frequency }) {
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Legend />
-        <p className="text-xs text-muted-foreground">Share of traces sampled by the reporting investigations</p>
+        <p className="text-xs text-muted-foreground">Share of traces sampled by analysis</p>
       </div>
     </section>
   );

@@ -50,7 +50,7 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
       )}
       {(readOnly || !canInvestigate) && (
         <p className="mt-4 text-sm text-muted-foreground">
-          An administrator can configure analysis and run investigations.
+          An administrator can configure automatic analysis.
         </p>
       )}
     </section>

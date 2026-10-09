@@ -59,12 +59,12 @@ function ActivityContinuation({ state }: { state: LensReadiness }) {
   return (
     <div className="mt-4">
       <Button onClick={state.connected ? create : connect} disabled={locked}>
-        {state.connected ? "Continue to investigation" : "Configure analysis"}
+        {state.connected ? "View automatic analysis" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
       {state.requestsReady && !state.tracesReady && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Request logs are already available. You can investigate them now and add agent traces later.
+          Request logs are already available. Connect agent traces to receive automatic findings.
         </p>
       )}
     </div>
@@ -92,7 +92,7 @@ function AgentStep({ state }: StepProps) {
       </div>
       {state.tracesReady && (
         <p role="status" className="text-sm text-success">
-          Your first trace is ready. Continue setup so Lens can investigate your agent’s behavior.
+          Your first trace is ready. Continue setup so Lens can analyze your agent’s behavior.
         </p>
       )}
       <ActivityContinuation state={state} />
@@ -107,14 +107,14 @@ function AnalysisStep({ state }: StepProps) {
     <div className="space-y-4">
       <p role="status" className="text-sm text-muted-foreground">
         {state.connected
-          ? "Analysis is configured. You’re ready to create an investigation."
-          : "Add a provider key and model to your Lens deployment. Choose the model and spending limit when you create an investigation."}
+          ? "Analysis is configured. Findings will appear after your agent sends 10 traces."
+          : "Connect a model in Settings. Lens will analyze each agent automatically after 10 traces."}
       </p>
       {!state.activityReady && (
-        <p className="text-sm text-muted-foreground">Send a trace before starting your first investigation.</p>
+        <p className="text-sm text-muted-foreground">Send traces from your agent to start automatic analysis.</p>
       )}
       <Button onClick={state.connected ? create : connect} disabled={!state.activityReady || locked}>
-        {state.connected ? "Continue to investigation" : "Configure analysis"}
+        {state.connected ? "View automatic analysis" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
@@ -127,16 +127,16 @@ function InvestigationStep({ state }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm leading-6 text-muted-foreground">
-        Choose the activity to review and describe how your agent should behave. Lens will show findings with evidence
-        and suggested changes.
+        Lens analyzes new traces automatically. In Findings, choose a model, edit what to look for, and set how often to
+        check. Each finding links to the evidence.
       </p>
       {!state.ready && (
         <p className="text-sm text-muted-foreground">
-          Recorded activity and an analysis model are required before you can run an investigation.
+          Connect an analysis model and send 10 traces from your agent to receive findings.
         </p>
       )}
       <Button onClick={create} disabled={!state.ready || locked}>
-        New investigation <ArrowRight aria-hidden="true" className="size-4" />
+        View automatic analysis <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
   );
@@ -169,8 +169,8 @@ const STEPS: readonly StepDefinition[] = [
     Content: AnalysisStep,
   },
   {
-    title: "Run your first investigation",
-    description: "Describe the expected behavior and review a sample of activity.",
+    title: "Review findings",
+    description: "Follow automatic analysis and review the results.",
     complete: (state) => state.hasInvestigations,
     Content: InvestigationStep,
   },

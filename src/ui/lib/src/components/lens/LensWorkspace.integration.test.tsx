@@ -116,14 +116,25 @@ it("returns from GitHub to the callback agent’s repository picker and clears t
       return Response.json({ configured: true, app_slug: "lens-qa", connection: connected ? connection : null });
     }
     if (request.path === "/lens/github/authorizations/qa-callback")
-      return Response.json({ status: "ready", repositories: [{ id: 101, full_name: "lens-test/agent", installation_id: 17, default_branch: "main" }] });
+      return Response.json({
+        status: "ready",
+        repositories: [{ id: 101, full_name: "lens-test/agent", installation_id: 17, default_branch: "main" }],
+      });
     if (request.path === "/lens/github/connections/qa-agent" && request.method === "PUT") {
       connect(request.body);
       connected = true;
       return Response.json(connection);
     }
     if (request.path === "/v1/traces/agents")
-      return Response.json({ agents: ["other-agent", "qa-agent"].map((name) => ({ name, runs: 1, failed_runs: 0, frameworks: [], last_seen: new Date().toISOString() })) });
+      return Response.json({
+        agents: ["other-agent", "qa-agent"].map((name) => ({
+          name,
+          runs: 1,
+          failed_runs: 0,
+          frameworks: [],
+          last_seen: new Date().toISOString(),
+        })),
+      });
     if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
     return Response.json({ data: [], traces: true, requests: false });
   });
@@ -134,7 +145,9 @@ it("returns from GitHub to the callback agent’s repository picker and clears t
 
   const dialog = await screen.findByRole("dialog", { name: "Connect GitHub" });
   expect(dialog).toHaveTextContent("Connect qa-agent to a repository through the Lens GitHub App");
-  expect(await within(dialog).findByRole("combobox", { name: "GitHub repository" })).toHaveTextContent("lens-test/agent");
+  expect(await within(dialog).findByRole("combobox", { name: "GitHub repository" })).toHaveTextContent(
+    "lens-test/agent",
+  );
   await user.click(within(dialog).getByRole("button", { name: "Connect repository" }));
   expect(await within(dialog).findByRole("heading", { name: "GitHub connected" })).toBeVisible();
   expect(connect).toHaveBeenCalledExactlyOnceWith({ authorization_id: "qa-callback", repository_id: 101 });
@@ -178,7 +191,9 @@ it("discovers a new agent and offers GitHub connection after Home receives a new
   expect(connection.getByText(/Your coding agent will verify the run it sent/)).toHaveTextContent(
     `A trace arrived from “${agent.name}”.`,
   );
-  expect(connection.getByText(/Your coding agent will verify the run it sent/)).toHaveTextContent("What would you like to instrument next?");
+  expect(connection.getByText(/Your coding agent will verify the run it sent/)).toHaveTextContent(
+    "What would you like to instrument next?",
+  );
   await user.click(connection.getByRole("button", { name: "Connect GitHub" }));
 
   const dialog = await screen.findByRole("dialog", { name: "Connect GitHub" });
@@ -297,15 +312,15 @@ describe("Lens interactive demo", () => {
     const table = screen.getByRole("table", { name: "Agent runs" });
     await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(4));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("q")).toBe("agent:support_agent status:error"));
-    await user.click(screen.getByRole("tab", { name: "Investigations" }));
-    expect(await screen.findByRole("row", { name: /Support quality/ })).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Findings" }));
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
     expect(network).not.toHaveBeenCalled();
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
-    expect(await screen.findByText(/Investigations require proxy administrator access/)).toBeVisible();
+    expect(await screen.findByText(/Findings require proxy administrator access/)).toBeVisible();
     expect(screen.queryByText("Can I return my headphones?")).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Demo data" })).not.toBeChecked();
-    await expectUrl(onUrlUpdate, (url) => expect([...url.entries()]).toEqual([["tab", "investigations"]]));
+    await expectUrl(onUrlUpdate, (url) => expect([...url.entries()]).toEqual([["tab", "findings"]]));
   });
 
   it("opens the sample session from ?demo=true and keeps the open run and step in the URL", async () => {
@@ -434,7 +449,7 @@ describe("Lens interactive demo", () => {
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: `?tab=investigations&lens=${saved.id}`,
     });
-    expect(await screen.findByRole("heading", { name: saved.settings.name })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Traces" }));
     expect(await screen.findByText("Where is order #1042?")).toBeVisible();
@@ -464,8 +479,8 @@ describe("Lens interactive demo", () => {
     expect(screen.getAllByRole("switch", { name: "Demo data" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /Preview sample|Explore with sample data/ })).not.toBeInTheDocument();
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
-    await user.click(tabs.getByRole("tab", { name: "Investigations" }));
-    expect(await screen.findByRole("row", { name: new RegExp(saved.settings.name) })).toBeVisible();
+    await user.click(tabs.getByRole("tab", { name: "Findings" }));
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(tabs.getByRole("tab", { name: "Traces" }));
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
@@ -473,7 +488,7 @@ describe("Lens interactive demo", () => {
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
   });
 
-  it("marks the Investigations tab while a scan runs and clears it once the scan finishes", async () => {
+  it("marks the Findings tab while analysis runs and clears it once the scan finishes", async () => {
     const saved = createLensDemoData().lenses[0];
     const withJob = (status: (typeof saved.jobs)[number]["status"]) => ({
       ...saved,
@@ -493,14 +508,14 @@ describe("Lens interactive demo", () => {
       return defaultResponse(path, false);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />);
-    const tab = within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Investigations" });
-    await waitFor(() => expect(tab).toHaveAccessibleDescription("An investigation is running"));
+    const tab = within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Findings" });
+    await waitFor(() => expect(tab).toHaveAccessibleDescription("Analysis is running"));
     lenses.mockReturnValue([withJob("completed")]);
     await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
     await waitFor(() => expect(tab).toHaveAccessibleDescription(""));
   });
 
-  it("keeps the Investigations tab selected while editing and returns to its list", async () => {
+  it("redirects legacy investigation setup links to Findings and edits analysis there", async () => {
     const user = userEvent.setup();
     const saved = createLensDemoData().lenses[0];
     network.mockImplementation(async (input) => {
@@ -523,13 +538,13 @@ describe("Lens interactive demo", () => {
       searchParams: "?tab=investigations&dialog=new",
     });
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
-    expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
-    const tab = tabs.getByRole("tab", { name: /^Investigations/ });
-    expect(tab).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Back to investigations" }));
-    expect(await screen.findByRole("row", { name: new RegExp(saved.settings.name) })).toBeVisible();
-    expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(tabs.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("region", { name: "New investigation" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: `Configure analysis for ${saved.settings.agent_name}` }));
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("region", { name: "Automatic analysis" })).toBeVisible();
   });
 
   it.each(["standalone", "embedded"] as const)("shows deployment analysis and worker health on %s", async (surface) => {
@@ -584,7 +599,7 @@ describe("Lens interactive demo", () => {
     workers.mockReturnValue([{ ...worker, revoked: true }]);
     await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
     await waitFor(() => expect(settings).toHaveAttribute("title", "Configure analysis"));
-    expect(await panel.findByText("Models are configured; waiting for the investigation worker")).toBeVisible();
+    expect(await panel.findByText("Models are configured; waiting for the analysis worker")).toBeVisible();
     await user.click(panel.getByRole("button", { name: "Connect project" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("home"));
     expect(tabs.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
@@ -610,7 +625,7 @@ describe("Lens interactive demo", () => {
       searchParams: "?tab=investigations",
       onUrlUpdate,
     });
-    const guide = within(await screen.findByRole("region", { name: "Get Lens running" }));
+    const guide = within(await screen.findByRole("region", { name: "Automatic analysis" }));
     await user.click(await guide.findByRole("button", { name: "Configure analysis" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("settings"));
     const panel = within(await screen.findByRole("region", { name: "Settings" }));
@@ -666,7 +681,7 @@ describe("Lens interactive demo", () => {
     models.mockReturnValue([{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }]);
     workers.mockReturnValue([worker]);
     await user.click(panel.getByRole("button", { name: "Check configuration" }));
-    expect(await panel.findByText("Models are configured; waiting for the investigation worker")).toBeVisible();
+    expect(await panel.findByText("Models are configured; waiting for the analysis worker")).toBeVisible();
     expect(panel.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
     await user.click(tabs.getByRole("tab", { name: "Traces" }));
@@ -678,10 +693,10 @@ describe("Lens interactive demo", () => {
     expect(await panel.findByText("Analysis is configured")).toBeVisible();
     expect(network.mock.calls.every(([input]) => !requestPath(input).startsWith("/key/"))).toBe(true);
     expect(network.mock.calls.every(([input]) => !requestPath(input).startsWith("/lens/workers/"))).toBe(true);
-    await user.click(panel.getByRole("button", { name: "New investigation" }));
-    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("investigations"));
-    expect(lastUrl(onUrlUpdate).get("dialog")).toBe("new");
-    expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
+    await user.click(panel.getByRole("button", { name: "View automatic analysis" }));
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
+    expect(lastUrl(onUrlUpdate).get("dialog")).toBeNull();
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
   });
 
   it.each(["standalone", "embedded"] as const)("hides Settings for read-only %s sessions", async (surface) => {
@@ -783,19 +798,16 @@ describe("Lens interactive demo", () => {
   });
 });
 
-it("keeps demo row actions visible and opens reviewed traces without touching live data", async () => {
+it("opens demo findings without exposing analysis edits or touching live data", async () => {
   const user = userEvent.setup();
+  const finding = createLensDemoData().lenses[0].findings.find((item) => item.kind === "issue")!;
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
     searchParams: "?tab=investigations&demo=true",
   });
-  const row = await screen.findByRole("row", { name: "Support quality" });
-  expect(within(row).getByRole("button", { name: "Run Support quality now" })).toBeDisabled();
-  expect(within(row).getByRole("button", { name: "Edit Support quality" })).toBeDisabled();
-  await user.click(row);
-  await user.click(await screen.findByRole("button", { name: "View run" }));
-  const reviews = await screen.findByRole("list", { name: "Reviewed traces" });
-  expect(within(reviews).getAllByRole("button").length).toBeGreaterThan(0);
-  expect(screen.getByRole("region", { name: "Preliminary observations" })).toHaveTextContent("Repeated lookups");
+  expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Configure analysis/ })).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("row", { name: finding.title }));
+  expect(await screen.findByRole("heading", { name: finding.title })).toBeVisible();
   expect(network).not.toHaveBeenCalled();
 });
 
@@ -903,9 +915,9 @@ describe("Lens agent selector", () => {
     expect(sidebar.getByRole("button", { name: "Expand navigation" })).toBeVisible();
     expect(sidebar.queryByRole("button", { name: "Agent: research_agent" })).not.toBeInTheDocument();
     expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
-    await user.click(sidebar.getByRole("tab", { name: "Investigations" }));
-    expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
-    expect(sidebar.getByRole("tab", { name: "Investigations" })).toHaveAttribute("aria-selected", "true");
+    await user.click(sidebar.getByRole("tab", { name: "Findings" }));
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(sidebar.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     await user.click(sidebar.getByRole("tab", { name: "Agents" }));
     expect(await screen.findByRole("region", { name: "Agents directory" })).toBeVisible();
 

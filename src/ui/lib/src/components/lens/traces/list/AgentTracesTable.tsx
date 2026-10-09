@@ -140,8 +140,8 @@ function FindingCount({ run }: { run: TraceSummary }) {
   if (!state || state.status === "pending")
     return <Skeleton aria-label="Loading findings" className="ml-auto h-3 w-5" />;
   if (state.status === "error") return <span title="Could not load findings">Unavailable</span>;
-  if (state.count === null) return <span title="No conclusive investigation for this trace">-</span>;
-  return <span title={`${state.count} findings from completed investigations`}>{state.count.toLocaleString()}</span>;
+  if (state.count === null) return <span title="No completed analysis for this trace">-</span>;
+  return <span title={`${state.count} findings from completed analysis`}>{state.count.toLocaleString()}</span>;
 }
 
 function SignalsHeader() {

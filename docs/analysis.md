@@ -49,7 +49,7 @@ Apply the configuration from the repository root:
 docker compose -f deploy/lens/compose.yaml up -d --wait
 ```
 
-Open **Settings > Analysis** and select **Check configuration**. Your `analysis` model should appear, followed by **Analysis is configured** when the investigation worker is ready. This confirms configuration and worker readiness; your first investigation verifies provider access
+Open **Settings > Analysis** and select **Check configuration**. Your `analysis` model should appear, followed by **Analysis is configured** when the investigation worker is ready. This confirms configuration and worker readiness; your first analysis run verifies provider access
 
 ## Automatic analysis in Findings
 
@@ -59,9 +59,9 @@ Open **Findings** to see received trace counts, waiting or running status, the l
 
 Defaults are one analysis every 60 minutes, up to 10 traces per run, and a $10 monthly budget per agent. After the first run, the existing scheduler reviews new activity in the saved lookback window. The interval begins after a run finishes. Existing agent configurations, including paused configurations, are preserved; a configuration covering all agents also prevents automatic duplicates
 
-Open a finding and follow an evidence citation to the original trace. Previous investigation history and direct links remain available
+Open a finding and follow an evidence citation to the original trace. Existing analysis records and history are preserved. Saved investigation links open Findings
 
-The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while an investigation is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
+The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while analysis is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
 
 ## Connect an OpenAI-compatible endpoint
 
@@ -82,7 +82,7 @@ The example prices and token limits are placeholders. Replace them with your dep
 | **Could not check analysis configuration** | Check that Lens is reachable and your session is valid, then retry. This does not mean the model configuration is missing |
 | Models appear, but the worker is not ready | Check the Lens service logs and ClickHouse readiness, then retry |
 | The run reports that the provider rejected the request | Check the provider key, access to the selected model, and any configured API base URL |
-| The request exceeds the investigation budget | Increase that investigation's budget or reduce the model's output allowance, then run it again |
+| The request exceeds the investigation budget | Increase the analysis budget or reduce the model's output allowance, then run it again |
 | The trace list is empty | Send a real run from your agent using a Lens tracing key. An analysis provider key does not authorize trace ingestion |
 
 Changing a provider key requires updating its server-side secret and restarting Lens. Keep the existing admin token and ClickHouse configuration so sessions and saved work remain available

@@ -14,19 +14,19 @@ const PREREQUISITES = [
   { title: "Docker or Kubernetes", detail: "Use your existing deployment" },
   {
     title: "An analysis model",
-    detail: "For investigations, after tracing is connected",
+    detail: "For automatic analysis, after tracing is connected",
   },
 ] as const;
 
 export interface LensGettingStartedProps {
   readonly state: LensReadiness;
   readonly onStart: () => void;
-  readonly onExit: (to: "traces" | "investigations") => void;
+  readonly onExit: (to: "traces" | "findings") => void;
 }
 
 export function LensGettingStarted({ state, onStart, onExit }: LensGettingStartedProps) {
   const setupRef = useRef<HTMLElement>(null);
-  const exitTo = state.tracesReady ? "traces" : "investigations";
+  const exitTo = state.tracesReady ? "traces" : "findings";
   const start = () => {
     onStart();
     setupRef.current?.scrollIntoView({ block: "start" });
@@ -44,7 +44,7 @@ export function LensGettingStarted({ state, onStart, onExit }: LensGettingStarte
           action={
             (state.activityReady || state.hasInvestigations) && (
               <Button variant="outline" size="sm" onClick={() => onExit(exitTo)}>
-                {exitTo === "traces" ? "View traces" : "View investigations"}
+                {exitTo === "traces" ? "View traces" : "View findings"}
               </Button>
             )
           }
@@ -70,7 +70,7 @@ function Prerequisites() {
         },
         {
           title: "An analysis model",
-          detail: "Needed when you run investigations",
+          detail: "Needed for automatic analysis",
         },
       ]
     : PREREQUISITES;
@@ -92,7 +92,7 @@ function Prerequisites() {
       </ul>
       <div className="mt-5 flex gap-2 border-t pt-5 text-xs leading-5 text-muted-foreground">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        <p>Your infrastructure stores the traces. Investigation content is sent to your selected model provider.</p>
+        <p>Your infrastructure stores the traces. Selected trace content is sent to your selected model provider.</p>
       </div>
     </aside>
   );
