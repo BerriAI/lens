@@ -4,10 +4,16 @@ This chart installs the complete Lens API, UI and investigation runtime with Cli
 
 For optional help from your coding agent, use [Set it up for me](../../docs/setup-with-agent.md). Include that this deployment uses Helm; there are separate prompts for an existing gateway and external ClickHouse
 
-For a source checkout, install the chart and forward its service:
+Until a Lens release is published, build from the repository root and push the image to a registry your cluster can read. Replace the example repository with your own, and configure the cluster's image pull credentials if that registry is private
 
 ```sh
-helm upgrade --install lens ./helm/lens --namespace lens --create-namespace
+LENS_IMAGE_REPOSITORY=registry.example.com/your-team/lens
+LENS_IMAGE_TAG=$(git rev-parse HEAD)
+docker build --build-arg LENS_VERSION="$LENS_IMAGE_TAG" -f deploy/runtime/Dockerfile \
+  -t "$LENS_IMAGE_REPOSITORY:$LENS_IMAGE_TAG" .
+docker push "$LENS_IMAGE_REPOSITORY:$LENS_IMAGE_TAG"
+helm upgrade --install lens ./helm/lens --namespace lens --create-namespace \
+  --set image.repository="$LENS_IMAGE_REPOSITORY" --set image.tag="$LENS_IMAGE_TAG"
 kubectl --namespace lens port-forward service/lens 4318:4318
 ```
 
@@ -23,11 +29,25 @@ Payloads and Keeper metadata must be backed up and restored together. An externa
 
 ## Connect a gateway
 
-Set `gateway.enabled=true` and `serviceTokenSecret.name` to the Secret also configured on the gateway. Lens uses that server credential for delegated identity and internal service requests. Its private admin credential remains separate
+Set `gateway.enabled=true` and `serviceTokenSecret.name` to the Secret also configured on the gateway. By default, this server credential authenticates internal requests and signs delegated user identity. The Lens admin login credential remains separate
+
+If your gateway uses a separate signing credential, configure both Secret references:
+
+```yaml
+gateway:
+  enabled: true
+  secretName: lens-connection
+  secretKey: gateway-secret
+serviceTokenSecret:
+  name: lens-connection
+  key: service-token
+```
+
+Create `lens-connection` through your existing secret manager. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. In either LiteLLM chart, the corresponding settings are `lensWorker.gateway.secretName`, `lensWorker.gateway.secretKey` and `lensWorker.serviceTokenSecret`
 
 `publicUrl` is the Lens browser origin. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
 
-The LiteLLM charts consume this exact chart as a dependency with `library=true` and render its named templates through a small adapter. `lensWorker.mode` selects `bundled`, `external` or `disabled`; the legacy `lensWorker.enabled` switch still works when mode is empty. Both gateway charts keep the existing service and deployment names. An external Lens deployment can preserve `/lens-ingest` with `lensWorker.externalServiceName` in the componentized gateway chart
+The LiteLLM charts consume this exact chart as a dependency with `library=true` and render its named templates through a small adapter. `lensWorker.mode` selects `bundled`, `external` or `disabled`; the legacy `lensWorker.enabled` switch still works when mode is empty. Both gateway charts keep the existing service and deployment names. An external Lens deployment can preserve `/lens-ingest` with `lensWorker.externalServiceName` in either gateway chart
 
 ## Select versions independently
 
