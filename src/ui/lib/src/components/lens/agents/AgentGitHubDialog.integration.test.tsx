@@ -97,10 +97,12 @@ describe("GitHub App connection", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "GitHub App setup required" }),
+      await screen.findByRole("heading", {
+        name: "GitHub connection unavailable",
+      }),
     ).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "GitHub App setup guide" }),
+      screen.getByRole("link", { name: "GitHub connection guide" }),
     ).toHaveAttribute("href", expect.stringContaining("/docs/github-app.md"));
     expect(
       screen.queryByRole("textbox", { name: "GitHub repository" }),
@@ -188,6 +190,84 @@ describe("GitHub App connection", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await testQueryClient.invalidateQueries();
     expect(gateway.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens the official connection service returned by the agent status", async () => {
+    const onAuthorize = vi.fn();
+    const serviceOrigin = "https://connections.example.test";
+    const url = `${serviceOrigin}/authorize?state=qa-broker-state`;
+    gateway.get.mockReturnValue({
+      ...disconnected,
+      service_origin: serviceOrigin,
+    });
+    gateway.post.mockReturnValue({
+      ...authorizationStart,
+      authorization_url: url,
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(url),
+    );
+    expect(gateway.post).toHaveBeenCalledExactlyOnceWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+    await testQueryClient.invalidateQueries();
+    expect(onAuthorize).toHaveBeenCalledOnce();
+  });
+
+  it("blocks an untrusted connection redirect and retries without navigating away", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    const serviceOrigin = "https://connections.example.test";
+    const trustedUrl = `${serviceOrigin}/authorize?state=qa-broker-state`;
+    gateway.get.mockReturnValue({
+      ...disconnected,
+      service_origin: serviceOrigin,
+    });
+    gateway.post
+      .mockReturnValueOnce({
+        ...authorizationStart,
+        authorization_url:
+          "https://connections.example.test.untrusted.example.test/authorize",
+      })
+      .mockReturnValue({
+        ...authorizationStart,
+        authorization_url: trustedUrl,
+      });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not open GitHub. Try again",
+    );
+    expect(onAuthorize).not.toHaveBeenCalled();
+    await testQueryClient.invalidateQueries();
+    expect(gateway.post).toHaveBeenCalledOnce();
+    await user.click(
+      screen.getByRole("button", { name: "Continue to GitHub" }),
+    );
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(trustedUrl),
+    );
+    expect(gateway.post).toHaveBeenNthCalledWith(
+      2,
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("links only the selected authorized repository and remembers it when reopened", async () => {
@@ -396,6 +476,39 @@ describe("GitHub App connection", () => {
       "/lens/github/authorize",
       expect.objectContaining({ body: { agent, install: true } }),
     );
+  });
+
+  it("rechecks pending access cleanup without starting another GitHub authorization", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.get.mockReturnValue({
+      ...disconnected,
+      connection: {
+        ...connection,
+        available: false,
+        availability_error: "Previous access could not be revoked. Try again",
+      },
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Previous access could not be revoked",
+    );
+    gateway.get.mockReturnValue({ ...disconnected, connection });
+    await user.click(
+      screen.getByRole("button", { name: "Check connection again" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Set up PR evals" }),
+    ).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onAuthorize).not.toHaveBeenCalled();
+    expect(gateway.post).not.toHaveBeenCalled();
   });
 
   it("disconnects the persisted repository without automatically starting a new authorization", async () => {

@@ -28,6 +28,7 @@ export interface GitHubConnectionStatus extends GitHubConnection {
 interface GitHubStatus {
   readonly configured: boolean;
   readonly app_slug: string | null;
+  readonly service_origin?: string | null;
   readonly connection: GitHubConnectionStatus | null;
 }
 
@@ -101,14 +102,26 @@ export function useGitHubConnection(agent: string, authorizationId?: string | nu
   return { status, authorization, start, connect, disconnect };
 }
 
-export function openGitHubAuthorization(url: string): void {
+export function gitHubAuthorizationDestination(url: string, serviceOrigin?: string | null): string {
   const destination = new URL(url);
+  const service = serviceOrigin ? new URL(serviceOrigin) : null;
+  const loopback = (hostname: string) => hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  const trustedService =
+    service &&
+    !service.username &&
+    !service.password &&
+    (service.protocol === "https:" || (service.protocol === "http:" && loopback(service.hostname))) &&
+    destination.origin === service.origin;
+  const github = destination.origin === "https://github.com";
   if (
-    destination.protocol !== "https:" ||
-    destination.hostname !== "github.com" ||
+    (!github && !trustedService) ||
     destination.username ||
     destination.password
   )
     throw new Error("Lens returned an invalid GitHub authorization address");
-  window.location.assign(destination.href);
+  return destination.href;
+}
+
+export function openGitHubAuthorization(url: string): void {
+  window.location.assign(url);
 }

@@ -10,7 +10,7 @@ Run the agent built from the checked-out commit. Its traces must identify the se
 
 Add `LENS_API_KEY` as a GitHub Actions repository secret and `LENS_BASE_URL` as a repository variable. The key needs dataset and eval access; a tracing-only key is insufficient. Map each additional agent secret to an environment variable on the Lens Action and any agent startup step. Setup links directly to the repository’s secret and variable settings. Lens never asks for a GitHub token in the browser. The generated Action uses `report-via-app: true` to publish through the connected GitHub App
 
-The private preview Action must be accessible to the consuming repository through the organization’s GitHub Actions policy. The generated workflow explicitly builds the SDK from the Action’s pinned source checkout, so it does not depend on an unpublished wheel release. GitHub-hosted runners provide the required Rust installer
+The Lens Action must be permitted by the repository’s GitHub Actions policy. The generated workflow explicitly builds the SDK from the Action’s pinned source checkout, so it does not depend on an unpublished wheel release. GitHub-hosted runners provide the required Rust installer
 
 Commit the workflow and adapter to `main` to establish a baseline, or select **Run workflow** on `main` in Actions. Opening, reopening, or updating a same-repository pull request targeting `main` then runs the selected eval. Fork PRs are skipped because the eval needs credentials. A missing baseline is reported, and absolute gate conditions still apply
 

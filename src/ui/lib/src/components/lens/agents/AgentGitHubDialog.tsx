@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import type { EvalDefinition } from "../evals/runs/types";
 import { GitHubEvalSetupDialog } from "./GitHubEvalSetupDialog";
-import { openGitHubAuthorization, useGitHubConnection } from "./githubConnection";
+import { gitHubAuthorizationDestination, openGitHubAuthorization, useGitHubConnection } from "./githubConnection";
 
 interface AgentGitHubDialogProps {
   readonly agent: string;
@@ -44,14 +44,14 @@ export function AgentGitHubDialog({
       startAuthorization(install, {
         onSuccess: ({ authorization_url }) => {
           try {
-            onAuthorize(authorization_url);
+            onAuthorize(gitHubAuthorizationDestination(authorization_url, github.status.data?.service_origin));
           } catch {
             setRedirectError("Could not open GitHub. Try again");
           }
         },
       });
     },
-    [startAuthorization, onAuthorize],
+    [startAuthorization, onAuthorize, github.status.data?.service_origin],
   );
 
   useEffect(() => {
@@ -123,10 +123,10 @@ export function AgentGitHubDialog({
           </div>
         ) : !github.status.data?.configured ? (
           <div className="space-y-4 rounded-lg border p-4 text-sm">
-            <h3 className="font-medium">GitHub App setup required</h3>
+            <h3 className="font-medium">GitHub connection unavailable</h3>
             <p className="text-muted-foreground">
-              Your Lens administrator needs to configure the GitHub App once. Then this button will take you to GitHub
-              to choose your account or organization, install the App, and authorize access
+              The Lens GitHub service has not been enabled for this deployment. Your administrator can check the
+              connection settings so you can install the Lens App and choose a repository
             </p>
             <a
               className="inline-flex items-center gap-1 underline underline-offset-4"
@@ -134,7 +134,7 @@ export function AgentGitHubDialog({
               target="_blank"
               rel="noreferrer"
             >
-              GitHub App setup guide <ExternalLink aria-hidden="true" className="size-3" />
+              GitHub connection guide <ExternalLink aria-hidden="true" className="size-3" />
             </a>
             <Button variant="outline" onClick={() => void github.status.refetch()}>
               Check configuration
@@ -169,11 +169,14 @@ export function AgentGitHubDialog({
             ) : (
               <div className="space-y-3">
                 <p role="alert" className="text-sm text-destructive">
-                  GitHub access needs attention. The App may have been removed, suspended, or lost access to this
-                  repository
+                  GitHub access needs attention. {connection.availability_error ||
+                    "The App may have been removed, suspended, or lost access to this repository"}
                 </p>
                 <Button disabled={github.start.isPending} onClick={() => begin(true)}>
                   Restore GitHub access
+                </Button>
+                <Button variant="outline" disabled={github.status.isFetching} onClick={() => void github.status.refetch()}>
+                  Check connection again
                 </Button>
               </div>
             )}

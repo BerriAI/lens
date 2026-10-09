@@ -176,7 +176,7 @@ it("offers GitHub connection for the project agent after Home confirms its first
 
   const dialog = await screen.findByRole("dialog", { name: "Connect GitHub" });
   expect(dialog).toHaveTextContent("Connect qa-agent to a repository through the Lens GitHub App");
-  expect(await within(dialog).findByRole("heading", { name: "GitHub App setup required" })).toBeVisible();
+  expect(await within(dialog).findByRole("heading", { name: "GitHub connection unavailable" })).toBeVisible();
   expect(githubAgent).toHaveBeenCalledExactlyOnceWith(agent.name);
   await expectUrl(onUrlUpdate, (url) => expect(url.get("github_agent")).toBe(agent.name));
   expect(lastUrl(onUrlUpdate).get("connect_agent")).toBe(agent.name);

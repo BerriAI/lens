@@ -308,7 +308,7 @@ describe("Evals", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Connect GitHub",
     });
-    expect(await within(dialog).findByRole("heading", { name: "GitHub App setup required" })).toBeVisible();
+    expect(await within(dialog).findByRole("heading", { name: "GitHub connection unavailable" })).toBeVisible();
     expect(within(dialog).queryByRole("textbox", { name: "GitHub repository" })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
 
