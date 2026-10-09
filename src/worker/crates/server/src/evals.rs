@@ -14,7 +14,10 @@ use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     CONTRACT_HEADER, CONTRACT_VERSION,
     auth::Role,
-    eval::{CaseResult, CreateEvalRun, EvalRun, ResolvedDataset, RunStatus, Scorer},
+    eval::{
+        CaseResult, CreateEvalRun, EvalRun, ResolvedDataset, RunCase, RunStatus, Scorer, ToolStep,
+        TrialSteps,
+    },
 };
 use litellm_storage_clickhouse::{
     evals::{EvalStore, RunFilter},
@@ -32,6 +35,7 @@ struct EvalState<R> {
     authentication: Arc<Authentication<R>>,
     store: EvalStore,
     datasets: Datasets,
+    traces: Option<EvalTraces>,
     public_url: String,
 }
 
@@ -64,7 +68,8 @@ fn configured_router<R: SessionRepository + 'static>(
     let state = Arc::new(EvalState {
         authentication,
         store: EvalStore::new(state.clone()),
-        datasets: Datasets::new(state, traces),
+        datasets: Datasets::new(state, traces.clone()),
+        traces,
         public_url,
     });
     Router::new()
@@ -75,6 +80,7 @@ fn configured_router<R: SessionRepository + 'static>(
             put(result::<R>),
         )
         .route("/lens/evals/runs/{run}/finish", post(finish::<R>))
+        .route("/lens/evals/runs/{run}/cases/{case_id}", get(run_case::<R>))
         .route("/lens/datasets/resolve", get(resolve::<R>))
         .route(
             "/lens/datasets/{id}/revisions/{revision}/cases",
@@ -314,6 +320,62 @@ async fn resolve<R: SessionRepository>(
             .resolve(&team.0, &query.name, query.revision)
             .await?,
     ))
+}
+
+async fn run_case<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+    Path((run, case_id)): Path<(String, String)>,
+) -> Result<Json<RunCase>, EvalApiError> {
+    let stored = state.store.get(&team.0, &run).await?;
+    let case = stored
+        .cases
+        .iter()
+        .find(|case| case.id == case_id)
+        .ok_or(ApiError::NotFound)?;
+    let now = Utc::now().timestamp_millis();
+    let mut trials = Vec::new();
+    for trial in stored.trials.iter().filter(|trial| trial.case_id == case_id) {
+        let steps = match (&state.traces, &trial.result.trace) {
+            (Some(traces), Some(reference)) => traces
+                .read(&team.0, reference, now)
+                .await
+                .map_err(|error| ApiError::Internal(Box::new(error)))?
+                .map(|trace| tool_steps(trace.spans))
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        trials.push(TrialSteps {
+            trial: trial.trial,
+            error: trial.result.error.as_ref().map(|error| error.message.clone()),
+            steps,
+        });
+    }
+    trials.sort_by_key(|trial| trial.trial);
+    Ok(Json(RunCase {
+        case_id: case.id.clone(),
+        title: case.title.clone(),
+        critical: case.critical,
+        passed: stored.verdicts.get(&case.id).copied(),
+        trials,
+    }))
+}
+
+fn tool_steps(spans: Vec<litellm_traces_clickhouse::evals::EvalSpan>) -> Vec<ToolStep> {
+    let mut steps: Vec<ToolStep> = spans
+        .into_iter()
+        .filter_map(|span| {
+            let tool_name = span.attributes.get("gen_ai.tool.name")?.clone();
+            Some(ToolStep {
+                ok: !matches!(span.status, litellm_traces::SpanStatus::Error),
+                name: span.name,
+                tool_name,
+                start_ns: span.start_ns,
+            })
+        })
+        .collect();
+    steps.sort_by_key(|step| step.start_ns);
+    steps
 }
 
 async fn cases<R: SessionRepository>(

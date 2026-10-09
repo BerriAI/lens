@@ -1,8 +1,6 @@
-import { SquareArrowOutUpRight } from "lucide-react";
-
 import { cn } from "../../../../lib/cva.config";
 
-import { gateTone, safeLinkUrl, type GateTone } from "./format";
+import { gateTone, type GateTone } from "./format";
 import type { EvalRun } from "./types";
 
 const GATE: Record<GateTone, { readonly label: string; readonly className: string }> = {
@@ -28,18 +26,7 @@ export function CriticalPill() {
   return <span className={cn(PILL, "bg-destructive/10 text-destructive")}>Critical</span>;
 }
 
-export function PullRequestLink({ url }: { url: string | null }) {
-  const href = safeLinkUrl(url);
-  if (!href) return null;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-    >
-      Pull request
-      <SquareArrowOutUpRight aria-hidden="true" className="size-3.5" />
-    </a>
-  );
+export function PullRequestPill({ pr }: { pr: number | null }) {
+  if (pr === null) return null;
+  return <span className={cn(PILL, "bg-muted font-mono text-muted-foreground")}>PR #{pr}</span>;
 }

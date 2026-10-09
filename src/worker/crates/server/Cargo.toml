@@ -13,6 +13,7 @@ lens-auth = { path = "../auth" }
 lens-contract = { path = "../contract" }
 litellm-storage-clickhouse.workspace = true
 litellm-traces-clickhouse.workspace = true
+litellm-traces.workspace = true
 futures-util.workspace = true
 percent-encoding.workspace = true
 rand.workspace = true

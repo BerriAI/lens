@@ -10,7 +10,7 @@ import { IdChip } from "../../traces/ui/IdChip";
 import { useEvalRun } from "./api";
 import { CaseCompare } from "./CaseCompare";
 import { costPerCase, deltaLabel, deltaTone, passedLabel, shortSha } from "./format";
-import { CriticalPill, GatePill, PullRequestLink } from "./RunBadges";
+import { CriticalPill, GatePill, PullRequestPill } from "./RunBadges";
 import type { CaseDiff, EvalRun, Summary } from "./types";
 
 export interface RunDetailProps {
@@ -21,7 +21,7 @@ export interface RunDetailProps {
   readonly onOpenCase: (caseId: string | null) => void;
 }
 
-export function RunDetail({ runId, datasetId, caseId, onBack, onOpenCase }: RunDetailProps) {
+export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps) {
   const run = useEvalRun(runId);
   if (run.isPending)
     return (
@@ -46,19 +46,6 @@ export function RunDetail({ runId, datasetId, caseId, onBack, onOpenCase }: RunD
         </Button>
       </StateMessage>
     );
-  if (run.data.dataset_id !== datasetId)
-    return (
-      <StateMessage
-        role="alert"
-        icon={<TriangleAlert className="size-5" />}
-        title="This run belongs to another dataset"
-        description={`Run ${run.data.id} evaluated dataset ${run.data.dataset_id}.`}
-      >
-        <Button size="sm" variant="outline" onClick={onBack}>
-          All runs
-        </Button>
-      </StateMessage>
-    );
   return (
     <div className="flex flex-col gap-3 px-3 pt-3 pb-8 sm:px-4">
       <RunHeader run={run.data} onBack={onBack} />
@@ -76,10 +63,10 @@ function RunBody({
   caseId: string | null;
   onOpenCase: RunDetailProps["onOpenCase"];
 }) {
-  if (run.status === "error")
+  if (run.status === "failed")
     return (
       <p role="alert" className="py-10 text-center text-sm text-muted-foreground">
-        This run ended with an error before it could be scored.
+        {run.failure || "This run ended with an error before it could be scored."}
       </p>
     );
   if (!run.summary)
@@ -94,7 +81,14 @@ function RunBody({
       <SummaryStrip summary={run.summary} />
       <GateReasons run={run} />
       {diff ? (
-        <CaseCompare key={diff.case_id} diff={diff} onClose={() => onOpenCase(null)} />
+        <CaseCompare
+          key={diff.case_id}
+          diff={diff}
+          runId={run.id}
+          baselineRunId={run.summary.baseline_run_id}
+          regressed={run.summary.regressions.includes(diff)}
+          onClose={() => onOpenCase(null)}
+        />
       ) : (
         <>
           {caseId && <MissingCase caseId={caseId} onDismiss={() => onOpenCase(null)} />}
@@ -135,15 +129,15 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
       </nav>
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-foreground">
-          Run <span className="font-mono">{shortSha(run.commit_sha)}</span> on {run.branch}
+          Run <span className="font-mono">{shortSha(run.version)}</span> on {run.branch}
         </h3>
         <IdChip value={run.id} label="Copy run ID" />
         <GatePill run={run} />
         <span className="text-xs text-muted-foreground">
-          {run.agent} · revision {run.dataset_revision}
+          {run.agent}
         </span>
         <span className="ml-auto">
-          <PullRequestLink url={run.pr_url} />
+          <PullRequestPill pr={run.pr} />
         </span>
       </div>
     </header>
@@ -169,13 +163,13 @@ function SummaryStrip({ summary }: { summary: Summary }) {
       <Stat
         label="Passed"
         value={passedLabel(summary)}
-        note={`${summary.failed} failed · ${summary.errored} errored`}
+        note={`${summary.total - summary.passed} failed · ${summary.errors} trial errors`}
       />
       <Stat
         label="vs baseline"
         value={deltaLabel(summary)}
-        note={summary.baseline_reason ?? "Pass rate against the baseline"}
-        tone={summary.pass_rate_delta ? deltaTone(summary.pass_rate_delta) : undefined}
+        note={summary.baseline_version ? `main at ${shortSha(summary.baseline_version)}` : "No main run to compare"}
+        tone={deltaTone(summary)}
       />
       <Stat
         label="Regressions"
@@ -189,12 +183,13 @@ function SummaryStrip({ summary }: { summary: Summary }) {
 }
 
 function GateReasons({ run }: { run: EvalRun }) {
-  if (!run.gate || run.gate.reasons.length === 0) return null;
+  const gate = run.summary?.gate;
+  if (!gate || gate.reasons.length === 0) return null;
   return (
     <section aria-label="Gate reasons" className="rounded-xl border bg-card px-4 pt-3 pb-3">
-      <h4 className="text-sm font-medium text-foreground">Why the gate {run.gate.passed ? "passed" : "failed"}</h4>
+      <h4 className="text-sm font-medium text-foreground">Why the gate {gate.passed ? "passed" : "failed"}</h4>
       <ul className="mt-1.5 flex flex-col gap-1 text-sm text-muted-foreground">
-        {run.gate.reasons.map((reason, index) => (
+        {gate.reasons.map((reason, index) => (
           <li key={index}>{reason}</li>
         ))}
       </ul>
@@ -230,7 +225,7 @@ function DiffList({
                 onClick={() => onOpen(diff.case_id)}
                 className="flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring"
               >
-                <span className="min-w-0 flex-1 truncate text-foreground">{diff.input || diff.case_id}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{diff.title || diff.case_id}</span>
                 {diff.critical && <CriticalPill />}
                 <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
               </button>

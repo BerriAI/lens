@@ -3,47 +3,42 @@ import type { EvalRun, Summary } from "./types";
 export type GateTone = "passed" | "failed" | "pending" | "errored";
 
 export const gateTone = (run: EvalRun): GateTone => {
-  if (run.status === "error") return "errored";
-  if (run.gate === null) return "pending";
-  return run.gate.passed ? "passed" : "failed";
+  if (run.status === "failed") return "errored";
+  if (run.summary === null) return "pending";
+  return run.summary.gate.passed ? "passed" : "failed";
 };
 
 export const passedLabel = (summary: Summary): string => `${summary.passed}/${summary.total}`;
 
-const percentPoints = (rate: number): string => `${Math.abs(rate * 100).toFixed(1)} pts`;
-
 export const deltaLabel = (summary: Summary): string => {
-  if (summary.pass_rate_delta === null) return "No baseline";
-  if (summary.pass_rate_delta === 0) return "No change";
-  return `${summary.pass_rate_delta > 0 ? "+" : "−"}${percentPoints(summary.pass_rate_delta)}`;
+  if (summary.baseline_run_id === null) return "No baseline";
+  if (summary.regressions.length === 0 && summary.fixed.length === 0) return "No change";
+  const parts = [];
+  if (summary.regressions.length) parts.push(`${summary.regressions.length} regressed`);
+  if (summary.fixed.length) parts.push(`${summary.fixed.length} fixed`);
+  return parts.join(" · ");
 };
 
-export const deltaTone = (delta: number | null): string => {
-  if (delta === null || delta === 0) return "text-muted-foreground";
-  return delta < 0 ? "text-destructive" : "text-success";
+export const deltaTone = (summary: Summary | null): string => {
+  if (!summary || summary.baseline_run_id === null) return "text-muted-foreground";
+  if (summary.regressions.length) return "text-destructive";
+  return summary.fixed.length ? "text-success" : "text-muted-foreground";
 };
 
 export const costPerCase = (summary: Summary): string => {
-  if (summary.cost_usd === null || summary.total === 0) return "–";
-  const each = summary.cost_usd / summary.total;
-  return `$${each.toFixed(each < 0.01 ? 4 : 2)}`;
+  if (summary.total === 0) return "–";
+  const each = summary.cost_per_case;
+  return `$${each.toFixed(each > 0 && each < 0.01 ? 4 : 2)}`;
 };
 
 export const shortSha = (sha: string): string => sha.slice(0, 7);
-
-export const safeLinkUrl = (url: string | null): string | null => (url && /^https?:\/\/[^/\s]/i.test(url) ? url : null);
 
 export interface RunGroups {
   readonly main: readonly EvalRun[];
   readonly pulls: readonly EvalRun[];
 }
 
-const newestFirst = (a: EvalRun, b: EvalRun): number => b.created_at.localeCompare(a.created_at);
-
-export const groupRuns = (runs: readonly EvalRun[], datasetId: string): RunGroups => {
-  const ours = runs.filter((run) => run.dataset_id === datasetId).sort(newestFirst);
-  return {
-    main: ours.filter((run) => run.pr_url === null),
-    pulls: ours.filter((run) => run.pr_url !== null),
-  };
-};
+export const groupRuns = (runs: readonly EvalRun[]): RunGroups => ({
+  main: runs.filter((run) => run.pr === null),
+  pulls: runs.filter((run) => run.pr !== null),
+});

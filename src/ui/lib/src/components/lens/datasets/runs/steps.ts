@@ -1,22 +1,18 @@
-import type { Span } from "../../traces/types";
-import { isFrameworkSpan } from "../../traces/utils";
+import type { ToolStep, TrialSteps } from "./types";
 
 export type StepChange = "same" | "skipped" | "added";
 
-export interface ToolStep {
-  readonly span: Span;
+export interface ComparedStep {
+  readonly step: ToolStep;
   readonly change: StepChange;
 }
 
 export interface StepComparison {
-  readonly baseline: readonly ToolStep[];
-  readonly candidate: readonly ToolStep[];
+  readonly baseline: readonly ComparedStep[];
+  readonly candidate: readonly ComparedStep[];
 }
 
-export const toolSteps = (spans: readonly Span[]): Span[] =>
-  spans
-    .filter((span) => span.type === "tool" && !isFrameworkSpan(span))
-    .sort((a, b) => a.start_offset_ms - b.start_offset_ms);
+export const firstTrial = (trials: readonly TrialSteps[]): TrialSteps | null => trials[0] ?? null;
 
 const commonSuffixLengths = (a: readonly string[], b: readonly string[]): number[][] => {
   const table = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
@@ -47,15 +43,16 @@ function longestCommonSteps(a: readonly string[], b: readonly string[]): Matches
   return { baseline, candidate };
 }
 
-export function compareSteps(baseline: readonly Span[], candidate: readonly Span[]): StepComparison {
+export function compareSteps(baseline: readonly ToolStep[], candidate: readonly ToolStep[]): StepComparison {
   const matches = longestCommonSteps(
-    baseline.map((span) => span.name),
-    candidate.map((span) => span.name),
+    baseline.map((step) => step.tool_name),
+    candidate.map((step) => step.tool_name),
   );
   return {
-    baseline: baseline.map((span, index) => ({ span, change: matches.baseline.has(index) ? "same" : "skipped" })),
-    candidate: candidate.map((span, index) => ({ span, change: matches.candidate.has(index) ? "same" : "added" })),
+    baseline: baseline.map((step, index) => ({ step, change: matches.baseline.has(index) ? "same" : "skipped" })),
+    candidate: candidate.map((step, index) => ({ step, change: matches.candidate.has(index) ? "same" : "added" })),
   };
 }
 
-export const unchangedSteps = (spans: readonly Span[]): ToolStep[] => spans.map((span) => ({ span, change: "same" }));
+export const unchangedSteps = (steps: readonly ToolStep[]): ComparedStep[] =>
+  steps.map((step) => ({ step, change: "same" }));

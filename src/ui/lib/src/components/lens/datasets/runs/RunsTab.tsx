@@ -4,12 +4,11 @@ import { FlaskConical, Loader2, TriangleAlert } from "lucide-react";
 
 import { StateMessage } from "../../../shared/StateMessage";
 import { cn } from "../../../../lib/cva.config";
-import { formatActivityTimestamp } from "../../../../utils/activityTimestamp";
 
 import { useEvalRunRoute } from "../../route";
 import { useEvalRuns } from "./api";
 import { costPerCase, deltaLabel, deltaTone, groupRuns, passedLabel, shortSha } from "./format";
-import { GatePill, PullRequestLink } from "./RunBadges";
+import { GatePill, PullRequestPill } from "./RunBadges";
 import { RunDetail } from "./RunDetail";
 import type { EvalRun } from "./types";
 
@@ -41,7 +40,7 @@ interface RunListProps {
 }
 
 function RunList({ datasetId, agentName, onOpen }: RunListProps) {
-  const runs = useEvalRuns({ agent: agentName });
+  const runs = useEvalRuns({ agent: agentName, dataset: datasetId });
   if (runs.isPending)
     return (
       <StateMessage
@@ -61,7 +60,7 @@ function RunList({ datasetId, agentName, onOpen }: RunListProps) {
         description={runs.error.message}
       />
     );
-  const { main, pulls } = groupRuns(runs.data, datasetId);
+  const { main, pulls } = groupRuns(runs.data);
   if (main.length + pulls.length === 0)
     return (
       <StateMessage
@@ -113,15 +112,15 @@ function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalR
                     className="flex min-w-0 flex-col items-start rounded text-left focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <span className="font-medium text-foreground hover:underline">
-                      Run <span className="font-mono">{shortSha(run.commit_sha)}</span> on {run.branch}
+                      Run <span className="font-mono">{shortSha(run.version)}</span> on {run.branch}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {run.eval} · revision {run.dataset_revision} · {formatActivityTimestamp(run.created_at)}
+                      {run.eval} · {run.received_trials}/{run.expected_trials} trials
                     </span>
                   </button>
                 </td>
                 <td className={NUMERIC}>{run.summary ? passedLabel(run.summary) : "–"}</td>
-                <td className={cn(NUMERIC, deltaTone(run.summary?.pass_rate_delta ?? null))}>
+                <td className={cn(NUMERIC, deltaTone(run.summary))}>
                   {run.summary ? deltaLabel(run.summary) : "–"}
                 </td>
                 <td className={NUMERIC}>{run.summary ? costPerCase(run.summary) : "–"}</td>
@@ -129,7 +128,7 @@ function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalR
                   <GatePill run={run} />
                 </td>
                 <td className={cn(CELL, "text-right")}>
-                  <PullRequestLink url={run.pr_url} />
+                  <PullRequestPill pr={run.pr} />
                 </td>
               </tr>
             ))}

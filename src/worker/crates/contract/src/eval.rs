@@ -241,6 +241,34 @@ pub struct Summary {
     pub gate: GateResult,
 }
 
+/// One case of a run with the tool steps each trial took, for side-by-side comparison in the Runs UI
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RunCase {
+    pub case_id: String,
+    pub title: String,
+    pub critical: bool,
+    pub passed: Option<bool>,
+    pub trials: Vec<TrialSteps>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrialSteps {
+    pub trial: u32,
+    pub error: Option<String>,
+    pub steps: Vec<ToolStep>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ToolStep {
+    pub name: String,
+    pub tool_name: String,
+    pub ok: bool,
+    pub start_ns: i64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
