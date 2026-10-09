@@ -1,0 +1,3330 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Success",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 3.008412083,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.246052209,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:6:5: replace worker_contract -> Value with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "worker_contract",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 63,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 5
+            },
+            "end": {
+              "line": 62,
+              "column": 11
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_6_col_5.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_6_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.759148917,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.500091041,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:66:5: replace normalize -> Value with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 66,
+              "column": 5
+            },
+            "end": {
+              "line": 135,
+              "column": 6
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_66_col_5.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_66_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.13222175,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.466382709,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:78:25: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 78,
+              "column": 25
+            },
+            "end": {
+              "line": 78,
+              "column": 27
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_78_col_25.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_78_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.828339709,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.6173010420000002,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:77:24: delete ! in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 77,
+              "column": 24
+            },
+            "end": {
+              "line": 77,
+              "column": 25
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_77_col_24.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_77_col_24.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.667849833,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.03369425,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:80:29: replace || with && in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 29
+            },
+            "end": {
+              "line": 80,
+              "column": 31
+            }
+          },
+          "replacement": "&&",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_80_col_29.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_80_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.188509667,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.676371542,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:79:29: replace || with && in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 29
+            },
+            "end": {
+              "line": 79,
+              "column": 31
+            }
+          },
+          "replacement": "&&",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_79_col_29.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_79_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.823523583,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.034874416,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:78:34: replace == with != in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 78,
+              "column": 34
+            },
+            "end": {
+              "line": 78,
+              "column": 36
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_78_col_34.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_78_col_34.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.598894875,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.524695292,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:79:51: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 51
+            },
+            "end": {
+              "line": 79,
+              "column": 53
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_79_col_51.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_79_col_51.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.70522675,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.662676375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:79:38: replace == with != in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 79,
+              "column": 38
+            },
+            "end": {
+              "line": 79,
+              "column": 40
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_79_col_38.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_79_col_38.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.826693042,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.026077875,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:81:33: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 81,
+              "column": 33
+            },
+            "end": {
+              "line": 81,
+              "column": 35
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_81_col_33.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_81_col_33.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.6992267920000002,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.9847854160000002,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:80:38: replace == with != in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 80,
+              "column": 38
+            },
+            "end": {
+              "line": 80,
+              "column": 40
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_80_col_38.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_80_col_38.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.751928334,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.6812676250000003,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:98:25: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 98,
+              "column": 25
+            },
+            "end": {
+              "line": 98,
+              "column": 27
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_98_col_25.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_98_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.822497833,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.89334075,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:97:36: delete ! in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 97,
+              "column": 36
+            },
+            "end": {
+              "line": 97,
+              "column": 37
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_97_col_36.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_97_col_36.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.236757666,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.919375959,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:103:42: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 103,
+              "column": 42
+            },
+            "end": {
+              "line": 103,
+              "column": 44
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_103_col_42.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_103_col_42.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.7678130840000001,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.216026041,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:103:35: delete ! in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 103,
+              "column": 35
+            },
+            "end": {
+              "line": 103,
+              "column": 36
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_103_col_35.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_103_col_35.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.985144292,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.033432417,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:103:50: replace == with != in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 103,
+              "column": 50
+            },
+            "end": {
+              "line": 103,
+              "column": 52
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_103_col_50.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_103_col_50.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.750749375,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.111036583,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:114:17: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 114,
+              "column": 17
+            },
+            "end": {
+              "line": 114,
+              "column": 19
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__schema.rs_line_114_col_17.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_114_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.759992708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:113:17: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 113,
+              "column": 17
+            },
+            "end": {
+              "line": 113,
+              "column": 19
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__schema.rs_line_113_col_17.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_113_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.5847655,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:112:17: replace && with || in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 112,
+              "column": 17
+            },
+            "end": {
+              "line": 112,
+              "column": 19
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__schema.rs_line_112_col_17.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_112_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.541544125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:111:16: delete ! in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 111,
+              "column": 16
+            },
+            "end": {
+              "line": 111,
+              "column": 17
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_111_col_16.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_111_col_16.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.6713,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.271340458,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:113:32: replace == with != in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 113,
+              "column": 32
+            },
+            "end": {
+              "line": 113,
+              "column": 34
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_113_col_32.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_113_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.080285584,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.423765083,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:116:65: replace != with == in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 116,
+              "column": 65
+            },
+            "end": {
+              "line": 116,
+              "column": 67
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_116_col_65.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_116_col_65.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.115579,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.950284625,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/schema.rs:121:47: delete ! in normalize",
+          "package": "lens-contract",
+          "file": "crates/contract/src/schema.rs",
+          "function": {
+            "function_name": "normalize",
+            "return_type": "-> Value",
+            "span": {
+              "start": {
+                "line": 65,
+                "column": 1
+              },
+              "end": {
+                "line": 136,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 121,
+              "column": 47
+            },
+            "end": {
+              "line": 121,
+              "column": 48
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__schema.rs_line_121_col_47.log",
+      "diff_path": "diff/crates__contract__src__schema.rs_line_121_col_47.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.9582950829999999,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.077239875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:31:5: replace validate_length -> std::result::Result<(), error::ConversionError> with Ok(())",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 31,
+              "column": 5
+            },
+            "end": {
+              "line": 40,
+              "column": 11
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_31_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_31_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8819890830000001,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.972351875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:32:15: replace < with == in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 32,
+              "column": 15
+            },
+            "end": {
+              "line": 32,
+              "column": 16
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_32_col_15.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_32_col_15.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.806917625,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.910476,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:32:15: replace < with > in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 32,
+              "column": 15
+            },
+            "end": {
+              "line": 32,
+              "column": 16
+            }
+          },
+          "replacement": ">",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_32_col_15_001.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_32_col_15_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.864299458,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.294512375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:32:15: replace < with <= in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 32,
+              "column": 15
+            },
+            "end": {
+              "line": 32,
+              "column": 16
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_32_col_15_002.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_32_col_15_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.817793334,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.932657458,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:36:9: replace && with || in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 36,
+              "column": 9
+            },
+            "end": {
+              "line": 36,
+              "column": 11
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__worker.rs_line_36_col_9.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_36_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.708097209,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:36:19: replace > with == in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 36,
+              "column": 19
+            },
+            "end": {
+              "line": 36,
+              "column": 20
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_36_col_19.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_36_col_19.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.669409667,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.826316292,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:36:19: replace > with < in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 36,
+              "column": 19
+            },
+            "end": {
+              "line": 36,
+              "column": 20
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_36_col_19_001.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_36_col_19_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.6437095,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.030271875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:36:19: replace > with >= in validate_length",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "validate_length",
+            "return_type": "-> std::result::Result<(), error::ConversionError>",
+            "span": {
+              "start": {
+                "line": 26,
+                "column": 1
+              },
+              "end": {
+                "line": 41,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 36,
+              "column": 19
+            },
+            "end": {
+              "line": 36,
+              "column": 20
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_36_col_19_002.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_36_col_19_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.9730875,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.294969708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:44:5: replace string_schema -> schemars::Schema with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "string_schema",
+            "return_type": "-> schemars::Schema",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 1
+              },
+              "end": {
+                "line": 52,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 44,
+              "column": 5
+            },
+            "end": {
+              "line": 51,
+              "column": 11
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_44_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_44_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8694535829999999,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.005308791,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:45:16: replace > with == in string_schema",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "string_schema",
+            "return_type": "-> schemars::Schema",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 1
+              },
+              "end": {
+                "line": 52,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 45,
+              "column": 16
+            },
+            "end": {
+              "line": 45,
+              "column": 17
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_45_col_16.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_45_col_16.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.02991025,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.220929041,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:45:16: replace > with < in string_schema",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "string_schema",
+            "return_type": "-> schemars::Schema",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 1
+              },
+              "end": {
+                "line": 52,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 45,
+              "column": 16
+            },
+            "end": {
+              "line": 45,
+              "column": 17
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_45_col_16_001.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_45_col_16_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8726077079999999,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.270415791,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker.rs:45:16: replace > with >= in string_schema",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker.rs",
+          "function": {
+            "function_name": "string_schema",
+            "return_type": "-> schemars::Schema",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 1
+              },
+              "end": {
+                "line": 52,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 45,
+              "column": 16
+            },
+            "end": {
+              "line": 45,
+              "column": 17
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker.rs_line_45_col_16_002.log",
+      "diff_path": "diff/crates__contract__src__worker.rs_line_45_col_16_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.967880084,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.493043875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/agent.rs:111:9: replace <impl ::std::convert::From<EvidenceRequest> for PythonAgentTurnExtractionToolsItem>::from -> Self with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/agent.rs",
+          "function": {
+            "function_name": "<impl ::std::convert::From<EvidenceRequest> for PythonAgentTurnExtractionToolsItem>::from",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 110,
+                "column": 5
+              },
+              "end": {
+                "line": 112,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 111,
+              "column": 9
+            },
+            "end": {
+              "line": 111,
+              "column": 37
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__worker__agent.rs_line_111_col_9.log",
+      "diff_path": "diff/crates__contract__src__worker__agent.rs_line_111_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.860828166,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/agent.rs:116:9: replace <impl ::std::convert::From<PythonRequest> for PythonAgentTurnExtractionToolsItem>::from -> Self with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/agent.rs",
+          "function": {
+            "function_name": "<impl ::std::convert::From<PythonRequest> for PythonAgentTurnExtractionToolsItem>::from",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 115,
+                "column": 5
+              },
+              "end": {
+                "line": 117,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 116,
+              "column": 9
+            },
+            "end": {
+              "line": 116,
+              "column": 35
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__worker__agent.rs_line_116_col_9.log",
+      "diff_path": "diff/crates__contract__src__worker__agent.rs_line_116_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.746036583,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/agent.rs:142:9: replace <impl ::std::convert::From<EvidenceRequest> for PythonAgentTurnFindingsToolsItem>::from -> Self with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/agent.rs",
+          "function": {
+            "function_name": "<impl ::std::convert::From<EvidenceRequest> for PythonAgentTurnFindingsToolsItem>::from",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 141,
+                "column": 5
+              },
+              "end": {
+                "line": 143,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 142,
+              "column": 9
+            },
+            "end": {
+              "line": 142,
+              "column": 37
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__worker__agent.rs_line_142_col_9.log",
+      "diff_path": "diff/crates__contract__src__worker__agent.rs_line_142_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.634154375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/agent.rs:147:9: replace <impl ::std::convert::From<PythonRequest> for PythonAgentTurnFindingsToolsItem>::from -> Self with Default::default()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/agent.rs",
+          "function": {
+            "function_name": "<impl ::std::convert::From<PythonRequest> for PythonAgentTurnFindingsToolsItem>::from",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 146,
+                "column": 5
+              },
+              "end": {
+                "line": 148,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 147,
+              "column": 9
+            },
+            "end": {
+              "line": 147,
+              "column": 35
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__contract__src__worker__agent.rs_line_147_col_9.log",
+      "diff_path": "diff/crates__contract__src__worker__agent.rs_line_147_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.545094417,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:2:5: replace default_bool -> bool with true",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "default_bool",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 6
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_2_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_2_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.703713333,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 5.123915625,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:2:5: replace default_bool -> bool with false",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "default_bool",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 6
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_2_col_5_001.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_2_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.880214541,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.53952725,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:5:5: replace default_nzu64 -> std::num::NonZeroU64 with 1.try_into().unwrap()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "default_nzu64",
+            "return_type": "-> std::num::NonZeroU64",
+            "span": {
+              "start": {
+                "line": 4,
+                "column": 1
+              },
+              "end": {
+                "line": 6,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 5,
+              "column": 5
+            },
+            "end": {
+              "line": 5,
+              "column": 52
+            }
+          },
+          "replacement": "1.try_into().unwrap()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_5_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_5_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.81963175,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.526361333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:5:48: replace - with + in default_nzu64",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "default_nzu64",
+            "return_type": "-> std::num::NonZeroU64",
+            "span": {
+              "start": {
+                "line": 4,
+                "column": 1
+              },
+              "end": {
+                "line": 6,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 5,
+              "column": 48
+            },
+            "end": {
+              "line": 5,
+              "column": 49
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_5_col_48.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_5_col_48.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.808627792,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.258630292,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:5:48: replace - with / in default_nzu64",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "default_nzu64",
+            "return_type": "-> std::num::NonZeroU64",
+            "span": {
+              "start": {
+                "line": 4,
+                "column": 1
+              },
+              "end": {
+                "line": 6,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 5,
+              "column": 48
+            },
+            "end": {
+              "line": 5,
+              "column": 49
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_5_col_48_001.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_5_col_48_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.921214084,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.149301333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:8:5: replace job_stage -> String with String::new()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "job_stage",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 7,
+                "column": 1
+              },
+              "end": {
+                "line": 9,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 8,
+              "column": 5
+            },
+            "end": {
+              "line": 8,
+              "column": 24
+            }
+          },
+          "replacement": "String::new()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_8_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_8_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.084958625,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.47344375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:8:5: replace job_stage -> String with \"xyzzy\".into()",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "job_stage",
+            "return_type": "-> String",
+            "span": {
+              "start": {
+                "line": 7,
+                "column": 1
+              },
+              "end": {
+                "line": 9,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 8,
+              "column": 5
+            },
+            "end": {
+              "line": 8,
+              "column": 24
+            }
+          },
+          "replacement": "\"xyzzy\".into()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_8_col_5_001.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_8_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.880441459,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.805561333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:11:5: replace lens_settings_monthly_budget -> f64 with 0.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_monthly_budget",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 10,
+                "column": 1
+              },
+              "end": {
+                "line": 12,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 11,
+              "column": 5
+            },
+            "end": {
+              "line": 11,
+              "column": 10
+            }
+          },
+          "replacement": "0.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_11_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_11_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.9343805,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.785603375,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:11:5: replace lens_settings_monthly_budget -> f64 with 1.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_monthly_budget",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 10,
+                "column": 1
+              },
+              "end": {
+                "line": 12,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 11,
+              "column": 5
+            },
+            "end": {
+              "line": 11,
+              "column": 10
+            }
+          },
+          "replacement": "1.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_11_col_5_001.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_11_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.867077708,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.658204834,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:11:5: replace lens_settings_monthly_budget -> f64 with -1.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_monthly_budget",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 10,
+                "column": 1
+              },
+              "end": {
+                "line": 12,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 11,
+              "column": 5
+            },
+            "end": {
+              "line": 11,
+              "column": 10
+            }
+          },
+          "replacement": "-1.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_11_col_5_002.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_11_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.024033416,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.42255225,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:14:5: replace lens_settings_sample_percent -> f64 with 0.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_sample_percent",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 13,
+                "column": 1
+              },
+              "end": {
+                "line": 15,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 14,
+              "column": 5
+            },
+            "end": {
+              "line": 14,
+              "column": 10
+            }
+          },
+          "replacement": "0.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_14_col_5.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_14_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.135067042,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.634531708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:14:5: replace lens_settings_sample_percent -> f64 with 1.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_sample_percent",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 13,
+                "column": 1
+              },
+              "end": {
+                "line": 15,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 14,
+              "column": 5
+            },
+            "end": {
+              "line": 14,
+              "column": 10
+            }
+          },
+          "replacement": "1.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_14_col_5_001.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_14_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.224938458,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 4.099708708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/contract/src/worker/defaults.rs:14:5: replace lens_settings_sample_percent -> f64 with -1.0",
+          "package": "lens-contract",
+          "file": "crates/contract/src/worker/defaults.rs",
+          "function": {
+            "function_name": "lens_settings_sample_percent",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 13,
+                "column": 1
+              },
+              "end": {
+                "line": 15,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 14,
+              "column": 5
+            },
+            "end": {
+              "line": 14,
+              "column": 10
+            }
+          },
+          "replacement": "-1.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__contract__src__worker__defaults.rs_line_14_col_5_002.log",
+      "diff_path": "diff/crates__contract__src__worker__defaults.rs_line_14_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.880681584,
+          "process_status": "Success",
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.479198542,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/opt/homebrew/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lens-contract@0.1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 52,
+  "missed": 3,
+  "caught": 41,
+  "timeout": 0,
+  "unviable": 8,
+  "success": 0,
+  "start_time": "2026-10-09T01:12:40.466858Z",
+  "end_time": "2026-10-09T01:16:54.417555Z",
+  "cargo_mutants_version": "27.1.0"
+}

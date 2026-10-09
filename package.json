@@ -10,7 +10,9 @@
     "build:ui": "npm run build --workspace @litellm/lens-web",
     "typecheck:ui": "npm run typecheck --workspace @litellm/lens-ui",
     "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx src/components/lens/datasets/runs",
-    "qualify:ui-package": "node scripts/qualify_ui_package.mjs"
+    "qualify:ui-package": "node scripts/qualify_ui_package.mjs",
+    "generate:worker-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p lens-contract --example export > schema/lens-worker.v7.json && node scripts/generate_worker_types.mjs",
+    "check:worker-contract": "node scripts/generate_worker_types.mjs --check"
   },
   "engines": {
     "node": ">=24.14.1",
@@ -29,7 +31,8 @@
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
     "@testing-library/jest-dom": "6.9.1",
-    "vite": "7.3.5"
+    "vite": "7.3.5",
+    "json-schema-to-typescript": "15.0.4"
   },
   "overrides": {
     "prismjs": "1.30.0",

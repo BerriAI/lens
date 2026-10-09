@@ -1,0 +1,5152 @@
+[
+  {
+    "name": "Activity",
+    "case": "minimal",
+    "input": {
+      "id": "x",
+      "label": "x",
+      "phase": "load",
+      "started_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "ok": {
+        "finished": false,
+        "id": "x",
+        "label": "x",
+        "phase": "load",
+        "started_at": "2026-10-08T00:00:00Z"
+      }
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "full",
+    "input": {
+      "execution_ids": [],
+      "finished": false,
+      "id": "x",
+      "label": "x",
+      "operations": [],
+      "phase": "load",
+      "started_at": "2026-10-08T00:00:00Z",
+      "tool_calls": []
+    },
+    "result": {
+      "ok": {
+        "finished": false,
+        "id": "x",
+        "label": "x",
+        "phase": "load",
+        "started_at": "2026-10-08T00:00:00Z"
+      }
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "extra_field",
+    "input": {
+      "id": "x",
+      "label": "x",
+      "phase": "load",
+      "started_at": "2026-10-08T00:00:00Z",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `execution_ids`, `finished`, `id`, `label`, `operations`, `phase`, `started_at`, `tool_calls`"
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "missing_id",
+    "input": {
+      "label": "x",
+      "phase": "load",
+      "started_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `id`"
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "missing_phase",
+    "input": {
+      "id": "x",
+      "label": "x",
+      "started_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `phase`"
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "missing_label",
+    "input": {
+      "id": "x",
+      "phase": "load",
+      "started_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `label`"
+    }
+  },
+  {
+    "name": "Activity",
+    "case": "missing_started_at",
+    "input": {
+      "id": "x",
+      "label": "x",
+      "phase": "load"
+    },
+    "result": {
+      "error": "missing field `started_at`"
+    }
+  },
+  {
+    "name": "AgentTestCase",
+    "case": "minimal",
+    "input": {
+      "expected": "x",
+      "input": "x"
+    },
+    "result": {
+      "ok": {
+        "expected": "x",
+        "input": "x"
+      }
+    }
+  },
+  {
+    "name": "AgentTestCase",
+    "case": "full",
+    "input": {
+      "expected": "x",
+      "input": "x"
+    },
+    "result": {
+      "ok": {
+        "expected": "x",
+        "input": "x"
+      }
+    }
+  },
+  {
+    "name": "AgentTestCase",
+    "case": "extra_field",
+    "input": {
+      "expected": "x",
+      "input": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `expected` or `input`"
+    }
+  },
+  {
+    "name": "AgentTestCase",
+    "case": "missing_input",
+    "input": {
+      "expected": "x"
+    },
+    "result": {
+      "error": "missing field `input`"
+    }
+  },
+  {
+    "name": "AgentTestCase",
+    "case": "missing_expected",
+    "input": {
+      "input": "x"
+    },
+    "result": {
+      "error": "missing field `expected`"
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "minimal",
+    "input": {
+      "check_id": "x",
+      "execution_ids": [
+        "x"
+      ],
+      "hypothesis": "x",
+      "title": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "execution_ids": [
+          "x"
+        ],
+        "hypothesis": "x",
+        "kind": "issue",
+        "title": "x"
+      }
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "full",
+    "input": {
+      "check_id": "x",
+      "execution_ids": [
+        "x"
+      ],
+      "existing_finding_id": "x",
+      "hypothesis": "x",
+      "kind": "issue",
+      "title": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "execution_ids": [
+          "x"
+        ],
+        "existing_finding_id": "x",
+        "hypothesis": "x",
+        "kind": "issue",
+        "title": "x"
+      }
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "extra_field",
+    "input": {
+      "check_id": "x",
+      "execution_ids": [
+        "x"
+      ],
+      "hypothesis": "x",
+      "title": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `check_id`, `execution_ids`, `existing_finding_id`, `hypothesis`, `kind`, `title`"
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "missing_check_id",
+    "input": {
+      "execution_ids": [
+        "x"
+      ],
+      "hypothesis": "x",
+      "title": "x"
+    },
+    "result": {
+      "error": "missing field `check_id`"
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "missing_title",
+    "input": {
+      "check_id": "x",
+      "execution_ids": [
+        "x"
+      ],
+      "hypothesis": "x"
+    },
+    "result": {
+      "error": "missing field `title`"
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "missing_hypothesis",
+    "input": {
+      "check_id": "x",
+      "execution_ids": [
+        "x"
+      ],
+      "title": "x"
+    },
+    "result": {
+      "error": "missing field `hypothesis`"
+    }
+  },
+  {
+    "name": "Candidate",
+    "case": "missing_execution_ids",
+    "input": {
+      "check_id": "x",
+      "hypothesis": "x",
+      "title": "x"
+    },
+    "result": {
+      "error": "missing field `execution_ids`"
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "minimal",
+    "input": {
+      "characters": 1,
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "partial": false,
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ]
+    },
+    "result": {
+      "ok": {
+        "characters": 1,
+        "execution": {
+          "id": "x",
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        },
+        "partial": false,
+        "spans": [
+          [
+            "x",
+            "x",
+            "x",
+            "x",
+            1,
+            "x",
+            "x"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "full",
+    "input": {
+      "characters": 1,
+      "execution": {
+        "id": "x",
+        "metadata": [],
+        "name": "x",
+        "root_seen": false,
+        "service": "",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x",
+        "trace_ref": ""
+      },
+      "partial": false,
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ]
+    },
+    "result": {
+      "ok": {
+        "characters": 1,
+        "execution": {
+          "id": "x",
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        },
+        "partial": false,
+        "spans": [
+          [
+            "x",
+            "x",
+            "x",
+            "x",
+            1,
+            "x",
+            "x"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "extra_field",
+    "input": {
+      "characters": 1,
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "partial": false,
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ],
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `characters`, `execution`, `partial`, `spans`"
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "missing_execution",
+    "input": {
+      "characters": 1,
+      "partial": false,
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ]
+    },
+    "result": {
+      "error": "missing field `execution`"
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "missing_spans",
+    "input": {
+      "characters": 1,
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "partial": false
+    },
+    "result": {
+      "error": "missing field `spans`"
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "missing_partial",
+    "input": {
+      "characters": 1,
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ]
+    },
+    "result": {
+      "error": "missing field `partial`"
+    }
+  },
+  {
+    "name": "CatalogEntry",
+    "case": "missing_characters",
+    "input": {
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "partial": false,
+      "spans": [
+        [
+          "x",
+          "x",
+          "x",
+          "x",
+          1,
+          "x",
+          "x"
+        ]
+      ]
+    },
+    "result": {
+      "ok": {
+        "characters": null,
+        "execution": {
+          "id": "x",
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        },
+        "partial": false,
+        "spans": [
+          [
+            "x",
+            "x",
+            "x",
+            "x",
+            1,
+            "x",
+            "x"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "name": "Check",
+    "case": "minimal",
+    "input": {
+      "id": "x",
+      "instruction": "xxx"
+    },
+    "result": {
+      "ok": {
+        "enabled": true,
+        "id": "x",
+        "instruction": "xxx"
+      }
+    }
+  },
+  {
+    "name": "Check",
+    "case": "full",
+    "input": {
+      "enabled": true,
+      "id": "x",
+      "instruction": "xxx"
+    },
+    "result": {
+      "ok": {
+        "enabled": true,
+        "id": "x",
+        "instruction": "xxx"
+      }
+    }
+  },
+  {
+    "name": "Check",
+    "case": "extra_field",
+    "input": {
+      "id": "x",
+      "instruction": "xxx",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `enabled`, `id`, `instruction`"
+    }
+  },
+  {
+    "name": "Check",
+    "case": "missing_id",
+    "input": {
+      "instruction": "xxx"
+    },
+    "result": {
+      "error": "missing field `id`"
+    }
+  },
+  {
+    "name": "Check",
+    "case": "missing_instruction",
+    "input": {
+      "id": "x"
+    },
+    "result": {
+      "error": "missing field `instruction`"
+    }
+  },
+  {
+    "name": "Checkpoint",
+    "case": "minimal",
+    "input": {
+      "working_notes": "x"
+    },
+    "result": {
+      "ok": {
+        "working_notes": "x"
+      }
+    }
+  },
+  {
+    "name": "Checkpoint",
+    "case": "full",
+    "input": {
+      "working_notes": "x"
+    },
+    "result": {
+      "ok": {
+        "working_notes": "x"
+      }
+    }
+  },
+  {
+    "name": "Checkpoint",
+    "case": "extra_field",
+    "input": {
+      "working_notes": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `working_notes`"
+    }
+  },
+  {
+    "name": "Checkpoint",
+    "case": "missing_working_notes",
+    "input": {},
+    "result": {
+      "error": "missing field `working_notes`"
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "minimal",
+    "input": {
+      "findings": [
+        {
+          "check_id": "x",
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "span_id": "x"
+            }
+          ],
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "revision": 1,
+          "title": "xxx"
+        }
+      ],
+      "job": {
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "revision": 1,
+        "settings": {
+          "model": "x",
+          "name": "x"
+        },
+        "start": "2026-10-08T00:00:00Z"
+      },
+      "lens_id": "x"
+    },
+    "result": {
+      "ok": {
+        "findings": [
+          {
+            "check_id": "x",
+            "description": "xxxxxxxxxx",
+            "evidence": [
+              {
+                "execution_id": "x",
+                "quote": "x",
+                "role": "support",
+                "span_id": "x"
+              }
+            ],
+            "first_seen": "2026-10-08T00:00:00Z",
+            "id": "x",
+            "kind": "issue",
+            "last_seen": "2026-10-08T00:00:00Z",
+            "limitation": "",
+            "priority": "medium",
+            "reason": "",
+            "revision": 1,
+            "status": "open",
+            "suggestion": "",
+            "title": "xxx"
+          }
+        ],
+        "job": {
+          "attempts": 0,
+          "cost": 0.0,
+          "coverage": {
+            "candidates": 0,
+            "eligible": 0,
+            "failed_tasks": 0,
+            "grouped_batches": 0,
+            "grouping_batches": 0,
+            "inconclusive": 0,
+            "investigated": 0,
+            "partial": 0,
+            "reusable": 0,
+            "reused": 0,
+            "screened": 0,
+            "selected": 0,
+            "unassessable": 0
+          },
+          "created_at": "2026-10-08T00:00:00Z",
+          "end": "2026-10-08T00:00:00Z",
+          "error": "",
+          "id": "x",
+          "reviewed": 0,
+          "revision": 1,
+          "settings": {
+            "agent_name": "",
+            "concurrency": 8,
+            "context": "",
+            "enabled": true,
+            "interval_minutes": 15,
+            "lookback_hours": 24,
+            "model": "x",
+            "monthly_budget": 100.0,
+            "name": "x",
+            "sample_percent": 100.0,
+            "service": "",
+            "source": "traces",
+            "team_id": ""
+          },
+          "stage": "Queued",
+          "start": "2026-10-08T00:00:00Z",
+          "status": "queued",
+          "trigger": "schedule"
+        },
+        "lens_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "full",
+    "input": {
+      "findings": [
+        {
+          "brief": {
+            "problem": "xxxxxxxxxx",
+            "test_cases": [
+              {
+                "expected": "x",
+                "input": "x"
+              }
+            ],
+            "user_goal": "xxx",
+            "what_happened": "xxx"
+          },
+          "check_id": "x",
+          "check_ids": [],
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "role": "support",
+              "span_id": "x"
+            }
+          ],
+          "existing_finding_id": "x",
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "investigation_runs": [],
+          "kind": "issue",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "limitation": "",
+          "merged_finding_ids": [],
+          "occurrences": [],
+          "priority": "medium",
+          "reason": "",
+          "revision": 1,
+          "status": "open",
+          "suggestion": "",
+          "title": "xxx"
+        }
+      ],
+      "job": {
+        "activities": [],
+        "assessments": [],
+        "attempts": 0,
+        "cost": 0,
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "error": "",
+        "findings": [
+          {
+            "brief": {
+              "problem": "xxxxxxxxxx",
+              "test_cases": [
+                {
+                  "expected": "x",
+                  "input": "x"
+                }
+              ],
+              "user_goal": "xxx",
+              "what_happened": "xxx"
+            },
+            "check_id": "x",
+            "check_ids": [],
+            "description": "xxxxxxxxxx",
+            "evidence": [
+              {
+                "execution_id": "x",
+                "quote": "x",
+                "role": "support",
+                "span_id": "x"
+              }
+            ],
+            "existing_finding_id": "x",
+            "first_seen": "2026-10-08T00:00:00Z",
+            "id": "x",
+            "investigation_runs": [],
+            "kind": "issue",
+            "last_seen": "2026-10-08T00:00:00Z",
+            "limitation": "",
+            "merged_finding_ids": [],
+            "occurrences": [],
+            "priority": "medium",
+            "reason": "",
+            "revision": 1,
+            "status": "open",
+            "suggestion": "",
+            "title": "xxx"
+          }
+        ],
+        "finished_at": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "lease_until": "2026-10-08T00:00:00Z",
+        "reading": [],
+        "review_versions": [],
+        "reviewed": 0,
+        "reviews": [],
+        "revision": 1,
+        "sample": {
+          "eligible": 1,
+          "executions": [
+            {
+              "id": "x",
+              "metadata": [],
+              "name": "x",
+              "root_seen": false,
+              "service": "",
+              "source": "traces",
+              "span_count": 1,
+              "start_time": "x",
+              "team_id": "x",
+              "trace_id": "x",
+              "trace_ref": ""
+            }
+          ],
+          "next_cursor": "x",
+          "next_offset": 1,
+          "selected": 0
+        },
+        "settings": {
+          "agent_name": "",
+          "checks": [],
+          "concurrency": 8,
+          "context": "",
+          "enabled": true,
+          "execution_ids": [],
+          "filters": [],
+          "interval_minutes": 15,
+          "lookback_hours": 24,
+          "model": "x",
+          "monthly_budget": 100,
+          "name": "x",
+          "sample_percent": 100,
+          "sample_size": 1,
+          "service": "",
+          "source": "traces",
+          "team_id": ""
+        },
+        "stage": "Queued",
+        "start": "2026-10-08T00:00:00Z",
+        "status": "queued",
+        "steps": [],
+        "trigger": "schedule",
+        "worker_id": "x"
+      },
+      "lens_id": "x",
+      "reviews": [
+        {
+          "agent": "x",
+          "at": "2026-10-08T00:00:00Z",
+          "cannot_assess": false,
+          "consolidated": false,
+          "content_version": "",
+          "duration_ms": 1,
+          "execution_id": "x",
+          "extraction": {
+            "cannot_assess": false,
+            "observations": [],
+            "reasoning": ""
+          },
+          "model": "x",
+          "name": "x",
+          "partial": false,
+          "reasoning": "",
+          "reused": false,
+          "spans": [],
+          "tool_calls": [],
+          "trace_id": "x",
+          "verdicts": []
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "findings": [
+          {
+            "brief": {
+              "problem": "xxxxxxxxxx",
+              "test_cases": [
+                {
+                  "expected": "x",
+                  "input": "x"
+                }
+              ],
+              "user_goal": "xxx",
+              "what_happened": "xxx"
+            },
+            "check_id": "x",
+            "description": "xxxxxxxxxx",
+            "evidence": [
+              {
+                "execution_id": "x",
+                "quote": "x",
+                "role": "support",
+                "span_id": "x"
+              }
+            ],
+            "existing_finding_id": "x",
+            "first_seen": "2026-10-08T00:00:00Z",
+            "id": "x",
+            "kind": "issue",
+            "last_seen": "2026-10-08T00:00:00Z",
+            "limitation": "",
+            "priority": "medium",
+            "reason": "",
+            "revision": 1,
+            "status": "open",
+            "suggestion": "",
+            "title": "xxx"
+          }
+        ],
+        "job": {
+          "attempts": 0,
+          "cost": 0.0,
+          "coverage": {
+            "candidates": 0,
+            "eligible": 0,
+            "failed_tasks": 0,
+            "grouped_batches": 0,
+            "grouping_batches": 0,
+            "inconclusive": 0,
+            "investigated": 0,
+            "partial": 0,
+            "reusable": 0,
+            "reused": 0,
+            "screened": 0,
+            "selected": 0,
+            "unassessable": 0
+          },
+          "created_at": "2026-10-08T00:00:00Z",
+          "end": "2026-10-08T00:00:00Z",
+          "error": "",
+          "findings": [
+            {
+              "brief": {
+                "problem": "xxxxxxxxxx",
+                "test_cases": [
+                  {
+                    "expected": "x",
+                    "input": "x"
+                  }
+                ],
+                "user_goal": "xxx",
+                "what_happened": "xxx"
+              },
+              "check_id": "x",
+              "description": "xxxxxxxxxx",
+              "evidence": [
+                {
+                  "execution_id": "x",
+                  "quote": "x",
+                  "role": "support",
+                  "span_id": "x"
+                }
+              ],
+              "existing_finding_id": "x",
+              "first_seen": "2026-10-08T00:00:00Z",
+              "id": "x",
+              "kind": "issue",
+              "last_seen": "2026-10-08T00:00:00Z",
+              "limitation": "",
+              "priority": "medium",
+              "reason": "",
+              "revision": 1,
+              "status": "open",
+              "suggestion": "",
+              "title": "xxx"
+            }
+          ],
+          "finished_at": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "lease_until": "2026-10-08T00:00:00Z",
+          "reviewed": 0,
+          "revision": 1,
+          "sample": {
+            "eligible": 1,
+            "executions": [
+              {
+                "id": "x",
+                "name": "x",
+                "root_seen": false,
+                "service": "",
+                "source": "traces",
+                "span_count": 1,
+                "start_time": "x",
+                "team_id": "x",
+                "trace_id": "x",
+                "trace_ref": ""
+              }
+            ],
+            "next_cursor": "x",
+            "next_offset": 1,
+            "selected": 0
+          },
+          "settings": {
+            "agent_name": "",
+            "concurrency": 8,
+            "context": "",
+            "enabled": true,
+            "interval_minutes": 15,
+            "lookback_hours": 24,
+            "model": "x",
+            "monthly_budget": 100.0,
+            "name": "x",
+            "sample_percent": 100.0,
+            "sample_size": 1,
+            "service": "",
+            "source": "traces",
+            "team_id": ""
+          },
+          "stage": "Queued",
+          "start": "2026-10-08T00:00:00Z",
+          "status": "queued",
+          "trigger": "schedule",
+          "worker_id": "x"
+        },
+        "lens_id": "x",
+        "reviews": [
+          {
+            "agent": "x",
+            "at": "2026-10-08T00:00:00Z",
+            "cannot_assess": false,
+            "consolidated": false,
+            "content_version": "",
+            "duration_ms": 1,
+            "execution_id": "x",
+            "extraction": {
+              "cannot_assess": false,
+              "reasoning": ""
+            },
+            "model": "x",
+            "name": "x",
+            "partial": false,
+            "reasoning": "",
+            "reused": false,
+            "trace_id": "x"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "extra_field",
+    "input": {
+      "findings": [
+        {
+          "check_id": "x",
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "span_id": "x"
+            }
+          ],
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "revision": 1,
+          "title": "xxx"
+        }
+      ],
+      "job": {
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "revision": 1,
+        "settings": {
+          "model": "x",
+          "name": "x"
+        },
+        "start": "2026-10-08T00:00:00Z"
+      },
+      "lens_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `findings`, `job`, `lens_id`, `reviews`"
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "missing_lens_id",
+    "input": {
+      "findings": [
+        {
+          "check_id": "x",
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "span_id": "x"
+            }
+          ],
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "revision": 1,
+          "title": "xxx"
+        }
+      ],
+      "job": {
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "revision": 1,
+        "settings": {
+          "model": "x",
+          "name": "x"
+        },
+        "start": "2026-10-08T00:00:00Z"
+      }
+    },
+    "result": {
+      "error": "missing field `lens_id`"
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "missing_job",
+    "input": {
+      "findings": [
+        {
+          "check_id": "x",
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "span_id": "x"
+            }
+          ],
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "revision": 1,
+          "title": "xxx"
+        }
+      ],
+      "lens_id": "x"
+    },
+    "result": {
+      "error": "missing field `job`"
+    }
+  },
+  {
+    "name": "Claim",
+    "case": "missing_findings",
+    "input": {
+      "job": {
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "revision": 1,
+        "settings": {
+          "model": "x",
+          "name": "x"
+        },
+        "start": "2026-10-08T00:00:00Z"
+      },
+      "lens_id": "x"
+    },
+    "result": {
+      "error": "missing field `findings`"
+    }
+  },
+  {
+    "name": "Clusters",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "Clusters",
+    "case": "full",
+    "input": {
+      "candidates": []
+    },
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "Clusters",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `candidates`"
+    }
+  },
+  {
+    "name": "Coverage",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {
+        "candidates": 0,
+        "eligible": 0,
+        "failed_tasks": 0,
+        "grouped_batches": 0,
+        "grouping_batches": 0,
+        "inconclusive": 0,
+        "investigated": 0,
+        "partial": 0,
+        "reusable": 0,
+        "reused": 0,
+        "screened": 0,
+        "selected": 0,
+        "unassessable": 0
+      }
+    }
+  },
+  {
+    "name": "Coverage",
+    "case": "full",
+    "input": {
+      "candidates": 0,
+      "eligible": 0,
+      "failed_tasks": 0,
+      "grouped_batches": 0,
+      "grouping_batches": 0,
+      "inconclusive": 0,
+      "investigated": 0,
+      "partial": 0,
+      "reusable": 0,
+      "reused": 0,
+      "screened": 0,
+      "selected": 0,
+      "unassessable": 0
+    },
+    "result": {
+      "ok": {
+        "candidates": 0,
+        "eligible": 0,
+        "failed_tasks": 0,
+        "grouped_batches": 0,
+        "grouping_batches": 0,
+        "inconclusive": 0,
+        "investigated": 0,
+        "partial": 0,
+        "reusable": 0,
+        "reused": 0,
+        "screened": 0,
+        "selected": 0,
+        "unassessable": 0
+      }
+    }
+  },
+  {
+    "name": "Coverage",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `candidates`, `eligible`, `failed_tasks`, `grouped_batches`, `grouping_batches`, `inconclusive`, `investigated`, `partial`, `reusable`, `reused`, `screened`, `selected`, `unassessable`"
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "minimal",
+    "input": {
+      "execution_id": "x",
+      "quote": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "ok": {
+        "execution_id": "x",
+        "quote": "x",
+        "role": "support",
+        "span_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "full",
+    "input": {
+      "execution_id": "x",
+      "quote": "x",
+      "role": "support",
+      "span_id": "x"
+    },
+    "result": {
+      "ok": {
+        "execution_id": "x",
+        "quote": "x",
+        "role": "support",
+        "span_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "extra_field",
+    "input": {
+      "execution_id": "x",
+      "quote": "x",
+      "span_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `execution_id`, `quote`, `role`, `span_id`"
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "missing_execution_id",
+    "input": {
+      "quote": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "missing_span_id",
+    "input": {
+      "execution_id": "x",
+      "quote": "x"
+    },
+    "result": {
+      "error": "missing field `span_id`"
+    }
+  },
+  {
+    "name": "Evidence",
+    "case": "missing_quote",
+    "input": {
+      "execution_id": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `quote`"
+    }
+  },
+  {
+    "name": "EvidenceReply",
+    "case": "minimal",
+    "input": {
+      "request": {
+        "action": "catalog"
+      }
+    },
+    "result": {
+      "ok": {
+        "error": "",
+        "request": {
+          "action": "catalog",
+          "char_start": 0,
+          "include_initial": false,
+          "query": "",
+          "turn_start": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "EvidenceReply",
+    "case": "full",
+    "input": {
+      "catalog": [],
+      "error": "",
+      "parts": [],
+      "request": {
+        "action": "catalog",
+        "char_end": 1,
+        "char_start": 0,
+        "execution_id": "x",
+        "include_initial": false,
+        "query": "",
+        "review_phase": "initial",
+        "span_ids": [],
+        "turn_end": 1,
+        "turn_start": 0
+      },
+      "review_catalog": [],
+      "reviews": []
+    },
+    "result": {
+      "ok": {
+        "error": "",
+        "request": {
+          "action": "catalog",
+          "char_end": 1,
+          "char_start": 0,
+          "execution_id": "x",
+          "include_initial": false,
+          "query": "",
+          "review_phase": "initial",
+          "turn_end": 1,
+          "turn_start": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "EvidenceReply",
+    "case": "extra_field",
+    "input": {
+      "request": {
+        "action": "catalog"
+      },
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `catalog`, `error`, `parts`, `request`, `review_catalog`, `reviews`"
+    }
+  },
+  {
+    "name": "EvidenceReply",
+    "case": "missing_request",
+    "input": {},
+    "result": {
+      "error": "missing field `request`"
+    }
+  },
+  {
+    "name": "EvidenceRequest",
+    "case": "minimal",
+    "input": {
+      "action": "catalog"
+    },
+    "result": {
+      "ok": {
+        "action": "catalog",
+        "char_start": 0,
+        "include_initial": false,
+        "query": "",
+        "turn_start": 0
+      }
+    }
+  },
+  {
+    "name": "EvidenceRequest",
+    "case": "full",
+    "input": {
+      "action": "catalog",
+      "char_end": 1,
+      "char_start": 0,
+      "execution_id": "x",
+      "include_initial": false,
+      "query": "",
+      "review_phase": "initial",
+      "span_ids": [],
+      "turn_end": 1,
+      "turn_start": 0
+    },
+    "result": {
+      "ok": {
+        "action": "catalog",
+        "char_end": 1,
+        "char_start": 0,
+        "execution_id": "x",
+        "include_initial": false,
+        "query": "",
+        "review_phase": "initial",
+        "turn_end": 1,
+        "turn_start": 0
+      }
+    }
+  },
+  {
+    "name": "EvidenceRequest",
+    "case": "extra_field",
+    "input": {
+      "action": "catalog",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `action`, `char_end`, `char_start`, `execution_id`, `include_initial`, `query`, `review_phase`, `span_ids`, `turn_end`, `turn_start`"
+    }
+  },
+  {
+    "name": "EvidenceRequest",
+    "case": "missing_action",
+    "input": {},
+    "result": {
+      "error": "missing field `action`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "minimal",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "ok": {
+        "id": "x",
+        "name": "x",
+        "root_seen": false,
+        "service": "",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x",
+        "trace_ref": ""
+      }
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "full",
+    "input": {
+      "id": "x",
+      "metadata": [],
+      "name": "x",
+      "root_seen": false,
+      "service": "",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x",
+      "trace_ref": ""
+    },
+    "result": {
+      "ok": {
+        "id": "x",
+        "name": "x",
+        "root_seen": false,
+        "service": "",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x",
+        "trace_ref": ""
+      }
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "extra_field",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `id`, `metadata`, `name`, `root_seen`, `service`, `source`, `span_count`, `start_time`, `team_id`, `trace_id`, `trace_ref`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_id",
+    "input": {
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `id`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_source",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `source`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_trace_id",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x"
+    },
+    "result": {
+      "error": "missing field `trace_id`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_team_id",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `team_id`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_name",
+    "input": {
+      "id": "x",
+      "source": "traces",
+      "span_count": 1,
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_start_time",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "span_count": 1,
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `start_time`"
+    }
+  },
+  {
+    "name": "Execution",
+    "case": "missing_span_count",
+    "input": {
+      "id": "x",
+      "name": "x",
+      "source": "traces",
+      "start_time": "x",
+      "team_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `span_count`"
+    }
+  },
+  {
+    "name": "ExecutionContent",
+    "case": "minimal",
+    "input": {
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "parts": [
+        {
+          "content": "x",
+          "execution_id": "x",
+          "kind": "x",
+          "name": "x",
+          "span_id": "x"
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "execution": {
+          "id": "x",
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        },
+        "partial": false,
+        "parts": [
+          {
+            "content": "x",
+            "end_time": "",
+            "execution_id": "x",
+            "kind": "x",
+            "name": "x",
+            "parent_span_id": "",
+            "span_id": "x",
+            "start_time": "",
+            "truncated": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "ExecutionContent",
+    "case": "full",
+    "input": {
+      "execution": {
+        "id": "x",
+        "metadata": [],
+        "name": "x",
+        "root_seen": false,
+        "service": "",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x",
+        "trace_ref": ""
+      },
+      "next_cursor": "x",
+      "partial": false,
+      "parts": [
+        {
+          "content": "x",
+          "end_time": "",
+          "execution_id": "x",
+          "kind": "x",
+          "name": "x",
+          "parent_span_id": "",
+          "span_id": "x",
+          "start_time": "",
+          "truncated": false
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "execution": {
+          "id": "x",
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        },
+        "next_cursor": "x",
+        "partial": false,
+        "parts": [
+          {
+            "content": "x",
+            "end_time": "",
+            "execution_id": "x",
+            "kind": "x",
+            "name": "x",
+            "parent_span_id": "",
+            "span_id": "x",
+            "start_time": "",
+            "truncated": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "ExecutionContent",
+    "case": "extra_field",
+    "input": {
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      },
+      "parts": [
+        {
+          "content": "x",
+          "execution_id": "x",
+          "kind": "x",
+          "name": "x",
+          "span_id": "x"
+        }
+      ],
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `execution`, `next_cursor`, `partial`, `parts`"
+    }
+  },
+  {
+    "name": "ExecutionContent",
+    "case": "missing_execution",
+    "input": {
+      "parts": [
+        {
+          "content": "x",
+          "execution_id": "x",
+          "kind": "x",
+          "name": "x",
+          "span_id": "x"
+        }
+      ]
+    },
+    "result": {
+      "error": "missing field `execution`"
+    }
+  },
+  {
+    "name": "ExecutionContent",
+    "case": "missing_parts",
+    "input": {
+      "execution": {
+        "id": "x",
+        "name": "x",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "x",
+        "team_id": "x",
+        "trace_id": "x"
+      }
+    },
+    "result": {
+      "error": "missing field `parts`"
+    }
+  },
+  {
+    "name": "Extraction",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {
+        "cannot_assess": false,
+        "reasoning": ""
+      }
+    }
+  },
+  {
+    "name": "Extraction",
+    "case": "full",
+    "input": {
+      "cannot_assess": false,
+      "observations": [],
+      "reasoning": ""
+    },
+    "result": {
+      "ok": {
+        "cannot_assess": false,
+        "reasoning": ""
+      }
+    }
+  },
+  {
+    "name": "Extraction",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `cannot_assess`, `observations`, `reasoning`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "minimal",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "description": "xxxxxxxxxx",
+        "evidence": [
+          {
+            "execution_id": "x",
+            "quote": "x",
+            "role": "support",
+            "span_id": "x"
+          }
+        ],
+        "first_seen": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "kind": "issue",
+        "last_seen": "2026-10-08T00:00:00Z",
+        "limitation": "",
+        "priority": "medium",
+        "reason": "",
+        "revision": 1,
+        "status": "open",
+        "suggestion": "",
+        "title": "xxx"
+      }
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "full",
+    "input": {
+      "brief": {
+        "problem": "xxxxxxxxxx",
+        "test_cases": [
+          {
+            "expected": "x",
+            "input": "x"
+          }
+        ],
+        "user_goal": "xxx",
+        "what_happened": "xxx"
+      },
+      "check_id": "x",
+      "check_ids": [],
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "role": "support",
+          "span_id": "x"
+        }
+      ],
+      "existing_finding_id": "x",
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "investigation_runs": [],
+      "kind": "issue",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "limitation": "",
+      "merged_finding_ids": [],
+      "occurrences": [],
+      "priority": "medium",
+      "reason": "",
+      "revision": 1,
+      "status": "open",
+      "suggestion": "",
+      "title": "xxx"
+    },
+    "result": {
+      "ok": {
+        "brief": {
+          "problem": "xxxxxxxxxx",
+          "test_cases": [
+            {
+              "expected": "x",
+              "input": "x"
+            }
+          ],
+          "user_goal": "xxx",
+          "what_happened": "xxx"
+        },
+        "check_id": "x",
+        "description": "xxxxxxxxxx",
+        "evidence": [
+          {
+            "execution_id": "x",
+            "quote": "x",
+            "role": "support",
+            "span_id": "x"
+          }
+        ],
+        "existing_finding_id": "x",
+        "first_seen": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "kind": "issue",
+        "last_seen": "2026-10-08T00:00:00Z",
+        "limitation": "",
+        "priority": "medium",
+        "reason": "",
+        "revision": 1,
+        "status": "open",
+        "suggestion": "",
+        "title": "xxx"
+      }
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "extra_field",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `brief`, `check_id`, `check_ids`, `description`, `evidence`, `existing_finding_id`, `first_seen`, `id`, `investigation_runs`, `kind`, `last_seen`, `limitation`, `merged_finding_ids`, `occurrences`, `priority`, `reason`, `revision`, `status`, `suggestion`, `title`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_title",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1
+    },
+    "result": {
+      "error": "missing field `title`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_description",
+    "input": {
+      "check_id": "x",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `description`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_check_id",
+    "input": {
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `check_id`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_evidence",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `evidence`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_id",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `id`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_first_seen",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `first_seen`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_last_seen",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `last_seen`"
+    }
+  },
+  {
+    "name": "Finding",
+    "case": "missing_revision",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "first_seen": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "last_seen": "2026-10-08T00:00:00Z",
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `revision`"
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "minimal",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "title": "xxx"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "description": "xxxxxxxxxx",
+        "evidence": [
+          {
+            "execution_id": "x",
+            "quote": "x",
+            "role": "support",
+            "span_id": "x"
+          }
+        ],
+        "kind": "issue",
+        "limitation": "",
+        "priority": "medium",
+        "suggestion": "",
+        "title": "xxx"
+      }
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "full",
+    "input": {
+      "brief": {
+        "problem": "xxxxxxxxxx",
+        "test_cases": [
+          {
+            "expected": "x",
+            "input": "x"
+          }
+        ],
+        "user_goal": "xxx",
+        "what_happened": "xxx"
+      },
+      "check_id": "x",
+      "check_ids": [],
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "role": "support",
+          "span_id": "x"
+        }
+      ],
+      "existing_finding_id": "x",
+      "kind": "issue",
+      "limitation": "",
+      "merged_finding_ids": [],
+      "priority": "medium",
+      "suggestion": "",
+      "title": "xxx"
+    },
+    "result": {
+      "ok": {
+        "brief": {
+          "problem": "xxxxxxxxxx",
+          "test_cases": [
+            {
+              "expected": "x",
+              "input": "x"
+            }
+          ],
+          "user_goal": "xxx",
+          "what_happened": "xxx"
+        },
+        "check_id": "x",
+        "description": "xxxxxxxxxx",
+        "evidence": [
+          {
+            "execution_id": "x",
+            "quote": "x",
+            "role": "support",
+            "span_id": "x"
+          }
+        ],
+        "existing_finding_id": "x",
+        "kind": "issue",
+        "limitation": "",
+        "priority": "medium",
+        "suggestion": "",
+        "title": "xxx"
+      }
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "extra_field",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "title": "xxx",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `brief`, `check_id`, `check_ids`, `description`, `evidence`, `existing_finding_id`, `kind`, `limitation`, `merged_finding_ids`, `priority`, `suggestion`, `title`"
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "missing_title",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ]
+    },
+    "result": {
+      "error": "missing field `title`"
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "missing_description",
+    "input": {
+      "check_id": "x",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `description`"
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "missing_check_id",
+    "input": {
+      "description": "xxxxxxxxxx",
+      "evidence": [
+        {
+          "execution_id": "x",
+          "quote": "x",
+          "span_id": "x"
+        }
+      ],
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `check_id`"
+    }
+  },
+  {
+    "name": "FindingDraft",
+    "case": "missing_evidence",
+    "input": {
+      "check_id": "x",
+      "description": "xxxxxxxxxx",
+      "title": "xxx"
+    },
+    "result": {
+      "error": "missing field `evidence`"
+    }
+  },
+  {
+    "name": "FindingGroup",
+    "case": "minimal",
+    "input": {
+      "members": [
+        "x"
+      ],
+      "representative": "x"
+    },
+    "result": {
+      "ok": {
+        "members": [
+          "x"
+        ],
+        "representative": "x"
+      }
+    }
+  },
+  {
+    "name": "FindingGroup",
+    "case": "full",
+    "input": {
+      "members": [
+        "x"
+      ],
+      "representative": "x"
+    },
+    "result": {
+      "ok": {
+        "members": [
+          "x"
+        ],
+        "representative": "x"
+      }
+    }
+  },
+  {
+    "name": "FindingGroup",
+    "case": "extra_field",
+    "input": {
+      "members": [
+        "x"
+      ],
+      "representative": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `members` or `representative`"
+    }
+  },
+  {
+    "name": "FindingGroup",
+    "case": "missing_members",
+    "input": {
+      "representative": "x"
+    },
+    "result": {
+      "error": "missing field `members`"
+    }
+  },
+  {
+    "name": "FindingGroup",
+    "case": "missing_representative",
+    "input": {
+      "members": [
+        "x"
+      ]
+    },
+    "result": {
+      "error": "missing field `representative`"
+    }
+  },
+  {
+    "name": "FindingGroups",
+    "case": "minimal",
+    "input": {
+      "groups": [
+        {
+          "members": [
+            "x"
+          ],
+          "representative": "x"
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "groups": [
+          {
+            "members": [
+              "x"
+            ],
+            "representative": "x"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "FindingGroups",
+    "case": "full",
+    "input": {
+      "groups": [
+        {
+          "members": [
+            "x"
+          ],
+          "representative": "x"
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "groups": [
+          {
+            "members": [
+              "x"
+            ],
+            "representative": "x"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "FindingGroups",
+    "case": "extra_field",
+    "input": {
+      "groups": [
+        {
+          "members": [
+            "x"
+          ],
+          "representative": "x"
+        }
+      ],
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `groups`"
+    }
+  },
+  {
+    "name": "FindingGroups",
+    "case": "missing_groups",
+    "input": {},
+    "result": {
+      "error": "missing field `groups`"
+    }
+  },
+  {
+    "name": "Findings",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "Findings",
+    "case": "full",
+    "input": {
+      "findings": []
+    },
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "Findings",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `findings`"
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "minimal",
+    "input": {
+      "agent": "x",
+      "execution_id": "x",
+      "started_at": "2026-10-08T00:00:00Z",
+      "trace_id": "x"
+    },
+    "result": {
+      "ok": {
+        "agent": "x",
+        "execution_id": "x",
+        "started_at": "2026-10-08T00:00:00Z",
+        "trace_id": "x"
+      }
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "full",
+    "input": {
+      "agent": "x",
+      "execution_id": "x",
+      "started_at": "2026-10-08T00:00:00Z",
+      "trace_id": "x"
+    },
+    "result": {
+      "ok": {
+        "agent": "x",
+        "execution_id": "x",
+        "started_at": "2026-10-08T00:00:00Z",
+        "trace_id": "x"
+      }
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "extra_field",
+    "input": {
+      "agent": "x",
+      "execution_id": "x",
+      "started_at": "2026-10-08T00:00:00Z",
+      "trace_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `agent`, `execution_id`, `started_at`, `trace_id`"
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "missing_execution_id",
+    "input": {
+      "agent": "x",
+      "started_at": "2026-10-08T00:00:00Z",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "missing_trace_id",
+    "input": {
+      "agent": "x",
+      "execution_id": "x",
+      "started_at": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `trace_id`"
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "missing_agent",
+    "input": {
+      "execution_id": "x",
+      "started_at": "2026-10-08T00:00:00Z",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `agent`"
+    }
+  },
+  {
+    "name": "InFlight",
+    "case": "missing_started_at",
+    "input": {
+      "agent": "x",
+      "execution_id": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `started_at`"
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "minimal",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "user_goal": "xxx",
+      "what_happened": "xxx"
+    },
+    "result": {
+      "ok": {
+        "problem": "xxxxxxxxxx",
+        "test_cases": [
+          {
+            "expected": "x",
+            "input": "x"
+          }
+        ],
+        "user_goal": "xxx",
+        "what_happened": "xxx"
+      }
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "full",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "user_goal": "xxx",
+      "what_happened": "xxx"
+    },
+    "result": {
+      "ok": {
+        "problem": "xxxxxxxxxx",
+        "test_cases": [
+          {
+            "expected": "x",
+            "input": "x"
+          }
+        ],
+        "user_goal": "xxx",
+        "what_happened": "xxx"
+      }
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "extra_field",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "user_goal": "xxx",
+      "what_happened": "xxx",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `problem`, `test_cases`, `user_goal`, `what_happened`"
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "missing_problem",
+    "input": {
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "user_goal": "xxx",
+      "what_happened": "xxx"
+    },
+    "result": {
+      "error": "missing field `problem`"
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "missing_user_goal",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "what_happened": "xxx"
+    },
+    "result": {
+      "error": "missing field `user_goal`"
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "missing_what_happened",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "test_cases": [
+        {
+          "expected": "x",
+          "input": "x"
+        }
+      ],
+      "user_goal": "xxx"
+    },
+    "result": {
+      "error": "missing field `what_happened`"
+    }
+  },
+  {
+    "name": "IssueBrief",
+    "case": "missing_test_cases",
+    "input": {
+      "problem": "xxxxxxxxxx",
+      "user_goal": "xxx",
+      "what_happened": "xxx"
+    },
+    "result": {
+      "error": "missing field `test_cases`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "minimal",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "ok": {
+        "attempts": 0,
+        "cost": 0.0,
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "error": "",
+        "id": "x",
+        "reviewed": 0,
+        "revision": 1,
+        "settings": {
+          "agent_name": "",
+          "concurrency": 8,
+          "context": "",
+          "enabled": true,
+          "interval_minutes": 15,
+          "lookback_hours": 24,
+          "model": "x",
+          "monthly_budget": 100.0,
+          "name": "x",
+          "sample_percent": 100.0,
+          "service": "",
+          "source": "traces",
+          "team_id": ""
+        },
+        "stage": "Queued",
+        "start": "2026-10-08T00:00:00Z",
+        "status": "queued",
+        "trigger": "schedule"
+      }
+    }
+  },
+  {
+    "name": "Job",
+    "case": "full",
+    "input": {
+      "activities": [],
+      "assessments": [],
+      "attempts": 0,
+      "cost": 0,
+      "coverage": {
+        "candidates": 0,
+        "eligible": 0,
+        "failed_tasks": 0,
+        "grouped_batches": 0,
+        "grouping_batches": 0,
+        "inconclusive": 0,
+        "investigated": 0,
+        "partial": 0,
+        "reusable": 0,
+        "reused": 0,
+        "screened": 0,
+        "selected": 0,
+        "unassessable": 0
+      },
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "error": "",
+      "findings": [
+        {
+          "brief": {
+            "problem": "xxxxxxxxxx",
+            "test_cases": [
+              {
+                "expected": "x",
+                "input": "x"
+              }
+            ],
+            "user_goal": "xxx",
+            "what_happened": "xxx"
+          },
+          "check_id": "x",
+          "check_ids": [],
+          "description": "xxxxxxxxxx",
+          "evidence": [
+            {
+              "execution_id": "x",
+              "quote": "x",
+              "role": "support",
+              "span_id": "x"
+            }
+          ],
+          "existing_finding_id": "x",
+          "first_seen": "2026-10-08T00:00:00Z",
+          "id": "x",
+          "investigation_runs": [],
+          "kind": "issue",
+          "last_seen": "2026-10-08T00:00:00Z",
+          "limitation": "",
+          "merged_finding_ids": [],
+          "occurrences": [],
+          "priority": "medium",
+          "reason": "",
+          "revision": 1,
+          "status": "open",
+          "suggestion": "",
+          "title": "xxx"
+        }
+      ],
+      "finished_at": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "lease_until": "2026-10-08T00:00:00Z",
+      "reading": [],
+      "review_versions": [],
+      "reviewed": 0,
+      "reviews": [],
+      "revision": 1,
+      "sample": {
+        "eligible": 1,
+        "executions": [
+          {
+            "id": "x",
+            "metadata": [],
+            "name": "x",
+            "root_seen": false,
+            "service": "",
+            "source": "traces",
+            "span_count": 1,
+            "start_time": "x",
+            "team_id": "x",
+            "trace_id": "x",
+            "trace_ref": ""
+          }
+        ],
+        "next_cursor": "x",
+        "next_offset": 1,
+        "selected": 0
+      },
+      "settings": {
+        "agent_name": "",
+        "checks": [],
+        "concurrency": 8,
+        "context": "",
+        "enabled": true,
+        "execution_ids": [],
+        "filters": [],
+        "interval_minutes": 15,
+        "lookback_hours": 24,
+        "model": "x",
+        "monthly_budget": 100,
+        "name": "x",
+        "sample_percent": 100,
+        "sample_size": 1,
+        "service": "",
+        "source": "traces",
+        "team_id": ""
+      },
+      "stage": "Queued",
+      "start": "2026-10-08T00:00:00Z",
+      "status": "queued",
+      "steps": [],
+      "trigger": "schedule",
+      "worker_id": "x"
+    },
+    "result": {
+      "ok": {
+        "attempts": 0,
+        "cost": 0.0,
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "created_at": "2026-10-08T00:00:00Z",
+        "end": "2026-10-08T00:00:00Z",
+        "error": "",
+        "findings": [
+          {
+            "brief": {
+              "problem": "xxxxxxxxxx",
+              "test_cases": [
+                {
+                  "expected": "x",
+                  "input": "x"
+                }
+              ],
+              "user_goal": "xxx",
+              "what_happened": "xxx"
+            },
+            "check_id": "x",
+            "description": "xxxxxxxxxx",
+            "evidence": [
+              {
+                "execution_id": "x",
+                "quote": "x",
+                "role": "support",
+                "span_id": "x"
+              }
+            ],
+            "existing_finding_id": "x",
+            "first_seen": "2026-10-08T00:00:00Z",
+            "id": "x",
+            "kind": "issue",
+            "last_seen": "2026-10-08T00:00:00Z",
+            "limitation": "",
+            "priority": "medium",
+            "reason": "",
+            "revision": 1,
+            "status": "open",
+            "suggestion": "",
+            "title": "xxx"
+          }
+        ],
+        "finished_at": "2026-10-08T00:00:00Z",
+        "id": "x",
+        "lease_until": "2026-10-08T00:00:00Z",
+        "reviewed": 0,
+        "revision": 1,
+        "sample": {
+          "eligible": 1,
+          "executions": [
+            {
+              "id": "x",
+              "name": "x",
+              "root_seen": false,
+              "service": "",
+              "source": "traces",
+              "span_count": 1,
+              "start_time": "x",
+              "team_id": "x",
+              "trace_id": "x",
+              "trace_ref": ""
+            }
+          ],
+          "next_cursor": "x",
+          "next_offset": 1,
+          "selected": 0
+        },
+        "settings": {
+          "agent_name": "",
+          "concurrency": 8,
+          "context": "",
+          "enabled": true,
+          "interval_minutes": 15,
+          "lookback_hours": 24,
+          "model": "x",
+          "monthly_budget": 100.0,
+          "name": "x",
+          "sample_percent": 100.0,
+          "sample_size": 1,
+          "service": "",
+          "source": "traces",
+          "team_id": ""
+        },
+        "stage": "Queued",
+        "start": "2026-10-08T00:00:00Z",
+        "status": "queued",
+        "trigger": "schedule",
+        "worker_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Job",
+    "case": "extra_field",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `activities`, `assessments`, `attempts`, `cost`, `coverage`, `created_at`, `end`, `error`, `findings`, `finished_at`, `id`, `lease_until`, `reading`, `review_versions`, `reviewed`, `reviews`, `revision`, `sample`, `settings`, `stage`, `start`, `status`, `steps`, `trigger`, `worker_id`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_id",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `id`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_created_at",
+    "input": {
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `created_at`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_start",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      }
+    },
+    "result": {
+      "error": "missing field `start`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_end",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `end`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_settings",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "revision": 1,
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `settings`"
+    }
+  },
+  {
+    "name": "Job",
+    "case": "missing_revision",
+    "input": {
+      "created_at": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T00:00:00Z",
+      "id": "x",
+      "settings": {
+        "model": "x",
+        "name": "x"
+      },
+      "start": "2026-10-08T00:00:00Z"
+    },
+    "result": {
+      "error": "missing field `revision`"
+    }
+  },
+  {
+    "name": "LensSettings",
+    "case": "minimal",
+    "input": {
+      "model": "x",
+      "name": "x"
+    },
+    "result": {
+      "ok": {
+        "agent_name": "",
+        "concurrency": 8,
+        "context": "",
+        "enabled": true,
+        "interval_minutes": 15,
+        "lookback_hours": 24,
+        "model": "x",
+        "monthly_budget": 100.0,
+        "name": "x",
+        "sample_percent": 100.0,
+        "service": "",
+        "source": "traces",
+        "team_id": ""
+      }
+    }
+  },
+  {
+    "name": "LensSettings",
+    "case": "full",
+    "input": {
+      "agent_name": "",
+      "checks": [],
+      "concurrency": 8,
+      "context": "",
+      "enabled": true,
+      "execution_ids": [],
+      "filters": [],
+      "interval_minutes": 15,
+      "lookback_hours": 24,
+      "model": "x",
+      "monthly_budget": 100,
+      "name": "x",
+      "sample_percent": 100,
+      "sample_size": 1,
+      "service": "",
+      "source": "traces",
+      "team_id": ""
+    },
+    "result": {
+      "ok": {
+        "agent_name": "",
+        "concurrency": 8,
+        "context": "",
+        "enabled": true,
+        "interval_minutes": 15,
+        "lookback_hours": 24,
+        "model": "x",
+        "monthly_budget": 100.0,
+        "name": "x",
+        "sample_percent": 100.0,
+        "sample_size": 1,
+        "service": "",
+        "source": "traces",
+        "team_id": ""
+      }
+    }
+  },
+  {
+    "name": "LensSettings",
+    "case": "extra_field",
+    "input": {
+      "model": "x",
+      "name": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `agent_name`, `checks`, `concurrency`, `context`, `enabled`, `execution_ids`, `filters`, `interval_minutes`, `lookback_hours`, `model`, `monthly_budget`, `name`, `sample_percent`, `sample_size`, `service`, `source`, `team_id`"
+    }
+  },
+  {
+    "name": "LensSettings",
+    "case": "missing_name",
+    "input": {
+      "model": "x"
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "LensSettings",
+    "case": "missing_model",
+    "input": {
+      "name": "x"
+    },
+    "result": {
+      "error": "missing field `model`"
+    }
+  },
+  {
+    "name": "MetadataFilter",
+    "case": "minimal",
+    "input": {
+      "key": "x",
+      "value": "x"
+    },
+    "result": {
+      "ok": {
+        "key": "x",
+        "value": "x"
+      }
+    }
+  },
+  {
+    "name": "MetadataFilter",
+    "case": "full",
+    "input": {
+      "key": "x",
+      "value": "x"
+    },
+    "result": {
+      "ok": {
+        "key": "x",
+        "value": "x"
+      }
+    }
+  },
+  {
+    "name": "MetadataFilter",
+    "case": "extra_field",
+    "input": {
+      "key": "x",
+      "value": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `key` or `value`"
+    }
+  },
+  {
+    "name": "MetadataFilter",
+    "case": "missing_key",
+    "input": {
+      "value": "x"
+    },
+    "result": {
+      "error": "missing field `key`"
+    }
+  },
+  {
+    "name": "MetadataFilter",
+    "case": "missing_value",
+    "input": {
+      "key": "x"
+    },
+    "result": {
+      "error": "missing field `value`"
+    }
+  },
+  {
+    "name": "ModelMessage",
+    "case": "minimal",
+    "input": {
+      "content": "x",
+      "role": "system"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "role": "system"
+      }
+    }
+  },
+  {
+    "name": "ModelMessage",
+    "case": "full",
+    "input": {
+      "content": "x",
+      "role": "system"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "role": "system"
+      }
+    }
+  },
+  {
+    "name": "ModelMessage",
+    "case": "extra_field",
+    "input": {
+      "content": "x",
+      "role": "system",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `content` or `role`"
+    }
+  },
+  {
+    "name": "ModelMessage",
+    "case": "missing_role",
+    "input": {
+      "content": "x"
+    },
+    "result": {
+      "error": "missing field `role`"
+    }
+  },
+  {
+    "name": "ModelMessage",
+    "case": "missing_content",
+    "input": {
+      "role": "system"
+    },
+    "result": {
+      "error": "missing field `content`"
+    }
+  },
+  {
+    "name": "ModelRequest",
+    "case": "minimal",
+    "input": {
+      "prompt": "x",
+      "purpose": "extract"
+    },
+    "result": {
+      "ok": {
+        "prompt": "x",
+        "purpose": "extract"
+      }
+    }
+  },
+  {
+    "name": "ModelRequest",
+    "case": "full",
+    "input": {
+      "messages": [],
+      "prompt": "x",
+      "purpose": "extract"
+    },
+    "result": {
+      "ok": {
+        "prompt": "x",
+        "purpose": "extract"
+      }
+    }
+  },
+  {
+    "name": "ModelRequest",
+    "case": "extra_field",
+    "input": {
+      "prompt": "x",
+      "purpose": "extract",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `messages`, `prompt`, `purpose`"
+    }
+  },
+  {
+    "name": "ModelRequest",
+    "case": "missing_prompt",
+    "input": {
+      "purpose": "extract"
+    },
+    "result": {
+      "error": "missing field `prompt`"
+    }
+  },
+  {
+    "name": "ModelRequest",
+    "case": "missing_purpose",
+    "input": {
+      "prompt": "x"
+    },
+    "result": {
+      "error": "missing field `purpose`"
+    }
+  },
+  {
+    "name": "ModelResult",
+    "case": "minimal",
+    "input": {
+      "content": "x",
+      "cost": 0.5
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "context_exceeded": false,
+        "cost": 0.5
+      }
+    }
+  },
+  {
+    "name": "ModelResult",
+    "case": "full",
+    "input": {
+      "content": "x",
+      "context_exceeded": false,
+      "cost": 0.5,
+      "finish_reason": "length"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "context_exceeded": false,
+        "cost": 0.5,
+        "finish_reason": "length"
+      }
+    }
+  },
+  {
+    "name": "ModelResult",
+    "case": "extra_field",
+    "input": {
+      "content": "x",
+      "cost": 0.5,
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `content`, `context_exceeded`, `cost`, `finish_reason`"
+    }
+  },
+  {
+    "name": "ModelResult",
+    "case": "missing_content",
+    "input": {
+      "cost": 0.5
+    },
+    "result": {
+      "error": "missing field `content`"
+    }
+  },
+  {
+    "name": "ModelResult",
+    "case": "missing_cost",
+    "input": {
+      "content": "x"
+    },
+    "result": {
+      "error": "missing field `cost`"
+    }
+  },
+  {
+    "name": "Observation",
+    "case": "minimal",
+    "input": {
+      "check_id": "x",
+      "summary": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "kind": "issue",
+        "summary": "x"
+      }
+    }
+  },
+  {
+    "name": "Observation",
+    "case": "full",
+    "input": {
+      "check_id": "x",
+      "evidence": [],
+      "kind": "issue",
+      "summary": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "kind": "issue",
+        "summary": "x"
+      }
+    }
+  },
+  {
+    "name": "Observation",
+    "case": "extra_field",
+    "input": {
+      "check_id": "x",
+      "summary": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `check_id`, `evidence`, `kind`, `summary`"
+    }
+  },
+  {
+    "name": "Observation",
+    "case": "missing_check_id",
+    "input": {
+      "summary": "x"
+    },
+    "result": {
+      "error": "missing field `check_id`"
+    }
+  },
+  {
+    "name": "Observation",
+    "case": "missing_summary",
+    "input": {
+      "check_id": "x"
+    },
+    "result": {
+      "error": "missing field `summary`"
+    }
+  },
+  {
+    "name": "Progress",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "Progress",
+    "case": "full",
+    "input": {
+      "activity": {
+        "execution_ids": [],
+        "finished": false,
+        "id": "x",
+        "label": "x",
+        "operations": [],
+        "phase": "load",
+        "started_at": "2026-10-08T00:00:00Z",
+        "tool_calls": []
+      },
+      "coverage": {
+        "candidates": 0,
+        "eligible": 0,
+        "failed_tasks": 0,
+        "grouped_batches": 0,
+        "grouping_batches": 0,
+        "inconclusive": 0,
+        "investigated": 0,
+        "partial": 0,
+        "reusable": 0,
+        "reused": 0,
+        "screened": 0,
+        "selected": 0,
+        "unassessable": 0
+      },
+      "reading": [
+        {
+          "agent": "x",
+          "execution_id": "x",
+          "started_at": "2026-10-08T00:00:00Z",
+          "trace_id": "x"
+        }
+      ],
+      "review": {
+        "agent": "x",
+        "at": "2026-10-08T00:00:00Z",
+        "cannot_assess": false,
+        "consolidated": false,
+        "content_version": "",
+        "duration_ms": 1,
+        "execution_id": "x",
+        "extraction": {
+          "cannot_assess": false,
+          "observations": [],
+          "reasoning": ""
+        },
+        "model": "x",
+        "name": "x",
+        "partial": false,
+        "reasoning": "",
+        "reused": false,
+        "spans": [],
+        "tool_calls": [],
+        "trace_id": "x",
+        "verdicts": []
+      },
+      "stage": "x"
+    },
+    "result": {
+      "ok": {
+        "activity": {
+          "finished": false,
+          "id": "x",
+          "label": "x",
+          "phase": "load",
+          "started_at": "2026-10-08T00:00:00Z"
+        },
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "reading": [
+          {
+            "agent": "x",
+            "execution_id": "x",
+            "started_at": "2026-10-08T00:00:00Z",
+            "trace_id": "x"
+          }
+        ],
+        "review": {
+          "agent": "x",
+          "at": "2026-10-08T00:00:00Z",
+          "cannot_assess": false,
+          "consolidated": false,
+          "content_version": "",
+          "duration_ms": 1,
+          "execution_id": "x",
+          "extraction": {
+            "cannot_assess": false,
+            "reasoning": ""
+          },
+          "model": "x",
+          "name": "x",
+          "partial": false,
+          "reasoning": "",
+          "reused": false,
+          "trace_id": "x"
+        },
+        "stage": "x"
+      }
+    }
+  },
+  {
+    "name": "Progress",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `activity`, `coverage`, `reading`, `review`, `stage`"
+    }
+  },
+  {
+    "name": "PythonAgentTurnExtraction",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "PythonAgentTurnExtraction",
+    "case": "full",
+    "input": {
+      "checkpoint": "x",
+      "result": {
+        "cannot_assess": false,
+        "observations": [],
+        "reasoning": ""
+      },
+      "tools": []
+    },
+    "result": {
+      "ok": {
+        "checkpoint": "x",
+        "result": {
+          "cannot_assess": false,
+          "reasoning": ""
+        }
+      }
+    }
+  },
+  {
+    "name": "PythonAgentTurnExtraction",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `checkpoint`, `result`, `tools`"
+    }
+  },
+  {
+    "name": "PythonAgentTurnFindings",
+    "case": "minimal",
+    "input": {},
+    "result": {
+      "ok": {}
+    }
+  },
+  {
+    "name": "PythonAgentTurnFindings",
+    "case": "full",
+    "input": {
+      "checkpoint": "x",
+      "result": {
+        "findings": []
+      },
+      "tools": []
+    },
+    "result": {
+      "ok": {
+        "checkpoint": "x",
+        "result": {}
+      }
+    }
+  },
+  {
+    "name": "PythonAgentTurnFindings",
+    "case": "extra_field",
+    "input": {
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `checkpoint`, `result`, `tools`"
+    }
+  },
+  {
+    "name": "PythonRequest",
+    "case": "minimal",
+    "input": {
+      "action": "python",
+      "code": "x"
+    },
+    "result": {
+      "ok": {
+        "action": "python",
+        "code": "x"
+      }
+    }
+  },
+  {
+    "name": "PythonRequest",
+    "case": "full",
+    "input": {
+      "action": "python",
+      "code": "x",
+      "execution_ids": [],
+      "span_ids": []
+    },
+    "result": {
+      "ok": {
+        "action": "python",
+        "code": "x"
+      }
+    }
+  },
+  {
+    "name": "PythonRequest",
+    "case": "extra_field",
+    "input": {
+      "action": "python",
+      "code": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `action`, `code`, `execution_ids`, `span_ids`"
+    }
+  },
+  {
+    "name": "PythonRequest",
+    "case": "missing_action",
+    "input": {
+      "code": "x"
+    },
+    "result": {
+      "error": "missing field `action`"
+    }
+  },
+  {
+    "name": "PythonRequest",
+    "case": "missing_code",
+    "input": {
+      "action": "python"
+    },
+    "result": {
+      "error": "missing field `code`"
+    }
+  },
+  {
+    "name": "Result",
+    "case": "minimal",
+    "input": {
+      "coverage": {}
+    },
+    "result": {
+      "ok": {
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "error": ""
+      }
+    }
+  },
+  {
+    "name": "Result",
+    "case": "full",
+    "input": {
+      "assessments": [],
+      "coverage": {
+        "candidates": 0,
+        "eligible": 0,
+        "failed_tasks": 0,
+        "grouped_batches": 0,
+        "grouping_batches": 0,
+        "inconclusive": 0,
+        "investigated": 0,
+        "partial": 0,
+        "reusable": 0,
+        "reused": 0,
+        "screened": 0,
+        "selected": 0,
+        "unassessable": 0
+      },
+      "error": "",
+      "findings": [],
+      "review_versions": []
+    },
+    "result": {
+      "ok": {
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "error": ""
+      }
+    }
+  },
+  {
+    "name": "Result",
+    "case": "extra_field",
+    "input": {
+      "coverage": {},
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `assessments`, `coverage`, `error`, `findings`, `review_versions`"
+    }
+  },
+  {
+    "name": "Result",
+    "case": "missing_coverage",
+    "input": {},
+    "result": {
+      "error": "missing field `coverage`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "minimal",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "ok": {
+        "agent": "x",
+        "at": "2026-10-08T00:00:00Z",
+        "cannot_assess": false,
+        "consolidated": false,
+        "content_version": "",
+        "duration_ms": 1,
+        "execution_id": "x",
+        "model": "x",
+        "name": "x",
+        "partial": false,
+        "reasoning": "",
+        "reused": false,
+        "trace_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Review",
+    "case": "full",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "cannot_assess": false,
+      "consolidated": false,
+      "content_version": "",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "extraction": {
+        "cannot_assess": false,
+        "observations": [],
+        "reasoning": ""
+      },
+      "model": "x",
+      "name": "x",
+      "partial": false,
+      "reasoning": "",
+      "reused": false,
+      "spans": [],
+      "tool_calls": [],
+      "trace_id": "x",
+      "verdicts": []
+    },
+    "result": {
+      "ok": {
+        "agent": "x",
+        "at": "2026-10-08T00:00:00Z",
+        "cannot_assess": false,
+        "consolidated": false,
+        "content_version": "",
+        "duration_ms": 1,
+        "execution_id": "x",
+        "extraction": {
+          "cannot_assess": false,
+          "reasoning": ""
+        },
+        "model": "x",
+        "name": "x",
+        "partial": false,
+        "reasoning": "",
+        "reused": false,
+        "trace_id": "x"
+      }
+    }
+  },
+  {
+    "name": "Review",
+    "case": "extra_field",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "name": "x",
+      "trace_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `agent`, `at`, `cannot_assess`, `consolidated`, `content_version`, `duration_ms`, `execution_id`, `extraction`, `model`, `name`, `partial`, `reasoning`, `reused`, `spans`, `tool_calls`, `trace_id`, `verdicts`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_execution_id",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "model": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_trace_id",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "name": "x"
+    },
+    "result": {
+      "error": "missing field `trace_id`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_agent",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `agent`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_name",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_model",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `model`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_duration_ms",
+    "input": {
+      "agent": "x",
+      "at": "2026-10-08T00:00:00Z",
+      "execution_id": "x",
+      "model": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `duration_ms`"
+    }
+  },
+  {
+    "name": "Review",
+    "case": "missing_at",
+    "input": {
+      "agent": "x",
+      "duration_ms": 1,
+      "execution_id": "x",
+      "model": "x",
+      "name": "x",
+      "trace_id": "x"
+    },
+    "result": {
+      "error": "missing field `at`"
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "minimal",
+    "input": {
+      "characters": 1,
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "ok": {
+        "characters": 1,
+        "execution_id": "x",
+        "phase": "initial"
+      }
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "full",
+    "input": {
+      "characters": 1,
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "ok": {
+        "characters": 1,
+        "execution_id": "x",
+        "phase": "initial"
+      }
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "extra_field",
+    "input": {
+      "characters": 1,
+      "execution_id": "x",
+      "phase": "initial",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `characters`, `execution_id`, `phase`"
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "missing_execution_id",
+    "input": {
+      "characters": 1,
+      "phase": "initial"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "missing_phase",
+    "input": {
+      "characters": 1,
+      "execution_id": "x"
+    },
+    "result": {
+      "error": "missing field `phase`"
+    }
+  },
+  {
+    "name": "ReviewIndex",
+    "case": "missing_characters",
+    "input": {
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "error": "missing field `characters`"
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "minimal",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "execution_id": "x",
+        "phase": "initial"
+      }
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "full",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "execution_id": "x",
+        "phase": "initial"
+      }
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "extra_field",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "phase": "initial",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `content`, `execution_id`, `phase`"
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "missing_execution_id",
+    "input": {
+      "content": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "missing_phase",
+    "input": {
+      "content": "x",
+      "execution_id": "x"
+    },
+    "result": {
+      "error": "missing field `phase`"
+    }
+  },
+  {
+    "name": "ReviewRecord",
+    "case": "missing_content",
+    "input": {
+      "execution_id": "x",
+      "phase": "initial"
+    },
+    "result": {
+      "error": "missing field `content`"
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "minimal",
+    "input": {
+      "kind": "x",
+      "name": "x",
+      "preview": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "ok": {
+        "cited": false,
+        "kind": "x",
+        "name": "x",
+        "preview": "x",
+        "span_id": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "full",
+    "input": {
+      "cited": false,
+      "kind": "x",
+      "name": "x",
+      "preview": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "ok": {
+        "cited": false,
+        "kind": "x",
+        "name": "x",
+        "preview": "x",
+        "span_id": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "extra_field",
+    "input": {
+      "kind": "x",
+      "name": "x",
+      "preview": "x",
+      "span_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `cited`, `kind`, `name`, `preview`, `span_id`"
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "missing_span_id",
+    "input": {
+      "kind": "x",
+      "name": "x",
+      "preview": "x"
+    },
+    "result": {
+      "error": "missing field `span_id`"
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "missing_name",
+    "input": {
+      "kind": "x",
+      "preview": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "missing_kind",
+    "input": {
+      "name": "x",
+      "preview": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `kind`"
+    }
+  },
+  {
+    "name": "ReviewSpan",
+    "case": "missing_preview",
+    "input": {
+      "kind": "x",
+      "name": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `preview`"
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "minimal",
+    "input": {
+      "check_id": "x",
+      "kind": "issue",
+      "summary": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "kind": "issue",
+        "summary": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "full",
+    "input": {
+      "check_id": "x",
+      "kind": "issue",
+      "summary": "x"
+    },
+    "result": {
+      "ok": {
+        "check_id": "x",
+        "kind": "issue",
+        "summary": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "extra_field",
+    "input": {
+      "check_id": "x",
+      "kind": "issue",
+      "summary": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `check_id`, `kind`, `summary`"
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "missing_check_id",
+    "input": {
+      "kind": "issue",
+      "summary": "x"
+    },
+    "result": {
+      "error": "missing field `check_id`"
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "missing_kind",
+    "input": {
+      "check_id": "x",
+      "summary": "x"
+    },
+    "result": {
+      "error": "missing field `kind`"
+    }
+  },
+  {
+    "name": "ReviewVerdict",
+    "case": "missing_summary",
+    "input": {
+      "check_id": "x",
+      "kind": "issue"
+    },
+    "result": {
+      "error": "missing field `summary`"
+    }
+  },
+  {
+    "name": "ReviewVersion",
+    "case": "minimal",
+    "input": {
+      "content_version": "x",
+      "execution_id": "x"
+    },
+    "result": {
+      "ok": {
+        "content_version": "x",
+        "execution_id": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewVersion",
+    "case": "full",
+    "input": {
+      "content_version": "x",
+      "execution_id": "x"
+    },
+    "result": {
+      "ok": {
+        "content_version": "x",
+        "execution_id": "x"
+      }
+    }
+  },
+  {
+    "name": "ReviewVersion",
+    "case": "extra_field",
+    "input": {
+      "content_version": "x",
+      "execution_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `content_version` or `execution_id`"
+    }
+  },
+  {
+    "name": "ReviewVersion",
+    "case": "missing_execution_id",
+    "input": {
+      "content_version": "x"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "ReviewVersion",
+    "case": "missing_content_version",
+    "input": {
+      "execution_id": "x"
+    },
+    "result": {
+      "error": "missing field `content_version`"
+    }
+  },
+  {
+    "name": "RunAssessment",
+    "case": "minimal",
+    "input": {
+      "execution_id": "x"
+    },
+    "result": {
+      "ok": {
+        "cannot_assess": false,
+        "execution_id": "x"
+      }
+    }
+  },
+  {
+    "name": "RunAssessment",
+    "case": "full",
+    "input": {
+      "cannot_assess": false,
+      "execution_id": "x",
+      "issue_checks": [],
+      "pattern_checks": []
+    },
+    "result": {
+      "ok": {
+        "cannot_assess": false,
+        "execution_id": "x"
+      }
+    }
+  },
+  {
+    "name": "RunAssessment",
+    "case": "extra_field",
+    "input": {
+      "execution_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `cannot_assess`, `execution_id`, `issue_checks`, `pattern_checks`"
+    }
+  },
+  {
+    "name": "RunAssessment",
+    "case": "missing_execution_id",
+    "input": {},
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "Sample",
+    "case": "minimal",
+    "input": {
+      "eligible": 1,
+      "executions": [
+        {
+          "id": "x",
+          "name": "x",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x"
+        }
+      ]
+    },
+    "result": {
+      "ok": {
+        "eligible": 1,
+        "executions": [
+          {
+            "id": "x",
+            "name": "x",
+            "root_seen": false,
+            "service": "",
+            "source": "traces",
+            "span_count": 1,
+            "start_time": "x",
+            "team_id": "x",
+            "trace_id": "x",
+            "trace_ref": ""
+          }
+        ],
+        "selected": 0
+      }
+    }
+  },
+  {
+    "name": "Sample",
+    "case": "full",
+    "input": {
+      "eligible": 1,
+      "executions": [
+        {
+          "id": "x",
+          "metadata": [],
+          "name": "x",
+          "root_seen": false,
+          "service": "",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x",
+          "trace_ref": ""
+        }
+      ],
+      "next_cursor": "x",
+      "next_offset": 1,
+      "selected": 0
+    },
+    "result": {
+      "ok": {
+        "eligible": 1,
+        "executions": [
+          {
+            "id": "x",
+            "name": "x",
+            "root_seen": false,
+            "service": "",
+            "source": "traces",
+            "span_count": 1,
+            "start_time": "x",
+            "team_id": "x",
+            "trace_id": "x",
+            "trace_ref": ""
+          }
+        ],
+        "next_cursor": "x",
+        "next_offset": 1,
+        "selected": 0
+      }
+    }
+  },
+  {
+    "name": "Sample",
+    "case": "extra_field",
+    "input": {
+      "eligible": 1,
+      "executions": [
+        {
+          "id": "x",
+          "name": "x",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x"
+        }
+      ],
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `eligible`, `executions`, `next_cursor`, `next_offset`, `selected`"
+    }
+  },
+  {
+    "name": "Sample",
+    "case": "missing_executions",
+    "input": {
+      "eligible": 1
+    },
+    "result": {
+      "error": "missing field `executions`"
+    }
+  },
+  {
+    "name": "Sample",
+    "case": "missing_eligible",
+    "input": {
+      "executions": [
+        {
+          "id": "x",
+          "name": "x",
+          "source": "traces",
+          "span_count": 1,
+          "start_time": "x",
+          "team_id": "x",
+          "trace_id": "x"
+        }
+      ]
+    },
+    "result": {
+      "error": "missing field `eligible`"
+    }
+  },
+  {
+    "name": "Step",
+    "case": "minimal",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "kind": "stage",
+      "label": "x"
+    },
+    "result": {
+      "ok": {
+        "at": "2026-10-08T00:00:00Z",
+        "completion_tokens": 0,
+        "cost": 0.0,
+        "kind": "stage",
+        "label": "x",
+        "model": "",
+        "prompt_tokens": 0,
+        "purpose": ""
+      }
+    }
+  },
+  {
+    "name": "Step",
+    "case": "full",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "completion_tokens": 0,
+      "cost": 0,
+      "kind": "stage",
+      "label": "x",
+      "model": "",
+      "prompt_tokens": 0,
+      "purpose": ""
+    },
+    "result": {
+      "ok": {
+        "at": "2026-10-08T00:00:00Z",
+        "completion_tokens": 0,
+        "cost": 0.0,
+        "kind": "stage",
+        "label": "x",
+        "model": "",
+        "prompt_tokens": 0,
+        "purpose": ""
+      }
+    }
+  },
+  {
+    "name": "Step",
+    "case": "extra_field",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "kind": "stage",
+      "label": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `at`, `completion_tokens`, `cost`, `kind`, `label`, `model`, `prompt_tokens`, `purpose`"
+    }
+  },
+  {
+    "name": "Step",
+    "case": "missing_at",
+    "input": {
+      "kind": "stage",
+      "label": "x"
+    },
+    "result": {
+      "error": "missing field `at`"
+    }
+  },
+  {
+    "name": "Step",
+    "case": "missing_kind",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "label": "x"
+    },
+    "result": {
+      "error": "missing field `kind`"
+    }
+  },
+  {
+    "name": "Step",
+    "case": "missing_label",
+    "input": {
+      "at": "2026-10-08T00:00:00Z",
+      "kind": "stage"
+    },
+    "result": {
+      "error": "missing field `label`"
+    }
+  },
+  {
+    "name": "ToolCount",
+    "case": "minimal",
+    "input": {
+      "calls": 1,
+      "name": "model"
+    },
+    "result": {
+      "ok": {
+        "calls": 1,
+        "name": "model"
+      }
+    }
+  },
+  {
+    "name": "ToolCount",
+    "case": "full",
+    "input": {
+      "calls": 1,
+      "name": "model"
+    },
+    "result": {
+      "ok": {
+        "calls": 1,
+        "name": "model"
+      }
+    }
+  },
+  {
+    "name": "ToolCount",
+    "case": "extra_field",
+    "input": {
+      "calls": 1,
+      "name": "model",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected `calls` or `name`"
+    }
+  },
+  {
+    "name": "ToolCount",
+    "case": "missing_name",
+    "input": {
+      "calls": 1
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "ToolCount",
+    "case": "missing_calls",
+    "input": {
+      "name": "model"
+    },
+    "result": {
+      "error": "missing field `calls`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "minimal",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "kind": "x",
+      "name": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "end_time": "",
+        "execution_id": "x",
+        "kind": "x",
+        "name": "x",
+        "parent_span_id": "",
+        "span_id": "x",
+        "start_time": "",
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "full",
+    "input": {
+      "content": "x",
+      "end_time": "",
+      "execution_id": "x",
+      "kind": "x",
+      "name": "x",
+      "parent_span_id": "",
+      "span_id": "x",
+      "start_time": "",
+      "truncated": false
+    },
+    "result": {
+      "ok": {
+        "content": "x",
+        "end_time": "",
+        "execution_id": "x",
+        "kind": "x",
+        "name": "x",
+        "parent_span_id": "",
+        "span_id": "x",
+        "start_time": "",
+        "truncated": false
+      }
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "extra_field",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "kind": "x",
+      "name": "x",
+      "span_id": "x",
+      "unexpected": true
+    },
+    "result": {
+      "error": "unknown field `unexpected`, expected one of `content`, `end_time`, `execution_id`, `kind`, `name`, `parent_span_id`, `span_id`, `start_time`, `truncated`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "missing_execution_id",
+    "input": {
+      "content": "x",
+      "kind": "x",
+      "name": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `execution_id`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "missing_span_id",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "kind": "x",
+      "name": "x"
+    },
+    "result": {
+      "error": "missing field `span_id`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "missing_name",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "kind": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `name`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "missing_kind",
+    "input": {
+      "content": "x",
+      "execution_id": "x",
+      "name": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `kind`"
+    }
+  },
+  {
+    "name": "TracePart",
+    "case": "missing_content",
+    "input": {
+      "execution_id": "x",
+      "kind": "x",
+      "name": "x",
+      "span_id": "x"
+    },
+    "result": {
+      "error": "missing field `content`"
+    }
+  }
+]

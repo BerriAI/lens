@@ -1,0 +1,26 @@
+use super::wire_enum;
+
+wire_enum!(ActivityOperationsItem { Model => "model", Read => "read", Search => "search", Python => "python", Catalog => "catalog", ReviewCatalog => "review_catalog", ReadReviews => "read_reviews", SearchReviews => "search_reviews", History => "history", Checkpoint => "checkpoint" });
+wire_enum!(ActivityPhase { Load => "load", Review => "review", Group => "group", Reconcile => "reconcile", Investigate => "investigate" });
+wire_enum!(CandidateKind { Issue => "issue", Pattern => "pattern" }, default = Issue);
+wire_enum!(EvidenceRequestAction { Catalog => "catalog", Read => "read", Search => "search", ReviewCatalog => "review_catalog", ReadReviews => "read_reviews", SearchReviews => "search_reviews", History => "history" });
+wire_enum!(EvidenceRequestReviewPhase { Initial => "initial", Revisited => "revisited" });
+wire_enum!(EvidenceRole { Support => "support", Counterexample => "counterexample" }, default = Support);
+wire_enum!(ExecutionSource { Traces => "traces", Requests => "requests" });
+wire_enum!(FindingDraftKind { Issue => "issue", Pattern => "pattern" }, default = Issue);
+wire_enum!(FindingDraftPriority { High => "high", Medium => "medium", Low => "low" }, default = Medium);
+wire_enum!(FindingKind { Issue => "issue", Pattern => "pattern" }, default = Issue);
+wire_enum!(FindingPriority { High => "high", Medium => "medium", Low => "low" }, default = Medium);
+wire_enum!(FindingStatus { Open => "open", Resolved => "resolved", Dismissed => "dismissed" }, default = Open);
+wire_enum!(JobStatus { Queued => "queued", Running => "running", Completed => "completed", Failed => "failed", Cancelled => "cancelled" }, default = Queued);
+wire_enum!(JobTrigger { Schedule => "schedule", Manual => "manual" }, default = Schedule);
+wire_enum!(LensSettingsSource { Traces => "traces", Requests => "requests", Both => "both" }, default = Traces);
+wire_enum!(ModelMessageRole { System => "system", User => "user", Assistant => "assistant" });
+wire_enum!(ModelRequestPurpose { Extract => "extract", Cluster => "cluster", Investigate => "investigate" });
+wire_enum!(ModelResultFinishReason { Length => "length", ContentFilter => "content_filter" });
+wire_enum!(ObservationKind { Issue => "issue", Pattern => "pattern" }, default = Issue);
+wire_enum!(ReviewIndexPhase { Initial => "initial", Revisited => "revisited" });
+wire_enum!(ReviewRecordPhase { Initial => "initial", Revisited => "revisited" });
+wire_enum!(ReviewVerdictKind { Issue => "issue", Pattern => "pattern" });
+wire_enum!(StepKind { Stage => "stage", Model => "model", Error => "error" });
+wire_enum!(ToolCountName { Model => "model", Read => "read", Search => "search", Python => "python", Catalog => "catalog", ReviewCatalog => "review_catalog", ReadReviews => "read_reviews", SearchReviews => "search_reviews", History => "history", Checkpoint => "checkpoint" });

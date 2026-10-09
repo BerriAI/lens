@@ -309,19 +309,23 @@
     },
     {
       "source": "litellm-rust/crates/lens/build.rs",
-      "destination": "src/worker/crates/lens/build.rs",
+      "destination": "src/worker/crates/contract/src/schema.rs",
       "sha256": "6818f27bfdc9f8a5a7635e6ad36800a11b13107c378a6def9a4dd505e48cd26f",
-      "change": "unchanged",
-      "extracted_sha256": "6818f27bfdc9f8a5a7635e6ad36800a11b13107c378a6def9a4dd505e48cd26f",
-      "baseline_identical": true
+      "change": "rust_contract_ownership",
+      "extracted_sha256": "7c82b7eb4e926df5865c5bb6acd96789ed4028a3628df45c0dd8c3aedfaab0fc",
+      "baseline_identical": false,
+      "previous_destination": "src/worker/crates/lens/build.rs",
+      "migration_note": "Build-time typify generation replaced by the Rust-owned schema and types"
     },
     {
       "source": "litellm-rust/crates/lens/contract.json",
-      "destination": "src/worker/crates/lens/contract.json",
+      "destination": "src/worker/crates/contract/tests/fixtures/python-worker-v7.json",
       "sha256": "99fb11585be642193fce4796b6d53ac276d0ddec3462fbeec4dd0384209ee330",
-      "change": "unchanged",
+      "change": "rust_contract_ownership",
       "extracted_sha256": "99fb11585be642193fce4796b6d53ac276d0ddec3462fbeec4dd0384209ee330",
-      "baseline_identical": true
+      "baseline_identical": true,
+      "previous_destination": "src/worker/crates/lens/contract.json",
+      "migration_note": "Original schema retained as an immutable parity fixture; Rust exports schema/lens-worker.v7.json"
     },
     {
       "source": "litellm-rust/crates/lens/examples/worker_once.rs",
@@ -3141,11 +3145,13 @@
     },
     {
       "source": "scripts/generate_lens_contract.py",
-      "destination": "scripts/generate_lens_contract.py",
+      "destination": "src/worker/crates/contract/examples/export.rs",
       "sha256": "80b0ee829dc567420b96044a8f908c5cc03076502cc8008337686a6fcf8e5c02",
-      "change": "import_or_build_path",
-      "extracted_sha256": "eec658692e6c123bc6331a53693f1b68e627f5514736ef35888ea2e95870647b",
-      "baseline_identical": false
+      "change": "rust_contract_ownership",
+      "extracted_sha256": "9d7323179e4be58b78fa76b655955675c5c331fb1b8a8ed6823037e16c100ae0",
+      "baseline_identical": false,
+      "previous_destination": "scripts/generate_lens_contract.py",
+      "migration_note": "Python backend generator replaced by the Rust schema exporter"
     },
     {
       "source": "scripts/generate_trace_types.py",

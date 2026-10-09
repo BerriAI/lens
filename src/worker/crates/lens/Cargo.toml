@@ -14,6 +14,7 @@ futures-util.workspace = true
 http.workspace = true
 jsonschema = { version = "0.55.1", default-features = false }
 libc = "0.2"
+lens-contract = { path = "../contract" }
 lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
 litellm-http.workspace = true
@@ -35,12 +36,6 @@ tracing.workspace = true
 tower-http = { version = "0.6.11", features = ["cors"] }
 url.workspace = true
 unicode-casefold = "0.2"
-
-[build-dependencies]
-typify = { version = "=0.6.1", default-features = false }
-serde_json.workspace = true
-syn = { workspace = true, features = ["full", "parsing"] }
-prettyplease = "0.2"
 
 [dev-dependencies]
 rstest.workspace = true

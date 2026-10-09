@@ -1,0 +1,12 @@
+    Checking lens-contract v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/contract)
+    Checking litellm-traces v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces)
+   Compiling litellm-traces-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces-clickhouse)
+    Checking lens-parity v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/parity)
+    Checking lens-evals-sdk v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/evals-sdk)
+    Checking lens-evals-python v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/evals-python)
+    Checking litellm-traces-cache v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces-cache)
+    Checking lens-auth v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/auth)
+    Checking litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+    Checking lens-server v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/server)
+    Checking litellm-lens v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/lens)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.73s

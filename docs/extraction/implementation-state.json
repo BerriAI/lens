@@ -68,9 +68,14 @@
     "Validated the moved Rust workspace with 1,270 regular tests, four normally ignored HTTP/ClickHouse cases, workspace Clippy and formatting; new storage mutation testing caught 70 of 76 viable mutations",
     "Implemented Rust authentication contracts and policy, a ClickHouse session repository and opt-in HTTP routes in the existing Rust binary, following the merged layout",
     "Replayed 45 original Python auth responses over Rust HTTP and ClickHouse; validated session revocation and server/ClickHouse restarts, 27 cases against the actual binary, and auth/storage mutations",
-    "Rebased the authentication increment onto the merged native SDK at b27fdb70, preserved both sets of lockfile entries, and passed formatting, workspace Clippy and all 1,446 regular workspace tests"
+    "Rebased the authentication increment onto the merged native SDK at b27fdb70, preserved both sets of lockfile entries, and passed formatting, workspace Clippy and all 1,446 regular workspace tests",
+    "Moved protocol-7 worker types and schema ownership into the Rust contract crate, replayed 248 original wire cases, removed Python/typify generation, and generated shared UI declarations",
+    "Reconciled the contract increment with the eval-runs UI merged on main at 76fa69ab and preserved its added test coverage",
+    "Incorporated the concurrently merged SDK fixes at d04caacd; checked its updated schema with the locked SDK generator and formatter",
+    "Reconciled worker contracts with the public eval contract on main at fd817339, preserving both protocol versions and passing SDK generation against schema/lens.v1.json",
+    "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes"
   ],
-  "current_work": "Complete auth request parity and Rust contract ownership, then port the remaining control-plane domains and APIs; complete provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
+  "current_work": "Complete remaining public HTTP contracts and Rust dataset/domain/API ports, then standalone provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -78,7 +83,9 @@
     },
     "B2": {
       "status": "not_run",
-      "evidence": []
+      "evidence": [
+        "docs/extraction/rust-worker-contract.md (worker wire and prompt schema parity; full product parity remains open)"
+      ]
     },
     "B3": {
       "status": "not_run",
@@ -346,7 +353,8 @@
       "evidence": [
         "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
         "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
+        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
+        "docs/extraction/rust-worker-contract.md (Rust worker contract and UI generation; remaining HTTP contracts and route ownership remain open)"
       ]
     },
     "D3": {

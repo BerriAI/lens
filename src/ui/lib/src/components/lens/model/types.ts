@@ -1,3 +1,4 @@
+import type * as Wire from "../../../lib/http/worker";
 import type { components } from "../../../lib/http/schema";
 
 export type Lens = components["schemas"]["Lens"];
@@ -16,7 +17,7 @@ export type WorkerCreated = components["schemas"]["WorkerCreated"];
 
 export type Job = components["schemas"]["Job"];
 
-export type IssueBrief = NonNullable<Finding["brief"]>;
+export type IssueBrief = Wire.IssueBrief;
 
 export type ActivitySelection = Pick<Settings, "source"> &
   Partial<
@@ -37,13 +38,13 @@ export type Worker = LensList["workers"][number];
 
 export type Review = components["schemas"]["Review"];
 
-export type InFlight = components["schemas"]["InFlight"];
+export type InFlight = Wire.InFlight;
 
 export type Activity = components["schemas"]["Activity"];
 
-export type ToolCount = components["schemas"]["ToolCount"];
+export type ToolCount = Wire.ToolCount;
 
-export type ReviewVerdict = components["schemas"]["ReviewVerdict"];
+export type ReviewVerdict = Wire.ReviewVerdict;
 
 export interface RunWindow {
   agent_name?: string;

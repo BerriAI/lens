@@ -44,6 +44,18 @@ The production build writes static files to `src/ui/app/out`. Package qualificat
 
 ## Checks available now
 
+Backend changes go in the Rust workspace, following [the migration specification](docs/rust-migration.md). The Python API remains a parity reference until its Rust replacements are qualified; do not extend it. The eval SDK and sandbox interpreter are the documented Python exceptions
+
+The worker protocol types live in `src/worker/crates/contract/src/worker/`. After changing those types, regenerate the checked-in schema and UI declarations from the repository root:
+
+```sh
+npm run generate:worker-contract
+npm run check:worker-contract
+cargo test --manifest-path src/worker/Cargo.toml -p lens-contract -p litellm-lens
+```
+
+The worker protocol remains version 7. Its generated artifact is `schema/lens-worker.v7.json`; the public eval API uses `schema/lens.v1.json` and the separate contract version 1. Worker messages and public HTTP responses have different default-field requirements, so do not substitute their types indiscriminately. See [worker contract qualification](docs/extraction/rust-worker-contract.md)
+
 Install Python dependencies with `uv sync --dev`. These copied core behavior tests pass in the extracted package:
 
 ```sh

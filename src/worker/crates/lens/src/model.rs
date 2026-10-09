@@ -8,9 +8,7 @@ use std::{
 
 pub fn schema(name: &str) -> Result<Value, Error> {
     static CONTRACT: OnceLock<Value> = OnceLock::new();
-    let contract = CONTRACT.get_or_init(|| {
-        serde_json::from_str(include_str!("../contract.json")).expect("validated at build time")
-    });
+    let contract = CONTRACT.get_or_init(lens_contract::schema::worker_contract);
     let definitions = contract["definitions"]
         .as_object()
         .ok_or(Error::InvalidRequest)?;

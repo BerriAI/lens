@@ -39,3 +39,15 @@ jobs:
       - name: Check Python route ratchet
         working-directory: src/worker
         run: bash crates/server/check_python_routes.sh "origin/${{ github.base_ref || 'main' }}"
+
+  worker-ui-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.1
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check:worker-contract
+      - run: npm run typecheck:ui

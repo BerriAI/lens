@@ -36,18 +36,7 @@ use std::{
 pub use storage::Storage;
 use tokio::sync::Semaphore;
 
-#[allow(
-    dead_code,
-    reason = "the schema generator emits default helpers shared across contracts"
-)]
-#[allow(
-    clippy::derivable_impls,
-    clippy::type_complexity,
-    reason = "typify generates explicit defaults and contract tuple types"
-)]
-pub mod wire {
-    include!(concat!(env!("OUT_DIR"), "/wire.rs"));
-}
+pub use lens_contract::worker as wire;
 
 const READ_QUEUE_WAIT: Duration = Duration::from_secs(10);
 

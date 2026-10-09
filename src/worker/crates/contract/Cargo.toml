@@ -6,9 +6,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 serde.workspace = true
-schemars.workspace = true
 serde_json.workspace = true
+schemars = { workspace = true, features = ["chrono04"] }
+thiserror.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
