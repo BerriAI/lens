@@ -178,6 +178,76 @@ describe("Investigation setup", () => {
     };
     expect(save).toHaveBeenCalledWith(expect.objectContaining(expected));
   });
+
+  it("keeps metadata suggestions and saved conditions aligned when adding, editing and removing rows", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    proxy.post.mockResolvedValue({
+      eligible: 1,
+      selected: 1,
+      executions: [
+        {
+          id: "metadata-run",
+          name: "Metadata fixture run",
+          trace_id: "metadata-trace",
+          source: "traces",
+          start_time: "2026-10-01T12:00:00Z",
+          metadata: [
+            { key: "environment", value: "production" },
+            { key: "environment", value: "development" },
+            { key: "environment", value: "production" },
+            { key: "region", value: "us" },
+            { key: "region", value: "eu" },
+          ],
+        },
+      ],
+    });
+    renderWithProviders(<InvestigationSetup mode="duplicate" initial={settings} onClose={vi.fn()} onSave={save} />);
+    expect(await screen.findByText("Metadata fixture run")).toBeVisible();
+    await user.click(screen.getByText("Advanced filters"));
+    await user.click(screen.getByRole("button", { name: "Add condition" }));
+    const suggestions = (index: number) =>
+      Array.from(
+        screen.getByRole<HTMLInputElement>("combobox", { name: `Metadata value ${index}` }).list?.options ?? [],
+        (option) => option.value,
+      );
+    expect(suggestions(1)).toEqual([]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata key 1" }), { target: { value: "environment" } });
+    expect(suggestions(1)).toEqual(["development", "production"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata value 1" }), { target: { value: "production" } });
+
+    await user.click(screen.getByRole("button", { name: "Add condition" }));
+    expect(suggestions(2)).toEqual([]);
+    expect(suggestions(1)).toEqual(["development", "production"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata key 2" }), { target: { value: "region" } });
+    expect(suggestions(2)).toEqual(["eu", "us"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata value 2" }), { target: { value: "eu" } });
+    await user.click(screen.getByRole("button", { name: "Remove condition 1" }));
+    expect(screen.getByRole("combobox", { name: "Metadata key 1" })).toHaveValue("region");
+    expect(screen.getByRole("combobox", { name: "Metadata value 1" })).toHaveValue("eu");
+    expect(suggestions(1)).toEqual(["eu", "us"]);
+    expect(screen.queryByRole("combobox", { name: "Metadata key 2" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata key 1" }), { target: { value: "environment" } });
+    expect(suggestions(1)).toEqual(["development", "production"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata value 1" }), { target: { value: "development" } });
+    await user.click(screen.getByRole("button", { name: "Add condition" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata key 2" }), { target: { value: "region" } });
+    expect(suggestions(2)).toEqual(["eu", "us"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Metadata value 2" }), { target: { value: "us" } });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run investigation" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run investigation" }));
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: [
+          { key: "environment", value: "development" },
+          { key: "region", value: "us" },
+        ],
+      }),
+    );
+  });
 });
 
 it("walks the three steps in order, reopens a finished step from its summary, and keeps the preview beside them", async () => {

@@ -54,7 +54,7 @@ export function MetadataFilters({ attributes, keys }: Pick<ScopeOptions, "attrib
             </p>
           )}
           <datalist id={`${id}-values-${index}`}>
-            {[...new Set(attributes.filter((a) => a.key === filters[index].key).map((a) => a.value))]
+            {[...new Set(attributes.filter((a) => a.key === filters[index]?.key).map((a) => a.value))]
               .sort()
               .map((v) => (
                 <option key={v} value={v} />
