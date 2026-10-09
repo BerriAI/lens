@@ -38,7 +38,7 @@ env:
   LENS_CURRENT_SHA: ${{ inputs.lens_current_sha }}
   GATEWAY_BASELINE_SHA: ${{ inputs.gateway_baseline_sha }}
   GATEWAY_CURRENT_SHA: ${{ inputs.gateway_current_sha }}
-  SMOKE_SOURCE_SHA: 62819736ec18959efdec87e4a4ab06033c097490
+  SMOKE_SOURCE_SHA: d171e208a18d3f3559e3a338f7769387e01749e5
   IMAGE_RUN_ID: ${{ inputs.image_run_id || github.run_id }}
 
 jobs:
