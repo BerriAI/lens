@@ -1,3 +1,4 @@
+use lens_contract::github::{ProgressRequest, ProgressState};
 use std::collections::BTreeSet;
 use url::Url;
 
@@ -91,6 +92,26 @@ fn build_link(run: &crate::model::EvalRun) -> String {
     link(
         &safe_text(&run.version.chars().take(7).collect::<String>()),
         &run.url,
+    )
+}
+
+pub fn progress(progress: &ProgressRequest) -> String {
+    let state = match progress.state {
+        ProgressState::Running => {
+            "**Running evaluation**\n\nI'm running here. Comparing main and this PR on the saved Lens eval set"
+        }
+        ProgressState::Failed => {
+            "**Evaluation stopped**\n\nEvaluation stopped before a complete result. No benchmark verdict is available"
+        }
+    };
+    let workflow = checked_link("Follow the evaluation", &progress.ci_url)
+        .map(|link| format!(" · {link}"))
+        .unwrap_or_default();
+    format!(
+        "{}\n{LOGO}\n\n### {}\n\n{state}\n\nCommit: {}{workflow}",
+        marker(&progress.name),
+        safe_text(&progress.name),
+        safe_text(&progress.version.chars().take(7).collect::<String>()),
     )
 }
 

@@ -5,6 +5,7 @@ use std::{
     time::Duration,
 };
 
+use lens_contract::github::{ProgressPublished, ProgressRequest, ProgressState};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -164,18 +165,17 @@ impl GitHub {
         let pr = context.pr.ok_or(Error::Configuration(
             "A Lens progress comment requires a pull request event or --pr",
         ))?;
-        let state = if failed {
-            "Evaluation stopped before a complete result. No benchmark verdict is available"
-        } else {
-            "I'm running here. Comparing main and this PR on the saved Lens eval set"
-        };
-        let body = format!(
-            "{}\n### Lens / {}\n{state}\n\nCommit: {}\n\n{}",
-            reporting::marker(name),
-            reporting::safe_text(name),
-            reporting::safe_text(&context.version),
-            reporting::link("Follow the evaluation", &context.ci_url)
-        );
+        let body = reporting::progress(&ProgressRequest {
+            name: name.to_owned(),
+            version: context.version.clone(),
+            pr,
+            ci_url: context.ci_url.clone(),
+            state: if failed {
+                ProgressState::Failed
+            } else {
+                ProgressState::Running
+            },
+        });
         self.comment(name, pr, &body).await?;
         if failed {
             self.request(Method::POST, "/check-runs", Some(json!({"name":format!("Lens / {name}"),"head_sha":context.version,"status":"completed","conclusion":"failure","details_url":context.ci_url,"output":{"title":format!("Lens / {name}"),"summary":body}}))).await?;
@@ -204,6 +204,7 @@ pub async fn publish_progress(
     name: &str,
     pr: Option<u64>,
     failed: bool,
+    via_app: bool,
 ) -> Result<()> {
     if name.is_empty()
         || !name
@@ -219,7 +220,54 @@ pub async fn publish_progress(
         pr: pr.or(context.pr),
         ..context
     };
+    if via_app {
+        let lens = Client::new(
+            &Settings::load(root)?.endpoint()?,
+            &required("LENS_API_KEY")?,
+        )?;
+        progress_via_app(
+            &lens,
+            &ProgressRequest {
+                name: name.to_owned(),
+                version: context.version,
+                pr: context.pr.ok_or(Error::Configuration(
+                    "A Lens progress comment requires a pull request event or --pr",
+                ))?,
+                ci_url: context.ci_url,
+                state: if failed {
+                    ProgressState::Failed
+                } else {
+                    ProgressState::Running
+                },
+            },
+        )
+        .await?;
+        return Ok(());
+    }
     from_environment()?.progress(name, &context, failed).await
+}
+
+pub async fn progress_via_app(
+    lens: &Client,
+    progress: &ProgressRequest,
+) -> Result<ProgressPublished> {
+    let published: ProgressPublished = Client::decode(
+        lens.request(
+            Method::POST,
+            "/lens/github/progress",
+            Some(&serde_json::to_value(progress).map_err(Error::Response)?),
+            None,
+            true,
+        )
+        .await?,
+    )
+    .await?;
+    if published.comment_url.trim().is_empty() || published.check_url.trim().is_empty() {
+        return Err(Error::Infrastructure(
+            "Lens did not confirm publishing eval progress",
+        ));
+    }
+    Ok(published)
 }
 
 pub async fn publish_file(root: &Path, path: &Path) -> Result<()> {

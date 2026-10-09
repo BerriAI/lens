@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 
 def cli(root, endpoint, *arguments, key="lens-dev"):
     env = {**os.environ, "LENS_BASE_URL": endpoint, "LENS_API_KEY": key, "LENS_VERSION": "abc", "LENS_BRANCH": "main"}
@@ -195,6 +197,84 @@ def test_action_reporter_real_http_upserts_and_writes_outputs(endpoint, tmp_path
         assert output.read_text().count("passed=false") == 2
         urls = next(line.split("=", 1)[1] for line in output.read_text().splitlines() if line.startswith("run-urls="))
         assert json.loads(urls) == [value["runs"][0]["url"]]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("command,state", [("report-start", "running"), ("report-failed", "failed")])
+def test_app_progress_uses_lens_credentials_without_a_github_token(tmp_path, command, state):
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            requests.append(
+                (
+                    self.path,
+                    self.headers.get("Authorization"),
+                    json.loads(self.rfile.read(int(self.headers["Content-Length"]))),
+                )
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "comment_url": "https://github.com/org/repo/pull/7#issuecomment-42",
+                        "check_url": "https://github.com/org/repo/runs/43",
+                    }
+                ).encode()
+            )
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        event = tmp_path / "event.json"
+        event.write_text(json.dumps({"pull_request": {"number": 7}}))
+        env = {
+            **{name: value for name, value in os.environ.items() if name != "GITHUB_TOKEN"},
+            "LENS_API_KEY": "lens-key",
+            "LENS_BASE_URL": f"http://127.0.0.1:{server.server_port}",
+            "GITHUB_REPOSITORY": "org/repo",
+            "GITHUB_SHA": "candidate-sha",
+            "GITHUB_REF_NAME": "topic",
+            "GITHUB_HEAD_REF": "topic",
+            "GITHUB_RUN_ID": "99",
+            "GITHUB_EVENT_PATH": str(event),
+            "GITHUB_SERVER_URL": "https://github.com",
+            "GITHUB_API_URL": "http://127.0.0.1:1",
+        }
+        result = subprocess.run(
+            [sys.executable, "-m", "lens.cli", command, "--name", "demo", "--via-app"],
+            cwd=tmp_path,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        assert requests == [
+            (
+                "/lens/github/progress",
+                "Bearer lens-key",
+                {
+                    "name": "demo",
+                    "version": "candidate-sha",
+                    "pr": 7,
+                    "ci_url": "https://github.com/org/repo/actions/runs/99",
+                    "state": state,
+                },
+            )
+        ]
     finally:
         server.shutdown()
         server.server_close()

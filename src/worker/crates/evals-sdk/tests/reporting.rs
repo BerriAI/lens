@@ -1,3 +1,4 @@
+use lens_contract::github::{ProgressRequest, ProgressState};
 use lens_evals_sdk::{
     model::{EvalRun, Report},
     reporting::{markdown, pass_rate_confidence, safe_text},
@@ -50,6 +51,30 @@ fn confidence_accounts_for_small_sample_uncertainty(
 #[case::invalid(5, 4)]
 fn confidence_rejects_invalid_case_counts(#[case] passed: usize, #[case] total: usize) {
     assert!(pass_rate_confidence(passed, total).is_err());
+}
+
+#[rstest]
+#[case::running(ProgressState::Running, "**Running evaluation**")]
+#[case::failed(ProgressState::Failed, "**Evaluation stopped**")]
+fn progress_shares_the_lens_brand_without_claiming_case_results(
+    #[case] state: ProgressState,
+    #[case] heading: &str,
+) {
+    let body = lens_evals_sdk::reporting::progress(&ProgressRequest {
+        name: "demo".into(),
+        version: "1234567890abcdef".into(),
+        pr: 7,
+        ci_url: "https://github.com/org/repo/actions/runs/99".into(),
+        state,
+    });
+    assert!(body.starts_with("<!-- lens:demo -->"));
+    assert!(body.contains("alt=\"Lens\" width=\"108\" height=\"30\""));
+    assert!(body.contains(heading));
+    assert!(body.contains(
+        "Commit: 1234567 · [Follow the evaluation](https://github.com/org/repo/actions/runs/99)"
+    ));
+    assert!(!body.contains("Confidence"));
+    assert!(!body.contains("Passed"));
 }
 
 #[rstest]

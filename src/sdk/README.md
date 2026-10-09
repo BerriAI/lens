@@ -340,21 +340,23 @@ Each normal invocation creates a separate execution, even at the same commit. Sa
 
 ### Report a Python test on a pull request
 
-Run your pytest test in the GitHub runner after installing the agent and SDK. Give the job `contents: read`, `checks: write`, and `pull-requests: write`; provide `LENS_BASE_URL`, `LENS_API_KEY`, and `GITHUB_TOKEN: ${{ github.token }}`. The SDK uses the Actions bot token to publish a Lens report
+Run your pytest test in the GitHub runner after installing the agent and SDK. Connect the agent's repository through Lens's **Connect GitHub** flow, then provide `LENS_BASE_URL` and `LENS_API_KEY`. Use `--via-app` on all three reporting commands so the Lens GitHub App owns the comment and check. The runner does not need a GitHub write token for this path
 
 ```sh
-python -m lens.cli report-start --name agent-regressions
+python -m lens.cli report-start --name agent-regressions --via-app
 python -m pytest evals/test_agent.py
-python -m lens.github lens-results.json
+python -m lens.github lens-results.json --via-app
 ```
 
-The test writes `report.write_json("lens-results.json")` before asserting its gate. Run the publishing step even when pytest fails, provided that file exists. If execution stops before a report is written, use `python -m lens.cli report-failed --name agent-regressions` so the comment does not stay at “running.” For `workflow_dispatch`, pass `--pr` with the target pull request number to both progress commands and set the test's `Execution.pr` to that number
+The test writes `report.write_json("lens-results.json")` before asserting its gate. Run the publishing step even when pytest fails, provided that file exists. If execution stops before a report is written, use `python -m lens.cli report-failed --name agent-regressions --via-app` so the comment does not stay at “running.” Set `GITHUB_SHA` to the PR's actual head SHA for both progress commands, matching the test's `Execution.version`; GitHub's default PR merge SHA is a different commit
 
-`report-start` creates a Lens-branded “I'm running here” comment. Publication fetches the completed candidate and its selected baseline from Lens and updates that same bot-owned comment. The check attaches to the candidate's recorded commit SHA. The comment shows both build SHAs, Lens run links, case pass counts, score changes, and costs
+`report-start` creates a running comment and check. Publication reads the completed candidate and its selected baseline from Lens and updates that same App-owned comment and check. Lens validates the connected repository, workflow and PR before publishing. The check attaches to the candidate's recorded commit SHA. The comment leads with confidence out of 5, passed and failed cases, and trial errors, followed by a compact before/after comparison. Statistical details, scores and costs are expandable
+
+For Actions-bot reporting instead, omit `--via-app` from every command and provide `GITHUB_TOKEN: ${{ github.token }}` with `contents: read`, `checks: write` and `pull-requests: write`. Progress and completion must use the same publishing mode to update the same comment
 
 Run the checked-out main code first with `Execution(branch="main", version=base_sha)`, then the PR code with its actual head SHA. Use the same saved eval revision, selected cases, and repeat count for both. A missing compatible main run is shown as unavailable, never as a zero-score baseline
 
-Confidence is reported as a 95% Wilson interval over case verdicts. The confidence score is that interval's lower endpoint, a conservative pass-rate estimate under the independent-case assumption. Repeated executions of one case are not counted as independent cases, and the score does not claim statistical proof of improvement
+Confidence is the lower endpoint of a 95% Wilson interval over case verdicts, scaled to 5. Four passing cases out of four give 2.6/5: a small test set still has substantial uncertainty. Repeated executions of one case are not counted as independent cases. The score assumes independent cases and does not claim statistical proof of improvement
 
 ### Use the composite Action
 

@@ -139,15 +139,15 @@ fn control(py: Python<'_>, command: &str) -> PyResult<String> {
                     .map_err(error)?;
                 Ok(String::new())
             }
-            Operation::ReportStart { name, pr } => {
+            Operation::ReportStart { name, pr, via_app } => {
                 pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_progress(&root, &name, pr, false))
+                    .block_on(github::publish_progress(&root, &name, pr, false, via_app))
                     .map_err(error)?;
                 Ok(String::new())
             }
-            Operation::ReportFailed { name, pr } => {
+            Operation::ReportFailed { name, pr, via_app } => {
                 pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_progress(&root, &name, pr, true))
+                    .block_on(github::publish_progress(&root, &name, pr, true, via_app))
                     .map_err(error)?;
                 Ok(String::new())
             }
