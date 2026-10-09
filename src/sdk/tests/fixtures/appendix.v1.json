@@ -337,6 +337,11 @@
           ],
           "title": "Pr"
         },
+        "ci_url": {
+          "default": "",
+          "title": "Ci Url",
+          "type": "string"
+        },
         "url": {
           "title": "Url",
           "type": "string"
