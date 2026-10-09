@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -214,7 +214,7 @@ describe("Evals", () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     const first = renderWithLens(<EvalsView />, {
-      searchParams: "?tab=evals",
+      searchParams: "?tab=evals&trace=old-trace&trace_ref=old-owner&fullscreen=true",
       onUrlUpdate,
     });
 
@@ -224,6 +224,12 @@ describe("Evals", () => {
     expect(row).toHaveTextContent("regressions ≤ 0 · critical ≤ 0");
 
     await user.click(row);
+    await waitFor(() =>
+      expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toEqual({
+        tab: "evals",
+        eval: definition.name,
+      }),
+    );
     await user.click(
       await screen.findByRole("row", { name: "drop-policy-check@2222222" }),
     );
@@ -403,6 +409,72 @@ describe("Evals", () => {
     ).toMatchObject({
       trace: "session-second",
       trace_ref: "session-second-owner",
+    });
+  });
+
+  it("should close the previous case trace when selecting another case", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    const secondCase = {
+      case_id: "case-shipping",
+      title: "Where is my order?",
+      critical: false,
+      passed: true,
+    };
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) => {
+      if (path === `/lens/evals/runs/${mainRun.id}/cases`)
+        return [...serve(path, request), secondCase];
+      if (path === `/lens/evals/runs/${mainRun.id}/cases/${secondCase.case_id}`)
+        return { ...cases[mainRun.id], ...secondCase };
+      return serve(path, request);
+    });
+    renderWithLens(<EvalsView />, {
+      searchParams: `${evalPage}&eval_run=${mainRun.id}&eval_case=${regression.case_id}&trace=before-trace&trace_ref=before-owner&span=old-span&view=thread&span_tab=attributes&steps_q=old&errors=true`,
+      onUrlUpdate,
+    });
+    const drawer = await screen.findByRole("complementary", {
+      name: "Eval trace details",
+    });
+
+    await user.click(await screen.findByRole("button", { name: /Where is my order/ }));
+    await waitFor(() => expect(drawer).toHaveAttribute("data-state", "closing"));
+    act(() => fireEvent.animationEnd(drawer));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("complementary", { name: "Eval trace details" }),
+      ).not.toBeInTheDocument();
+      expect(
+        Object.fromEntries(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString)),
+      ).toEqual({
+        tab: "evals",
+        eval: definition.name,
+        eval_run: mainRun.id,
+        eval_case: secondCase.case_id,
+      });
+    });
+  });
+
+  it("should clear the open trace before returning to runs and opening another run", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithLens(<EvalsView />, {
+      searchParams: `${evalPage}&eval_run=${mainRun.id}&eval_case=${regression.case_id}&trace=before-trace&trace_ref=before-owner&fullscreen=true`,
+      onUrlUpdate,
+    });
+    await screen.findByRole("complementary", { name: "Eval trace details" });
+
+    await user.click(screen.getByRole("button", { name: "All runs" }));
+    await user.click(await screen.findByRole("row", { name: "drop-policy-check@2222222" }));
+    await expectComparison();
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("complementary", { name: "Eval trace details" }),
+      ).not.toBeInTheDocument();
+      expect(
+        Object.fromEntries(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString)),
+      ).toEqual({ tab: "evals", eval: definition.name, eval_run: redRun.id });
     });
   });
 

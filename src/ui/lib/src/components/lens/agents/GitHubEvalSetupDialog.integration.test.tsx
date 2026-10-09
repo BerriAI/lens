@@ -226,7 +226,10 @@ describe("GitHub eval workflow setup", () => {
     gateway.get.mockImplementation(serve([pull, baseline]));
     renderWithLens(
       <GitHubEvalSetupDialog agent={agent} onOpenChange={onOpenChange} />,
-      { onUrlUpdate },
+      {
+        onUrlUpdate,
+        searchParams: "?tab=traces&trace=old-trace&trace_ref=old-owner&span=old-span&fullscreen=true",
+      },
     );
     await verify(user);
     expect(
@@ -286,6 +289,8 @@ describe("GitHub eval workflow setup", () => {
     expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("eval")).toBe(
       definition.name,
     );
+    for (const key of ["trace", "trace_ref", "span", "fullscreen"])
+      expect(onUrlUpdate.mock.lastCall?.[0].searchParams.has(key)).toBe(false);
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 

@@ -730,6 +730,38 @@ describe("RunView", () => {
   });
 });
 
+describe("eval trace share links", () => {
+  it.each(["&tab=evals", ""])("should preserve the eval context and owner in a copied link%s", (tab) => {
+    const url = new URL(traceShareUrl({ traceId: "trial-trace", traceRef: "trial-owner" }, {
+      origin: "https://gw.test",
+      pathname: "/ui/",
+      search: `?demo=true${tab}&agent=refund-agent&eval=refund%20checks&eval_run=run-main&eval_case=case-refund&trace=old-trace&trace_ref=old-owner&q=refund&span=s1&fullscreen=true`,
+    }));
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      demo: "true",
+      tab: "evals",
+      agent: "refund-agent",
+      eval: "refund checks",
+      eval_run: "run-main",
+      eval_case: "case-refund",
+      trace: "trial-trace",
+      trace_ref: "trial-owner",
+    });
+  });
+
+  it.each([
+    "?tab=traces&eval=old-eval&eval_run=old-run&eval_case=old-case",
+    "?tab=evals&eval=old-eval&eval_case=old-case",
+  ])("should omit inactive eval context from a copied trace link: %s", (search) => {
+    const url = traceShareUrl({ traceId: "t1", traceRef: "R1" }, {
+      origin: "https://gw.test",
+      pathname: "/ui/",
+      search,
+    });
+    expect(url).toBe("https://gw.test/ui/?trace=t1&trace_ref=R1");
+  });
+});
+
 describe("initialRunSelection", () => {
   const base = research.spans.find((s) => s.parent_span_id === null) as Span;
   const child = (over: Partial<Span>): Span => {
