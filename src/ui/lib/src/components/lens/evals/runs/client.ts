@@ -1,11 +1,14 @@
 import type { ApiClient } from "../../../../lib/http/client";
 
-import type { EvalRun, EvalRunFilter, RunCase } from "./types";
+import type { EvalDefinition, EvalRun, EvalRunFilter, EvalSpec, RunCase } from "./types";
 
 export interface EvalRunsApi {
   list(filter: EvalRunFilter): Promise<readonly EvalRun[]>;
   get(runId: string): Promise<EvalRun>;
   runCase(runId: string, caseId: string): Promise<RunCase>;
+  evals(): Promise<readonly EvalDefinition[]>;
+  evalDefinition(name: string): Promise<EvalDefinition>;
+  saveEval(name: string, spec: EvalSpec): Promise<EvalDefinition>;
 }
 
 const CONTRACT = { "X-Lens-Contract": "1" };
@@ -17,7 +20,12 @@ export function liveEvalRunsApi(
   apiClient: ApiClient,
   accessToken: string,
 ): EvalRunsApi {
+  const evalPath = (name: string) => `/lens/evals/${encodeURIComponent(name)}`;
   return {
+    evals: () => apiClient.get<EvalDefinition[]>("/lens/evals", { accessToken, headers: CONTRACT }),
+    evalDefinition: (name) => apiClient.get<EvalDefinition>(evalPath(name), { accessToken, headers: CONTRACT }),
+    saveEval: (name, spec) =>
+      apiClient.put<EvalDefinition>(evalPath(name), { accessToken, headers: CONTRACT, body: spec }),
     list: (filter) =>
       apiClient.get<EvalRun[]>("/lens/evals/runs", {
         accessToken,

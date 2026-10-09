@@ -68,7 +68,9 @@ pub fn eval_contract() -> Value {
     let _ = generator.subschema_for::<eval::CaseDiff>();
     let _ = generator.subschema_for::<eval::CaseResult>();
     let _ = generator.subschema_for::<eval::CreateEvalRun>();
+    let _ = generator.subschema_for::<eval::EvalDefinition>();
     let _ = generator.subschema_for::<eval::EvalRun>();
+    let _ = generator.subschema_for::<eval::EvalSpec>();
     let _ = generator.subschema_for::<eval::GateResult>();
     let _ = generator.subschema_for::<eval::ResolvedDataset>();
     let _ = generator.subschema_for::<eval::RunCase>();

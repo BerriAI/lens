@@ -487,6 +487,9 @@ impl IntoResponse for EvalApiError {
             Self::EvalStore(EvalError::RunNotFound) => {
                 (StatusCode::NOT_FOUND, ApiErrorCode::RunNotFound)
             }
+            Self::EvalStore(EvalError::EvalNotFound) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::EvalNotFound)
+            }
             Self::EvalStore(EvalError::RunClosed) => {
                 (StatusCode::CONFLICT, ApiErrorCode::RunClosed)
             }

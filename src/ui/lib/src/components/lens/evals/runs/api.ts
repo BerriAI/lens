@@ -1,10 +1,39 @@
 "use client";
 
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLensApi } from "../../data/LensServices";
-import { datasetKeys } from "../api";
+import { datasetKeys } from "../../datasets/api";
 import type { EvalRunsApi } from "./client";
-import type { EvalRunFilter } from "./types";
+import type { EvalRunFilter, EvalSpec } from "./types";
+
+const evalKeys = {
+  all: () => [...datasetKeys.all(), "evals"] as const,
+  list: (scope: string) => [...evalKeys.all(), "list", { scope }] as const,
+  detail: (scope: string, name: string) => [...evalKeys.all(), "detail", { scope, name }] as const,
+};
+
+export function useEvals() {
+  const api = useLensApi();
+  return useQuery({ queryKey: evalKeys.list(api.scope), queryFn: () => api.evalRuns.evals() });
+}
+
+export function useEvalDefinition(name: string) {
+  const api = useLensApi();
+  return useQuery({
+    queryKey: evalKeys.detail(api.scope, name),
+    queryFn: () => api.evalRuns.evalDefinition(name),
+  });
+}
+
+export function useSaveEval() {
+  const api = useLensApi();
+  const client = useQueryClient();
+  return useMutation({
+    retry: false,
+    mutationFn: ({ name, spec }: { name: string; spec: EvalSpec }) => api.evalRuns.saveEval(name, spec),
+    onSettled: () => client.invalidateQueries({ queryKey: evalKeys.all() }),
+  });
+}
 
 const evalRunKeys = {
   all: () => [...datasetKeys.all(), "evalRuns"] as const,

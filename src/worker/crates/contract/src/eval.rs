@@ -125,6 +125,44 @@ pub struct CreateEvalRun {
     pub timeout_per_trial_ms: u64,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalSpec {
+    #[schemars(length(min = 1))]
+    pub agent: String,
+    #[schemars(length(min = 1))]
+    pub dataset_id: String,
+    #[serde(default)]
+    #[schemars(range(min = 1))]
+    pub revision: Option<u64>,
+    #[schemars(length(min = 1))]
+    pub scorers: Vec<Scorer>,
+    #[serde(default = "one_trial")]
+    #[schemars(range(min = 1, max = 10))]
+    pub trials: u32,
+    #[serde(default = "main_branch")]
+    #[schemars(length(min = 1))]
+    pub baseline: String,
+    #[serde(default)]
+    pub gate: Gate,
+    #[serde(default = "default_timeout_per_trial_ms")]
+    #[schemars(range(min = 1))]
+    pub timeout_per_trial_ms: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalDefinition {
+    #[schemars(length(min = 1), regex(pattern = r"^[a-z0-9][a-z0-9_-]*$"))]
+    pub name: String,
+    pub spec: EvalSpec,
+    pub updated_at: String,
+}
+
+fn main_branch() -> String {
+    "main".to_owned()
+}
+
 fn one_trial() -> u32 {
     1
 }
@@ -324,6 +362,7 @@ pub enum ApiErrorCode {
     DatasetNotFound,
     RevisionNotFound,
     RunNotFound,
+    EvalNotFound,
     RunClosed,
     UnknownCase,
     ContractVersion,

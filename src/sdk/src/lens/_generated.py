@@ -163,6 +163,7 @@ class ApiError(BaseModel):
         "dataset_not_found",
         "revision_not_found",
         "run_not_found",
+        "eval_not_found",
         "run_closed",
         "unknown_case",
         "contract_version",
@@ -230,6 +231,30 @@ class EvalRun(BaseModel):
     version: str
 
 
+class EvalSpec(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    agent: str = Field(..., min_length=1)
+    baseline: str = Field(default="main", min_length=1)
+    dataset_id: str = Field(..., min_length=1)
+    gate: Gate = Field(
+        default={
+            "cost_per_case": None,
+            "critical": 0,
+            "min": {},
+            "pass_rate": None,
+            "regressions": 0,
+        },
+        validate_default=True,
+    )
+    revision: int | None = Field(default=None, ge=1, le=18446744073709551615)
+    scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
+    timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
+    trials: int = Field(default=1, ge=1, le=10)
+
+
 class RunCase(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -240,3 +265,13 @@ class RunCase(BaseModel):
     passed: bool | None = None
     title: str
     trials: Sequence[TrialSteps]
+
+
+class EvalDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    name: str = Field(..., min_length=1, pattern="^[a-z0-9][a-z0-9_-]*$")
+    spec: EvalSpec
+    updated_at: str

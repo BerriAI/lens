@@ -15,8 +15,8 @@ use lens_contract::{
     CONTRACT_HEADER, CONTRACT_VERSION,
     auth::Role,
     eval::{
-        CaseResult, CreateEvalRun, EvalRun, ResolvedDataset, RunCase, RunStatus, Scorer,
-        ScorerCheck, ToolStep, TrialSteps,
+        CaseResult, CreateEvalRun, EvalDefinition, EvalRun, EvalSpec, ResolvedDataset, RunCase,
+        RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
     },
 };
 use litellm_storage_clickhouse::{
@@ -132,6 +132,11 @@ fn routers<R: SessionRepository + 'static>(
             .with_state(state.clone())
     };
     let api = Router::new()
+        .route("/lens/evals", get(definitions::<R>))
+        .route(
+            "/lens/evals/{name}",
+            get(definition::<R>).put(put_definition::<R>),
+        )
         .route("/lens/evals/runs", post(create::<R>).get(list::<R>))
         .route("/lens/evals/runs/{run}", get(read::<R>))
         .route(
@@ -191,14 +196,17 @@ fn parse_body<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, EvalApiE
         .map_err(|_| ApiError::InvalidRequest("body does not match the eval contract").into())
 }
 
+fn valid_eval_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.bytes().enumerate().all(|(index, character)| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || (index > 0 && matches!(character, b'_' | b'-'))
+        })
+}
+
 fn validate_create(request: &CreateEvalRun) -> Result<(), EvalApiError> {
-    let valid_name = request.eval.bytes().enumerate().all(|(index, character)| {
-        character.is_ascii_lowercase()
-            || character.is_ascii_digit()
-            || (index > 0 && matches!(character, b'_' | b'-'))
-    });
-    if request.eval.is_empty()
-        || !valid_name
+    if !valid_eval_name(&request.eval)
         || request.agent.trim().is_empty()
         || request.version.trim().is_empty()
         || request.branch.trim().is_empty()
@@ -256,6 +264,42 @@ async fn create<R: SessionRepository>(
         .create(&team.0, request, cases, key, &state.public_url, Utc::now())
         .await?;
     Ok((StatusCode::CREATED, Json(stored.run)).into_response())
+}
+
+async fn definitions<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+) -> Result<Json<Vec<EvalDefinition>>, EvalApiError> {
+    Ok(Json(state.store.definitions(&team.0).await?))
+}
+
+async fn definition<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+    Path(name): Path<String>,
+) -> Result<Json<EvalDefinition>, EvalApiError> {
+    Ok(Json(state.store.definition(&team.0, &name).await?))
+}
+
+async fn put_definition<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<Json<EvalDefinition>, EvalApiError> {
+    if !valid_eval_name(&name) || name == "runs" {
+        return Err(ApiError::InvalidRequest("eval name must match ^[a-z0-9][a-z0-9_-]*$").into());
+    }
+    let spec: EvalSpec = parse_body(&body)?;
+    if spec.scorers.is_empty() || spec.trials == 0 || spec.trials > 10 {
+        return Err(ApiError::InvalidRequest("an eval needs scorers and 1 to 10 trials").into());
+    }
+    Ok(Json(
+        state
+            .store
+            .put_definition(&team.0, &name, spec, Utc::now())
+            .await?,
+    ))
 }
 
 async fn result<R: SessionRepository>(

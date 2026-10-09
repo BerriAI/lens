@@ -21,6 +21,7 @@
         "dataset_not_found",
         "revision_not_found",
         "run_not_found",
+        "eval_not_found",
         "run_closed",
         "unknown_case",
         "contract_version",
@@ -212,6 +213,28 @@
       ],
       "type": "object"
     },
+    "EvalDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "type": "string"
+        },
+        "spec": {
+          "$ref": "#/$defs/EvalSpec"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "spec",
+        "updated_at"
+      ],
+      "type": "object"
+    },
     "EvalRun": {
       "additionalProperties": false,
       "properties": {
@@ -280,6 +303,69 @@
         "url",
         "expected_trials",
         "received_trials"
+      ],
+      "type": "object"
+    },
+    "EvalSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "baseline": {
+          "default": "main",
+          "minLength": 1,
+          "type": "string"
+        },
+        "dataset_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "gate": {
+          "$ref": "#/$defs/Gate",
+          "default": {
+            "cost_per_case": null,
+            "critical": 0,
+            "min": {},
+            "pass_rate": null,
+            "regressions": 0
+          }
+        },
+        "revision": {
+          "default": null,
+          "format": "uint64",
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "scorers": {
+          "items": {
+            "$ref": "#/$defs/Scorer"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "timeout_per_trial_ms": {
+          "default": 1200000,
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "trials": {
+          "default": 1,
+          "format": "uint32",
+          "maximum": 10,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "dataset_id",
+        "scorers"
       ],
       "type": "object"
     },

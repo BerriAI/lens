@@ -1,4 +1,8 @@
-WITH eval_call_keys AS (
+WITH eval_traces AS (
+    SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+    WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+      AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
+), eval_call_keys AS (
     SELECT TeamId, ApiKeyHash,
         arrayJoin(if(empty(CallKeys),
             if(LiteLLMRequestId='', [], [concat('provider_response:', LiteLLMRequestId)]),

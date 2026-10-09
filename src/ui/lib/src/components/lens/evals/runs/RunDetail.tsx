@@ -15,7 +15,6 @@ import type { CaseDiff, EvalRun, Summary } from "./types";
 
 export interface RunDetailProps {
   readonly runId: string;
-  readonly datasetId: string;
   readonly caseId: string | null;
   readonly onBack: () => void;
   readonly onOpenCase: (caseId: string | null) => void;

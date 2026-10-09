@@ -71,6 +71,36 @@ export interface RunCase {
   readonly trials: readonly TrialSteps[];
 }
 
+export type Scorer =
+  | { readonly kind: "task_completed" }
+  | { readonly kind: "called_before"; readonly first: string; readonly then: string }
+  | { readonly kind: "judge"; readonly prompt: string; readonly model?: string };
+
+export interface Gate {
+  readonly regressions?: number | null;
+  readonly critical?: number | null;
+  readonly pass_rate?: number | null;
+  readonly cost_per_case?: number | null;
+  readonly min?: Readonly<Record<string, number>>;
+}
+
+export interface EvalSpec {
+  readonly agent: string;
+  readonly dataset_id: string;
+  readonly revision?: number | null;
+  readonly scorers: readonly Scorer[];
+  readonly trials?: number;
+  readonly baseline?: string;
+  readonly gate?: Gate;
+  readonly timeout_per_trial_ms?: number;
+}
+
+export interface EvalDefinition {
+  readonly name: string;
+  readonly spec: Required<Omit<EvalSpec, "revision">> & { readonly revision: number | null };
+  readonly updated_at: string;
+}
+
 export interface EvalRunFilter {
   readonly eval?: string;
   readonly agent?: string;

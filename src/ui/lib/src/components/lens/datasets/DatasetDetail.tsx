@@ -11,7 +11,7 @@ import {
 import { Button } from "../../ui/button";
 import { StateMessage } from "../../shared/StateMessage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
-import { useDatasetRoute, useEvalRunRoute } from "../route";
+import { useDatasetRoute } from "../route";
 import { IdChip } from "../traces/ui/IdChip";
 import {
   isRevisionConflict,
@@ -27,7 +27,6 @@ import {
   type CaseEdit,
   type CaseEdits,
 } from "./caseView";
-import { RunsTab } from "./runs/RunsTab";
 import type { Dataset } from "./types";
 
 export interface DatasetDetailProps {
@@ -110,7 +109,6 @@ function DatasetRevision(props: DatasetRevisionProps) {
     onReload,
   } = props;
   const { caseId, setCaseId } = useDatasetRoute();
-  const { datasetTab, setDatasetTab } = useEvalRunRoute();
   const [edits, setEdits] = useState<CaseEdits>({});
   const save = useSaveRevision();
   const exportDataset = useExportDataset();
@@ -201,8 +199,7 @@ function DatasetRevision(props: DatasetRevisionProps) {
         </div>
       </header>
       <Tabs
-        value={datasetTab}
-        onValueChange={setDatasetTab}
+        value="cases"
         className="min-h-0 flex-1 gap-0"
       >
         <div className="shrink-0 border-b px-3 sm:px-4">
@@ -214,19 +211,8 @@ function DatasetRevision(props: DatasetRevisionProps) {
             <TabsTrigger value="cases" className="flex-none px-0 text-sm">
               Cases
             </TabsTrigger>
-            <TabsTrigger value="runs" className="flex-none px-0 text-sm">
-              Runs
-            </TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value="runs" className="min-h-0 overflow-y-auto">
-          <RunsTab
-            datasetId={dataset.id}
-            datasetName={dataset.name}
-            revision={dataset.revision}
-            agentName={dataset.agent_name}
-          />
-        </TabsContent>
         <TabsContent value="cases" className="flex min-h-0 flex-col">
           <SaveProblem
             error={save.error ?? exportDataset.error}

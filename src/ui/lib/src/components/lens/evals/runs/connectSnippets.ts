@@ -1,8 +1,34 @@
+import type { EvalDefinition, Scorer } from "./types";
+
 export interface ConnectTarget {
-  readonly agent: string;
+  readonly definition: EvalDefinition;
   readonly dataset: string;
   readonly revision: number;
   readonly baseUrl: string;
+}
+
+const pyString = (value: string) => JSON.stringify(value);
+
+function scorerCall(scorer: Scorer): string {
+  switch (scorer.kind) {
+    case "task_completed":
+      return "scorers.task_completed()";
+    case "called_before":
+      return `scorers.called_before(${pyString(scorer.first)}, ${pyString(scorer.then)})`;
+    case "judge":
+      return `judge(${pyString(scorer.prompt)})`;
+  }
+}
+
+function gateCall(definition: EvalDefinition): string {
+  const gate = definition.spec.gate;
+  const fields = [
+    ["regressions", gate.regressions],
+    ["critical", gate.critical],
+    ["pass_rate", gate.pass_rate],
+    ["cost_per_case", gate.cost_per_case],
+  ].filter(([, value]) => value !== null && value !== undefined);
+  return `Gate(${fields.map(([key, value]) => `${key}=${value}`).join(", ")})`;
 }
 
 const ACTION =
@@ -46,14 +72,16 @@ export function pyprojectSnippet(target: ConnectTarget): string {
 dev = ["lens-evals"]
 
 [tool.lens]
-project = ${JSON.stringify(target.agent)}
+project = ${JSON.stringify(target.definition.spec.agent)}
 evals = "evals/"
 base_url = ${JSON.stringify(target.baseUrl)}
 `;
 }
 
 export function evalSnippet(target: ConnectTarget): string {
-  return `from lens import Eval, Gate, Run, scorers
+  const { definition } = target;
+  const uses = definition.spec.scorers.some((scorer) => scorer.kind === "judge");
+  return `from lens import Eval, Gate, Run, ${uses ? "judge, " : ""}scorers
 
 
 async def task(case):
@@ -62,12 +90,13 @@ async def task(case):
 
 
 evaluation = Eval(
-    ${JSON.stringify(target.agent)},
+    ${pyString(definition.name)},
     task=task,
     data="${target.dataset}@${target.revision}",
-    scores=[scorers.task_completed()],
-    baseline="main",
-    gate=Gate(regressions=0, critical=0),
+    scores=[${definition.spec.scorers.map(scorerCall).join(", ")}],
+    baseline=${pyString(definition.spec.baseline)},
+    trials=${definition.spec.trials},
+    gate=${gateCall(definition)},
 )
 `;
 }

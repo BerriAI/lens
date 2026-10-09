@@ -3,7 +3,7 @@ mod support;
 
 use axum::http::HeaderValue;
 use chrono::Utc;
-use lens_contract::eval::{ApiError, ApiErrorCode, EvalRun, RunStatus};
+use lens_contract::eval::{ApiError, ApiErrorCode, EvalDefinition, EvalRun, RunStatus};
 use rstest::rstest;
 use serde_json::{Value, json};
 use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_app, request};
@@ -714,4 +714,127 @@ async fn should_reject_results_for_cases_outside_the_selected_subset(
         body::<ApiError>(response).await.code,
         ApiErrorCode::UnknownCase
     );
+}
+
+fn spec(trials: u32) -> Value {
+    json!({
+        "agent": "moyai",
+        "dataset_id": "dataset-1",
+        "scorers": [{"kind": "task_completed"}, {"kind": "called_before", "first": "run_tests", "then": "open_pr"}],
+        "trials": trials,
+        "gate": {"regressions": 0, "pass_rate": 0.9},
+    })
+}
+
+#[rstest]
+#[tokio::test]
+async fn should_store_eval_definitions_per_team_and_update_in_place(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let put = |team: &str, trials: u32| {
+        request(
+            "PUT",
+            "/lens/evals/agent-regressions",
+            team,
+            Some(spec(trials)),
+        )
+    };
+    let first = eval_fixture
+        .app
+        .clone()
+        .oneshot(put("team-a", 3))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), 200);
+    let first: EvalDefinition = body(first).await;
+    let repeat: EvalDefinition = body(
+        eval_fixture
+            .app
+            .clone()
+            .oneshot(put("team-a", 3))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(repeat, first);
+    let updated: EvalDefinition = body(
+        eval_fixture
+            .app
+            .clone()
+            .oneshot(put("team-a", 5))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(updated.spec.trials, 5);
+    assert_eq!(updated.spec.baseline, "main");
+    assert_eq!(updated.spec.revision, None);
+
+    let read: EvalDefinition = body(
+        eval_fixture
+            .app
+            .clone()
+            .oneshot(request(
+                "GET",
+                "/lens/evals/agent-regressions",
+                "team-a",
+                None,
+            ))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(read, updated);
+    let listed: Vec<EvalDefinition> = body(
+        eval_fixture
+            .app
+            .clone()
+            .oneshot(request("GET", "/lens/evals", "team-a", None))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(listed, vec![updated]);
+
+    let other = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            "/lens/evals/agent-regressions",
+            "team-b",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(other.status(), 404);
+    let error: ApiError = body(other).await;
+    assert_eq!(error.code, ApiErrorCode::EvalNotFound);
+}
+
+#[rstest]
+#[case::reserved("runs", spec(1), 405)]
+#[case::uppercase("Agent", spec(1), 422)]
+#[case::no_scorers("agent", json!({"agent": "moyai", "dataset_id": "dataset-1", "scorers": []}), 422)]
+#[case::too_many_trials("agent", spec(11), 422)]
+#[case::unknown_field("agent", json!({"agent": "moyai", "dataset_id": "d", "scorers": [{"kind": "task_completed"}], "extra": 1}), 422)]
+#[tokio::test]
+async fn should_reject_invalid_eval_definitions(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] name: &str,
+    #[case] payload: Value,
+    #[case] status: u16,
+) {
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "PUT",
+            &format!("/lens/evals/{name}"),
+            "team-a",
+            Some(payload),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), status);
 }

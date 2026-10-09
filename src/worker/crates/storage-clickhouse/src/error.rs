@@ -4,6 +4,8 @@ pub enum EvalError {
     Storage(#[from] Error),
     #[error("eval run was not found")]
     RunNotFound,
+    #[error("eval was not found")]
+    EvalNotFound,
     #[error("eval run is closed")]
     RunClosed,
     #[error("case does not belong to this eval run")]

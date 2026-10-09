@@ -1,3 +1,4 @@
+mod definitions;
 mod records;
 mod scoring;
 
@@ -72,9 +73,9 @@ impl EvalStore {
                 branch: request.branch.clone(),
                 pr: request.pr,
                 url: format!(
-                    "{}/ui/?tab=datasets&dataset={}&dataset_tab=runs&eval_run={id}",
+                    "{}/ui/?tab=evals&eval={}&eval_run={id}",
                     public_url.trim_end_matches('/'),
-                    utf8_percent_encode(&request.dataset_id, QUERY_VALUE),
+                    utf8_percent_encode(&request.eval, QUERY_VALUE),
                 ),
                 expected_trials: cases.len() as u64 * u64::from(request.trials),
                 received_trials: 0,
