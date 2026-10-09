@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-10-09T19:52:35.926992+00:00",
+  "checked_at_utc": "2026-10-09T20:13:24.470856+00:00",
   "constraint": "All implementation changes must be directly Lens-related and restricted to code added on or after September 30, 2026. Do not fix pre-existing bugs or upgrade unrelated versions.",
   "cutoff": "2026-09-30T00:00:00-07:00",
   "method": "Default git blame on exact PR merge-base, no cross-file copy or whitespace/move heuristics. Count modified/deleted lines in rename-aware diff. Committer time tracks addition to repository history; author dates retained separately. New additions are audited semantically separately.",
@@ -7,7 +7,7 @@
     {
       "repository": "litellm-lens-host",
       "base": "a3236ba9479e32ee914d43f12082f4423403e3ca",
-      "candidate": "54fc98775be55ba0b09ae550200b5dd671ce975c",
+      "candidate": "8d64ce69e323ccad4981553c0d29b931970f662f",
       "history_complete": true,
       "files_with_removed_or_modified_lines": 642,
       "pre_cutoff_lines": 457,
@@ -33,7 +33,7 @@
     {
       "repository": "project-releaser",
       "base": "0903cc12133d35144d33916efcd779db5d2e6e7a",
-      "candidate": "0bdcf1aaad99f6d7c75bc0bfbfcf0decd8a3fcb9",
+      "candidate": "b4791f7fefb61a1186859fbd8df9c66cb0f999cc",
       "history_complete": true,
       "files_with_removed_or_modified_lines": 4,
       "pre_cutoff_lines": 0,
@@ -90,15 +90,15 @@
     "typescript": "414 older-attributed lines are in generated API types. Changed endpoint paths are all under /lens. The removed Lens Result name also changes generated result-schema naming; the provider Result-Output shape is retained as Result. ServiceStatus adds the Lens public contract field."
   },
   "checks": {
-    "host": "make check passed after restoring older prose and lint suppression",
-    "publisher": "2666 tests passed at 0bdcf1a; 100% statement and branch coverage, Ruff and strict mypy. Lens import isolation is step-scoped. Actionlint passed.",
+    "host": "86 Lens adapter/internal-auth/remote-trace tests and make check passed at 8d64ce69e323ccad4981553c0d29b931970f662f; real loopback buffering-pressure and recovery check passed. Generated API output did not change.",
+    "publisher": "2679 tests passed at b4791f7fefb61a1186859fbd8df9c66cb0f999cc; 100% statement and branch coverage, Ruff, strict mypy and Actionlint. Current-head GitHub strict checks and zizmor passed; native Rust CI remains pending.",
     "examples": "Both actual SDK subprocess examples exported OTLP spans with the Lens credential and made no unexpected external connections; restoring the old initializer failed",
     "docs": "17 imported guides now point at examples a2294277609202247b71c08d7b491f5212809988; seven importer tests and the changed guide writing check passed",
     "selected_ui": "A clean gateway checkout at 76463da70d5942c5be579ef4cc9e0dfe69d6b439 consumed Lens 577f468021450e910c87f3d9c22ffd16960378c9, passed npm ci --ignore-scripts and the production dashboard build. Four mutations were rejected: wrong source SHA, changed packed bytes, third-party dependency changes, installation hooks."
   },
   "remaining": "The selected UI builder is ready but combined stage/chart/promotion orchestration remains incomplete. Current-tip CI and refreshed reviews remain separate gates. No official release or deployed service changed.",
   "upstream_main_notice": {
-    "commit": "932fcf6d",
-    "change": "Collaborator GitHub eval and onboarding work merged during this audit. The scope documentation was rebased without altering those changes. Earlier product/UI qualification remains pinned to Lens577; this audit does not claim product qualification of the new upstream feature."
+    "commit": "7cac31cc538da853344ee2c064a11e4e74c95436",
+    "change": "Collaborator GitHub eval/onboarding work and named SDK eval support are now on main. These follow-up receipts do not relabel earlier Lens577 runtime/browser qualification as current-main evidence."
   }
 }

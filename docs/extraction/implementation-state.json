@@ -2643,13 +2643,16 @@
   "latest_follow_up_evidence": "docs/extraction/evidence/review-follow-up-qualification.json",
   "latest_boundary_review_evidence": "docs/extraction/evidence/fable-boundary-review.json",
   "latest_follow_up": {
-    "recorded_at_utc": "2026-10-09T19:45:49.868616+00:00",
-    "publisher": "0bdcf1aaad99f6d7c75bc0bfbfcf0decd8a3fcb9",
-    "host": "54fc98775be55ba0b09ae550200b5dd671ce975c",
+    "recorded_at_utc": "2026-10-09T20:13:24.470856+00:00",
+    "publisher": "b4791f7fefb61a1186859fbd8df9c66cb0f999cc",
+    "host": "8d64ce69e323ccad4981553c0d29b931970f662f",
     "examples": "a2294277609202247b71c08d7b491f5212809988",
     "docs": "624de144357a20219430327bd87e6e0b0c3a8542",
     "selected_ui_builder": "Implemented and tested; full combined source/artifact orchestration remains open",
     "scope_audit": "docs/extraction/evidence/scope-september30.json",
-    "upstream_lens_main_requires_final_qualification": "932fcf6d, collaborator GitHub eval/onboarding merge; earlier receipts retain their actual Lens577 source"
-  }
+    "upstream_lens_main_requires_final_qualification": "7cac31cc538da853344ee2c064a11e4e74c95436; GitHub eval/onboarding and named SDK eval additions are not covered by the historical Lens577 product receipt",
+    "native_lens_build": "Reusable frozen-source native builder implemented; combined stage/chart/promotion remains open",
+    "lens_forwarding_buffers": "Bounded and qualified; see scoped-release-followup.json"
+  },
+  "latest_scope_followup_evidence": "docs/extraction/evidence/scoped-release-followup.json"
 }
