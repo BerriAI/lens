@@ -12,6 +12,7 @@ import { filterRuns } from "./runSearch/runQuery";
 import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 
 import { AgentTracesSection } from "./AgentTracesSection";
+import { projectSetupPrompt } from "../../onboarding/tracing/TracingSetupCard";
 import type { TraceFeedbackSummary, TraceFindingCount, TracePage, TraceSummary } from "../types";
 
 vi.mock("../../../../lib/http/requests", () => ({
@@ -204,26 +205,26 @@ describe("AgentTracesSection", () => {
     expect(screen.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
   });
 
-  it("should copy setup commands directly while keeping connection details collapsed", async () => {
+  it("should copy shared setup instructions while keeping connection details collapsed", async () => {
     const user = userEvent.setup();
     vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
     renderSection();
 
     const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
     expect(waiting.getByRole("status")).toHaveTextContent("Waiting for traces");
-    const copy = await waiting.findByRole("button", { name: "Copy setup command" });
+    const copy = await waiting.findByRole("button", { name: "Copy setup instructions" });
     expect(copy).toBeVisible();
-    expect(waiting.getByRole("tab", { name: "Claude Code", selected: true })).toBeVisible();
+    expect(waiting.getByText("Claude Code")).toBeVisible();
+    expect(waiting.getByText("Codex")).toBeVisible();
+    expect(waiting.getByRole("img", { name: "Claude Code logo" })).toBeVisible();
+    expect(waiting.getByRole("img", { name: "Codex logo" })).toBeVisible();
+    expect(waiting.queryByRole("tab", { name: /Claude Code|Codex/ })).not.toBeInTheDocument();
     expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
     expect(waiting.getByText("Ask your Lens administrator for a dedicated tracing key.")).not.toBeVisible();
     await user.click(copy);
-    const claudeCommand = await navigator.clipboard.readText();
-    expect(claudeCommand).toMatch(/^claude /);
-    expect(claudeCommand).toContain(`${readyService.url}/v1/traces`);
-    expect(claudeCommand).not.toContain("sk-test");
-    await user.click(waiting.getByRole("tab", { name: "Codex" }));
-    await user.click(waiting.getByRole("button", { name: "Copy setup command" }));
-    expect(await navigator.clipboard.readText()).toBe(claudeCommand.replace(/^claude /, "codex "));
+    const instructions = await navigator.clipboard.readText();
+    expect(instructions).toBe(projectSetupPrompt(readyService.url));
+    expect(instructions).not.toContain("sk-test");
     expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
     expect(waiting.queryByRole("alert")).not.toBeInTheDocument();
     expect(waiting.queryByRole("button", { name: "Set up manually" })).not.toBeInTheDocument();

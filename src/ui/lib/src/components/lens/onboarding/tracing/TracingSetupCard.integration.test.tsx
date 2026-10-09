@@ -5,7 +5,6 @@ import { chooseSelectOption, renderWithProviders, testQueryClient } from "../../
 import { copyToClipboard } from "../../../../utils/dataUtils";
 import { agentTraceCall, apiClient } from "../../../../lib/http/requests";
 import {
-  codingAgentCommand,
   codingAgentPrompt,
   maskSecret,
   projectSetupPrompt,
@@ -96,7 +95,7 @@ describe("TracingSetupCard", () => {
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
   });
 
-  it("builds the coding agent command for the selected framework and keeps both manual installers", async () => {
+  it("should copy shared instructions for the selected framework and keep both manual installers", async () => {
     const user = userEvent.setup();
     await renderCard();
     await chooseSelectOption(user, screen.getByRole("combobox", { name: "Your agent framework" }), "CrewAI");
@@ -106,15 +105,12 @@ describe("TracingSetupCard", () => {
       FRAMEWORKS.find((guide) => guide.id === "crewai")!,
       "openai/gpt-6.1-sol",
     );
-    expect(screen.getByText(/^claude /)).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Copy setup command" }));
-    expect(copyToClipboard).toHaveBeenLastCalledWith(codingAgentCommand("Claude Code", prompt));
-    await user.click(screen.getByRole("tab", { name: "Codex" }));
-    await user.click(screen.getByRole("button", { name: "Copy setup command" }));
-    expect(copyToClipboard).toHaveBeenLastCalledWith(codingAgentCommand("Codex", prompt));
-    await user.click(screen.getByText("View command"));
-    expect(screen.getByText(/^codex /)).toBeVisible();
-    expect(screen.getByText(/^codex /)).toHaveTextContent(codingAgentCommand("Codex", prompt), {
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Copy setup instructions" }));
+    expect(copyToClipboard).toHaveBeenLastCalledWith(prompt);
+    await user.click(screen.getByText("View instructions"));
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).toBeVisible();
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).toHaveTextContent(prompt, {
       normalizeWhitespace: false,
     });
 
@@ -340,15 +336,6 @@ describe("setup snippets", () => {
     expect(prompt).toContain("Report configuration or credential gaps instead of claiming success");
   });
 
-  it.each(["Claude Code", "Codex"] as const)("should quote the complete project prompt for %s", (agent) => {
-    const prompt = projectSetupPrompt("https://traces.test/team's/$(literal)");
-    const command = codingAgentCommand(agent, prompt);
-    expect(command.startsWith(`${agent === "Claude Code" ? "claude" : "codex"} '`)).toBe(true);
-    expect(command).toContain("Connect this project'\\''s agent traces");
-    expect(command).toContain("team'\\''s/$(literal)/v1/traces");
-    expect(command.endsWith("'")).toBe(true);
-  });
-
   it("uses the instance trace endpoint and keeps tracing and inference keys separate", () => {
     const env = tracingEnvSnippet("https://traces.test");
     expect(env).toContain('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://traces.test/v1/traces"');
@@ -366,11 +353,6 @@ describe("setup snippets", () => {
     expect(prompt).toContain('AGENT_NAME = "research_agent"');
     expect(prompt).toContain("name=AGENT_NAME");
     expect(prompt).toContain("Lens > Traces");
-  });
-
-  it("builds a shell-safe command for each coding agent", () => {
-    expect(codingAgentCommand("Claude Code", "it's")).toBe("claude 'it'\\''s'");
-    expect(codingAgentCommand("Codex", "go")).toBe("codex 'go'");
   });
 
   it("masks secrets but keeps a recognisable prefix and suffix", () => {

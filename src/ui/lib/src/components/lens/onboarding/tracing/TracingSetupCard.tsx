@@ -12,8 +12,8 @@ import { Button } from "../../../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 import { copyToClipboard } from "../../../../utils/dataUtils";
 
-import anthropicLogo from "../../../../../public/assets/logos/anthropic.svg";
-import openaiLogo from "../../../../../public/assets/logos/openai_small.svg";
+import claudeCodeLogo from "../../../../../public/assets/logos/claude-code.svg";
+import codexLogo from "../../../../../public/assets/logos/codex.svg";
 import otelLogo from "../../../../../public/assets/logos/opentelemetry.svg";
 import { agentTraceCall, apiClient, getProxyBaseUrl } from "../../../../lib/http/requests";
 import { ActiveDot } from "../../traces/ui/ActiveDot";
@@ -38,7 +38,6 @@ export const TRACING_KEY_REQUEST = { name: "Agent tracing" } as const;
 const SAMPLE_TRACE_POLL_ATTEMPTS = 15;
 
 type Installer = "pip" | "uv";
-type CodingAgent = "Claude Code" | "Codex";
 
 const PY_INSTALL: Record<Installer, (packages: string) => string> = {
   pip: (packages) => `pip install ${packages}`,
@@ -79,11 +78,6 @@ export const codingAgentPrompt = (
   ]
     .filter(Boolean)
     .join("\n\n");
-
-const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
-
-export const codingAgentCommand = (agent: CodingAgent, prompt: string): string =>
-  `${agent === "Claude Code" ? "claude" : "codex"} ${shellQuote(prompt)}`;
 
 export const projectSetupPrompt = (traceUrl: string): string =>
   [
@@ -434,11 +428,6 @@ export function Endpoints({ proxyUrl, children }: { proxyUrl: string; children?:
   );
 }
 
-const CODING_AGENT_LOGOS: Record<CodingAgent, string> = {
-  "Claude Code": anthropicLogo.src,
-  Codex: openaiLogo.src,
-};
-
 function setupTitle(enabled: boolean, connected: boolean) {
   if (!enabled) return "Set up Lens";
   return connected ? "Connect another agent" : "Connect your agent";
@@ -557,15 +546,13 @@ export function CodingAgentSetup({
   model?: string;
 }) {
   const standalone = useLensHost().surface === "standalone";
-  const [codingAgent, setCodingAgent] = useState<CodingAgent>("Claude Code");
   const [copied, setCopied] = useState<string | null>(null);
-  const command = codingAgentCommand(
-    codingAgent,
-    guide ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone) : projectSetupPrompt(traceUrl),
-  );
+  const instructions = guide
+    ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone)
+    : projectSetupPrompt(traceUrl);
   useTimeout(() => setCopied(null), copied === null ? null : COPIED_RESET_MS);
   const copy = async () => {
-    if (await copyToClipboard(command)) setCopied(command);
+    if (await copyToClipboard(instructions)) setCopied(instructions);
   };
   return (
     <section className="mt-6" aria-labelledby="connect-project">
@@ -573,40 +560,32 @@ export function CodingAgentSetup({
         Connect your project
       </h3>
       <div className="mt-3 overflow-hidden rounded-md border">
-        <div className="border-b bg-muted/30 px-4">
-          <LineTabs
-            value={codingAgent}
-            options={["Claude Code", "Codex"]}
-            onChange={(value) => {
-              setCodingAgent(value);
-              setCopied(null);
-            }}
-            logos={CODING_AGENT_LOGOS}
-          />
+        <div className="flex flex-wrap items-center gap-5 border-b bg-muted/30 px-4 py-3">
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            <img src={claudeCodeLogo.src} alt="Claude Code logo" className="size-6 object-contain" />
+            Claude Code
+          </span>
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            <img src={codexLogo.src} alt="Codex logo" className="size-5 object-contain dark:invert" />
+            Codex
+          </span>
         </div>
         <div className="p-4">
           <p className="text-sm leading-6 text-muted-foreground">
-            {guide ? (
-              <>
-                Run the setup command in your agent’s project. It uses{" "}
-                <code className="text-xs">LITELLM_TRACING_KEY</code> for traces and keeps your model key separate.
-              </>
-            ) : (
-              "Run this command in your project. Your coding agent will detect its tracing setup and connect it to Lens."
-            )}
+            Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens.
           </p>
           <Button className="mt-3" onClick={() => void copy()}>
-            {copied === command ? (
+            {copied === instructions ? (
               <Check aria-hidden="true" className="size-4" />
             ) : (
               <Copy aria-hidden="true" className="size-4" />
             )}
-            {copied === command ? "Copied" : "Copy setup command"}
+            {copied === instructions ? "Copied" : "Copy setup instructions"}
           </Button>
           <details className="mt-3">
-            <summary className="w-fit cursor-pointer text-xs text-muted-foreground">View command</summary>
+            <summary className="w-fit cursor-pointer text-xs text-muted-foreground">View instructions</summary>
             <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-5">
-              <code>{command}</code>
+              <code>{instructions}</code>
             </pre>
           </details>
         </div>
