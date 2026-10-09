@@ -97,4 +97,4 @@ Use [Back up and restore Lens](../../docs/backup.md) before changing a persisten
 | Setup says no analysis provider is configured | Tracing can still work. Follow the [analysis guide](../../docs/analysis.md) to enable investigations |
 | Login works locally but not through the public hostname | Check that `LENS_PUBLIC_URL` matches the browser origin and that your proxy forwards HTTPS correctly |
 
-Lens and LiteLLM release independently. Follow the [migration guide](../../docs/migration.md) to transfer existing Lens data
+Official paired Lens and LiteLLM releases share a version and are tested together. Lens can still be installed and operated on its own. Follow the [migration guide](../../docs/migration.md) to transfer existing Lens data
