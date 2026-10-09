@@ -36,9 +36,40 @@ jobs:
       - name: Run Clippy
         working-directory: src/worker
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Start shared ClickHouse state fixture
+        run: |
+          set -euo pipefail
+          docker run --detach --name lens-rust-state \
+            --publish 127.0.0.1::8123 \
+            --env CLICKHOUSE_SKIP_USER_SETUP=1 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/src/worker/crates/storage-clickhouse/tests/state/fixtures/keeper.xml,target=/etc/clickhouse-server/config.d/lens-keeper.xml,readonly" \
+            clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
+          ready=false
+          for attempt in {1..60}; do
+            if docker exec lens-rust-state clickhouse-client \
+              --query "SELECT count() FROM system.zookeeper WHERE path = '/'" >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            echo 'ClickHouse and Keeper did not become ready'
+            exit 1
+          fi
+          printf 'CLICKHOUSE_STATE_TEST_URL=http://%s\n' "$(docker port lens-rust-state 8123/tcp)" >> "$GITHUB_ENV"
       - name: Run tests
         working-directory: src/worker
         run: cargo test --locked --workspace -- --test-threads=2
+      - name: Diagnose failed tests
+        if: failure()
+        run: |
+          docker inspect --format '{{json .State}}' lens-rust-state || true
+          docker logs --tail 200 lens-rust-state || true
+          docker exec lens-rust-state tail -n 200 /var/log/clickhouse-server/clickhouse-server.err.log || true
+      - name: Remove shared state fixture
+        if: always()
+        run: docker rm --force --volumes lens-rust-state || true
 
   worker-ui-contract:
     runs-on: ubuntu-latest

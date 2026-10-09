@@ -12,7 +12,6 @@ import { filterRuns } from "./runSearch/runQuery";
 import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 
 import { AgentTracesSection } from "./AgentTracesSection";
-import { projectSetupPrompt } from "../../onboarding/tracing/TracingSetupCard";
 import type { TraceFeedbackSummary, TraceFindingCount, TracePage, TraceSummary } from "../types";
 
 vi.mock("../../../../lib/http/requests", () => ({
@@ -205,41 +204,30 @@ describe("AgentTracesSection", () => {
     expect(screen.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
   });
 
-  it("should copy shared setup instructions while keeping connection details collapsed", async () => {
-    const user = userEvent.setup();
+  it("should keep the empty trace view focused on connection status", async () => {
     vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
     renderSection();
 
     const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
     expect(waiting.getByRole("status")).toHaveTextContent("Waiting for traces");
-    const copy = await waiting.findByRole("button", { name: "Copy setup instructions" });
-    expect(copy).toBeVisible();
-    expect(waiting.getByText("Claude Code")).toBeVisible();
-    expect(waiting.getByText("Codex")).toBeVisible();
-    expect(waiting.getByRole("img", { name: "Claude Code logo" })).toBeVisible();
-    expect(waiting.getByRole("img", { name: "Codex logo" })).toBeVisible();
-    expect(waiting.queryByRole("tab", { name: /Claude Code|Codex/ })).not.toBeInTheDocument();
-    expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
-    expect(waiting.getByText("Ask your Lens administrator for a dedicated tracing key.")).not.toBeVisible();
-    await user.click(copy);
-    const instructions = await navigator.clipboard.readText();
-    expect(instructions).toBe(projectSetupPrompt(readyService.url));
-    expect(instructions).not.toContain("sk-test");
-    expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
+    expect(waiting.getByRole("heading", { name: "Connect your project to see its traces" })).toBeVisible();
+    expect(waiting.getByRole("button", { name: "Check for traces" })).toBeEnabled();
+    expect(waiting.queryByRole("button", { name: "Copy setup instructions" })).not.toBeInTheDocument();
+    expect(waiting.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
     expect(waiting.queryByRole("alert")).not.toBeInTheDocument();
     expect(waiting.queryByRole("button", { name: "Set up manually" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
   });
 
-  it("should open the agent connection flow when requested from the waiting state", async () => {
+  it("should open project connection from the waiting state", async () => {
     const user = userEvent.setup();
     const onConnectAgent = vi.fn();
     vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
     renderWithProviders(<AgentTracesPage accessToken="sk-test" isActive onConnectAgent={onConnectAgent} />);
 
     const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
-    await user.click(waiting.getByRole("button", { name: "Set up manually" }));
+    await user.click(waiting.getByRole("button", { name: "Connect project" }));
     expect(onConnectAgent).toHaveBeenCalledOnce();
     expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
   });
@@ -252,7 +240,7 @@ describe("AgentTracesSection", () => {
     expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     expect(apiClient.get).toHaveBeenCalledWith("/v1/traces", { accessToken: "sk-test", query: { start_ms: 0 } });
-    fireEvent.click(screen.getByRole("button", { name: "Set up tracing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect project" }));
     expect(await screen.findByRole("heading", { name: "Connect another agent" })).toBeVisible();
   });
 
@@ -740,7 +728,7 @@ describe("AgentTracesPage", () => {
     expect(screen.queryByRole("combobox", { name: "Filter traces by agent" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Filter traces by status" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("button", { name: "Refresh traces" })).toBeEnabled());
-    expect(screen.getByRole("button", { name: "Set up tracing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect project" })).toBeEnabled();
 
     fireEvent.click(trigger);
     fireEvent.click(await screen.findByRole("menuitemradio", { name: "Last 7 days" }));
@@ -756,13 +744,13 @@ describe("AgentTracesPage", () => {
     expect(trigger).not.toHaveTextContent("Last 7 days");
 
     await waitFor(() => expect(vi.mocked(agentTraceListCall).mock.calls.at(-1)?.[0].endMs).toBe(pausedAt));
-    expect(screen.getByRole("button", { name: "Set up tracing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect project" })).toBeEnabled();
     await waitFor(() => expect(screen.getByRole("button", { name: "Refresh traces" })).toBeEnabled());
 
     fireEvent.click(live);
     await waitFor(() => expect(live).toHaveAttribute("aria-pressed", "true"));
     expect(trigger).toHaveTextContent("Last 7 days");
-    expect(screen.getByRole("button", { name: "Set up tracing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect project" })).toBeEnabled();
   });
 
   it("keeps the time controls on an empty range the user picked, instead of showing onboarding", async () => {

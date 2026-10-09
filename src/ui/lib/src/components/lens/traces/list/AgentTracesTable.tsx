@@ -336,7 +336,7 @@ function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetU
       <div className="flex items-center justify-center gap-3 py-16 text-xs text-muted-foreground">
         <span>No runs match these filters.</span>
         <Button size="xs" variant="outline" onClick={onSetUpTracing}>
-          Set up tracing
+          Connect project
         </Button>
       </div>
     );
@@ -345,7 +345,7 @@ function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetU
       <p className="text-sm font-medium">No runs in this time range</p>
       <p className="text-xs text-muted-foreground">Connect an agent to start sending traces.</p>
       <Button size="sm" className="mt-3" onClick={onSetUpTracing}>
-        Set up tracing
+        Connect project
       </Button>
     </div>
   );

@@ -54,6 +54,17 @@ const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: pars
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
+const CONNECT_PROJECT_PARSERS = {
+  connect_agent: parseAsString,
+  connect_integration: parseAsStringLiteral(["auto", "moyai"]).withDefault("auto"),
+  connect_step: parseAsStringLiteral(["instructions", "verify"]),
+  connect_endpoint: parseAsString,
+};
+
+export interface ProjectConnection {
+  readonly name: string;
+  readonly integration: "auto" | "moyai";
+}
 
 const RESULT_PARSERS = {
   run: parseAsString.withDefault("latest"),
@@ -75,6 +86,7 @@ const SESSION_PARSERS = {
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
   ...AGENT_LIST_PARSERS,
+  ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
@@ -177,7 +189,50 @@ export function useGitHubRoute() {
   };
 }
 
-const ISSUE_ROUTE_PARSERS = { ...ISSUE_PARSERS, lens: LENS_PARSERS.lens, ...RESULT_PARSERS };
+export function useConnectProjectRoute(): [ProjectConnection | null, (project: ProjectConnection | null) => void] {
+  const [{ connect_agent, connect_integration }, setParams] = useQueryStates(CONNECT_PROJECT_PARSERS, {
+    history: "push",
+  });
+  const project = connect_agent?.trim() ? { name: connect_agent.trim(), integration: connect_integration } : null;
+  const setProject = useCallback(
+    (next: ProjectConnection | null) =>
+      void setParams({
+        connect_agent: next?.name ?? null,
+        connect_integration: next?.integration ?? null,
+        connect_step: null,
+        connect_endpoint: null,
+      }),
+    [setParams],
+  );
+  return [project, setProject];
+}
+
+export function useProjectSetupRoute() {
+  const [{ connect_step, connect_endpoint }, setParams] = useQueryStates(CONNECT_PROJECT_PARSERS);
+  return {
+    showInstructions: connect_step === "instructions" || connect_step === "verify",
+    verifying: connect_step === "verify",
+    endpoint: connect_endpoint,
+    setInstructions: useCallback(
+      (show: boolean) => void setParams({ connect_step: show ? "instructions" : null }),
+      [setParams],
+    ),
+    setVerifying: useCallback(
+      (verifying: boolean) => void setParams({ connect_step: verifying ? "verify" : "instructions" }),
+      [setParams],
+    ),
+    setEndpoint: useCallback(
+      (endpoint: string | null) => void setParams({ connect_endpoint: endpoint }, { history: "replace" }),
+      [setParams],
+    ),
+  };
+}
+
+const ISSUE_ROUTE_PARSERS = {
+  ...ISSUE_PARSERS,
+  lens: LENS_PARSERS.lens,
+  ...RESULT_PARSERS,
+};
 
 /** A peeked finding takes the panel over from any open investigation and starts from its summary. */
 export function useIssueRoute() {

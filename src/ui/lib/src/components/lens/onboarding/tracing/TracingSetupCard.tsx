@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { components } from "../../../../lib/http/schema";
 import { createApiClient, type RequestOptions } from "../../../../lib/http/client";
-import { useTimeout } from "usehooks-ts";
+import { useIsMounted, useTimeout } from "usehooks-ts";
 
 import { cn } from "../../../../lib/cva.config";
 import { Button } from "../../../ui/button";
@@ -28,6 +28,7 @@ import {
 import type { TraceSummary } from "../../traces/types";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
 import { SetupAgentPrompt } from "../SetupAgentPrompt";
+import { connectionAuthStatus } from "../connectionErrors";
 
 const COPIED_RESET_MS = 1500;
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
@@ -83,7 +84,7 @@ export const projectSetupPrompt = (traceUrl: string): string =>
   [
     "Connect this project's agent traces to Lens. Inspect the project and its existing tracing configuration first.",
     "Keep the existing model provider, model credentials, authentication, and application behavior. Never hardcode or commit secrets.",
-    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Get the tracing key from Lens > Traces > Connection details, then load it through this project's existing environment configuration. Never use a model or Lens admin key for ingestion.`,
+    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Load the dedicated key from this project's local environment. Use LITELLM_TRACING_KEY for new instrumentation and preserve the existing key variable for an already-instrumented app. If it is missing, ask me to configure it locally. Do not request or print secret values in this conversation. Never use a model or Lens admin key for ingestion.`,
     "If tracing already exists, only configure its exporter and preserve its agent names. For Moyai, set LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY; its endpoint requires HTTPS. Do not add another tracing SDK.",
     "Otherwise detect the framework, add its supported OpenTelemetry instrumentation, and include gen_ai.agent.name on the root agent span. Use OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_HEADERS, and http/protobuf where supported.",
     "Restart the project if needed. Run one task and verify its real trace arrives in Lens. Report configuration or credential gaps instead of claiming success.",
@@ -116,16 +117,19 @@ export function CodeBlock({
   const copy = async () => setCopied(await copyToClipboard(code));
   return (
     <div className="overflow-hidden rounded-md border border-border bg-muted/30">
-      <div className="flex h-9 items-center border-b border-border px-3">
+      <div className="flex min-h-11 items-center border-b border-border px-3 sm:min-h-9">
         {tabs}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => void copy()}
-          aria-label={copyLabel}
-          className="ml-auto text-muted-foreground hover:text-foreground"
+          aria-label={copied ? "Copied to clipboard" : copyLabel}
+          title={copied ? "Copied to clipboard" : copyLabel}
+          className="ml-auto size-11 text-muted-foreground hover:text-foreground sm:size-8"
         >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        </button>
+          {copied ? <Check aria-hidden className="size-3.5" /> : <Copy aria-hidden className="size-3.5" />}
+        </Button>
       </div>
       <pre
         className={cn(
@@ -324,15 +328,18 @@ export function TracingKey({
   tracingKey,
   onCreated,
   name = TRACING_KEY_REQUEST.name,
+  compact = false,
 }: {
   accessToken: string;
   tracingKey: string | null;
-  onCreated: (key: string) => void;
+  onCreated: (key: string, active: boolean) => void;
   name?: string;
+  compact?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [pendingActivation, setPendingActivation] = useState(false);
+  const isMounted = useIsMounted();
   const create = async () => {
     setCreating(true);
     setError("");
@@ -341,9 +348,10 @@ export function TracingKey({
         accessToken,
         body: { name },
       });
+      if (!isMounted()) return;
       if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
-      onCreated(result.key);
+      onCreated(result.key, result.active);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not create a key");
     } finally {
@@ -360,9 +368,15 @@ export function TracingKey({
         )}
         <CodeBlock code={tracingKey} display={maskSecret(tracingKey)} tabs={<FileLabel>Your tracing key</FileLabel>} />
         <p className="text-sm text-muted-foreground">
-          Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only
-          send traces and check delivery. Your agent still needs its own key for model calls. Save this key before
-          leaving the page.
+          {compact ? (
+            "Copy and save this key before leaving. It only sends traces; keep your model credentials unchanged."
+          ) : (
+            <>
+              Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only
+              send traces and check delivery. Your agent still needs its own key for model calls. Save this key before
+              leaving the page.
+            </>
+          )}
         </p>
       </div>
     );
@@ -378,7 +392,11 @@ export function TracingKey({
         Generate tracing key
       </Button>
       <span className="text-sm text-muted-foreground">Use a dedicated Lens key for tracing.</span>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -450,11 +468,16 @@ interface ConnectAgentProps {
   setTracingKey: (key: string) => void;
 }
 
-export function useLensService(accessToken: string) {
+export function useLensService(accessToken: string, options: { enabled?: boolean; refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: ["lens-service", accessToken],
     queryFn: () => apiClient.get<components["schemas"]["ServiceConnection"]>("/lens/service", { accessToken }),
-    refetchInterval: 15000,
+    enabled: options.enabled ?? true,
+    retry: (failureCount, error) => !connectionAuthStatus(error) && failureCount < 3,
+    refetchInterval: (query) =>
+      connectionAuthStatus(query.state.error) ? false : (options.refetchInterval ?? 15000),
+    refetchOnWindowFocus: (query) => !connectionAuthStatus(query.state.error),
+    refetchOnReconnect: (query) => !connectionAuthStatus(query.state.error),
   });
 }
 
@@ -539,28 +562,39 @@ export function CodingAgentSetup({
   traceUrl,
   guide,
   model = EXAMPLE_MODEL,
+  instructions: providedInstructions,
+  onCopied,
+  heading = "Connect your project",
+  embedded = false,
 }: {
   proxyUrl: string;
   traceUrl: string;
   guide?: FrameworkGuide;
   model?: string;
+  instructions?: string;
+  onCopied?: () => void;
+  heading?: string;
+  embedded?: boolean;
 }) {
   const standalone = useLensHost().surface === "standalone";
   const [copied, setCopied] = useState<string | null>(null);
-  const instructions = guide
-    ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone)
-    : projectSetupPrompt(traceUrl);
+  const instructions =
+    providedInstructions ??
+    (guide ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone) : projectSetupPrompt(traceUrl));
   useTimeout(() => setCopied(null), copied === null ? null : COPIED_RESET_MS);
   const copy = async () => {
-    if (await copyToClipboard(instructions)) setCopied(instructions);
+    if (await copyToClipboard(instructions)) {
+      setCopied(instructions);
+      onCopied?.();
+    }
   };
   return (
     <section className="mt-6" aria-labelledby="connect-project">
-      <h3 id="connect-project" className="text-sm font-medium">
-        Connect your project
+      <h3 id="connect-project" className={embedded ? "sr-only" : "text-sm font-medium"}>
+        {heading}
       </h3>
-      <div className="mt-3 overflow-hidden rounded-md border">
-        <div className="flex flex-wrap items-center gap-5 border-b bg-muted/30 px-4 py-3">
+      <div className={embedded ? "" : "mt-3 overflow-hidden rounded-md border"}>
+        <div className={cn("flex flex-wrap items-center gap-5", !embedded && "border-b bg-muted/30 px-4 py-3")}>
           <span className="inline-flex items-center gap-2 text-sm font-medium">
             <img src={claudeCodeLogo.src} alt="Claude Code logo" className="size-6 object-contain" />
             Claude Code
@@ -570,11 +604,11 @@ export function CodingAgentSetup({
             Codex
           </span>
         </div>
-        <div className="p-4">
-          <p className="text-sm leading-6 text-muted-foreground">
-            Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens.
+        <div className={embedded ? "pt-3" : "p-4"}>
+          <p className="text-[13px] leading-5 text-muted-foreground">
+            {embedded ? "Paste the setup instructions into your coding agent, inside your project." : "Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens."}
           </p>
-          <Button className="mt-3" onClick={() => void copy()}>
+          <Button className="mt-3 min-h-11 sm:min-h-9" onClick={() => void copy()}>
             {copied === instructions ? (
               <Check aria-hidden="true" className="size-4" />
             ) : (

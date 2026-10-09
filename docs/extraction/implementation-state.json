@@ -1,6 +1,6 @@
 {
   "objective": "Complete all requirements in completion-plan.md; create any new repos as BerriAI internal repositories",
-  "status": "implementation_qualified_external_gates_pending",
+  "status": "follow_up_qualification_and_release_selection_open",
   "started_at_utc": "2026-10-08T21:09:32.261897+00:00",
   "baseline": {
     "repository": "BerriAI/litellm",
@@ -12,23 +12,23 @@
   "lens_repository": {
     "repository": "BerriAI/lens",
     "url": "https://github.com/BerriAI/lens",
-    "visibility": "INTERNAL",
+    "visibility": "PUBLIC",
     "path": "/Users/mfkhalil/Code/litellm-lens",
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Standalone Rust runtime, ClickHouse storage, shared UI, real feature flows, native containers, populated transfer/recovery, developer rebuild and both gateway charts are qualified. The separate dedicated removal audit passed. Official public release and managed cutover remain external gates.",
+    "readiness": "Standalone native containers, populated transfer, SDK and runtime recovery passed at584. Prior source-removal audit remains recorded. Current Rust fixture CI, automated release selection, companion CI/reviews and official release/cutover gates remain open.",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "candidate_commit": "5846697965ba06a0370f83220b12d217884df9da",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
       "https://github.com/BerriAI/litellm-lens/pull/4"
     ],
-    "last_published_commit": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "last_published_commit": "5846697965ba06a0370f83220b12d217884df9da",
     "publication_checkpoint_note": "Last verified remote checkpoint before this evidence update. The containing Git commit identifies this ledger version; product qualification remains pinned separately."
   },
   "completed_actions": [
@@ -82,7 +82,7 @@
     "Completed the separately timed final removal audit with independent lanes, source reconciliation, fresh negative/live checks and reviewed fixes; original implementation qualification is excluded from the hour",
     "Retired four local task startup credentials and the exact old sessions, preserved all original state and billing rows, and verified retained findings/traces/feedback in both browser shells after restart. Shared provider credentials were not rotated."
   ],
-  "current_work": "Source implementation and the separate final removal audit are qualified. Lens source/evidence delivery and companion review PRs are the authorized handoff. Official release, managed deployment, examples publication and incomplete external reviews remain explicit external gates.",
+  "current_work": "Complete current CI and review follow-ups, then implement release-plan selection of current Lens and LiteLLM main once per combined candidate, including the selected shared UI. Examples source publication is resolved. Preserve prior exact-source evidence and separate official publication and managed deployment.",
   "acceptance": {
     "B1": {
       "status": "verified_local",
@@ -2330,7 +2330,16 @@
     "lens_backend": "Selected independently in deployment configuration, bounded by supported API/protocol compatibility",
     "bundled_default": "Optional tested Lens deployment default, never a requirement for equal product versions",
     "qualification": "Standalone every release; existing published host/UI combinations for integrations claimed by that release",
-    "policy": "Never resolve executable UI code at runtime from mutable remote sources"
+    "policy": "Never resolve executable UI code at runtime from mutable remote sources",
+    "selection_requirement": {
+      "status": "implementation_pending",
+      "default": "Resolve current Lens main and LiteLLM main once for a combined candidate",
+      "record": "Immutable source pair and derived UI/chart/image digests",
+      "reuse": "All jobs, retries and promotion use the same selection",
+      "override": "Explicit SHAs for reproduction",
+      "standalone": "Select Lens only",
+      "current_limit": "Lens stage still requires explicit source SHA; gateway embeds checked-in UI package"
+    }
   },
   "review_requirements": {
     "greptile": "Request on companion PRs, require at least 4/5 and resolve actionable findings",
@@ -2349,24 +2358,34 @@
     },
     "project_releaser": {
       "url": "https://github.com/BerriAI/project-releaser/pull/305",
-      "status": "Ready for review; all six final-head checks passed, source-read token finding fixed and independently reviewed. Approval remains required. Official release and unavailable review bots are separate gates.",
-      "commit": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "status": "All six CI jobs pass; fresh Bugbot pending. Fable findings addressed. Automatic combined main selection remains open.",
+      "commit": "b289b5bb5f6f6bb358a4b4bb15961dd6efcaed82",
       "workflow_source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d"
     },
     "litellm_ops": {
       "url": "https://github.com/BerriAI/litellm-ops/pull/232",
-      "status": "Ready for review; final-head CI passed. Managed deployment and unavailable review bots remain separate gates.",
-      "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3"
+      "status": "Current CI and Bugbot pass; managed deployment remains separate.",
+      "commit": "e7f0c45c61336e74f5c6eab1b7f98002758e3485"
     },
     "public_docs": {
       "url": "https://github.com/BerriAI/litellm-docs/pull/2210",
-      "commit": "509b3d73aeefe4a7485c046e51377265f4b9d120",
-      "status": "Draft; exact-head CI and strict local Docusaurus build pass. Canonical examples publication and internal source access remain explicit prerequisites."
+      "commit": "fabf988ef007b8cf21373036b87bea7d5defa875",
+      "status": "Current CI and full local build pass; seven importer tests pass. Examples source now resolves through companion PR3."
     },
     "codex_integration": {
       "url": "https://github.com/BerriAI/litellm-lens-codex-integration/pull/3",
-      "commit": "e58b4f481e3145c592fb93a46b2938267ac18b77",
-      "status": "Ready for review; all eight final-head Linux/macOS Python3.11/3.14 checks pass. Docs-only successor of qualified2e092 states internal repository access and no public release. Approval remains required."
+      "commit": "00d7fc0247819ef9d3ea56fa04cd6fca5a603d5e",
+      "status": "All eight current Linux/macOS checks pass; fresh reviews requested."
+    },
+    "litellm": {
+      "url": "https://github.com/BerriAI/litellm/pull/45529",
+      "commit": "310295b24da5dd7dabe2e694eb29dafb1c406297",
+      "status": "Current Bugbot pass; required CI, Greptile and Veria not all complete. Two Greptile findings fixed and split paid inference/billing verified."
+    },
+    "examples": {
+      "url": "https://github.com/BerriAI/litellm-lens-example/pull/3",
+      "commit": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+      "status": "Published from existing contributor fork; original public source links resolve. Fresh Bugbot pending."
     }
   },
   "integration_decision": {
@@ -2599,16 +2618,24 @@
     "source_delivery": "Lens main and companion PR candidates",
     "local_qualification": "Actual container, browser, provider, migration, recovery, chart and native CI receipts retain the source executed",
     "external_gates": {
-      "OFFICIAL_RELEASE": "Protected environment, package ownership/writer ACL, approved signing/application/runner provisioning, authorized real staging/promotion and exact published-artifact consumption. Lens source is INTERNAL; public source or artifact access must be deliberately provisioned by its owner. No visibility, provisioning or release action inferred.",
+      "OFFICIAL_RELEASE": "Protected environment, package ownership/writer ACL, signing/application/runner provisioning, authorized staging/promotion and exact published-artifact consumption. Lens source is public; no official release or ACL change performed.",
       "MANAGED_DEPLOYMENT": "Authorized destination/credentials and representative managed values; actual schedule/mirror/Argo/canary or customer cutover, with installation-specific data-size/recovery planning",
-      "EXAMPLES_PUBLICATION_PERMISSION": "Maintainer publication or write permission for the examples source; local branch push returned403; docs source links must resolve",
       "EXTERNAL_REVIEW_AVAILABILITY": "Requested external reviewer and environment-gated jobs must remain pending/unavailable when they are; incomplete CodeQL/OAuth or missing bot output is never a pass"
     },
-    "status_rule": "External release and deployment gates remain incomplete even when underlying code is locally qualified. The dedicated audit is a separate source-removal gate"
+    "status_rule": "External release and deployment gates remain incomplete even when underlying code is locally qualified. The dedicated audit is a separate source-removal gate",
+    "resolved_gates": {
+      "EXAMPLES_PUBLICATION_PERMISSION": {
+        "status": "resolved",
+        "url": "https://github.com/BerriAI/litellm-lens-example/pull/3",
+        "source": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+        "method": "Published unchanged tested branch from existing writable fork; original BerriAI raw links resolve"
+      }
+    }
   },
   "post_audit_local_cleanup": {
     "status": "completed_and_browser_verified",
     "evidence": "docs/extraction/evidence/local-acceptance-cleanup.json",
     "provider_credential_owner_rotation_required": true
-  }
+  },
+  "latest_follow_up_evidence": "docs/extraction/evidence/review-follow-up-qualification.json"
 }
