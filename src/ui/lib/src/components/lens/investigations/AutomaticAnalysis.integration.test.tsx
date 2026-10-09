@@ -107,7 +107,7 @@ it("should show the next scheduled time after the first analysis", () => {
   expect(proxy.post).not.toHaveBeenCalled();
 });
 
-it("should preserve paused settings while saving a model, prompt, and frequency", async () => {
+it("should preserve paused settings while saving a model, prompt, frequency, and budget", async () => {
   const user = userEvent.setup();
   const paused: Lens = {
     ...initial,
@@ -137,6 +137,13 @@ it("should preserve paused settings while saving a model, prompt, and frequency"
   await user.type(within(dialog).getByLabelText("Prompt"), "Find repeated tool errors");
   await user.clear(within(dialog).getByLabelText("Frequency (minutes)"));
   await user.type(within(dialog).getByLabelText("Frequency (minutes)"), "30");
+  const budget = within(dialog).getByRole("spinbutton", { name: "Monthly findings budget (USD)" });
+  expect(budget).toBeVisible();
+  await user.clear(budget);
+  await user.type(budget, "0");
+  expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await user.clear(budget);
+  await user.type(budget, "17.5");
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
@@ -147,6 +154,7 @@ it("should preserve paused settings while saving a model, prompt, and frequency"
           model: "other-chat",
           context: "Find repeated tool errors",
           interval_minutes: 30,
+          monthly_budget: 17.5,
         }),
       }),
     ),
