@@ -338,7 +338,7 @@ describe("Lens interactive demo", () => {
     expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
   });
 
-  it("shows deployment analysis in Settings and reflects worker health", async () => {
+  it.each(["standalone", "embedded"] as const)("shows deployment analysis and worker health on %s", async (surface) => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     const saved = createLensDemoData().lenses[0];
@@ -369,7 +369,12 @@ describe("Lens interactive demo", () => {
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
       return Response.json({ data: [], traces: true, requests: false });
     });
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { onUrlUpdate });
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+      </LensHostProvider>,
+      { onUrlUpdate },
+    );
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
     const settings = await tabs.findByRole("tab", { name: "Settings" });
     expect(settings).toHaveAttribute("title", "Analysis configured");
@@ -484,8 +489,12 @@ describe("Lens interactive demo", () => {
     expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
   });
 
-  it("hides the Settings tab for read-only sessions", async () => {
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly />);
+  it.each(["standalone", "embedded"] as const)("hides Settings for read-only %s sessions", async (surface) => {
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly />
+      </LensHostProvider>,
+    );
     expect(await screen.findByRole("tablist", { name: "Lens" })).toBeVisible();
     await waitFor(() => expect(network).toHaveBeenCalled());
     expect(screen.queryByRole("tab", { name: "Settings" })).not.toBeInTheDocument();
@@ -731,33 +740,72 @@ describe("Lens agent selector", () => {
     expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
   });
 
-  it("should close an open trace when the sidebar switches to another agent", async () => {
+  it.each(["standalone", "embedded"] as const)("closes an open trace when %s switches agents", async (surface) => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-      searchParams: "?demo=true&agent=support_agent",
-      onUrlUpdate,
-    });
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+      </LensHostProvider>,
+      { searchParams: "?demo=true&agent=support_agent", onUrlUpdate },
+    );
     await user.click(await screen.findByText("Where is order #1042?"));
     const drawer = await screen.findByRole("complementary", { name: "Trace details" });
     expect(drawer).toBeVisible();
     await expectUrl(onUrlUpdate, (url) => expect(url.get("trace")).toBeTruthy());
-    const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
-    await user.click(sidebar.getByRole("button", { name: "Agent: support_agent" }));
+    await user.click(screen.getByRole("button", { name: "Agent: support_agent" }));
     const picker = screen.getByRole("list", { name: "Agents" });
     await user.click(within(picker).getByRole("button", { name: /release_agent/ }));
 
     await waitFor(() => expect(drawer).toHaveAttribute("data-state", "closing"));
     act(() => fireEvent.animationEnd(drawer));
     expect(screen.queryByRole("complementary", { name: "Trace details" })).not.toBeInTheDocument();
-    expect(sidebar.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
-    expect(sidebar.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
     const runs = screen.getByRole("table", { name: "Agent runs" });
     expect(within(runs).queryByText("Where is order #1042?")).not.toBeInTheDocument();
     await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("release_agent"));
     expect(lastUrl(onUrlUpdate).has("trace")).toBe(false);
     expect(lastUrl(onUrlUpdate).get("tab")).toBe("traces");
   });
+});
+
+it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  const workspace = (
+    <LensHostProvider host={{ surface: "embedded" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>
+  );
+  const first = renderWithProviders(workspace, {
+    searchParams: "?demo=true&agent=support_agent&tab=traces",
+    onUrlUpdate,
+  });
+  expect(screen.getByRole("heading", { name: "Lens", level: 1 })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Agent: support_agent" })).toBeVisible();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
+  const tabs = screen.getByRole("tablist", { name: "Lens" });
+  const traces = within(tabs).getByRole("tab", { name: "Traces" });
+  const findings = within(tabs).getByRole("tab", { name: "Findings" });
+  await user.click(traces);
+  await user.keyboard("{ArrowRight}");
+  expect(findings).toHaveFocus();
+  expect(traces).toHaveAttribute("aria-selected", "true");
+  await user.keyboard("{Enter}");
+  expect(findings).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
+  const searchParams = lastUrl(onUrlUpdate);
+  expect(searchParams.get("agent")).toBe("support_agent");
+  expect(searchParams.get("demo")).toBe("true");
+  first.unmount();
+  renderWithProviders(workspace, { searchParams });
+  expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  expect(network).not.toHaveBeenCalled();
 });
 
 it("should switch color themes from the sidebar and restore the saved preference after reopening", async () => {

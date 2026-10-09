@@ -3,7 +3,8 @@
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { BookOpen, ChevronRight, Loader2 } from "lucide-react";
+import { useLensHost } from "../../host/LensHost";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
 import type { TraceSummary } from "./traces/types";
@@ -18,6 +19,7 @@ import { LensSettings } from "./settings/LensSettings";
 import { createLensDemo } from "./data/demo/createLensDemo";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
+import { LensTabs } from "./LensTabs";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
@@ -28,6 +30,7 @@ import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingCont
 import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
+import { AgentPicker } from "./agents/AgentPicker";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -88,6 +91,7 @@ const PANEL =
   "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
+  const embedded = useLensHost().surface === "embedded";
   const accessToken = useLensAccessToken();
   const { tab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const { dialog, openDialog } = useDialogRoute();
@@ -161,36 +165,74 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
       <main className="relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background">
         <Tabs.Root
           value={activeTab}
-          orientation="vertical"
+          orientation={embedded ? "horizontal" : "vertical"}
           onValueChange={(value) => navigate(value as LensTab)}
           className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
         >
-          <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />
+          {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card px-4 pl-14 md:px-6">
+            <header
+              className={cn(
+                "flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card px-4 md:px-6",
+                !embedded && "pl-14",
+              )}
+            >
               <div className="flex min-w-0 items-center gap-2 text-sm">
-                {activeTab === "traces" && agents.agent && (
+                {embedded ? (
                   <>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-muted-foreground"
-                      onClick={() => navigate("agents")}
-                    >
-                      Agents
-                    </Button>
-                    <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">{agents.agent}</span>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"
-                    />
+                    <h1 className="font-medium">Lens</h1>
+                    {agents.agent && (
+                      <>
+                        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {activeTab === "traces" && agents.agent && (
+                      <>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-muted-foreground"
+                          onClick={() => navigate("agents")}
+                        >
+                          Agents
+                        </Button>
+                        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        <span className="hidden max-w-64 truncate text-muted-foreground sm:inline">{agents.agent}</span>
+                        <ChevronRight
+                          aria-hidden="true"
+                          className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"
+                        />
+                      </>
+                    )}
+                    <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
                   </>
                 )}
-                <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
               </div>
-              <DemoToggle demo={demo} onChange={toggleDemo} />
+              <div className="flex shrink-0 items-center gap-3">
+                <DemoToggle demo={demo} onChange={toggleDemo} />
+                {embedded && (
+                  <a
+                    href="https://docs.litellm.ai/docs/proxy/lens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Documentation"
+                    title="Documentation"
+                    className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <BookOpen aria-hidden="true" className="size-4" />
+                  </a>
+                )}
+              </div>
             </header>
+            {embedded && (
+              <div className="shrink-0 overflow-x-auto border-b bg-card px-4 md:px-6">
+                <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
+              </div>
+            )}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card px-3 md:px-5">
               {showSetup ? (
                 <TabsContent value={activeTab} keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
@@ -287,7 +329,13 @@ function needsSetup(
     issueKey: string | null;
   },
 ) {
-  if (location.tab === "settings" || location.tab === "datasets" || location.tab === "evals" || location.tab === "agents") return false;
+  if (
+    location.tab === "settings" ||
+    location.tab === "datasets" ||
+    location.tab === "evals" ||
+    location.tab === "agents"
+  )
+    return false;
   if (location.requested) return true;
   const selected = location.tab === "traces" ? location.trace : location.lensId || location.dialog || location.issueKey;
   if (!state.missingTraces || selected) return false;

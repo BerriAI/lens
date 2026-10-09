@@ -4,30 +4,14 @@ import { useState } from "react";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useMediaQuery } from "usehooks-ts";
-import {
-  Activity,
-  ArrowUpRight,
-  BookOpen,
-  Bot,
-  Database,
-  FlaskConical,
-  Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  ScanSearch,
-  Settings,
-  Sparkles,
-  Sun,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowUpRight, BookOpen, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import { Button } from "../ui/button";
-import { TabsList, TabsTrigger } from "../ui/tabs";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { cn } from "../../lib/cva.config";
 import { AgentPicker } from "./agents/AgentPicker";
 import type { LensAgents } from "./agents/AgentScoped";
 import { LensBrand } from "./LensBrand";
-import { useWorkerConnected } from "./hooks/useWorkerConnected";
+import { LensTabs } from "./LensTabs";
 import type { InvestigationActivity } from "./model/status";
 import type { LensList } from "./model/types";
 import type { LensTab } from "./route";
@@ -38,15 +22,6 @@ interface LensSidebarProps {
   readonly workers: LensList["workers"] | null;
   readonly onNavigate: (tab: LensTab) => void;
 }
-
-const NAVIGATION_ITEMS = [
-  { value: "agents", label: "Agents", icon: Bot },
-  { value: "traces", label: "Traces", icon: Activity },
-  { value: "findings", label: "Findings", icon: Sparkles },
-  { value: "investigations", label: "Investigations", icon: ScanSearch },
-  { value: "datasets", label: "Datasets", icon: Database },
-  { value: "evals", label: "Evals", icon: FlaskConical },
-] as const;
 
 export function LensSidebar(props: LensSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -139,43 +114,7 @@ function SidebarNavigation({
   readonly collapsed: boolean;
   readonly onSelectAgent: (agent: string) => void;
 }) {
-  const connected = useWorkerConnected(workers);
   const standalone = useLensHost().surface === "standalone";
-  const item = (value: LensTab, label: string, Icon: LucideIcon, status?: string) => (
-    <TabsTrigger
-      value={value}
-      title={status ?? (collapsed ? label : undefined)}
-      onClick={() => onNavigate(value)}
-      aria-description={
-        value === "investigations" && activity !== "idle" ? `An investigation is ${activity}` : undefined
-      }
-      className={cn(
-        "h-9 w-full flex-none justify-start gap-2.5 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground after:hidden data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-none hover:bg-sidebar-accent/60",
-        collapsed && "justify-center px-0",
-      )}
-    >
-      <Icon aria-hidden="true" className="size-4" />
-      <span className={cn(collapsed && "sr-only")}>{label}</span>
-      {value === "investigations" && activity !== "idle" && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "size-1.5 shrink-0 rounded-full bg-info motion-safe:animate-pulse",
-            collapsed ? "absolute top-1.5 right-1.5" : "ml-auto",
-          )}
-        />
-      )}
-      {value === "settings" && !connected && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "size-1.5 shrink-0 rounded-full bg-warning",
-            collapsed ? "absolute top-1.5 right-1.5" : "ml-auto",
-          )}
-        />
-      )}
-    </TabsTrigger>
-  );
   return (
     <>
       {!collapsed && agents.agent && (
@@ -183,16 +122,13 @@ function SidebarNavigation({
           <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
         </div>
       )}
-      <TabsList
-        aria-label="Lens"
-        activateOnFocus={false}
-        className="flex h-auto! min-h-fit w-full flex-1 flex-col items-stretch justify-start gap-1 rounded-none bg-transparent p-0"
-      >
-        {NAVIGATION_ITEMS.map(({ value, label, icon: Icon }) => (
-          <div key={value}>{item(value, label, Icon)}</div>
-        ))}
-        {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
-      </TabsList>
+      <LensTabs
+        orientation="vertical"
+        activity={activity}
+        workers={workers}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
       <div className="mt-4 border-t border-sidebar-border pt-3">
         <ThemeToggle collapsed={collapsed} />
       </div>
