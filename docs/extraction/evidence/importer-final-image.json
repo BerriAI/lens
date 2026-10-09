@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "source_commit": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "image": "sha256:6592e532802c79b08bb45a26e7a332d1711b9f862984e7c7d45702fad6d060ef",
+  "started_at": "2026-10-09T10:43:44.101Z",
+  "checks": {
+    "actual_source_role_select_only": true,
+    "source_stopped_argument_required": true,
+    "invalid_source_creates_no_tables": true,
+    "duplicate_hash_creates_no_tables": true,
+    "read_only_plan_creates_no_tables": true,
+    "all_eight_groups_imported": true,
+    "all_eleven_record_values_preserved": true,
+    "scopes_and_hash_bytes_preserved": true,
+    "dataset_current_and_historical_revision_preserved": true,
+    "idempotent_repeat_preserves_heads_and_blobs": true,
+    "source_unchanged": true
+  },
+  "attempts": [
+    {
+      "case": "malformed",
+      "status": "refused",
+      "exit_code": 1,
+      "message": "A source record does not match its stored identity or supported schema",
+      "target_tables": 0,
+      "source_unchanged": true
+    },
+    {
+      "case": "duplicate",
+      "status": "refused",
+      "exit_code": 1,
+      "message": "The source contains a duplicate target identity",
+      "target_tables": 0,
+      "source_unchanged": true
+    }
+  ],
+  "limits": [
+    "Actual final70 image CLI, isolated SELECT-only PostgreSQL source and unique ClickHouse database",
+    "Synthetic representative fixture from the completed populated migration; no provider calls or shared data changes",
+    "This packaged executable smoke supplements the earlier full migrated runtime/browser/restore journey"
+  ],
+  "migration": {
+    "plan": {
+      "schema": 1,
+      "fingerprint": "6555ba1e6fdaed70c8b106475a6b1edcc40627bd4dc72f4b51f9f18ae227502a",
+      "records": 11,
+      "source_rows": {
+        "datasets": 2,
+        "ingestion_keys": 1,
+        "lenses": 1,
+        "reviews": 1,
+        "runs": 1,
+        "signal_configs": 1,
+        "trace_signals": 1,
+        "workers": 1
+      }
+    },
+    "applied": true,
+    "verified": true,
+    "repeat_identical": true,
+    "imported_records": 11,
+    "complete_migration_markers": 1,
+    "current_records_sha256": "1866b4200f04cb3a26dc22dee75d4cbfa693185906cfe5f55792bbab0963f917",
+    "source_snapshot_sha256": "63cb847a83cd12ebd912e546f0519e70556f3b94215a3899157374e0dc580dec"
+  },
+  "finished_at": "2026-10-09T10:43:48.926Z",
+  "cleanup": {
+    "owned_postgres_removed": true,
+    "unique_clickhouse_database_removed": true,
+    "shared_resources_untouched": true,
+    "owned_postgres_absence_independently_verified": true,
+    "unique_database_absence_independently_verified": true
+  },
+  "harness": {
+    "path": "/tmp/lens-final-importer-smoke.mjs",
+    "sha256": "ef29234d73aaae92f8d2e88d8bf0ba9e1059df3025401e157ba6298fe134412d",
+    "independent_review": "dataset_storage reviewed the harness before execution; no blocking issues"
+  },
+  "private_proof": {
+    "path": "/tmp/lens-importer-final70-aeb9d14621/proof.json",
+    "sha256": "b48bc50fab8b3f4ec323e42f4117571e39c9d25b3fc542d2e6cf27ee610e8ed2"
+  },
+  "importer_binary": {
+    "sha256": "7275f5841a71aaacfa50ddd9cc7d14fcc28338877e4f83c9e28e34fc648a25b4",
+    "receipt": "docs/extraction/evidence/final-image-switch.json"
+  }
+}

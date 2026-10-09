@@ -1,0 +1,20 @@
+{
+  "source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "image": "sha256:6592e532802c79b08bb45a26e7a332d1711b9f862984e7c7d45702fad6d060ef",
+  "previous_image": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "platform": "linux/arm64",
+  "started_at": "2026-10-09T10:24:38.961Z",
+  "ready_at": "2026-10-09T10:24:39.945Z",
+  "container_id": "50f170de825102ecd0334e4201dfde43e8c0dca52669d5885bc4de8744441c8c",
+  "retained_external_storage": true,
+  "environment_sha256": "50089fb73f0a1fa79ca7e8c622a07775fbf4b046b9a399486ccf1c5a713e5591",
+  "binary_hashes": [
+    "b222a8089e3e9643ef727c74a0cc06a65070d349a61ad24dfc64af987a0a7bb9  /usr/local/bin/litellm-lens",
+    "7275f5841a71aaacfa50ddd9cc7d14fcc28338877e4f83c9e28e34fc648a25b4  /usr/local/bin/lens-migrate"
+  ],
+  "previous_binary_hashes": [
+    "b222a8089e3e9643ef727c74a0cc06a65070d349a61ad24dfc64af987a0a7bb9  /usr/local/bin/litellm-lens",
+    "7076b6e5afcccf194979c8cdd12434cc10c8957d08e532ac752d0cd7f76c3a3e  /usr/local/bin/lens-migrate"
+  ],
+  "readiness": true
+}

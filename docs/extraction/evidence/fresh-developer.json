@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "recorded_at": "2026-10-09T10:11:17.817Z",
+  "source": "ca669a61fdea3fbc2af0359e97aa6b4ce9b3f72e",
+  "clone": "Fresh shallow clone of BerriAI/lens main from GitHub, without siblings or copied node_modules",
+  "environment": {
+    "node": "26.8.1",
+    "npm": "11.19.0",
+    "platform": "macOS host, native linux/arm64 Docker"
+  },
+  "commands": [
+    "npm ci",
+    "COMPOSE_PROJECT_NAME=lens-fresh-dev-20261009 LENS_PORT=4328 LENS_DEV_API_URL=http://127.0.0.1:4328 LENS_IMAGE=lens:clean-cut-105e7b0923a1 npm run dev",
+    "docker build --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:fresh-developer-local-test .",
+    "LENS_IMAGE=lens:fresh-developer-local-test ./deploy/lens/start"
+  ],
+  "checks": {
+    "npm_ci": {
+      "packages": 348,
+      "audited": 351,
+      "vulnerabilities": 0,
+      "seconds": 6
+    },
+    "isolated_compose_healthy": true,
+    "generated_private_credentials": true,
+    "normal_browser_signin": true,
+    "development_proxy_create_tracing_key_ingest_read": true,
+    "first_trace_opened_in_browser": true,
+    "ui_hmr_added_visible_marker": true,
+    "ui_hmr_reverted_without_manual_reload": true,
+    "open_trace_preserved_after_revert": true,
+    "docker_build_original_dockerfile": true,
+    "rebuilt_release": "local-test",
+    "api": {
+      "at": "2026-10-09T10:10:12.477Z",
+      "traceId": "aa24f275be16f54bdf37dddee02eafb0",
+      "spanId": "c5dbea0b2823ebcd",
+      "release": "local-test",
+      "uiProxy": "http://127.0.0.1:3100",
+      "backend": "http://127.0.0.1:4328",
+      "readback": true
+    }
+  },
+  "rebuilt_image": "sha256:52a3bf3bf8c3d545c247b3e098c1a6c67acb7c21a978912762825c294bf96f48",
+  "temporary_changes": "One visible paragraph in standalone root page to prove HMR and image rebuild; reverted locally and never committed. Next.js also regenerated next-env.d.ts for dev route types; restored afterward.",
+  "warnings": [
+    "npm11.19 reports existing esbuild/fsevents install scripts not covered by allowScripts; npmci and actual NextUI build/dev completed successfully"
+  ],
+  "limitations": [
+    "Initial npmdev used the documented prebuilt-image override; separate subsequent Docker build used cached Rust layers and rebuilt the real static UI",
+    "No backend hot reload is claimed; explicit rebuild/restart is documented",
+    "Disposable developer image contains the temporary proof paragraph, has local-test version and is not a release candidate",
+    "Browser test instances on the same hostname share cookie scope across ports; signed back into this isolated instance before opening its trace"
+  ],
+  "logs": [
+    {
+      "path": "/tmp/lens-fresh-developer-npm-ci.log",
+      "sha256": "066c5620c61da150a8fd6701c94a1eefe37ae8a81c44b6fec5284b4da60b4e0a"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-start.log",
+      "sha256": "2d8fb1419ebbfdcea5591aebb9f7fde633015f3545f16ddfbf54084c279097dd"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-build.log",
+      "sha256": "305feeed68bef845709dab4c4b2ace826b63a6c1e631490b32b71de7c54c97b4"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-restart.log",
+      "sha256": "6b8ae66e8d21334cc7c3e2b58434443f9f8ea8428a88cad67575330d03d6c9c3"
+    }
+  ],
+  "screenshots": [
+    "docs/extraction/evidence/ui/fresh-developer/hmr-marker.png",
+    "docs/extraction/evidence/ui/fresh-developer/first-trace.png",
+    "docs/extraction/evidence/ui/fresh-developer/hmr-reverted.png"
+  ],
+  "cleanup": {
+    "at": "2026-10-09T10:12:47.586Z",
+    "dev_server_stopped": true,
+    "compose_project_removed": "lens-fresh-dev-20261009",
+    "task_volume_removed": true,
+    "task_credentials_retired_with_disposable_database": true,
+    "source_restored": true
+  }
+}

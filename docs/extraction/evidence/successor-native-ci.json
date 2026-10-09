@@ -1,0 +1,523 @@
+{
+  "recorded_at": "2026-10-09T09:29:24.394994+00:00",
+  "run_url": "https://github.com/BerriAI/lens/actions/runs/37906010205",
+  "head_sha": "105e7b0923a17311e527aad4d480b57bab431000",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "databaseId": 113739514076,
+      "name": "rust",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-09T08:36:38Z",
+      "completedAt": "2026-10-09T09:27:10Z",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37906010205/job/113739514076",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T08:36:41Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T08:36:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:36:46Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 2,
+          "startedAt": "2026-10-09T08:36:41Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:27Z",
+          "conclusion": "success",
+          "name": "Free runner disk space",
+          "number": 3,
+          "startedAt": "2026-10-09T08:36:46Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:36Z",
+          "conclusion": "success",
+          "name": "Install Rust toolchain",
+          "number": 4,
+          "startedAt": "2026-10-09T08:38:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:36Z",
+          "conclusion": "success",
+          "name": "Check backend language boundary",
+          "number": 5,
+          "startedAt": "2026-10-09T08:38:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:37Z",
+          "conclusion": "success",
+          "name": "Check formatting",
+          "number": 6,
+          "startedAt": "2026-10-09T08:38:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:45:43Z",
+          "conclusion": "success",
+          "name": "Run Clippy",
+          "number": 7,
+          "startedAt": "2026-10-09T08:38:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:27:06Z",
+          "conclusion": "success",
+          "name": "Run tests",
+          "number": 8,
+          "startedAt": "2026-10-09T08:45:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:27:06Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 16,
+          "startedAt": "2026-10-09T09:27:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:27:06Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-10-09T09:27:06Z",
+          "status": "completed"
+        }
+      ],
+      "log_path": "/tmp/lens-105-rust-final.log",
+      "log_sha256": "55c01bab68a8ffc2f7a9fb78168753bf5c25942536b860078e54886f52a81f9c",
+      "rust_test_suites": 146,
+      "rust_test_totals": {
+        "passed": 3964,
+        "failed": 0,
+        "ignored": 14,
+        "measured": 0,
+        "filtered": 0
+      },
+      "ignored_test_lines": [
+        "rust\tRun tests\t2026-10-09T09:03:32.0916086Z test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_1_own_trace ... ignored, requires an isolated ClickHouse instance in LENS_TEST_CLICKHOUSE_URL",
+        "rust\tRun tests\t2026-10-09T09:03:32.0919027Z test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_2_own_span ... ignored, requires an isolated ClickHouse instance in LENS_TEST_CLICKHOUSE_URL",
+        "rust\tRun tests\t2026-10-09T09:03:32.0921811Z test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_3_missing_span ... ignored, requires an isolated ClickHouse instance in LENS_TEST_CLICKHOUSE_URL",
+        "rust\tRun tests\t2026-10-09T09:03:32.0924270Z test traces_round_trip_through_real_clickhouse_with_scoped_reads::case_4_other_key ... ignored, requires an isolated ClickHouse instance in LENS_TEST_CLICKHOUSE_URL",
+        "rust\tRun tests\t2026-10-09T09:06:57.7164111Z test cancellation_kills_and_reaps_python_before_releasing_its_slot ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7165978Z test code_cannot_read_worker_files_escape_scratch_or_open_network ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7167610Z test confined_python_can_analyze_evidence_with_the_standard_library ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7169239Z test rapid_process_exits_preserve_their_output::case_1_success ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7170333Z test rapid_process_exits_preserve_their_output::case_2_memory ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7171231Z test resource_limits_fail_the_tool_and_clean_up::case_1_memory ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7172011Z test resource_limits_fail_the_tool_and_clean_up::case_2_file ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7172792Z test resource_limits_fail_the_tool_and_clean_up::case_3_output ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7173589Z test resource_limits_fail_the_tool_and_clean_up::case_4_scratch ... ignored, requires the native Lens Linux image",
+        "rust\tRun tests\t2026-10-09T09:06:57.7174360Z test resource_limits_fail_the_tool_and_clean_up::case_5_hidden ... ignored, requires the native Lens Linux image"
+      ],
+      "warning_lines": [
+        "rust\tComplete job\t2026-10-09T09:27:06.7349777Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+      ],
+      "selected_success_lines": []
+    },
+    {
+      "databaseId": 113739514379,
+      "name": "standalone-container (ubuntu-24.04)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-09T08:36:38Z",
+      "completedAt": "2026-10-09T09:15:40Z",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37906010205/job/113739514379",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T08:36:40Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T08:36:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:36:43Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 2,
+          "startedAt": "2026-10-09T08:36:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:59:15Z",
+          "conclusion": "success",
+          "name": "Build standalone Lens",
+          "number": 3,
+          "startedAt": "2026-10-09T08:36:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:59:44Z",
+          "conclusion": "success",
+          "name": "Start and restart with ClickHouse",
+          "number": 4,
+          "startedAt": "2026-10-09T08:59:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:59:49Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 5,
+          "startedAt": "2026-10-09T08:59:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:01:03Z",
+          "conclusion": "success",
+          "name": "Recover populated deployment",
+          "number": 6,
+          "startedAt": "2026-10-09T08:59:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:15:33Z",
+          "conclusion": "success",
+          "name": "Build calculation sandbox tests",
+          "number": 7,
+          "startedAt": "2026-10-09T09:01:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:15:38Z",
+          "conclusion": "success",
+          "name": "Check calculation confinement on the native kernel",
+          "number": 8,
+          "startedAt": "2026-10-09T09:15:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:15:38Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 15,
+          "startedAt": "2026-10-09T09:15:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:15:38Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 16,
+          "startedAt": "2026-10-09T09:15:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:15:38Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-10-09T09:15:38Z",
+          "status": "completed"
+        }
+      ],
+      "log_path": "/tmp/lens-105-container-amd64-final.log",
+      "log_sha256": "8883292c82f87181232f021c7d2a86ef045f0dd6b7d8709adab2ce76328fc91c",
+      "rust_test_suites": 1,
+      "rust_test_totals": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "ignored_test_lines": [],
+      "warning_lines": [
+        "standalone-container (ubuntu-24.04)\tRun actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T08:59:44.7860536Z (node:19090) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "standalone-container (ubuntu-24.04)\tPost Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T09:15:38.2363139Z (node:32716) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "standalone-container (ubuntu-24.04)\tComplete job\t2026-10-09T09:15:38.4576376Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+      ],
+      "selected_success_lines": [
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t\ufeff2026-10-09T09:15:33.1048268Z ##[group]Run docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.1050198Z ^[[36;1mdocker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke^[[0m",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.1105864Z shell: /usr/bin/bash -e {0}",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.1106288Z ##[endgroup]",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.2153118Z ",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.2154879Z running 10 tests",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.2829534Z test cancellation_kills_and_reaps_python_before_releasing_its_slot ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.3555992Z test code_cannot_read_worker_files_escape_scratch_or_open_network ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:33.4376881Z test confined_python_can_analyze_evidence_with_the_standard_library ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:34.9928462Z test rapid_process_exits_preserve_their_output::case_1_success ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:37.5229886Z test rapid_process_exits_preserve_their_output::case_2_memory ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:37.6026506Z test resource_limits_fail_the_tool_and_clean_up::case_1_memory ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:37.6916928Z test resource_limits_fail_the_tool_and_clean_up::case_2_file ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:37.7459448Z test resource_limits_fail_the_tool_and_clean_up::case_3_output ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:37.8497970Z test resource_limits_fail_the_tool_and_clean_up::case_4_scratch ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:38.0565424Z test resource_limits_fail_the_tool_and_clean_up::case_5_hidden ... ok",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:38.0566529Z ",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:38.0567561Z test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.84s",
+        "standalone-container (ubuntu-24.04)\tCheck calculation confinement on the native kernel\t2026-10-09T09:15:38.0568437Z "
+      ]
+    },
+    {
+      "databaseId": 113739514440,
+      "name": "standalone-container (ubuntu-24.04-arm)",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-09T08:36:41Z",
+      "completedAt": "2026-10-09T09:02:17Z",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37906010205/job/113739514440",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T08:36:42Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T08:36:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:36:44Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 2,
+          "startedAt": "2026-10-09T08:36:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:51:19Z",
+          "conclusion": "success",
+          "name": "Build standalone Lens",
+          "number": 3,
+          "startedAt": "2026-10-09T08:36:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:51:50Z",
+          "conclusion": "success",
+          "name": "Start and restart with ClickHouse",
+          "number": 4,
+          "startedAt": "2026-10-09T08:51:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:51:55Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 5,
+          "startedAt": "2026-10-09T08:51:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:53:07Z",
+          "conclusion": "success",
+          "name": "Recover populated deployment",
+          "number": 6,
+          "startedAt": "2026-10-09T08:51:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:02:11Z",
+          "conclusion": "success",
+          "name": "Build calculation sandbox tests",
+          "number": 7,
+          "startedAt": "2026-10-09T08:53:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:02:15Z",
+          "conclusion": "success",
+          "name": "Check calculation confinement on the native kernel",
+          "number": 8,
+          "startedAt": "2026-10-09T09:02:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:02:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 15,
+          "startedAt": "2026-10-09T09:02:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:02:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 16,
+          "startedAt": "2026-10-09T09:02:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T09:02:15Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-10-09T09:02:15Z",
+          "status": "completed"
+        }
+      ],
+      "log_path": "/tmp/lens-105-container-arm64-final.log",
+      "log_sha256": "40478b0ab56eef0a50cae3000528fc38dc918acc127133f4996e5068e8168d95",
+      "rust_test_suites": 1,
+      "rust_test_totals": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "ignored_test_lines": [],
+      "warning_lines": [
+        "standalone-container (ubuntu-24.04-arm)\tRun actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T08:51:50.3581085Z (node:18967) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "standalone-container (ubuntu-24.04-arm)\tPost Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T09:02:15.2718425Z (node:32415) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "standalone-container (ubuntu-24.04-arm)\tComplete job\t2026-10-09T09:02:15.4588810Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+      ],
+      "selected_success_lines": [
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t\ufeff2026-10-09T09:02:11.0262988Z ##[group]Run docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.0264260Z ^[[36;1mdocker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke^[[0m",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.0300035Z shell: /usr/bin/bash -e {0}",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.0300275Z ##[endgroup]",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.1178517Z ",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.1179242Z running 10 tests",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.1743466Z test cancellation_kills_and_reaps_python_before_releasing_its_slot ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.2937210Z test code_cannot_read_worker_files_escape_scratch_or_open_network ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:11.3236362Z test confined_python_can_analyze_evidence_with_the_standard_library ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:12.5056884Z test rapid_process_exits_preserve_their_output::case_1_success ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:14.6784496Z test rapid_process_exits_preserve_their_output::case_2_memory ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:14.7470628Z test resource_limits_fail_the_tool_and_clean_up::case_1_memory ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:14.8221812Z test resource_limits_fail_the_tool_and_clean_up::case_2_file ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:14.8661830Z test resource_limits_fail_the_tool_and_clean_up::case_3_output ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:14.9540904Z test resource_limits_fail_the_tool_and_clean_up::case_4_scratch ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:15.1087025Z test resource_limits_fail_the_tool_and_clean_up::case_5_hidden ... ok",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:15.1087873Z ",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:15.1088514Z test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.99s",
+        "standalone-container (ubuntu-24.04-arm)\tCheck calculation confinement on the native kernel\t2026-10-09T09:02:15.1088875Z "
+      ]
+    },
+    {
+      "databaseId": 113739514503,
+      "name": "worker-ui-contract",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-09T08:36:38Z",
+      "completedAt": "2026-10-09T08:38:08Z",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37906010205/job/113739514503",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T08:36:40Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T08:36:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:36:41Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 2,
+          "startedAt": "2026-10-09T08:36:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:36:48Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 3,
+          "startedAt": "2026-10-09T08:36:41Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:37:03Z",
+          "conclusion": "success",
+          "name": "Run npm ci --ignore-scripts",
+          "number": 4,
+          "startedAt": "2026-10-09T08:36:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:37:03Z",
+          "conclusion": "success",
+          "name": "Run npm run check:worker-contract",
+          "number": 5,
+          "startedAt": "2026-10-09T08:37:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:37:17Z",
+          "conclusion": "success",
+          "name": "Run npm run typecheck:ui",
+          "number": 6,
+          "startedAt": "2026-10-09T08:37:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:06Z",
+          "conclusion": "success",
+          "name": "Check setup and workspace behavior",
+          "number": 7,
+          "startedAt": "2026-10-09T08:37:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:06Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 13,
+          "startedAt": "2026-10-09T08:38:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:06Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "number": 14,
+          "startedAt": "2026-10-09T08:38:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T08:38:06Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "startedAt": "2026-10-09T08:38:06Z",
+          "status": "completed"
+        }
+      ],
+      "log_path": "/tmp/lens-105-worker-ui-final.log",
+      "log_sha256": "8d91cf2c2131ccf69585c8182fd1fc3a39e1f79fc511b85fdb0a3c357f81deb5",
+      "rust_test_suites": 0,
+      "rust_test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "ignored_test_lines": [],
+      "warning_lines": [
+        "worker-ui-contract\tRun actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T08:36:42.1070961Z (node:2093) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "worker-ui-contract\tRun actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T08:36:47.5857461Z (node:2093) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.",
+        "worker-ui-contract\tPost Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\t2026-10-09T08:38:06.2704352Z (node:2309) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.",
+        "worker-ui-contract\tComplete job\t2026-10-09T08:38:06.5273420Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+      ],
+      "selected_success_lines": [
+        "worker-ui-contract\tCheck setup and workspace behavior\t2026-10-09T08:38:06.0327476Z ^[[2m Test Files ^[[22m ^[[1m^[[32m7 passed^[[39m^[[22m^[[90m (7)^[[39m"
+      ],
+      "ui_test_summary": [
+        "worker-ui-contract\tCheck setup and workspace behavior\t2026-10-09T08:38:06.0327476Z  Test Files  7 passed (7)",
+        "worker-ui-contract\tCheck setup and workspace behavior\t2026-10-09T08:38:06.0328728Z       Tests  93 passed (93)"
+      ]
+    }
+  ],
+  "limits": [
+    "This run qualifies Lens105e7b0923a17311e527aad4d480b57bab431000; it does not relabel later commits as tested",
+    "Default Rust workspace tests retain explicitly ignored environment-dependent cases; native image confinement runs are listed separately",
+    "CI result is separate from the pending final cross-repository chart and browser acceptance"
+  ],
+  "warning_summary": "No Rust compiler warnings. GitHub reports Node20 action runtime deprecation and setup-node emits punycode deprecation notices; original logs and warning lines are retained"
+}
