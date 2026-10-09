@@ -28,7 +28,7 @@ docker network create "$lens_name" >/dev/null
 docker run -d --name "$lens_storage" --network "$lens_name" --env-file "$lens_temp/.env" \
   -e CLICKHOUSE_USER=lens -e CLICKHOUSE_DB=lens -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
   --volume "$lens_root/deploy/clickhouse/keeper.xml:/etc/clickhouse-server/config.d/lens-keeper.xml:ro" \
-  clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e >/dev/null
+  mirror.gcr.io/clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e >/dev/null
 wait_storage() {
   for attempt in $(seq 1 60); do
     if docker exec "$lens_storage" sh -c 'clickhouse-client --host "$1" --user lens --password "$CLICKHOUSE_PASSWORD" --query "SELECT 1"' sh "$lens_storage" >/dev/null 2>&1; then
