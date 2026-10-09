@@ -185,12 +185,18 @@ pub enum Operation {
         name: String,
         #[arg(long)]
         pr: Option<u64>,
+        #[arg(long)]
+        #[serde(default)]
+        via_app: bool,
     },
     ReportFailed {
         #[arg(long)]
         name: String,
         #[arg(long)]
         pr: Option<u64>,
+        #[arg(long)]
+        #[serde(default)]
+        via_app: bool,
     },
 }
 

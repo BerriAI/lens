@@ -197,7 +197,7 @@ export function AgentTracesSection({
     <Inspector.Root
       items={runRefs}
       itemKey={traceKey}
-      selected={openTrace}
+      selected={isActive ? openTrace : null}
       onSelectedChange={openRun}
       noun="trace"
       storageKey={DRAWER_WIDTH_KEY}

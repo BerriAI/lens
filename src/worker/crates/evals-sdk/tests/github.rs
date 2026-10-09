@@ -1,6 +1,7 @@
+use lens_contract::github::{ProgressRequest, ProgressState};
 use lens_evals_sdk::{
     client::Client,
-    github::{GitHub, load_report, publish_via_app},
+    github::{GitHub, load_report, progress_via_app, publish_via_app},
     model::*,
 };
 use rstest::rstest;
@@ -153,7 +154,88 @@ fn progress_commands_accept_a_dispatch_pull_request(#[case] command: &str) {
         "--pr".into(),
         "7".into(),
     ]);
-    assert_eq!(parsed, json!({"command":command,"name":"demo","pr":7}));
+    assert_eq!(
+        parsed,
+        json!({"command":command,"name":"demo","pr":7,"via_app":false})
+    );
+}
+
+#[rstest]
+#[case::starting("report-start")]
+#[case::failed("report-failed")]
+fn progress_commands_can_use_the_lens_app(#[case] command: &str) {
+    let parsed = lens_evals_sdk::setup::parse(&[
+        "lens".into(),
+        command.into(),
+        "--name".into(),
+        "demo".into(),
+        "--via-app".into(),
+    ]);
+    assert_eq!(
+        parsed,
+        json!({"command":command,"name":"demo","pr":null,"via_app":true})
+    );
+}
+
+#[rstest]
+#[case::running(ProgressState::Running, "running")]
+#[case::failed(ProgressState::Failed, "failed")]
+#[tokio::test]
+async fn app_progress_sends_execution_metadata_to_authenticated_lens(
+    #[case] state: ProgressState,
+    #[case] serialized: &str,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/lens/github/progress"))
+        .and(header("Authorization", "Bearer lens-key"))
+        .and(body_json(json!({"name":"demo","version":"head-sha","pr":7,"ci_url":"https://github.com/org/repo/actions/runs/99","state":serialized})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"comment_url":"https://github.com/org/repo/pull/7#issuecomment-42","check_url":"https://github.com/org/repo/runs/43"})))
+        .expect(1).mount(&server).await;
+    let published = progress_via_app(
+        &Client::new(&server.uri(), "lens-key").unwrap(),
+        &ProgressRequest {
+            name: "demo".into(),
+            version: "head-sha".into(),
+            pr: 7,
+            ci_url: "https://github.com/org/repo/actions/runs/99".into(),
+            state,
+        },
+    )
+    .await
+    .unwrap();
+    assert!(published.comment_url.ends_with("#issuecomment-42"));
+    assert!(published.check_url.ends_with("/43"));
+}
+
+#[rstest]
+#[case::forbidden(403, json!({"code":"forbidden"}))]
+#[case::missing_check(200, json!({"comment_url":"https://github.com/org/repo/pull/7#issuecomment-42","check_url":""}))]
+#[case::missing_comment(200, json!({"comment_url":" ","check_url":"https://github.com/org/repo/runs/43"}))]
+#[tokio::test]
+async fn app_progress_rejects_unconfirmed_publication(
+    #[case] status: u16,
+    #[case] response: serde_json::Value,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/lens/github/progress"))
+        .respond_with(ResponseTemplate::new(status).set_body_json(response))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = progress_via_app(
+        &Client::new(&server.uri(), "lens-key").unwrap(),
+        &ProgressRequest {
+            name: "demo".into(),
+            version: "head-sha".into(),
+            pr: 7,
+            ci_url: "https://github.com/org/repo/actions/runs/99".into(),
+            state: ProgressState::Running,
+        },
+    )
+    .await;
+    assert!(result.is_err());
 }
 
 #[rstest]

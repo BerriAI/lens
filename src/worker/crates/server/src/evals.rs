@@ -16,7 +16,7 @@ use lens_contract::{
     auth::Role,
     eval::{
         CaseResult, CreateEvalRun, EvalDefinition, EvalRun, EvalSpec, ResolvedDataset, RunCase,
-        RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
+        RunCaseSummary, RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
     },
 };
 use litellm_storage_clickhouse::{
@@ -176,6 +176,7 @@ fn routers<R: SessionRepository + 'static>(
             put(result::<R>),
         )
         .public_route("/lens/evals/runs/{run}/finish", post(finish::<R>))
+        .public_route("/lens/evals/runs/{run}/cases", get(run_cases::<R>))
         .public_route("/lens/evals/runs/{run}/cases/{case_id}", get(run_case::<R>))
         .public_route("/lens/datasets/resolve", get(resolve::<R>));
     let cases = Router::new().public_route(
@@ -560,6 +561,26 @@ async fn resolve<R: SessionRepository>(
     ))
 }
 
+async fn run_cases<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+    Path(run): Path<String>,
+) -> Result<Json<Vec<RunCaseSummary>>, EvalApiError> {
+    let stored = state.store.get(&team.0, &run).await?;
+    Ok(Json(
+        stored
+            .cases
+            .iter()
+            .map(|case| RunCaseSummary {
+                case_id: case.id.clone(),
+                title: case.title.clone(),
+                critical: case.critical,
+                passed: stored.verdicts.get(&case.id).copied(),
+            })
+            .collect(),
+    ))
+}
+
 async fn run_case<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
@@ -579,14 +600,14 @@ async fn run_case<R: SessionRepository>(
         .iter()
         .filter(|trial| trial.case_id == case_id)
     {
-        let spans = match (&state.traces, &trial.result.trace) {
+        let (spans, traces) = match (&state.traces, &trial.result.trace) {
             (Some(traces), Some(reference)) => traces
                 .read(&team.0, reference, now)
                 .await
                 .map_err(|error| ApiError::Internal(Box::new(error)))?
-                .map(|trace| trace.spans)
+                .map(|trace| (trace.spans, trace.traces))
                 .unwrap_or_default(),
-            _ => Vec::new(),
+            _ => (Vec::new(), Vec::new()),
         };
         let checks = if spans.is_empty() {
             Vec::new()
@@ -596,6 +617,7 @@ async fn run_case<R: SessionRepository>(
         let steps = tool_steps(spans);
         trials.push(TrialSteps {
             trial: trial.trial,
+            traces,
             output: match contract {
                 EvalContract::Trace => None,
                 EvalContract::AgentIo => trial.result.output.clone(),

@@ -9,36 +9,66 @@ use lens_inference::{ModelCapacity, OutputLimits};
 use lens_investigations::LensRepository;
 use rstest::rstest;
 use serde_json::json;
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
+};
 
 #[rstest]
 #[tokio::test]
 async fn automatic_analysis_waits_for_ten_traces_and_preserves_pauses(
     #[future(awt)] database: Database,
+    #[values(false, true)] gateway: bool,
 ) {
+    let provider = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/model_group/info"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[{
+            "model_group":"aaa-discovered-analysis", "mode":"chat",
+            "input_cost_per_token":0.000001, "output_cost_per_token":0.000002,
+            "max_input_tokens":100000, "max_output_tokens":4096
+        }]})))
+        .mount(&provider)
+        .await;
     let server = database
-        .serve_models(
+        .serve_registry(
             true,
-            vec![Deployment {
-                name: "exact-gateway-alias".into(),
-                model: "fixture-model".into(),
-                provider: Provider::OpenAiCompatible,
-                api_base: Some("http://127.0.0.1:1/v1".parse().unwrap()),
-                api_key: Secret::new("fixture-key"),
-                input_cost_per_token: Some(0.000001),
-                output_cost_per_token: Some(0.000002),
-                capacity: ModelCapacity {
-                    max_input_tokens: Some(100000.try_into().unwrap()),
-                    max_output_tokens: Some(4096.try_into().unwrap()),
-                },
-                output_limits: OutputLimits {
-                    max_tokens: Some(1024.try_into().unwrap()),
-                    ..Default::default()
-                },
-            }],
+            litellm_lens::gateway::Models::new(
+                vec![Deployment {
+                    name: "exact-gateway-alias".into(),
+                    model: "fixture-model".into(),
+                    provider: Provider::OpenAiCompatible,
+                    api_base: Some("http://127.0.0.1:1/v1".parse().unwrap()),
+                    api_key: Secret::new("fixture-key"),
+                    input_cost_per_token: Some(0.000001),
+                    output_cost_per_token: Some(0.000002),
+                    capacity: ModelCapacity {
+                        max_input_tokens: Some(100000.try_into().unwrap()),
+                        max_output_tokens: Some(4096.try_into().unwrap()),
+                    },
+                    output_limits: OutputLimits {
+                        max_tokens: Some(1024.try_into().unwrap()),
+                        ..Default::default()
+                    },
+                }],
+                vec![],
+                None,
+                gateway.then(|| {
+                    litellm_lens::gateway::GatewayConfig::new(
+                        &provider.uri(),
+                        "fixture-gateway-key".into(),
+                    )
+                    .unwrap()
+                }),
+            )
+            .unwrap(),
         )
         .await;
     let client = reqwest::Client::new();
     let worker = server.worker.as_ref().unwrap();
+    if gateway {
+        assert_eq!(worker.models.get().models()[0], "aaa-discovered-analysis");
+    }
     worker.reconcile_automatic().await.unwrap();
     assert!(worker.claim().await.unwrap().is_none());
     seed_traces(&server, 1..=9).await;
@@ -68,6 +98,13 @@ async fn automatic_analysis_waits_for_ten_traces_and_preserves_pauses(
             enabled: false,
             context: "Preserve these instructions".into(),
             interval_minutes: 7.try_into().unwrap(),
+            model: if gateway {
+                "aaa-discovered-analysis"
+            } else {
+                "exact-gateway-alias"
+            }
+            .try_into()
+            .unwrap(),
             ..lens.settings.clone()
         },
         chrono::Utc::now(),
@@ -80,6 +117,7 @@ async fn automatic_analysis_waits_for_ten_traces_and_preserves_pauses(
     assert!(!saved.settings.enabled);
     assert_eq!(saved.settings.context, "Preserve these instructions");
     assert_eq!(saved.settings.interval_minutes.get(), 7);
+    assert_eq!(saved.settings.model, paused.settings.model);
     let enabled = lens_investigations::update_settings(
         &saved,
         lens_contract::worker::LensSettings {

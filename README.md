@@ -11,6 +11,8 @@
 
 **[Start locally](deploy/lens/README.md#start-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
 
+For a hosted installation, [deploy Lens on Render](docs/render.md) with a private ClickHouse database and the shared GitHub App service
+
 <details>
 <summary>Copy a setup prompt</summary>
 

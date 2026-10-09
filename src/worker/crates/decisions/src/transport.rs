@@ -204,11 +204,11 @@ impl EvaluationModels {
     }
 
     async fn send(&self, deployment: &Resolved, request: &DecisionRequest) -> Result<Value, Error> {
-        let mut body =
-            json!({"model":deployment.model,"state":request.state,"questions":request.questions});
-        if deployment.config.provider == Provider::DecisionsCompatible {
-            body["metadata"] = json!({"tags":request.tags});
-        }
+        let body = if deployment.config.provider == Provider::DecisionsCompatible {
+            crate::compatible::request(&deployment.model, request)?
+        } else {
+            json!({"model":deployment.model,"state":request.state,"questions":request.questions})
+        };
         let builder = self.client.post(deployment.endpoint.clone()).json(&body);
         let builder = match &deployment.config.api_key {
             Some(key) if !key.0.is_empty() => builder.bearer_auth(&key.0),
@@ -251,6 +251,9 @@ impl EvaluationModels {
             });
         }
         let response: Value = serde_json::from_slice(&bytes)?;
+        if deployment.config.provider == Provider::DecisionsCompatible {
+            return crate::compatible::response(response, request);
+        }
         if deployment.config.provider == Provider::Cloudflare
             && response.get("answers").is_none()
             && let Some(result) = response.get("result").filter(|result| result.is_object())

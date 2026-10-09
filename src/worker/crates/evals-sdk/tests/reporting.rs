@@ -1,8 +1,21 @@
+use lens_contract::github::{ProgressRequest, ProgressState};
 use lens_evals_sdk::{
     model::{EvalRun, Report},
     reporting::{markdown, pass_rate_confidence, safe_text},
 };
-use rstest::rstest;
+use rstest::{fixture, rstest};
+
+#[fixture]
+fn report() -> Report {
+    Report {
+        run: serde_json::from_str(include_str!(
+            "../../../../sdk/tests/fixtures/lens_eval/eval_run_no_baseline.json"
+        ))
+        .unwrap(),
+        baseline: None,
+        trials: vec![],
+    }
+}
 
 #[rstest]
 #[case::link(
@@ -41,6 +54,30 @@ fn confidence_rejects_invalid_case_counts(#[case] passed: usize, #[case] total: 
 }
 
 #[rstest]
+#[case::running(ProgressState::Running, "**Running evaluation**")]
+#[case::failed(ProgressState::Failed, "**Evaluation stopped**")]
+fn progress_shares_the_lens_brand_without_claiming_case_results(
+    #[case] state: ProgressState,
+    #[case] heading: &str,
+) {
+    let body = lens_evals_sdk::reporting::progress(&ProgressRequest {
+        name: "demo".into(),
+        version: "1234567890abcdef".into(),
+        pr: 7,
+        ci_url: "https://github.com/org/repo/actions/runs/99".into(),
+        state,
+    });
+    assert!(body.starts_with("<!-- lens:demo -->"));
+    assert!(body.contains("alt=\"Lens\" width=\"108\" height=\"30\""));
+    assert!(body.contains(heading));
+    assert!(body.contains(
+        "Commit: 1234567 · [Follow the evaluation](https://github.com/org/repo/actions/runs/99)"
+    ));
+    assert!(!body.contains("Confidence"));
+    assert!(!body.contains("Passed"));
+}
+
+#[rstest]
 fn comparison_discloses_confidence_method_and_links_both_builds() {
     let baseline: EvalRun = serde_json::from_str(include_str!(
         "../../../../sdk/tests/fixtures/lens_eval/eval_run_no_baseline.json"
@@ -64,12 +101,70 @@ fn comparison_discloses_confidence_method_and_links_both_builds() {
     })
     .unwrap();
     assert!(body.contains("| Before / main | After / PR |"));
-    assert!(body.contains("| Cases passed | 36/36 | 18/36 |"));
-    assert!(body.contains("| Confidence score (95% CI lower bound) | 90.4% | 34.5% |"));
+    assert!(body.contains("| Passed / total | 36/36 | 18/36 |"));
+    assert!(body.contains("| Failed | 0 | 18 |"));
+    assert!(body.contains("**Confidence 1.7/5** · **Passed 18** · **Failed 18**"));
     assert!(body.contains("Pass-rate change: -50.0 percentage points"));
     assert!(body.contains("Repeats are not counted as new cases"));
     assert!(body.contains("not a probability of correctness or proof of improvement"));
     assert!(body.contains("[base](http://localhost:8765/runs/baseline)"));
-    assert!(body.contains("[candidate-sha](https://lens.example/runs/candidate)"));
+    assert!(body.contains("[candida](https://lens.example/runs/candidate)"));
     assert!(body.contains("[Workflow logs](https://github.com/org/repo/actions/runs/99)"));
+}
+
+#[rstest]
+#[case::small_all_pass(4, 4, 0, "2.6/5", 0)]
+#[case::small_mixed(2, 4, 1, "0.8/5", 2)]
+#[case::all_fail(0, 4, 4, "0.0/5", 4)]
+fn headline_uses_conservative_confidence_and_explicit_outcome_counts(
+    mut report: Report,
+    #[case] passed: usize,
+    #[case] total: usize,
+    #[case] errors: usize,
+    #[case] score: &str,
+    #[case] failed: usize,
+) {
+    let summary = report.run.summary.as_mut().unwrap();
+    summary.passed = passed;
+    summary.total = total;
+    summary.pass_rate = passed as f64 / total as f64;
+    summary.errors = errors;
+    let body = markdown(&report).unwrap();
+    let headline = body.split("<details>").next().unwrap();
+    assert!(headline.contains(&format!("**Confidence {score}**")));
+    assert!(headline.contains(&format!(
+        "**Passed {passed}** · **Failed {failed}** · Trial errors {errors}"
+    )));
+    assert!(!headline.contains("95% Wilson"));
+    assert!(body.contains("scaled to 5"));
+    assert!(body.contains("small test set"));
+    assert!(body.contains("<summary>Benchmark details and confidence</summary>"));
+}
+
+#[rstest]
+#[case::negative_zero(-0.0)]
+#[case::positive_zero(0.0)]
+fn zero_cost_has_no_negative_sign(mut report: Report, #[case] zero: f64) {
+    report.run.summary.as_mut().unwrap().cost_per_case = zero;
+    let body = markdown(&report).unwrap();
+    assert!(body.contains("| Cost per case | unavailable | $0.0000 |"));
+    assert!(!body.contains("$-0.0000"));
+}
+
+#[rstest]
+#[case::missing("")]
+#[case::unsafe_url("javascript:alert(1)")]
+fn unavailable_workflow_link_is_omitted(mut report: Report, #[case] url: &str) {
+    report.run.ci_url = url.into();
+    assert!(!markdown(&report).unwrap().contains("Workflow logs"));
+}
+
+#[rstest]
+fn compact_builds_and_bounded_logo_keep_the_summary_narrow(mut report: Report) {
+    report.run.version = "a".repeat(40);
+    let body = markdown(&report).unwrap();
+    assert!(body.contains("[aaaaaaa](http://localhost:8765/runs/baseline)"));
+    assert!(!body.contains(&report.run.version));
+    assert!(body.contains("width=\"108\" height=\"30\""));
+    assert!(body.contains("prefers-color-scheme: dark"));
 }
