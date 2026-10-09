@@ -55,7 +55,7 @@ pub fn trace(status: SpanStatus, cost_usd: Option<f64>) -> Trial {
     Trial {
         outcome: TrialOutcome::Trace(vec![root(status)]),
         cost_usd,
-        trace_spend_usd: 0.0,
+        trace_spend_usd: None,
     }
 }
 
@@ -71,7 +71,7 @@ pub fn error() -> Trial {
     Trial {
         outcome: TrialOutcome::Error,
         cost_usd: None,
-        trace_spend_usd: 0.0,
+        trace_spend_usd: None,
     }
 }
 

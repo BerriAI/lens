@@ -15,12 +15,16 @@ pub enum TrialOutcome {
 pub struct Trial {
     pub outcome: TrialOutcome,
     pub cost_usd: Option<f64>,
-    pub trace_spend_usd: f64,
+    pub trace_spend_usd: Option<f64>,
 }
 
 impl Trial {
     pub fn cost(&self) -> f64 {
-        self.cost_usd.unwrap_or(self.trace_spend_usd)
+        match (self.cost_usd, &self.outcome) {
+            (Some(cost), _) => cost,
+            (None, TrialOutcome::Trace(_)) => self.trace_spend_usd.unwrap_or(0.0),
+            (None, TrialOutcome::Error) => 0.0,
+        }
     }
 }
 
