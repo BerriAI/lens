@@ -9,6 +9,7 @@ repository.workspace = true
 schema = ["dep:schemars", "litellm-traces/schema"]
 
 [dependencies]
+lens-contract = { path = "../contract" }
 macro_rules_attribute.workspace = true
 schemars = { workspace = true, optional = true }
 askama.workspace = true

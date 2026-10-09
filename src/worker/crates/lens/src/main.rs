@@ -52,7 +52,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     );
     let storage = Storage::new(config.storage, client.clone(), config.service_token.clone());
     let state = Arc::new(State::new(storage, config.service_token.clone()));
-    let api = match config.authentication {
+    let (api, eval_task) = match config.authentication {
         Some(settings) => {
             state.storage.ensure_schema().await?;
             let connection = state.storage.config.storage();
@@ -63,12 +63,31 @@ async fn run() -> Result<(), litellm_lens::Error> {
             store
                 .initialize(&format!("/lens/{}", connection.database()))
                 .await?;
-            lens_server::sessions::router(lens_auth::Authentication {
+            let authentication = Arc::new(lens_auth::Authentication {
                 settings,
-                sessions: litellm_storage_clickhouse::sessions::Sessions(store),
-            })
+                sessions: litellm_storage_clickhouse::sessions::Sessions(store.clone()),
+            });
+            let traces = litellm_traces_clickhouse::evals::EvalTraces::new(
+                client.clone(),
+                connection.reader().clone(),
+            );
+            let eval_task = litellm_lens::eval_runtime::start(
+                litellm_storage_clickhouse::evals::EvalStore::new(store.clone()),
+                traces.clone(),
+            );
+            (
+                lens_server::sessions::shared_router(authentication.clone()).merge(
+                    lens_server::evals::router_with_traces(
+                        authentication,
+                        store,
+                        config.public_url,
+                        traces,
+                    ),
+                ),
+                Some(eval_task),
+            )
         }
-        None => lens_server::router(),
+        None => (lens_server::router(), None),
     };
     let listener = tokio::net::TcpListener::bind(config.address).await?;
     let auth_task = tokio::spawn(auth::refresh_loop(
@@ -92,6 +111,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         _ = &mut worker => Err(litellm_lens::Error::Unavailable),
         result = &mut server => {
             auth_task.abort(); provision_task.abort(); worker.abort();
+            if let Some(task) = eval_task { task.abort(); }
             return result.map_err(|_| litellm_lens::Error::Unavailable)?.map_err(Into::into);
         }
     };
@@ -99,6 +119,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
     auth_task.abort();
     provision_task.abort();
     worker.abort();
+    if let Some(task) = eval_task {
+        task.abort();
+    }
     let _ = worker.await;
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await

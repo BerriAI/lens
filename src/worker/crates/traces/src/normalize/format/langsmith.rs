@@ -212,8 +212,8 @@ impl Format for LangSmith {
                                 | "gen_ai.tool.call.arguments"
                                 | "gen_ai.retrieval.query.text"
                                 | "gen_ai.prompt"
-                        ))
-                        && !(legacy_output
+                        )
+                        || legacy_output
                             && matches!(
                                 *source,
                                 "gen_ai.output.messages"

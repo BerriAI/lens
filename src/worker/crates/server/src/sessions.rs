@@ -18,12 +18,18 @@ use serde_json::{Value, json};
 use crate::error::SessionError;
 
 pub fn router<R: SessionRepository + 'static>(authentication: Authentication<R>) -> Router {
+    shared_router(Arc::new(authentication))
+}
+
+pub fn shared_router<R: SessionRepository + 'static>(
+    authentication: Arc<Authentication<R>>,
+) -> Router {
     Router::new()
         .route(
             "/auth/session",
             get(info::<R>).post(sign_in::<R>).delete(sign_out::<R>),
         )
-        .with_state(Arc::new(authentication))
+        .with_state(authentication)
 }
 
 async fn sign_in<R: SessionRepository>(
@@ -81,7 +87,7 @@ async fn sign_out<R: SessionRepository>(
     Ok((StatusCode::NO_CONTENT, [(header::SET_COOKIE, cookie)]).into_response())
 }
 
-fn credentials<'a>(
+pub(crate) fn credentials<'a>(
     headers: &'a HeaderMap,
     method: &'a Method,
     session: Option<&'a str>,
@@ -101,7 +107,7 @@ fn credentials<'a>(
     })
 }
 
-fn session_cookie(headers: &HeaderMap) -> Option<String> {
+pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
     let cookies = headers.get(header::COOKIE)?.to_str().ok()?;
     cookie::Cookie::split_parse(cookies)
         .filter_map(Result::ok)

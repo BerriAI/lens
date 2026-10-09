@@ -1,0 +1,326 @@
+use std::collections::BTreeMap;
+
+use lens_contract::eval::{TraceAttribute, TraceRef};
+use litellm_http::Client;
+use litellm_storage_clickhouse::{Query, ReadLimits, fetch};
+use litellm_traces::{
+    SpanStatus,
+    query::named::{ReadAccessParams, SpendByResponseIdsParams},
+};
+use litellm_traces_cache::{StoreError, TraceStore};
+use serde::{Deserialize, Serialize};
+
+use crate::{ClickHouseTraces, Connection, Error};
+
+const PAGE_SIZE: usize = 512;
+const MAX_SESSION_TRACES: usize = 1024;
+const MAX_TRACE_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EvalSpan {
+    pub span_id: String,
+    pub parent_span_id: String,
+    pub name: String,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub start_ns: i64,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub end_ns: i64,
+    pub status: SpanStatus,
+    pub attributes: BTreeMap<String, String>,
+    pub input: String,
+    pub output: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct EvalTrace {
+    pub spans: Vec<EvalSpan>,
+    pub root_ended_at_ms: Option<i64>,
+    pub last_received_at_ms: i64,
+    pub agent: String,
+    pub version: String,
+    pub environment: String,
+    pub gateway_cost_usd: f64,
+}
+
+#[derive(Clone)]
+pub struct EvalTraces {
+    client: Client,
+    connection: Connection,
+}
+
+#[derive(Serialize)]
+struct Lookup {
+    team: String,
+    attribute: &'static str,
+    value: String,
+    snapshot_ms: i64,
+}
+
+#[derive(Deserialize)]
+struct TraceId {
+    trace_id: String,
+}
+
+struct Locate;
+
+impl Query for Locate {
+    type Params = Lookup;
+    type Row = TraceId;
+    const SQL: &'static str = "SELECT DISTINCT TraceId AS trace_id FROM otel_traces \
+        WHERE TeamId={team:String} AND EngineReceivedMs<={snapshot_ms:Int64} \
+        AND (({attribute:String}='trace_id' AND TraceId={value:String}) OR \
+        ({attribute:String}='session.id' AND (ParentSpanId='' OR ParentSpanId='0000000000000000') \
+        AND coalesce(nullIf(SpanAttributes['session.id'],''),ResourceAttributes['session.id'])={value:String})) \
+        ORDER BY TraceId LIMIT 1025";
+}
+
+#[derive(Serialize)]
+struct RootLookup {
+    team: String,
+    trace_id: String,
+}
+
+#[derive(Deserialize)]
+struct RootAttributes {
+    attributes: BTreeMap<String, String>,
+}
+
+struct Root;
+
+impl Query for Root {
+    type Params = RootLookup;
+    type Row = RootAttributes;
+    const SQL: &'static str = "SELECT mapUpdate(ResourceAttributes,SpanAttributes) AS attributes \
+        FROM otel_traces WHERE TeamId={team:String} AND TraceId={trace_id:String} \
+        AND (ParentSpanId='' OR ParentSpanId='0000000000000000') \
+        ORDER BY Timestamp,EngineReceivedMs DESC LIMIT 1";
+}
+
+#[derive(Serialize)]
+struct SpanPage {
+    team: String,
+    trace_id: String,
+    after: String,
+    snapshot_ms: i64,
+    page_size: u32,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StoredSpan {
+    #[serde(flatten)]
+    span: EvalSpan,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    received_ms: i64,
+    request_id: String,
+}
+
+struct Spans;
+
+impl Query for Spans {
+    type Params = SpanPage;
+    type Row = StoredSpan;
+    const READ_LIMITS: ReadLimits = ReadLimits {
+        response_bytes: 16 * 1024 * 1024,
+        ..litellm_storage_clickhouse::READ_LIMITS
+    };
+    const SQL: &'static str = "SELECT * FROM (SELECT SpanId AS span_id, ParentSpanId AS parent_span_id, \
+        SpanName AS name,toUnixTimestamp64Nano(Timestamp) AS start_ns, \
+        toUnixTimestamp64Nano(Timestamp)+toInt64(Duration) AS end_ns,StatusCode AS status, \
+        mapUpdate(ResourceAttributes,SpanAttributes) AS attributes,Input AS input,Output AS output, \
+        toInt64(EngineReceivedMs) AS received_ms,LiteLLMRequestId AS request_id \
+        FROM otel_traces WHERE TeamId={team:String} AND TraceId={trace_id:String} \
+        AND EngineReceivedMs<={snapshot_ms:Int64} AND SpanId>{after:String} \
+        ORDER BY SpanId,EngineReceivedMs DESC LIMIT 1 BY SpanId) \
+        ORDER BY span_id LIMIT {page_size:UInt32}";
+}
+
+impl EvalTraces {
+    pub fn new(client: Client, connection: Connection) -> Self {
+        Self { client, connection }
+    }
+
+    pub async fn root_attributes(
+        &self,
+        team: &str,
+        trace_id: &str,
+    ) -> Result<BTreeMap<String, String>, Error> {
+        if team.is_empty() || trace_id.is_empty() {
+            return Err(Error::InvalidScope);
+        }
+        Ok(fetch::<Root>(
+            &self.client,
+            &self.connection,
+            &RootLookup {
+                team: team.to_owned(),
+                trace_id: trace_id.to_owned(),
+            },
+        )
+        .await?
+        .into_iter()
+        .next()
+        .map(|row| row.attributes)
+        .unwrap_or_default())
+    }
+
+    pub async fn read(
+        &self,
+        team: &str,
+        reference: &TraceRef,
+        snapshot_ms: i64,
+    ) -> Result<Option<EvalTrace>, Error> {
+        if team.is_empty() || reference.value.is_empty() {
+            return Err(Error::InvalidScope);
+        }
+        let lookup = Lookup {
+            team: team.to_owned(),
+            attribute: match reference.attribute {
+                TraceAttribute::SessionId => "session.id",
+                TraceAttribute::TraceId => "trace_id",
+            },
+            value: reference.value.clone(),
+            snapshot_ms,
+        };
+        let traces = fetch::<Locate>(&self.client, &self.connection, &lookup).await?;
+        if traces.is_empty() {
+            return Ok(None);
+        }
+        if traces.len() > MAX_SESSION_TRACES {
+            return Err(Error::Storage(
+                litellm_storage_clickhouse::Error::ResponseTooLarge,
+            ));
+        }
+        let mut rows = Vec::new();
+        let mut bytes = 0usize;
+        let mut roots = Vec::new();
+        for trace in &traces {
+            let batch = self
+                .spans(team, &trace.trace_id, snapshot_ms, &mut bytes)
+                .await?;
+            roots.push(
+                batch
+                    .iter()
+                    .filter(|row| is_root(&row.span))
+                    .min_by_key(|row| row.span.start_ns)
+                    .map(|row| {
+                        (
+                            (row.span.end_ns / 1_000_000).max(row.received_ms),
+                            row.span.attributes.clone(),
+                        )
+                    }),
+            );
+            rows.extend(batch);
+        }
+        let Some(last_received_at_ms) = rows.iter().map(|row| row.received_ms).max() else {
+            return Ok(None);
+        };
+        let root = rows
+            .iter()
+            .filter(|row| is_root(&row.span))
+            .min_by_key(|row| row.span.start_ns);
+        let root_ended_at_ms = roots
+            .iter()
+            .map(|root| root.as_ref().map(|(ended, _)| *ended))
+            .collect::<Option<Vec<_>>>()
+            .and_then(|ended| ended.into_iter().max());
+        let identity = root.or_else(|| rows.iter().min_by_key(|row| row.span.start_ns));
+        let attribute = |name: &str| {
+            let value = identity.and_then(|row| row.span.attributes.get(name));
+            if roots
+                .iter()
+                .flatten()
+                .all(|(_, attributes)| attributes.get(name) == value)
+            {
+                value.cloned().unwrap_or_default()
+            } else {
+                String::new()
+            }
+        };
+        let agent = attribute("agent.name");
+        let version = attribute("agent.version");
+        let environment = attribute("deployment.environment");
+        let cost_lookup = SpendByResponseIdsParams {
+            access: ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec![team.to_owned()],
+            },
+            trace_ids: traces.into_iter().map(|trace| trace.trace_id).collect(),
+            response_ids: rows
+                .iter()
+                .map(|row| &row.request_id)
+                .filter(|value| !value.is_empty())
+                .cloned()
+                .collect(),
+            provider_request_ids: Vec::new(),
+            request_ids: Vec::new(),
+            start_ms: 0,
+            end_ms: snapshot_ms.saturating_add(1),
+        };
+        let spend = ClickHouseTraces::new(self.client.clone(), self.connection.clone())
+            .spend(&cost_lookup)
+            .await
+            .map_err(|error| match error {
+                StoreError::Failed(error) => error,
+                StoreError::TooLarge => {
+                    Error::Storage(litellm_storage_clickhouse::Error::ResponseTooLarge)
+                }
+            })?;
+        let cost: f64 = spend.into_iter().filter_map(|row| row.spend).sum();
+        if !cost.is_finite() || cost < 0.0 {
+            return Err(Error::InvalidResponse);
+        }
+        let mut spans: Vec<_> = rows.into_iter().map(|row| row.span).collect();
+        spans.sort_by_key(|span| span.start_ns);
+        Ok(Some(EvalTrace {
+            spans,
+            root_ended_at_ms,
+            last_received_at_ms,
+            agent,
+            version,
+            environment,
+            gateway_cost_usd: cost,
+        }))
+    }
+
+    async fn spans(
+        &self,
+        team: &str,
+        trace: &str,
+        snapshot_ms: i64,
+        bytes: &mut usize,
+    ) -> Result<Vec<StoredSpan>, Error> {
+        let mut page = SpanPage {
+            team: team.to_owned(),
+            trace_id: trace.to_owned(),
+            after: String::new(),
+            snapshot_ms,
+            page_size: PAGE_SIZE as u32,
+        };
+        let mut rows = Vec::new();
+        loop {
+            let batch = fetch::<Spans>(&self.client, &self.connection, &page).await?;
+            let complete = batch.len() < PAGE_SIZE;
+            *bytes = bytes.saturating_add(
+                serde_json::to_vec(&batch)
+                    .map_err(|_| Error::InvalidResponse)?
+                    .len(),
+            );
+            if *bytes > MAX_TRACE_BYTES {
+                return Err(Error::Storage(
+                    litellm_storage_clickhouse::Error::ResponseTooLarge,
+                ));
+            }
+            if let Some(last) = batch.last() {
+                page.after.clone_from(&last.span.span_id);
+            }
+            rows.extend(batch);
+            if complete {
+                return Ok(rows);
+            }
+        }
+    }
+}
+
+fn is_root(span: &EvalSpan) -> bool {
+    span.parent_span_id.is_empty() || span.parent_span_id == "0000000000000000"
+}

@@ -1,4 +1,12 @@
-WITH concat(leftPad(toString(cityHash64(concat(source,team_id,trace_ref,trace_id))),20,'0'),
+WITH eval_traces AS (
+    SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+    WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+      AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
+      AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
+      AND Timestamp < fromUnixTimestamp64Milli(toInt64({end:UInt64}))
+      AND coalesce(nullIf(SpanAttributes['deployment.environment'], ''),
+          ResourceAttributes['deployment.environment']) = 'lens-eval'
+), concat(leftPad(toString(cityHash64(concat(source,team_id,trace_ref,trace_id))),20,'0'),
     hex(concat(source,char(0),team_id,char(0),trace_ref,char(0),trace_id))) AS selection_key
 SELECT *, selection_key FROM (
     SELECT *, if({sample_cap:UInt64}=0, ceiling(eligible*{sample_percent:Float64}/100),
@@ -16,6 +24,7 @@ SELECT *, selection_key FROM (
             mapValues(argMin(mapConcat(ResourceAttributes, SpanAttributes), tuple(ParentSpanId!='',Timestamp)))) AS attributes
     FROM otel_traces
     WHERE {source:String} IN ('traces','both')
+      AND (TeamId,ApiKeyHash,TraceId) NOT IN eval_traces
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
       -- The 7 day slack covers spans that started before the window and late ingestion
@@ -44,6 +53,13 @@ SELECT *, selection_key FROM (
             arrayMap(t -> tuple('tag', t), request_tags)) AS attributes
     FROM spend_logs FINAL
     WHERE {source:String} IN ('requests','both')
+      AND (team_id,api_key,spend_logs.trace_id) NOT IN eval_traces
+      AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),
+          JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'
+      AND (team_id,api_key,response_id) NOT IN (
+          SELECT TeamId,ApiKeyHash,LiteLLMRequestId FROM otel_traces
+          WHERE LiteLLMRequestId!='' AND (TeamId,ApiKeyHash,TraceId) IN eval_traces
+      )
       AND ({all_teams:UInt8}=1 OR team_id={team:String})
       AND ({key_hash:String}='' OR api_key={key_hash:String})
       AND spend_logs.start_time >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY

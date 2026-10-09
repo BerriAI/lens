@@ -4,6 +4,7 @@ pub mod auth;
 pub mod config;
 pub mod control;
 mod error;
+pub mod eval_runtime;
 pub mod evidence;
 pub mod grouping;
 mod ingest;

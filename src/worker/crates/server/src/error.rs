@@ -11,6 +11,8 @@ pub enum ApiError {
     NotFound,
     #[error("Not authenticated")]
     Unauthorized,
+    #[error("Invalid request: {0}")]
+    InvalidRequest(&'static str),
     #[error("Internal Server Error")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -64,6 +66,7 @@ impl IntoResponse for ApiError {
         let (status, code) = match &self {
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
+            Self::InvalidRequest(_) => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
             Self::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
         };
         (
@@ -159,4 +162,84 @@ mod session_tests {
             json!({"detail":message})
         );
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvalApiError {
+    #[error("Unsupported Lens contract version; send X-Lens-Contract: 1")]
+    ContractVersion,
+    #[error("Dataset not found")]
+    DatasetNotFound,
+    #[error("Dataset revision not found")]
+    RevisionNotFound,
+    #[error("Case does not belong to this run")]
+    UnknownCase,
+    #[error("Not authenticated for an eval team")]
+    Unauthorized,
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    EvalStore(#[from] litellm_storage_clickhouse::EvalError),
+    #[error(transparent)]
+    Storage(#[from] litellm_storage_clickhouse::Error),
+    #[error(transparent)]
+    Request(#[from] ApiError),
+    #[error("Invalid dataset state")]
+    Dataset(#[from] serde_json::Error),
+}
+
+impl IntoResponse for EvalApiError {
+    fn into_response(self) -> Response {
+        use lens_contract::eval::{ApiError as Body, ApiErrorCode};
+        use litellm_storage_clickhouse::EvalError;
+        let detail = self.to_string();
+        let (status, code) = match self {
+            Self::ContractVersion => (StatusCode::CONFLICT, ApiErrorCode::ContractVersion),
+            Self::DatasetNotFound => (StatusCode::NOT_FOUND, ApiErrorCode::DatasetNotFound),
+            Self::RevisionNotFound => (StatusCode::NOT_FOUND, ApiErrorCode::RevisionNotFound),
+            Self::UnknownCase | Self::EvalStore(EvalError::UnknownCase) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::UnknownCase)
+            }
+            Self::Unauthorized | Self::Authentication(lens_auth::Error::Unauthorized(_)) => {
+                (StatusCode::UNAUTHORIZED, ApiErrorCode::Unauthorized)
+            }
+            Self::Authentication(lens_auth::Error::OriginMismatch) => {
+                (StatusCode::FORBIDDEN, ApiErrorCode::Unauthorized)
+            }
+            Self::EvalStore(EvalError::RunNotFound) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::RunNotFound)
+            }
+            Self::EvalStore(EvalError::RunClosed) => {
+                (StatusCode::CONFLICT, ApiErrorCode::RunClosed)
+            }
+            Self::EvalStore(EvalError::InvalidTrial) => {
+                return ApiError::InvalidRequest("trial is outside the run's trial range")
+                    .into_response();
+            }
+            Self::EvalStore(EvalError::InvalidRequest(message)) => {
+                return ApiError::InvalidRequest(message).into_response();
+            }
+            Self::EvalStore(EvalError::IdempotencyConflict) => {
+                return ApiError::InvalidRequest("idempotency key belongs to a different request")
+                    .into_response();
+            }
+            Self::Request(error) => return error.into_response(),
+            error => return ApiError::Internal(Box::new(error)).into_response(),
+        };
+        (status, Json(Body { detail, code })).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvalCloserError {
+    #[error(transparent)]
+    Storage(#[from] litellm_storage_clickhouse::EvalError),
+    #[error("Eval trace lookup failed")]
+    Traces(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Eval scoring failed")]
+    Scoring(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Eval scoring is not configured on this Lens instance")]
+    ScoringUnavailable,
+    #[error("Stored eval run is incomplete")]
+    InvalidRun,
 }

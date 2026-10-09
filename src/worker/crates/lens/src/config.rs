@@ -13,6 +13,7 @@ pub struct Config {
     pub release: String,
     pub storage: StorageConfig,
     pub authentication: Option<lens_auth::Settings>,
+    pub public_url: String,
 }
 
 fn required(name: &'static str) -> Result<String, Error> {
@@ -45,6 +46,8 @@ impl Config {
             ));
         }
         Ok(Self {
+            public_url: std::env::var("LENS_PUBLIC_URL")
+                .unwrap_or_else(|_| "http://localhost:4000".into()),
             authentication: std::env::var("LENS_ADMIN_TOKEN")
                 .ok()
                 .map(|token| {
