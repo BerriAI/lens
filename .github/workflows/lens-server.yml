@@ -100,6 +100,27 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Build standalone Lens
         run: docker build --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:ci .
+      - name: Scan the native runtime for fixable high and critical vulnerabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            x86_64) arch=amd64; checksum=edda0968d8827daab01d32b3cd7de192ae0915005e7bbfcfef9e68e79bc43343 ;;
+            aarch64) arch=arm64; checksum=553e4c36d9d61349830ba6034d43b8700a7f10576d3e2f4981c0fd2b96086465 ;;
+            *) exit 1 ;;
+          esac
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/grype.tar.gz" \
+            "https://github.com/anchore/grype/releases/download/v0.114.0/grype_0.114.0_linux_$arch.tar.gz"
+          printf '%s  %s\n' "$checksum" "$RUNNER_TEMP/grype.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/grype.tar.gz" -C "$RUNNER_TEMP" grype
+          "$RUNNER_TEMP/grype" lens:ci --only-fixed --fail-on high --output json > "$RUNNER_TEMP/lens-vulnerabilities.json"
+      - name: Retain the native vulnerability report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lens-vulnerabilities-${{ runner.arch }}
+          path: ${{ runner.temp }}/lens-vulnerabilities.json
+          if-no-files-found: warn
       - name: Start and restart with ClickHouse
         run: deploy/lens/smoke.sh lens:ci ci
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020

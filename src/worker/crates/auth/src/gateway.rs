@@ -5,6 +5,8 @@ use serde::{Deserialize, Deserializer};
 
 use crate::Error;
 
+const CLOCK_SKEW_SECONDS: i64 = 5;
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Claims {
@@ -34,7 +36,7 @@ pub(super) fn identity(token: &str, secret: &str, now: DateTime<Utc>) -> Result<
     .claims;
     if claims.iss != "litellm"
         || claims.aud != "litellm-lens"
-        || claims.iat > now.timestamp()
+        || claims.iat > now.timestamp().saturating_add(CLOCK_SKEW_SECONDS)
         || claims.exp <= now.timestamp()
     {
         return Err(Error::Unauthorized("Invalid or expired gateway identity"));
@@ -48,7 +50,7 @@ pub(super) fn identity(token: &str, secret: &str, now: DateTime<Utc>) -> Result<
     if claims
         .exp
         .checked_sub(claims.iat)
-        .is_none_or(|lifetime| lifetime > 60)
+        .is_none_or(|lifetime| !(1..=60).contains(&lifetime))
         || subject != Some(claims.sub.as_str())
     {
         return Err(Error::Unauthorized("Invalid gateway identity scope"));

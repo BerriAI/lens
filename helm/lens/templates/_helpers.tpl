@@ -14,6 +14,10 @@
 {{- .Values.serviceTokenSecret.name | default .Values.serviceTokenSecret.generatedName | default (printf "%s-service" (include "lens.fullname" . | trunc 55 | trimSuffix "-")) -}}
 {{- end -}}
 
+{{- define "lens.gatewaySecretName" -}}
+{{- .Values.gateway.secretName | default .Values.gateway.generatedName | default (printf "%s-gateway" (include "lens.fullname" . | trunc 55 | trimSuffix "-")) -}}
+{{- end -}}
+
 {{- define "lens.bundledClickhouse" -}}
 {{- if and .Values.clickhouse.enabled (not .Values.clickhouseSecret.name) -}}true{{- end -}}
 {{- end -}}

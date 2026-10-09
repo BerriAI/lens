@@ -82,7 +82,7 @@
     "Completed the separately timed final removal audit with independent lanes, source reconciliation, fresh negative/live checks and reviewed fixes; original implementation qualification is excluded from the hour",
     "Retired four local task startup credentials and the exact old sessions, preserved all original state and billing rows, and verified retained findings/traces/feedback in both browser shells after restart. Shared provider credentials were not rotated."
   ],
-  "current_work": "Complete current CI and review follow-ups, then implement release-plan selection of current Lens and LiteLLM main once per combined candidate, including the selected shared UI. Examples source publication is resolved. Preserve prior exact-source evidence and separate official publication and managed deployment.",
+  "current_work": "Complete combined release source/artifact wiring, latest UI adoption, examples follow-up, Lens forwarding capacity qualification and final candidate CI/reviews. Fable boundary fixes and standalone frozen source selection are recorded separately. No unrelated upgrades or legacy gateway fixes are in scope.",
   "acceptance": {
     "B1": {
       "status": "verified_local",
@@ -1577,7 +1577,7 @@
       }
     }
   },
-  "updated_at_utc": "2026-10-09T13:29:29.178740+00:00",
+  "updated_at_utc": "2026-10-09T19:20:27Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -2427,7 +2427,8 @@
       "Independent Lens releases with a tested current UI/service contract",
       "Source publication to Lens main; companion PRs; production cutover stays separate"
     ],
-    "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised"
+    "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised",
+    "follow_up_policy": "Only Lens extraction and necessary integration fixes are authorized. Report pre-existing defects and upgrade requirements separately; do not change unrelated dependency/tool versions or general CI policy."
   },
   "final_removal_audit": {
     "schema": 1,
@@ -2637,5 +2638,6 @@
     "evidence": "docs/extraction/evidence/local-acceptance-cleanup.json",
     "provider_credential_owner_rotation_required": true
   },
-  "latest_follow_up_evidence": "docs/extraction/evidence/review-follow-up-qualification.json"
+  "latest_follow_up_evidence": "docs/extraction/evidence/review-follow-up-qualification.json",
+  "latest_boundary_review_evidence": "docs/extraction/evidence/fable-boundary-review.json"
 }

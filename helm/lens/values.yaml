@@ -17,6 +17,7 @@ adminTokenSecret:
 gateway:
   enabled: false
   secretName: ""
+  generatedName: ""
   secretKey: gateway-secret
 serviceTokenSecret:
   name: ""
