@@ -8,7 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, Method, StatusCode, header},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post, put},
@@ -91,7 +91,10 @@ pub fn router<R: SessionRepository + 'static>(
         )
         .public_route("/lens/github/callback", get(callback::<R>))
         .public_route("/lens/github/setup", get(setup::<R>))
-        .public_route("/lens/github/report", post(report::publish::<R>))
+        .public_route(
+            "/lens/github/report",
+            post(report::publish::<R>).layer(DefaultBodyLimit::disable()),
+        )
         .public_route("/lens/github/service/authorize", post(service::start::<R>))
         .public_route(
             "/lens/github/service/connect/{id}",
@@ -104,7 +107,7 @@ pub fn router<R: SessionRepository + 'static>(
         )
         .public_route(
             "/lens/github/service/connections/{id}/report",
-            post(service::report::<R>),
+            post(service::report::<R>).layer(DefaultBodyLimit::disable()),
         )
         .public_route(remote::CALLBACK_PATH, get(remote::callback::<R>))
         .layer(axum::middleware::map_response(

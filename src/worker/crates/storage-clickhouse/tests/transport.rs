@@ -82,7 +82,7 @@ async fn typed_fetch_encodes_parameters_and_validates_rows(
         .and(query_param("param_text", "line\\nbreak"))
         .and(query_param("param_strings", "['a\\'b','雪']"))
         .and(query_param("readonly", "1"))
-        .and(query_param("max_result_rows", "1000"))
+        .and(query_param("max_result_rows", "0"))
         .respond_with(ResponseTemplate::new(200).set_body_string(body))
         .expect(2)
         .mount(&server)

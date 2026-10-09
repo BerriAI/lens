@@ -23,10 +23,7 @@ pub async fn trace_received(
 ) -> Result<bool, Error> {
     let valid_id =
         |value: &str, length| value.len() == length && value.bytes().all(|b| b.is_ascii_hexdigit());
-    if !valid_id(trace_id, 32)
-        || span_ids.len() > 1000
-        || span_ids.iter().any(|id| !valid_id(id, 16))
-    {
+    if !valid_id(trace_id, 32) || span_ids.iter().any(|id| !valid_id(id, 16)) {
         return Err(Error::InvalidParameters);
     }
     let spans: BTreeSet<_> = span_ids.iter().map(|id| id.to_ascii_lowercase()).collect();

@@ -1,12 +1,9 @@
-//! Keyset-paged reads that shrink their page when ClickHouse rejects a response as too large and
-//! stop accumulating once a graph exceeds the interactive budget.
-
 use std::{future::Future, marker::PhantomData};
 
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Query, ReadLimits, fetch};
 use litellm_traces::query::named as contracts;
-use litellm_traces_cache::{MAX_GRAPH_BYTES, MAX_GRAPH_SPANS, StoreError};
+use litellm_traces_cache::StoreError;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
@@ -17,32 +14,8 @@ use crate::{
 const PAGE_SIZE: u32 = 8192;
 const SPAN_BATCH_READ_LIMITS: ReadLimits = ReadLimits {
     result_rows: PAGE_SIZE as u64,
-    response_bytes: 16 * 1024 * 1024,
     ..litellm_storage_clickhouse::READ_LIMITS
 };
-
-#[derive(Default)]
-struct ReadBudget {
-    bytes: usize,
-    rows: usize,
-}
-
-impl ReadBudget {
-    fn reserve(&mut self, bytes: usize) -> Result<(), StoreError<Error>> {
-        self.bytes = self.bytes.saturating_add(bytes);
-        if self.bytes > MAX_GRAPH_BYTES || self.rows == MAX_GRAPH_SPANS {
-            return Err(StoreError::TooLarge);
-        }
-        self.rows += 1;
-        Ok(())
-    }
-
-    fn record(&mut self, row: &impl Serialize) -> Result<(), StoreError<Error>> {
-        let bytes =
-            serde_json::to_vec(row).map_err(|_| StoreError::Failed(Error::InvalidResponse))?;
-        self.reserve(bytes.len())
-    }
-}
 
 /// One keyset position in a paged query: the SQL reads the cursor fields of `Self` plus the
 /// `page_size` that [`Batch`] adds.
@@ -88,7 +61,6 @@ async fn read_all<K: Keyset, S: PageSource<K>>(
         page_size: PAGE_SIZE,
     };
     let mut rows = Vec::new();
-    let mut budget = ReadBudget::default();
     loop {
         let page = match source.page(&batch).await {
             Err(litellm_storage_clickhouse::Error::ResponseTooLarge) if batch.page_size > 1 => {
@@ -101,9 +73,6 @@ async fn read_all<K: Keyset, S: PageSource<K>>(
             result => result.map_err(|error| StoreError::Failed(Error::Storage(error)))?,
         };
         let complete = page.len() < batch.page_size as usize;
-        for row in &page {
-            budget.record(row)?;
-        }
         if let Some(last) = page.last() {
             batch.keyset = batch.keyset.after(last);
         }
@@ -270,22 +239,6 @@ mod tests {
 
     use super::*;
 
-    #[rstest]
-    #[case::byte_boundary(MAX_GRAPH_BYTES - 1, 0, 1, false)]
-    #[case::byte_overflow(MAX_GRAPH_BYTES - 1, 0, 2, true)]
-    #[case::integer_overflow(MAX_GRAPH_BYTES, 0, usize::MAX, true)]
-    #[case::row_boundary(0, MAX_GRAPH_SPANS - 1, 1, false)]
-    #[case::row_overflow(0, MAX_GRAPH_SPANS, 1, true)]
-    fn accumulation_stops_at_the_graph_budget(
-        #[case] bytes: usize,
-        #[case] rows: usize,
-        #[case] next: usize,
-        #[case] rejected: bool,
-    ) {
-        let mut budget = ReadBudget { bytes, rows };
-        assert_eq!(budget.reserve(next).is_err(), rejected);
-    }
-
     #[derive(Serialize)]
     struct Numbers {
         after: u32,
@@ -323,6 +276,7 @@ mod tests {
 
     #[rstest]
     #[case::fits(1000, PAGE_SIZE, &[8192])]
+    #[case::large_trace(100_001, PAGE_SIZE, &[8192; 13])]
     #[case::uniform_large_rows(200, 100, &[8192, 4096, 2048, 1024, 512, 256, 128, 64, 64, 64, 64])]
     #[tokio::test]
     async fn a_rejected_page_size_is_not_retried(
@@ -338,13 +292,6 @@ mod tests {
         let rows = read_all(&table, Numbers { after: 0 }).await.unwrap();
         assert_eq!(rows, (1..=total).collect::<Vec<_>>());
         assert_eq!(table.requests.lock().unwrap().as_slice(), requests);
-    }
-
-    #[test]
-    fn span_batches_use_larger_read_limits() {
-        let limits = <Paged<Numbers> as Query>::READ_LIMITS;
-        assert_eq!(limits.result_rows, 8192);
-        assert_eq!(limits.response_bytes, 16 * 1024 * 1024);
     }
 
     #[rstest]

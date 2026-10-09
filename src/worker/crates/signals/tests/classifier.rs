@@ -145,15 +145,14 @@ async fn invalid_responses_fail_classification(
 }
 
 #[rstest]
-#[case::at_limit(2000, false)]
-#[case::over_limit(2001, true)]
+#[case::short(2000)]
+#[case::long(70_000)]
 #[tokio::test]
-async fn part_excerpt_preserves_unicode_head_and_tail(
+async fn parts_preserve_all_unicode_content(
     reader: Reader,
     scope: Scope,
     execution: Execution,
     #[case] count: usize,
-    #[case] bounded: bool,
 ) {
     let content = format!("{}{}", "雪".repeat(800), "界".repeat(count - 800));
     let reader = Reader {
@@ -161,30 +160,18 @@ async fn part_excerpt_preserves_unicode_head_and_tail(
         ..reader
     };
     let state = signal_state(&reader, &scope, &execution).await.unwrap();
-    let expected = if bounded {
-        format!(
-            "{}\n[... 1 characters omitted ...]\n{}",
-            "雪".repeat(800),
-            "界".repeat(1200)
-        )
-    } else {
-        content
-    };
-    assert_eq!(state.steps[0].content, expected);
+    assert_eq!(state.steps[0].content, content);
 }
 
 #[rstest]
 #[tokio::test]
-async fn content_stops_at_three_pages_even_with_more_cursors(
-    reader: Reader,
-    scope: Scope,
-    execution: Execution,
-) {
+async fn content_follows_every_page(reader: Reader, scope: Scope, execution: Execution) {
     let reader = Reader {
         contents: BTreeMap::from([
             ("".into(), page(vec![part("first")], Some("second"))),
             ("second".into(), page(vec![part("second")], Some("third"))),
-            ("third".into(), page(vec![part("third")], Some("ignored"))),
+            ("third".into(), page(vec![part("third")], Some("fourth"))),
+            ("fourth".into(), page(vec![part("fourth")], None)),
         ]),
         ..reader
     };
@@ -195,24 +182,23 @@ async fn content_stops_at_three_pages_even_with_more_cursors(
             .iter()
             .map(|step| step.content.as_str())
             .collect::<Vec<_>>(),
-        vec!["first", "second", "third"]
+        vec!["first", "second", "third", "fourth"]
     );
     assert_eq!(
         *reader.content_calls.lock().unwrap(),
-        vec!["", "second", "third"]
+        vec!["", "second", "third", "fourth"]
     );
 }
 
 #[rstest]
-#[case::at_limit(40, false)]
-#[case::over_limit(50, true)]
+#[case::short(40)]
+#[case::long(50)]
 #[tokio::test]
-async fn transcript_preserves_first_and_last_steps_with_omission_count(
+async fn transcript_preserves_all_steps(
     reader: Reader,
     scope: Scope,
     execution: Execution,
     #[case] count: usize,
-    #[case] bounded: bool,
 ) {
     let parts = (0..count)
         .map(|i| part(format!("{i:03}{}", "雪".repeat(997))))
@@ -222,16 +208,11 @@ async fn transcript_preserves_first_and_last_steps_with_omission_count(
         ..reader
     };
     let state = signal_state(&reader, &scope, &execution).await.unwrap();
-    assert_eq!(state.steps.len(), if bounded { 41 } else { 40 });
+    assert_eq!(state.steps.len(), count);
     assert_eq!(state.steps[0].content, format!("000{}", "雪".repeat(997)));
     assert_eq!(
         state.steps.last().unwrap().content,
         format!("{:03}{}", count - 1, "雪".repeat(997))
     );
-    if bounded {
-        assert_eq!(state.steps[15].kind, "omitted");
-        assert_eq!(state.steps[15].name, "");
-        assert_eq!(state.steps[15].content, "10 steps omitted");
-        assert!(state.steps[16].content.starts_with("025"));
-    }
+    assert_eq!(state.steps[15].content, format!("015{}", "雪".repeat(997)));
 }

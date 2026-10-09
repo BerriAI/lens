@@ -28,7 +28,6 @@ use records::{
 
 const ATTEMPTS: u32 = 40;
 const PAGE_SIZE: u32 = 100;
-const MAX_CASES: usize = 1_000;
 pub const SCORING_LEASE_SECONDS: i64 = 60;
 
 #[derive(Clone)]

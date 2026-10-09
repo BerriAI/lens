@@ -22,7 +22,6 @@ pub mod response;
 pub mod schema;
 mod shared;
 mod tenant;
-mod truncate;
 mod ui;
 mod view;
 pub mod wire;
@@ -41,7 +40,6 @@ pub use query_access::QueryScope;
 pub use resolve::{SpendLookup, iso_time, listed_summary, resolve_trace};
 pub use shared::{Shared, SharedIdentity};
 pub use tenant::Tenant;
-pub use truncate::{truncate_messages, truncate_value};
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};
 pub use view::{
     AgentNode, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage, SpanStatus, SpendMatch,

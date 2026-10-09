@@ -154,7 +154,7 @@ async fn receipt(
     let tenant = state.credentials.tenant(&headers)?;
     state.require_storage()?;
     let _permit = wait_for_read_slot(state.read_slots.acquire()).await?;
-    let body = tokio::time::timeout(Duration::from_secs(5), to_bytes(body, 64 * 1024))
+    let body = tokio::time::timeout(Duration::from_secs(5), to_bytes(body, usize::MAX))
         .await
         .map_err(|_| Error::Unavailable)?
         .map_err(|_| Error::TooLarge)?;
@@ -217,7 +217,7 @@ async fn read(
     state.authorize_service(&headers)?;
     state.require_storage()?;
     let permit = wait_for_read_slot(state.read_slots.clone().acquire_owned()).await?;
-    let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 1024 * 1024))
+    let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, usize::MAX))
         .await
         .map_err(|_| Error::Unavailable)?
         .map_err(|_| Error::TooLarge)?;
@@ -259,7 +259,7 @@ async fn insert(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::Unavailable)?;
-    let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 8 * 1024 * 1024))
+    let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, usize::MAX))
         .await
         .map_err(|_| Error::Unavailable)?
         .map_err(|_| Error::TooLarge)?;
@@ -267,9 +267,6 @@ async fn insert(
         let _permit = permit;
         let rows: Vec<BTreeMap<String, Value>> =
             serde_json::from_slice(&body).map_err(|_| Error::InvalidRequest)?;
-        if rows.len() > 1000 {
-            return Err(Error::TooLarge);
-        }
         litellm_traces_clickhouse::insert_rows(
             &state.storage.client,
             state.storage.config.storage().writer(),

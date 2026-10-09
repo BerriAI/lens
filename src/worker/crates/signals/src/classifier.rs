@@ -38,65 +38,6 @@ pub trait Decisions: Send + Sync {
     ) -> impl Future<Output = Result<Value, DecisionsError>> + Send;
 }
 
-fn excerpt(content: &str) -> String {
-    let length = content.chars().count();
-    if length <= 2_000 {
-        return content.into();
-    }
-    let head = content.chars().take(800).collect::<String>();
-    let tail = content.chars().skip(length - 1_200).collect::<String>();
-    format!(
-        "{head}\n[... {} characters omitted ...]\n{tail}",
-        length - 2_000
-    )
-}
-
-fn take(
-    steps: impl Iterator<Item = SignalStep>,
-    mut remaining: usize,
-    tail: bool,
-) -> Vec<SignalStep> {
-    let mut result = Vec::new();
-    for step in steps {
-        if remaining == 0 {
-            break;
-        }
-        let length = step.content.chars().count();
-        let used = remaining.min(length);
-        let content = if tail {
-            step.content.chars().skip(length - used).collect()
-        } else {
-            step.content.chars().take(used).collect()
-        };
-        result.push(SignalStep { content, ..step });
-        remaining -= used;
-    }
-    result
-}
-
-fn bounded(steps: Vec<SignalStep>) -> Vec<SignalStep> {
-    if steps
-        .iter()
-        .map(|step| step.content.chars().count())
-        .sum::<usize>()
-        <= 40_000
-    {
-        return steps;
-    }
-    let head = take(steps.iter().cloned(), 15_000, false);
-    let mut tail = take(steps.iter().rev().cloned(), 25_000, true);
-    tail.reverse();
-    let omitted = steps.len() as i64 - head.len() as i64 - tail.len() as i64;
-    head.into_iter()
-        .chain([SignalStep {
-            kind: "omitted".into(),
-            name: String::new(),
-            content: format!("{omitted} steps omitted"),
-        }])
-        .chain(tail)
-        .collect()
-}
-
 pub async fn signal_state(
     reader: &impl SignalReader,
     scope: &Scope,
@@ -104,12 +45,12 @@ pub async fn signal_state(
 ) -> Result<SignalState, Error> {
     let mut steps = Vec::new();
     let mut cursor = String::new();
-    for _ in 0..3 {
+    loop {
         let content = reader.content(scope, execution, &cursor).await?;
         steps.extend(content.parts.into_iter().map(|part| SignalStep {
             kind: part.kind,
             name: part.name,
-            content: excerpt(&part.content),
+            content: part.content,
         }));
         let Some(next) = content.next_cursor else {
             break;
@@ -118,7 +59,7 @@ pub async fn signal_state(
     }
     Ok(SignalState {
         task: "An AI agent run recorded as a trace. Judge only what the user and the agent said and did in these steps.",
-        steps: bounded(steps),
+        steps,
     })
 }
 
@@ -204,7 +145,7 @@ pub async fn classify(
             status: SignalAttemptStatus::Failed,
             scores: BTreeMap::new(),
             model: config.model.clone(),
-            error: error.to_string().chars().take(300).collect(),
+            error: error.to_string(),
         },
     }
 }

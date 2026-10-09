@@ -250,9 +250,9 @@ fn error(message: &str) -> Option<CaseError> {
     Err(InvalidCaseResult::EmptyTraceValue)
 )]
 #[case::message_at_limit(CaseResult { error: error(&"x".repeat(2000)), ..CaseResult::default() }, Ok(()))]
-#[case::message_over_limit(
+#[case::long_error_message(
     CaseResult { error: error(&"x".repeat(2001)), ..CaseResult::default() },
-    Err(InvalidCaseResult::ErrorMessageTooLong)
+    Ok(())
 )]
 #[case::negative_cost(
     CaseResult { trace: trace(), cost_usd: Some(-0.01), ..CaseResult::default() },

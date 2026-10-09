@@ -158,6 +158,47 @@ async fn complete(store: &EvalStore, run: &StoredRun, now: DateTime<Utc>) -> Sto
 }
 
 #[rstest]
+#[case::many_cases(1_001, 1)]
+#[case::many_trials(1, 11)]
+#[tokio::test]
+async fn runs_preserve_cases_and_trials_past_previous_limits(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+    result: CaseResult,
+    #[case] count: usize,
+    #[case] trials: u32,
+) {
+    let store = EvalStore::new(database.store.clone());
+    let cases: Vec<_> = (0..count)
+        .map(|index| StoredCase {
+            id: format!("case-{index}"),
+            ..cases[0].clone()
+        })
+        .collect();
+    let now = Utc::now();
+    let run = create(
+        &store,
+        "team",
+        CreateEvalRun { trials, ..request },
+        cases.clone(),
+        now,
+    )
+    .await;
+    let last = &cases[count - 1].id;
+    store
+        .put_result("team", &run.run.id, last, trials - 1, result.clone(), now)
+        .await
+        .unwrap();
+    let stored = store.get("team", &run.run.id).await.unwrap();
+    assert_eq!(stored.cases, cases);
+    assert_eq!(stored.run.expected_trials, count as u64 * u64::from(trials));
+    assert_eq!(stored.trials[0].case_id, *last);
+    assert_eq!(stored.trials[0].trial, trials - 1);
+    assert_eq!(stored.trials[0].result, result);
+}
+
+#[rstest]
 #[tokio::test]
 async fn first_run_registers_definition_from_its_spec(
     #[future(awt)] database: Database,

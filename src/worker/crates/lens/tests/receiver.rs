@@ -38,7 +38,7 @@ impl Drop for Server {
 
 async fn serve(clickhouse: &str, ready: bool) -> Server {
     let storage = Storage::new(
-        Config::new("litellm".into(), clickhouse, 14, 65_536).unwrap(),
+        Config::new("litellm".into(), clickhouse, 14).unwrap(),
         http_client().unwrap(),
         SERVICE_TOKEN.into(),
     );
@@ -78,6 +78,49 @@ fn export() -> serde_json::Value {
         "name": "receiver boundary", "startTimeUnixNano": "1791388800000000000",
         "endTimeUnixNano": "1791388801000000000", "status": {"code": 1}
     }]}]}]})
+}
+
+#[rstest]
+#[case::plain(false)]
+#[case::gzip(true)]
+#[tokio::test]
+async fn large_uploads_preserve_complete_attributes(#[case] gzip: bool) {
+    use std::io::{Read, Write};
+
+    let store = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&store)
+        .await;
+    let server = serve(&store.uri(), true).await;
+    let content = "x".repeat(17 * 1024 * 1024);
+    let mut payload = export();
+    payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["attributes"] =
+        json!([{ "key": "custom.large", "value": { "stringValue": content } }]);
+    let bytes = serde_json::to_vec(&payload).unwrap();
+    let mut request = http_client()
+        .unwrap()
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(KEY)
+        .header("content-type", "application/json");
+    let body = if gzip {
+        request = request.header("content-encoding", "gzip");
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&bytes).unwrap();
+        encoder.finish().unwrap()
+    } else {
+        bytes
+    };
+    assert_eq!(request.body(body).send().await.unwrap().status(), 200);
+    let requests = store.received_requests().await.unwrap();
+    let mut decoded = String::new();
+    flate2::read::GzDecoder::new(requests[0].body.as_slice())
+        .read_to_string(&mut decoded)
+        .unwrap();
+    let row: serde_json::Value = serde_json::from_str(decoded.trim()).unwrap();
+    assert_eq!(row["SpanAttributes"]["custom.large"], content);
+    assert_eq!(row["TeamId"], "authenticated-team");
 }
 
 #[rstest]
@@ -452,7 +495,7 @@ async fn ingestion_key_cannot_read_or_export_gateway_records() {
 
 #[rstest]
 #[tokio::test]
-async fn malformed_and_oversized_uploads_never_reach_storage() {
+async fn malformed_uploads_never_reach_storage() {
     let store = MockServer::start().await;
     let server = serve(&store.uri(), true).await;
     let client = http_client().unwrap();
@@ -472,7 +515,7 @@ async fn malformed_and_oversized_uploads_never_reach_storage() {
         .send()
         .await
         .unwrap();
-    assert_eq!(oversized.status(), 413);
+    assert_eq!(oversized.status(), 400);
     assert!(store.received_requests().await.unwrap().is_empty());
 }
 

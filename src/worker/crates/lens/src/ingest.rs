@@ -11,7 +11,6 @@ use prost::Message;
 use std::{io::Read, sync::Arc, time::Duration};
 use tokio::sync::OwnedSemaphorePermit;
 
-pub const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
 pub const UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Message)]
@@ -28,12 +27,8 @@ fn decompress(payload: &[u8], encoding: Option<&str>) -> Result<Vec<u8>, Error> 
         Some("gzip") => {
             let mut decoded = Vec::new();
             MultiGzDecoder::new(payload)
-                .take((MAX_BODY_BYTES + 1) as u64)
                 .read_to_end(&mut decoded)
                 .map_err(|_| Error::InvalidRequest)?;
-            if decoded.len() > MAX_BODY_BYTES {
-                return Err(Error::TooLarge);
-            }
             Ok(decoded)
         }
         Some(_) => Err(Error::InvalidRequest),
@@ -120,7 +115,7 @@ async fn receive_authorized(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::Unavailable)?;
-    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, MAX_BODY_BYTES))
+    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, usize::MAX))
         .await
         .map_err(|_| Error::Unavailable)?
         .map_err(|_| Error::TooLarge)?;
@@ -154,7 +149,6 @@ async fn store(
     logs: bool,
     permit: OwnedSemaphorePermit,
 ) -> Result<(), Error> {
-    let max_value_bytes = state.storage.config.max_attribute_value_bytes();
     let (rows, _permit) = tokio::task::spawn_blocking(move || {
         let payload = decompress(&payload, encoding.as_deref())?;
         let decode = if logs {
@@ -164,7 +158,7 @@ async fn store(
         };
         let spans = decode(&payload, content_type.as_deref())
             .map_err(litellm_traces_clickhouse::Error::from)?;
-        Ok::<_, Error>((span_rows(spans, &tenant, max_value_bytes), permit))
+        Ok::<_, Error>((span_rows(spans, &tenant), permit))
     })
     .await
     .map_err(|_| Error::Unavailable)??;

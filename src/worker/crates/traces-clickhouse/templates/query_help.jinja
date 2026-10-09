@@ -156,7 +156,7 @@ Always bound Timestamp or start_time and use LIMIT; add TeamId/ApiKeyHash or tea
 {%- endblock %}
 
 {% block reader_limits -%}
-The reader enforces {{ limits.result_rows }} result rows, {{ limits.result_mib() }} MiB response bytes, {{ limits.memory_mib() }} MiB memory and a {{ limits.execution_seconds }} second query limit; exceeding limits fails instead of returning partial results
+The reader returns complete query results. Use SQL LIMIT and keyset pagination to read large result sets in batches. Queries run with {{ limits.memory_mib() }} MiB memory and a {{ limits.execution_seconds }} second timeout
 {%- endblock %}
 
 {% block reader_profile -%}

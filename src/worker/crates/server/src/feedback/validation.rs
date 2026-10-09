@@ -34,7 +34,7 @@ impl Model {
             ],
             Self::Submission => &[
                 ("score", true, FieldKind::Feedback(Kind::Score)),
-                ("comment", false, FieldKind::String(0, Some(10_000))),
+                ("comment", false, FieldKind::String(0, None)),
                 ("user", false, USER),
                 ("trace_id", false, TRACE_ID),
                 ("session_id", false, SESSION_ID),
@@ -99,7 +99,6 @@ pub(crate) fn validate(
             Err(error) => errors.push(error),
         },
         Kind::Traces => {
-            let input = value.clone();
             validation::validate(
                 value,
                 FieldKind::Tuple(
@@ -109,19 +108,6 @@ pub(crate) fn validate(
                 path,
                 errors,
             );
-            if let Some(length) = value
-                .as_array()
-                .map(Vec::len)
-                .filter(|length| *length > 500)
-            {
-                errors.push(validation::failure(
-                    "too_long",
-                    path,
-                    format!("Tuple should have at most 500 items after validation, not {length}"),
-                    input,
-                    Some(json!({"field_type":"Tuple","max_length":500,"actual_length":length})),
-                ));
-            }
         }
     }
 }

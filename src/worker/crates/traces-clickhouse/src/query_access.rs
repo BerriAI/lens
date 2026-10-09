@@ -24,10 +24,6 @@ pub(crate) struct ReaderLimits {
 }
 
 impl ReaderLimits {
-    pub fn result_mib(&self) -> u64 {
-        self.result_bytes / MIB
-    }
-
     pub fn memory_mib(&self) -> u64 {
         self.memory_bytes / MIB
     }
@@ -35,7 +31,7 @@ impl ReaderLimits {
 
 pub(crate) const READER_LIMITS: ReaderLimits = ReaderLimits {
     result_rows: READ_LIMITS.result_rows,
-    result_bytes: READ_LIMITS.response_bytes as u64,
+    result_bytes: 0,
     memory_bytes: 256 * MIB,
     execution_seconds: READ_LIMITS.execution_seconds,
 };
@@ -110,20 +106,20 @@ impl QueryReaders {
             memory_bytes,
             execution_seconds,
         } = READER_LIMITS;
-        self.execute(
-            client,
-            format!(
-                "CREATE USER IF NOT EXISTS {user} IDENTIFIED WITH sha256_hash BY '{password_hash}' \
-             SETTINGS readonly = 1 CONST, max_execution_time = {execution_seconds} CONST, \
+        let settings = format!(
+            "readonly = 1 CONST, max_execution_time = {execution_seconds} CONST, \
              max_result_rows = {result_rows} CONST, max_result_bytes = {result_bytes} CONST, \
              result_overflow_mode = 'throw' CONST, max_memory_usage = {memory_bytes} CONST, \
              max_threads = 2 CONST, max_concurrent_queries_for_user = 8 CONST"
-            ),
+        );
+        self.execute(
+            client,
+            format!("CREATE USER IF NOT EXISTS {user} IDENTIFIED WITH sha256_hash BY '{password_hash}' SETTINGS {settings}"),
         )
         .await?;
         self.execute(
             client,
-            format!("ALTER USER {user} IDENTIFIED WITH sha256_hash BY '{password_hash}'"),
+            format!("ALTER USER {user} IDENTIFIED WITH sha256_hash BY '{password_hash}' SETTINGS {settings}"),
         )
         .await?;
         let policies = TraceTable::iter()

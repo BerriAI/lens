@@ -12,10 +12,10 @@ pub struct Signal {
     #[schemars(regex(pattern = "^[a-z][a-z0-9_]{0,63}$"))]
     pub id: String,
     #[serde(deserialize_with = "signal_name")]
-    #[schemars(length(min = 1, max = 60))]
+    #[schemars(length(min = 1))]
     pub name: String,
     #[serde(deserialize_with = "signal_question")]
-    #[schemars(length(min = 3, max = 500))]
+    #[schemars(length(min = 3))]
     pub question: String,
 }
 
@@ -28,7 +28,6 @@ pub struct SignalConfig {
     #[schemars(range(min = 0.05, max = 0.95))]
     pub threshold: f64,
     #[serde(default = "default_signals", deserialize_with = "signals")]
-    #[schemars(length(max = 20))]
     pub signals: Vec<Signal>,
 }
 
@@ -176,13 +175,9 @@ fn signal_id<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Er
     Ok(id)
 }
 
-fn bounded_string<'de, D: Deserializer<'de>>(
-    deserializer: D,
-    min: usize,
-    max: usize,
-) -> Result<String, D::Error> {
+fn signal_text<'de, D: Deserializer<'de>>(deserializer: D, min: usize) -> Result<String, D::Error> {
     let value = String::deserialize(deserializer)?;
-    if !(min..=max).contains(&value.chars().count()) {
+    if value.chars().count() < min {
         return Err(D::Error::custom(
             "Signal text length is outside the allowed range",
         ));
@@ -191,11 +186,11 @@ fn bounded_string<'de, D: Deserializer<'de>>(
 }
 
 fn signal_name<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    bounded_string(deserializer, 1, 60)
+    signal_text(deserializer, 1)
 }
 
 fn signal_question<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    bounded_string(deserializer, 3, 500)
+    signal_text(deserializer, 3)
 }
 
 fn probability(value: Value, min: f64, max: f64) -> Option<f64> {
@@ -230,9 +225,6 @@ fn scores<'de, D: Deserializer<'de>>(deserializer: D) -> Result<BTreeMap<String,
 
 fn signals<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Signal>, D::Error> {
     let signals = Vec::<Signal>::deserialize(deserializer)?;
-    if signals.len() > 20 {
-        return Err(D::Error::custom("A maximum of 20 signals is allowed"));
-    }
     if signals
         .iter()
         .map(|signal| &signal.id)

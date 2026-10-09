@@ -139,7 +139,6 @@
       "additionalProperties": false,
       "properties": {
         "message": {
-          "maxLength": 2000,
           "type": "string"
         },
         "type": {
@@ -381,7 +380,6 @@
         "trials": {
           "default": 1,
           "format": "uint32",
-          "maximum": 10,
           "minimum": 1,
           "type": "integer"
         },
@@ -559,7 +557,6 @@
         "trials": {
           "default": 1,
           "format": "uint32",
-          "maximum": 10,
           "minimum": 1,
           "type": "integer"
         }

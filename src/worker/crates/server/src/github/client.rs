@@ -247,7 +247,8 @@ impl GitHubApp {
             return Err(GitHubError::Forbidden);
         }
         let mut result = Vec::new();
-        for page in 1..=20 {
+        let mut page = 1u64;
+        loop {
             let installations: Installations = self
                 .request(
                     Method::GET,
@@ -258,7 +259,7 @@ impl GitHubApp {
                 .await?;
             let last = installations.installations.len() < 100;
             for installation in installations.installations {
-                for page in 1..=100 {
+                for page in 1u64.. {
                     let repos: Repositories = self
                         .request(
                             Method::GET,
@@ -287,18 +288,8 @@ impl GitHubApp {
                                 installation_id: installation.id,
                             }),
                     );
-                    if result.len() > 10_000 {
-                        return Err(GitHubError::Invalid(
-                            "Limit the GitHub App installation to the repositories you want to connect",
-                        ));
-                    }
                     if last {
                         break;
-                    }
-                    if page == 100 {
-                        return Err(GitHubError::Invalid(
-                            "The GitHub repository list is too large. Limit the App installation scope",
-                        ));
                     }
                 }
             }
@@ -306,10 +297,8 @@ impl GitHubApp {
                 result.sort_by(|a, b| a.full_name.cmp(&b.full_name));
                 return Ok(result);
             }
+            page += 1;
         }
-        Err(GitHubError::Invalid(
-            "The GitHub installation list is too large",
-        ))
     }
 
     pub(super) async fn installation_token(
@@ -386,5 +375,89 @@ impl GitHubApp {
         self.api = Url::parse(&format!("{url}/")).unwrap();
         self.web = self.api.clone();
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+    use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
+
+    struct Catalog {
+        installations: u64,
+        repositories: u64,
+    }
+
+    impl Respond for Catalog {
+        fn respond(&self, request: &Request) -> ResponseTemplate {
+            let page: u64 = request
+                .url
+                .query_pairs()
+                .find(|(key, _)| key == "page")
+                .map(|(_, value)| value.parse().unwrap())
+                .unwrap_or(1);
+            let start = (page - 1) * 100 + 1;
+            let body = match request.url.path() {
+                "/login/oauth/access_token" => json!({"access_token":"fixture-token"}),
+                "/user" => json!({"id":1}),
+                "/user/installations" => json!({
+                    "installations": (start..=(start + 99).min(self.installations))
+                        .map(|id| json!({"id":id})).collect::<Vec<_>>()
+                }),
+                path if path
+                    == format!("/user/installations/{}/repositories", self.installations) =>
+                {
+                    json!({
+                        "repositories": (start..=(start + 99).min(self.repositories))
+                            .map(|id| json!({"id":id,"full_name":format!("org/repo-{id:06}"),"default_branch":"main","permissions":{"push":true}}))
+                            .collect::<Vec<_>>()
+                    })
+                }
+                _ => json!({"repositories":[]}),
+            };
+            ResponseTemplate::new(200).set_body_json(body)
+        }
+    }
+
+    #[fixture]
+    fn github() -> GitHubApp {
+        GitHubApp::new(
+            "lens-test".into(),
+            "client".into(),
+            "secret".into(),
+            include_str!("../../tests/fixtures/github-test-key.pem"),
+            Url::parse("https://lens.example").unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[rstest]
+    #[case::repository_pages(1, 10_001)]
+    #[case::installation_pages(2_001, 1)]
+    #[tokio::test]
+    async fn repository_discovery_follows_all_pages(
+        github: GitHubApp,
+        #[case] installations: u64,
+        #[case] repositories: u64,
+    ) {
+        let server = MockServer::start().await;
+        Mock::given(|_: &Request| true)
+            .respond_with(Catalog {
+                installations,
+                repositories,
+            })
+            .mount(&server)
+            .await;
+        let github = github.with_endpoints(&server.uri());
+        let discovered = github
+            .repositories("authorization", "fixture-code")
+            .await
+            .unwrap();
+        assert_eq!(discovered.len(), repositories as usize);
+        let last = discovered.last().unwrap();
+        assert_eq!(last.id, repositories);
+        assert_eq!(last.installation_id, installations);
+        assert_eq!(last.full_name, format!("org/repo-{repositories:06}"));
     }
 }

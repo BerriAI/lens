@@ -24,6 +24,23 @@ pub(super) struct Request {
     run_ids: Vec<String>,
 }
 
+impl Request {
+    fn validate(&self) -> Result<(), GitHubError> {
+        if self.run_ids.is_empty()
+            || self
+                .run_ids
+                .iter()
+                .any(|id| id.is_empty() || id.len() > 200)
+            || self.run_ids.iter().collect::<BTreeSet<_>>().len() != self.run_ids.len()
+        {
+            return Err(GitHubError::Invalid(
+                "Provide distinct, nonempty Lens run IDs",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 pub(super) struct Published {
     run_id: String,
@@ -166,18 +183,7 @@ pub(super) async fn publish<R: SessionRepository>(
 ) -> Result<Json<Response>, GitHubError> {
     let identity = crate::auth::identity(&app.authentication, &headers, &Method::POST).await?;
     let owner = owner(&identity, true)?;
-    if request.run_ids.is_empty()
-        || request.run_ids.len() > 10
-        || request
-            .run_ids
-            .iter()
-            .any(|id| id.is_empty() || id.len() > 200)
-        || request.run_ids.iter().collect::<BTreeSet<_>>().len() != request.run_ids.len()
-    {
-        return Err(GitHubError::Invalid(
-            "Provide between 1 and 10 distinct Lens run IDs",
-        ));
-    }
+    request.validate()?;
     let store = EvalStore::new(app.store.0.clone());
     let mut reports = Vec::new();
     for id in request.run_ids {
@@ -588,6 +594,19 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
         matchers::{body_partial_json, method, path},
     };
+
+    #[rstest]
+    #[case::large_batch((0..11).map(|index| format!("run-{index}")).collect(), true)]
+    #[case::empty(vec![], false)]
+    #[case::empty_id(vec![String::new()], false)]
+    #[case::duplicate(vec!["run".into(), "run".into()], false)]
+    #[case::invalid_id(vec!["x".repeat(201)], false)]
+    fn report_batches_validate_identifiers_without_a_count_ceiling(
+        #[case] run_ids: Vec<String>,
+        #[case] accepted: bool,
+    ) {
+        assert_eq!(Request { run_ids }.validate().is_ok(), accepted);
+    }
 
     #[fixture]
     fn connection() -> Connection {

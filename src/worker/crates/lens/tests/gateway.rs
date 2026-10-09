@@ -126,6 +126,21 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
 }
 
 #[rstest]
+#[tokio::test]
+async fn model_catalogs_larger_than_four_mib_are_discovered() {
+    let server = MockServer::start().await;
+    catalog(
+        &server,
+        json!({"data":[{"model_group":"team/system-one","mode":"evaluation","description":"x".repeat(4 * 1024 * 1024)}]}),
+    )
+    .await;
+    let models = models(&server);
+    let status = models.refresh().await;
+    assert!(status.connected, "{:?}", status.error);
+    assert_eq!(models.evaluation().models(), vec!["team/system-one"]);
+}
+
+#[rstest]
 #[case::unauthorized(401)]
 #[case::unavailable(503)]
 #[tokio::test]

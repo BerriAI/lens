@@ -195,15 +195,6 @@ impl CaseResult {
             ));
         }
         if self
-            .error
-            .as_ref()
-            .is_some_and(|error| error.message.chars().count() > 2000)
-        {
-            return Err(Error::Configuration(
-                "Case error messages cannot exceed 2000 characters",
-            ));
-        }
-        if self
             .cost_usd
             .is_some_and(|cost| !cost.is_finite() || cost < 0.0)
         {
@@ -387,14 +378,14 @@ impl EvalSpec {
                 "An eval requires a dataset and at least one scorer",
             ));
         }
-        if !(1..=10).contains(&self.trials)
+        if self.trials == 0
             || self.concurrency == 0
             || !self.timeout_seconds.is_finite()
             || self.timeout_seconds <= 0.0
             || std::time::Duration::try_from_secs_f64(self.timeout_seconds + 60.0).is_err()
         {
             return Err(Error::Configuration(
-                "Trials must be 1..10, concurrency positive, and timeout finite and positive",
+                "Trials and concurrency must be positive, and timeout finite and positive",
             ));
         }
         if self.scores.iter().any(|scorer| match scorer {

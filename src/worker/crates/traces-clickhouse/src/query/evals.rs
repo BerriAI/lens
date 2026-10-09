@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use lens_contract::eval::{TraceAttribute, TraceRef};
 use litellm_http::Client;
-use litellm_storage_clickhouse::{Query, ReadLimits, fetch};
+use litellm_storage_clickhouse::{Query, fetch};
 use litellm_traces::{
     SpanStatus, SpendLookup,
     query::named::{ReadAccessParams, SpendByResponseIdsParams},
@@ -13,8 +13,6 @@ use serde::{Deserialize, Serialize};
 use crate::{ClickHouseTraces, Connection, Error};
 
 const PAGE_SIZE: usize = 512;
-const MAX_SESSION_TRACES: usize = 1024;
-const MAX_TRACE_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EvalSpan {
@@ -72,7 +70,7 @@ impl Query for Locate {
         AND (({attribute:String}='trace_id' AND TraceId={value:String}) OR \
         ({attribute:String}='session.id' \
         AND coalesce(nullIf(SpanAttributes['session.id'],''),ResourceAttributes['session.id'])={value:String})) \
-        ORDER BY TraceId,ApiKeyHash LIMIT 1025";
+        ORDER BY TraceId,ApiKeyHash";
 }
 
 #[derive(Serialize)]
@@ -149,10 +147,6 @@ struct Spans;
 impl Query for Spans {
     type Params = SpanPage;
     type Row = StoredSpan;
-    const READ_LIMITS: ReadLimits = ReadLimits {
-        response_bytes: 16 * 1024 * 1024,
-        ..litellm_storage_clickhouse::READ_LIMITS
-    };
     const SQL: &'static str = "SELECT * FROM (SELECT TraceId AS trace_id, \
         hex(SHA256(concat(TeamId,char(0),ApiKeyHash,char(0),TraceId))) AS trace_ref, \
         SpanAttributes['lens.original_trace_id'] AS original_trace_id, \
@@ -243,11 +237,6 @@ impl EvalTraces {
         if traces.is_empty() {
             return Ok(None);
         }
-        if traces.len() > MAX_SESSION_TRACES {
-            return Err(Error::Storage(
-                litellm_storage_clickhouse::Error::ResponseTooLarge,
-            ));
-        }
         if traces
             .iter()
             .map(|trace| &trace.api_key_hash)
@@ -258,11 +247,10 @@ impl EvalTraces {
             return Err(Error::InvalidResponse);
         }
         let mut rows = Vec::new();
-        let mut bytes = 0usize;
         let mut roots = Vec::new();
         let mut identities = Vec::new();
         for trace in &traces {
-            let batch = self.spans(team, trace, snapshot_ms, &mut bytes).await?;
+            let batch = self.spans(team, trace, snapshot_ms).await?;
             let root = batch
                 .iter()
                 .filter(|row| is_root(&row.summary.0.parent_span_id))
@@ -373,7 +361,6 @@ impl EvalTraces {
         team: &str,
         trace: &TraceId,
         snapshot_ms: i64,
-        bytes: &mut usize,
     ) -> Result<Vec<StoredSpan>, Error> {
         let mut page = SpanPage {
             team: team.to_owned(),
@@ -387,16 +374,6 @@ impl EvalTraces {
         loop {
             let batch = fetch::<Spans>(&self.client, &self.connection, &page).await?;
             let complete = batch.len() < PAGE_SIZE;
-            *bytes = bytes.saturating_add(
-                serde_json::to_vec(&batch)
-                    .map_err(|_| Error::InvalidResponse)?
-                    .len(),
-            );
-            if *bytes > MAX_TRACE_BYTES {
-                return Err(Error::Storage(
-                    litellm_storage_clickhouse::Error::ResponseTooLarge,
-                ));
-            }
             if let Some(last) = batch.last() {
                 page.after.clone_from(&last.summary.0.span_id);
             }

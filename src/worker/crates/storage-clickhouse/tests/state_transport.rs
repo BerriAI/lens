@@ -385,35 +385,19 @@ async fn failed_preparation_cannot_publish(
 }
 
 #[rstest]
-#[case::at_limit(64 * 1024 * 1024, false)]
-#[case::over_limit(64 * 1024 * 1024 + 1, true)]
 #[tokio::test]
-async fn response_limit_is_enforced_before_json_decoding(
-    #[future(awt)] service: Service,
-    #[case] size: usize,
-    #[case] too_large: bool,
-) {
+async fn large_state_responses_reach_json_decoding(#[future(awt)] service: Service) {
     Mock::given(method("POST"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(" ".repeat(size)))
+        .respond_with(ResponseTemplate::new(200).set_body_string(" ".repeat(64 * 1024 * 1024 + 1)))
         .mount(&service.server)
         .await;
     let result = service.store.heads(&["x"]).await;
-    if too_large {
-        assert!(matches!(result, Err(Error::ResponseTooLarge)));
-    } else {
-        assert!(matches!(result, Err(Error::InvalidResponse)));
-    }
+    assert!(matches!(result, Err(Error::InvalidResponse)));
 }
 
 #[rstest]
-#[case::at_limit(64 * 1024 * 1024, false)]
-#[case::over_limit(64 * 1024 * 1024 + 1, true)]
 #[tokio::test]
-async fn encoded_commit_limit_is_enforced_before_upload(
-    #[future(awt)] service: Service,
-    #[case] size: usize,
-    #[case] too_large: bool,
-) {
+async fn large_state_commits_reach_storage(#[future(awt)] service: Service) {
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&service.server)
@@ -423,12 +407,9 @@ async fn encoded_commit_limit_is_enforced_before_upload(
         .len();
     let change = litellm_storage_clickhouse::state::Change {
         previous: Snapshot::empty("x"),
-        value: json!("x".repeat(size - overhead)),
+        value: json!("x".repeat(64 * 1024 * 1024 + 1 - overhead)),
     };
     let result = service.store.prepare(vec![change]).await;
-    if too_large {
-        assert!(matches!(result, Err(Error::InsertTooLarge)));
-    } else {
-        assert!(result.is_ok(), "{result:?}");
-    }
+    assert!(result.is_ok(), "{result:?}");
+    assert!(!service.server.received_requests().await.unwrap().is_empty());
 }

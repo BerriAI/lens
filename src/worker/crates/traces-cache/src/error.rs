@@ -4,8 +4,6 @@ use std::sync::Arc;
 pub enum Error {
     #[error("trace snapshot serialization failed")]
     Serialization(#[from] serde_json::Error),
-    #[error("trace snapshot exceeds the size limit")]
-    ReadTooLarge,
 }
 
 /// Cheap to clone so one failed single-flight read can be returned to every waiting caller.
@@ -44,7 +42,6 @@ impl<E> Clone for ReadError<E> {
 impl<E> From<Error> for ReadError<E> {
     fn from(error: Error) -> Self {
         match error {
-            Error::ReadTooLarge => Self::TooLarge,
             Error::Serialization(error) => Self::Encode(Arc::new(error)),
         }
     }

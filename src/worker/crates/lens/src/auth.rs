@@ -12,7 +12,6 @@ use std::{
 use subtle::ConstantTimeEq;
 
 pub const SNAPSHOT_TTL: Duration = Duration::from_secs(90);
-const MAX_KEYS: usize = 10_000;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,8 +96,7 @@ impl Credentials {
 
     pub fn replace(&self, snapshot: Snapshot) -> Result<(), Error> {
         let now = unix_seconds();
-        if snapshot.keys.len() > MAX_KEYS
-            || snapshot.issued_at > now.saturating_add(5)
+        if snapshot.issued_at > now.saturating_add(5)
             || snapshot.issued_at.saturating_add(SNAPSHOT_TTL.as_secs()) <= now
         {
             return Err(Error::Unavailable);
