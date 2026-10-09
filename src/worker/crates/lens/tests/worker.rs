@@ -1,8 +1,7 @@
 use litellm_lens::{
     config::http_client,
     control::{Control, JobClient},
-    model, pipeline, wire,
-    worker::Worker,
+    model, pipeline, wire, worker,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -12,7 +11,7 @@ use std::sync::{
 };
 use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
-    matchers::{method, path, query_param},
+    matchers::{method, path},
 };
 
 const QUOTE: &str = "refund_status=failed; agent_reply=Your refund is complete";
@@ -29,18 +28,108 @@ fn finding() -> Value {
     json!({"title":"Refund success was falsely reported", "description":"The agent said the refund completed even though its tool returned a failure", "check_id":"refund", "kind":"issue", "evidence":[quote()], "brief":{"problem":"A failed refund was reported as successful", "user_goal":"Receive a refund", "what_happened":"The refund tool failed but the assistant reported success", "test_cases":[{"input":"A refund request whose payment tool returns failed", "expected":"The agent must explain the failure without claiming a completed refund"}]}})
 }
 
+mod replay;
+
 fn client(server: &MockServer) -> JobClient {
-    JobClient::new(
-        Control::new(
-            http_client().unwrap(),
-            server.uri().parse().unwrap(),
-            "test-worker-key".into(),
-        ),
-        "lens-test",
-        "job-test",
-        2,
+    replay::client(&server.uri(), "lens-test", "job-test", 2)
+}
+
+struct RetryingModel {
+    calls: Mutex<Vec<tokio::time::Instant>>,
+    retry_after: Option<u64>,
+}
+
+impl litellm_lens::control::JobBackend for RetryingModel {
+    fn sample(
+        &self,
+    ) -> futures_util::future::BoxFuture<'_, Result<wire::Sample, litellm_lens::Error>> {
+        Box::pin(async { Err(litellm_lens::Error::InvalidRequest) })
+    }
+
+    fn reviews(
+        &self,
+    ) -> futures_util::future::BoxFuture<'_, Result<Vec<wire::Review>, litellm_lens::Error>> {
+        Box::pin(async { Err(litellm_lens::Error::InvalidRequest) })
+    }
+
+    fn content<'a>(
+        &'a self,
+        _: &'a str,
+        _: &'a str,
+        _: usize,
+    ) -> futures_util::future::BoxFuture<'a, Result<wire::ExecutionContent, litellm_lens::Error>>
+    {
+        Box::pin(async { Err(litellm_lens::Error::InvalidRequest) })
+    }
+
+    fn model<'a>(
+        &'a self,
+        _: &'a wire::ModelRequest,
+    ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
+        Box::pin(async move {
+            let mut calls = self.calls.lock().unwrap();
+            calls.push(tokio::time::Instant::now());
+            if calls.len() <= 2 {
+                return Err(litellm_lens::Error::Control {
+                    status: 429,
+                    retry_after: self.retry_after,
+                    diagnostic: None,
+                });
+            }
+            Ok(wire::ModelResult {
+                content: "ready".into(),
+                cost: 0.0,
+                context_exceeded: false,
+                finish_reason: None,
+            })
+        })
+    }
+
+    fn progress<'a>(
+        &'a self,
+        _: &'a wire::Progress,
+    ) -> futures_util::future::BoxFuture<'a, Result<(), litellm_lens::Error>> {
+        Box::pin(async { Err(litellm_lens::Error::InvalidRequest) })
+    }
+
+    fn finish<'a>(
+        &'a self,
+        _: &'a wire::Result,
+    ) -> futures_util::future::BoxFuture<'a, Result<(), litellm_lens::Error>> {
+        Box::pin(async { Err(litellm_lens::Error::InvalidRequest) })
+    }
+}
+
+#[rstest]
+#[case::exponential(None, [0, 1, 3])]
+#[case::server_delay(Some(3), [0, 3, 6])]
+#[case::bounded_server_delay(Some(120), [0, 60, 120])]
+#[tokio::test(start_paused = true)]
+async fn model_retries_respect_server_delay_and_exponential_backoff(
+    #[case] retry_after: Option<u64>,
+    #[case] expected: [u64; 3],
+) {
+    let backend = Arc::new(RetryingModel {
+        calls: Mutex::new(Vec::new()),
+        retry_after,
+    });
+    let client = JobClient::local(backend.clone(), 1, Arc::new(tokio::sync::Semaphore::new(1)));
+    let request = model::request(
+        wire::ModelRequestPurpose::Extract,
+        json!({"task":"Read a run"}),
     )
-    .unwrap()
+    .unwrap();
+    let start = tokio::time::Instant::now();
+    let response = client.model(&request).await.unwrap();
+    assert_eq!(response.content, "ready");
+    let times = backend
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|time| time.duration_since(start).as_secs())
+        .collect::<Vec<_>>();
+    assert_eq!(times, expected);
 }
 
 #[rstest]
@@ -59,7 +148,7 @@ async fn failed_reads_remain_retryable_after_storage_recovers(
     let unavailable = Arc::new(AtomicBool::new(false));
     let storage_unavailable = unavailable.clone();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/content"))
+        .and(path("/replay/lens-test/job-test/content"))
         .respond_with(move |_: &Request| {
             if storage_unavailable.load(Ordering::SeqCst) {
                 return ResponseTemplate::new(503);
@@ -75,7 +164,7 @@ async fn failed_reads_remain_retryable_after_storage_recovers(
     let reviews = Arc::new(Mutex::new(Vec::<wire::Review>::new()));
     let recorded_reviews = reviews.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/progress"))
+        .and(path("/replay/lens-test/job-test/progress"))
         .respond_with(move |request: &Request| {
             let progress: wire::Progress = request.body_json().unwrap();
             if let Some(review) = progress.review {
@@ -91,7 +180,7 @@ async fn failed_reads_remain_retryable_after_storage_recovers(
     let extraction_calls = AtomicUsize::new(0);
     let investigation_calls = AtomicUsize::new(0);
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/replay/lens-test/job-test/model"))
         .respond_with(move |request: &Request| {
             let model: wire::ModelRequest = request.body_json().unwrap();
             let content = match model.purpose {
@@ -164,24 +253,19 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
     let server = MockServer::start().await;
     let mut claim = fixture();
     claim["job"]["settings"]["concurrency"] = 1.into();
-    Mock::given(method("POST"))
-        .and(path("/lens/worker/claim"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(claim))
-        .mount(&server)
-        .await;
     let sample: Value = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/sample"))
+        .and(path("/replay/lens-test/job-test/sample"))
         .respond_with(ResponseTemplate::new(200).set_body_json(&sample))
         .mount(&server)
         .await;
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/reviews"))
+        .and(path("/replay/lens-test/job-test/reviews"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
         .mount(&server)
         .await;
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/content"))
+        .and(path("/replay/lens-test/job-test/content"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "execution": sample["executions"][0],
             "parts": [{"execution_id": "run-test", "span_id": "span-test", "name": "refund",
@@ -192,7 +276,7 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
     let progress = Arc::new(Mutex::new(Vec::<wire::Progress>::new()));
     let received_progress = progress.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/progress"))
+        .and(path("/replay/lens-test/job-test/progress"))
         .respond_with(move |request: &Request| {
             received_progress
                 .lock()
@@ -208,7 +292,7 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
     let cluster_calls = Arc::new(AtomicUsize::new(0));
     let clustering = cluster_calls.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/replay/lens-test/job-test/model"))
         .respond_with(move |request: &Request| {
             let model: wire::ModelRequest = request.body_json().unwrap();
             let content = match model.purpose {
@@ -244,7 +328,7 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
     let results = Arc::new(Mutex::new(Vec::<wire::Result>::new()));
     let received_results = results.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/result"))
+        .and(path("/replay/lens-test/job-test/result"))
         .respond_with(move |request: &Request| {
             received_results
                 .lock()
@@ -255,15 +339,9 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
         .expect(1)
         .mount(&server)
         .await;
-    let worker = Worker::new(
-        Control::new(
-            http_client().unwrap(),
-            server.uri().parse().unwrap(),
-            "worker-test".into(),
-        ),
-        "test-release".into(),
-    );
-    assert!(worker.run_once().await.unwrap());
+    worker::execute(serde_json::from_value(claim).unwrap(), client(&server))
+        .await
+        .unwrap();
     let results = results.lock().unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0].error.contains(&format!("HTTP {status}")));
@@ -280,34 +358,23 @@ async fn candidate_control_failure_stops_the_run_without_publishing_partial_find
 #[tokio::test]
 async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_verified_finding() {
     let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/lens/worker/claim"))
-        .and(query_param(
-            "protocol_version",
-            wire::PROTOCOL_VERSION.to_string(),
-        ))
-        .and(query_param("worker_release", "test-release"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(fixture()))
-        .expect(2)
-        .mount(&server)
-        .await;
     let sample: Value = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/sample"))
+        .and(path("/replay/lens-test/job-test/sample"))
         .respond_with(ResponseTemplate::new(200).set_body_json(&sample))
         .mount(&server)
         .await;
     let reviews = Arc::new(Mutex::new(Vec::<wire::Review>::new()));
     let previous = reviews.clone();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/reviews"))
+        .and(path("/replay/lens-test/job-test/reviews"))
         .respond_with(move |_: &Request| {
             ResponseTemplate::new(200).set_body_json(previous.lock().unwrap().clone())
         })
         .mount(&server)
         .await;
     let text = format!("{}{}{}", "é".repeat(7990), QUOTE, "終".repeat(8000));
-    Mock::given(method("GET")).and(path("/lens/worker/lens-test/job-test/content")).respond_with(move |request: &Request| {
+    Mock::given(method("GET")).and(path("/replay/lens-test/job-test/content")).respond_with(move |request: &Request| {
         let offset: usize = request.url.query_pairs().find(|(k, _)| k == "offset").unwrap().1.parse().unwrap();
         assert!(offset > 0, "full evidence uses the API's one-based content offset");
         let start = offset - 1;
@@ -317,7 +384,7 @@ async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_v
     let recorded = Arc::new(Mutex::new(Vec::<wire::Review>::new()));
     let progress_reviews = recorded.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/progress"))
+        .and(path("/replay/lens-test/job-test/progress"))
         .respond_with(move |request: &Request| {
             let progress: wire::Progress = request.body_json().unwrap();
             if let Some(review) = progress.review {
@@ -329,7 +396,7 @@ async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_v
         .await;
     let calls = Arc::new(AtomicUsize::new(0));
     let extract_calls = calls.clone();
-    Mock::given(method("POST")).and(path("/lens/worker/lens-test/job-test/model")).respond_with(move |request: &Request| {
+    Mock::given(method("POST")).and(path("/replay/lens-test/job-test/model")).respond_with(move |request: &Request| {
         let model: wire::ModelRequest = request.body_json().unwrap();
         let content = match model.purpose {
             wire::ModelRequestPurpose::Extract => match extract_calls.fetch_add(1, Ordering::SeqCst) {
@@ -345,7 +412,7 @@ async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_v
     let saved = Arc::new(Mutex::new(Vec::<Value>::new()));
     let captured = saved.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/result"))
+        .and(path("/replay/lens-test/job-test/result"))
         .respond_with(move |request: &Request| {
             captured.lock().unwrap().push(request.body_json().unwrap());
             ResponseTemplate::new(200).set_body_json(json!({}))
@@ -353,15 +420,9 @@ async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_v
         .expect(2)
         .mount(&server)
         .await;
-    let worker = Worker::new(
-        Control::new(
-            http_client().unwrap(),
-            server.uri().parse().unwrap(),
-            "test-worker-key".into(),
-        ),
-        "test-release".into(),
-    );
-    assert!(worker.run_once().await.unwrap());
+    worker::execute(serde_json::from_value(fixture()).unwrap(), client(&server))
+        .await
+        .unwrap();
     let result: wire::Result = serde_json::from_value(saved.lock().unwrap()[0].clone()).unwrap();
     assert_eq!(result.error, "");
     assert_eq!(result.findings.len(), 1);
@@ -376,7 +437,9 @@ async fn worker_reviews_original_unicode_content_repairs_citations_and_submits_v
     prior.consolidated = true;
     reviews.lock().unwrap().push(prior.clone());
     recorded.lock().unwrap().clear();
-    assert!(worker.run_once().await.unwrap());
+    worker::execute(serde_json::from_value(fixture()).unwrap(), client(&server))
+        .await
+        .unwrap();
     let reused = recorded.lock().unwrap()[0].clone();
     assert!(reused.reused);
     assert_eq!(
@@ -408,7 +471,7 @@ async fn model_contract_rejects_malformed_findings_and_repairs(#[case] change: V
     let count = Arc::new(AtomicUsize::new(0));
     let calls = count.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/replay/lens-test/job-test/model"))
         .respond_with(move |_request: &Request| {
             let value = if calls.fetch_add(1, Ordering::SeqCst) == 0 {
                 invalid.clone()
@@ -437,46 +500,6 @@ async fn model_contract_rejects_malformed_findings_and_repairs(#[case] change: V
 
 #[rstest]
 #[tokio::test]
-async fn incompatible_claim_is_failed_without_calling_models() {
-    let server = MockServer::start().await;
-    let mut claim = fixture();
-    claim["unknown_protocol_field"] = true.into();
-    Mock::given(method("POST"))
-        .and(path("/lens/worker/claim"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(claim))
-        .mount(&server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/result"))
-        .respond_with(|request: &Request| {
-            let result: wire::Result = request.body_json().unwrap();
-            assert!(result.error.contains("Update the worker"));
-            ResponseTemplate::new(200).set_body_json(json!({}))
-        })
-        .expect(1)
-        .mount(&server)
-        .await;
-    let worker = Worker::new(
-        Control::new(
-            http_client().unwrap(),
-            server.uri().parse().unwrap(),
-            "test-worker-key".into(),
-        ),
-        "test-release".into(),
-    );
-    assert!(worker.run_once().await.unwrap());
-    assert!(
-        !server
-            .received_requests()
-            .await
-            .unwrap()
-            .iter()
-            .any(|r| r.url.path().ends_with("/model"))
-    );
-}
-
-#[rstest]
-#[tokio::test]
 async fn proxy_prefix_is_preserved_for_every_control_request() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -495,33 +518,34 @@ async fn proxy_prefix_is_preserved_for_every_control_request() {
 }
 
 #[rstest]
-#[case::sanitized(json!({"detail":{"lens_error":"Configure pricing before investigation"},"secret":"must-not-appear"}), true)]
-#[case::raw_provider_error(json!({"detail":"must-not-appear"}), false)]
-#[case::oversized(json!({"detail":{"lens_error":"must-not-appear".repeat(4096)}}), false)]
+#[case::legacy_diagnostic(json!({"detail":{"lens_error":"must-not-appear"},"secret":"must-not-appear"}))]
+#[case::raw_provider_error(json!({"detail":"must-not-appear"}))]
+#[case::oversized(json!({"detail":{"lens_error":"must-not-appear".repeat(4096)}}))]
 #[tokio::test]
-async fn model_failures_expose_only_bounded_sanitized_gateway_diagnostics(
-    #[case] body: Value,
-    #[case] expected_diagnostic: bool,
-) {
+async fn provider_errors_never_expose_response_bodies(#[case] body: Value) {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/chat/completions"))
         .respond_with(ResponseTemplate::new(400).set_body_json(body))
         .mount(&server)
         .await;
-    let request =
-        model::request(wire::ModelRequestPurpose::Extract, json!({"task":"Review"})).unwrap();
-    let error = client(&server).model(&request).await.unwrap_err();
-    assert_eq!(
-        error
-            .to_string()
-            .contains("Configure pricing before investigation"),
-        expected_diagnostic
+    let control = Control::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        "test-key".into(),
     );
+    let error = control
+        .post::<Value>("chat/completions", &json!({}))
+        .await
+        .unwrap_err();
     assert!(!error.to_string().contains("must-not-appear"));
     assert!(matches!(
         error,
-        litellm_lens::Error::Control { status: 400, .. }
+        litellm_lens::Error::Control {
+            status: 400,
+            diagnostic: None,
+            ..
+        }
     ));
 }
 
@@ -567,14 +591,14 @@ async fn checkpoint_history_preserves_only_the_supplied_finding_summary() {
     input["findings"] = json!([saved]);
     let claim: wire::Claim = serde_json::from_value(input).unwrap();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/progress"))
+        .and(path("/replay/lens-test/job-test/progress"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
         .mount(&server)
         .await;
     let calls = Arc::new(AtomicUsize::new(0));
     let observed = calls.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/replay/lens-test/job-test/model"))
         .respond_with(move |request: &Request| {
             let model: wire::ModelRequest = request.body_json().unwrap();
             let message: Value =
@@ -657,7 +681,7 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
     let page_count = page_calls.clone();
     let execution = sample.executions[0].clone();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens-test/job-test/content"))
+        .and(path("/replay/lens-test/job-test/content"))
         .respond_with(move |_: &Request| {
             let marker = if page_count.fetch_add(1, Ordering::SeqCst) == 0 {
                 "FIRST_REPLY"
@@ -669,14 +693,14 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
             }]}))
         }).expect(2).mount(&server).await;
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/progress"))
+        .and(path("/replay/lens-test/job-test/progress"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
         .mount(&server)
         .await;
     let model_calls = Arc::new(AtomicUsize::new(0));
     let model_count = model_calls.clone();
     Mock::given(method("POST"))
-        .and(path("/lens/worker/lens-test/job-test/model"))
+        .and(path("/replay/lens-test/job-test/model"))
         .respond_with(move |request: &Request| {
             let model: wire::ModelRequest = request.body_json().unwrap();
             let turn = match model_count.fetch_add(1, Ordering::SeqCst) {

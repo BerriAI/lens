@@ -15,7 +15,6 @@ use lens_investigations::{
     current_job, queue_job,
 };
 use litellm_storage_clickhouse::investigations::Investigations;
-use rand::Rng;
 use tokio::sync::Semaphore;
 
 use crate::{Error, SourceReader, control::JobClient};
@@ -59,23 +58,10 @@ impl LocalControl {
         id: &str,
         transform: impl Fn(&Lens) -> Result<Lens, Error>,
     ) -> Result<Lens, Error> {
-        for attempt in 0..40 {
-            let lens = self
-                .repository
-                .get(id)
-                .await?
-                .ok_or_else(|| rejected(404, "Lens not found"))?;
-            let candidate = transform(&lens)?;
-            match self.repository.replace(&lens, &candidate).await {
-                Ok(updated) => return Ok(updated),
-                Err(RepositoryError::Conflict) => backoff(attempt).await,
-                Err(error) => return Err(error.into()),
-            }
-        }
-        Err(rejected(
-            409,
-            "Lens changed concurrently; retry the operation",
-        ))
+        self.repository
+            .update_locked(id, transform)
+            .await?
+            .ok_or_else(|| rejected(404, "Lens not found"))
     }
 
     pub async fn claim(&self) -> Result<Option<Claim>, Error> {
@@ -278,10 +264,170 @@ fn backend_error(error: Error) -> Error {
     }
 }
 
-async fn backoff(attempt: u32) {
-    let ceiling = 20 * (attempt + 1).min(8);
-    let delay = rand::thread_rng().gen_range(0..=ceiling);
-    tokio::time::sleep(Duration::from_millis(delay.into())).await;
+#[cfg(test)]
+mod fixtures {
+    use super::*;
+    use crate::{State, Storage, config::http_client};
+    use lens_analysis::{Deployment, Provider, Secret};
+    use lens_contract::{investigations::Scope, worker::LensSettings};
+    use lens_inference::{ModelCapacity, OutputLimits};
+    use litellm_storage_clickhouse::{Connection, execute_statement, state::ClickHouseState};
+    use rstest::fixture;
+    use serde_json::json;
+    use testcontainers_modules::{
+        clickhouse::ClickHouse,
+        testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
+    };
+
+    pub(super) struct StoredJob {
+        pub job: LocalJob,
+        pub provider: wiremock::MockServer,
+        container: Option<ContainerAsync<ClickHouse>>,
+        connection: Connection,
+        database: String,
+    }
+
+    impl Drop for StoredJob {
+        fn drop(&mut self) {
+            if self.container.is_some() {
+                return;
+            }
+            let connection = self.connection.clone();
+            let database = self.database.clone();
+            std::thread::spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        execute_statement(
+                            &http_client().unwrap(),
+                            &connection,
+                            &format!("DROP DATABASE `{database}` SYNC"),
+                            Duration::from_secs(30),
+                        )
+                        .await
+                        .unwrap();
+                    });
+            })
+            .join()
+            .unwrap();
+        }
+    }
+
+    #[fixture]
+    pub(super) async fn stored_job() -> StoredJob {
+        let (container, url) = match std::env::var("CLICKHOUSE_STATE_TEST_URL") {
+            Ok(url) => (None, url),
+            Err(_) => {
+                let container = ClickHouse::default()
+                    .with_tag("26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e")
+                    .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
+                    .with_copy_to("/etc/clickhouse-server/config.d/lens-keeper.xml", include_bytes!("../../storage-clickhouse/tests/state/fixtures/keeper.xml").to_vec())
+                    .start().await.unwrap();
+                let url = format!(
+                    "http://{}:{}",
+                    container.get_host().await.unwrap(),
+                    container.get_host_port_ipv4(8123).await.unwrap()
+                );
+                (Some(container), url)
+            }
+        };
+        let database = format!("lens_local_job_{}", uuid::Uuid::new_v4().simple());
+        let connection = Connection::writer(&url).unwrap();
+        let client = http_client().unwrap();
+        execute_statement(
+            &client,
+            &connection,
+            &format!("CREATE DATABASE `{database}`"),
+            Duration::from_secs(30),
+        )
+        .await
+        .unwrap();
+        let config =
+            litellm_traces_clickhouse::Config::new(database.clone(), &url, 14, 65_536).unwrap();
+        let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
+        store
+            .initialize(&format!("/local-job-tests/{database}"))
+            .await
+            .unwrap();
+        let repository = Investigations(store);
+        repository.initialize().await.unwrap();
+        let provider = wiremock::MockServer::start().await;
+        let deployment = Deployment {
+            name: "test-analysis".into(),
+            model: "gpt-4o-mini".into(),
+            provider: Provider::OpenAiCompatible,
+            api_base: Some(format!("{}/v1", provider.uri()).parse().unwrap()),
+            api_key: Secret::new("private-fixture-provider-key"),
+            input_cost_per_token: Some(0.000001),
+            output_cost_per_token: Some(0.000002),
+            capacity: ModelCapacity {
+                max_input_tokens: Some(1_000_000.try_into().unwrap()),
+                max_output_tokens: Some(4096.try_into().unwrap()),
+            },
+            output_limits: OutputLimits {
+                max_tokens: Some(1024.try_into().unwrap()),
+                ..Default::default()
+            },
+        };
+        let models = AnalysisModels::new(
+            lens_analysis::bundled_catalog().unwrap(),
+            vec![deployment],
+            Default::default(),
+        )
+        .unwrap();
+        let worker_hash = "a".repeat(64);
+        let worker = Worker {
+            id: "worker".into(),
+            name: "Local test worker".into(),
+            scope: Scope {
+                all_teams: true,
+                ..Default::default()
+            },
+            last_seen: Utc::now(),
+            revoked: false,
+            analysis_key_id: Some(worker_hash.clone()),
+        };
+        repository
+            .configure_service_worker(&worker, &worker_hash)
+            .await
+            .unwrap();
+        let sources = SourceReader(Arc::new(State::standalone(Storage::new(
+            config,
+            client,
+            "fixture-service-secret".into(),
+        ))));
+        let control = LocalControl::new(repository, sources, Arc::new(models), worker_hash);
+        let settings: LensSettings = serde_json::from_value(json!({"name":"Local job contract", "model":"test-analysis", "monthly_budget":10, "checks":[{"id":"correct","instruction":"The response must match the evidence"}]})).unwrap();
+        let lens = lens_investigations::create_lens(
+            settings,
+            Scope {
+                all_teams: true,
+                ..Default::default()
+            },
+            Utc::now(),
+            "lens",
+            "job",
+        )
+        .unwrap();
+        control.repository.create(&lens).await.unwrap();
+        let claim = control.claim().await.unwrap().unwrap();
+        let job = LocalJob {
+            control,
+            lens_id: claim.lens_id,
+            job_id: claim.job.id,
+            attempt: claim.job.attempts,
+            worker_id: claim.job.worker_id.unwrap(),
+        };
+        StoredJob {
+            job,
+            provider,
+            container,
+            connection,
+            database,
+        }
+    }
 }
 
 #[cfg(test)]

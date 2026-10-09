@@ -239,7 +239,9 @@ fn provider_error(error: lens_analysis::Error) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::local::fixtures::{StoredJob, stored_job};
     use lens_contract::{investigations::Lens, worker::Step};
+    use lens_investigations::LensRepository;
     use rstest::{fixture, rstest};
     use serde_json::json;
     use std::sync::{
@@ -389,5 +391,144 @@ mod tests {
         tokio::task::yield_now().await;
         assert_eq!(ledger.calls.load(Ordering::SeqCst), 1);
         assert_eq!(ledger.lens.lock().unwrap().spent, 0.25);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn releasing_reservation_finishes_cleanup_before_returning(ledger: Ledger) {
+        let ledger = Ledger {
+            wait_on_first: false,
+            ..ledger
+        };
+        let mut reservation = reservation(ledger.clone(), 0.25);
+        reservation.release().await;
+        {
+            let lens = ledger.lens.lock().unwrap();
+            assert!(lens.reservations.is_empty());
+            assert_eq!(lens.spent, 0.0);
+            assert_eq!(lens.jobs[0].cost, 0.0);
+            assert!(lens.jobs[0].steps.is_empty());
+        }
+        drop(reservation);
+        tokio::task::yield_now().await;
+        assert_eq!(ledger.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[rstest]
+    #[case::monthly_budget(lens_inference::Error::MonthlyBudget, 402, false)]
+    #[case::request_budget(lens_inference::Error::RequestBudget { amount: 2.0, available: 1.0 }, 402, false)]
+    #[case::reassigned(lens_inference::Error::JobReassigned, 409, false)]
+    #[case::expired(lens_inference::Error::ReservationExpired, 503, true)]
+    #[case::invalid_prompt(lens_inference::Error::MalformedPrompt, 400, false)]
+    fn inference_policy_preserves_status_and_diagnostic(
+        #[case] input: lens_inference::Error,
+        #[case] expected_status: u16,
+        #[case] retryable: bool,
+    ) {
+        let expected_diagnostic = input.to_string();
+        let error = policy_error(input);
+        assert_eq!(error.retryable(), retryable);
+        let Error::Control {
+            status, diagnostic, ..
+        } = error
+        else {
+            panic!("inference policy must return a control failure");
+        };
+        assert_eq!(status, expected_status);
+        assert_eq!(diagnostic.as_deref(), Some(expected_diagnostic.as_str()));
+    }
+
+    #[rstest]
+    #[case::monthly_budget(0.0)]
+    #[case::request_budget(0.00000001)]
+    #[tokio::test]
+    async fn rejected_budget_preserves_policy_status_without_calling_provider(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] budget: f64,
+    ) {
+        let lens = stored_job.job.lens().await.unwrap();
+        let mut denied = lens.clone();
+        denied.settings.monthly_budget = budget;
+        stored_job
+            .job
+            .control
+            .repository
+            .replace(&lens, &denied)
+            .await
+            .unwrap();
+        let request = crate::model::request(
+            crate::wire::ModelRequestPurpose::Extract,
+            json!({"task":"Review the run"}),
+        )
+        .unwrap();
+        let error = stored_job.job.analyze(&request).await.unwrap_err();
+        assert!(
+            matches!(error, Error::Control { status: 402, .. }),
+            "{error}"
+        );
+        assert!(
+            stored_job
+                .provider
+                .received_requests()
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let persisted = stored_job.job.lens().await.unwrap();
+        assert!(persisted.reservations.is_empty());
+        assert_eq!(persisted.spent, 0.0);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn provider_call_holds_a_live_lease_and_cancellation_releases_it(
+        #[future(awt)] stored_job: StoredJob,
+    ) {
+        let entered = Arc::new(Notify::new());
+        let observed = entered.clone();
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/v1/chat/completions"))
+            .respond_with(move |_: &wiremock::Request| {
+                observed.notify_one();
+                wiremock::ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30))
+            })
+            .expect(1)
+            .mount(&stored_job.provider)
+            .await;
+        let job = stored_job.job.clone();
+        let before = Utc::now();
+        let task = tokio::spawn(async move {
+            let request = crate::model::request(
+                crate::wire::ModelRequestPurpose::Extract,
+                json!({"task":"Review the run"}),
+            )
+            .unwrap();
+            job.analyze(&request).await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(10), entered.notified())
+            .await
+            .unwrap();
+        let current = stored_job.job.lens().await.unwrap();
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert_eq!(current.reservations.len(), 1);
+        let hold = &current.reservations[0];
+        assert_eq!(hold.job_id, stored_job.job.job_id);
+        assert!(hold.amount > 0.0);
+        assert!(hold.expires_at.unwrap() >= before + BUDGET_LEASE);
+        assert!(hold.expires_at.unwrap() <= Utc::now() + BUDGET_LEASE);
+        let released = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let lens = stored_job.job.lens().await.unwrap();
+                if lens.reservations.is_empty() {
+                    break lens;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(released.spent, 0.0);
+        assert_eq!(released.jobs[0].cost, 0.0);
     }
 }

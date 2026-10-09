@@ -10,9 +10,8 @@ mod evaluation;
 
 pub struct Config {
     pub address: SocketAddr,
-    pub mode: Mode,
     pub storage: StorageConfig,
-    pub authentication: Option<lens_auth::Settings>,
+    pub authentication: lens_auth::Settings,
     pub datasets: lens_server::datasets::DatasetConfig,
     pub traces: lens_server::tracing::TraceConfig,
     pub ui_directory: Option<PathBuf>,
@@ -28,18 +27,6 @@ pub struct Config {
     pub eval_judge_model: Option<String>,
 }
 
-pub enum Mode {
-    Standalone,
-    Gateway(Gateway),
-}
-
-pub struct Gateway {
-    pub proxy_url: url::Url,
-    pub worker_token: String,
-    pub service_token: String,
-    pub release: String,
-}
-
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
     read(name)
         .filter(|value| !value.is_empty())
@@ -52,30 +39,16 @@ impl Config {
     }
 
     fn read(read: impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
-        let mode = match read("LENS_MODE").as_deref() {
-            Some("standalone") => Mode::Standalone,
-            Some("gateway") => Mode::Gateway(Gateway::read(&read)?),
-            None if read("LITELLM_URL").is_some() => Mode::Gateway(Gateway::read(&read)?),
-            None => Mode::Standalone,
+        match read("LENS_MODE").as_deref() {
+            None | Some("standalone") => {}
             _ => {
                 return Err(Error::Configuration(
-                    "LENS_MODE must be standalone or gateway",
+                    "Lens runs as a standalone service; remove LENS_MODE",
                 ));
             }
-        };
-        let (admin_token, query_secret, database, public_url) = match &mode {
-            Mode::Standalone => {
-                let token = required(&read, "LENS_ADMIN_TOKEN")?;
-                (Some(token.clone()), token, "lens", "http://localhost:4318")
-            }
-            Mode::Gateway(gateway) => (
-                read("LENS_ADMIN_TOKEN"),
-                gateway.service_token.clone(),
-                "litellm",
-                "http://localhost:4000",
-            ),
-        };
-        let public_url = read("LENS_PUBLIC_URL").unwrap_or_else(|| public_url.into());
+        }
+        let admin_token = required(&read, "LENS_ADMIN_TOKEN")?;
+        let public_url = read("LENS_PUBLIC_URL").unwrap_or_else(|| "http://localhost:4318".into());
         let ingestion_url = read("LITELLM_LENS_PUBLIC_URL").unwrap_or_else(|| public_url.clone());
         let parsed = url::Url::parse(&ingestion_url)
             .map_err(|_| Error::Configuration("LITELLM_LENS_PUBLIC_URL"))?;
@@ -88,12 +61,9 @@ impl Config {
         {
             return Err(Error::Configuration("LITELLM_LENS_PUBLIC_URL"));
         }
-        let release = match &mode {
-            Mode::Standalone => read("LENS_VERSION")
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| env!("CARGO_PKG_VERSION").into()),
-            Mode::Gateway(gateway) => gateway.release.clone(),
-        };
+        let release = read("LENS_VERSION")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").into());
         let gateway_service_token = read("LITELLM_LENS_SERVICE_TOKEN");
         if gateway_service_token
             .as_ref()
@@ -112,15 +82,11 @@ impl Config {
             gateway_inference: gateway_inference(&read)?,
             datasets: dataset_config(&read),
             traces: trace_config(&read)?,
-            authentication: admin_token
-                .map(|token| {
-                    lens_auth::Settings::new(
-                        &token,
-                        read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
-                        &public_url,
-                    )
-                })
-                .transpose()?,
+            authentication: lens_auth::Settings::new(
+                &admin_token,
+                read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
+                &public_url,
+            )?,
             address: read("LITELLM_LENS_LISTEN")
                 .unwrap_or_else(|| "0.0.0.0:4318".into())
                 .parse()
@@ -128,52 +94,21 @@ impl Config {
             ui_directory: read("LENS_UI_DIRECTORY")
                 .filter(|value| !value.is_empty())
                 .map(PathBuf::from),
-            query_secret,
+            query_secret: admin_token,
             ingestion_url: ingestion_url.trim_end_matches('/').into(),
             public_url: public_url
                 .parse()
                 .map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?,
             release,
             storage: StorageConfig::new(
-                read("CLICKHOUSE_DATABASE").unwrap_or_else(|| database.into()),
-                &clickhouse_url(&read, matches!(mode, Mode::Standalone))?,
+                read("CLICKHOUSE_DATABASE").unwrap_or_else(|| "lens".into()),
+                &clickhouse_url(&read)?,
                 read("AGENT_TRACING_RETENTION_DAYS")
                     .unwrap_or_else(|| "14".into())
                     .parse()
                     .map_err(|_| Error::Configuration("AGENT_TRACING_RETENTION_DAYS"))?,
                 65_536,
             )?,
-            mode,
-        })
-    }
-}
-
-impl Gateway {
-    fn read(read: &impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
-        let proxy_url = url::Url::parse(&required(read, "LITELLM_URL")?)
-            .map_err(|_| Error::Configuration("LITELLM_URL"))?;
-        if !matches!(proxy_url.scheme(), "http" | "https")
-            || !proxy_url.username().is_empty()
-            || proxy_url.password().is_some()
-            || proxy_url.query().is_some()
-            || proxy_url.fragment().is_some()
-        {
-            return Err(Error::Configuration("LITELLM_URL"));
-        }
-        let service_token = required(read, "LITELLM_LENS_SERVICE_TOKEN")?;
-        let worker_token = read("LENS_WORKER_TOKEN")
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| service_token.clone());
-        if service_token.len() < 32 {
-            return Err(Error::Configuration(
-                "LITELLM_LENS_SERVICE_TOKEN must contain at least 32 characters",
-            ));
-        }
-        Ok(Self {
-            proxy_url,
-            worker_token,
-            service_token,
-            release: required(read, "LITELLM_RELEASE_TAG")?,
         })
     }
 }
@@ -232,14 +167,11 @@ fn trace_config(
     })
 }
 
-fn clickhouse_url(
-    read: &impl Fn(&str) -> Option<String>,
-    standalone: bool,
-) -> Result<String, Error> {
+fn clickhouse_url(read: &impl Fn(&str) -> Option<String>) -> Result<String, Error> {
     if let Ok(url) = required(read, "CLICKHOUSE_URL") {
         return Ok(url);
     }
-    if standalone && read("CLICKHOUSE_HOST").is_none() {
+    if read("CLICKHOUSE_HOST").is_none() {
         return Ok("http://localhost:8123".into());
     }
     let mut url = url::Url::parse("http://localhost:8123")
@@ -266,7 +198,7 @@ pub fn http_client() -> Result<Client, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, Mode, dataset_config, integer_or_default};
+    use super::{Config, dataset_config, integer_or_default};
     use crate::Error;
     use rstest::{fixture, rstest};
     use std::collections::BTreeMap;
@@ -312,25 +244,10 @@ mod tests {
         )])
     }
 
-    #[fixture]
-    fn gateway() -> BTreeMap<&'static str, &'static str> {
-        BTreeMap::from([
-            ("LITELLM_URL", "http://localhost:4000/gateway"),
-            (
-                "LITELLM_LENS_SERVICE_TOKEN",
-                "gateway-service-token-at-least-32-characters",
-            ),
-            ("LITELLM_RELEASE_TAG", "test-release"),
-            ("CLICKHOUSE_URL", "http://localhost:8123"),
-        ])
-    }
-
     #[rstest]
     fn standalone_requires_no_gateway_settings(standalone: BTreeMap<&str, &str>) {
         let config =
             Config::read(|key| standalone.get(key).map(|value| value.to_string())).unwrap();
-        assert!(matches!(config.mode, Mode::Standalone));
-        assert!(config.authentication.is_some());
         assert_eq!(config.storage.storage().database(), "lens");
         assert_eq!(config.address.to_string(), "0.0.0.0:4318");
         assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
@@ -356,72 +273,37 @@ mod tests {
     }
 
     #[rstest]
-    #[case::legacy(None)]
-    #[case::explicit(Some("gateway"))]
-    fn gateway_configuration_preserves_existing_worker_contract(
-        gateway: BTreeMap<&str, &str>,
+    #[case::implicit(None)]
+    #[case::explicit(Some("standalone"))]
+    fn legacy_gateway_variables_cannot_change_storage_or_authentication(
+        standalone: BTreeMap<&str, &str>,
         #[case] mode: Option<&str>,
     ) {
-        let config = Config::read(|key| {
-            if key == "LENS_MODE" {
-                mode
-            } else {
-                gateway.get(key).copied()
-            }
-            .map(str::to_owned)
-        })
-        .unwrap();
-        let Mode::Gateway(worker) = config.mode else {
-            panic!("expected gateway mode")
-        };
-        assert_eq!(worker.proxy_url.as_str(), gateway["LITELLM_URL"]);
-        assert_eq!(worker.worker_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
-        assert_eq!(worker.service_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
-        assert_eq!(worker.release, gateway["LITELLM_RELEASE_TAG"]);
-        assert_eq!(config.query_secret, worker.service_token);
-        assert_eq!(config.storage.storage().database(), "litellm");
-        assert!(config.authentication.is_none());
-    }
-
-    #[rstest]
-    fn explicit_standalone_ignores_legacy_worker_variables(standalone: BTreeMap<&str, &str>) {
         let config = Config::read(|key| match key {
-            "LENS_MODE" => Some("standalone".into()),
+            "LENS_MODE" => mode.map(str::to_owned),
             "LITELLM_URL" => Some("invalid-gateway-url".into()),
+            "LITELLM_RELEASE_TAG" => Some("gateway-release".into()),
             _ => standalone.get(key).map(|value| value.to_string()),
         })
         .unwrap();
-        assert!(matches!(config.mode, Mode::Standalone));
-        assert!(config.authentication.is_some());
+        assert_eq!(config.storage.storage().database(), "lens");
+        assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
+        assert_eq!(config.public_url.as_str(), "http://localhost:4318/");
+        assert_eq!(config.release, env!("CARGO_PKG_VERSION"));
     }
 
     #[rstest]
+    #[case::retired_gateway("gateway")]
     #[case::unknown("other")]
     #[case::empty("")]
-    fn invalid_mode_is_rejected(#[case] mode: &str) {
+    fn unsupported_mode_is_rejected(#[case] mode: &str) {
         let result = Config::read(|key| (key == "LENS_MODE").then(|| mode.into()));
         assert!(matches!(
             result,
             Err(Error::Configuration(
-                "LENS_MODE must be standalone or gateway"
+                "Lens runs as a standalone service; remove LENS_MODE"
             ))
         ));
-    }
-
-    #[rstest]
-    #[case::url("LITELLM_URL")]
-    #[case::token("LITELLM_LENS_SERVICE_TOKEN")]
-    #[case::release("LITELLM_RELEASE_TAG")]
-    fn explicit_gateway_still_requires_its_settings(
-        gateway: BTreeMap<&str, &str>,
-        #[case] missing: &str,
-    ) {
-        let result = Config::read(|key| match key {
-            "LENS_MODE" => Some("gateway".into()),
-            key if key == missing => None,
-            key => gateway.get(key).map(|value| value.to_string()),
-        });
-        assert!(matches!(result, Err(Error::Configuration(name)) if name == missing));
     }
 
     #[rstest]
@@ -459,7 +341,7 @@ mod tests {
         .unwrap();
         assert_eq!(config.ingestion_url, expected);
         assert_eq!(config.release, "test-candidate");
-        assert!(config.authentication.unwrap().secure_cookie());
+        assert!(config.authentication.secure_cookie());
     }
 
     #[rstest]
@@ -501,7 +383,6 @@ mod tests {
         if valid {
             let config = config.unwrap();
             assert_eq!(config.gateway_service_token.as_deref(), token);
-            assert!(matches!(config.mode, Mode::Standalone));
         } else {
             let error = config.err().unwrap();
             assert!(matches!(error, Error::Configuration(_)));

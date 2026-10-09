@@ -1,30 +1,17 @@
 #![cfg(target_os = "linux")]
 
-use litellm_lens::{
-    config::http_client,
-    control::{Control, JobClient},
-    evidence::Workspace,
-    sandbox, wire,
-};
+use litellm_lens::{evidence::Workspace, sandbox, wire};
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 use std::{path::Path, time::Duration};
+
+mod replay;
 
 #[fixture]
 fn workspace() -> Workspace {
     Workspace::new(
         Vec::new(),
-        JobClient::new(
-            Control::new(
-                http_client().unwrap(),
-                "http://127.0.0.1:1".parse().unwrap(),
-                "unused".into(),
-            ),
-            "test",
-            "test",
-            1,
-        )
-        .unwrap(),
+        replay::client("http://127.0.0.1:1", "test", "test", 1),
     )
 }
 

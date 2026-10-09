@@ -1,9 +1,7 @@
 use litellm_lens::{
-    State, Storage, api, auth,
-    config::{Config, Mode, http_client},
-    control::Control,
+    State, Storage, api,
+    config::{Config, http_client},
     provision, router,
-    worker::Worker,
 };
 use std::{io::Write, sync::Arc, time::Duration};
 
@@ -43,9 +41,7 @@ fn main() -> Result<(), litellm_lens::Error> {
     if arguments.len() == 1 && arguments[0] == "--version" {
         println!(
             "litellm-lens {} protocol={}",
-            std::env::var("LENS_VERSION")
-                .or_else(|_| std::env::var("LITELLM_RELEASE_TAG"))
-                .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
+            std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
             litellm_lens::wire::PROTOCOL_VERSION
         );
         return Ok(());
@@ -99,93 +95,57 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let config = Config::from_env()?;
     let client = http_client()?;
     let storage = Storage::new(config.storage, client.clone(), config.query_secret.clone());
-    let state = Arc::new(match &config.mode {
-        Mode::Standalone => match config.gateway_service_token {
-            Some(token) => State::connected(storage, token),
-            None => State::standalone(storage),
-        },
-        Mode::Gateway(gateway) => State::new(storage, gateway.service_token.clone()),
+    let state = Arc::new(match config.gateway_service_token {
+        Some(token) => State::connected(storage, token),
+        None => State::standalone(storage),
     });
-    let judge_base = match &config.mode {
-        Mode::Gateway(gateway) => gateway.proxy_url.clone(),
-        Mode::Standalone => config.public_url.clone(),
-    };
     let evals = api::EvalConfig {
         judge: litellm_lens::eval_judge::GatewayJudge::new(
             client.clone(),
-            judge_base,
+            config.public_url.clone(),
             config.eval_judge_api_key.clone(),
             config.eval_judge_model.clone(),
         )
         .with_gateway(config.gateway_inference.clone()),
         public_url: config.public_url.to_string(),
     };
-    let application = match config.authentication {
-        Some(settings) => {
-            let application = api::initialize(
-                &state,
-                settings,
-                config.datasets,
-                config.traces,
-                matches!(config.mode, Mode::Standalone),
-                evals,
-            )
-            .await?;
-            let application = if matches!(config.mode, Mode::Standalone) {
-                application
-                    .with_local(
-                        state.clone(),
-                        config.analysis_models,
-                        config.evaluation_models,
-                        &config.query_secret,
-                        config.gateway_inference,
-                    )
-                    .await?
-                    .with_evaluations()?
-            } else {
-                application
-            };
-            Some(application.with_service(state.clone(), config.ingestion_url, config.release))
-        }
-        None => None,
-    };
-    let eval_task = application.as_ref().map(|app| app.evals.start());
+    let application = api::initialize(
+        &state,
+        config.authentication,
+        config.datasets,
+        config.traces,
+        evals,
+    )
+    .await?
+    .with_local(
+        state.clone(),
+        config.analysis_models,
+        config.evaluation_models,
+        &config.query_secret,
+        config.gateway_inference,
+    )
+    .await?
+    .with_evaluations()?
+    .with_service(state.clone(), config.ingestion_url, config.release);
+    let eval_task = application.evals.start();
     let mut tasks = tokio::task::JoinSet::new();
-    match config.mode {
-        Mode::Standalone => {
-            let credentials = application
-                .as_ref()
-                .ok_or(litellm_lens::Error::Configuration("LENS_ADMIN_TOKEN"))?
-                .credentials
-                .clone();
-            if !credentials.synchronize().await? {
-                return Err(litellm_lens::Error::Unavailable);
-            }
-            tasks.spawn(credentials.serve());
-            let worker = application
-                .as_ref()
-                .and_then(|app| app.local_worker.clone())
-                .ok_or(litellm_lens::Error::Unavailable)?;
-            tasks.spawn(worker.serve());
-            let signals = application
-                .as_ref()
-                .and_then(|app| app.signals_worker.clone())
-                .ok_or(litellm_lens::Error::Unavailable)?;
-            tasks.spawn(signals.serve());
-        }
-        Mode::Gateway(gateway) => {
-            let control = Control::new(client.clone(), gateway.proxy_url, gateway.worker_token);
-            tasks.spawn(auth::refresh_loop(
-                state.credentials.clone(),
-                client,
-                control.url("lens/internal/ingestion-credentials")?,
-                gateway.service_token,
-            ));
-            tasks.spawn(Worker::new(control, gateway.release).serve());
-        }
+    let credentials = application.credentials.clone();
+    if !credentials.synchronize().await? {
+        return Err(litellm_lens::Error::Unavailable);
     }
+    tasks.spawn(credentials.serve());
+    let worker = application
+        .local_worker
+        .clone()
+        .ok_or(litellm_lens::Error::Unavailable)?;
+    tasks.spawn(worker.serve());
+    let signals = application
+        .signals_worker
+        .clone()
+        .ok_or(litellm_lens::Error::Unavailable)?;
+    tasks.spawn(signals.serve());
     tasks.spawn(provision(state.clone()));
-    let routes = router(state).merge(application.map(|app| app.router).unwrap_or_default());
+    let routes = router(state).merge(application.router);
     let routes = if let Some(directory) = config.ui_directory {
         if !std::fs::metadata(directory.join("index.html"))?.is_file() {
             return Err(litellm_lens::Error::Configuration(
@@ -218,9 +178,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     };
     let _ = shutdown.send(());
     tasks.abort_all();
-    if let Some(task) = eval_task {
-        task.abort();
-    }
+    eval_task.abort();
     while tasks.join_next().await.is_some() {}
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await

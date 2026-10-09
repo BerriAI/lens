@@ -54,36 +54,26 @@ pub struct State {
     pub storage: Storage,
     pub schema_ready: AtomicBool,
     service_token: Option<String>,
-    remote_credentials: bool,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
 }
 
 impl State {
-    pub fn new(storage: Storage, service_token: String) -> Self {
-        Self::with_service_token(storage, Some(service_token), true)
-    }
-
     pub fn connected(storage: Storage, service_token: String) -> Self {
-        Self::with_service_token(storage, Some(service_token), false)
+        Self::with_service_token(storage, Some(service_token))
     }
 
     pub fn standalone(storage: Storage) -> Self {
-        Self::with_service_token(storage, None, false)
+        Self::with_service_token(storage, None)
     }
 
-    fn with_service_token(
-        storage: Storage,
-        service_token: Option<String>,
-        remote_credentials: bool,
-    ) -> Self {
+    fn with_service_token(storage: Storage, service_token: Option<String>) -> Self {
         Self {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
             schema_ready: AtomicBool::new(false),
             service_token,
-            remote_credentials,
             ingest_slots: Arc::new(Semaphore::new(2)),
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
@@ -144,11 +134,6 @@ pub fn router(state: Arc<State>) -> Router {
     } else {
         routes
     };
-    let routes = if state.remote_credentials {
-        routes.route("/internal/credentials", post(credentials))
-    } else {
-        routes
-    };
     routes.with_state(state).merge(lens_server::router())
 }
 
@@ -193,30 +178,10 @@ async fn status(
     Ok(Json(serde_json::json!({
         "storage_ready": state.schema_ready.load(Ordering::Acquire),
         "credentials_ready": state.credentials.ready(),
-        "release": if state.remote_credentials {
-            std::env::var("LITELLM_RELEASE_TAG").unwrap_or_default()
-        } else {
-            std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into())
-        },
+        "release": std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
         "protocol_version": wire::PROTOCOL_VERSION,
         "public_contract": 1,
     })))
-}
-
-async fn credentials(
-    AppState(state): AppState<Arc<State>>,
-    headers: HeaderMap,
-    body: Body,
-) -> Result<StatusCode, Error> {
-    state.authorize_service(&headers)?;
-    let body = tokio::time::timeout(Duration::from_secs(5), to_bytes(body, 8 * 1024 * 1024))
-        .await
-        .map_err(|_| Error::Unavailable)?
-        .map_err(|_| Error::TooLarge)?;
-    state
-        .credentials
-        .replace(serde_json::from_slice(&body).map_err(|_| Error::InvalidRequest)?)?;
-    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn ready(AppState(state): AppState<Arc<State>>) -> StatusCode {

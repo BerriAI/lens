@@ -3,7 +3,6 @@ use http::Method;
 use litellm_http::Client;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Semaphore;
 use url::Url;
 
 const MAX_RESPONSE: usize = 16 * 1024 * 1024;
@@ -13,8 +12,6 @@ pub struct Control {
     client: Client,
     base: Url,
     token: Arc<str>,
-    model_slots: Arc<Semaphore>,
-    attempt: Option<u64>,
     gateway: Option<lens_inference::GatewayIdentity>,
 }
 
@@ -27,8 +24,6 @@ impl Control {
             client,
             base,
             token: token.into(),
-            model_slots: Arc::new(Semaphore::new(16)),
-            attempt: None,
             gateway: None,
         }
     }
@@ -63,7 +58,6 @@ impl Control {
             })
             .transpose()?
             .flatten();
-        let is_model = url.path().ends_with("/model");
         let request = self
             .client
             .request(method, url)
@@ -71,10 +65,6 @@ impl Control {
             .timeout(timeout);
         let request = match body {
             Some(body) => request.json(body),
-            None => request,
-        };
-        let request = match self.attempt {
-            Some(attempt) => request.header("x-litellm-lens-attempt", attempt),
             None => request,
         };
         let request = match marker {
@@ -89,21 +79,12 @@ impl Control {
                 .get("retry-after")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.parse::<u64>().ok());
-            let diagnostic = if is_model {
-                model_diagnostic(&mut response).await
-            } else {
-                None
-            };
             return Err(Error::Control {
                 status: status.as_u16(),
                 retry_after,
-                diagnostic,
+                diagnostic: None,
             });
         }
-        let finish_reason = response
-            .headers()
-            .get("x-litellm-lens-finish-reason")
-            .cloned();
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await? {
             if body.len().saturating_add(chunk.len()) > MAX_RESPONSE {
@@ -114,14 +95,7 @@ impl Control {
         if body.is_empty() {
             body.extend_from_slice(b"null");
         }
-        let mut value: serde_json::Value = serde_json::from_slice(&body)?;
-        if let Some(reason) = finish_reason.and_then(|v| v.to_str().ok().map(str::to_owned))
-            && matches!(reason.as_str(), "length" | "content_filter")
-            && let Some(object) = value.as_object_mut()
-        {
-            object.insert("finish_reason".into(), reason.into());
-        }
-        Ok(serde_json::from_value(value)?)
+        Ok(serde_json::from_slice(&body)?)
     }
 
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, Error> {
@@ -147,19 +121,6 @@ impl Control {
         )
         .await
     }
-}
-
-async fn model_diagnostic(response: &mut reqwest::Response) -> Option<String> {
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.ok()? {
-        if body.len().saturating_add(chunk.len()) > 16 * 1024 {
-            return None;
-        }
-        body.extend_from_slice(&chunk);
-    }
-    let value: serde_json::Value = serde_json::from_slice(&body).ok()?;
-    let diagnostic = value.pointer("/detail/lens_error")?.as_str()?;
-    (diagnostic.len() <= 4096).then(|| diagnostic.to_owned())
 }
 
 mod job;

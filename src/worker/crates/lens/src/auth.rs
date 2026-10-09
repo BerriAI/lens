@@ -1,20 +1,18 @@
 use crate::Error;
 use http::HeaderMap;
 use lens_contract::ingestion::IngestionSnapshot;
-use litellm_http::Client;
 use litellm_traces::Tenant;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::RwLock,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use subtle::ConstantTimeEq;
 
 pub const SNAPSHOT_TTL: Duration = Duration::from_secs(90);
 const MAX_KEYS: usize = 10_000;
-const MAX_SNAPSHOT_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -172,50 +170,5 @@ impl Credentials {
             return Err(Error::Unauthorized);
         }
         Ok(key.tenant.clone())
-    }
-}
-
-pub async fn refresh(
-    credentials: &Credentials,
-    client: &Client,
-    url: &url::Url,
-    token: &str,
-) -> Result<(), Error> {
-    let mut response = client
-        .get(url.clone())
-        .bearer_auth(token)
-        .timeout(Duration::from_secs(5))
-        .send()
-        .await?;
-    if response.status() == http::StatusCode::UNAUTHORIZED
-        || response.status() == http::StatusCode::FORBIDDEN
-    {
-        credentials.clear();
-        return Err(Error::Unauthorized);
-    }
-    if !response.status().is_success() {
-        return Err(Error::Unavailable);
-    }
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await? {
-        if body.len() + chunk.len() > MAX_SNAPSHOT_BYTES {
-            return Err(Error::TooLarge);
-        }
-        body.extend_from_slice(&chunk);
-    }
-    credentials.replace(serde_json::from_slice(&body).map_err(|_| Error::Unavailable)?)
-}
-
-pub async fn refresh_loop(
-    credentials: Arc<Credentials>,
-    client: Client,
-    url: url::Url,
-    token: String,
-) {
-    loop {
-        if refresh(&credentials, &client, &url, &token).await.is_err() {
-            tracing::warn!("Lens ingestion credential refresh failed");
-        }
-        tokio::time::sleep(Duration::from_secs(30)).await;
     }
 }

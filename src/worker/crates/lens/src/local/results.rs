@@ -297,7 +297,9 @@ fn finish(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::local::fixtures::{StoredJob, stored_job};
     use lens_contract::worker::{Finding, FindingDraft, JobTrigger};
+    use lens_investigations::LensRepository;
     use rstest::{fixture, rstest};
     use serde_json::{Value, json};
 
@@ -364,6 +366,128 @@ mod tests {
             json!({"id":"lens-test", "scope":{"team_id":"team-test"}, "settings":job.settings,
             "created_at":job.created_at, "next_run_at":job.created_at, "budget_month":"2026-01", "jobs":[job]}),
         )
+    }
+
+    #[rstest]
+    #[case::same_owner(None, 0, false, true)]
+    #[case::other_worker(Some("other-worker"), 0, false, false)]
+    #[case::other_attempt(None, 1, false, false)]
+    #[case::other_job(None, 0, true, false)]
+    #[tokio::test]
+    async fn completed_result_retries_require_the_same_job_worker_and_attempt(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] worker: Option<&str>,
+        #[case] attempt_delta: i64,
+        #[case] other_job: bool,
+        #[case] accepted: bool,
+    ) {
+        let body = InvestigationResult {
+            coverage: Coverage::default(),
+            findings: vec![],
+            assessments: vec![],
+            review_versions: vec![],
+            error: String::new(),
+        };
+        stored_job.job.save_result(&body).await.unwrap();
+        let completed = stored_job.job.lens().await.unwrap();
+        assert_eq!(completed.jobs[0].status, JobStatus::Completed);
+        let mut changed = completed.clone();
+        if let Some(worker) = worker {
+            changed.jobs[0].worker_id = Some(worker.into());
+        }
+        changed.jobs[0].attempts += attempt_delta;
+        let persisted = stored_job
+            .job
+            .control
+            .repository
+            .replace(&completed, &changed)
+            .await
+            .unwrap();
+        let mut caller = stored_job.job.clone();
+        if other_job {
+            caller.job_id = "unrelated-job".into();
+        }
+        let conflicting = InvestigationResult {
+            error: "A retry must not overwrite a saved result".into(),
+            ..body
+        };
+        let result = caller.save_result(&conflicting).await;
+        if accepted {
+            result.unwrap();
+        } else {
+            assert!(
+                matches!(result, Err(Error::Control { status: 409, .. })),
+                "{result:?}"
+            );
+        }
+        let after = stored_job.job.lens().await.unwrap();
+        assert_eq!(
+            serde_json::to_value(after).unwrap(),
+            serde_json::to_value(persisted).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[case::existing_same_kind(false, "existing", "issue", true)]
+    #[case::existing_missing(false, "missing", "issue", false)]
+    #[case::existing_other_kind(false, "existing", "pattern", false)]
+    #[case::merged_same_kind(true, "existing", "issue", true)]
+    #[case::merged_missing(true, "missing", "issue", false)]
+    #[case::merged_other_kind(true, "existing", "pattern", false)]
+    #[tokio::test]
+    async fn finding_references_require_this_investigation_and_kind(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] merged: bool,
+        #[case] referenced: &str,
+        #[case] previous_kind: &str,
+        #[case] accepted: bool,
+    ) {
+        let lens = stored_job.job.lens().await.unwrap();
+        let previous: FindingDraft = decode(
+            json!({"title":"Prior finding", "description":"Prior evidence", "check_id":"correct", "kind":previous_kind, "evidence":[]}),
+        );
+        let finding =
+            merge_finding(&lens, &previous, 1, Utc::now(), "existing", None, false).unwrap();
+        let with_finding = Lens {
+            findings: vec![finding],
+            ..lens.clone()
+        };
+        let persisted = stored_job
+            .job
+            .control
+            .repository
+            .replace(&lens, &with_finding)
+            .await
+            .unwrap();
+        let draft: FindingDraft = decode(
+            json!({"title":"Updated finding", "description":"Current evidence", "check_id":"correct", "kind":"issue", "evidence":[],
+            "existing_finding_id": (!merged).then_some(referenced), "merged_finding_ids": if merged { vec![referenced] } else { vec![] }}),
+        );
+        let body = InvestigationResult {
+            coverage: Coverage::default(),
+            findings: vec![draft],
+            assessments: vec![],
+            review_versions: vec![],
+            error: String::new(),
+        };
+        let result = stored_job.job.save_result(&body).await;
+        let after = stored_job.job.lens().await.unwrap();
+        if accepted {
+            result.unwrap();
+            assert_eq!(after.jobs[0].status, JobStatus::Completed);
+            assert_eq!(after.findings.len(), 1);
+            assert_eq!(after.findings[0].id, "existing");
+            assert_eq!(after.findings[0].title.as_str(), "Updated finding");
+        } else {
+            assert!(
+                matches!(result, Err(Error::Control { status: 422, .. })),
+                "{result:?}"
+            );
+            assert_eq!(
+                serde_json::to_value(after).unwrap(),
+                serde_json::to_value(persisted).unwrap()
+            );
+        }
     }
 
     #[rstest]

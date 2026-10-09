@@ -1,9 +1,4 @@
-use litellm_lens::{
-    config::http_client,
-    control::{Control, JobClient},
-    evidence::Workspace,
-    wire,
-};
+use litellm_lens::{evidence::Workspace, wire};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
@@ -12,13 +7,15 @@ use wiremock::{
     matchers::{method, path},
 };
 
+mod replay;
+
 async fn workspace(text: Arc<Mutex<String>>) -> (MockServer, Workspace, wire::Execution) {
     let server = MockServer::start().await;
     let sample: wire::Sample = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
     let execution = sample.executions[0].clone();
     let response_execution = execution.clone();
     Mock::given(method("GET"))
-        .and(path("/lens/worker/lens/job/content"))
+        .and(path("/replay/lens/job/content"))
         .respond_with(move |request: &Request| {
             let offset: usize = request.url.query_pairs().find(|(key, _)| key == "offset").unwrap().1.parse().unwrap();
             assert!(offset >= 1);
@@ -32,17 +29,7 @@ async fn workspace(text: Arc<Mutex<String>>) -> (MockServer, Workspace, wire::Ex
                     "start_time":"2026-10-03 10:00:00.200000009","end_time":"2026-10-03 10:00:00.200000019"}]
             }))
         }).mount(&server).await;
-    let client = JobClient::new(
-        Control::new(
-            http_client().unwrap(),
-            server.uri().parse().unwrap(),
-            "token".into(),
-        ),
-        "lens",
-        "job",
-        2,
-    )
-    .unwrap();
+    let client = replay::client(&server.uri(), "lens", "job", 2);
     (server, Workspace::new(sample.executions, client), execution)
 }
 

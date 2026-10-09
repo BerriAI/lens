@@ -177,15 +177,7 @@ pub async fn router(
     datasets: DatasetConfig,
     evals: EvalConfig,
 ) -> Result<(Router, JoinHandle<()>), Error> {
-    let application = initialize(
-        state,
-        settings,
-        datasets,
-        TraceConfig::default(),
-        false,
-        evals,
-    )
-    .await?;
+    let application = initialize(state, settings, datasets, TraceConfig::default(), evals).await?;
     let task = application.evals.start();
     Ok((application.router, task))
 }
@@ -195,7 +187,6 @@ pub async fn initialize(
     settings: Settings,
     datasets: DatasetConfig,
     traces: TraceConfig,
-    standalone: bool,
     evals: EvalConfig,
 ) -> Result<Application, Error> {
     state.storage.ensure_schema().await?;
@@ -242,15 +233,11 @@ pub async fn initialize(
             crate::FeedbackApi(state.clone()),
         ))
         .merge(eval_api);
-    let router = if standalone {
-        router.merge(lens_server::ingestion::router(
-            authentication.clone(),
-            ingestion,
-            credentials.clone(),
-        ))
-    } else {
-        router
-    };
+    let router = router.merge(lens_server::ingestion::router(
+        authentication.clone(),
+        ingestion,
+        credentials.clone(),
+    ));
     state.schema_ready.store(true, Ordering::Release);
     Ok(Application {
         router: lens_server::evals::with_contract_cases(router, eval_cases),

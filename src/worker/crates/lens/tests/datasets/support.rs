@@ -120,7 +120,7 @@ impl Database {
         let state = Arc::new(if standalone {
             State::standalone(storage)
         } else {
-            State::new(storage, SERVICE.into())
+            State::connected(storage, SERVICE.into())
         });
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -129,7 +129,6 @@ impl Database {
             Settings::new(ADMIN, None, &url).unwrap(),
             Default::default(),
             Default::default(),
-            standalone,
             api::EvalConfig {
                 public_url: url.clone(),
                 judge: litellm_lens::eval_judge::GatewayJudge::new(

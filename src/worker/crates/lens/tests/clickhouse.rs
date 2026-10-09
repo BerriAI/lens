@@ -36,7 +36,7 @@ async fn traces_round_trip_through_real_clickhouse_with_scoped_reads(
         "isolated-test-internal-secret-32-bytes".into(),
     );
     storage.ensure_schema().await.unwrap();
-    let state = Arc::new(State::new(
+    let state = Arc::new(State::connected(
         storage,
         "isolated-test-internal-secret-32-bytes".into(),
     ));

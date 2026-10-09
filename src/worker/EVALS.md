@@ -4,9 +4,9 @@ The Rust server exposes contract v1 eval routes under `/lens/evals/runs` and dat
 
 Runs, idempotency keys, trial results, baseline indexes, and scoring leases use the ClickHouse state store. The background closer resolves stored traces, waits for a completed root or 120 seconds without new spans, and calls `lens_evals::evaluate`. Missing or late trials become errors. Comparable completed runs on main supply the baseline
 
-`task_completed` and `called_before` need no model credentials. In standalone mode, a `judge` scorer uses the models configured in `LENS_ANALYSIS_MODELS`, including direct providers or an optional gateway. Its explicit model alias takes precedence; an empty model uses `LENS_EVAL_JUDGE_MODEL` or the first configured analysis alias. Missing configuration or a failed judge response fails scoring instead of inventing a score
+`task_completed` and `called_before` need no model credentials. A `judge` scorer uses the models configured in `LENS_ANALYSIS_MODELS`, including direct providers or an optional gateway. Its explicit model alias takes precedence; an empty model uses `LENS_EVAL_JUDGE_MODEL` or the first configured analysis alias. Missing configuration or a failed judge response fails scoring instead of inventing a score
 
-Legacy gateway mode retains `LITELLM_URL`, `LITELLM_API_KEY` and `LENS_EVAL_JUDGE_MODEL`. Configure `LENS_GATEWAY_URL` and the shared `LENS_GATEWAY_SECRET` when using the connected gateway so judge calls carry a short-lived signed internal marker
+For gateway-routed analysis, set the analysis model's `api_base` to the gateway API base URL and `api_key_env` to its model credential variable. Configure the same base URL in `LENS_GATEWAY_URL` and share `LENS_GATEWAY_SECRET` with the gateway so judge calls carry a short-lived signed internal marker. See [analysis model configuration](../../docs/analysis.md) for the model settings
 
 Judge requests include the rubric, expected outcome, and recorded trial spans. The signed marker is sent only to the explicitly configured gateway origin and path. The gateway still authenticates and bills the ordinary model credential while keeping internal analysis prompts out of recursive analysis and message logs
 
