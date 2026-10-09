@@ -683,8 +683,11 @@ it("should switch color themes from the sidebar and restore the saved preference
       searchParams: "?demo=true",
     });
     expect(document.documentElement).toHaveClass("light");
-    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Dark mode" }));
     expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "false");
     expect(window.localStorage.getItem(storageKey)).toBe("dark");
 
     first.unmount();
@@ -693,10 +696,20 @@ it("should switch color themes from the sidebar and restore the saved preference
       searchParams: "?demo=true",
     });
     expect(document.documentElement).toHaveClass("dark");
-    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Light mode" }));
     expect(document.documentElement).toHaveClass("light");
     expect(document.documentElement).not.toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "false");
     expect(window.localStorage.getItem(storageKey)).toBe("light");
+
+    await user.click(screen.getByRole("button", { name: "Collapse navigation" }));
+    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(document.documentElement).toHaveClass("dark");
+    expect(window.localStorage.getItem(storageKey)).toBe("dark");
+    await user.click(screen.getByRole("button", { name: "Expand navigation" }));
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
     reopened.unmount();
   } finally {
     document.documentElement.className = initialClassName;

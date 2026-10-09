@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTheme } from "next-themes";
-import { useMediaQuery } from "usehooks-ts";
+import { useIsClient, useMediaQuery } from "usehooks-ts";
 import {
   Activity,
   ArrowUpRight,
@@ -80,7 +80,7 @@ export function LensSidebar(props: LensSidebarProps) {
           <SheetDescription className="sr-only">Browse agents and your Lens workspace</SheetDescription>
           <Button
             variant="ghost"
-            className="mb-5 h-12 w-fit px-2"
+            className="mb-5 h-12 w-fit px-2 hover:bg-transparent dark:hover:bg-transparent"
             aria-label="Lens agents"
             onClick={() => navigate("agents")}
           >
@@ -102,7 +102,7 @@ export function LensSidebar(props: LensSidebarProps) {
         {!collapsed && (
           <Button
             variant="ghost"
-            className="h-auto min-w-0 p-0 hover:bg-transparent"
+            className="h-auto min-w-0 p-0 hover:bg-transparent dark:hover:bg-transparent"
             aria-label="Lens agents"
             onClick={() => navigate("agents")}
           >
@@ -212,21 +212,48 @@ function SidebarNavigation({
 
 function ThemeToggle({ collapsed }: { readonly collapsed: boolean }) {
   const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useIsClient();
+  if (collapsed)
+    return (
+      <Button
+        variant="ghost"
+        aria-label="Toggle color theme"
+        title="Toggle color theme"
+        onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+        className="h-9 w-full px-0 text-muted-foreground hover:bg-sidebar-accent"
+      >
+        <Moon aria-hidden="true" className="size-4 dark:hidden" />
+        <Sun aria-hidden="true" className="hidden size-4 dark:block" />
+      </Button>
+    );
   return (
-    <Button
-      variant="ghost"
-      aria-label="Toggle color theme"
-      title="Toggle color theme"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className={cn(
-        "h-9 w-full justify-start gap-2.5 px-2.5 text-[13px] font-normal text-muted-foreground hover:bg-sidebar-accent",
-        collapsed && "justify-center px-0",
-      )}
+    <div
+      role="group"
+      aria-label="Color theme"
+      className="flex gap-1 rounded-lg border border-sidebar-border bg-muted/50 p-1"
     >
-      <Moon aria-hidden="true" className="size-4 dark:hidden" />
-      <Sun aria-hidden="true" className="hidden size-4 dark:block" />
-      <span className={cn("dark:hidden", collapsed && "sr-only")}>Dark mode</span>
-      <span className={cn("hidden dark:inline", collapsed && "sr-only")}>Light mode</span>
-    </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Light mode"
+        aria-pressed={mounted ? resolvedTheme === "light" : undefined}
+        onClick={() => setTheme("light")}
+        className="flex-1 gap-2 bg-background text-xs text-foreground shadow-xs hover:bg-background dark:bg-transparent dark:text-muted-foreground dark:shadow-none dark:hover:bg-sidebar-accent"
+      >
+        <Sun aria-hidden="true" className="size-3.5" />
+        Light
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Dark mode"
+        aria-pressed={mounted ? resolvedTheme === "dark" : undefined}
+        onClick={() => setTheme("dark")}
+        className="flex-1 gap-2 text-xs text-muted-foreground hover:bg-sidebar-accent dark:bg-background dark:text-foreground dark:shadow-xs dark:hover:bg-background"
+      >
+        <Moon aria-hidden="true" className="size-3.5" />
+        Dark
+      </Button>
+    </div>
   );
 }
