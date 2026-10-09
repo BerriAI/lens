@@ -30,20 +30,14 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
     (settings.context.trim() || settings.checks?.some((check) => check.enabled));
   return (
     <Dialog open onOpenChange={(open) => !open && !save.isPending && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Analysis for {lens.settings.agent_name || "all agents"}</DialogTitle>
-          <DialogDescription>Review new traces on a schedule. Changes apply to the next run.</DialogDescription>
+          <DialogTitle>Findings settings</DialogTitle>
+          <DialogDescription>
+            Choose how Lens reviews traces for {lens.settings.agent_name}. Changes apply to the next run.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
-          <div className="flex items-center justify-between text-sm font-medium">
-            <label htmlFor="analysis-enabled">Automatic analysis</label>
-            <Switch
-              id="analysis-enabled"
-              checked={settings.enabled}
-              onCheckedChange={(enabled) => setSettings({ ...settings, enabled })}
-            />
-          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="analysis-model">
               Model
@@ -69,7 +63,7 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
           </div>
           <div className="space-y-2">
             <label htmlFor="analysis-context" className="text-sm font-medium">
-              What to look for
+              Prompt
             </label>
             <Textarea
               id="analysis-context"
@@ -78,30 +72,10 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
               onChange={(event) => setSettings({ ...settings, context: event.target.value })}
             />
           </div>
-          {settings.checks?.map((check, index) => (
-            <div key={check.id} className="space-y-2">
-              <label htmlFor={`analysis-check-${index}`} className="text-sm font-medium">
-                Additional instruction {index + 1}
-                {!check.enabled && " (paused)"}
-              </label>
-              <Textarea
-                id={`analysis-check-${index}`}
-                value={check.instruction}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    checks: settings.checks?.map((item, at) =>
-                      at === index ? { ...item, instruction: event.target.value } : item,
-                    ),
-                  })
-                }
-              />
-            </div>
-          ))}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="max-w-48">
             <div className="space-y-2">
               <label htmlFor="analysis-frequency" className="text-sm font-medium">
-                Check every (minutes)
+                Frequency (minutes)
               </label>
               <Input
                 id="analysis-frequency"
@@ -116,25 +90,58 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
                 }
               />
             </div>
-            <div className="space-y-2">
-              <label htmlFor="analysis-budget" className="text-sm font-medium">
-                Monthly budget (USD)
-              </label>
-              <Input
-                id="analysis-budget"
-                type="number"
-                min={0.01}
-                step={0.01}
-                value={settings.monthly_budget}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    monthly_budget: Number(event.target.value),
-                  })
-                }
-              />
-            </div>
           </div>
+          <details className="border-t pt-4">
+            <summary className="cursor-pointer text-xs text-muted-foreground">Advanced</summary>
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <label htmlFor="analysis-enabled">Automatic analysis</label>
+                <Switch
+                  id="analysis-enabled"
+                  checked={settings.enabled}
+                  onCheckedChange={(enabled) => setSettings({ ...settings, enabled })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="analysis-budget" className="text-sm font-medium">
+                  Monthly budget (USD)
+                </label>
+                <Input
+                  id="analysis-budget"
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={settings.monthly_budget}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      monthly_budget: Number(event.target.value),
+                    })
+                  }
+                />
+              </div>
+              {settings.checks?.map((check, index) => (
+                <div key={check.id} className="space-y-2">
+                  <label htmlFor={`analysis-check-${index}`} className="text-sm font-medium">
+                    Additional instruction {index + 1}
+                    {!check.enabled && " (paused)"}
+                  </label>
+                  <Textarea
+                    id={`analysis-check-${index}`}
+                    value={check.instruction}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        checks: settings.checks?.map((item, at) =>
+                          at === index ? { ...item, instruction: event.target.value } : item,
+                        ),
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
           <p className="text-xs leading-5 text-muted-foreground">
             The first automatic run waits for 10 traces. Later runs review new traces from the last{" "}
             {settings.lookback_hours} hours, up to {settings.sample_size ?? "all"} per run. Recent traces settle for 2
@@ -164,7 +171,7 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
   );
 }
 
-function AnalysisRow({
+function AgentAnalysis({
   lens,
   readOnly,
   ready,
@@ -210,9 +217,11 @@ function AnalysisRow({
                   : waiting
                     ? `Waiting for traces · ${sample.data?.eligible ?? 0}/10`
                     : "Ready for first analysis"
-              : job?.status === "failed"
+              : job?.status === "failed" || job?.error
                 ? "Last analysis failed"
-                : "Scheduled";
+                : job?.status === "cancelled"
+                  ? "Last analysis cancelled"
+                  : "Scheduled";
   const next = !lens.settings.enabled
     ? "Enable analysis to resume"
     : modelUnavailable
@@ -229,34 +238,22 @@ function AnalysisRow({
             ? "Next run: waiting for worker"
             : `Next run: ${new Date(lens.next_run_at).toLocaleString()}`;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs">
-      <div className="min-w-0 space-y-1">
-        <p className="font-medium text-foreground">{lens.settings.agent_name || "All agents"}</p>
-        <p className="max-w-lg truncate font-mono text-[11px] text-muted-foreground" title={lens.settings.model}>
-          {lens.settings.model} · every {lens.settings.interval_minutes} min
-        </p>
-      </div>
-      <div className="min-w-0 flex-1 space-y-1 sm:pl-6">
-        <p role="status" className="flex items-center gap-2 font-medium">
-          {active && (running || !modelUnavailable) ? (
-            <LoaderCircle aria-hidden className="size-3.5 motion-safe:animate-spin" />
-          ) : (
-            <Activity aria-hidden className="size-3.5 text-muted-foreground" />
-          )}
-          {status}
-        </p>
-        <p className="text-muted-foreground">{active && (running || !modelUnavailable) ? active.stage : next}</p>
-        {job?.finished_at && (
-          <p className="text-muted-foreground">
-            Last result:{" "}
-            {job.status === "failed"
-              ? "failed"
-              : job.status === "cancelled"
-                ? "cancelled"
-                : `${job.findings?.length ?? 0} findings`}{" "}
-            · {new Date(job.finished_at).toLocaleString()}
+    <section
+      aria-label="Findings settings"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-background px-4 py-3"
+    >
+      <div className="min-w-0 flex-1 space-y-1 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p role="status" className="flex items-center gap-2 text-foreground">
+            {active && (running || !modelUnavailable) ? (
+              <LoaderCircle aria-hidden className="size-3.5 text-muted-foreground motion-safe:animate-spin" />
+            ) : (
+              <Activity aria-hidden className="size-3.5 text-muted-foreground" />
+            )}
+            {status}
           </p>
-        )}
+          <p className="text-muted-foreground">{active && (running || !modelUnavailable) ? active.stage : next}</p>
+        </div>
         {job?.error && (
           <p role="alert" className="max-w-2xl break-words text-destructive">
             {job.error}
@@ -269,51 +266,52 @@ function AnalysisRow({
         )}
       </div>
       {!readOnly && (
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label={`Configure analysis for ${lens.settings.agent_name || "all agents"}`}
-          onClick={() => setEditing(true)}
-        >
-          <Settings2 className="size-3.5" />
-          Configure
+        <Button variant="outline" size="sm" aria-label="Findings settings" onClick={() => setEditing(true)}>
+          <Settings2 aria-hidden className="size-3.5" />
+          Settings
         </Button>
       )}
       {editing && <AnalysisSettings lens={lens} onClose={() => setEditing(false)} />}
-    </div>
+    </section>
   );
 }
 
-export function AutomaticAnalysis({ lenses, readOnly, ready }: { lenses: Lens[]; readOnly: boolean; ready: boolean }) {
+export function AutomaticAnalysis({
+  lenses,
+  agent = "",
+  readOnly,
+  ready,
+}: {
+  lenses: Lens[];
+  agent?: string;
+  readOnly: boolean;
+  ready: boolean;
+}) {
   const { setTab, demo } = useLensRoute();
   const models = useAnalysisModels();
   const availableModels = !demo && !models.modelsLoading && !models.modelsError ? models.models : null;
+  const matching = agent ? lenses.filter((lens) => lens.settings.agent_name === agent) : [];
+  const lens = matching.find((item) => item.id.startsWith("auto-agent-")) ?? matching[0];
+  if (lens)
+    return (
+      <AgentAnalysis key={lens.id} lens={lens} readOnly={readOnly} ready={ready} availableModels={availableModels} />
+    );
   return (
     <section
-      aria-label="Automatic analysis"
-      className="mb-4 max-h-72 shrink-0 overflow-auto rounded-md border bg-background"
+      aria-label="Findings settings"
+      className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-xs text-muted-foreground"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <h2 className="text-sm font-medium">Automatic analysis</h2>
-        <p className="text-xs text-muted-foreground">Starts after 10 traces per agent</p>
-      </div>
+      <p role="status">
+        {!ready
+          ? "Connect an analysis model to start receiving findings."
+          : agent
+            ? "Waiting for traces. Findings start automatically after 10 traces from this agent."
+            : "Select an agent to tune its findings."}
+      </p>
       {!ready && !readOnly && (
-        <div className="px-4 pb-3">
-          <Button variant="outline" size="sm" onClick={() => setTab("settings")}>
-            Configure analysis
-          </Button>
-        </div>
-      )}
-      {lenses.length ? (
-        lenses.map((lens) => (
-          <AnalysisRow key={lens.id} lens={lens} readOnly={readOnly} ready={ready} availableModels={availableModels} />
-        ))
-      ) : (
-        <p role="status" className="border-t px-4 py-4 text-sm text-muted-foreground">
-          {ready
-            ? "Waiting for traces. Each agent is added here automatically."
-            : "Waiting for connection. Configure an analysis model in Settings to get started."}
-        </p>
+        <Button variant="outline" size="sm" onClick={() => setTab("settings")}>
+          Connect model
+        </Button>
       )}
     </section>
   );
