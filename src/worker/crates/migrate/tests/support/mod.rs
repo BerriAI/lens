@@ -1,6 +1,7 @@
 use lens_migrate::{Error, LegacySnapshot};
 use rstest::fixture;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 #[fixture]
 pub fn source() -> Value {
@@ -15,12 +16,13 @@ pub fn source() -> Value {
     archived["id"] = json!("archive");
     let job: lens_contract::worker::Job = serde_json::from_value(archived.clone()).unwrap();
     let criteria = lens_investigations::criteria_key(&job.settings).unwrap();
+    let tracing_hash = format!("{:x}", Sha256::digest(b"source tracing credential"));
     json!({
         "lenses":[{"id":"lens","version":42,"data":public["filled_lens"],"due_at":"2026-01-15T01:02:03.123456"}],
         "runs":[{"id":"archive","lens_id":"lens","created_at":"2026-01-15T00:00:00","data":archived}],
         "reviews":[{"lens_id":"lens","criteria_key":criteria,"execution_id":public["review"]["execution_id"],"data":public["review"]}],
         "workers":[{"id":public["worker"]["id"],"token_hash":"keep-hash-byte-exact","data":public["worker"]}],
-        "ingestion_keys":[{"id":"key-hash","data":{"id":"key-hash","name":"Tracing","tenant":{"team_id":"alpha","user_id":"owner","org_id":"organization","api_key_hash":"source-key-hash"},"created_at":"2026-01-15T00:00:00Z","expires_at":1800000000}}],
+        "ingestion_keys":[{"id":"key-hash","data":{"id":"key-hash","name":"Tracing","tenant":{"team_id":"alpha","user_id":"owner","org_id":"organization","api_key_hash":tracing_hash},"created_at":"2026-01-15T00:00:00Z","expires_at":1800000000}}],
         "datasets":[{"id":"dataset","revision":2,"created_at":"2026-01-17T00:00:00","data":second},{"id":"dataset","revision":1,"created_at":"2026-01-16T00:00:00","data":dataset}],
         "signal_configs":[{"id":"global","data":{}}],
         "trace_signals":[{"trace_id":"trace","trace_ref":"backend-key","config_key":"keep-config-key","span_count":3,"claimed_until":"2026-01-15T00:00:00","classified_at":null,"data":{"status":"pending","scores":{},"model":"signals","error":""}}]

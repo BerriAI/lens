@@ -3,6 +3,7 @@ mod support;
 use lens_migrate::{Error, LegacySnapshot};
 use rstest::rstest;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 use support::{plan, source};
 
@@ -166,6 +167,68 @@ fn inconsistent_source_rows_are_rejected(
 ) {
     source[table][0][field] = value;
     assert!(matches!(plan(source), Err(Error::InvalidRecord)));
+}
+
+#[rstest]
+#[case::empty(String::new())]
+#[case::short("a".repeat(63))]
+#[case::long("a".repeat(65))]
+#[case::nonhex(format!("{}g", "a".repeat(63)))]
+#[case::nonascii("é".repeat(32))]
+fn invalid_ingestion_hashes_are_rejected(mut source: Value, #[case] hash: String) {
+    source["ingestion_keys"][0]["data"]["tenant"]["api_key_hash"] = json!(hash);
+    assert!(matches!(plan(source), Err(Error::InvalidRecord)));
+}
+
+#[rstest]
+#[case::lowercase(false)]
+#[case::uppercase(true)]
+fn valid_ingestion_hashes_are_preserved(mut source: Value, #[case] uppercase: bool) {
+    let hash = source["ingestion_keys"][0]["data"]["tenant"]["api_key_hash"]
+        .as_str()
+        .unwrap();
+    let hash = if uppercase {
+        hash.to_ascii_uppercase()
+    } else {
+        hash.to_owned()
+    };
+    source["ingestion_keys"][0]["data"]["tenant"]["api_key_hash"] = json!(hash);
+    assert_eq!(
+        plan(source.clone()).unwrap().records()["ingestion-keys/catalog"][0],
+        source["ingestion_keys"][0]["data"]
+    );
+}
+
+#[rstest]
+#[case::same_hash(false)]
+#[case::distinct_hash(true)]
+fn ingestion_credentials_require_unique_hashes(mut source: Value, #[case] distinct: bool) {
+    let mut second = source["ingestion_keys"][0].clone();
+    second["id"] = json!("second-key");
+    second["data"]["id"] = json!("second-key");
+    second["data"]["tenant"]["team_id"] = json!("another-team");
+    if distinct {
+        second["data"]["tenant"]["api_key_hash"] = json!(format!(
+            "{:x}",
+            Sha256::digest(b"second tracing credential")
+        ));
+    }
+    source["ingestion_keys"]
+        .as_array_mut()
+        .unwrap()
+        .push(second);
+    let result = plan(source.clone());
+    if distinct {
+        assert_eq!(
+            result.unwrap().records()["ingestion-keys/catalog"],
+            json!([
+                source["ingestion_keys"][0]["data"],
+                source["ingestion_keys"][1]["data"]
+            ])
+        );
+    } else {
+        assert!(matches!(result, Err(Error::Duplicate)));
+    }
 }
 
 #[rstest]

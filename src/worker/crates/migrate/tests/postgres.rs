@@ -2,14 +2,18 @@
 mod storage_support;
 mod support;
 
+use std::collections::BTreeMap;
+
 use lens_auth::ingestion::IngestionRepository;
 use lens_contract::{feedback::TraceIdentity, investigations::Scope, worker::Job};
 use lens_datasets::DatasetRepository;
 use lens_investigations::{LensRepository, WorkerRepository};
-use lens_migrate::{import, read_source};
+use lens_migrate::{Error, import, read_source};
 use lens_signals::SignalRepository;
+use litellm_http::Client;
 use litellm_storage_clickhouse::{
-    datasets::Datasets, ingestion::IngestionKeys, investigations::Investigations, signals::Signals,
+    Parameter, datasets::Datasets, execute_read, ingestion::IngestionKeys,
+    investigations::Investigations, signals::Signals,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -179,7 +183,9 @@ async fn read_only_postgres_snapshot_becomes_usable_by_rust_lens(
         IngestionKeys(database.state.clone()).list().await.unwrap()[0]
             .tenant
             .api_key_hash,
-        "source-key-hash"
+        source["ingestion_keys"][0]["data"]["tenant"]["api_key_hash"]
+            .as_str()
+            .unwrap()
     );
     assert_eq!(
         Datasets(database.state.clone())
@@ -214,4 +220,71 @@ async fn read_only_postgres_snapshot_becomes_usable_by_rust_lens(
         read_source(&url).await.unwrap().plan().unwrap().report(),
         expected.report()
     );
+}
+
+#[rstest]
+#[case::malformed_hash(false)]
+#[case::duplicate_hash(true)]
+#[tokio::test]
+async fn invalid_ingestion_credentials_refuse_apply_before_target_writes(
+    #[future(awt)] database: Database,
+    mut source: Value,
+    #[case] duplicate: bool,
+) {
+    let expected = if duplicate {
+        let mut second = source["ingestion_keys"][0].clone();
+        second["id"] = json!("second-key");
+        second["data"]["id"] = json!("second-key");
+        second["data"]["tenant"]["team_id"] = json!("another-team");
+        source["ingestion_keys"]
+            .as_array_mut()
+            .unwrap()
+            .push(second);
+        Error::Duplicate
+    } else {
+        source["ingestion_keys"][0]["data"]["tenant"]["api_key_hash"] = json!("invalid-token-hash");
+        Error::InvalidRecord
+    };
+    let postgres = Postgres::default()
+        .with_tag(
+            "16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+        )
+        .start()
+        .await
+        .unwrap();
+    let host = postgres.get_host().await.unwrap();
+    let port = postgres.get_host_port_ipv4(5432).await.unwrap();
+    let mut connection = PgConnection::connect(&format!(
+        "postgres://postgres:postgres@{host}:{port}/postgres"
+    ))
+    .await
+    .unwrap();
+    seed(&mut connection, &source).await;
+    let url = format!("postgres://migration_reader:fixture-reader@{host}:{port}/postgres");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_lens-migrate"))
+        .args(["--apply", "--source-stopped"])
+        .env_clear()
+        .env("LENS_MIGRATION_POSTGRES_URL", &url)
+        .env("CLICKHOUSE_URL", database.writer.url().as_str())
+        .env("CLICKHOUSE_DATABASE", &database.name)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap().trim(),
+        expected.to_string()
+    );
+    let tables: Value = serde_json::from_str(
+        &execute_read(
+            &Client::no_redirect_for_test(),
+            &database.writer,
+            "SELECT name FROM system.tables WHERE database = {database:String}",
+            &BTreeMap::from([("database".into(), Parameter::Text(database.name.clone()))]),
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(tables["data"].as_array().unwrap().is_empty());
 }

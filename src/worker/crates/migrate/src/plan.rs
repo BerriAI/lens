@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::NaiveDateTime;
 use lens_contract::{
@@ -193,12 +193,17 @@ impl LegacySnapshot {
             )?;
         }
         let mut catalog = BTreeMap::new();
+        let mut hashes = BTreeSet::new();
         for row in self.ingestion_keys {
             let credential: IngestionKey = decode(&row.data)?;
-            if credential.id != row.id {
+            let hash = credential.tenant.api_key_hash;
+            if credential.id != row.id
+                || hash.len() != 64
+                || !hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
                 return Err(Error::InvalidRecord);
             }
-            if catalog.insert(row.id, row.data).is_some() {
+            if !hashes.insert(hash) || catalog.insert(row.id, row.data).is_some() {
                 return Err(Error::Duplicate);
             }
         }
