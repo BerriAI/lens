@@ -57,24 +57,41 @@ fn workflow_id(ci_url: &str, repositories: &[&str]) -> Result<u64, GitHubError> 
     {
         return Err(invalid());
     }
-    let parts = url
-        .path()
-        .trim_start_matches('/')
+    let path = url.path().strip_prefix('/').ok_or_else(invalid)?;
+    let parts = path
+        .strip_suffix('/')
+        .unwrap_or(path)
         .split('/')
         .collect::<Vec<_>>();
-    if parts.len() != 5
-        || !repositories
-            .iter()
-            .any(|repository| format!("{}/{}", parts[0], parts[1]).eq_ignore_ascii_case(repository))
-        || parts[2..4] != ["actions", "runs"]
+    let (owner, repository, run) = match parts.as_slice() {
+        [owner, repository, "actions", "runs", run] => (owner, repository, run),
+        [
+            owner,
+            repository,
+            "actions",
+            "runs",
+            run,
+            "attempts",
+            attempt,
+        ] if positive_id(attempt).is_some() => (owner, repository, run),
+        _ => return Err(invalid()),
+    };
+    if !repositories
+        .iter()
+        .any(|allowed| format!("{owner}/{repository}").eq_ignore_ascii_case(allowed))
     {
         return Err(invalid());
     }
-    parts[4]
-        .parse::<u64>()
-        .ok()
-        .filter(|id| *id > 0)
-        .ok_or_else(invalid)
+    positive_id(run).ok_or_else(invalid)
+}
+
+fn positive_id(value: &str) -> Option<u64> {
+    if !value.starts_with(|character: char| matches!(character, '1'..='9'))
+        || !value.bytes().all(|character| character.is_ascii_digit())
+    {
+        return None;
+    }
+    value.parse().ok()
 }
 
 pub(super) struct WorkflowTarget {
@@ -216,10 +233,28 @@ mod tests {
 
     #[rstest]
     #[case::valid("https://github.com/Org/Repo/actions/runs/123", Some(123))]
+    #[case::trailing_slash("https://github.com/org/repo/actions/runs/123/", Some(123))]
+    #[case::attempt("https://github.com/org/repo/actions/runs/123/attempts/2", Some(123))]
+    #[case::attempt_trailing_slash(
+        "https://github.com/org/repo/actions/runs/123/attempts/2/",
+        Some(123)
+    )]
     #[case::foreign("https://github.com/org/other/actions/runs/123", None)]
     #[case::fake_host("https://github.com.example/org/repo/actions/runs/123", None)]
     #[case::credentials("https://user@github.com/org/repo/actions/runs/123", None)]
     #[case::query("https://github.com/org/repo/actions/runs/123?a=b", None)]
+    #[case::attempt_query("https://github.com/org/repo/actions/runs/123/attempts/2?a=b", None)]
+    #[case::fragment("https://github.com/org/repo/actions/runs/123/attempts/2#step", None)]
+    #[case::zero_attempt("https://github.com/org/repo/actions/runs/123/attempts/0", None)]
+    #[case::signed_attempt("https://github.com/org/repo/actions/runs/123/attempts/+2", None)]
+    #[case::negative_attempt("https://github.com/org/repo/actions/runs/123/attempts/-2", None)]
+    #[case::missing_attempt("https://github.com/org/repo/actions/runs/123/attempts/", None)]
+    #[case::zero_run("https://github.com/org/repo/actions/runs/0", None)]
+    #[case::leading_zero_run("https://github.com/org/repo/actions/runs/0123", None)]
+    #[case::overflow_run("https://github.com/org/repo/actions/runs/18446744073709551616", None)]
+    #[case::extra_path("https://github.com/org/repo/actions/runs/123/attempts/2/jobs/4", None)]
+    #[case::double_slash("https://github.com/org/repo/actions/runs/123//", None)]
+    #[case::double_leading_slash("https://github.com//org/repo/actions/runs/123", None)]
     #[case::not_workflow("https://github.com/org/repo/pull/123", None)]
     fn workflow_provenance(#[case] value: &str, #[case] expected: Option<u64>) {
         assert_eq!(workflow_id(value, &["org/repo"]).ok(), expected);
