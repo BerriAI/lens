@@ -126,7 +126,7 @@ export function safeAnswer(
   };
 }
 export function answerBlocks(answer: Answer) {
-  if (answer.opportunities) {
+  if (answer.opportunities?.length) {
     let linkIndex = 0;
     return categories.map((category) => {
       const opportunities = answer.opportunities!.filter(
