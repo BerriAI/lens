@@ -124,7 +124,8 @@ def source_reader(storage: Storage | None) -> SourceReader:
     return SourceReader(storage)
 
 
-SYSTEM_ONE_MODES: Final = frozenset(("decisions", "evaluation"))
+def is_decisions_model_mode(mode: str | None) -> bool:
+    return mode in ("decisions", "evaluation")
 
 
 def user_scope(auth: UserAPIKeyAuth, write: bool = False) -> Scope:
@@ -145,7 +146,7 @@ def validate_signal_model(config: SignalConfig, llm_router: Router | None) -> No
         model_group: Final = llm_router.get_model_group_info(model_group=config.model)
     except Exception as error:
         raise HTTPException(400, message) from error
-    if model_group is None or model_group.mode not in SYSTEM_ONE_MODES:
+    if model_group is None or not is_decisions_model_mode(model_group.mode):
         raise HTTPException(400, message)
 
 
