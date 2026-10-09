@@ -63,6 +63,8 @@ New automatic analyses use the first explicit `LENS_ANALYSIS_MODELS` deployment 
 
 Open a finding and follow an evidence citation to the original trace. Existing analysis records and history are preserved. Saved investigation links open Findings
 
+To receive new improvement candidates in Slack, configure the optional [Slack findings integration](slack.md)
+
 The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while analysis is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
 
 ## Connect an OpenAI-compatible endpoint
