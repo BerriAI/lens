@@ -126,6 +126,9 @@ fn traced() -> TrialOutcome {
 #[case::neither_present(priced(traced(), None, None), 0.0)]
 #[case::error_trial_cost_usd(priced(TrialOutcome::Error, Some(0.25), None), 0.5)]
 #[case::error_trial_ignores_spend(priced(TrialOutcome::Error, None, Some(9.0)), 0.0)]
+#[case::output_trial_cost(priced(TrialOutcome::Output("answer".into()), Some(0.25), None), 0.5)]
+#[case::output_trial_ignores_trace_spend(priced(TrialOutcome::Output("answer".into()), None, Some(9.0)), 0.0)]
+#[case::trace_and_output_uses_trace_spend(priced(TrialOutcome::TraceWithOutput { spans: vec![root(SpanStatus::Ok)], output: "answer".into() }, None, Some(0.125)), 0.25)]
 #[tokio::test]
 async fn cost_per_case_sums_trials_over_cases(#[case] trial: Trial, #[case] expected: f64) {
     let input = run(
@@ -138,6 +141,26 @@ async fn cost_per_case_sums_trials_over_cases(#[case] trial: Trial, #[case] expe
     );
     let summary = evaluate(&input, &judge()).await.unwrap().summary;
     assert!((summary.cost_per_case - expected).abs() < 1e-12);
+}
+
+#[rstest]
+#[case::passing(0.75, true)]
+#[case::failing(0.25, false)]
+#[tokio::test]
+async fn output_trials_are_scored_without_counting_as_missing_traces(
+    #[case] score: f64,
+    #[case] passed: bool,
+) {
+    let trial = priced(TrialOutcome::Output("answer".into()), Some(0.25), None);
+    let input = RunInput {
+        scorers: vec![judge_scorer("p")],
+        ..run(1, vec![case("c", false, vec![trial])], None)
+    };
+    let result = evaluate(&input, &FakeJudge::constant(score)).await.unwrap();
+    assert_eq!(result.verdicts["c"], passed);
+    assert_eq!(result.summary.errors, 0);
+    assert_eq!(result.summary.scores["judge"], f64::from(u8::from(passed)));
+    assert_eq!(result.summary.cost_per_case, 0.25);
 }
 
 #[tokio::test]

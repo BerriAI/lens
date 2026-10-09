@@ -9,6 +9,175 @@ use serde_json::{Value, json};
 use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_app, request};
 use tower::ServiceExt;
 
+fn output_agent_io() -> Value {
+    json!({
+        "version": 1,
+        "connection": "agent",
+        "submit": {"method": "POST", "path": "/complete", "accepted_status": 200, "json": {"input": ""}},
+        "input": [{"source": "case.input", "target": "/input"}],
+        "completion": {"kind": "immediate"},
+        "output": {"pointer": "/output", "require_nonempty": true}
+    })
+}
+
+fn v2(mut request: axum::http::Request<axum::body::Body>) -> axum::http::Request<axum::body::Body> {
+    request
+        .headers_mut()
+        .insert("x-lens-contract", HeaderValue::from_static("2"));
+    request
+}
+
+#[rstest]
+#[tokio::test]
+async fn named_eval_contract_is_persisted_without_breaking_legacy_readers(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let mut payload = spec(1);
+    payload["agent_io"] = output_agent_io();
+    payload["scorers"] =
+        json!([{"kind": "judge", "prompt": "Check the expected answer", "model": ""}]);
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(v2(request(
+            "PUT",
+            "/lens/evals/named",
+            "team-a",
+            Some(payload.clone()),
+        )))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let definition: EvalDefinition = body(response).await;
+    assert!(definition.spec.agent_io.is_some());
+
+    for (version, has_agent_io) in [("1", false), ("2", true)] {
+        for path in ["/lens/evals/named", "/lens/evals"] {
+            let mut read = request("GET", path, "team-a", None);
+            read.headers_mut()
+                .insert("x-lens-contract", HeaderValue::from_str(version).unwrap());
+            let response = eval_fixture.app.clone().oneshot(read).await.unwrap();
+            assert_eq!(response.status(), 200);
+            let result: Value = body(response).await;
+            let definition = if path == "/lens/evals" {
+                &result[0]
+            } else {
+                &result
+            };
+            assert_eq!(definition["spec"].get("agent_io").is_some(), has_agent_io);
+        }
+    }
+    payload.as_object_mut().unwrap().remove("agent_io");
+    let overwrite = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("PUT", "/lens/evals/named", "team-a", Some(payload)))
+        .await
+        .unwrap();
+    assert_eq!(overwrite.status(), 422);
+    assert_eq!(
+        eval_fixture
+            .store
+            .definition("team-a", "named")
+            .await
+            .unwrap(),
+        definition
+    );
+}
+
+#[rstest]
+#[case::v1("1", 422)]
+#[case::v2("2", 204)]
+#[tokio::test]
+async fn output_results_require_v2_and_remain_inspectable(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] version: &str,
+    #[case] status: u16,
+) {
+    let run = create(&eval_fixture).await;
+    let mut write = request(
+        "PUT",
+        &format!("/lens/evals/runs/{}/results/case-1/0", run.id),
+        "team-a",
+        Some(json!({"output": "the completed answer"})),
+    );
+    write
+        .headers_mut()
+        .insert("x-lens-contract", HeaderValue::from_str(version).unwrap());
+    let response = eval_fixture.app.clone().oneshot(write).await.unwrap();
+    assert_eq!(response.status(), status);
+    let stored = eval_fixture.store.get("team-a", &run.id).await.unwrap();
+    assert_eq!(stored.cases[0].input, "first");
+    assert_eq!(stored.trials.len(), usize::from(status == 204));
+    if status == 204 {
+        assert_eq!(
+            stored.trials[0].result.output.as_deref(),
+            Some("the completed answer")
+        );
+        for (version, expected) in [("1", None), ("2", Some("the completed answer"))] {
+            let mut read = request(
+                "GET",
+                &format!("/lens/evals/runs/{}/cases/case-1", run.id),
+                "team-a",
+                None,
+            );
+            read.headers_mut()
+                .insert("x-lens-contract", HeaderValue::from_str(version).unwrap());
+            let response = eval_fixture.app.clone().oneshot(read).await.unwrap();
+            assert_eq!(response.status(), 200);
+            assert_eq!(
+                body::<Value>(response).await["trials"][0]
+                    .get("output")
+                    .and_then(Value::as_str),
+                expected
+            );
+        }
+    }
+}
+
+#[rstest]
+#[case::v1("1", false)]
+#[case::v2_trace_scorer("2", false)]
+#[case::invalid_mapping("2", true)]
+#[tokio::test]
+async fn invalid_named_eval_contracts_fail_before_storage(
+    guarded_app: axum::Router,
+    #[case] version: &str,
+    #[case] invalid_mapping: bool,
+) {
+    let mut payload = spec(1);
+    payload["agent_io"] = output_agent_io();
+    if invalid_mapping {
+        payload["agent_io"]["input"][0]["target"] = "/missing".into();
+        payload["scorers"] = json!([{"kind":"judge", "prompt":"Check answer", "model":""}]);
+    }
+    let mut write = request("PUT", "/lens/evals/named", "team-a", Some(payload));
+    write
+        .headers_mut()
+        .insert("x-lens-contract", HeaderValue::from_str(version).unwrap());
+    let response = guarded_app.oneshot(write).await.unwrap();
+    assert_eq!(response.status(), 422);
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_only_contract_cannot_claim_unmeasured_cost_savings(guarded_app: axum::Router) {
+    let mut payload = spec(1);
+    payload["agent_io"] = output_agent_io();
+    payload["scorers"] = json!([{"kind":"judge", "prompt":"Check answer", "model":""}]);
+    payload["gate"] = json!({"cost_per_case": 0.1});
+    let response = guarded_app
+        .oneshot(v2(request(
+            "PUT",
+            "/lens/evals/named",
+            "team-a",
+            Some(payload),
+        )))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 422);
+}
+
 #[rstest]
 #[case::legacy("", false)]
 #[case::disabled("&include_ci=false", false)]
@@ -115,6 +284,12 @@ async fn should_create_once_per_team_and_snapshot_included_cases(
     assert_eq!(stored.cases.len(), 2);
     assert!(stored.cases[0].critical);
     assert_eq!(stored.cases[0].title, "Run tests");
+    assert_eq!(stored.cases[0].input, "first");
+    assert_eq!(
+        stored.cases[0].followups,
+        vec!["Translate the answer to Spanish", "Include the test names"]
+    );
+    assert!(stored.cases[1].followups.is_empty());
     let definitions = eval_fixture
         .app
         .clone()
@@ -298,7 +473,7 @@ async fn should_check_contract_version_on_every_route(
     guarded_app: axum::Router,
     #[case] method: &str,
     #[case] path: &str,
-    #[values(None, Some("2"), Some("1.5"))] version: Option<&str>,
+    #[values(None, Some("3"), Some("1.5"))] version: Option<&str>,
 ) {
     let mut request = request(method, path, "team-a", None);
     request.headers_mut().remove("X-Lens-Contract");

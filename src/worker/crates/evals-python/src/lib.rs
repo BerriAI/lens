@@ -227,6 +227,25 @@ fn evaluate<'py>(
     })
 }
 
+#[pyfunction]
+fn run_named(
+    py: Python<'_>,
+    name: String,
+    endpoint: String,
+    key: String,
+    context: String,
+    root: String,
+) -> PyResult<Bound<'_, PyAny>> {
+    let context: Execution = decode(&context)?;
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        encode(
+            &lens_evals_sdk::named::evaluate(&name, &endpoint, &key, &context, Path::new(&root))
+                .await
+                .map_err(error)?,
+        )
+    })
+}
+
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(validate_eval, module)?)?;
@@ -240,5 +259,6 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(control, module)?)?;
     module.add_function(wrap_pyfunction!(diagnose, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate, module)?)?;
+    module.add_function(wrap_pyfunction!(run_named, module)?)?;
     Ok(())
 }

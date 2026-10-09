@@ -36,6 +36,7 @@ impl EvalStore {
                 baseline: "main".into(),
                 gate: request.gate.clone(),
                 timeout_per_trial_ms: request.timeout_per_trial_ms,
+                agent_io: request.agent_io.clone(),
             },
             updated_at: now.to_rfc3339_opts(SecondsFormat::Millis, true),
         };
@@ -52,6 +53,27 @@ impl EvalStore {
         spec: EvalSpec,
         now: DateTime<Utc>,
     ) -> Result<EvalDefinition, EvalError> {
+        self.save_definition(team, name, spec, now, false).await
+    }
+
+    pub async fn put_legacy_definition(
+        &self,
+        team: &str,
+        name: &str,
+        spec: EvalSpec,
+        now: DateTime<Utc>,
+    ) -> Result<EvalDefinition, EvalError> {
+        self.save_definition(team, name, spec, now, true).await
+    }
+
+    async fn save_definition(
+        &self,
+        team: &str,
+        name: &str,
+        spec: EvalSpec,
+        now: DateTime<Utc>,
+        legacy: bool,
+    ) -> Result<EvalDefinition, EvalError> {
         let key = format!("{}{name}", prefix(team));
         let definition = EvalDefinition {
             name: name.to_owned(),
@@ -62,6 +84,11 @@ impl EvalStore {
             let previous = self.state.read(&key).await?;
             if !previous.value.is_null() {
                 let existing: EvalDefinition = decode(&previous)?;
+                if legacy && existing.spec.agent_io.is_some() {
+                    return Err(EvalError::InvalidRequest(
+                        "This eval has an agent I/O contract; update it with X-Lens-Contract: 2",
+                    ));
+                }
                 if existing.spec == definition.spec {
                     return Ok(existing);
                 }

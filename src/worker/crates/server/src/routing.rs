@@ -46,6 +46,15 @@ async fn redirect(request: Request) -> Response {
 
 pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
     let path = request.uri().path();
+    let normalized = path.trim_end_matches('/');
+    let parts: Vec<_> = normalized.split('/').collect();
+    let agent_io_route = normalized == "/lens/evals"
+        || normalized.starts_with("/lens/evals/")
+        || (matches!(request.method().as_str(), "GET" | "HEAD")
+            && matches!(
+                parts.as_slice(),
+                ["", "lens", "datasets", _] | ["", "lens", "datasets", _, "revisions", _, "cases"]
+            ));
     let contract: Vec<_> = request
         .headers()
         .get_all("x-lens-contract")
@@ -54,6 +63,7 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
     if (path == "/lens" || path.starts_with("/lens/"))
         && !contract.is_empty()
         && contract.as_slice() != ["1"]
+        && !(agent_io_route && contract.as_slice() == ["2"])
     {
         return (
             StatusCode::CONFLICT,
@@ -61,8 +71,6 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
         )
             .into_response();
     }
-    let normalized = path.trim_end_matches('/');
-    let parts: Vec<_> = normalized.split('/').collect();
     let known = matches!(
         parts.as_slice(),
         ["", "lens"]
@@ -158,6 +166,38 @@ mod composed_tests {
     use axum::{body::Body, middleware, routing::get};
     use rstest::rstest;
     use tower::ServiceExt;
+
+    #[rstest]
+    #[case::eval("POST", "/lens/evals/runs", 204)]
+    #[case::read_dataset("GET", "/lens/datasets/one", 204)]
+    #[case::read_cases("GET", "/lens/datasets/one/revisions/1/cases", 204)]
+    #[case::other_mutation("POST", "/lens/datasets/one", 409)]
+    #[case::other_api("GET", "/lens/traces", 409)]
+    #[tokio::test]
+    async fn agent_io_version_is_scoped_to_eval_routes(
+        #[case] method: &str,
+        #[case] path: &str,
+        #[case] status: u16,
+    ) {
+        let router = Router::new()
+            .route(
+                path,
+                axum::routing::any(|| async { StatusCode::NO_CONTENT }),
+            )
+            .layer(middleware::from_fn(redirect_trailing_slash));
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .method(method)
+                    .header("x-lens-contract", "2")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status);
+    }
 
     #[rstest]
     #[case::legacy(None, 204)]

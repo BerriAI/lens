@@ -41,10 +41,19 @@ impl ScoreRun for EvalScorer {
                             .map(|trial| Trial {
                                 outcome: if trial.stored.result.error.is_some() {
                                     TrialOutcome::Error
+                                } else if trial.stored.result.trace.is_some() {
+                                    let spans = trial.spans.iter().map(scoring_span).collect();
+                                    match &trial.stored.result.output {
+                                        Some(output) => TrialOutcome::TraceWithOutput {
+                                            spans,
+                                            output: output.clone(),
+                                        },
+                                        None => TrialOutcome::Trace(spans),
+                                    }
+                                } else if let Some(output) = &trial.stored.result.output {
+                                    TrialOutcome::Output(output.clone())
                                 } else {
-                                    TrialOutcome::Trace(
-                                        trial.spans.iter().map(scoring_span).collect(),
-                                    )
+                                    TrialOutcome::Error
                                 },
                                 cost_usd: trial.stored.result.cost_usd,
                                 trace_spend_usd: None,

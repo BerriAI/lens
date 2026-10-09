@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel
 
 
 class LensEvalContract(BaseModel):
@@ -36,6 +36,14 @@ class CaseError(BaseModel):
     type: str
 
 
+class ImmediateCompletion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    kind: Literal["immediate"]
+
+
 class Gate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -55,6 +63,31 @@ class GateResult(BaseModel):
     )
     passed: bool
     reasons: Sequence[str] = []
+
+
+class JsonPointer(RootModel[str]):
+    model_config = ConfigDict(
+        frozen=True,
+    )
+    root: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+
+
+class OutputMapping(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+    require_nonempty: bool
+
+
+class RequiredItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    array_pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+    matches: Mapping[str, str | float | bool | None]
 
 
 class ResolvedDataset(BaseModel):
@@ -150,8 +183,21 @@ class TrialSteps(BaseModel):
     )
     checks: Sequence[ScorerCheck]
     error: str | None = None
+    output: str | None = None
     steps: Sequence[ToolStep]
     trial: int = Field(..., ge=0, le=4294967295)
+
+
+class AgentRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        arbitrary_types_allowed=True,
+    )
+    accepted_status: int = Field(..., ge=200, le=299)
+    json_: Mapping[str, JsonValue] = Field(..., alias="json")
+    method: Literal["POST"]
+    path: str
 
 
 class ApiError(BaseModel):
@@ -180,7 +226,90 @@ class CaseResult(BaseModel):
     cost_usd: float | None = Field(default=None, ge=0.0)
     duration_ms: int | None = Field(default=None, ge=0, le=18446744073709551615)
     error: CaseError | None = None
+    output: str | None = None
     trace: TraceRef | None = None
+
+
+class PollCompletion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    error_pointer: JsonPointer | None = None
+    failure: Sequence[str] = Field(..., min_length=1)
+    id_pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+    interval_ms: int = Field(..., ge=250, le=60000)
+    kind: Literal["poll"]
+    path_template: str
+    require_item: RequiredItem | None = None
+    status_pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+    success: Sequence[str] = Field(..., min_length=1)
+    timeout_ms: int = Field(..., ge=1000, le=3600000)
+
+
+class EvalRun(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    agent: str
+    branch: str
+    ci_url: str = ""
+    eval: str
+    expected_trials: int = Field(..., ge=0, le=18446744073709551615)
+    failure: str = ""
+    id: str
+    pr: int | None = Field(default=None, ge=0, le=18446744073709551615)
+    received_trials: int = Field(..., ge=0, le=18446744073709551615)
+    status: Literal["running", "scoring", "done", "failed"]
+    summary: Summary | None = None
+    url: str
+    version: str
+
+
+class InputBinding(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    source: Literal["case.input", "case.followups", "trial.request_id"]
+    target: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+
+
+class RunCase(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    case_id: str
+    critical: bool
+    passed: bool | None = None
+    title: str
+    trials: Sequence[TrialSteps]
+
+
+class TraceMapping(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    attribute: Literal["session.id", "trace_id"]
+    pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
+    source: Literal["accepted", "completed"]
+
+
+class AgentIo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    completion: ImmediateCompletion | PollCompletion
+    connection: str = Field(..., pattern="^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
+    input: Sequence[InputBinding] = Field(..., min_length=1)
+    output: OutputMapping
+    submit: AgentRequest
+    trace: TraceMapping | None = None
+    version: Literal[1] = Field(..., ge=0, le=4294967295)
 
 
 class CreateEvalRun(BaseModel):
@@ -189,6 +318,7 @@ class CreateEvalRun(BaseModel):
         frozen=True,
     )
     agent: str = Field(..., min_length=1)
+    agent_io: AgentIo | None = None
     branch: str = Field(..., min_length=1)
     case_ids: Sequence[str] | None = None
     ci_url: str = ""
@@ -212,32 +342,13 @@ class CreateEvalRun(BaseModel):
     version: str = Field(..., min_length=1)
 
 
-class EvalRun(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    agent: str
-    branch: str
-    ci_url: str = ""
-    eval: str
-    expected_trials: int = Field(..., ge=0, le=18446744073709551615)
-    failure: str = ""
-    id: str
-    pr: int | None = Field(default=None, ge=0, le=18446744073709551615)
-    received_trials: int = Field(..., ge=0, le=18446744073709551615)
-    status: Literal["running", "scoring", "done", "failed"]
-    summary: Summary | None = None
-    url: str
-    version: str
-
-
 class EvalSpec(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
     )
     agent: str = Field(..., min_length=1)
+    agent_io: AgentIo | None = None
     baseline: str = Field(default="main", min_length=1)
     dataset_id: str = Field(..., min_length=1)
     gate: Gate = Field(
@@ -254,18 +365,6 @@ class EvalSpec(BaseModel):
     scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
     timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
     trials: int = Field(default=1, ge=1, le=10)
-
-
-class RunCase(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    case_id: str
-    critical: bool
-    passed: bool | None = None
-    title: str
-    trials: Sequence[TrialSteps]
 
 
 class EvalDefinition(BaseModel):

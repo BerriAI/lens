@@ -1,5 +1,83 @@
 {
   "$defs": {
+    "AgentIo": {
+      "additionalProperties": false,
+      "properties": {
+        "completion": {
+          "$ref": "#/$defs/Completion"
+        },
+        "connection": {
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+          "type": "string"
+        },
+        "input": {
+          "items": {
+            "$ref": "#/$defs/InputBinding"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/OutputMapping"
+        },
+        "submit": {
+          "$ref": "#/$defs/AgentRequest"
+        },
+        "trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TraceMapping"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "const": 1,
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "connection",
+        "submit",
+        "input",
+        "completion",
+        "output"
+      ],
+      "type": "object"
+    },
+    "AgentRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_status": {
+          "format": "uint16",
+          "maximum": 299,
+          "minimum": 200,
+          "type": "integer"
+        },
+        "json": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "method": {
+          "$ref": "#/$defs/SubmitMethod"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "path",
+        "json",
+        "accepted_status"
+      ],
+      "type": "object"
+    },
     "ApiError": {
       "additionalProperties": false,
       "properties": {
@@ -106,6 +184,12 @@
           ],
           "default": null
         },
+        "output": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "trace": {
           "anyOf": [
             {
@@ -120,12 +204,116 @@
       },
       "type": "object"
     },
+    "Completion": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "immediate",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "ImmediateCompletion",
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error_pointer": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/JsonPointer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "failure": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "id_pointer": {
+              "$ref": "#/$defs/JsonPointer"
+            },
+            "interval_ms": {
+              "format": "uint64",
+              "maximum": 60000,
+              "minimum": 250,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "poll",
+              "type": "string"
+            },
+            "path_template": {
+              "type": "string"
+            },
+            "require_item": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RequiredItem"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status_pointer": {
+              "$ref": "#/$defs/JsonPointer"
+            },
+            "success": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "timeout_ms": {
+              "format": "uint64",
+              "maximum": 3600000,
+              "minimum": 1000,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "id_pointer",
+            "path_template",
+            "status_pointer",
+            "success",
+            "failure",
+            "interval_ms",
+            "timeout_ms"
+          ],
+          "title": "PollCompletion",
+          "type": "object"
+        }
+      ]
+    },
     "CreateEvalRun": {
       "additionalProperties": false,
       "properties": {
         "agent": {
           "minLength": 1,
           "type": "string"
+        },
+        "agent_io": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentIo"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "branch": {
           "minLength": 1,
@@ -317,6 +505,16 @@
           "minLength": 1,
           "type": "string"
         },
+        "agent_io": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentIo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "baseline": {
           "default": "main",
           "minLength": 1,
@@ -440,6 +638,85 @@
       },
       "required": [
         "passed"
+      ],
+      "type": "object"
+    },
+    "InputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/InputSource"
+        },
+        "target": {
+          "$ref": "#/$defs/JsonPointer"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "InputSource": {
+      "enum": [
+        "case.input",
+        "case.followups",
+        "trial.request_id"
+      ],
+      "type": "string"
+    },
+    "JsonPointer": {
+      "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+      "type": "string"
+    },
+    "JsonScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "OutputMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "pointer": {
+          "$ref": "#/$defs/JsonPointer"
+        },
+        "require_nonempty": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pointer",
+        "require_nonempty"
+      ],
+      "type": "object"
+    },
+    "RequiredItem": {
+      "additionalProperties": false,
+      "properties": {
+        "array_pointer": {
+          "$ref": "#/$defs/JsonPointer"
+        },
+        "matches": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "array_pointer",
+        "matches"
       ],
       "type": "object"
     },
@@ -590,6 +867,12 @@
       ],
       "type": "object"
     },
+    "SubmitMethod": {
+      "enum": [
+        "POST"
+      ],
+      "type": "string"
+    },
     "Summary": {
       "additionalProperties": false,
       "properties": {
@@ -701,6 +984,26 @@
       ],
       "type": "string"
     },
+    "TraceMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "attribute": {
+          "$ref": "#/$defs/TraceAttribute"
+        },
+        "pointer": {
+          "$ref": "#/$defs/JsonPointer"
+        },
+        "source": {
+          "$ref": "#/$defs/TraceSource"
+        }
+      },
+      "required": [
+        "source",
+        "attribute",
+        "pointer"
+      ],
+      "type": "object"
+    },
     "TraceRef": {
       "additionalProperties": false,
       "properties": {
@@ -718,6 +1021,13 @@
       ],
       "type": "object"
     },
+    "TraceSource": {
+      "enum": [
+        "accepted",
+        "completed"
+      ],
+      "type": "string"
+    },
     "TrialSteps": {
       "additionalProperties": false,
       "properties": {
@@ -728,6 +1038,12 @@
           "type": "array"
         },
         "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output": {
           "type": [
             "string",
             "null"

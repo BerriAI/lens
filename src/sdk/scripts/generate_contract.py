@@ -25,6 +25,8 @@ def normalize(value: JsonValue) -> JsonValue:
         return [normalize(item) for item in value]
     if not isinstance(value, dict):
         return value
+    if value.get("additionalProperties") is True:
+        return normalize({**value, "additionalProperties": {"customTypePath": "pydantic.JsonValue"}})
     width: Final = value.get("format")
     if isinstance(width, str) and width in UNSIGNED_MAXIMUM:
         return normalize(

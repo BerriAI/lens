@@ -733,6 +733,8 @@ mod tests {
                     id: "case".into(),
                     title: "Case".into(),
                     critical: false,
+                    input: String::new(),
+                    followups: Vec::new(),
                     expected: String::new(),
                 }],
                 None,

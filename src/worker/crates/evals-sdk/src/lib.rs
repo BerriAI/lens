@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 
+pub mod agent;
 pub mod client;
 pub mod doctor;
 pub mod engine;
 mod error;
 pub mod model;
+pub mod named;
 pub mod setup;
 
 pub use error::{Error, Result};

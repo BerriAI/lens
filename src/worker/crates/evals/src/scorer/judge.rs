@@ -11,6 +11,7 @@ pub struct JudgeRequest<'a> {
     pub prompt: &'a str,
     pub model: &'a str,
     pub spans: &'a [EvalSpan],
+    pub output: Option<&'a str>,
 }
 
 pub trait Judge: Sync {
