@@ -12,7 +12,12 @@ import { useOpenSourceTrace } from "../route";
 import { MessageList } from "../traces/detail/content/Messages";
 import { Section } from "../traces/detail/content/Section";
 import { IdChip } from "../traces/ui/IdChip";
-import { caseConversation, caseOutput, shortCaseId, type CaseEdit } from "./caseView";
+import {
+  caseConversation,
+  caseOutput,
+  shortCaseId,
+  type CaseEdit,
+} from "./caseView";
 import type { DatasetCase } from "./types";
 
 export interface CasePanelProps {
@@ -22,13 +27,21 @@ export interface CasePanelProps {
   readonly onEdit: (edit: CaseEdit) => void;
 }
 
-export function CasePanel({ item, datasetName, editable, onEdit }: CasePanelProps) {
+export function CasePanel({
+  item,
+  datasetName,
+  editable,
+  onEdit,
+}: CasePanelProps) {
   return (
     <Tabs defaultValue="case" className="min-h-0 flex-1 gap-0">
       <header className="flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold text-foreground">
-            Case #{shortCaseId(item.id)} <span className="font-normal text-muted-foreground">@ {datasetName}</span>
+            Case #{shortCaseId(item.id)}{" "}
+            <span className="font-normal text-muted-foreground">
+              @ {datasetName}
+            </span>
           </h2>
           <IdChip value={item.id} label="Copy case ID" />
           <label className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -43,7 +56,11 @@ export function CasePanel({ item, datasetName, editable, onEdit }: CasePanelProp
         </div>
       </header>
       <div className="shrink-0 border-b px-4">
-        <TabsList variant="line" aria-label="Case sections" className="h-9 gap-4 px-0">
+        <TabsList
+          variant="line"
+          aria-label="Case sections"
+          className="h-9 gap-4 px-0"
+        >
           <TabsTrigger value="case" className="flex-none px-0 text-sm">
             Case
           </TabsTrigger>
@@ -62,20 +79,38 @@ export function CasePanel({ item, datasetName, editable, onEdit }: CasePanelProp
   );
 }
 
-function CaseBody({ item, editable, onEdit }: Omit<CasePanelProps, "datasetName">) {
+function CaseBody({
+  item,
+  editable,
+  onEdit,
+}: Omit<CasePanelProps, "datasetName">) {
   const expectedId = useId();
   const conversation = caseConversation(item);
   const output = caseOutput(item);
   return (
     <>
       <Section title="Input" count={conversation.length}>
-        {conversation.length ? <MessageList messages={conversation} /> : <Empty>No conversation recorded</Empty>}
+        {conversation.length ? (
+          <MessageList messages={conversation} />
+        ) : (
+          <Empty>No conversation recorded</Empty>
+        )}
       </Section>
       <Section title="Output">
-        {output.length ? <MessageList messages={output} /> : <Empty>No reply recorded</Empty>}
+        {output.length ? (
+          <MessageList messages={output} />
+        ) : (
+          <Empty>No reply recorded</Empty>
+        )}
       </Section>
-      <section aria-label="Expected" className="flex flex-col gap-2 px-4 pt-2 pb-5">
-        <label htmlFor={expectedId} className="text-sm font-semibold text-foreground">
+      <section
+        aria-label="Expected"
+        className="flex flex-col gap-2 px-4 pt-2 pb-5"
+      >
+        <label
+          htmlFor={expectedId}
+          className="text-sm font-semibold text-foreground"
+        >
           Expected
         </label>
         {editable ? (
@@ -87,8 +122,13 @@ function CaseBody({ item, editable, onEdit }: Omit<CasePanelProps, "datasetName"
             onChange={(event) => onEdit({ expected: event.target.value })}
           />
         ) : (
-          <p id={expectedId} className="text-sm whitespace-pre-wrap text-foreground">
-            {item.expected || <span className="text-muted-foreground italic">Not set</span>}
+          <p
+            id={expectedId}
+            className="text-sm whitespace-pre-wrap text-foreground"
+          >
+            {item.expected || (
+              <span className="text-muted-foreground italic">Not set</span>
+            )}
           </p>
         )}
       </section>
@@ -97,7 +137,9 @@ function CaseBody({ item, editable, onEdit }: Omit<CasePanelProps, "datasetName"
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="py-2 text-sm text-muted-foreground italic">{children}</p>;
+  return (
+    <p className="py-2 text-sm text-muted-foreground italic">{children}</p>
+  );
 }
 
 const SOURCE_FIELDS = [
@@ -118,7 +160,11 @@ function SourceBody({ item }: { item: DatasetCase }) {
             <dt className="text-muted-foreground">{label}</dt>
             <dd className="flex min-w-0 items-center gap-1">
               {source[key] ? (
-                <IdChip value={source[key]} label={`Copy ${label.toLowerCase()} ID`} showValue />
+                <IdChip
+                  value={source[key]}
+                  label={`Copy ${label.toLowerCase()} ID`}
+                  showValue
+                />
               ) : (
                 <span className="text-muted-foreground italic">None</span>
               )}
@@ -132,7 +178,11 @@ function SourceBody({ item }: { item: DatasetCase }) {
           variant="outline"
           className="self-start"
           onClick={() =>
-            openSourceTrace({ traceId: source.trace_id, traceRef: source.trace_ref, spanId: source.span_id })
+            openSourceTrace({
+              traceId: source.trace_id,
+              traceRef: source.trace_ref,
+              spanId: source.span_id,
+            })
           }
         >
           Open source trace

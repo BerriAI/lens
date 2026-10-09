@@ -52,6 +52,20 @@ async fn run() -> Result<(), litellm_lens::Error> {
         Mode::Standalone => State::standalone(storage),
         Mode::Gateway(gateway) => State::new(storage, gateway.service_token.clone()),
     });
+    let judge_base = match &config.mode {
+        Mode::Gateway(gateway) => gateway.proxy_url.clone(),
+        Mode::Standalone => url::Url::parse(&config.public_url)
+            .map_err(|_| litellm_lens::Error::Configuration("LENS_PUBLIC_URL"))?,
+    };
+    let evals = api::EvalConfig {
+        judge: litellm_lens::eval_judge::GatewayJudge::new(
+            client.clone(),
+            judge_base,
+            config.eval_judge_api_key.clone(),
+            config.eval_judge_model.clone(),
+        ),
+        public_url: config.public_url.clone(),
+    };
     let application = match config.authentication {
         Some(settings) => Some(
             api::initialize(
@@ -60,12 +74,14 @@ async fn run() -> Result<(), litellm_lens::Error> {
                 config.datasets,
                 config.traces,
                 matches!(config.mode, Mode::Standalone),
+                evals,
             )
             .await?
             .with_service(state.clone(), config.ingestion_url, config.release),
         ),
         None => None,
     };
+    let eval_task = application.as_ref().map(|app| app.evals.abort_handle());
     let mut tasks = tokio::task::JoinSet::new();
     match config.mode {
         Mode::Standalone => {
@@ -121,6 +137,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
     };
     let _ = shutdown.send(());
     tasks.abort_all();
+    if let Some(task) = eval_task {
+        task.abort();
+    }
     while tasks.join_next().await.is_some() {}
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await

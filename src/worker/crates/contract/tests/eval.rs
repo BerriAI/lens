@@ -83,6 +83,16 @@ fn rust_types_match_the_checked_in_schema(
 }
 
 #[test]
+fn checked_in_schema_is_generated_from_the_rust_types() {
+    let checked_in: Value = serde_json::from_str(SCHEMA).unwrap();
+    assert_eq!(
+        lens_contract::schema::eval_contract(),
+        checked_in,
+        "schema/lens.v1.json drifted, run npm run generate:eval-contract"
+    );
+}
+
+#[test]
 fn timeout_per_trial_defaults_to_twenty_minutes() {
     let run: CreateEvalRun = serde_json::from_str(CREATE_RUN).expect("parses");
     assert_eq!(run.timeout_per_trial_ms, DEFAULT_TIMEOUT_PER_TRIAL_MS);

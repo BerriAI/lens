@@ -16,6 +16,9 @@ pub struct Config {
     pub query_secret: String,
     pub ingestion_url: String,
     pub release: String,
+    pub public_url: String,
+    pub eval_judge_api_key: Option<String>,
+    pub eval_judge_model: Option<String>,
 }
 
 pub enum Mode {
@@ -86,6 +89,9 @@ impl Config {
             Mode::Gateway(gateway) => gateway.release.clone(),
         };
         Ok(Self {
+            public_url: public_url.clone(),
+            eval_judge_api_key: read("LITELLM_API_KEY"),
+            eval_judge_model: read("LENS_EVAL_JUDGE_MODEL"),
             datasets: dataset_config(&read),
             traces: trace_config(&read)?,
             authentication: admin_token

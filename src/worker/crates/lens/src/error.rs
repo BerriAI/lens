@@ -8,6 +8,10 @@ use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("The eval judge returned an incomplete or invalid score")]
+    EvalJudgeResponse,
+    #[error("The eval judge could not match the trial to its recorded evidence")]
+    EvalJudgeEvidence,
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),
     #[error("Lens ingestion credential storage failed")]

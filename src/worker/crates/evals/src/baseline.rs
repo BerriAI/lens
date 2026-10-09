@@ -1,6 +1,13 @@
 use std::collections::BTreeMap;
 
 use lens_contract::eval::CaseDiff;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+
+const QUERY_VALUE: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Baseline {
@@ -40,8 +47,8 @@ pub(crate) fn compare(
                 case_id: case.case_id.to_owned(),
                 title: case.case_id.to_owned(),
                 critical: case.critical,
-                baseline_url: format!("{}?case={}", baseline.url, case.case_id),
-                candidate_url: format!("{candidate_url}?case={}", case.case_id),
+                baseline_url: case_link(&baseline.url, case.case_id),
+                candidate_url: case_link(candidate_url, case.case_id),
             })
             .collect()
     };
@@ -49,4 +56,12 @@ pub(crate) fn compare(
         regressions: changed(true),
         fixed: changed(false),
     }
+}
+
+fn case_link(run_url: &str, case_id: &str) -> String {
+    let separator = if run_url.contains('?') { '&' } else { '?' };
+    format!(
+        "{run_url}{separator}eval_case={}",
+        utf8_percent_encode(case_id, QUERY_VALUE)
+    )
 }

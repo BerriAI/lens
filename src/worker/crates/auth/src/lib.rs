@@ -167,11 +167,11 @@ impl<R: SessionRepository> Authentication<R> {
         {
             return Err(Error::OriginMismatch);
         }
-        if !self
+        if self
             .sessions
             .expires_at(&SessionId::for_token(session))
             .await?
-            .is_some_and(|expires| expires > now)
+            .is_none_or(|expires| expires <= now)
         {
             return Err(Error::Unauthorized("Lens session has expired"));
         }

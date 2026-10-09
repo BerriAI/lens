@@ -6,14 +6,26 @@ use lens_auth::{Authentication, Settings};
 use lens_server::datasets::DatasetConfig;
 use lens_server::tracing::TraceConfig;
 use litellm_storage_clickhouse::{
-    datasets::Datasets, ingestion::IngestionKeys, sessions::Sessions, state::ClickHouseState,
+    datasets::Datasets, evals::EvalStore, ingestion::IngestionKeys, sessions::Sessions,
+    state::ClickHouseState,
+};
+use litellm_traces_clickhouse::evals::EvalTraces;
+use tokio::task::JoinHandle;
+
+use crate::{
+    Error, State, eval_judge::GatewayJudge, eval_runtime, local_credentials::LocalCredentials,
+    storage::TraceApi,
 };
 
-use crate::{Error, State, local_credentials::LocalCredentials, storage::TraceApi};
+pub struct EvalConfig {
+    pub public_url: String,
+    pub judge: GatewayJudge,
+}
 
 pub struct Application {
     pub router: Router,
     pub credentials: Arc<LocalCredentials<IngestionKeys>>,
+    pub evals: JoinHandle<()>,
     authentication: Arc<Authentication<Sessions>>,
 }
 
@@ -58,12 +70,18 @@ pub async fn router(
     state: &Arc<State>,
     settings: Settings,
     datasets: DatasetConfig,
-) -> Result<Router, Error> {
-    Ok(
-        initialize(state, settings, datasets, TraceConfig::default(), false)
-            .await?
-            .router,
+    evals: EvalConfig,
+) -> Result<(Router, JoinHandle<()>), Error> {
+    let application = initialize(
+        state,
+        settings,
+        datasets,
+        TraceConfig::default(),
+        false,
+        evals,
     )
+    .await?;
+    Ok((application.router, application.evals))
 }
 
 pub async fn initialize(
@@ -72,6 +90,7 @@ pub async fn initialize(
     datasets: DatasetConfig,
     traces: TraceConfig,
     standalone: bool,
+    evals: EvalConfig,
 ) -> Result<Application, Error> {
     state.storage.ensure_schema().await?;
     let connection = state.storage.config.storage();
@@ -83,6 +102,18 @@ pub async fn initialize(
         settings,
         sessions: Sessions(store.clone()),
     });
+    let traces_reader = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
+    let eval_task = eval_runtime::start(
+        EvalStore::new(store.clone()),
+        traces_reader.clone(),
+        evals.judge,
+    );
+    let (eval_api, eval_cases) = lens_server::evals::split_router_with_traces(
+        authentication.clone(),
+        store.clone(),
+        evals.public_url,
+        traces_reader,
+    );
     let ingestion = Ingestion(IngestionKeys(store.clone()));
     let credentials = Arc::new(LocalCredentials::new(
         ingestion.clone(),
@@ -99,7 +130,8 @@ pub async fn initialize(
             authentication.clone(),
             TraceApi(state.clone()),
             traces,
-        ));
+        ))
+        .merge(eval_api);
     let router = if standalone {
         router.merge(lens_server::ingestion::router(
             authentication.clone(),
@@ -111,8 +143,9 @@ pub async fn initialize(
     };
     state.schema_ready.store(true, Ordering::Release);
     Ok(Application {
-        router,
+        router: lens_server::evals::with_contract_cases(router, eval_cases),
         credentials,
+        evals: eval_task,
         authentication,
     })
 }

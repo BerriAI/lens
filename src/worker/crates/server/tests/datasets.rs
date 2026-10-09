@@ -365,10 +365,6 @@ async fn malformed_json_precedes_authentication_but_schema_validation_follows_it
     "/lens/datasets/example/export/?revision=2",
     "/lens/datasets/example/export?revision=2"
 )]
-#[case::cases(
-    "/lens/datasets/example/revisions/1/cases/",
-    "/lens/datasets/example/revisions/1/cases"
-)]
 #[tokio::test]
 async fn trailing_slashes_preserve_fastapi_redirects(
     #[future(awt)] database: Database,

@@ -13,6 +13,7 @@ import { LensServicesProvider, useLensAccessToken, useLensApi, useLiveLensServic
 import { isProxyAdminRole, isProxyAdminTierRole } from "../../utils/roles";
 import { InvestigationsView } from "./investigations/InvestigationsView";
 import { DatasetsView } from "./datasets/DatasetsView";
+import { EvalsView } from "./evals/EvalsView";
 import { LensSettings } from "./settings/LensSettings";
 import { createLensDemo } from "./data/demo/createLensDemo";
 import { lensQueries } from "./data/queries";
@@ -236,6 +237,13 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   <TabsContent value="datasets" className={PANEL}>
                     <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
                   </TabsContent>
+                  <TabsContent value="evals" className={PANEL}>
+                    {canViewInvestigations ? (
+                      <EvalsView />
+                    ) : (
+                      <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
+                    )}
+                  </TabsContent>
                 </>
               )}
               {workers && list && (
@@ -279,7 +287,7 @@ function needsSetup(
     issueKey: string | null;
   },
 ) {
-  if (location.tab === "settings" || location.tab === "datasets" || location.tab === "agents") return false;
+  if (location.tab === "settings" || location.tab === "datasets" || location.tab === "evals" || location.tab === "agents") return false;
   if (location.requested) return true;
   const selected = location.tab === "traces" ? location.trace : location.lensId || location.dialog || location.issueKey;
   if (!state.missingTraces || selected) return false;

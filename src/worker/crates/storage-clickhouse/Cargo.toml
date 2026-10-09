@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+percent-encoding.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 lens-auth = { path = "../auth" }
 lens-contract = { path = "../contract" }
@@ -18,11 +19,11 @@ serde_json.workspace = true
 serde_with.workspace = true
 sha2.workspace = true
 rand.workspace = true
-percent-encoding.workspace = true
 sqlx = { workspace = true, features = ["migrate"] }
 thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 litellm-http = { workspace = true, features = ["test-support"] }

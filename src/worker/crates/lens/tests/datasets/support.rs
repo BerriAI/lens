@@ -110,6 +110,15 @@ impl Database {
             Default::default(),
             Default::default(),
             standalone,
+            api::EvalConfig {
+                public_url: url.clone(),
+                judge: litellm_lens::eval_judge::GatewayJudge::new(
+                    http_client().unwrap(),
+                    url.parse().unwrap(),
+                    None,
+                    None,
+                ),
+            },
         )
         .await
         .unwrap()
