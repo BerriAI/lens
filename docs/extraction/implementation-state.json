@@ -22,7 +22,7 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
+    "candidate_commit": "8937b00150c6643a1a997ebbd3e8c53da3140b6c",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -67,7 +67,8 @@
     "Rebased the Rust state port onto the merged src/worker, src/ui and src/sdk layout at 514e1b9d",
     "Validated the moved Rust workspace with 1,270 regular tests, four normally ignored HTTP/ClickHouse cases, workspace Clippy and formatting; new storage mutation testing caught 70 of 76 viable mutations",
     "Implemented Rust authentication contracts and policy, a ClickHouse session repository and opt-in HTTP routes in the existing Rust binary, following the merged layout",
-    "Replayed 45 original Python auth responses over Rust HTTP and ClickHouse; validated session revocation and server/ClickHouse restarts, 27 cases against the actual binary, and auth/storage mutations"
+    "Replayed 45 original Python auth responses over Rust HTTP and ClickHouse; validated session revocation and server/ClickHouse restarts, 27 cases against the actual binary, and auth/storage mutations",
+    "Rebased the authentication increment onto the merged native SDK at b27fdb70, preserved both sets of lockfile entries, and passed formatting, workspace Clippy and all 1,446 regular workspace tests"
   ],
   "current_work": "Complete auth request parity and Rust contract ownership, then port the remaining control-plane domains and APIs; complete provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
   "acceptance": {
@@ -408,7 +409,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-09T00:48:16.238Z",
+  "updated_at_utc": "2026-10-09T00:53:52.004Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -547,7 +548,7 @@
       "shutdown": "Live API and Rust test processes exited cleanly on SIGINT; the existing ClickHouse test services were preserved"
     },
     "rust_auth": {
-      "source_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
+      "source_commit": "8937b00150c6643a1a997ebbd3e8c53da3140b6c",
       "based_on_main": "8d3ee87adb06fdb3529621c427775e361b4ff1e9",
       "status": "Rust session routes wired into the binary behind LENS_ADMIN_TOKEN; complete replacement and Python removal remain open",
       "evidence": "docs/extraction/rust-auth.md",
@@ -573,7 +574,15 @@
         "Multiple extra-field error ordering",
         "Request-body limit parity"
       ],
-      "full_product_acceptance": "incomplete"
+      "full_product_acceptance": "incomplete",
+      "rebased_onto": "b27fdb70",
+      "rebased_validation": {
+        "base_commit": "b27fdb70b4498ec978f625ff32a2ae0e19b4f934",
+        "passed": 1446,
+        "failed": 0,
+        "ignored": 4,
+        "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
+      }
     }
   },
   "open_dependency_advisories": [
@@ -626,10 +635,17 @@
       "mutation_unviable": 14,
       "full_product_acceptance": "incomplete",
       "additional_focused_tests_passed": 5,
-      "regular_distinct_cases_exercised": 1389
+      "regular_distinct_cases_exercised": 1389,
+      "rebased_workspace_tests": {
+        "base_commit": "b27fdb70b4498ec978f625ff32a2ae0e19b4f934",
+        "passed": 1446,
+        "failed": 0,
+        "ignored": 4,
+        "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
+      }
     },
     "auth_port": {
-      "source_commit": "13eeb4ee1b7765e7542a69d9cd37058df67c1950",
+      "source_commit": "8937b00150c6643a1a997ebbd3e8c53da3140b6c",
       "based_on_main": "8d3ee87adb06fdb3529621c427775e361b4ff1e9",
       "status": "Rust session routes wired into the binary behind LENS_ADMIN_TOKEN; complete replacement and Python removal remain open",
       "evidence": "docs/extraction/rust-auth.md",
@@ -655,7 +671,15 @@
         "Multiple extra-field error ordering",
         "Request-body limit parity"
       ],
-      "full_product_acceptance": "incomplete"
+      "full_product_acceptance": "incomplete",
+      "rebased_onto": "b27fdb70",
+      "rebased_validation": {
+        "base_commit": "b27fdb70b4498ec978f625ff32a2ae0e19b4f934",
+        "passed": 1446,
+        "failed": 0,
+        "ignored": 4,
+        "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
+      }
     }
   }
 }

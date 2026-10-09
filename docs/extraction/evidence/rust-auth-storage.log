@@ -13,4 +13,3 @@ test stored_session_validation::case_5_unknown_field ... ok
 test session_authentication_survives_forced_clickhouse_restart ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 8.84s
-

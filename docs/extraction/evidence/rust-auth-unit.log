@@ -155,4 +155,3 @@ test bearer_token_extractor_accepts_only_nonempty_bearer_credentials::case_3_mis
 test bearer_token_extractor_accepts_only_nonempty_bearer_credentials::case_6_missing_space ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
