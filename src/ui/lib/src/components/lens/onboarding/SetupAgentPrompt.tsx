@@ -7,6 +7,8 @@ import { Button } from "../../ui/button";
 import { copyToClipboard } from "../../../utils/dataUtils";
 import { useLensHost } from "../../../host/LensHost";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
+import claudeCodeLogo from "../../../../public/assets/logos/claude-code.svg";
+import codexLogo from "../../../../public/assets/logos/codex.svg";
 import {
   setupPrompt,
   type SetupConnection,
@@ -70,9 +72,18 @@ export function SetupAgentPrompt({
             <h3 className="text-base font-medium">
               Give this to your coding agent
             </h3>
+            <div className="mt-4 flex flex-wrap items-center gap-5">
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <img src={claudeCodeLogo.src} alt="Claude Code logo" className="size-6 object-contain" />
+                Claude Code
+              </span>
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <img src={codexLogo.src} alt="Codex logo" className="size-5 object-contain dark:invert" />
+                Codex
+              </span>
+            </div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Paste into Codex, Claude Code, or the coding agent working in your
-              project.
+              Open your project in your coding agent, then paste these instructions.
             </p>
           </div>
           <blockquote className="rounded-md bg-muted/40 p-4 text-sm leading-7">
