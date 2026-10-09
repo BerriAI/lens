@@ -164,52 +164,70 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
   );
 }
 
-function AnalysisRow({ lens, readOnly, ready }: { lens: Lens; readOnly: boolean; ready: boolean }) {
+function AnalysisRow({
+  lens,
+  readOnly,
+  ready,
+  availableModels,
+}: {
+  lens: Lens;
+  readOnly: boolean;
+  ready: boolean;
+  availableModels: readonly string[] | null;
+}) {
   const api = useLensApi();
   const now = useNow(30_000);
   const [editing, setEditing] = useState(false);
   const job = lens.jobs?.[0];
   const active = lens.jobs?.find((item) => item.status === "running" || item.status === "queued");
+  const modelUnavailable =
+    availableModels !== null && !availableModels.includes(active?.settings.model ?? lens.settings.model);
+  const running = active?.status === "running";
   const first = !job && !lens.last_scan_at && lens.id.startsWith("auto-agent-");
   const sample = useQuery({
     queryKey: ["lens", "automatic-sample", api.scope, lens.id, lens.revision],
     queryFn: () => api.sample(lens.settings, 0, new Date().toISOString()),
-    enabled: first && lens.settings.enabled && ready,
+    enabled: first && lens.settings.enabled && ready && !modelUnavailable,
     refetchInterval: 30_000,
   });
   const waiting = Math.max(0, 10 - (sample.data?.eligible ?? 0));
-  const status = active
-    ? active.status === "running"
-      ? "Running"
-      : "Queued"
-    : !lens.settings.enabled
-      ? "Paused"
-      : !ready
-        ? "Waiting for connection"
-        : first
-          ? sample.error
-            ? "Trace count unavailable"
-            : sample.isPending
-              ? "Checking traces"
-              : waiting
-                ? `Waiting for traces · ${sample.data?.eligible ?? 0}/10`
-                : "Ready for first analysis"
-          : job?.status === "failed"
-            ? "Last analysis failed"
-            : "Scheduled";
+  const status =
+    active && (running || !modelUnavailable)
+      ? active.status === "running"
+        ? "Running"
+        : "Queued"
+      : !lens.settings.enabled
+        ? "Paused"
+        : modelUnavailable
+          ? "Selected model unavailable"
+          : !ready
+            ? "Waiting for connection"
+            : first
+              ? sample.error
+                ? "Trace count unavailable"
+                : sample.isPending
+                  ? "Checking traces"
+                  : waiting
+                    ? `Waiting for traces · ${sample.data?.eligible ?? 0}/10`
+                    : "Ready for first analysis"
+              : job?.status === "failed"
+                ? "Last analysis failed"
+                : "Scheduled";
   const next = !lens.settings.enabled
     ? "Enable analysis to resume"
-    : !ready
-      ? "Connect an analysis model in Settings"
-      : first
-        ? sample.error
-          ? "Retrying the trace count automatically"
-          : sample.isPending
-            ? "Checking received traces"
-            : `${waiting} more ${waiting === 1 ? "trace" : "traces"} before the first run`
-        : Date.parse(lens.next_run_at) <= now
-          ? "Next run: waiting for worker"
-          : `Next run: ${new Date(lens.next_run_at).toLocaleString()}`;
+    : modelUnavailable
+      ? "Configure another model or pause analysis. Your saved model has not been changed."
+      : !ready
+        ? "Connect an analysis model in Settings"
+        : first
+          ? sample.error
+            ? "Retrying the trace count automatically"
+            : sample.isPending
+              ? "Checking received traces"
+              : `${waiting} more ${waiting === 1 ? "trace" : "traces"} before the first run`
+          : Date.parse(lens.next_run_at) <= now
+            ? "Next run: waiting for worker"
+            : `Next run: ${new Date(lens.next_run_at).toLocaleString()}`;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs">
       <div className="min-w-0 space-y-1">
@@ -220,14 +238,14 @@ function AnalysisRow({ lens, readOnly, ready }: { lens: Lens; readOnly: boolean;
       </div>
       <div className="min-w-0 flex-1 space-y-1 sm:pl-6">
         <p role="status" className="flex items-center gap-2 font-medium">
-          {active ? (
+          {active && (running || !modelUnavailable) ? (
             <LoaderCircle aria-hidden className="size-3.5 motion-safe:animate-spin" />
           ) : (
             <Activity aria-hidden className="size-3.5 text-muted-foreground" />
           )}
           {status}
         </p>
-        <p className="text-muted-foreground">{active ? active.stage : next}</p>
+        <p className="text-muted-foreground">{active && (running || !modelUnavailable) ? active.stage : next}</p>
         {job?.finished_at && (
           <p className="text-muted-foreground">
             Last result:{" "}
@@ -267,7 +285,9 @@ function AnalysisRow({ lens, readOnly, ready }: { lens: Lens; readOnly: boolean;
 }
 
 export function AutomaticAnalysis({ lenses, readOnly, ready }: { lenses: Lens[]; readOnly: boolean; ready: boolean }) {
-  const { setTab } = useLensRoute();
+  const { setTab, demo } = useLensRoute();
+  const models = useAnalysisModels();
+  const availableModels = !demo && !models.modelsLoading && !models.modelsError ? models.models : null;
   return (
     <section
       aria-label="Automatic analysis"
@@ -285,7 +305,9 @@ export function AutomaticAnalysis({ lenses, readOnly, ready }: { lenses: Lens[];
         </div>
       )}
       {lenses.length ? (
-        lenses.map((lens) => <AnalysisRow key={lens.id} lens={lens} readOnly={readOnly} ready={ready} />)
+        lenses.map((lens) => (
+          <AnalysisRow key={lens.id} lens={lens} readOnly={readOnly} ready={ready} availableModels={availableModels} />
+        ))
       ) : (
         <p role="status" className="border-t px-4 py-4 text-sm text-muted-foreground">
           {ready
