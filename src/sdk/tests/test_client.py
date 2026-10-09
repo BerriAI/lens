@@ -32,6 +32,7 @@ def named_server(endpoint: str) -> Iterator[tuple[str, Queue[tuple[str, str, str
 
 
 def configure(root: Path, endpoint: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     (root / "pyproject.toml").write_text(
         '[tool.lens.connections.agent]\nbase_url_env="NAMED_AGENT_URL"\nauth="bearer"\ntoken_env="NAMED_AGENT_KEY"\n'
     )
