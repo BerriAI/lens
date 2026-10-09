@@ -1,6 +1,6 @@
 WITH eval_traces AS (
     SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
-    WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64}) - INTERVAL 7 DAY
+    WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
       AND Timestamp < fromUnixTimestamp64Milli({end_ms:Int64})
       AND coalesce(nullIf(SpanAttributes['deployment.environment'], ''),
           ResourceAttributes['deployment.environment']) = 'lens-eval'

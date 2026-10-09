@@ -236,6 +236,8 @@ pub enum EvalCloserError {
     Storage(#[from] litellm_storage_clickhouse::EvalError),
     #[error("Eval trace lookup failed")]
     Traces(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Eval trace lookup is temporarily unavailable")]
+    TransientTraces(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("Eval scoring failed")]
     Scoring(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("Eval scoring is not configured on this Lens instance")]

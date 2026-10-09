@@ -1,10 +1,10 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lens_contract::eval::{TraceAttribute, TraceRef};
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Query, ReadLimits, fetch};
 use litellm_traces::{
-    SpanStatus,
+    SpanStatus, SpendLookup,
     query::named::{ReadAccessParams, SpendByResponseIdsParams},
 };
 use litellm_traces_cache::{StoreError, TraceStore};
@@ -69,7 +69,7 @@ impl Query for Locate {
     const SQL: &'static str = "SELECT DISTINCT TraceId AS trace_id FROM otel_traces \
         WHERE TeamId={team:String} AND EngineReceivedMs<={snapshot_ms:Int64} \
         AND (({attribute:String}='trace_id' AND TraceId={value:String}) OR \
-        ({attribute:String}='session.id' AND (ParentSpanId='' OR ParentSpanId='0000000000000000') \
+        ({attribute:String}='session.id' \
         AND coalesce(nullIf(SpanAttributes['session.id'],''),ResourceAttributes['session.id'])={value:String})) \
         ORDER BY TraceId LIMIT 1025";
 }
@@ -108,10 +108,31 @@ struct SpanPage {
 #[derive(Deserialize, Serialize)]
 struct StoredSpan {
     #[serde(flatten)]
-    span: EvalSpan,
+    summary: super::named::TraceSpansRow,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    end_ns: i64,
+    attributes: BTreeMap<String, String>,
+    input: String,
+    output: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     received_ms: i64,
-    request_id: String,
+}
+
+impl From<StoredSpan> for EvalSpan {
+    fn from(row: StoredSpan) -> Self {
+        let span = row.summary.0;
+        Self {
+            span_id: span.span_id,
+            parent_span_id: span.parent_span_id,
+            name: span.name,
+            start_ns: span.start_ns,
+            end_ns: row.end_ns,
+            status: span.status,
+            attributes: row.attributes,
+            input: row.input,
+            output: row.output,
+        }
+    }
 }
 
 struct Spans;
@@ -123,11 +144,20 @@ impl Query for Spans {
         response_bytes: 16 * 1024 * 1024,
         ..litellm_storage_clickhouse::READ_LIMITS
     };
-    const SQL: &'static str = "SELECT * FROM (SELECT SpanId AS span_id, ParentSpanId AS parent_span_id, \
+    const SQL: &'static str = "SELECT * FROM (SELECT TraceId AS trace_id, \
+        SpanAttributes['lens.original_trace_id'] AS original_trace_id, \
+        SpanId AS span_id, ParentSpanId AS parent_span_id, \
         SpanName AS name,toUnixTimestamp64Nano(Timestamp) AS start_ns, \
         toUnixTimestamp64Nano(Timestamp)+toInt64(Duration) AS end_ns,StatusCode AS status, \
+        ObservationType AS type,AgentName AS agent,Framework AS framework, \
+        substringUTF8(StatusMessage,1,128) AS status_message, \
+        lengthUTF8(StatusMessage)>128 AS error_truncated,Duration AS duration_ns, \
+        ServiceName AS service,InputPreview AS input_preview,Model AS model, \
+        InputTokens AS input_tokens,OutputTokens AS output_tokens, \
+        LiteLLMRequestId AS litellm_request_id,CallKeys AS call_keys,CallEvidence AS call_evidence, \
+        TeamId AS team_id,ApiKeyHash AS api_key_hash,UserId AS user_id, \
         mapUpdate(ResourceAttributes,SpanAttributes) AS attributes,Input AS input,Output AS output, \
-        toInt64(EngineReceivedMs) AS received_ms,LiteLLMRequestId AS request_id \
+        toInt64(EngineReceivedMs) AS received_ms \
         FROM otel_traces WHERE TeamId={team:String} AND TraceId={trace_id:String} \
         AND EngineReceivedMs<={snapshot_ms:Int64} AND SpanId>{after:String} \
         ORDER BY SpanId,EngineReceivedMs DESC LIMIT 1 BY SpanId) \
@@ -192,43 +222,37 @@ impl EvalTraces {
         let mut rows = Vec::new();
         let mut bytes = 0usize;
         let mut roots = Vec::new();
+        let mut identities = Vec::new();
         for trace in &traces {
             let batch = self
                 .spans(team, &trace.trace_id, snapshot_ms, &mut bytes)
                 .await?;
-            roots.push(
-                batch
-                    .iter()
-                    .filter(|row| is_root(&row.span))
-                    .min_by_key(|row| row.span.start_ns)
-                    .map(|row| {
-                        (
-                            (row.span.end_ns / 1_000_000).max(row.received_ms),
-                            row.span.attributes.clone(),
-                        )
-                    }),
+            let root = batch
+                .iter()
+                .filter(|row| is_root(&row.summary.0.parent_span_id))
+                .min_by_key(|row| row.summary.0.start_ns);
+            roots.push(root.map(|row| (row.end_ns / 1_000_000).max(row.received_ms)));
+            identities.push(
+                root.or_else(|| batch.iter().min_by_key(|row| row.summary.0.start_ns))
+                    .map(|row| row.attributes.clone())
+                    .unwrap_or_default(),
             );
             rows.extend(batch);
         }
         let Some(last_received_at_ms) = rows.iter().map(|row| row.received_ms).max() else {
             return Ok(None);
         };
-        let root = rows
-            .iter()
-            .filter(|row| is_root(&row.span))
-            .min_by_key(|row| row.span.start_ns);
         let root_ended_at_ms = roots
-            .iter()
-            .map(|root| root.as_ref().map(|(ended, _)| *ended))
+            .into_iter()
             .collect::<Option<Vec<_>>>()
             .and_then(|ended| ended.into_iter().max());
-        let identity = root.or_else(|| rows.iter().min_by_key(|row| row.span.start_ns));
         let attribute = |name: &str| {
-            let value = identity.and_then(|row| row.span.attributes.get(name));
-            if roots
+            let value = identities
+                .first()
+                .and_then(|attributes| attributes.get(name));
+            if identities
                 .iter()
-                .flatten()
-                .all(|(_, attributes)| attributes.get(name) == value)
+                .all(|attributes| attributes.get(name) == value)
             {
                 value.cloned().unwrap_or_default()
             } else {
@@ -238,21 +262,28 @@ impl EvalTraces {
         let agent = attribute("agent.name");
         let version = attribute("agent.version");
         let environment = attribute("deployment.environment");
+        let keys = SpendLookup::new(
+            &rows
+                .iter()
+                .map(|row| row.summary.0.clone())
+                .collect::<Vec<_>>(),
+        );
         let cost_lookup = SpendByResponseIdsParams {
             access: ReadAccessParams {
                 all_teams: false,
                 user_id: String::new(),
                 team_ids: vec![team.to_owned()],
             },
-            trace_ids: traces.into_iter().map(|trace| trace.trace_id).collect(),
-            response_ids: rows
-                .iter()
-                .map(|row| &row.request_id)
-                .filter(|value| !value.is_empty())
-                .cloned()
+            trace_ids: traces
+                .into_iter()
+                .map(|trace| trace.trace_id)
+                .chain(keys.trace_ids)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
                 .collect(),
-            provider_request_ids: Vec::new(),
-            request_ids: Vec::new(),
+            response_ids: keys.response_ids,
+            provider_request_ids: keys.provider_request_ids,
+            request_ids: keys.request_ids,
             start_ms: 0,
             end_ms: snapshot_ms.saturating_add(1),
         };
@@ -269,7 +300,7 @@ impl EvalTraces {
         if !cost.is_finite() || cost < 0.0 {
             return Err(Error::InvalidResponse);
         }
-        let mut spans: Vec<_> = rows.into_iter().map(|row| row.span).collect();
+        let mut spans: Vec<EvalSpan> = rows.into_iter().map(Into::into).collect();
         spans.sort_by_key(|span| span.start_ns);
         Ok(Some(EvalTrace {
             spans,
@@ -311,7 +342,7 @@ impl EvalTraces {
                 ));
             }
             if let Some(last) = batch.last() {
-                page.after.clone_from(&last.span.span_id);
+                page.after.clone_from(&last.summary.0.span_id);
             }
             rows.extend(batch);
             if complete {
@@ -321,6 +352,6 @@ impl EvalTraces {
     }
 }
 
-fn is_root(span: &EvalSpan) -> bool {
-    span.parent_span_id.is_empty() || span.parent_span_id == "0000000000000000"
+fn is_root(parent_span_id: &str) -> bool {
+    parent_span_id.is_empty() || parent_span_id == "0000000000000000"
 }

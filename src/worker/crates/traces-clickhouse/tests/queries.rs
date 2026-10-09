@@ -435,8 +435,8 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
     #[case] attribute_field: &str,
 ) -> TestResult {
     use litellm_traces_clickhouse::query::lens::{
-        ExecutionSource, LensAccessParams, LensAgents, LensAgentsParams, LensSample,
-        LensSampleParams, TraceAgents, TraceAgentsParams,
+        ExecutionSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
+        LensAvailabilityParams, LensSample, LensSampleParams, TraceAgents, TraceAgentsParams,
     };
     let fixture = migrated_database?;
     let now_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000;
@@ -452,6 +452,48 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
             false,
         ),
         (
+            "eval-trace",
+            "eval-managed",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
+            "eval-trace",
+            "eval-provider",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
+            "eval-trace",
+            "eval-gateway",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
+            "eval-trace",
+            "eval-legacy",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
+            "eval-trace",
+            "eval-transport",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
+            "eval-trace",
+            "eval-attempt",
+            "eval-root",
+            "eval-agent",
+            false,
+        ),
+        (
             "production-trace",
             "production-root",
             "",
@@ -461,7 +503,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
     ]
     .into_iter()
     .map(|(trace_id, span_id, parent, agent, eval)| {
-        BTreeMap::from([
+        let mut row = BTreeMap::from([
             ("Timestamp".into(), serde_json::json!(start_ms * 1_000_000)),
             ("Duration".into(), serde_json::json!(1_000_000)),
             ("TraceId".into(), serde_json::json!(trace_id)),
@@ -471,13 +513,40 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
             ("ObservationType".into(), serde_json::json!("agent")),
             ("AgentName".into(), serde_json::json!(agent)),
             ("TeamId".into(), serde_json::json!("team-lens")),
-            ("ApiKeyHash".into(), serde_json::json!("key-lens")),
+            (
+                "ApiKeyHash".into(),
+                serde_json::json!(if trace_id == "production-trace" {
+                    "key-production"
+                } else {
+                    "key-lens"
+                }),
+            ),
             (
                 "LiteLLMRequestId".into(),
-                serde_json::json!(if parent.is_empty() {
-                    ""
-                } else {
+                serde_json::json!(if span_id == "eval-child" {
                     "eval-response"
+                } else {
+                    ""
+                }),
+            ),
+            (
+                "CallKeys".into(),
+                serde_json::json!(match span_id {
+                    "eval-managed" => vec![litellm_traces::CallKey::ProviderResponse(
+                        "eval-managed-response".into()
+                    )],
+                    "eval-provider" => vec![litellm_traces::CallKey::ProviderRequest(
+                        "eval-provider-request".into()
+                    )],
+                    "eval-gateway" => vec![litellm_traces::CallKey::LiteLlmRequest(
+                        "eval-gateway-call".into()
+                    )],
+                    "eval-legacy" => vec![litellm_traces::CallKey::LiteLlmRequest(
+                        "eval-legacy-request".into()
+                    )],
+                    "eval-transport" => vec![litellm_traces::CallKey::Transport],
+                    "eval-attempt" => vec![litellm_traces::CallKey::GatewayAttempt],
+                    _ => Vec::new(),
                 }),
             ),
             (
@@ -488,7 +557,13 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
                     serde_json::json!({})
                 },
             ),
-        ])
+        ]);
+        if matches!(span_id, "eval-transport" | "eval-attempt") {
+            row.entry("SpanAttributes".into())
+                .or_insert_with(|| serde_json::json!({}))["lens.original_trace_id"] =
+                serde_json::json!(format!("original-{span_id}"));
+        }
+        row
     })
     .collect();
     let writer = Connection::writer(&fixture.database.url)?;
@@ -509,21 +584,78 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
             serde_json::json!({}),
         ),
         (
+            "eval-by-managed-response",
+            "",
+            "resp_cmVzcG9uc2VfaWQ6ZXZhbC1tYW5hZ2VkLXJlc3BvbnNlO21vZGVsOmZpeHR1cmU=",
+            serde_json::json!({}),
+        ),
+        ("eval-by-provider-request", "", "", serde_json::json!({})),
+        ("eval-by-gateway-call", "", "", serde_json::json!({})),
+        ("eval-legacy-request", "", "", serde_json::json!({})),
+        (
+            "eval-transport-request",
+            "original-eval-transport",
+            "",
+            serde_json::json!({}),
+        ),
+        (
+            "eval-attempt-request",
+            "original-eval-attempt",
+            "",
+            serde_json::json!({}),
+        ),
+        (
             "eval-by-metadata",
             "",
             "",
             serde_json::json!({"requester_metadata":{"deployment.environment":"lens-eval"}}),
         ),
-        ("production-request", "", "", serde_json::json!({})),
+        (
+            "production-request",
+            "",
+            "eval-response",
+            serde_json::json!({}),
+        ),
     ]
     .into_iter()
     .map(|(id, trace_id, response_id, metadata)| {
         BTreeMap::from([
             ("request_id".into(), serde_json::json!(id)),
             ("trace_id".into(), serde_json::json!(trace_id)),
+            (
+                "span_id".into(),
+                serde_json::json!(match id {
+                    "eval-transport-request" => "eval-transport",
+                    "eval-attempt-request" => "eval-attempt",
+                    _ => "",
+                }),
+            ),
             ("response_id".into(), serde_json::json!(response_id)),
             ("team_id".into(), serde_json::json!("team-lens")),
-            ("api_key".into(), serde_json::json!("key-lens")),
+            (
+                "api_key".into(),
+                serde_json::json!(if id == "production-request" {
+                    "key-production"
+                } else {
+                    "key-lens"
+                }),
+            ),
+            (
+                "provider_request_id".into(),
+                serde_json::json!(if id == "eval-by-provider-request" {
+                    "eval-provider-request"
+                } else {
+                    ""
+                }),
+            ),
+            (
+                "litellm_call_id".into(),
+                serde_json::json!(if id == "eval-by-gateway-call" {
+                    "eval-gateway-call"
+                } else {
+                    ""
+                }),
+            ),
             ("start_time".into(), serde_json::json!(start_ms)),
             ("end_time".into(), serde_json::json!(start_ms + 1)),
             ("metadata".into(), serde_json::json!(metadata.to_string())),
@@ -540,6 +672,21 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
     .await?;
     let connection =
         Connection::configured(&fixture.database.url, fixtures::DATABASE, "default", "")?;
+    let availability = fetch::<LensAvailability>(
+        &fixture.database.client,
+        &connection,
+        &LensAvailabilityParams {
+            access: LensAccessParams {
+                all_teams: false,
+                team: "team-lens".into(),
+                key_hash: "key-lens".into(),
+            },
+        },
+    )
+    .await?;
+    assert_eq!(availability.len(), 1);
+    assert_eq!(availability[0].traces, 0);
+    assert_eq!(availability[0].requests, 0);
     let sampled = fetch::<LensSample>(
         &fixture.database.client,
         &connection,
@@ -633,6 +780,6 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         },
     )
     .await?;
-    assert_eq!(explicit.len(), 2);
+    assert_eq!(explicit.len(), 8);
     Ok(())
 }

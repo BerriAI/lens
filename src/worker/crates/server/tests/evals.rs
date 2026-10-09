@@ -558,6 +558,130 @@ async fn should_allow_only_one_closer_to_score_a_run(#[future(awt)] eval_fixture
     assert_eq!(done.run.status, RunStatus::Done);
 }
 
+struct TransientTraces {
+    unavailable: String,
+    failed: std::sync::atomic::AtomicBool,
+    closed_at_ms: i64,
+}
+
+impl lens_server::eval_closer::TraceSource for TransientTraces {
+    async fn trace(
+        &self,
+        _team: &str,
+        reference: &lens_contract::eval::TraceRef,
+    ) -> Result<Option<litellm_traces_clickhouse::evals::EvalTrace>, lens_server::EvalCloserError>
+    {
+        if reference.value == self.unavailable
+            && !self.failed.swap(true, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(lens_server::EvalCloserError::TransientTraces(Box::new(
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "temporary read outage"),
+            )));
+        }
+        Ok(Some(litellm_traces_clickhouse::evals::EvalTrace {
+            spans: vec![litellm_traces_clickhouse::evals::EvalSpan {
+                span_id: "root".into(),
+                parent_span_id: String::new(),
+                name: "completed".into(),
+                start_ns: (self.closed_at_ms - 1) * 1_000_000,
+                end_ns: self.closed_at_ms * 1_000_000,
+                status: litellm_traces::SpanStatus::Ok,
+                attributes: Default::default(),
+                input: String::new(),
+                output: String::new(),
+            }],
+            root_ended_at_ms: Some(self.closed_at_ms),
+            last_received_at_ms: self.closed_at_ms,
+            agent: "agent".into(),
+            version: "abc123".into(),
+            environment: "lens-eval".into(),
+            gateway_cost_usd: 0.0,
+        }))
+    }
+}
+
+struct TraceScorer(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+impl lens_server::eval_closer::ScoreRun for TraceScorer {
+    async fn score(
+        &self,
+        input: &lens_server::eval_closer::RunScoreInput,
+    ) -> Result<lens_server::eval_closer::ScoredRun, lens_server::EvalCloserError> {
+        self.0.fetch_add(
+            input.trials.iter().map(|trial| trial.spans.len()).sum(),
+            std::sync::atomic::Ordering::SeqCst,
+        );
+        ErrorScorer.score(input).await
+    }
+}
+
+async fn prepare_trace_run(fixture: &EvalFixture) {
+    let run = create(fixture).await;
+    fixture
+        .store
+        .put_result(
+            "team-a",
+            &run.id,
+            "case-1",
+            0,
+            lens_contract::eval::CaseResult {
+                trace: Some(lens_contract::eval::TraceRef {
+                    attribute: lens_contract::eval::TraceAttribute::TraceId,
+                    value: run.id.clone(),
+                }),
+                ..Default::default()
+            },
+            Utc::now(),
+        )
+        .await
+        .unwrap();
+    fixture
+        .store
+        .finish("team-a", &run.id, Utc::now())
+        .await
+        .unwrap();
+}
+
+#[rstest]
+#[tokio::test]
+async fn should_retry_transient_trace_reads_without_blocking_other_runs(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let now = Utc::now();
+    prepare_trace_run(&eval_fixture).await;
+    prepare_trace_run(&eval_fixture).await;
+    let queued = eval_fixture.store.scoring("", 100).await.unwrap();
+    assert_eq!(queued.runs.len(), 2);
+    let first = &queued.runs[0].run.id;
+    let second = &queued.runs[1].run.id;
+    let scored_spans = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let closer = lens_server::eval_closer::EvalCloser::new(
+        eval_fixture.store.clone(),
+        TransientTraces {
+            unavailable: first.clone(),
+            failed: std::sync::atomic::AtomicBool::new(false),
+            closed_at_ms: now.timestamp_millis(),
+        },
+        TraceScorer(scored_spans.clone()),
+    );
+    assert!(matches!(
+        closer.tick(now).await,
+        Err(lens_server::EvalCloserError::TransientTraces(_))
+    ));
+    let pending = eval_fixture.store.get("team-a", first).await.unwrap();
+    assert_eq!(pending.run.status, RunStatus::Scoring);
+    assert!(pending.run.failure.is_empty());
+    assert!(pending.scoring_lease.is_none());
+    let completed = eval_fixture.store.get("team-a", second).await.unwrap();
+    assert_eq!(completed.run.status, RunStatus::Done);
+    assert_eq!(scored_spans.load(std::sync::atomic::Ordering::SeqCst), 1);
+    closer.tick(Utc::now()).await.unwrap();
+    let retried = eval_fixture.store.get("team-a", first).await.unwrap();
+    assert_eq!(retried.run.status, RunStatus::Done);
+    assert_eq!(retried.run.summary.unwrap().errors, 5);
+    assert_eq!(scored_spans.load(std::sync::atomic::Ordering::SeqCst), 2);
+}
+
 #[rstest]
 #[tokio::test]
 async fn should_reject_results_for_cases_outside_the_selected_subset(

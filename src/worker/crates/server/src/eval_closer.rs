@@ -69,14 +69,17 @@ impl<T: TraceSource, S: ScoreRun> EvalCloser<T, S> {
 
     pub async fn tick(&self, now: DateTime<Utc>) -> Result<(), EvalCloserError> {
         let mut after = String::new();
+        let mut failure = None;
         loop {
             let page = self.store.scoring(&after, 100).await?;
             for run in page.runs {
-                self.advance(&run, now).await?;
+                if let Err(error) = self.advance(&run, now).await {
+                    failure.get_or_insert(error);
+                }
             }
             match page.next {
                 Some(next) => after = next,
-                None => return Ok(()),
+                None => return failure.map_or(Ok(()), Err),
             }
         }
     }
@@ -93,6 +96,7 @@ impl<T: TraceSource, S: ScoreRun> EvalCloser<T, S> {
         let trials = match resolved {
             Ok(Some(trials)) => trials,
             Ok(None) => return Ok(()),
+            Err(error @ EvalCloserError::TransientTraces(_)) => return Err(error),
             Err(error) => {
                 if let Some(lease) = self
                     .store
@@ -218,6 +222,20 @@ fn resolve_trial(
         .timestamp_millis()
         .saturating_add(i64::try_from(remaining).unwrap_or(i64::MAX));
     if let Some(trace) = trace.filter(|trace| !trace.spans.is_empty()) {
+        let idle_at_ms = trace.last_received_at_ms.saturating_add(TRACE_IDLE_MS);
+        let closed_at_ms = trace
+            .root_ended_at_ms
+            .map_or(idle_at_ms, |root| root.min(idle_at_ms));
+        let stored = StoredTrial {
+            result: CaseResult {
+                cost_usd: trial.result.cost_usd.or(Some(trace.gateway_cost_usd)),
+                ..trial.result.clone()
+            },
+            ..trial.clone()
+        };
+        if closed_at_ms > now_ms || closed_at_ms > deadline_ms {
+            return (now_ms >= deadline_ms).then(|| timeout_error(&stored));
+        }
         if trace.agent != run.request.agent {
             return Some(trial_error(
                 trial,
@@ -239,24 +257,10 @@ fn resolve_trial(
                 "Trace deployment.environment must be lens-eval",
             ));
         }
-        let idle_at_ms = trace.last_received_at_ms.saturating_add(TRACE_IDLE_MS);
-        let closed_at_ms = trace
-            .root_ended_at_ms
-            .map_or(idle_at_ms, |root| root.min(idle_at_ms));
-        let stored = StoredTrial {
-            result: CaseResult {
-                cost_usd: trial.result.cost_usd.or(Some(trace.gateway_cost_usd)),
-                ..trial.result.clone()
-            },
-            ..trial.clone()
-        };
-        if closed_at_ms <= now_ms && closed_at_ms <= deadline_ms {
-            return Some(ResolvedTrial {
-                stored,
-                spans: trace.spans,
-            });
-        }
-        return (now_ms >= deadline_ms).then(|| timeout_error(&stored));
+        return Some(ResolvedTrial {
+            stored,
+            spans: trace.spans,
+        });
     }
     (now_ms >= deadline_ms).then(|| timeout_error(trial))
 }
@@ -531,6 +535,53 @@ mod tests {
         .unwrap();
         assert_eq!(resolved.stored.result.error.unwrap().r#type, "TimeoutError");
         assert_eq!(resolved.stored.result.cost_usd, Some(0.12));
+    }
+
+    #[rstest]
+    fn child_first_delivery_waits_for_root_identity(
+        run: StoredRun,
+        trial: StoredTrial,
+        trace: EvalTrace,
+    ) {
+        let child_only = EvalTrace {
+            spans: vec![EvalSpan {
+                span_id: "child".into(),
+                parent_span_id: "root".into(),
+                ..trace.spans[0].clone()
+            }],
+            root_ended_at_ms: None,
+            agent: String::new(),
+            version: String::new(),
+            environment: String::new(),
+            ..trace.clone()
+        };
+        let now = trial.submitted_at.timestamp_millis();
+        assert!(resolve_trial(&run, &trial, Some(child_only), now).is_none());
+        let resolved = resolve_trial(&run, &trial, Some(trace), now + 1).unwrap();
+        assert!(resolved.stored.result.error.is_none());
+        assert_eq!(resolved.stored.result.trace, trial.result.trace);
+        assert_eq!(resolved.spans[0].span_id, "root");
+    }
+
+    #[rstest]
+    fn incomplete_trace_identity_does_not_override_timeout(
+        mut run: StoredRun,
+        trial: StoredTrial,
+        mut trace: EvalTrace,
+    ) {
+        run.request.timeout_per_trial_ms = 1000;
+        trace.root_ended_at_ms = None;
+        trace.agent.clear();
+        trace.version.clear();
+        trace.environment.clear();
+        let resolved = resolve_trial(
+            &run,
+            &trial,
+            Some(trace),
+            trial.submitted_at.timestamp_millis() + 1000,
+        )
+        .unwrap();
+        assert_eq!(resolved.stored.result.error.unwrap().r#type, "TimeoutError");
     }
 
     struct MissingTrace;
