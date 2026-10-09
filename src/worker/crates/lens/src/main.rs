@@ -106,6 +106,20 @@ async fn run() -> Result<(), litellm_lens::Error> {
         },
         Mode::Gateway(gateway) => State::new(storage, gateway.service_token.clone()),
     });
+    let judge_base = match &config.mode {
+        Mode::Gateway(gateway) => gateway.proxy_url.clone(),
+        Mode::Standalone => config.public_url.clone(),
+    };
+    let evals = api::EvalConfig {
+        judge: litellm_lens::eval_judge::GatewayJudge::new(
+            client.clone(),
+            judge_base,
+            config.eval_judge_api_key.clone(),
+            config.eval_judge_model.clone(),
+        )
+        .with_gateway(config.gateway_inference.clone()),
+        public_url: config.public_url.to_string(),
+    };
     let application = match config.authentication {
         Some(settings) => {
             let application = api::initialize(
@@ -114,6 +128,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
                 config.datasets,
                 config.traces,
                 matches!(config.mode, Mode::Standalone),
+                evals,
             )
             .await?;
             let application = if matches!(config.mode, Mode::Standalone) {
@@ -126,7 +141,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
                         config.gateway_inference,
                     )
                     .await?
-                    .with_evaluations(state.clone(), config.public_url)?
+                    .with_evaluations()?
             } else {
                 application
             };
@@ -134,6 +149,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         }
         None => None,
     };
+    let eval_task = application.as_ref().map(|app| app.evals.start());
     let mut tasks = tokio::task::JoinSet::new();
     match config.mode {
         Mode::Standalone => {
@@ -156,11 +172,6 @@ async fn run() -> Result<(), litellm_lens::Error> {
                 .and_then(|app| app.signals_worker.clone())
                 .ok_or(litellm_lens::Error::Unavailable)?;
             tasks.spawn(signals.serve());
-            let evaluations = application
-                .as_ref()
-                .and_then(|app| app.evaluations.clone())
-                .ok_or(litellm_lens::Error::Unavailable)?;
-            tasks.spawn(evaluations.serve());
         }
         Mode::Gateway(gateway) => {
             let control = Control::new(client.clone(), gateway.proxy_url, gateway.worker_token);
@@ -207,6 +218,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
     };
     let _ = shutdown.send(());
     tasks.abort_all();
+    if let Some(task) = eval_task {
+        task.abort();
+    }
     while tasks.join_next().await.is_some() {}
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await

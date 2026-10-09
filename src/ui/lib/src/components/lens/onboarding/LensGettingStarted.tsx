@@ -56,7 +56,8 @@ export function LensGettingStarted({ state, onStart, onExit }: LensGettingStarte
 }
 
 function Prerequisites() {
-  const standalone = useLensHost().analysis === "deployment";
+  const host = useLensHost();
+  const standalone = host.surface === "standalone";
   const prerequisites = standalone
     ? [
         {
@@ -93,7 +94,7 @@ function Prerequisites() {
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
         <p>
           Your infrastructure stores the traces. Investigation content is sent to your selected model provider
-          {standalone ? "." : " through the gateway."}
+          {host.analysis === "deployment" ? "." : " through the gateway."}
         </p>
       </div>
     </aside>

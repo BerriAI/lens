@@ -1,0 +1,569 @@
+{
+  "created_at": "2026-10-09T05:55:56.830Z",
+  "base_url": "http://127.0.0.1:4324",
+  "eval": "merged-proof-59672435",
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/lens/tracing/keys",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets/build",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/datasets/e76587f5-a946-4e20-aa79-22d515a5e604/revisions",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/evals/merged-proof-59672435",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/traces",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b/results/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c/0",
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b/finish",
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b/cases/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/traces",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753/results/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c/0",
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753/finish",
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548348643539_9858e09a7b014076b7a2b9233abc1753/cases/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/traces",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80/results/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c/0",
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80/finish",
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548344244267_f81432eea89d4a418720e75f5ae5eb80/cases/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/traces",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs",
+      "status": 201
+    },
+    {
+      "method": "PUT",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788/results/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c/0",
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788/finish",
+      "status": 202
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/lens/evals/runs/18444952548340770327_029b991af4ab4951b55c5c93d75df788/cases/b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+      "status": 200
+    }
+  ],
+  "runs": [
+    {
+      "trace_id": "428e955a410481e49f5443ee064017c0",
+      "run": {
+        "id": "18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+        "status": "done",
+        "eval": "merged-proof-59672435",
+        "agent": "merged-proof-59672435",
+        "version": "proof-main",
+        "branch": "main",
+        "pr": null,
+        "url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+        "expected_trials": 1,
+        "received_trials": 1,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1,
+          "cost_per_case": 0.001,
+          "scores": {
+            "called_before": 1,
+            "judge": 1,
+            "task_completed": 1
+          },
+          "errors": 0,
+          "baseline_run_id": null,
+          "baseline_version": null,
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": [
+              "no baseline on main for rev 1"
+            ]
+          }
+        },
+        "failure": ""
+      },
+      "case": {
+        "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "title": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "critical": false,
+        "passed": true,
+        "trials": [
+          {
+            "trial": 0,
+            "error": null,
+            "checks": [
+              {
+                "scorer": "task_completed",
+                "passed": true
+              },
+              {
+                "scorer": "called_before",
+                "passed": true
+              }
+            ],
+            "steps": [
+              {
+                "name": "check_math",
+                "tool_name": "check_math",
+                "ok": true,
+                "start_ns": 1791525353377000000,
+                "end_ns": 1791525353777000000
+              },
+              {
+                "name": "answer",
+                "tool_name": "answer",
+                "ok": true,
+                "start_ns": 1791525353877000000,
+                "end_ns": 1791525354777000000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "trace_id": "0dbad89f999b0cf13f9b4f7af11eb8fe",
+      "run": {
+        "id": "18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+        "status": "done",
+        "eval": "merged-proof-59672435",
+        "agent": "merged-proof-59672435",
+        "version": "proof-bad",
+        "branch": "arithmetic-regression",
+        "pr": 42,
+        "url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548348643539_9858e09a7b014076b7a2b9233abc1753",
+        "expected_trials": 1,
+        "received_trials": 1,
+        "summary": {
+          "passed": 0,
+          "total": 1,
+          "pass_rate": 0,
+          "cost_per_case": 0.001,
+          "scores": {
+            "called_before": 0,
+            "judge": 0,
+            "task_completed": 1
+          },
+          "errors": 0,
+          "baseline_run_id": "18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+          "baseline_version": "proof-main",
+          "regressions": [
+            {
+              "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+              "title": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+              "critical": false,
+              "baseline_url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b&eval_case=b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+              "candidate_url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548348643539_9858e09a7b014076b7a2b9233abc1753&eval_case=b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c"
+            }
+          ],
+          "fixed": [],
+          "gate": {
+            "passed": false,
+            "reasons": [
+              "1 regressions (max 0)",
+              "Pass rate below minimum"
+            ]
+          }
+        },
+        "failure": ""
+      },
+      "case": {
+        "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "title": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "critical": false,
+        "passed": false,
+        "trials": [
+          {
+            "trial": 0,
+            "error": null,
+            "checks": [
+              {
+                "scorer": "task_completed",
+                "passed": true
+              },
+              {
+                "scorer": "called_before",
+                "passed": false
+              }
+            ],
+            "steps": [
+              {
+                "name": "answer",
+                "tool_name": "answer",
+                "ok": true,
+                "start_ns": 1791525357439000000,
+                "end_ns": 1791525358339000000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "trace_id": "61ed01e1f3cd59e7b264e99480eff659",
+      "run": {
+        "id": "18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+        "status": "done",
+        "eval": "merged-proof-59672435",
+        "agent": "merged-proof-59672435",
+        "version": "proof-fixed",
+        "branch": "arithmetic-regression",
+        "pr": 42,
+        "url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548344244267_f81432eea89d4a418720e75f5ae5eb80",
+        "expected_trials": 1,
+        "received_trials": 1,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1,
+          "cost_per_case": 0.001,
+          "scores": {
+            "called_before": 1,
+            "judge": 1,
+            "task_completed": 1
+          },
+          "errors": 0,
+          "baseline_run_id": "18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+          "baseline_version": "proof-main",
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        "failure": ""
+      },
+      "case": {
+        "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "title": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "critical": false,
+        "passed": true,
+        "trials": [
+          {
+            "trial": 0,
+            "error": null,
+            "checks": [
+              {
+                "scorer": "task_completed",
+                "passed": true
+              },
+              {
+                "scorer": "called_before",
+                "passed": true
+              }
+            ],
+            "steps": [
+              {
+                "name": "check_math",
+                "tool_name": "check_math",
+                "ok": true,
+                "start_ns": 1791525361356000000,
+                "end_ns": 1791525361756000000
+              },
+              {
+                "name": "answer",
+                "tool_name": "answer",
+                "ok": true,
+                "start_ns": 1791525361856000000,
+                "end_ns": 1791525362756000000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "trace_id": "035f78fb1d1da3188075dd9698a0e713",
+      "run": {
+        "id": "18444952548340770327_029b991af4ab4951b55c5c93d75df788",
+        "status": "done",
+        "eval": "merged-proof-59672435",
+        "agent": "merged-proof-59672435",
+        "version": "proof-fixed",
+        "branch": "arithmetic-regression",
+        "pr": 42,
+        "url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548340770327_029b991af4ab4951b55c5c93d75df788",
+        "expected_trials": 1,
+        "received_trials": 1,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1,
+          "cost_per_case": 0.001,
+          "scores": {
+            "called_before": 1,
+            "judge": 1,
+            "task_completed": 1
+          },
+          "errors": 0,
+          "baseline_run_id": "18444952548352107637_9b00ed5e4b18420d8f26e6751bd2806b",
+          "baseline_version": "proof-main",
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        "failure": ""
+      },
+      "case": {
+        "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "title": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+        "critical": false,
+        "passed": true,
+        "trials": [
+          {
+            "trial": 0,
+            "error": null,
+            "checks": [
+              {
+                "scorer": "task_completed",
+                "passed": true
+              },
+              {
+                "scorer": "called_before",
+                "passed": true
+              }
+            ],
+            "steps": [
+              {
+                "name": "check_math",
+                "tool_name": "check_math",
+                "ok": true,
+                "start_ns": 1791525364842000000,
+                "end_ns": 1791525365242000000
+              },
+              {
+                "name": "answer",
+                "tool_name": "answer",
+                "ok": true,
+                "start_ns": 1791525365342000000,
+                "end_ns": 1791525366242000000
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "dataset": {
+    "id": "e76587f5-a946-4e20-aa79-22d515a5e604",
+    "revision": 1,
+    "case_id": "b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c"
+  },
+  "ingestion_key_id": "0213c8ff-17cc-4891-ba8c-0494c0cf9afa",
+  "provider": "Actual paid calls through the configured hosted OpenAI-compatible provider; trace payloads and reported case costs are controlled fixtures",
+  "review_url": "http://127.0.0.1:4324/ui/?tab=evals&eval=merged-proof-59672435&eval_run=18444952548348643539_9858e09a7b014076b7a2b9233abc1753&eval_case=b88ca87f107696ba8f50481adf5765b369dd0194ac0f6679908deea536f0e88c",
+  "status": "passed",
+  "source": {
+    "base_commit": "0b99737f",
+    "merged_main": "5c02728f",
+    "files": {
+      "src/worker/crates/traces-clickhouse/src/query/evals.rs": "3047cec0e332305e3c7b0191d1f6f744677bbee6aa2349ad4cdcd6231886684c",
+      "src/worker/crates/lens/src/eval_runtime.rs": "5ce7f828d8eb9e7b124f9e3034aad2b20bdcd7c552918243c658a5bceb0083b1",
+      "src/worker/crates/lens/src/eval_judge.rs": "8bb1434f6d153a1181e719e78419394247804b968850b472cfa7a9afccb7251c",
+      "src/ui/lib/src/components/lens/route.ts": "b555c30799786bbd73c3cceb3fbf36a0e70dd3bdc6ba65ffc0c7cca1a7e34b87"
+    }
+  },
+  "browser": {
+    "status": "passed",
+    "checks": [
+      "Persisted baseline and candidate comparison",
+      "Missing check_math call and failed gate",
+      "All four runs with gates",
+      "Browser Back restores comparison"
+    ],
+    "screenshots": [
+      "docs/extraction/evidence/ui/connected/merged-eval-regression.png",
+      "docs/extraction/evidence/ui/connected/merged-eval-runs.png"
+    ]
+  },
+  "scope": "Merged local binary and production UI; controlled OTLP trace payloads, real hosted judge calls. Not a published image or native direct-provider credential test."
+}

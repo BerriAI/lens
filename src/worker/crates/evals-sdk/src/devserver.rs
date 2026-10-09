@@ -637,3 +637,39 @@ pub async fn serve(host: &str, port: u16, dataset: Option<&Path>) -> Result<()> 
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::case_url;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::plain("http://lens/runs/run")]
+    #[case::query_and_fragment("http://lens/ui/?eval_run=run&tab=evals#results")]
+    fn case_links_encode_the_case_without_losing_the_run_location(#[case] base: &str) {
+        let case = "case / with&symbols";
+        let original = url::Url::parse(base).unwrap();
+        let actual = url::Url::parse(&case_url(base, case)).unwrap();
+        assert_eq!(actual.path(), original.path());
+        assert_eq!(actual.fragment(), original.fragment());
+        assert_eq!(
+            actual
+                .query_pairs()
+                .filter(|(key, _)| key == "eval_case")
+                .collect::<Vec<_>>(),
+            vec![("eval_case".into(), case.into())]
+        );
+        assert_eq!(
+            actual
+                .query_pairs()
+                .filter(|(key, _)| key != "eval_case")
+                .collect::<Vec<_>>(),
+            original.query_pairs().collect::<Vec<_>>()
+        );
+    }
+
+    #[rstest]
+    fn invalid_base_is_returned_without_inventing_a_destination() {
+        assert_eq!(case_url("/relative-run", "case"), "/relative-run");
+    }
+}

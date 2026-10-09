@@ -32,8 +32,11 @@ pub struct Judge {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Scorer {
+    #[schemars(title = "TaskCompleted")]
     TaskCompleted(TaskCompleted),
+    #[schemars(title = "CalledBefore")]
     CalledBefore(CalledBefore),
+    #[schemars(title = "Judge")]
     Judge(Judge),
 }
 
@@ -120,6 +123,44 @@ pub struct CreateEvalRun {
     #[serde(default = "default_timeout_per_trial_ms")]
     #[schemars(range(min = 1))]
     pub timeout_per_trial_ms: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalSpec {
+    #[schemars(length(min = 1))]
+    pub agent: String,
+    #[schemars(length(min = 1))]
+    pub dataset_id: String,
+    #[serde(default)]
+    #[schemars(range(min = 1))]
+    pub revision: Option<u64>,
+    #[schemars(length(min = 1))]
+    pub scorers: Vec<Scorer>,
+    #[serde(default = "one_trial")]
+    #[schemars(range(min = 1, max = 10))]
+    pub trials: u32,
+    #[serde(default = "main_branch")]
+    #[schemars(length(min = 1))]
+    pub baseline: String,
+    #[serde(default)]
+    pub gate: Gate,
+    #[serde(default = "default_timeout_per_trial_ms")]
+    #[schemars(range(min = 1))]
+    pub timeout_per_trial_ms: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalDefinition {
+    #[schemars(length(min = 1), regex(pattern = r"^[a-z0-9][a-z0-9_-]*$"))]
+    pub name: String,
+    pub spec: EvalSpec,
+    pub updated_at: String,
+}
+
+fn main_branch() -> String {
+    "main".to_owned()
 }
 
 fn one_trial() -> u32 {
@@ -241,6 +282,44 @@ pub struct Summary {
     pub gate: GateResult,
 }
 
+/// One case of a run with the tool steps each trial took, for side-by-side comparison in the Runs UI
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RunCase {
+    pub case_id: String,
+    pub title: String,
+    pub critical: bool,
+    pub passed: Option<bool>,
+    pub trials: Vec<TrialSteps>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrialSteps {
+    pub trial: u32,
+    pub error: Option<String>,
+    pub checks: Vec<ScorerCheck>,
+    pub steps: Vec<ToolStep>,
+}
+
+/// A deterministic scorer re-run against one trial's trace, so the UI can say which rule failed
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ScorerCheck {
+    pub scorer: String,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ToolStep {
+    pub name: String,
+    pub tool_name: String,
+    pub ok: bool,
+    pub start_ns: i64,
+    pub end_ns: i64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
@@ -271,35 +350,6 @@ pub struct EvalRun {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct EvalCaseDetails {
-    pub case_id: String,
-    pub input: String,
-    pub verdict: Option<bool>,
-    pub traces: Vec<crate::feedback::TraceIdentity>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct EvalBaselineDetails {
-    pub run: EvalRun,
-    pub cases: Vec<EvalCaseDetails>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct EvalRunDetails {
-    pub run: EvalRun,
-    pub dataset_id: String,
-    pub dataset_revision: u64,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub ci_url: String,
-    pub cases: Vec<EvalCaseDetails>,
-    pub baseline: Option<EvalBaselineDetails>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ResolvedDataset {
     pub id: String,
     pub name: String,
@@ -312,6 +362,7 @@ pub enum ApiErrorCode {
     DatasetNotFound,
     RevisionNotFound,
     RunNotFound,
+    EvalNotFound,
     RunClosed,
     UnknownCase,
     ContractVersion,

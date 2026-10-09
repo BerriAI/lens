@@ -2,6 +2,8 @@
 
 Lens can record and display traces before you configure a model. To run investigations, give the Lens server access to an analysis provider. Your agents keep their own model configuration
 
+For optional help from your coding agent, copy the [provider setup prompt](setup-with-agent.md#enable-investigations-signals-or-eval-judging)
+
 Investigations send selected trace content to the provider you choose. Each investigation has its own monthly spending limit. Provider credentials stay on the server and are never returned to the browser
 
 ## Add a provider
@@ -19,7 +21,7 @@ To use Anthropic instead, use its key and this configuration:
 
 ```dotenv
 ANTHROPIC_API_KEY=<your-provider-key>
-LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"anthropic/claude-sonnet-5","provider":"anthropic","api_key_env":"ANTHROPIC_API_KEY","output_limits":{"max_tokens":4096}}]'
+LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"anthropic/claude-sonnet-5-5","provider":"anthropic","api_key_env":"ANTHROPIC_API_KEY","output_limits":{"max_tokens":4096}}]'
 ```
 
 Use `api_key_env` to name the environment variable holding the credential. Do not put the key itself inside `LENS_ANALYSIS_MODELS`. The server rejects missing credentials and unknown configuration fields at startup

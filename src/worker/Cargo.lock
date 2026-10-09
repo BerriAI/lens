@@ -2193,7 +2193,6 @@ name = "lens-evals"
 version = "0.1.0"
 dependencies = [
  "axum",
- "chrono",
  "lens-contract",
  "lens-evals-sdk",
  "rstest",
@@ -2325,6 +2324,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "cookie",
+ "futures-util",
  "http",
  "jiter",
  "jsonschema",
@@ -2339,6 +2339,8 @@ dependencies = [
  "litellm-http",
  "litellm-storage-clickhouse",
  "litellm-traces",
+ "litellm-traces-clickhouse",
+ "percent-encoding",
  "rand 0.8.7",
  "reqwest 0.12.28",
  "rstest",
@@ -2356,6 +2358,7 @@ dependencies = [
  "tower-http",
  "url",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -2484,6 +2487,7 @@ dependencies = [
  "lens-datasets",
  "lens-decisions",
  "lens-evals",
+ "lens-evals-sdk",
  "lens-inference",
  "lens-investigations",
  "lens-parity",
@@ -2496,6 +2500,7 @@ dependencies = [
  "litellm-traces-cache",
  "litellm-traces-clickhouse",
  "litellm-tracing",
+ "percent-encoding",
  "prost",
  "rand 0.8.7",
  "reqwest 0.12.28",
@@ -2551,7 +2556,6 @@ dependencies = [
  "lens-auth",
  "lens-contract",
  "lens-datasets",
- "lens-evals",
  "lens-investigations",
  "lens-signals",
  "litellm-http",
@@ -2656,6 +2660,7 @@ dependencies = [
  "futures-util",
  "hmac 0.12.1",
  "jsonschema",
+ "lens-contract",
  "lens-datasets",
  "litellm-http",
  "litellm-storage-clickhouse",

@@ -1,4 +1,12 @@
-Goal: the repo has two top-level code folders, src/worker (all backend, Rust) and src/ui (all frontend, TypeScript), and zero Python files we wrote. The Rust worker binary is the only server: it serves every /lens/*, /auth/* and /v1/* route, ingest, and the investigation worker. Embedded mode inside the LiteLLM gateway is out of scope; Lens runs standalone.
+# Historical Rust migration plan
+
+This document records the original backend port. The current product boundary and remaining acceptance checks are in the [completion plan](extraction/completion-plan.md), with results in the [implementation ledger](extraction/implementation-state.json). Use [CONTRIBUTING](../CONTRIBUTING.md) for the current development workflow
+
+The Rust server now owns every Lens route and background task. The Python server and its route registry have been removed. The Python eval SDK and confined investigation interpreter remain supported. Rust parity fixtures remain as regression tests, and the PostgreSQL importer remains for existing installations; PostgreSQL is not a Lens runtime dependency. The current completion plan includes LiteLLM embedding and companion repositories
+
+The steps below are retained as historical context and do not override the current completion plan
+
+Original goal: the repo has two top-level code folders, src/worker (all backend, Rust) and src/ui (all frontend, TypeScript), and zero Python files we wrote. The Rust worker binary is the only server: it serves every /lens/*, /auth/* and /v1/* route, ingest, and the investigation worker. Embedded mode inside the LiteLLM gateway was outside this port's initial scope
 
 Target layout:
 

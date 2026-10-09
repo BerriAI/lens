@@ -1,0 +1,420 @@
+   Compiling syn v2.0.119
+   Compiling libc v0.2.186
+   Compiling cfg-if v1.0.4
+   Compiling memchr v2.8.3
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.6
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.17.1
+   Compiling once_cell v1.21.4
+   Compiling futures-core v0.3.33
+   Compiling bytes v1.12.1
+   Compiling log v0.4.33
+   Compiling indexmap v2.14.0
+   Compiling futures-sink v0.3.33
+   Compiling errno v0.3.14
+   Compiling tracing-core v0.1.36
+   Compiling jobserver v0.1.35
+   Compiling smallvec v1.15.2
+   Compiling slab v0.4.12
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.3.0
+   Compiling signal-hook-registry v1.4.8
+   Compiling futures-channel v0.3.33
+   Compiling mio v1.2.2
+   Compiling socket2 v0.6.5
+   Compiling tracing-attributes v0.1.31
+   Compiling tokio-macros v2.7.1
+   Compiling tokio v1.53.0
+   Compiling tracing v0.1.44
+   Compiling futures-macro v0.3.33
+   Compiling futures-io v0.3.33
+   Compiling percent-encoding v2.3.2
+   Compiling futures-util v0.3.33
+   Compiling http v1.4.2
+   Compiling synstructure v0.13.2
+   Compiling serde v1.0.229
+   Compiling cmake v0.1.58
+   Compiling serde_derive v1.0.229
+   Compiling fs_extra v1.3.0
+   Compiling pkg-config v0.3.33
+   Compiling dunce v1.0.5
+   Compiling aws-lc-sys v0.45.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling zeroize_derive v1.5.0
+   Compiling zeroize v1.9.0
+   Compiling zerofrom v0.1.8
+   Compiling yoke-derive v0.8.2
+   Compiling typenum v1.20.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling yoke v0.8.3
+   Compiling getrandom v0.2.17
+   Compiling httparse v1.10.1
+   Compiling serde_json v1.0.150
+   Compiling aws-lc-rs v1.18.1
+   Compiling num-traits v0.2.19
+   Compiling zerovec-derive v0.11.3
+   Compiling version_check v0.9.5
+   Compiling zerovec v0.11.6
+   Compiling http-body v1.1.0
+   Compiling tokio-util v0.7.18
+   Compiling ring v0.17.14
+   Compiling displaydoc v0.2.6
+   Compiling untrusted v0.7.1
+   Compiling rustls-pki-types v1.15.0
+   Compiling tower-service v0.3.3
+   Compiling zerocopy v0.8.54
+   Compiling untrusted v0.9.0
+   Compiling tinystr v0.8.3
+   Compiling writeable v0.6.3
+   Compiling fnv v1.0.7
+   Compiling try-lock v0.2.5
+   Compiling atomic-waker v1.1.2
+   Compiling litemap v0.8.2
+   Compiling rustls v0.23.45
+   Compiling subtle v2.6.1
+   Compiling icu_locale_core v2.2.0
+   Compiling h2 v0.4.16
+   Compiling want v0.3.1
+   Compiling rustls-webpki v0.103.15
+   Compiling zerotrie v0.2.4
+   Compiling potential_utf v0.1.5
+   Compiling generic-array v0.14.7
+   Compiling thiserror-impl v2.0.19
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.2.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling httpdate v1.0.3
+   Compiling hyper v1.10.1
+   Compiling icu_collections v2.2.0
+   Compiling thiserror v2.0.19
+   Compiling icu_provider v2.2.0
+   Compiling sync_wrapper v1.0.2
+   Compiling tower-layer v0.3.3
+   Compiling ipnet v2.12.0
+   Compiling bitflags v2.13.1
+   Compiling hyper-util v0.1.20
+   Compiling http-body-util v0.1.4
+   Compiling mime v0.3.17
+   Compiling icu_normalizer v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling tower v0.5.3
+   Compiling ppv-lite86 v0.2.21
+   Compiling idna_adapter v1.2.2
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling form_urlencoded v1.2.2
+   Compiling tokio-stream v0.1.19
+   Compiling aho-corasick v1.1.5
+   Compiling getrandom v0.3.4
+   Compiling regex-syntax v0.8.11
+   Compiling anyhow v1.0.104
+   Compiling digest v0.10.7
+   Compiling idna v1.1.0
+   Compiling cpufeatures v0.2.17
+   Compiling either v1.16.0
+   Compiling itertools v0.14.0
+   Compiling url v2.5.8
+   Compiling core-foundation v0.10.1
+   Compiling security-framework-sys v2.17.0
+   Compiling strsim v0.11.1
+   Compiling ident_case v1.0.1
+   Compiling darling_core v0.23.0
+   Compiling security-framework v3.7.0
+   Compiling prost-derive v0.14.4
+   Compiling axum-core v0.5.6
+   Compiling winnow v1.0.4
+   Compiling pin-project-internal v1.1.13
+   Compiling matchit v0.8.4
+   Compiling axum v0.8.9
+   Compiling pin-project v1.1.13
+   Compiling prost v0.14.4
+   Compiling darling_macro v0.23.0
+   Compiling hyper-timeout v0.5.2
+   Compiling async-trait v0.1.91
+   Compiling getrandom v0.4.3
+   Compiling rand_core v0.10.1
+   Compiling tonic v0.14.6
+   Compiling chrono v0.4.45
+   Compiling darling v0.23.0
+   Compiling rand_core v0.9.5
+   Compiling num-integer v0.1.46
+   Compiling hybrid-array v0.4.13
+   Compiling rustc-hash v2.1.3
+   Compiling rand_chacha v0.9.0
+   Compiling serde_with_macros v3.21.0
+   Compiling tonic-prost v0.14.6
+   Compiling rustls-native-certs v0.8.4
+   Compiling sha2 v0.10.9
+   Compiling regex-automata v0.4.18
+   Compiling tokio-rustls v0.26.4
+   Compiling cmov v0.5.4
+   Compiling ctutils v0.4.2
+   Compiling serde_with v3.21.0
+   Compiling rand v0.9.5
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling num-bigint v0.4.8
+   Compiling webpki-roots v1.0.9
+   Compiling futures-executor v0.3.33
+   Compiling ref-cast-impl v1.0.27
+   Compiling serde_derive_internals v0.30.0
+   Compiling deranged v0.5.8
+   Compiling heck v0.5.0
+   Compiling time-core v0.1.9
+   Compiling parking_lot_core v0.9.12
+   Compiling powerfmt v0.2.0
+   Compiling num-conv v0.2.2
+   Compiling time v0.3.53
+   Compiling strum_macros v0.28.0
+   Compiling schemars_derive v1.2.2
+   Compiling ref-cast v1.0.27
+   Compiling hyper-rustls v0.27.9
+   Compiling digest v0.11.3
+   Compiling chacha20 v0.10.2
+   Compiling rand_core v0.6.4
+   Compiling crossbeam-utils v0.8.22
+   Compiling macro_rules_attribute-proc_macro v0.2.3
+   Compiling ryu v1.0.23
+   Compiling scopeguard v1.2.0
+   Compiling hex v0.4.3
+   Compiling pastey v0.2.3
+   Compiling macro_rules_attribute v0.2.3
+   Compiling schemars v1.2.2
+   Compiling lock_api v0.4.14
+   Compiling serde_urlencoded v0.7.1
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.10.2
+   Compiling strum v0.28.0
+   Compiling askama_parser v0.16.1
+   Compiling tower-http v0.6.11
+   Compiling thiserror v1.0.69
+   Compiling byteorder v1.5.0
+   Compiling foldhash v0.2.0
+   Compiling lazy_static v1.5.0
+   Compiling allocator-api2 v0.2.21
+   Compiling base64 v0.23.1
+   Compiling bit-vec v0.8.0
+   Compiling unicase v2.9.0
+   Compiling tinyvec_macros v0.1.1
+   Compiling radium v0.7.0
+   Compiling tinyvec v1.12.0
+   Compiling mime_guess v2.0.5
+   Compiling bit-set v0.8.0
+   Compiling hashbrown v0.16.1
+   Compiling sharded-slab v0.1.7
+   Compiling askama_derive v0.16.1
+   Compiling parking_lot v0.12.5
+   Compiling litellm-llms-types v0.1.0 (https://github.com/BerriAI/litellm?rev=3969348ad946c8bb6b3f5386d72da2a07e65ce88#3969348a)
+   Compiling rand v0.8.7
+   Compiling lens-contract v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/contract)
+   Compiling opentelemetry v0.33.0
+   Compiling ahash v0.8.12
+   Compiling thread_local v1.1.10
+   Compiling thiserror-impl v1.0.69
+   Compiling tap v1.0.1
+   Compiling lexical-util v1.0.7
+   Compiling parking v2.2.1
+   Compiling crc-catalog v2.5.0
+   Compiling crc v3.4.0
+   Compiling event-listener v5.4.2
+   Compiling lexical-parse-integer v1.0.6
+   Compiling wyz v0.5.1
+   Compiling tracing-subscriber v0.3.23
+   Compiling opentelemetry_sdk v0.33.0
+   Compiling regex v1.13.1
+   Compiling crossbeam-queue v0.3.14
+   Compiling futures-intrusive v0.5.0
+   Compiling askama_macros v0.16.1
+   Compiling hashlink v0.11.1
+   Compiling fancy-regex v0.19.2
+   Compiling unicode-normalization v0.1.25
+   Compiling ureq-proto v0.6.4
+   Compiling hmac v0.13.0
+   Compiling sha1 v0.10.7
+   Compiling const-hex v1.19.3
+   Compiling cpufeatures v0.3.0
+   Compiling bollard-buildkit-proto v0.7.0
+   Compiling funty v2.0.0
+   Compiling rustix v1.1.5
+   Compiling portable-atomic v1.14.0
+   Compiling crc32fast v1.5.1
+   Compiling utf-8 v0.7.6
+   Compiling data-encoding v2.11.0
+   Compiling unicode-properties v0.1.4
+   Compiling utf8-zero v0.8.1
+   Compiling unicode-bidi v0.3.18
+   Compiling jiter v0.17.0
+   Compiling stringprep v0.1.5
+   Compiling ureq v3.4.2
+   Compiling tungstenite v0.24.0
+   Compiling bitvec v1.1.1
+   Compiling sha2 v0.11.0
+   Compiling opentelemetry-proto v0.33.0
+   Compiling hkdf v0.13.0
+   Compiling litellm-tracing v0.1.0 (https://github.com/BerriAI/litellm?rev=3969348ad946c8bb6b3f5386d72da2a07e65ce88#3969348a)
+   Compiling sqlx-core v0.9.0
+   Compiling askama v0.16.1
+   Compiling lexical-parse-float v1.0.6
+   Compiling md-5 v0.11.0
+   Compiling prost-types v0.14.4
+   Compiling atoi v2.0.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling veil-macros v0.3.0
+   Compiling structmeta-derive v0.3.0
+   Compiling signature v2.2.0
+   Compiling whoami v2.1.3
+   Compiling simd-adler32 v0.3.10
+   Compiling dotenvy v0.15.7
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.9.1
+   Compiling sqlx-postgres v0.9.0
+   Compiling jsonwebtoken v11.1.0
+   Compiling structmeta v0.3.0
+   Compiling veil v0.3.0
+   Compiling litellm-core-utils v0.1.0 (https://github.com/BerriAI/litellm?rev=3969348ad946c8bb6b3f5386d72da2a07e65ce88#3969348a)
+   Compiling litellm-traces v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces)
+   Compiling reqwest v0.12.28
+   Compiling tokio-tungstenite v0.24.0
+   Compiling num-rational v0.4.2
+   Compiling uuid v1.24.0
+   Compiling num-iter v0.1.46
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling num-complex v0.4.6
+   Compiling serde_repr v0.1.21
+   Compiling async-stream-impl v0.3.6
+   Compiling unicode-casefold v0.2.0
+   Compiling toml_edit v0.25.13+spec-1.1.0
+   Compiling lens-investigations v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/investigations)
+   Compiling async-stream v0.3.6
+   Compiling bollard-stubs v1.52.1-rc.29.1.3
+   Compiling num v0.4.3
+   Compiling lens-auth v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/auth)
+   Compiling litellm-http v0.1.0 (https://github.com/BerriAI/litellm?rev=3969348ad946c8bb6b3f5386d72da2a07e65ce88#3969348a)
+   Compiling flate2 v1.1.10
+   Compiling xattr v1.6.1
+   Compiling lens-datasets v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/datasets)
+   Compiling parse-display-derive v0.9.1
+   Compiling sqlx v0.9.0
+   Compiling lens-signals v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/signals)
+   Compiling hyperlocal v0.9.1
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling encoding_rs v0.8.35
+   Compiling home v0.5.12
+   Compiling bollard v0.20.2
+   Compiling reqwest v0.13.5
+   Compiling parse-display v0.9.1
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+   Compiling astral-tokio-tar v0.6.4
+   Compiling proc-macro-crate v3.5.0
+   Compiling ferroid v2.0.0
+   Compiling futures v0.3.33
+   Compiling docker_credential v1.4.0
+   Compiling etcetera v0.11.0
+   Compiling rstest_macros v0.26.1
+   Compiling testcontainers v0.27.3
+   Compiling rstest v0.26.1
+   Compiling testcontainers-modules v0.15.0
+   Compiling lens-migrate v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/migrate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10m 28s
+     Running unittests src/lib.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/lens_migrate-0fb147620f164e4c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/lens_migrate-4313e302efff4a8d)
+
+running 6 tests
+test tests::compose_settings_preserve_credentials_and_selected_database::case_2_defaults ... ok
+test tests::compose_settings_preserve_credentials_and_selected_database::case_1_provided ... ok
+test tests::explicit_url_retains_its_credentials_and_path ... ok
+test tests::missing_or_invalid_target_is_rejected::case_1_missing ... ok
+test tests::missing_or_invalid_target_is_rejected::case_2_empty ... ok
+test tests::missing_or_invalid_target_is_rejected::case_3_invalid ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/cli-ce355fd147c59823)
+
+running 4 tests
+test invalid_commands_fail_before_connecting::case_1_no_credential ... ok
+test help_requires_no_database_credentials ... ok
+test invalid_commands_fail_before_connecting::case_2_missing_stop_assertion ... ok
+test invalid_commands_fail_before_connecting::case_3_unknown_option ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.25s
+
+     Running tests/plan.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/plan-7a3d97fad4eb791f)
+
+running 44 tests
+test archived_jobs_keep_full_body_and_zero_version ... ok
+test arbitrary_legacy_row_order_does_not_change_fingerprint ... ok
+test dataset_identity_revision_is_nonnegative::case_1_negative ... ok
+test dataset_identity_revision_is_nonnegative::case_2_initial ... ok
+test dataset_identity_revision_is_nonnegative::case_3_higher ... ok
+test duplicate_identities_never_replace_source_records::case_1_lens ... ok
+test duplicate_identities_never_replace_source_records::case_2_run ... ok
+test duplicate_identities_never_replace_source_records::case_3_review ... ok
+test duplicate_identities_never_replace_source_records::case_4_worker ... ok
+test duplicate_identities_never_replace_source_records::case_5_ingestion ... ok
+test duplicate_identities_never_replace_source_records::case_6_dataset ... ok
+test duplicate_identities_never_replace_source_records::case_7_configuration ... ok
+test empty_source_produces_no_synthetic_live_records ... ok
+test duplicate_identities_never_replace_source_records::case_8_trace ... ok
+test inconsistent_source_rows_are_rejected::case_01_lens ... ok
+test identifiers_use_python_compatible_utf8_percent_encoding ... ok
+test inconsistent_source_rows_are_rejected::case_02_lens_version ... ok
+test inconsistent_source_rows_are_rejected::case_03_run ... ok
+test inconsistent_source_rows_are_rejected::case_04_review ... ok
+test inconsistent_source_rows_are_rejected::case_05_worker ... ok
+test inconsistent_source_rows_are_rejected::case_06_worker_hash ... ok
+test inconsistent_source_rows_are_rejected::case_07_ingestion ... ok
+test inconsistent_source_rows_are_rejected::case_08_dataset ... ok
+test inconsistent_source_rows_are_rejected::case_09_revision ... ok
+test inconsistent_source_rows_are_rejected::case_10_configuration ... ok
+test inconsistent_source_rows_are_rejected::case_11_span_count ... ok
+test inconsistent_source_rows_are_rejected::case_12_trace_data ... ok
+test lens_versions_are_independent_nonnegative_counters::case_1_initial_row_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_2_advanced_versions ... ok
+test lens_versions_are_independent_nonnegative_counters::case_3_zero_revision ... ok
+test lens_versions_are_independent_nonnegative_counters::case_4_negative_stored_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_5_negative_public_version ... ok
+test lens_versions_are_independent_nonnegative_counters::case_6_negative_revision ... ok
+test null_scheduling_is_preserved_without_recomputation ... ok
+test populated_plan_preserves_authority_hashes_revisions_and_scheduling ... ok
+test positional_arrays_are_never_treated_as_object_records::case_1_lens ... ok
+test positional_arrays_are_never_treated_as_object_records::case_2_run ... ok
+test positional_arrays_are_never_treated_as_object_records::case_3_review ... ok
+test positional_arrays_are_never_treated_as_object_records::case_4_worker ... ok
+test positional_arrays_are_never_treated_as_object_records::case_5_ingestion ... ok
+test positional_arrays_are_never_treated_as_object_records::case_6_dataset ... ok
+test positional_arrays_are_never_treated_as_object_records::case_7_configuration ... ok
+test zero_span_signal_is_preserved ... ok
+test source_change_changes_fingerprint ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/postgres.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/postgres-7db15c753903314d)
+
+running 1 test
+test read_only_postgres_snapshot_becomes_usable_by_rust_lens ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.89s
+
+     Running tests/target.rs (/tmp/lens-analysis-mutants.dprJtn/target/debug/deps/target-64a54c948514c93a)
+
+running 10 tests
+test changed_source_is_rejected_on_resume ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_1_existing ... ok
+test checkpoint_prepare_without_publish_can_be_retried ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_2_new_key_after_checkpoint ... ok
+test existing_or_changed_target_data_is_never_overwritten::case_3_changed_expected_value ... ok
+test interrupted_import_resumes_the_same_snapshot::case_1_empty ... ok
+test interrupted_import_resumes_the_same_snapshot::case_2_partial ... ok
+test migrated_state_is_verified_and_retry_is_idempotent::case_1_fresh ... ok
+test migrated_state_is_verified_and_retry_is_idempotent::case_2_repeated ... ok
+test migration_and_resume_preserve_records_across_multiple_batches ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.82s

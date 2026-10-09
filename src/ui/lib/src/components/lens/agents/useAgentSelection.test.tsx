@@ -53,6 +53,7 @@ describe("agent navigation", () => {
       revision: "2",
       case: "old-case",
       dataset_tab: "runs",
+      eval: "old-eval",
       eval_run: "old-eval-run",
       eval_case: "old-eval-case",
       q: "agent:support_agent",
@@ -108,5 +109,29 @@ describe("agent navigation", () => {
 
     await waitFor(() => expect(onUrlUpdate).toHaveBeenCalledOnce());
     expect(Object.fromEntries(onUrlUpdate.mock.lastCall![0].searchParams)).toEqual({ tab: "agents" });
+  });
+
+  it.each([true, false])("should clear eval selection when changing demo to %s", async (demo) => {
+    const onUrlUpdate = vi.fn();
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <NuqsTestingAdapter
+        searchParams={`?tab=evals&demo=${!demo}&eval=arithmetic&eval_run=old-run&eval_case=old-case&dataset_tab=runs&unrelated=kept`}
+        onUrlUpdate={onUrlUpdate}
+        hasMemory
+      >
+        {children}
+      </NuqsTestingAdapter>
+    );
+    const { result } = renderHook(useLensRoute, { wrapper });
+
+    act(() => result.current.setDemo(demo));
+
+    await waitFor(() => expect(onUrlUpdate).toHaveBeenCalledOnce());
+    expect(Object.fromEntries(onUrlUpdate.mock.lastCall![0].searchParams)).toEqual({
+      tab: "evals",
+      ...(demo ? { demo: "true" } : {}),
+      unrelated: "kept",
+    });
+    expect(onUrlUpdate.mock.lastCall![0].options.history).toBe("push");
   });
 });

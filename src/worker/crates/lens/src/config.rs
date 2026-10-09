@@ -24,6 +24,8 @@ pub struct Config {
     pub evaluation_models: Vec<lens_decisions::Deployment>,
     pub gateway_inference: Option<lens_inference::GatewayIdentity>,
     pub gateway_service_token: Option<String>,
+    pub eval_judge_api_key: Option<String>,
+    pub eval_judge_model: Option<String>,
 }
 
 pub enum Mode {
@@ -103,6 +105,8 @@ impl Config {
         }
         Ok(Self {
             gateway_service_token,
+            eval_judge_api_key: read("LITELLM_API_KEY"),
+            eval_judge_model: read("LENS_EVAL_JUDGE_MODEL"),
             analysis_models: analysis::read(&read)?,
             evaluation_models: evaluation::read(&read)?,
             gateway_inference: gateway_inference(&read)?,

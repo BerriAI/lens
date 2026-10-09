@@ -5,7 +5,9 @@ pub mod auth;
 pub mod config;
 pub mod control;
 mod error;
-pub mod evaluations;
+pub mod eval_judge;
+pub mod eval_runtime;
+pub mod eval_scoring;
 pub mod evidence;
 pub mod grouping;
 mod ingest;
@@ -28,7 +30,6 @@ use axum::{
     routing::{get, post},
 };
 pub use error::Error;
-pub use error::EvaluationError;
 use litellm_traces_clickhouse::InsertTable;
 use serde_json::Value;
 use std::{

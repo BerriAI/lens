@@ -2,6 +2,8 @@
 
 Run your agent against a versioned Lens dataset, compare each case with main, and use Lens's verdict locally and in CI
 
+For optional help from your coding agent, copy the [eval setup prompt](../../docs/setup-with-agent.md#enable-investigations-signals-or-eval-judging). It inspects this project's agent and existing Lens connection before adding configuration
+
 ```python
 from lens import Eval, Gate, judge, scorers
 
@@ -66,8 +68,8 @@ These values come from your deployment:
 |---|---|
 | `data="agent-regressions@7"` | Dataset name and revision in Lens's Datasets tab |
 | `project="my-agent"` | The `agent.name` attribute your agent exports |
-| `LENS_BASE_URL` | Your Lens gateway URL, without `/ui` |
-| `LENS_API_KEY` | A key allowed to access Lens dataset and eval routes; an inference-only key is insufficient |
+| `LENS_BASE_URL` | Your Lens service URL, without `/ui`; a configured LiteLLM integration URL is also supported |
+| `LENS_API_KEY` | A credential allowed to read datasets and create eval runs. Standalone installations can use their Lens admin token; gateway integrations require an authorized team credential. A tracing-only or inference-only key is insufficient |
 | `LENS_VERSION` | Defaults to the checked-out Git SHA locally; CI uses `GITHUB_SHA` |
 | `LENS_BRANCH` | Defaults to the Git branch locally; CI uses the PR head branch or ref name |
 | `AGENT_RUN_URL`, `AGENT_API_KEY` below | Your own agent's API and service credential |
@@ -147,9 +149,9 @@ evals = "evals/"
 base_url = "https://your-lens-host.example"
 ```
 
-Your agent must implement `eval_mode`, run in its sandbox, and export `session.id` and `agent.name` on its trace. It must stamp `agent.version` from its own build SHA, never from a version supplied by the eval request. Lens I1 must record a trial error if that build SHA differs from the eval run's `version`. Passing `eval_mode` does not disable side effects by itself
+Your agent must implement `eval_mode`, run in its sandbox, and export `session.id`, `agent.name`, and `deployment.environment="lens-eval"` on its trace. It must stamp `agent.version` from its own build SHA, never from a version supplied by the eval request. Lens records a trial error if the agent, environment, or build version does not match the eval run. Passing `eval_mode` does not disable side effects by itself
 
-Return as soon as the agent accepts the run and supplies its trace reference. The task does not poll for completion. Contract A assigns waiting to Lens I1: the trace closes when its root span ends or it has been idle for 120 seconds, capped by `timeout_per_trial`. The SDK submits the reference and waits for Lens's result. Production waiting and build-SHA validation are part of Ishaan's I1 implementation
+Return as soon as the agent accepts the run and supplies its trace reference. The task does not poll for completion. Lens waits until the trace's root span ends or it has been idle for 120 seconds, capped by `timeout_per_trial`, including time spent accepting the agent run. The SDK submits the reference and waits for Lens's result
 
 You can return `Run(trace={"trace_id": accepted_trace_id})` instead. Supply exactly one trace reference. `cost_usd=None` asks Lens to derive cost from the trace. Tasks return trace references, never scores
 
@@ -273,10 +275,10 @@ The development server is loopback-only and keeps state in memory. `--dataset-fi
 
 The native core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk), with PyO3 bindings in [`src/worker/crates/evals-python`](../worker/crates/evals-python). The Python package contains immutable public values, generated Pydantic wire models, discovery, and coroutine handling
 
-Ishaan owns the production lifecycle routes, trace scoring, baseline selection, canonical `lens-contract` schema, and Lens comparison UI. Moe owns this SDK, CLI, setup, Action, and development server. No production server routes are added by this package
+The Lens server owns lifecycle routes, trace scoring, baseline selection, and the comparison UI. This package provides the SDK, CLI, setup, Action, and development server
 
-Contract B routes, status codes, error codes, `X-Lens-Contract: 1`, and Summary semantics stay unchanged. The create-run body now includes `timeout_per_trial_ms`. Until Ishaan lands `schema/lens.v1.json`, generation uses the appendix schema. CI validates the shared golden fixtures at `src/worker/crates/contract/fixtures/lens_eval/` when present, and the provisional fixture copy otherwise. Once available, the canonical Rust types should replace the SDK's provisional wire structs
+The SDK uses contract version 1 through `X-Lens-Contract: 1`. Rust types in `lens-contract` define `schema/lens.v1.json`, which generates the Python wire models. Shared golden fixtures live at `src/worker/crates/contract/fixtures/lens_eval/`. From the repository root, run `npm run generate:eval-contract` after changing the canonical contract
 
-Version `0.1.0a3` sends a positive integer `timeout_per_trial_ms` on every create-run request. The server default for clients that omit it is 1,200,000 ms. I1 must enforce this cap while waiting for the trace, including time already spent accepting the agent run. This preview assumes Ishaan's timeout field and `meta.finding_id` mapping land before production integration
+Version `0.1.0a3` sends a positive integer `timeout_per_trial_ms` on every create-run request. The server default for clients that omit it is 1,200,000 ms. Lens enforces this cap while waiting for the trace and exposes finding IDs in `DatasetCase.meta["finding_id"]`
 
 See [verification](validation/verification.md) for exact evidence and remaining integration work. The full real-gateway transport example is [`examples/live_gateway.py`](examples/live_gateway.py); it makes a model call and exports a trace using its own `AGENT_BUILD_SHA`, but does not exercise a deployed custom agent

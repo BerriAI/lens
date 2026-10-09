@@ -2,6 +2,8 @@
 
 This chart installs the complete Lens API, UI and investigation runtime with ClickHouse and Keeper on one persistent volume. A LiteLLM gateway and PostgreSQL are not required
 
+For optional help from your coding agent, use [Set it up for me](../../docs/setup-with-agent.md). Include that this deployment uses Helm; there are separate prompts for an existing gateway and external ClickHouse
+
 For a source checkout, install the chart and forward its service:
 
 ```sh

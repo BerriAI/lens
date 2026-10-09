@@ -6,12 +6,14 @@
     "src/ui/app"
   ],
   "scripts": {
+    "dev": "LENS_PUBLIC_URL=http://127.0.0.1:3100 ./deploy/lens/start && npm run dev:ui",
     "dev:ui": "npm run dev --workspace @litellm/lens-web",
     "build:ui": "npm run build --workspace @litellm/lens-web",
     "typecheck:ui": "npm run typecheck --workspace @litellm/lens-ui",
-    "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx src/components/lens/datasets/runs",
+    "test:ui": "npm exec --workspace @litellm/lens-ui -- vitest run src/lib/http/sessionRequests.test.ts src/components/lens/LensWorkspace.integration.test.tsx src/components/lens/traces/detail/span/DetailPane.integration.test.tsx src/components/lens/traces/detail/run/RunView.test.tsx src/components/lens/datasets/DatasetsView.integration.test.tsx src/components/lens/evals",
     "qualify:ui-package": "node scripts/qualify_ui_package.mjs",
     "generate:worker-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p lens-contract --example export > schema/lens-worker.v7.json && node scripts/generate_worker_types.mjs",
+    "generate:eval-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p lens-contract --example export_eval > schema/lens.v1.json && uv run --project src/sdk --frozen --only-group dev python src/sdk/scripts/generate_contract.py",
     "check:worker-contract": "node scripts/generate_worker_types.mjs --check"
   },
   "engines": {

@@ -179,6 +179,8 @@ impl PartialEq<serde_json::Value> for ValidationError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
+    #[error("Invalid request: {0}")]
+    InvalidRequest(&'static str),
     #[error("Not Found")]
     NotFound,
     #[error("Not authenticated")]
@@ -341,6 +343,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, code) = match &self {
             Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
+            Self::InvalidRequest(_) => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             Self::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
         };
@@ -612,73 +615,6 @@ impl IntoResponse for ActivityError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum EvalError {
-    #[error(transparent)]
-    Authentication(#[from] lens_auth::Error),
-    #[error(transparent)]
-    Dataset(#[from] lens_datasets::StoreError),
-    #[error(transparent)]
-    Run(#[from] lens_evals::RunError),
-    #[error("unauthorized")]
-    Forbidden,
-    #[error("contract_version")]
-    Contract,
-    #[error("idempotency_key")]
-    Idempotency,
-    #[error("dataset_not_found")]
-    DatasetNotFound,
-    #[error("revision_not_found")]
-    RevisionNotFound,
-    #[error("invalid_request")]
-    InvalidRequest(#[source] serde_json::Error),
-    #[error("invalid_result")]
-    InvalidResult(#[source] serde_json::Error),
-    #[error("invalid_request")]
-    InvalidSpec,
-}
-
-impl IntoResponse for EvalError {
-    fn into_response(self) -> Response {
-        use lens_evals::RunError;
-        let (status, code) = match &self {
-            Self::Authentication(_) => {
-                return match self {
-                    Self::Authentication(error) => SessionError::from(error).into_response(),
-                    _ => unreachable!(),
-                };
-            }
-            Self::Forbidden => (StatusCode::FORBIDDEN, "unauthorized"),
-            Self::Contract => (StatusCode::CONFLICT, "contract_version"),
-            Self::Idempotency => (StatusCode::UNPROCESSABLE_ENTITY, "idempotency_key"),
-            Self::DatasetNotFound => (StatusCode::NOT_FOUND, "dataset_not_found"),
-            Self::RevisionNotFound => (StatusCode::NOT_FOUND, "revision_not_found"),
-            Self::InvalidSpec | Self::InvalidRequest(_) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request")
-            }
-            Self::InvalidResult(_) => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_result"),
-            Self::Dataset(_) => (StatusCode::SERVICE_UNAVAILABLE, "storage_unavailable"),
-            Self::Run(error) => match error {
-                RunError::NotFound => (StatusCode::NOT_FOUND, "run_not_found"),
-                RunError::UnknownCase => (StatusCode::UNPROCESSABLE_ENTITY, "unknown_case"),
-                RunError::InvalidTrial | RunError::InvalidResult => {
-                    (StatusCode::UNPROCESSABLE_ENTITY, "invalid_result")
-                }
-                RunError::Closed => (StatusCode::CONFLICT, "run_closed"),
-                RunError::IdempotencyConflict => (StatusCode::CONFLICT, "idempotency_key"),
-                RunError::InvalidRun => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
-                RunError::StaleLease | RunError::Conflict => {
-                    (StatusCode::CONFLICT, "state_conflict")
-                }
-                RunError::Unavailable(_) => {
-                    (StatusCode::SERVICE_UNAVAILABLE, "storage_unavailable")
-                }
-            },
-        };
-        (status, Json(serde_json::json!({"detail":code,"code":code}))).into_response()
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum SignalError {
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),
@@ -710,4 +646,87 @@ impl IntoResponse for SignalError {
         };
         (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvalApiError {
+    #[error("Unsupported Lens contract version; send X-Lens-Contract: 1")]
+    ContractVersion,
+    #[error("Dataset not found")]
+    DatasetNotFound,
+    #[error("Dataset revision not found")]
+    RevisionNotFound,
+    #[error("Case does not belong to this run")]
+    UnknownCase,
+    #[error("Not authenticated for an eval team")]
+    Unauthorized,
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    EvalStore(#[from] litellm_storage_clickhouse::EvalError),
+    #[error(transparent)]
+    Storage(#[from] litellm_storage_clickhouse::Error),
+    #[error(transparent)]
+    Request(#[from] ApiError),
+    #[error("Invalid dataset state")]
+    Dataset(#[from] serde_json::Error),
+}
+
+impl IntoResponse for EvalApiError {
+    fn into_response(self) -> Response {
+        use lens_contract::eval::{ApiError as Body, ApiErrorCode};
+        use litellm_storage_clickhouse::EvalError;
+        let detail = self.to_string();
+        let (status, code) = match self {
+            Self::ContractVersion => (StatusCode::CONFLICT, ApiErrorCode::ContractVersion),
+            Self::DatasetNotFound => (StatusCode::NOT_FOUND, ApiErrorCode::DatasetNotFound),
+            Self::RevisionNotFound => (StatusCode::NOT_FOUND, ApiErrorCode::RevisionNotFound),
+            Self::UnknownCase | Self::EvalStore(EvalError::UnknownCase) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::UnknownCase)
+            }
+            Self::Unauthorized | Self::Authentication(lens_auth::Error::Unauthorized(_)) => {
+                (StatusCode::UNAUTHORIZED, ApiErrorCode::Unauthorized)
+            }
+            Self::Authentication(lens_auth::Error::OriginMismatch) => {
+                (StatusCode::FORBIDDEN, ApiErrorCode::Unauthorized)
+            }
+            Self::EvalStore(EvalError::RunNotFound) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::RunNotFound)
+            }
+            Self::EvalStore(EvalError::EvalNotFound) => {
+                (StatusCode::NOT_FOUND, ApiErrorCode::EvalNotFound)
+            }
+            Self::EvalStore(EvalError::RunClosed) => {
+                (StatusCode::CONFLICT, ApiErrorCode::RunClosed)
+            }
+            Self::EvalStore(EvalError::InvalidTrial) => {
+                return ApiError::InvalidRequest("trial is outside the run's trial range")
+                    .into_response();
+            }
+            Self::EvalStore(EvalError::InvalidRequest(message)) => {
+                return ApiError::InvalidRequest(message).into_response();
+            }
+            Self::EvalStore(EvalError::IdempotencyConflict) => {
+                return ApiError::InvalidRequest("idempotency key belongs to a different request")
+                    .into_response();
+            }
+            Self::Request(error) => return error.into_response(),
+            error => return ApiError::Internal(Box::new(error)).into_response(),
+        };
+        (status, Json(Body { detail, code })).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvalCloserError {
+    #[error(transparent)]
+    Storage(#[from] litellm_storage_clickhouse::EvalError),
+    #[error("Eval trace lookup failed")]
+    Traces(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Eval trace lookup is temporarily unavailable")]
+    TransientTraces(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Eval scoring failed")]
+    Scoring(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("Stored eval run is incomplete")]
+    InvalidRun,
 }

@@ -1,0 +1,161 @@
+{
+  "status": "passed",
+  "generated_at": "2026-10-09T06:07:17.466Z",
+  "gateway": "http://127.0.0.1:4490",
+  "lens": "http://127.0.0.1:4324",
+  "sdk_version": "0.1.0a3",
+  "doctor": {
+    "ok": true,
+    "checks": [
+      {
+        "name": "version",
+        "ok": true,
+        "detail": "gateway-merge-build on main"
+      },
+      {
+        "name": "agent",
+        "ok": true,
+        "detail": "lens-sdk-smoke"
+      },
+      {
+        "name": "gateway-merge-smoke",
+        "ok": true,
+        "detail": "gateway-sdk-219a81d130@1: 1 included cases, 1 trials"
+      },
+      {
+        "name": "eval API",
+        "ok": true,
+        "detail": "Contract v1 run lookup is available"
+      }
+    ]
+  },
+  "setup": {
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/lens/tracing/keys",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/lens/datasets",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/lens/datasets/build",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/lens/datasets/594c8895-b7d0-4611-9421-41a9d36dd7a9/revisions",
+        "status": 200
+      }
+    ],
+    "dataset": {
+      "id": "594c8895-b7d0-4611-9421-41a9d36dd7a9",
+      "name": "gateway-sdk-219a81d130",
+      "revision": 1
+    },
+    "case_id": "1fec9b554dc719e3b1e66456d90caae7c78c22c459bbc45dc190980b8bfe5b7b",
+    "key_id": "0baf4930-366d-4cdd-bba2-c591c9cc2a58"
+  },
+  "run": {
+    "agent": "lens-sdk-smoke",
+    "branch": "main",
+    "eval": "gateway-merge-smoke",
+    "expected_trials": 1,
+    "failure": "",
+    "id": "18444952547739102662_42849a16931e4a38b9f5a84fbe381cbb",
+    "pr": null,
+    "received_trials": 1,
+    "status": "done",
+    "summary": {
+      "baseline_run_id": "18444952548293116962_681e60f377bb40dbaaf83371831cac3e",
+      "baseline_version": "gateway-merge-build",
+      "cost_per_case": 0.000292,
+      "errors": 0,
+      "fixed": [],
+      "gate": {
+        "passed": true,
+        "reasons": []
+      },
+      "pass_rate": 1,
+      "passed": 1,
+      "regressions": [],
+      "scores": {
+        "judge": 1,
+        "task_completed": 1
+      },
+      "total": 1
+    },
+    "url": "http://127.0.0.1:4324/ui/?tab=evals&eval=gateway-merge-smoke&eval_run=18444952547739102662_42849a16931e4a38b9f5a84fbe381cbb",
+    "version": "gateway-merge-build"
+  },
+  "agent": {
+    "case_id": "1fec9b554dc719e3b1e66456d90caae7c78c22c459bbc45dc190980b8bfe5b7b",
+    "trace_id": "8c4d06ab8bea430ca9e01f441dfd3ab8",
+    "session_id": "pass-sdk-smoke-b885c113c75b4560931ced59e7f052b7",
+    "model": "openai/gpt-6.1-sol",
+    "inference_status": 200,
+    "ingest_status": 200,
+    "cost_usd": 0.000292,
+    "response_characters": 89
+  },
+  "permissions": [
+    {
+      "who": "viewer",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "who": "viewer",
+      "method": "PUT",
+      "status": 401
+    },
+    {
+      "who": "other",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "who": "owner",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "who": "admin",
+      "contract": 99,
+      "status": 409
+    }
+  ],
+  "judges": [
+    {
+      "request_id": "chatcmpl-EWy2B2WmiXpDh2GmAHumCkL2Cgv1P",
+      "response_id": "chatcmpl-EWy2B2WmiXpDh2GmAHumCkL2Cgv1P",
+      "spend": 0.00119,
+      "internal": true,
+      "eval_run_id": "18444952547739102662_42849a16931e4a38b9f5a84fbe381cbb",
+      "team_id": "",
+      "case_id": "1fec9b554dc719e3b1e66456d90caae7c78c22c459bbc45dc190980b8bfe5b7b",
+      "environment": "lens-eval",
+      "messages_redacted": true,
+      "response_redacted": true
+    }
+  ],
+  "native_wheel": {
+    "name": "lens_evals-0.1.0a3-cp311-abi3-macosx_11_0_arm64.whl",
+    "sha256": "0d9707ad3cfab4126896682e3a434169523d9285697c803b97eadc145b1e674d",
+    "built_from_current_checkout": true,
+    "official_release": false
+  },
+  "sdk_tests": {
+    "passed": 38,
+    "failed": 0,
+    "log_sha256": "80172d55091ed2d969fe1c04469f8226d49983f214413cf10d30eeacf14b96e9"
+  },
+  "qualified_source_sha256": {
+    "src/worker/crates/lens/src/eval_judge.rs": "1e3ed79b27a8dc0e40aa85f89a4c58e919a2825c00077a3a579bc53bbc0f90f7",
+    "src/worker/crates/analysis/src/transport.rs": "2019992954c5e0e73e13f2d69ebe7209f3516009393c8cc9b7e97aceb36a948a"
+  }
+}

@@ -18,7 +18,7 @@ async fn insert_rejects_invalid_identifiers(
     let result = insert_encoded_rows(&client, &connection, database, table, "token", "{}").await;
 
     assert!(matches!(&result, Err(Error::InvalidSchema)) == invalid_database);
-    assert!(matches!(&result, Err(Error::InvalidTable)) == !invalid_database);
+    assert!(matches!(&result, Err(Error::InvalidTable)) != invalid_database);
 }
 
 #[rstest]

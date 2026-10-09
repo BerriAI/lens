@@ -27,6 +27,7 @@ import {
 } from "./tracingSetupGuides";
 import type { TraceSummary } from "../../traces/types";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
+import { SetupAgentPrompt } from "../SetupAgentPrompt";
 
 const COPIED_RESET_MS = 1500;
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
@@ -465,7 +466,7 @@ function EnableTracing({
   checking: boolean;
   onCheck: () => void;
 }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const configured = connection.configured ?? connection.connected;
   if (standalone)
     return (
@@ -502,20 +503,14 @@ function EnableTracing({
       <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       {!configured && (
         <p className="text-sm text-muted-foreground">
-          {connection.release ? (
-            <>
-              Use Lens <code>{connection.release}</code> to match this LiteLLM deployment.
-            </>
-          ) : (
-            "Use Lens from the same release as this LiteLLM deployment."
-          )}{" "}
+          Use a Lens release supported by this LiteLLM integration.{" "}
           The deployment connects the services and supplies trace storage.
         </p>
       )}
       <div className="flex flex-wrap gap-3">
         <a
           className="inline-flex items-center gap-1 text-sm underline underline-offset-4"
-          href={`${DEPLOYMENT_URL}#using-helm`}
+          href={`${DEPLOYMENT_URL}/kubernetes#existing-deployment`}
           target="_blank"
           rel="noreferrer"
         >
@@ -523,7 +518,7 @@ function EnableTracing({
         </a>
         <a
           className="inline-flex items-center gap-1 text-sm underline underline-offset-4"
-          href={`${DEPLOYMENT_URL}#using-docker`}
+          href={`${DEPLOYMENT_URL}/docker-compose`}
           target="_blank"
           rel="noreferrer"
         >
@@ -549,7 +544,7 @@ function CodingAgentSetup({
   guide: FrameworkGuide;
   model: string;
 }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const [codingAgent, setCodingAgent] = useState<CodingAgent>("Claude Code");
   const [copied, setCopied] = useState<string | null>(null);
   const command = codingAgentCommand(codingAgent, codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone));
@@ -615,7 +610,7 @@ function ConnectAgent({
   tracingKey,
   setTracingKey,
 }: ConnectAgentProps) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const proxyUrl = getProxyBaseUrl().replace(/\/$/, "");
   const connection = useLensService(accessToken);
   const traceUrl = connection.data?.url ?? "";
@@ -863,7 +858,7 @@ export function TracingSetupFields({
 }
 
 export function TracingSetupCard(props: TracingSetupProps) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const connection = useLensService(props.accessToken);
   const enabled = Boolean(connection.data?.connected && connection.data.status.storage_ready && connection.data.url);
 
@@ -895,6 +890,7 @@ export function TracingSetupCard(props: TracingSetupProps) {
             : "Send your agent’s runs to LiteLLM to see its inputs, outputs, and tool calls."
           : "Connect Lens to start recording your agent’s runs."}
       </p>
+      <SetupAgentPrompt goal="tracing" connection={connection.data} />
       <TracingSetupFields {...props} />
     </div>
   );

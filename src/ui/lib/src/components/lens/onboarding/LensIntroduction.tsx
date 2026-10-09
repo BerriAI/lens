@@ -205,7 +205,7 @@ function FindingExamples({ highlighted, onHighlight }: EvidenceProps) {
 }
 
 export function LensIntroduction({ onStart }: { onStart: () => void }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const [highlighted, setHighlighted] = useState(false);
   const toggleEvidence = () => setHighlighted((current) => !current);
   return (

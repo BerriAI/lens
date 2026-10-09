@@ -4,42 +4,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class LensV1(BaseModel):
+class LensEvalContract(BaseModel):
     model_config = ConfigDict(
         frozen=True,
     )
-
-
-class ApiError(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    detail: str = Field(..., title="Detail")
-    code: Literal[
-        "dataset_not_found",
-        "revision_not_found",
-        "run_not_found",
-        "run_closed",
-        "unknown_case",
-        "contract_version",
-        "unauthorized",
-    ] = Field(..., title="Code")
-
-
-class CalledBefore(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    kind: Literal["called_before"] = Field(default="called_before", title="Kind")
-    first: str = Field(..., min_length=1, title="First")
-    then: str = Field(..., min_length=1, title="Then")
 
 
 class CaseDiff(BaseModel):
@@ -47,11 +20,11 @@ class CaseDiff(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    case_id: str = Field(..., title="Case Id")
-    title: str = Field(..., title="Title")
-    critical: bool = Field(..., title="Critical")
-    baseline_url: str = Field(..., title="Baseline Url")
-    candidate_url: str = Field(..., title="Candidate Url")
+    baseline_url: str
+    candidate_url: str
+    case_id: str
+    critical: bool
+    title: str
 
 
 class CaseError(BaseModel):
@@ -59,8 +32,8 @@ class CaseError(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    type: str = Field(..., title="Type")
-    message: str = Field(..., max_length=2000, title="Message")
+    message: str = Field(..., max_length=2000)
+    type: str
 
 
 class Gate(BaseModel):
@@ -68,11 +41,11 @@ class Gate(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    regressions: int | None = Field(default=0, title="Regressions")
-    critical: int | None = Field(default=0, title="Critical")
-    pass_rate: float | None = Field(default=None, ge=0.0, le=1.0, title="Pass Rate")
-    cost_per_case: float | None = Field(default=None, ge=0.0, title="Cost Per Case")
-    min: Mapping[str, float] = Field(default={}, title="Min")
+    cost_per_case: float | None = Field(default=None, ge=0.0)
+    critical: int | None = Field(default=0, ge=0, le=18446744073709551615)
+    min: Mapping[str, float] = {}
+    pass_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    regressions: int | None = Field(default=0, ge=0, le=18446744073709551615)
 
 
 class GateResult(BaseModel):
@@ -80,18 +53,8 @@ class GateResult(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    passed: bool = Field(..., title="Passed")
-    reasons: Sequence[str] = Field(default=[], title="Reasons")
-
-
-class Judge(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    kind: Literal["judge"] = Field(default="judge", title="Kind")
-    prompt: str = Field(..., min_length=1, title="Prompt")
-    model: str = Field(default="", title="Model")
+    passed: bool
+    reasons: Sequence[str] = []
 
 
 class ResolvedDataset(BaseModel):
@@ -99,27 +62,9 @@ class ResolvedDataset(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    id: str = Field(..., title="Id")
-    name: str = Field(..., title="Name")
-    revision: int = Field(..., title="Revision")
-
-
-class Summary(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    passed: int = Field(..., title="Passed")
-    total: int = Field(..., title="Total")
-    pass_rate: float = Field(..., title="Pass Rate")
-    cost_per_case: float = Field(..., title="Cost Per Case")
-    scores: Mapping[str, float] = Field(..., title="Scores")
-    errors: int = Field(..., title="Errors")
-    baseline_run_id: str | None = Field(..., title="Baseline Run Id")
-    baseline_version: str | None = Field(..., title="Baseline Version")
-    regressions: Sequence[CaseDiff] = Field(..., title="Regressions")
-    fixed: Sequence[CaseDiff] = Field(..., title="Fixed")
-    gate: GateResult
+    id: str
+    name: str
+    revision: int = Field(..., ge=0, le=18446744073709551615)
 
 
 class TaskCompleted(BaseModel):
@@ -127,7 +72,66 @@ class TaskCompleted(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    kind: Literal["task_completed"] = Field(default="task_completed", title="Kind")
+    kind: Literal["task_completed"]
+
+
+class CalledBefore(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    first: str = Field(..., min_length=1)
+    kind: Literal["called_before"]
+    then: str = Field(..., min_length=1)
+
+
+class Judge(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    kind: Literal["judge"]
+    model: str = ""
+    prompt: str = Field(..., min_length=1)
+
+
+class ScorerCheck(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    passed: bool
+    scorer: str
+
+
+class Summary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    baseline_run_id: str | None = None
+    baseline_version: str | None = None
+    cost_per_case: float
+    errors: int = Field(..., ge=0, le=18446744073709551615)
+    fixed: Sequence[CaseDiff]
+    gate: GateResult
+    pass_rate: float
+    passed: int = Field(..., ge=0, le=18446744073709551615)
+    regressions: Sequence[CaseDiff]
+    scores: Mapping[str, float]
+    total: int = Field(..., ge=0, le=18446744073709551615)
+
+
+class ToolStep(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    end_ns: int
+    name: str
+    ok: bool
+    start_ns: int
+    tool_name: str
 
 
 class TraceRef(BaseModel):
@@ -135,8 +139,37 @@ class TraceRef(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    attribute: Literal["session.id", "trace_id"] = Field(default="session.id", title="Attribute")
-    value: str = Field(..., min_length=1, title="Value")
+    attribute: Literal["session.id", "trace_id"] = "session.id"
+    value: str = Field(..., min_length=1)
+
+
+class TrialSteps(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    checks: Sequence[ScorerCheck]
+    error: str | None = None
+    steps: Sequence[ToolStep]
+    trial: int = Field(..., ge=0, le=4294967295)
+
+
+class ApiError(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    code: Literal[
+        "dataset_not_found",
+        "revision_not_found",
+        "run_not_found",
+        "eval_not_found",
+        "run_closed",
+        "unknown_case",
+        "contract_version",
+        "unauthorized",
+    ]
+    detail: str
 
 
 class CaseResult(BaseModel):
@@ -144,10 +177,10 @@ class CaseResult(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    trace: TraceRef | None = None
+    cost_usd: float | None = Field(default=None, ge=0.0)
+    duration_ms: int | None = Field(default=None, ge=0, le=18446744073709551615)
     error: CaseError | None = None
-    cost_usd: float | None = Field(default=None, ge=0.0, title="Cost Usd")
-    duration_ms: int | None = Field(default=None, ge=0, title="Duration Ms")
+    trace: TraceRef | None = None
 
 
 class CreateEvalRun(BaseModel):
@@ -155,30 +188,28 @@ class CreateEvalRun(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    eval: str = Field(..., min_length=1, pattern="^[a-z0-9][a-z0-9_-]*$", title="Eval")
-    agent: str = Field(..., min_length=1, title="Agent")
-    dataset_id: str = Field(..., title="Dataset Id")
-    revision: int = Field(..., ge=1, title="Revision")
-    case_ids: Sequence[str] | None = Field(default=None, title="Case Ids")
-    version: str = Field(..., min_length=1, title="Version")
-    branch: str = Field(..., min_length=1, title="Branch")
-    pr: int | None = Field(default=None, title="Pr")
-    ci_url: str = Field(default="", title="Ci Url")
-    trials: int = Field(default=1, ge=1, le=10, title="Trials")
-    scorers: Sequence[Annotated[TaskCompleted | CalledBefore | Judge, Field(discriminator="kind")]] = Field(
-        ..., min_length=1, title="Scorers"
-    )
+    agent: str = Field(..., min_length=1)
+    branch: str = Field(..., min_length=1)
+    case_ids: Sequence[str] | None = None
+    ci_url: str = ""
+    dataset_id: str
+    eval: str = Field(..., min_length=1, pattern="^[a-z0-9][a-z0-9_-]*$")
     gate: Gate = Field(
         default={
-            "regressions": 0,
-            "critical": 0,
-            "pass_rate": None,
             "cost_per_case": None,
+            "critical": 0,
             "min": {},
+            "pass_rate": None,
+            "regressions": 0,
         },
         validate_default=True,
     )
-    timeout_per_trial_ms: int = Field(default=1200000, gt=0, le=18446744073709551615, title="Timeout Per Trial Ms")
+    pr: int | None = Field(default=None, ge=0, le=18446744073709551615)
+    revision: int = Field(..., ge=1, le=18446744073709551615)
+    scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
+    timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
+    trials: int = Field(default=1, ge=1, le=10)
+    version: str = Field(..., min_length=1)
 
 
 class EvalRun(BaseModel):
@@ -186,15 +217,61 @@ class EvalRun(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    id: str = Field(..., title="Id")
-    status: Literal["running", "scoring", "done", "failed"] = Field(..., title="Status")
-    eval: str = Field(..., title="Eval")
-    agent: str = Field(..., title="Agent")
-    version: str = Field(..., title="Version")
-    branch: str = Field(..., title="Branch")
-    pr: int | None = Field(..., title="Pr")
-    url: str = Field(..., title="Url")
-    expected_trials: int = Field(..., title="Expected Trials")
-    received_trials: int = Field(..., title="Received Trials")
+    agent: str
+    branch: str
+    eval: str
+    expected_trials: int = Field(..., ge=0, le=18446744073709551615)
+    failure: str = ""
+    id: str
+    pr: int | None = Field(default=None, ge=0, le=18446744073709551615)
+    received_trials: int = Field(..., ge=0, le=18446744073709551615)
+    status: Literal["running", "scoring", "done", "failed"]
     summary: Summary | None = None
-    failure: str = Field(default="", title="Failure")
+    url: str
+    version: str
+
+
+class EvalSpec(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    agent: str = Field(..., min_length=1)
+    baseline: str = Field(default="main", min_length=1)
+    dataset_id: str = Field(..., min_length=1)
+    gate: Gate = Field(
+        default={
+            "cost_per_case": None,
+            "critical": 0,
+            "min": {},
+            "pass_rate": None,
+            "regressions": 0,
+        },
+        validate_default=True,
+    )
+    revision: int | None = Field(default=None, ge=1, le=18446744073709551615)
+    scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
+    timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
+    trials: int = Field(default=1, ge=1, le=10)
+
+
+class RunCase(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    case_id: str
+    critical: bool
+    passed: bool | None = None
+    title: str
+    trials: Sequence[TrialSteps]
+
+
+class EvalDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    name: str = Field(..., min_length=1, pattern="^[a-z0-9][a-z0-9_-]*$")
+    spec: EvalSpec
+    updated_at: str

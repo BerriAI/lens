@@ -3,6 +3,7 @@ import json
 from datetime import timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from lens import Case, Eval, Gate, Run, judge, scorers
 from lens.config import Execution, Settings
@@ -51,7 +52,6 @@ def test_case_mapping_immutability_and_trace_validation():
         {"concurrency": 0},
         {"baseline": "release"},
         {"timeout_per_trial": timedelta(0)},
-        {"gate": Gate(regressions=-1)},
         {"gate": Gate(min={"unknown": 0.5})},
         {"gate": Gate(min={"task_completed": float("nan")})},
     ],
@@ -59,6 +59,11 @@ def test_case_mapping_immutability_and_trace_validation():
 def test_invalid_configuration_fails_early(overrides):
     with pytest.raises(ConfigurationError):
         evaluation(**overrides)
+
+
+def test_negative_gate_thresholds_are_rejected_by_the_contract():
+    with pytest.raises(ValidationError):
+        Gate(regressions=-1)
 
 
 async def test_sync_api_does_not_hide_active_loop():

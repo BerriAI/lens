@@ -15,6 +15,7 @@ pub struct Control {
     token: Arc<str>,
     model_slots: Arc<Semaphore>,
     attempt: Option<u64>,
+    gateway: Option<lens_inference::GatewayIdentity>,
 }
 
 impl Control {
@@ -28,7 +29,13 @@ impl Control {
             token: token.into(),
             model_slots: Arc::new(Semaphore::new(16)),
             attempt: None,
+            gateway: None,
         }
+    }
+
+    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
+        self.gateway = gateway;
+        self
     }
 
     pub fn url(&self, path: &str) -> Result<Url, Error> {
@@ -44,6 +51,18 @@ impl Control {
         body: Option<&impl Serialize>,
         timeout: Duration,
     ) -> Result<T, Error> {
+        let marker = self
+            .gateway
+            .as_ref()
+            .map(|gateway| {
+                gateway.token(
+                    &url,
+                    lens_inference::GatewayPurpose::Analysis,
+                    chrono::Utc::now(),
+                )
+            })
+            .transpose()?
+            .flatten();
         let is_model = url.path().ends_with("/model");
         let request = self
             .client
@@ -56,6 +75,10 @@ impl Control {
         };
         let request = match self.attempt {
             Some(attempt) => request.header("x-litellm-lens-attempt", attempt),
+            None => request,
+        };
+        let request = match marker {
+            Some(token) => request.header(lens_inference::GATEWAY_HEADER, token),
             None => request,
         };
         let mut response = request.send().await?;

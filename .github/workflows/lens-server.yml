@@ -22,23 +22,23 @@ jobs:
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
       - name: Install Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
-      - name: Fetch comparison branch
-        working-directory: src/worker
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: git fetch origin "$BASE_REF"
+      - name: Check backend language boundary
+        shell: bash
+        run: |
+          unexpected=$(git ls-files '*.py' ':!:src/sdk/**' ':!:src/worker/crates/lens/sandbox/python_runtime.py')
+          if [ -n "$unexpected" ]; then
+            printf 'Python outside the SDK and sandbox is not supported:\n%s\n' "$unexpected"
+            exit 1
+          fi
       - name: Check formatting
         working-directory: src/worker
         run: cargo fmt --check
       - name: Run Clippy
         working-directory: src/worker
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Run tests
         working-directory: src/worker
-        run: cargo test
-      - name: Check Python route ratchet
-        working-directory: src/worker
-        run: bash crates/server/check_python_routes.sh "origin/${{ github.base_ref || 'main' }}"
+        run: cargo test --locked --workspace
 
   worker-ui-contract:
     runs-on: ubuntu-latest
@@ -51,6 +51,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check:worker-contract
       - run: npm run typecheck:ui
+      - name: Check setup and workspace behavior
+        run: >-
+          npm exec --workspace @litellm/lens-ui -- vitest run
+          src/components/lens/onboarding
+          src/components/lens/LensSetup.integration.test.tsx
+          src/components/lens/LensWorkspace.integration.test.tsx
+          --maxWorkers 2
 
   standalone-container:
     strategy:

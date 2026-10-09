@@ -10,6 +10,7 @@ export const LENS_TABS = {
   findings: "Findings",
   investigations: "Investigations",
   datasets: "Datasets",
+  evals: "Evals",
   settings: "Settings",
 } as const;
 export type LensTab = keyof typeof LENS_TABS;
@@ -35,17 +36,19 @@ const INBOX_PARSERS = {
   priority: parseAsStringLiteral(["all", "high", "medium", "low"]).withDefault("all"),
 };
 
-const DATASET_TABS = ["cases", "runs"] as const;
-export type DatasetTab = (typeof DATASET_TABS)[number];
-
 const DATASET_PARSERS = {
   dataset: parseAsString,
   revision: parseAsInteger,
   case: parseAsString,
-  dataset_tab: parseAsStringLiteral(DATASET_TABS),
+};
+
+const EVAL_PARSERS = {
+  eval: parseAsString,
   eval_run: parseAsString,
   eval_case: parseAsString,
 };
+
+const LEGACY_PARSERS = { dataset_tab: parseAsString };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
@@ -74,6 +77,8 @@ const SESSION_PARSERS = {
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
   ...DATASET_PARSERS,
+  ...EVAL_PARSERS,
+  ...LEGACY_PARSERS,
 };
 const nulls = <K extends string>(keys: readonly K[]) =>
   Object.fromEntries(keys.map((key) => [key, null])) as Record<K, null>;
@@ -84,6 +89,8 @@ const CLEARED_AGENT_VIEW = {
   ...nulls(Object.keys(OPEN_TRACE_PARSERS)),
   ...nulls(Object.keys(RESULT_PARSERS)),
   ...nulls(Object.keys(DATASET_PARSERS)),
+  ...nulls(Object.keys(EVAL_PARSERS)),
+  ...nulls(Object.keys(LEGACY_PARSERS)),
   ...nulls(Object.keys(DIALOG_PARSERS)),
   ...nulls(Object.keys(INBOX_PARSERS)),
   lens: null,
@@ -249,7 +256,7 @@ export function useInboxFilters() {
   };
 }
 
-const FRESH_DATASET = { revision: null, case: null, dataset_tab: null, eval_run: null, eval_case: null } as const;
+const FRESH_DATASET = { revision: null, case: null } as const;
 
 /** `revision` null means the latest revision, so a dataset link keeps following new saves. */
 export function useDatasetRoute() {
@@ -266,22 +273,20 @@ export function useDatasetRoute() {
   return { datasetId: dataset, revision, caseId, openDataset, setRevision, setCaseId };
 }
 
-const isDatasetTab = (tab: string): tab is DatasetTab => (DATASET_TABS as readonly string[]).includes(tab);
+const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, ...EVAL_PARSERS };
 
-/** A run link without a tab still lands on Runs, so a PR comment needs only the dataset, run and case. */
 export function useEvalRunRoute() {
-  const [{ dataset_tab, eval_run, eval_case }, setParams] = useQueryStates(DATASET_PARSERS, { history: "push" });
-  const setDatasetTab = useCallback(
-    (next: string) => void (isDatasetTab(next) && setParams({ dataset_tab: next }, { history: "replace" })),
+  const [{ eval: evalName, eval_run, eval_case }, setParams] = useQueryStates(EVAL_ROUTE_PARSERS, { history: "push" });
+  const openEval = useCallback(
+    (next: string | null) => void setParams({ tab: "evals", eval: next, eval_run: null, eval_case: null }),
     [setParams],
   );
   const openRun = useCallback(
-    (next: string | null) => void setParams({ dataset_tab: "runs", eval_run: next, eval_case: null }),
+    (next: string | null) => void setParams({ tab: "evals", eval_run: next, eval_case: null }),
     [setParams],
   );
   const openCase = useCallback((next: string | null) => void setParams({ eval_case: next }), [setParams]);
-  const datasetTab: DatasetTab = dataset_tab ?? (eval_run ? "runs" : "cases");
-  return { datasetTab, runId: eval_run, caseId: eval_case, setDatasetTab, openRun, openCase };
+  return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase };
 }
 
 const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...OPEN_TRACE_PARSERS };

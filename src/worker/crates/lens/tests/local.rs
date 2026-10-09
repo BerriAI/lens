@@ -328,6 +328,60 @@ async fn revoked_or_unconfigured_workers_do_not_claim(
     }
 }
 
+#[rstest]
+#[case::eligible("team-a", true, "test-analysis", true)]
+#[case::foreign_scope("team-b", true, "test-analysis", false)]
+#[case::missing_analysis("team-a", false, "test-analysis", false)]
+#[case::unavailable_model("team-a", true, "removed-model", false)]
+#[tokio::test]
+async fn running_requires_an_authorized_worker_with_the_selected_model(
+    #[future(awt)] database: Database,
+    #[case] worker_team: &str,
+    #[case] analysis_configured: bool,
+    #[case] model: &str,
+    #[case] allowed: bool,
+) {
+    use lens_contract::{investigations::Scope, worker::LensSettings};
+    use lens_investigations::WorkerRepository;
+    use lens_server::investigations::{InvestigationAccess, InvestigationAccessError};
+
+    let server = database
+        .serve_models(true, vec![deployment("http://127.0.0.1:1/v1".into())])
+        .await;
+    let control = server.worker.as_ref().unwrap();
+    let original = control.repository.workers().await.unwrap().remove(0);
+    let worker = lens_contract::investigations::Worker {
+        scope: Scope {
+            team_id: worker_team.into(),
+            ..Default::default()
+        },
+        analysis_key_id: analysis_configured.then(|| "a".repeat(64)),
+        ..original
+    };
+    control.repository.save_worker(&worker, None).await.unwrap();
+    let settings: LensSettings = serde_json::from_value(json!({
+        "name": "Worker access", "model": model,
+        "checks": [{"id": "correct", "instruction": "Match the evidence"}]
+    }))
+    .unwrap();
+    let scope = Scope {
+        team_id: "team-a".into(),
+        ..Default::default()
+    };
+    let result = control.validate_workers(&settings, &scope).await;
+    if allowed {
+        assert!(result.is_ok());
+    } else {
+        assert!(matches!(
+            result,
+            Err(InvestigationAccessError::Rejected {
+                status: http::StatusCode::BAD_REQUEST,
+                ..
+            })
+        ));
+    }
+}
+
 async fn seed_unavailable_page(
     repository: &litellm_storage_clickhouse::investigations::Investigations,
 ) {

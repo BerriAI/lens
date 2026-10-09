@@ -4,6 +4,8 @@ Lens records agent traces, investigates failures, and turns useful examples into
 
 The source installation below builds the current checkout. A published standalone image and release bundle are still being qualified; this guide does not imply that an installable release has shipped
 
+Prefer your coding agent to make the changes? [Set it up for me](../../docs/setup-with-agent.md#start-standalone-lens) has a copyable prompt for standalone setup, an existing LiteLLM deployment, and optional external storage. The commands below remain the shortest manual path
+
 ## Start locally
 
 Install Git and Docker with Docker Compose v2, then run:
@@ -22,7 +24,7 @@ Rerunning the start command preserves the environment file, credentials and Clic
 
 ## Record your first trace
 
-Open **Settings > Tracing > Connect an agent**, select your framework, and create a tracing key. Copy the generated configuration into your agent. Keep your agent's existing model endpoint and provider credential; the separate Lens tracing key authorizes telemetry uploads
+Open **Traces** and choose **Set up tracing** if the setup panel is not already open. Then select your framework, and create a tracing key. Copy the generated configuration into your agent. Keep your agent's existing model endpoint and provider credential; the separate Lens tracing key authorizes telemetry uploads
 
 Run your agent, then use **Check for traces** in setup or open **Traces**. Open the matching run and inspect its messages and tool calls. The **Demo data** switch shows examples; it does not verify your agent connection
 

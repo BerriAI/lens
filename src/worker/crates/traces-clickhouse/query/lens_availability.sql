@@ -9,6 +9,10 @@ SELECT
         WHERE ({all_teams:UInt8}=1 OR team_id={team:String})
           AND ({key_hash:String}='' OR api_key={key_hash:String})
           AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+          AND (team_id,api_key,trace_id) NOT IN eval_traces
+          AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),
+              JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'
+          AND NOT is_eval_request(team_id,api_key,response_id,provider_request_id,litellm_call_id,request_id,trace_id,span_id)
           AND (team_id,api_key,response_id) NOT IN (
               SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
               WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})

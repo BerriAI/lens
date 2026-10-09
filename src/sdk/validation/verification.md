@@ -2,13 +2,23 @@
 
 The Python API is backed by `lens-evals-sdk` and `lens-evals-python` in `src/worker/crates/`. The package is under `src/sdk/`. The current follow-up is `lens-evals==0.1.0a3`
 
-## Contract alignment, 0.1.0a3
+## Current merged qualification
+
+The canonical eval contract now lives in `lens-contract`. The SDK imports those Rust types and generates its Python models from `schema/lens.v1.json`. The merged contract suite passed 37 tests, including saved eval definitions, run-case trajectories and schema fixtures. SDK model generation completed against that schema. The previous notes below describe the evidence available before this integration landed
+
+The standalone service has also completed a real provider-backed main, regression, fix and unchanged-version repeat through its production eval API. This exercises stored datasets, trace ingestion, scheduled closure, scoring and baseline comparison. See the [merged service proof](../../../docs/extraction/evidence/rust-live-eval-merged.json)
+
+The current native macOS arm64 wheel passed all 38 Python SDK tests and a real gateway-delegated eval against the merged service. The agent and judge each made a paid provider call; the case completed, the judge scored 1.0 and the gate passed. ClickHouse recorded the exact run, team, case and environment attribution while redacting the judge request and response. Viewer reads succeeded and writes were rejected; teamless access was rejected and an incompatible contract returned 409. See the [native SDK and gateway proof](../../../docs/extraction/evidence/rust-gateway-sdk.json). This is qualification of a locally built wheel, not an official release
+
+The merged eval URL and SDK case-link mutation suite caught all 13 viable mutants, with one unviable mutation. The final judge suite, including the gateway attribution changes, caught all 17 viable mutants, with five unviable mutations. See [eval URL qualification](../../../docs/extraction/evidence/rust-eval-url-mutations.json) and [judge qualification](../../../docs/extraction/evidence/rust-eval-judge-mutations.json). These are focused mutation scopes, not claims of exhaustive server coverage
+
+## Earlier contract alignment, 0.1.0a3
 
 86 Rust behavior tests and 38 Python API/CLI tests pass locally. Python boundary coverage is 92%. Strict Clippy, formatting, Ruff, strict mypy, and generated-model drift checks pass
 
 The added tests exercise returning an accepted trace before completion, root-span closure, 120-second idle closure, custom per-trial deadlines sent over HTTP, late or missing traces, independently stamped build versions, metadata finding selection, and failed absolute gates without a baseline. The installer tests reject a tampered wheel before installation and reuse an already installed native package. The focused mutation suite catches all 19 deliberate faults; [mutations.json](mutations.json) records the results
 
-This version sends `timeout_per_trial_ms` and consumes `DatasetCase.meta["finding_id"]`. It requires those additions in the production contract. The canonical eval schema and deployed lifecycle remain pending; local scoring is synthetic
+This version sends `timeout_per_trial_ms` and consumes `DatasetCase.meta["finding_id"]`. At this earlier checkpoint, the canonical eval schema and deployed lifecycle were pending and local scoring was synthetic. The merged qualification above supersedes that integration status
 
 ## Previous native SDK, 0.1.0a2
 
@@ -60,10 +70,8 @@ The live-gateway example called `openai/gpt-6.1-sol` three times and exported th
 
 [live.json](live.json) preserves sanitized evidence from that earlier implementation. It is not a live validation of the new Rust transport. The temporary key was blocked and verified unusable, and downloaded case content was removed
 
-## Remaining integration work
+## Remaining release and integration qualification
 
-The deployed eval lifecycle/scorers, canonical Rust schema, and real-agent regression PR ship test remain unverified. The production API was absent at the earlier live check. Local server gates in these tests are synthetic
+The canonical schema and lifecycle implementations are integrated. Production rollout, published SDK wheel qualification against the final service image, and the real-agent regression PR ship test remain separate acceptance checks. Older hosted deployments that still return 404 for the eval API need a compatible Lens release before they can serve these SDK calls
 
-Ishaan owns the real lifecycle routes, trace scoring, baseline selection, comparison UI, and `lens-contract` schema. Once the schema lands, regenerate Pydantic models, replace the SDK's provisional Rust wire structs with the canonical types, and validate the shared fixtures under `src/worker/crates/contract/fixtures/lens_eval/`
-
-The agent integration must return the accepted trace reference, stamp its own build SHA, and implement its service-token/sandbox eval mode. Lens I1 must wait for trace closure and reject a build SHA that differs from the requested eval version. Then run the actual regression PR, revert it, and repeat an unchanged commit. No SDK-only test can establish that server-and-agent result in advance
+An agent must return its accepted trace reference, stamp its own build SHA, and implement its service-token or sandbox eval mode. The assembled service tests and real main/regression/fix/repeat run now exercise server closure and gate behavior. They do not by themselves prove every external agent integration or a reviewed regression PR being merged and deployed

@@ -1,8 +1,9 @@
 use std::collections::BTreeSet;
 
 use lens_contract::eval::{
-    CaseError, CaseResult, CreateEvalRun, DEFAULT_TIMEOUT_PER_TRIAL_MS, EvalRun, Gate,
-    InvalidCaseResult, RunStatus, Scorer, TraceAttribute, TraceRef, scorer_names,
+    CaseError, CaseResult, CreateEvalRun, DEFAULT_TIMEOUT_PER_TRIAL_MS, EvalDefinition, EvalRun,
+    EvalSpec, Gate, InvalidCaseResult, RunCase, RunStatus, Scorer, TraceAttribute, TraceRef,
+    scorer_names,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -13,6 +14,8 @@ const RESULT_TRACE: &str = include_str!("../fixtures/lens_eval/case_result_trace
 const RESULT_ERROR: &str = include_str!("../fixtures/lens_eval/case_result_error.json");
 const RUN_DONE: &str = include_str!("../fixtures/lens_eval/eval_run_done.json");
 const RUN_NO_BASELINE: &str = include_str!("../fixtures/lens_eval/eval_run_no_baseline.json");
+const DEFINITION: &str = include_str!("../fixtures/lens_eval/eval_definition.json");
+const RUN_CASE: &str = include_str!("../fixtures/lens_eval/run_case.json");
 
 fn schema_properties(definition: &str) -> BTreeSet<String> {
     let schema: Value = serde_json::from_str(SCHEMA).expect("schema is JSON");
@@ -40,6 +43,8 @@ fn serialized_keys(value: &impl serde::Serialize) -> BTreeSet<String> {
 #[case::eval_run_no_baseline(RUN_NO_BASELINE)]
 #[case::case_result_trace(RESULT_TRACE)]
 #[case::case_result_error(RESULT_ERROR)]
+#[case::eval_definition(DEFINITION)]
+#[case::run_case(RUN_CASE)]
 fn golden_fixtures_round_trip(#[case] fixture: &str) {
     let original: Value = serde_json::from_str(fixture).expect("fixture is JSON");
     let reparsed: Value = match original.get("status") {
@@ -48,6 +53,12 @@ fn golden_fixtures_round_trip(#[case] fixture: &str) {
         ),
         None if original.get("eval").is_some() => serde_json::to_value(
             serde_json::from_value::<CreateEvalRun>(original.clone()).expect("parses"),
+        ),
+        None if original.get("spec").is_some() => serde_json::to_value(
+            serde_json::from_value::<EvalDefinition>(original.clone()).expect("parses"),
+        ),
+        None if original.get("trials").is_some() => serde_json::to_value(
+            serde_json::from_value::<RunCase>(original.clone()).expect("parses"),
         ),
         None => serde_json::to_value(
             serde_json::from_value::<CaseResult>(original.clone()).expect("parses"),
@@ -75,11 +86,36 @@ fn golden_fixtures_round_trip(#[case] fixture: &str) {
 #[case::eval_run("EvalRun", serialized_keys(&serde_json::from_str::<EvalRun>(RUN_DONE).unwrap()))]
 #[case::case_result("CaseResult", serialized_keys(&serde_json::from_str::<CaseResult>(RESULT_TRACE).unwrap()))]
 #[case::gate("Gate", serialized_keys(&Gate::default()))]
+#[case::eval_definition("EvalDefinition", serialized_keys(&serde_json::from_str::<EvalDefinition>(DEFINITION).unwrap()))]
+#[case::run_case("RunCase", serialized_keys(&serde_json::from_str::<RunCase>(RUN_CASE).unwrap()))]
 fn rust_types_match_the_checked_in_schema(
     #[case] definition: &str,
     #[case] rust_keys: BTreeSet<String>,
 ) {
     assert_eq!(rust_keys, schema_properties(definition));
+}
+
+#[rstest]
+fn saved_eval_spec_keeps_the_defaults_used_by_a_new_run() {
+    let spec: EvalSpec = serde_json::from_value(json!({
+        "agent":"support","dataset_id":"dataset-1","scorers":[{"kind":"task_completed"}]
+    }))
+    .unwrap();
+    assert_eq!(spec.revision, None);
+    assert_eq!(spec.trials, 1);
+    assert_eq!(spec.baseline, "main");
+    assert_eq!(spec.gate, Gate::default());
+    assert_eq!(spec.timeout_per_trial_ms, DEFAULT_TIMEOUT_PER_TRIAL_MS);
+}
+
+#[test]
+fn checked_in_schema_is_generated_from_the_rust_types() {
+    let checked_in: Value = serde_json::from_str(SCHEMA).unwrap();
+    assert_eq!(
+        lens_contract::schema::eval_contract(),
+        checked_in,
+        "schema/lens.v1.json drifted, run npm run generate:eval-contract"
+    );
 }
 
 #[test]

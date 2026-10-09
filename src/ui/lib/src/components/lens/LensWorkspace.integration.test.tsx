@@ -7,6 +7,7 @@ import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
+import { LensHostProvider } from "../../host/LensHost";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
   new URLSearchParams(String(onUrlUpdate.mock.lastCall?.[0].queryString ?? ""));
@@ -26,6 +27,54 @@ beforeEach(() => {
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: false });
     return Response.json({ data: [], traces: false, requests: false });
   });
+});
+
+it("keeps installation controls mounted while readiness retries and continues after Lens connects", async () => {
+  const user = userEvent.setup();
+  const unavailable = () => Response.json({ detail: "Configure Lens" }, { status: 503 });
+  const listResponse = vi.fn<() => Promise<Response>>(async () => unavailable());
+  const traceResponse = vi.fn(() => Response.json({ detail: "Tracing is not enabled" }, { status: 501 }));
+  const serviceResponse = vi.fn(() =>
+    Response.json({ configured: false, connected: false, url: "", status: { storage_ready: false } }),
+  );
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens") return listResponse();
+    if (path === "/v1/traces") return traceResponse();
+    if (path === "/lens/service") return serviceResponse();
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return Response.json({ data: [], traces: false, requests: false });
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", analysis: "deployment" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  const setup = within(await screen.findByRole("region", { name: "Get Lens running" }));
+  expect(await setup.findByRole("link", { name: "Helm setup" })).toBeVisible();
+  const copy = setup.getByRole("button", { name: "Set it up for me" });
+  const retry = Promise.withResolvers<Response>();
+  listResponse.mockImplementationOnce(() => retry.promise);
+
+  act(() => {
+    void testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
+  });
+  await waitFor(() => expect(listResponse).toHaveBeenCalledTimes(2));
+  expect(copy).toBeVisible();
+  expect(screen.queryByText("Checking Lens setup…")).not.toBeInTheDocument();
+  await user.click(copy);
+  expect(await navigator.clipboard.readText()).toContain("Lens connection is not configured");
+  await act(async () => retry.resolve(unavailable()));
+
+  listResponse.mockImplementation(async () => Response.json({ lenses: [], workers: [], tracing_enabled: true }));
+  traceResponse.mockImplementation(() => Response.json({ data: [], next_cursor: null }));
+  serviceResponse.mockImplementation(() =>
+    Response.json({ configured: true, connected: true, url: "https://lens.test", status: { storage_ready: true } }),
+  );
+  await user.click(await setup.findByRole("button", { name: "Check setup" }));
+  await user.click(await setup.findByRole("button", { name: "Continue to your agent" }));
+  expect(await setup.findByRole("button", { name: "Generate tracing key" })).toBeVisible();
+  expect(setup.getByRole("button", { name: /Send your first trace/ })).toHaveAttribute("aria-expanded", "true");
 });
 
 describe("Lens interactive demo", () => {

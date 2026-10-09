@@ -73,7 +73,7 @@ function Surface({
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensHostProvider host={{ analysis: "deployment" }}>
+      <LensHostProvider host={{ analysis: "deployment", surface: "standalone" }}>
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
     </div>

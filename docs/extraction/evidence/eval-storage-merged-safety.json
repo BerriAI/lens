@@ -1,0 +1,354 @@
+{
+  "source_sha256": {
+    "crates/storage-clickhouse/src/evals.rs": "f2bf69dd3f52d2592841758d2baaef663d8b297cc84c8c0d536f4b7865c8e4cb",
+    "crates/storage-clickhouse/src/evals/records.rs": "dd9c29d18d6e434ac290d1b37d2260bc54edecc3f78c574876d4ff42b300f4b2",
+    "crates/storage-clickhouse/src/evals/scoring.rs": "6e604b9b1e8a3451f97be2853830203d2f982829692edef0518b12837872212b",
+    "crates/storage-clickhouse/src/evals/definitions.rs": "72270ea64fd7315df0d7b5e8fa6eb8f45fccebeba2af0ad56cbfa4b950fd20f2",
+    "Cargo.lock": "9b72955bcf5805912f68adffee7cf1e9f590b90e8a84df3d28b2ac4cfc0b556f",
+    "crates/storage-clickhouse/tests/evals.rs": "68b1cfa356b23d7a47e228dc40da840abd43eb6de66f3550b7bcae1511fdde9e",
+    "crates/storage-clickhouse/tests/evals/qualification.rs": "185f189fee22c8c56868b2530606c3e2e123aeba9553864de5c21864b7f70899",
+    "crates/storage-clickhouse/tests/evals/support.rs": "619bf99bb525aa471eecf68e3587532654762f49e66f4973632f5f94bbf30938"
+  },
+  "environment": {
+    "CARGO_TARGET_DIR": "/private/tmp/lens-object-record-target-20261008",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CLICKHOUSE_STATE_TEST_URL": "http://127.0.0.1:18124"
+  },
+  "cases": [
+    {
+      "name": "decode_array_as_record",
+      "file": "crates/storage-clickhouse/src/evals/records.rs",
+      "search": "    let fields: serde_json::Map<String, serde_json::Value> =\n        serde_json::from_value(snapshot.value.clone()).map_err(|_| Error::InvalidState)?;\n    serde_json::from_value(serde_json::Value::Object(fields))\n        .map_err(|_| Error::InvalidState.into())",
+      "replacement": "    serde_json::from_value(snapshot.value.clone()).map_err(|_| Error::InvalidState.into())",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "array_encoded_run_records_fail_closed",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "407d9079cade0a393b47d518a40004b547bd277c38c6e69d09caa34be401af1e",
+      "log_sha256": "3c004ab4c12e5db2607b4eaecfa248f0eed159207cd2da3738ad8f5062ee3d98",
+      "log": "/tmp/lens-eval-merged-safety-20261008/decode_array_as_record.log",
+      "failures": [
+        "qualification::array_encoded_run_records_fail_closed::case_1_get",
+        "qualification::array_encoded_run_records_fail_closed::case_2_list"
+      ]
+    },
+    {
+      "name": "shorten_lease_on_delayed_renewal",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": "current\n                            .expires_at\n                            .max(now + chrono::Duration::seconds(SCORING_LEASE_SECONDS))",
+      "replacement": "now + chrono::Duration::seconds(SCORING_LEASE_SECONDS)",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "delayed_renewal_cannot_shorten_the_current_lease",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "a005f9b72a5506686e5fe7cad6e5f7595d548844ff381975998c863a5d9b4f9f",
+      "log_sha256": "9612680ccbba83de7afc8a8560213e602fcadb9c8b5edf120f067973fbc8a4c2",
+      "log": "/tmp/lens-eval-merged-safety-20261008/shorten_lease_on_delayed_renewal.log",
+      "failures": [
+        "qualification::delayed_renewal_cannot_shorten_the_current_lease"
+      ]
+    },
+    {
+      "name": "rewrite_submission_time",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": "                        && stored.submitted_at == trial.submitted_at",
+      "replacement": "",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "invalid_completion_cannot_replace_sealed_results::case_1_submission_time",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "edbd68e079be0e2b0907fccf764d11133433d726551055b6b46b2ab49caa0f30",
+      "log_sha256": "45a4e654b415a17ced017cd9a0e84e9badca96d958979d3c1977f5e64b045535",
+      "log": "/tmp/lens-eval-merged-safety-20261008/rewrite_submission_time.log",
+      "failures": [
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_1_submission_time"
+      ]
+    },
+    {
+      "name": "publish_invalid_result_shape",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": "trial.result.validate().is_err()",
+      "replacement": "false",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "invalid_completion_cannot_replace_sealed_results::case_2_invalid_result",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "9071081ce6bd4b256ebc575944cf723c2892186dc134886f70a13504e6a2803a",
+      "log_sha256": "cd4c3385e39b0acf7dfcc51567d7dfad59b4cb20b5bb2c8112b34b3e781c76c6",
+      "log": "/tmp/lens-eval-merged-safety-20261008/publish_invalid_result_shape.log",
+      "failures": [
+        "qualification::invalid_completion_cannot_replace_sealed_results::case_2_invalid_result"
+      ]
+    },
+    {
+      "name": "resurrect_expired_lease",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": " && current.expires_at > now",
+      "replacement": "",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "expired_owner_cannot_renew_without_a_takeover",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "d3c70d9b77ff27ecf7489d3ae539473b8bc03bec767e15e94df80a91c0d7bbad",
+      "log_sha256": "4c03e5d852799a904d834e2b05531450fd358f9fdf30d77ea447774466bbeea1",
+      "log": "/tmp/lens-eval-merged-safety-20261008/resurrect_expired_lease.log",
+      "failures": [
+        "qualification::expired_owner_cannot_renew_without_a_takeover::case_1_exact",
+        "qualification::expired_owner_cannot_renew_without_a_takeover::case_2_after"
+      ]
+    },
+    {
+      "name": "truncate_run_scan_at_first_page",
+      "file": "crates/storage-clickhouse/src/evals.rs",
+      "search": "            after = last.clone();\n        }\n    }\n\n    pub async fn baseline",
+      "replacement": "            return Ok(runs);\n        }\n    }\n\n    pub async fn baseline",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "listing_crosses_full_pages_and_skips_deleted_records",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "d85dc0a6c1001f367a38353005ffecd770be61fd22c911658706c3231030726a",
+      "log_sha256": "04fc0557dd592229a5249ae0e0cc2a50bd1cc89d66a012775abdb21d09507df3",
+      "log": "/tmp/lens-eval-merged-safety-20261008/truncate_run_scan_at_first_page.log",
+      "failures": [
+        "qualification::listing_crosses_full_pages_and_skips_deleted_records"
+      ]
+    },
+    {
+      "name": "reject_default_scope_runs",
+      "file": "crates/storage-clickhouse/src/evals.rs",
+      "search": "        validate_cases(&request, &cases)?;",
+      "replacement": "        if team.is_empty() { return Err(EvalError::InvalidRequest(\"team is required\")); }\n        validate_cases(&request, &cases)?;",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "standalone_default_scope_remains_isolated_from_named_teams",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "a35c43eddda2e23039882ff61b8962d1370abfbb48e528dfd72fa1474a84c161",
+      "log_sha256": "5e8bbafbdac82df33bae8927e59de1e0e49bab8f09c42360d59d1a6fe2a62839",
+      "log": "/tmp/lens-eval-merged-safety-20261008/reject_default_scope_runs.log",
+      "failures": [
+        "qualification::standalone_default_scope_remains_isolated_from_named_teams"
+      ]
+    },
+    {
+      "name": "reject_default_scope_definitions",
+      "file": "crates/storage-clickhouse/src/evals/definitions.rs",
+      "search": "        let key = format!(\"{}{name}\", prefix(team));",
+      "replacement": "        if team.is_empty() { return Err(EvalError::InvalidRequest(\"team is required\")); }\n        let key = format!(\"{}{name}\", prefix(team));",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "standalone_default_scope_remains_isolated_from_named_teams",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "3dea725c91b466c8d0f673bc67bee24e3b66af9ea93006a84bcba0ec8f0d92da",
+      "log_sha256": "87c889b92089709535767ffc63b337488e154fffd9f81361e7f5450718584113",
+      "log": "/tmp/lens-eval-merged-safety-20261008/reject_default_scope_definitions.log",
+      "failures": [
+        "qualification::standalone_default_scope_remains_isolated_from_named_teams"
+      ]
+    },
+    {
+      "name": "drop_enriched_trial_results",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": "                    run.trials = completion.trials.clone();\n",
+      "replacement": "",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "successful_completion_persists_enriched_results_with_original_times",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "aacc1feb47e1f5e9fcc996a7d134bee317bcab985d8e282a84f733bf0867b6f3",
+      "log_sha256": "4297f3f6ba270e309b02ef36f5e937b2fd144ddcdff408bb7f32abd16b87af38",
+      "log": "/tmp/lens-eval-merged-safety-20261008/drop_enriched_trial_results.log",
+      "failures": [
+        "qualification::successful_completion_persists_enriched_results_with_original_times"
+      ]
+    },
+    {
+      "name": "fence_ignores_replaced_owner",
+      "file": "crates/storage-clickhouse/src/evals/scoring.rs",
+      "search": "current.token == lease.token && current.expires_at > now",
+      "replacement": "current.expires_at > now",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "litellm-storage-clickhouse",
+        "--test",
+        "evals",
+        "replaced_owner_cannot_change_or_release_successor::case_1_complete",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "caught",
+      "exit_status": 101,
+      "signal": null,
+      "mutated_sha256": "ae9cda90fdd7027ea2eee34fd247ba82e066c65855ca0328138379fba5c93eed",
+      "log_sha256": "48c2250505c7678c5666f439da46fc04396710eb886da00fd1a24df6ed69e4fa",
+      "log": "/tmp/lens-eval-merged-safety-20261008/fence_ignores_replaced_owner.log",
+      "failures": [
+        "qualification::replaced_owner_cannot_change_or_release_successor::case_1_complete"
+      ]
+    }
+  ],
+  "source_restored": {
+    "crates/storage-clickhouse/src/evals.rs": true,
+    "crates/storage-clickhouse/src/evals/records.rs": true,
+    "crates/storage-clickhouse/src/evals/scoring.rs": true,
+    "crates/storage-clickhouse/src/evals/definitions.rs": true,
+    "Cargo.lock": true,
+    "crates/storage-clickhouse/tests/evals.rs": true,
+    "crates/storage-clickhouse/tests/evals/qualification.rs": true,
+    "crates/storage-clickhouse/tests/evals/support.rs": true
+  },
+  "qualified_at": "2026-10-09T05:27:50.288Z",
+  "scope": "Merged upstream EvalStore definitions, frozen cases, receipts and scoring leases",
+  "checkout_validation": {
+    "production_and_test_source_hashes_match": true,
+    "checkout_lock_sha256": "64cb8fc369a8630bab63191280f30aeaf603fa0f95ffdeebbcea661e1b0093c4",
+    "lock_difference": "The checkout adds only lens-server dev dependency wiremock; storage source and dependency closure are unchanged"
+  },
+  "baseline": {
+    "passed": 54,
+    "failed": 0,
+    "physical_restart_filtered": 1,
+    "sha256": "ffabeba5f7284080c7c267e21227d0c986aa1d825d9d392bc0cdca44be04763e"
+  },
+  "restored_baseline": {
+    "passed": 54,
+    "failed": 0,
+    "physical_restart_filtered": 1,
+    "sha256": "198092fb0ab00155b5606715e749d1d42b8e92d368e703cb66e2b7c95f0c0f5f"
+  },
+  "strict_clippy": {
+    "passed": true,
+    "sha256": "3302ed8903f5c09c2fa1c69dcd0f131a416a62a66683f3d5a2088169957ad14f"
+  },
+  "totals": {
+    "manual": 10,
+    "caught": 10,
+    "survived": 0
+  },
+  "limits": [
+    "Ten focused manual safety mutations, not a complete generated inventory of upstream eval source",
+    "Supersedes previous eval-store mutation claims for the replaced storage API"
+  ],
+  "local_evidence_directory": "/tmp/lens-eval-merged-safety-20261008",
+  "recorded_at": "2026-10-09T06:08:11.592Z",
+  "restart_followup": {
+    "test": "qualification::run_and_first_receipt_survive_abrupt_restart",
+    "status": "passed",
+    "storage_eval_tests_passed": 55,
+    "log": "/tmp/lens-merged-workspace-tests.log",
+    "log_sha256": "3851f7e58776ca93bbc3dac2622360258b39b6224bfaa2966134604d957f250a"
+  }
+}

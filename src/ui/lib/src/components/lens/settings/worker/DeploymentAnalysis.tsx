@@ -8,6 +8,7 @@ import { lensQueries } from "../../data/queries";
 import { useWorkerConnected } from "../../hooks/useWorkerConnected";
 import type { LensList } from "../../model/types";
 import { SettingsCard } from "../SettingsSection";
+import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 
 const CONFIGURATION_GUIDE = "https://github.com/BerriAI/lens/blob/main/docs/analysis.md";
 
@@ -29,6 +30,10 @@ export function DeploymentAnalysis({
   };
   return (
     <SettingsCard className="space-y-4">
+      <SetupAgentPrompt
+        goal="analysis"
+        featureConfigured={models.isSuccess ? configured.length > 0 : undefined}
+      />
       {models.isPending ? (
         <p role="status" className="text-sm text-muted-foreground">
           Checking analysis models…

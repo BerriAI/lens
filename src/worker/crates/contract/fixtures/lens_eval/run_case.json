@@ -1,0 +1,16 @@
+{
+  "case_id": "case-1",
+  "title": "Find the requested order",
+  "critical": true,
+  "passed": false,
+  "trials": [
+    {
+      "trial": 0,
+      "error": null,
+      "checks": [{ "scorer": "called_before", "passed": false }],
+      "steps": [
+        { "name": "Order lookup", "tool_name": "lookup_order", "ok": false, "start_ns": 100, "end_ns": 200 }
+      ]
+    }
+  ]
+}

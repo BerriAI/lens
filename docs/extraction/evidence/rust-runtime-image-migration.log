@@ -1,0 +1,2 @@
+{"applied":true,"verified":true,"plan":{"schema":1,"fingerprint":"0d84c83f1d8d64641f07207beb6547d3fbdda1941984ab816c2b07f833570e39","records":10,"source_rows":{"datasets":1,"ingestion_keys":1,"lenses":1,"reviews":1,"runs":1,"signal_configs":1,"trace_signals":1,"workers":1}}}
+Qualified the image migration executable against all eight PostgreSQL metadata tables: read-only planning, ClickHouse import, verification, repeat import and unchanged source

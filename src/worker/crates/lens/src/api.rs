@@ -1,48 +1,40 @@
 use std::sync::{Arc, atomic::Ordering};
 
+use crate::{eval_judge::GatewayJudge, eval_runtime::EvalRuntime};
 use axum::Router;
 use lens_auth::ingestion::Ingestion;
 use lens_auth::{Authentication, Settings};
 use lens_server::datasets::DatasetConfig;
 use lens_server::tracing::TraceConfig;
 use litellm_storage_clickhouse::{
-    datasets::Datasets, ingestion::IngestionKeys, sessions::Sessions, state::ClickHouseState,
+    datasets::Datasets, evals::EvalStore, ingestion::IngestionKeys, sessions::Sessions,
+    state::ClickHouseState,
 };
+use litellm_traces_clickhouse::evals::EvalTraces;
+use tokio::task::JoinHandle;
 
 use crate::{Error, State, local_credentials::LocalCredentials, storage::TraceApi};
 use lens_investigations::WorkerRepository;
 use sha2::{Digest, Sha256};
+
+pub struct EvalConfig {
+    pub public_url: String,
+    pub judge: GatewayJudge,
+}
 
 pub struct Application {
     pub router: Router,
     pub credentials: Arc<LocalCredentials<IngestionKeys>>,
     pub local_worker: Option<crate::local::LocalControl>,
     pub signals_worker: Option<crate::signals::SignalsWorker>,
-    pub evaluations:
-        Option<crate::evaluations::Evaluations<litellm_storage_clickhouse::evals::Evals>>,
+    pub evals: EvalRuntime,
     authentication: Arc<Authentication<Sessions>>,
 }
 
 impl Application {
-    pub fn with_evaluations(
-        mut self,
-        state: Arc<State>,
-        public_url: url::Url,
-    ) -> Result<Self, Error> {
+    pub fn with_evaluations(mut self) -> Result<Self, Error> {
         let worker = self.local_worker.as_ref().ok_or(Error::Unavailable)?;
-        let store = self.authentication.sessions.0.clone();
-        let repository = litellm_storage_clickhouse::evals::Evals(store.clone());
-        self.router = self.router.merge(lens_server::evals::router(
-            self.authentication.clone(),
-            Datasets(store),
-            repository.clone(),
-            lens_server::evals::EvalConfig { public_url },
-        ));
-        self.evaluations = Some(crate::evaluations::Evaluations::new(
-            repository,
-            state,
-            worker.models.clone(),
-        ));
+        self.evals.judge = self.evals.judge.with_models(worker.models.clone());
         Ok(self)
     }
 
@@ -183,12 +175,19 @@ pub async fn router(
     state: &Arc<State>,
     settings: Settings,
     datasets: DatasetConfig,
-) -> Result<Router, Error> {
-    Ok(
-        initialize(state, settings, datasets, TraceConfig::default(), false)
-            .await?
-            .router,
+    evals: EvalConfig,
+) -> Result<(Router, JoinHandle<()>), Error> {
+    let application = initialize(
+        state,
+        settings,
+        datasets,
+        TraceConfig::default(),
+        false,
+        evals,
     )
+    .await?;
+    let task = application.evals.start();
+    Ok((application.router, task))
 }
 
 pub async fn initialize(
@@ -197,6 +196,7 @@ pub async fn initialize(
     datasets: DatasetConfig,
     traces: TraceConfig,
     standalone: bool,
+    evals: EvalConfig,
 ) -> Result<Application, Error> {
     state.storage.ensure_schema().await?;
     let connection = state.storage.config.storage();
@@ -208,6 +208,18 @@ pub async fn initialize(
         settings,
         sessions: Sessions(store.clone()),
     });
+    let traces_reader = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
+    let eval_runtime = EvalRuntime::new(
+        EvalStore::new(store.clone()),
+        traces_reader.clone(),
+        evals.judge,
+    );
+    let (eval_api, eval_cases) = lens_server::evals::split_router_with_traces(
+        authentication.clone(),
+        store.clone(),
+        evals.public_url,
+        traces_reader,
+    );
     let ingestion = Ingestion(IngestionKeys(store.clone()));
     let credentials = Arc::new(LocalCredentials::new(
         ingestion.clone(),
@@ -228,7 +240,8 @@ pub async fn initialize(
         .merge(lens_server::feedback::router(
             authentication.clone(),
             crate::FeedbackApi(state.clone()),
-        ));
+        ))
+        .merge(eval_api);
     let router = if standalone {
         router.merge(lens_server::ingestion::router(
             authentication.clone(),
@@ -240,11 +253,11 @@ pub async fn initialize(
     };
     state.schema_ready.store(true, Ordering::Release);
     Ok(Application {
-        router,
+        router: lens_server::evals::with_contract_cases(router, eval_cases),
         credentials,
         local_worker: None,
         signals_worker: None,
-        evaluations: None,
+        evals: eval_runtime,
         authentication,
     })
 }

@@ -2,7 +2,12 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { testQueryClient } from "../../../../tests/test-utils";
-import { readRequest, renderWithLens, stubGateway, type GatewayRequest } from "../../../../tests/lens-test-utils";
+import {
+  readRequest,
+  renderWithLens,
+  stubGateway,
+  type GatewayRequest,
+} from "../../../../tests/lens-test-utils";
 import { DatasetsView } from "./DatasetsView";
 import type { Dataset, DatasetCase, DatasetSummary } from "./types";
 
@@ -15,20 +20,38 @@ vi.mock("../../../lib/http/requests", async (importOriginal) => ({
 const refundCase: DatasetCase = {
   id: "case-refund",
   messages: [
-    { role: "user", content: "Can I get a refund for order 42?", name: "", tool_calls: [] },
-    { role: "assistant", content: "", name: "", tool_calls: [{ name: "lookup_order", arguments: '{"id": 42}' }] },
+    {
+      role: "user",
+      content: "Can I get a refund for order 42?",
+      name: "",
+      tool_calls: [],
+    },
+    {
+      role: "assistant",
+      content: "",
+      name: "",
+      tool_calls: [{ name: "lookup_order", arguments: '{"id": 42}' }],
+    },
   ],
   reply: "I issued the refund.",
   tool_calls: [{ name: "issue_refund", arguments: '{"order": 42}' }],
   expected: "",
   included: true,
-  source: { trace_id: "trace-1", trace_ref: "", span_id: "span-1", finding_id: "", lens_id: "" },
+  source: {
+    trace_id: "trace-1",
+    trace_ref: "",
+    span_id: "span-1",
+    finding_id: "",
+    lens_id: "",
+  },
   agent_version: "",
 };
 const shippingCase: DatasetCase = {
   ...refundCase,
   id: "case-shipping",
-  messages: [{ role: "user", content: "Where is my package?", name: "", tool_calls: [] }],
+  messages: [
+    { role: "user", content: "Where is my package?", name: "", tool_calls: [] },
+  ],
   reply: "It ships tomorrow.",
   tool_calls: [],
   source: { ...refundCase.source, trace_id: "trace-2", span_id: "" },
@@ -46,7 +69,10 @@ const revisionOne: Dataset = {
 const revisionTwo: Dataset = {
   ...revisionOne,
   revision: 2,
-  cases: [{ ...refundCase, expected: "Refunds above $40 need approval" }, shippingCase],
+  cases: [
+    { ...refundCase, expected: "Refunds above $40 need approval" },
+    shippingCase,
+  ],
 };
 const summary: DatasetSummary = {
   id: revisionTwo.id,
@@ -61,7 +87,8 @@ let proxy = stubGateway();
 
 const serveDatasets = (path: string, request: GatewayRequest) => {
   if (path === "/lens/datasets") return [summary];
-  if (path !== `/lens/datasets/${revisionTwo.id}`) throw new Error(`unexpected GET ${path}`);
+  if (path !== `/lens/datasets/${revisionTwo.id}`)
+    throw new Error(`unexpected GET ${path}`);
   return request.query.revision === "1" ? revisionOne : revisionTwo;
 };
 
@@ -81,7 +108,9 @@ describe("DatasetsView", () => {
     const user = userEvent.setup();
     renderWithLens(<DatasetsView />, { searchParams: "?tab=datasets" });
 
-    const row = await screen.findByRole("row", { name: /Refund agent regressions/ });
+    const row = await screen.findByRole("row", {
+      name: /Refund agent regressions/,
+    });
     expect(
       within(row)
         .getAllByRole("cell")
@@ -89,24 +118,38 @@ describe("DatasetsView", () => {
     ).toEqual([`${summary.name}refund-agent`, "2", "2", ""]);
     await user.click(row);
 
-    expect(await screen.findByRole("heading", { name: summary.name })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: summary.name }),
+    ).toBeInTheDocument();
     const first = screen.getByRole("row", { name: "Case 1" });
     expect(
       within(first)
         .getAllByRole("cell")
         .map((cell) => cell.textContent),
-    ).toEqual(["", "user: Can I get a refund for order 42?I issued the refund.", "2"]);
+    ).toEqual([
+      "",
+      "user: Can I get a refund for order 42?I issued the refund.",
+      "2",
+    ]);
 
     await user.click(first);
-    const panel = await screen.findByRole("complementary", { name: "Case details" });
-    expect(within(panel).getByRole("heading", { name: `Case #case-ref @ ${summary.name}` })).toBeInTheDocument();
+    const panel = await screen.findByRole("complementary", {
+      name: "Case details",
+    });
+    expect(
+      within(panel).getByRole("heading", {
+        name: `Case #case-ref @ ${summary.name}`,
+      }),
+    ).toBeInTheDocument();
     const input = within(panel).getByRole("region", { name: "Input" });
     expect(input).toHaveTextContent("Can I get a refund for order 42?");
     expect(within(input).getByText("lookup_order")).toBeInTheDocument();
     const output = within(panel).getByRole("region", { name: "Output" });
     expect(output).toHaveTextContent("I issued the refund.");
     expect(within(output).getByText("issue_refund")).toBeInTheDocument();
-    expect(within(panel).getByRole("textbox", { name: "Expected" })).toHaveValue("Refunds above $40 need approval");
+    expect(
+      within(panel).getByRole("textbox", { name: "Expected" }),
+    ).toHaveValue("Refunds above $40 need approval");
   });
 
   it("shows an empty state when there are no datasets", async () => {
@@ -119,17 +162,23 @@ describe("DatasetsView", () => {
   it("saves an edited expected answer and an unticked case as the next revision", async () => {
     const user = userEvent.setup();
     proxy.post.mockResolvedValue({ ...revisionTwo, revision: 3 });
-    renderWithLens(<DatasetsView />, { searchParams: `?tab=datasets&dataset=${revisionTwo.id}` });
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${revisionTwo.id}`,
+    });
 
     await user.click(await screen.findByRole("row", { name: "Case 1" }));
     const save = screen.getByRole("button", { name: "Save as revision 3" });
     expect(save).toBeDisabled();
-    const panel = await screen.findByRole("complementary", { name: "Case details" });
+    const panel = await screen.findByRole("complementary", {
+      name: "Case details",
+    });
     fireEvent.change(within(panel).getByRole("textbox", { name: "Expected" }), {
       target: { value: "Refunds need approval" },
     });
     await user.click(screen.getByRole("checkbox", { name: "Include case 2" }));
-    expect(screen.getByRole("contentinfo")).toHaveTextContent("2 cases · 1 included");
+    expect(screen.getByRole("contentinfo")).toHaveTextContent(
+      "2 cases · 1 included",
+    );
     await user.click(save);
 
     await vi.waitFor(() => expect(savedBodies()).toHaveLength(1));
@@ -150,34 +199,61 @@ describe("DatasetsView", () => {
         ? Response.json({ detail: "Dataset changed, reload" }, { status: 409 })
         : gateway(input, init),
     );
-    renderWithLens(<DatasetsView />, { searchParams: `?tab=datasets&dataset=${revisionTwo.id}` });
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${revisionTwo.id}`,
+    });
 
-    await user.click(await screen.findByRole("checkbox", { name: "Include case 1" }));
-    await user.click(screen.getByRole("button", { name: "Save as revision 3" }));
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Include case 1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Save as revision 3" }),
+    );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Someone saved a newer revision");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Someone saved a newer revision",
+    );
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
   });
 
   it("shows an older revision's content read-only when picked", async () => {
     const user = userEvent.setup();
-    renderWithLens(<DatasetsView />, { searchParams: `?tab=datasets&dataset=${revisionTwo.id}` });
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${revisionTwo.id}`,
+    });
 
     await screen.findByRole("row", { name: "Case 2" });
-    await user.selectOptions(screen.getByRole("combobox", { name: "Revision" }), "1");
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Revision" }),
+      "1",
+    );
 
     expect(
-      await screen.findByText("Revision 1 is read-only. Switch to the latest revision to make changes."),
+      await screen.findByText(
+        "Revision 1 is read-only. Switch to the latest revision to make changes.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("row", { name: "Case 2" })).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Include case 1" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.queryByRole("button", { name: /Save as revision/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: "Case 2" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Include case 1" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.queryByRole("button", { name: /Save as revision/ }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("row", { name: "Case 1" }));
-    const panel = await screen.findByRole("complementary", { name: "Case details" });
-    expect(within(panel).getByRole("region", { name: "Expected" })).toHaveTextContent("Not set");
+    const panel = await screen.findByRole("complementary", {
+      name: "Case details",
+    });
+    expect(
+      within(panel).getByRole("region", { name: "Expected" }),
+    ).toHaveTextContent("Not set");
     expect(within(panel).queryByRole("textbox")).not.toBeInTheDocument();
-    expect(within(panel).getByRole("switch", { name: "Included" })).toHaveAttribute("aria-disabled", "true");
+    expect(
+      within(panel).getByRole("switch", { name: "Included" }),
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   it("exports the viewed revision as JSONL with the auth header", async () => {
@@ -196,7 +272,10 @@ describe("DatasetsView", () => {
     await vi.waitFor(() =>
       expect(proxy.get).toHaveBeenCalledWith(
         `/lens/datasets/${revisionTwo.id}/export`,
-        expect.objectContaining({ query: { revision: "1" }, authorization: "Bearer sk-admin" }),
+        expect.objectContaining({
+          query: { revision: "1" },
+          authorization: "Bearer sk-admin",
+        }),
       ),
     );
   });

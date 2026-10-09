@@ -1,0 +1,17 @@
+{
+  "name": "support-quality",
+  "spec": {
+    "agent": "support",
+    "dataset_id": "dataset-1",
+    "revision": 2,
+    "scorers": [
+      { "kind": "task_completed" },
+      { "kind": "called_before", "first": "lookup_order", "then": "reply" }
+    ],
+    "trials": 3,
+    "baseline": "main",
+    "gate": { "regressions": 0, "critical": 0, "pass_rate": null, "cost_per_case": null, "min": {} },
+    "timeout_per_trial_ms": 1200000
+  },
+  "updated_at": "2026-01-15T00:00:00Z"
+}

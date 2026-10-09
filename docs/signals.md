@@ -4,6 +4,8 @@ Signals flag traces that match questions you define, such as whether an agent re
 
 Signals use a Decisions API evaluation model. An investigation analysis model alone does not enable them
 
+For optional help from your coding agent, copy the [provider setup prompt](setup-with-agent.md#enable-investigations-signals-or-eval-judging) and specify signals
+
 ## Add an evaluation provider
 
 Supply a TypeSafe API key as `TYPESAFE_API_KEY` to the Lens service, then set:

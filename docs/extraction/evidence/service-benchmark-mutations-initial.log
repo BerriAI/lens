@@ -1,0 +1,5 @@
+Found 47 mutants to test
+ok       Unmutated baseline in 59s build + 1s test
+MISSED   crates/parity/src/benchmark.rs:104:40: replace < with == in compare in 4s build + 1s test
+MISSED   crates/parity/src/benchmark.rs:104:40: replace < with <= in compare in 3s build + 1s test
+47 mutants tested in 7m: 2 missed, 44 caught, 1 unviable

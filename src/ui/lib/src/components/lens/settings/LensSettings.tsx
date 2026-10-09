@@ -20,7 +20,7 @@ function TracingSection({
   enabled: boolean;
   onOpenTraces: () => void;
 }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   return (
     <SettingsSection
       heading="Tracing"

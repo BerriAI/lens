@@ -25,7 +25,10 @@ pub trait JobBackend: Send + Sync {
 
 #[derive(Clone)]
 enum Backend {
-    Remote { control: Control, prefix: String },
+    Remote {
+        control: Box<Control>,
+        prefix: String,
+    },
     Local(Arc<dyn JobBackend>),
 }
 
@@ -61,7 +64,7 @@ impl JobClient {
         let global_slots = control.model_slots.clone();
         Ok(Self {
             backend: Backend::Remote {
-                control,
+                control: Box::new(control),
                 prefix: format!("lens/worker/{lens_id}/{job_id}"),
             },
             model_slots: Arc::new(Semaphore::new(concurrency.clamp(1, 16))),

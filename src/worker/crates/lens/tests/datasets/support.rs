@@ -88,11 +88,13 @@ pub struct Server {
     pub store: ClickHouseState,
     pub sources: litellm_lens::SourceReader,
     pub worker: Option<litellm_lens::local::LocalControl>,
+    evaluations: tokio::task::JoinHandle<()>,
     task: tokio::task::JoinHandle<()>,
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
+        self.evaluations.abort();
         self.task.abort();
     }
 }
@@ -128,6 +130,15 @@ impl Database {
             Default::default(),
             Default::default(),
             standalone,
+            api::EvalConfig {
+                public_url: url.clone(),
+                judge: litellm_lens::eval_judge::GatewayJudge::new(
+                    http_client().unwrap(),
+                    url.parse().unwrap(),
+                    None,
+                    None,
+                ),
+            },
         )
         .await
         .unwrap()
@@ -137,7 +148,7 @@ impl Database {
                 .with_local(state.clone(), models, vec![], ADMIN, None)
                 .await
                 .unwrap()
-                .with_evaluations(state.clone(), url.parse().unwrap())
+                .with_evaluations()
                 .unwrap()
         } else {
             application
@@ -164,6 +175,7 @@ impl Database {
         }
         let sources = litellm_lens::SourceReader(state.clone());
         let worker = application.local_worker.clone();
+        let evaluations = application.evals.start();
         let routes =
             litellm_lens::router(state)
                 .merge(application.router)
@@ -176,6 +188,7 @@ impl Database {
             store,
             sources,
             worker,
+            evaluations,
             task,
         }
     }

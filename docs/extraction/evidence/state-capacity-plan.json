@@ -1,0 +1,41 @@
+{
+  "scope": "Bounded C4 state-history reclamation workload; this is not full M9 capacity qualification",
+  "created_before_execution": "2026-10-09",
+  "workload": {
+    "keys": 1000,
+    "revisions_per_key": 20,
+    "payload_bytes": 16384,
+    "payload_generation": "Concatenated SHA-256 hex digests of key, revision and block index",
+    "batch_size": 100,
+    "compaction_every_revisions": 5,
+    "compaction_passes_per_cycle": 2,
+    "writers": 1
+  },
+  "environment": {
+    "clickhouse_image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+    "container_cpus": 2,
+    "container_memory_bytes": 2147483648,
+    "keeper": "Embedded single-node Keeper using the repository fixture",
+    "storage_settings": "Production ClickHouseState table definitions and normal MergeTree retention defaults"
+  },
+  "acceptance": {
+    "successful_record_writes": 20000,
+    "lost_or_failed_writes": 0,
+    "current_blobs_after_each_compaction_pass": 1000,
+    "heads_after_each_compaction_pass": 1000,
+    "exact_payloads_after_each_compaction_pass": true,
+    "maximum_public_operation_ms": 30000,
+    "maximum_active_blob_storage_bytes_after_each_pass": 98304000,
+    "oom_kills_or_container_restarts": 0
+  },
+  "report": [
+    "Read, commit and compact latency distributions",
+    "Per-pass active and inactive physical bytes, row counts and logical payload bytes",
+    "Elapsed time, source hashes, image identity and container memory samples"
+  ],
+  "limits": [
+    "Fixed keys establish a bound on retained current history, not on an increasing number of unique keys",
+    "Inactive MergeTree parts may await the default retention period and are reported separately",
+    "This workload does not establish production sizing, ingestion throughput, HTTP latency, derived-index capacity, concurrent writer capacity or a paired baseline regression result"
+  ]
+}

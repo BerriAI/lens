@@ -7,6 +7,9 @@ import type { LensReadiness } from "../hooks/useLensReadiness";
 import { useOnboarding } from "./OnboardingContext";
 import { OnboardingSteps } from "./OnboardingSteps";
 import { useLensHost } from "../../../host/LensHost";
+import { useLensAccessToken } from "../data/LensServices";
+import { useLensService } from "./tracing/TracingSetupCard";
+import { SetupAgentPrompt } from "./SetupAgentPrompt";
 
 export type OnboardingSetupProps = Omit<ComponentProps<"section">, "children"> & {
   state: LensReadiness;
@@ -18,6 +21,7 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
   const { readOnly, canInvestigate } = useOnboarding();
   const standalone = useLensHost().analysis === "deployment";
   const titleId = useId();
+  const connection = useLensService(useLensAccessToken());
   return (
     <section
       data-slot="onboarding-setup"
@@ -36,6 +40,7 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
         </div>
         {action}
       </div>
+      <SetupAgentPrompt connection={connection.data} />
       <OnboardingSteps state={state} includeTracing={includeTracing} />
       {state.error && (
         <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-destructive">

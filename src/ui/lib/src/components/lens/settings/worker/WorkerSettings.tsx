@@ -14,6 +14,7 @@ import { WorkerInstall } from "./WorkerInstall";
 import { WorkerList } from "./WorkerList";
 import { workerFormSchema, type WorkerFormInput } from "./workerSchema";
 import { workerScreen } from "./workerScreen";
+import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 
 function defaultWorkerFormValues(): WorkerFormInput {
   return {
@@ -54,6 +55,7 @@ function WorkerFormCard({
 }) {
   return (
     <SettingsCard className="flex flex-col gap-5">
+      <SetupAgentPrompt goal="analysis" />
       <header className="space-y-1">
         <h3 className="text-base font-semibold">{editing ? "Analysis access" : "Connect a worker"}</h3>
         <p className="text-sm text-muted-foreground">

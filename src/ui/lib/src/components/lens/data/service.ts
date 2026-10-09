@@ -4,7 +4,7 @@ import { authHeaders } from "../../../lib/http/authHeaders";
 import type { Client } from "openapi-fetch";
 import type { components, paths } from "../../../lib/http/schema";
 import { liveDatasetsApi, type DatasetsApi } from "../datasets/client";
-import { liveEvalRunsApi, type EvalRunsApi } from "../datasets/runs/client";
+import { liveEvalRunsApi, type EvalRunsApi } from "../evals/runs/client";
 import type {
   ActivitySelection,
   AnalysisModelInfo,

@@ -1,4 +1,6 @@
-# Standalone development startup
+# Historical standalone development startup
+
+This records the retired Python bootstrap at commit `ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d`. Its commands and files are historical evidence. Use [Developing Lens](../../CONTRIBUTING.md) or [Run Lens](../../deploy/lens/README.md) for the current Rust product
 
 The Python application now serves the shared UI, authentication, investigation, dataset, feedback and trace routes. Its lifecycle owns the ClickHouse state client, the Rust control client and both signal tasks. Runtime identity and ingestion-key publication use this configured connection. Readiness requires ClickHouse state access plus a Rust service with storage, current credentials and the matching release/protocol
 

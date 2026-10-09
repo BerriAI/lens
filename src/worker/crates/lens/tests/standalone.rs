@@ -7,6 +7,160 @@ use lens_contract::ingestion::IngestionKeyCreated;
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 
+async fn eval_request(
+    client: &reqwest::Client,
+    url: &str,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<Value>,
+) -> Value {
+    let mut request = client
+        .request(method, format!("{url}{path}"))
+        .bearer_auth(ADMIN)
+        .header("X-Lens-Contract", "1");
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request.send().await.unwrap();
+    let status = response.status();
+    let bytes = response.bytes().await.unwrap();
+    assert!(
+        status.is_success(),
+        "{path}: {}",
+        String::from_utf8_lossy(&bytes)
+    );
+    if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    }
+}
+
+#[rstest]
+#[case::trace_id("trace_id", "11112222333344445555666677778888")]
+#[case::session_id("session.id", "standalone-eval-session")]
+#[tokio::test]
+async fn standalone_default_scope_closes_ingested_evals_without_a_gateway(
+    #[future(awt)] database: Database,
+    mut payload: Value,
+    #[case] attribute: &str,
+    #[case] reference: &str,
+) {
+    let server = database.serve(true).await;
+    let client = reqwest::Client::new();
+    let key: IngestionKeyCreated = serde_json::from_value(
+        eval_request(
+            &client,
+            &server.url,
+            reqwest::Method::POST,
+            "/lens/tracing/keys",
+            Some(json!({"name":"Standalone evaluation", "team_id":""})),
+        )
+        .await,
+    )
+    .unwrap();
+    payload["resourceSpans"][0]["resource"]["attributes"] = json!([
+        {"key":"agent.name","value":{"stringValue":"standalone-agent"}},
+        {"key":"agent.version","value":{"stringValue":"standalone-build"}},
+        {"key":"deployment.environment","value":{"stringValue":"lens-eval"}},
+        {"key":"session.id","value":{"stringValue":"standalone-eval-session"}},
+        {"key":"repo_url","value":{"stringValue":"https://example.test/agent"}}
+    ]);
+    let ingested = client
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(&key.key)
+        .json(&payload)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ingested.status(), 200, "{}", ingested.text().await.unwrap());
+    let dataset = eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::POST,
+        "/lens/datasets",
+        Some(json!({"name":"Standalone eval cases", "agent_name":"standalone-agent"})),
+    )
+    .await;
+    let id = dataset["id"].as_str().unwrap();
+    eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::POST,
+        &format!("/lens/datasets/{id}/revisions"),
+        Some(json!({"base_revision":0,"cases":[{
+            "id":"first", "messages":[{"role":"user","content":"Finish the task"}],
+            "source":{"trace_id":"11112222333344445555666677778888"}
+        }]})),
+    )
+    .await;
+    let cases = eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::GET,
+        &format!("/lens/datasets/{id}/revisions/1/cases"),
+        None,
+    )
+    .await;
+    assert_eq!(
+        cases["cases"][0]["meta"]["repo_url"],
+        "https://example.test/agent"
+    );
+    let case_id = cases["cases"][0]["id"].as_str().unwrap();
+    let run = eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::POST,
+        "/lens/evals/runs",
+        Some(json!({
+            "eval":"standalone-eval", "agent":"standalone-agent", "dataset_id":id,
+            "revision":1, "version":"standalone-build", "branch":"main",
+            "trials":1, "scorers":[{"kind":"task_completed"}], "gate":{"pass_rate":1.0}
+        })),
+    )
+    .await;
+    let run_id = run["id"].as_str().unwrap();
+    eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::PUT,
+        &format!("/lens/evals/runs/{run_id}/results/{case_id}/0"),
+        Some(json!({"trace":{"attribute":attribute,"value":reference}})),
+    )
+    .await;
+    eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::POST,
+        &format!("/lens/evals/runs/{run_id}/finish"),
+        None,
+    )
+    .await;
+    let completed = eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::GET,
+        &format!("/lens/evals/runs/{run_id}?wait=10"),
+        None,
+    )
+    .await;
+    assert_eq!(completed["status"], "done", "{completed}");
+    assert_eq!(completed["summary"]["passed"], 1);
+    assert_eq!(completed["summary"]["errors"], 0);
+    assert_eq!(completed["summary"]["gate"]["passed"], true);
+    let detail = eval_request(
+        &client,
+        &server.url,
+        reqwest::Method::GET,
+        &format!("/lens/evals/runs/{run_id}/cases/{case_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(detail["passed"], true);
+    assert_eq!(detail["trials"][0]["checks"][0]["passed"], true);
+    assert_eq!(detail["trials"][0]["error"], Value::Null);
+}
+
 #[fixture]
 fn payload() -> Value {
     let now = chrono::Utc::now().timestamp_nanos_opt().unwrap();

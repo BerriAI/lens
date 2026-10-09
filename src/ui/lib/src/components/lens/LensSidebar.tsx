@@ -10,6 +10,7 @@ import {
   BookOpen,
   Bot,
   Database,
+  FlaskConical,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -44,6 +45,7 @@ const NAVIGATION_ITEMS = [
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "investigations", label: "Investigations", icon: ScanSearch },
   { value: "datasets", label: "Datasets", icon: Database },
+  { value: "evals", label: "Evals", icon: FlaskConical },
 ] as const;
 
 export function LensSidebar(props: LensSidebarProps) {

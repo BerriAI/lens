@@ -7,31 +7,15 @@ use litellm_traces_cache::ReadError;
 use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
-pub enum EvaluationError {
-    #[error(transparent)]
-    Repository(#[from] lens_evals::RunError),
-    #[error(transparent)]
-    Evaluation(#[from] lens_evals::Error),
-    #[error("Eval traces are unavailable")]
-    Runtime(#[from] Error),
-    #[error("Eval traces are unavailable")]
-    Storage(#[from] litellm_storage_clickhouse::Error),
-    #[error("Eval trace cost is unavailable")]
-    Trace(#[from] lens_server::tracing::TraceReadError),
-    #[error("Eval trace exceeded the 20000 span limit")]
-    TraceLimit,
-    #[error("Eval trace data is invalid")]
-    InvalidTrace,
-    #[error("Eval trace matches more than one credential")]
-    AmbiguousTrace,
-    #[error("Configure an analysis model before using the judge scorer")]
-    ModelUnavailable,
-    #[error("Eval trace exceeds the judge model context window")]
-    Context,
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Configure an analysis model before using the eval judge scorer")]
+    EvalJudgeUnavailable,
+    #[error("Eval evidence exceeds the judge model context window")]
+    EvalJudgeContext,
+    #[error("The eval judge returned an incomplete or invalid score")]
+    EvalJudgeResponse,
+    #[error("The eval judge could not match the trial to its recorded evidence")]
+    EvalJudgeEvidence,
     #[error(transparent)]
     Investigation(#[from] lens_investigations::Error),
     #[error(transparent)]

@@ -5,6 +5,7 @@ import { Flag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useId, useState } from "react";
 import { useLensHost } from "../../../../host/LensHost";
+import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { StatusDot } from "../../../shared/StatusDot";
@@ -215,6 +216,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
   return (
     <>
       <SettingsCard className="space-y-4">
+        <SetupAgentPrompt goal="signals" featureConfigured={active} />
         <p role="status" className="inline-flex items-center gap-2 text-sm">
           <StatusDot state={active ? "ok" : "off"} />
           {active ? `Flagging traces with ${saved.model}` : "Signals are off"}

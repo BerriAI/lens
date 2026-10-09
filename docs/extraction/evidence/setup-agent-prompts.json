@@ -1,0 +1,85 @@
+{
+  "status": "passed_for_current_source",
+  "recorded_at": "2026-10-09T06:36:30.549Z",
+  "scope": "Optional setup prompts and preserved manual onboarding; not an official artifact publication or full extraction sign-off",
+  "surfaces": [
+    "README before hero",
+    "initial setup landing",
+    "tracing",
+    "analysis",
+    "Signals",
+    "eval connection"
+  ],
+  "tests": {
+    "setup_scope": {
+      "files": 7,
+      "passed": 92,
+      "typecheck": "passed",
+      "log_sha256": "df987b2d3a169fc4e079ae95e7791f2293379e8564c9ad88e1dbf8f21a22c09c"
+    },
+    "manual_link_regression": {
+      "log_sha256": "80d221949dcc8a6a6ab21da86230ee4c56ebfaa8cb8f085aa26d660f360d67f6"
+    },
+    "readiness_retry": {
+      "files": 2,
+      "passed": 33,
+      "old_behavior": "Copy control unmounted during held background503 retry",
+      "new_behavior": "Prompt stays mounted and copyable; explicit Check setup recovers to Generate tracing key"
+    },
+    "companion_package": {
+      "files": 2,
+      "passed": 7,
+      "production_build": "passed",
+      "typecheck": "passed",
+      "sha256": "490d2848dce174826d275959fbb1a5d456acdca45f58cd283487dce89ea3b602"
+    }
+  },
+  "browser": {
+    "standalone": {
+      "url": "http://127.0.0.1:4324/ui/",
+      "result": "Analysis and tracing prompts copy, use current standalone address and observed configuration, preserve manual framework/key/snippet controls"
+    },
+    "embedded": {
+      "url": "http://127.0.0.1:4493/ui/lens/",
+      "real_http_states": {
+        "lens": 503,
+        "trace_list": 501,
+        "service": 200,
+        "configured": false
+      },
+      "result": "Existing landing retained; copy remains usable during background retry; preview and actual clipboard paste identify current gateway and unconfigured Lens connection; Helm and Docker destinations corrected",
+      "clipboard_verification": "Normal browser Cmd+V into local command palette Search, inspected then cleared; browser session clipboard read API was stale"
+    },
+    "docs": {
+      "server": "http://127.0.0.1:3192",
+      "pages": [
+        "/docs/proxy/lens/deployment/local",
+        "/docs/proxy/lens/deployment",
+        "/docs/proxy/lens/integrations/openai-agents"
+      ],
+      "desktop": "passed",
+      "narrow": {
+        "width": 390,
+        "height": 844,
+        "document_width": 390,
+        "document_scroll_width": 390
+      },
+      "limits": "Imported example source links await repository push permissions"
+    }
+  },
+  "source_files": {
+    "src/ui/lib/src/components/lens/onboarding/setupPrompt.ts": "51638fc2709d4419a7ac3ab99b863993c6793f48d2fce8047a4391471396d233",
+    "src/ui/lib/src/components/lens/onboarding/SetupAgentPrompt.tsx": "03451606ca6d63595b41adadec21153a4a38727d86de811d97afae01ac17bf78",
+    "src/ui/lib/src/components/lens/hooks/useLensReadiness.ts": "bd1916ba2715f12d21f66d2954f67cebfab469a507a17503864a0cce7c97ec07",
+    "src/ui/lib/src/components/lens/onboarding/tracing/TracingSetupCard.tsx": "e2ef288e14ac67ad85b79532b39b86acbf5a68484cddd5ae4606ab8815838340"
+  },
+  "screenshots": [
+    "docs/extraction/evidence/ui/connected/setup-agent-standalone.png",
+    "docs/extraction/evidence/ui/connected/setup-agent-tracing.png",
+    "docs/extraction/evidence/ui/connected/setup-agent-embedded.png",
+    "docs/extraction/evidence/ui/connected/setup-docs-local.png",
+    "docs/extraction/evidence/ui/connected/setup-docs-deployment.png",
+    "docs/extraction/evidence/ui/connected/setup-docs-openai-agents.png",
+    "docs/extraction/evidence/ui/connected/setup-docs-mobile.png"
+  ]
+}

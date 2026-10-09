@@ -4,8 +4,10 @@ use lens_inference::{DeploymentEstimate, Usage, UsageEnvelope};
 use litellm_cost::{PromptConvention, Request, ServiceTier, ThresholdPolicy};
 use litellm_model_catalog::Catalog;
 use litellm_token_counter::CountableRequest;
+use serde::Serialize;
 use serde_json::Value;
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     sync::{
         Arc,
@@ -190,32 +192,41 @@ impl AnalysisModels {
     }
 
     pub async fn complete(&self, prepared: &PreparedAnalysis) -> Result<AnalysisCompletion, Error> {
+        self.complete_request(prepared, None).await
+    }
+
+    pub async fn complete_with_gateway_metadata(
+        &self,
+        prepared: &PreparedAnalysis,
+        metadata: &impl Serialize,
+    ) -> Result<AnalysisCompletion, Error> {
+        self.complete_request(prepared, Some(serde_json::to_value(metadata)?))
+            .await
+    }
+
+    async fn complete_request(
+        &self,
+        prepared: &PreparedAnalysis,
+        metadata: Option<Value>,
+    ) -> Result<AnalysisCompletion, Error> {
         let Some(request) = &prepared.request else {
             return Ok(context_completion());
         };
-        tokio::time::timeout(self.limits.timeout, self.send(request, prepared.estimate))
-            .await
-            .map_err(|_| Error::Timeout)?
+        tokio::time::timeout(
+            self.limits.timeout,
+            self.send(request, prepared.estimate, metadata),
+        )
+        .await
+        .map_err(|_| Error::Timeout)?
     }
 
     async fn send(
         &self,
         request: &PreparedRequest,
         estimate: f64,
+        metadata: Option<Value>,
     ) -> Result<AnalysisCompletion, Error> {
         let deployment = &request.deployment;
-        let builder = self
-            .client
-            .post(deployment.endpoint.clone())
-            .json(&request.body);
-        let builder = match deployment.config.provider {
-            Provider::Anthropic => builder
-                .header("x-api-key", deployment.config.api_key.expose())
-                .header("anthropic-version", "2023-06-01"),
-            Provider::OpenAi | Provider::OpenAiCompatible => {
-                builder.bearer_auth(deployment.config.api_key.expose())
-            }
-        };
         let marker = self
             .gateway
             .as_ref()
@@ -228,6 +239,24 @@ impl AnalysisModels {
             })
             .transpose()?
             .flatten();
+        let mut body = Cow::Borrowed(&request.body);
+        if marker.is_some()
+            && let Some(metadata) = metadata
+        {
+            body.to_mut()["metadata"] = metadata;
+        }
+        let builder = self
+            .client
+            .post(deployment.endpoint.clone())
+            .json(body.as_ref());
+        let builder = match deployment.config.provider {
+            Provider::Anthropic => builder
+                .header("x-api-key", deployment.config.api_key.expose())
+                .header("anthropic-version", "2023-06-01"),
+            Provider::OpenAi | Provider::OpenAiCompatible => {
+                builder.bearer_auth(deployment.config.api_key.expose())
+            }
+        };
         let builder = match marker {
             Some(marker) => builder.header(lens_inference::GATEWAY_HEADER, marker),
             None => builder,

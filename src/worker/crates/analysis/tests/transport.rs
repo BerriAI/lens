@@ -15,7 +15,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 #[case::different_base(Provider::OpenAiCompatible, "/other", false)]
 #[case::native_passthrough(Provider::OpenAi, "", true)]
 #[tokio::test]
-async fn gateway_marker_only_reaches_the_configured_compatible_transport(
+async fn gateway_marker_and_attribution_only_reach_the_configured_transport(
     catalog: Arc<Catalog>,
     request: ModelRequest,
     #[case] provider: Provider,
@@ -31,8 +31,12 @@ async fn gateway_marker_only_reaches_the_configured_compatible_transport(
     )
     .unwrap();
     let client = client(catalog, deployment(&server, provider)).with_gateway(Some(gateway));
+    let metadata = json!({"run_id":"private-eval-run", "team_id":"private-team"});
     client
-        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .complete_with_gateway_metadata(
+            &client.prepare("analysis", &request).await.unwrap(),
+            &metadata,
+        )
         .await
         .unwrap();
     let requests = server.received_requests().await.unwrap();
@@ -42,6 +46,8 @@ async fn gateway_marker_only_reaches_the_configured_compatible_transport(
     );
     let marker = requests[0].headers.get(lens_inference::GATEWAY_HEADER);
     assert_eq!(marker.is_some(), marked);
+    let body: Value = requests[0].body_json().unwrap();
+    assert_eq!(body.get("metadata"), marked.then_some(&metadata));
     if let Some(marker) = marker {
         let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
         validation.set_audience(&["litellm"]);
