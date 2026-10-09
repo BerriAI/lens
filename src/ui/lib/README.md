@@ -13,7 +13,7 @@ configureLensHttp({
   getBaseUrl: getProxyBaseUrl,
   getAuthToken: () => currentAccessToken,
   getAuthHeaderName: getGlobalLitellmHeaderName,
-  serverRootPath,
+  getServerRootPath: () => serverRootPath,
 });
 
 <LensHostProvider host={{ spendLogs: { lookup: uiSpendLogsCall, Drawer: LogDetailsDrawer } }}>

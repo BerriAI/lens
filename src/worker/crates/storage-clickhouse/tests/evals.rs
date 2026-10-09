@@ -670,7 +670,10 @@ async fn list_applies_all_filters_and_limit_without_crossing_teams(
         after: None,
         limit: 1,
     };
-    assert_eq!(store.list("team", &filter).await.unwrap(), vec![newest.clone()]);
+    assert_eq!(
+        store.list("team", &filter).await.unwrap(),
+        vec![newest.clone()]
+    );
     assert_eq!(
         store
             .list(

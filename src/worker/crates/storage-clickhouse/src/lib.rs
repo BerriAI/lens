@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod datasets;
 mod error;
 pub mod evals;
 mod insert;

@@ -105,11 +105,11 @@ async fn authorize<R: SessionRepository>(
     if version != Some(CONTRACT_VERSION.to_string().as_str()) {
         return Err(EvalApiError::ContractVersion);
     }
-    let session = crate::sessions::session_cookie(request.headers());
+    let session = crate::auth::session_cookie(request.headers());
     let identity = state
         .authentication
         .authenticate(
-            crate::sessions::credentials(request.headers(), request.method(), session.as_deref())?,
+            crate::auth::credentials(request.headers(), request.method(), session.as_deref())?,
             Utc::now(),
         )
         .await?;
@@ -335,7 +335,11 @@ async fn run_case<R: SessionRepository>(
         .ok_or(ApiError::NotFound)?;
     let now = Utc::now().timestamp_millis();
     let mut trials = Vec::new();
-    for trial in stored.trials.iter().filter(|trial| trial.case_id == case_id) {
+    for trial in stored
+        .trials
+        .iter()
+        .filter(|trial| trial.case_id == case_id)
+    {
         let steps = match (&state.traces, &trial.result.trace) {
             (Some(traces), Some(reference)) => traces
                 .read(&team.0, reference, now)
@@ -347,7 +351,11 @@ async fn run_case<R: SessionRepository>(
         };
         trials.push(TrialSteps {
             trial: trial.trial,
-            error: trial.result.error.as_ref().map(|error| error.message.clone()),
+            error: trial
+                .result
+                .error
+                .as_ref()
+                .map(|error| error.message.clone()),
             steps,
         });
     }

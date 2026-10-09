@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod auth;
+pub mod datasets;
 mod error;
 pub mod eval_closer;
 mod eval_datasets;

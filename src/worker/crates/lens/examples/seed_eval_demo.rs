@@ -18,18 +18,78 @@ use serde_json::{Value, json};
 const DATASET: &str = "moyai-regressions";
 const REVISION: u64 = 7;
 const CASES: [(&str, &str, &str, &str); 12] = [
-    ("fix-flaky-retry-test", "Fix the flaky retry test in tests/test_router.py and open a PR", "high", "https://github.com/BerriAI/litellm"),
-    ("bump-pydantic", "Bump pydantic to 2.11 and open a PR once the suite passes", "high", "https://github.com/BerriAI/litellm"),
-    ("budget-off-by-one", "Budget alerts fire one request late. Fix it and open a PR", "high", "https://github.com/BerriAI/litellm"),
-    ("rename-env-var", "Rename LENS_URL to LENS_BASE_URL everywhere and open a PR", "medium", "https://github.com/BerriAI/lens"),
-    ("add-health-route", "Add a /health/live route to the worker and open a PR", "medium", "https://github.com/BerriAI/lens"),
-    ("docs-typo", "Fix the typo in the deployment guide and open a PR", "low", "https://github.com/BerriAI/litellm-docs"),
-    ("cache-ttl", "Make the cache TTL configurable and open a PR", "medium", "https://github.com/BerriAI/litellm"),
-    ("null-model-crash", "The proxy crashes when model is null. Fix it and open a PR", "high", "https://github.com/BerriAI/litellm"),
-    ("readme-badges", "Update the README badges and open a PR", "low", "https://github.com/BerriAI/lens"),
-    ("timeout-default", "Change the default timeout to 600s and open a PR", "medium", "https://github.com/BerriAI/litellm"),
-    ("lint-unused-imports", "Remove unused imports in litellm/proxy and open a PR", "low", "https://github.com/BerriAI/litellm"),
-    ("retry-jitter", "Add jitter to router retries and open a PR", "medium", "https://github.com/BerriAI/litellm"),
+    (
+        "fix-flaky-retry-test",
+        "Fix the flaky retry test in tests/test_router.py and open a PR",
+        "high",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "bump-pydantic",
+        "Bump pydantic to 2.11 and open a PR once the suite passes",
+        "high",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "budget-off-by-one",
+        "Budget alerts fire one request late. Fix it and open a PR",
+        "high",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "rename-env-var",
+        "Rename LENS_URL to LENS_BASE_URL everywhere and open a PR",
+        "medium",
+        "https://github.com/BerriAI/lens",
+    ),
+    (
+        "add-health-route",
+        "Add a /health/live route to the worker and open a PR",
+        "medium",
+        "https://github.com/BerriAI/lens",
+    ),
+    (
+        "docs-typo",
+        "Fix the typo in the deployment guide and open a PR",
+        "low",
+        "https://github.com/BerriAI/litellm-docs",
+    ),
+    (
+        "cache-ttl",
+        "Make the cache TTL configurable and open a PR",
+        "medium",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "null-model-crash",
+        "The proxy crashes when model is null. Fix it and open a PR",
+        "high",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "readme-badges",
+        "Update the README badges and open a PR",
+        "low",
+        "https://github.com/BerriAI/lens",
+    ),
+    (
+        "timeout-default",
+        "Change the default timeout to 600s and open a PR",
+        "medium",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "lint-unused-imports",
+        "Remove unused imports in litellm/proxy and open a PR",
+        "low",
+        "https://github.com/BerriAI/litellm",
+    ),
+    (
+        "retry-jitter",
+        "Add jitter to router retries and open a PR",
+        "medium",
+        "https://github.com/BerriAI/litellm",
+    ),
 ];
 
 fn key(namespace: &str, identity: Value) -> String {
@@ -82,7 +142,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "case_count": CASES.len(), "updated_at": now,
     });
     let changes = [
-        (key("dataset-latest", json!([DATASET])), json!({"team_id": team, "summary": summary})),
+        (
+            key("dataset-latest", json!([DATASET])),
+            json!({"team_id": team, "summary": summary}),
+        ),
         (
             key("dataset", json!([DATASET, REVISION])),
             json!({
@@ -90,7 +153,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "created_at": now, "revision": REVISION, "created_by": "lens-demo", "cases": cases,
             }),
         ),
-        (key("lens", json!(["findings"])), json!({"lens": {"scope": {"team_id": team}, "findings": findings}})),
+        (
+            key("lens", json!(["findings"])),
+            json!({"lens": {"scope": {"team_id": team}, "findings": findings}}),
+        ),
     ];
     let mut commits = Vec::new();
     for (key, value) in changes {
@@ -117,6 +183,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect();
     insert_rows(&http, &writer, &database, InsertTable::OtelTraces, spans).await?;
-    println!("seeded {DATASET}@{REVISION} with {} cases for team {team}", CASES.len());
+    println!(
+        "seeded {DATASET}@{REVISION} with {} cases for team {team}",
+        CASES.len()
+    );
     Ok(())
 }

@@ -4,8 +4,8 @@ mod scoring;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use lens_contract::eval::{CaseError, CaseResult, CreateEvalRun, EvalRun, RunStatus};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
 use crate::{
     Error, EvalError,

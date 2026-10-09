@@ -16,6 +16,7 @@ pub struct Config {
     pub public_url: String,
     pub eval_judge_api_key: Option<String>,
     pub eval_judge_model: Option<String>,
+    pub datasets: lens_server::datasets::DatasetConfig,
 }
 
 fn required(name: &'static str) -> Result<String, Error> {
@@ -52,6 +53,7 @@ impl Config {
             eval_judge_model: std::env::var("LENS_EVAL_JUDGE_MODEL").ok(),
             public_url: std::env::var("LENS_PUBLIC_URL")
                 .unwrap_or_else(|_| "http://localhost:4000".into()),
+            datasets: dataset_config(|name| std::env::var(name).ok()),
             authentication: std::env::var("LENS_ADMIN_TOKEN")
                 .ok()
                 .map(|token| {
@@ -86,6 +88,27 @@ impl Config {
     }
 }
 
+fn dataset_config(read: impl Fn(&str) -> Option<String>) -> lens_server::datasets::DatasetConfig {
+    lens_server::datasets::DatasetConfig {
+        limits: lens_datasets::Limits {
+            max_cases: integer_or_default(read("LENS_DATASET_MAX_CASES").as_deref(), 200),
+            max_case_chars: integer_or_default(
+                read("LENS_DATASET_MAX_CASE_CHARS").as_deref(),
+                20_000,
+            ),
+        },
+        trace_retry_after_seconds: integer_or_default(
+            read("TRACE_READ_RETRY_AFTER_SECONDS").as_deref(),
+            2,
+        ),
+    }
+}
+
+fn integer_or_default(raw: Option<&str>, default: i64) -> i64 {
+    raw.and_then(|value| value.trim().parse().ok())
+        .unwrap_or(default)
+}
+
 fn clickhouse_url() -> Result<String, Error> {
     if let Ok(url) = required("CLICKHOUSE_URL") {
         return Ok(url);
@@ -110,4 +133,45 @@ pub fn http_client() -> Result<Client, Error> {
         &Resolution::from(&settings).config,
         ClientVariant::NoRedirect,
     )?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{dataset_config, integer_or_default};
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::absent(None, 200)]
+    #[case::empty(Some(""), 200)]
+    #[case::invalid(Some("invalid"), 200)]
+    #[case::whitespace(Some(" \t42\n"), 42)]
+    #[case::zero(Some("0"), 0)]
+    #[case::negative(Some("-1"), -1)]
+    fn dataset_limits_keep_configured_values_and_fallbacks(
+        #[case] raw: Option<&str>,
+        #[case] expected: i64,
+    ) {
+        assert_eq!(integer_or_default(raw, 200), expected);
+    }
+
+    #[rstest]
+    fn dataset_configuration_reads_each_supported_setting() {
+        let config = dataset_config(|name| match name {
+            "LENS_DATASET_MAX_CASES" => Some("17".into()),
+            "LENS_DATASET_MAX_CASE_CHARS" => Some("900".into()),
+            "TRACE_READ_RETRY_AFTER_SECONDS" => Some("7".into()),
+            _ => panic!("unexpected configuration setting"),
+        });
+        assert_eq!(config.limits.max_cases, 17);
+        assert_eq!(config.limits.max_case_chars, 900);
+        assert_eq!(config.trace_retry_after_seconds, 7);
+    }
+
+    #[rstest]
+    fn missing_dataset_configuration_preserves_defaults() {
+        let config = dataset_config(|_| None);
+        assert_eq!(config.limits.max_cases, 200);
+        assert_eq!(config.limits.max_case_chars, 20_000);
+        assert_eq!(config.trace_retry_after_seconds, 2);
+    }
 }

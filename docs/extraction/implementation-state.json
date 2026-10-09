@@ -76,7 +76,7 @@
     "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes",
     "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open"
   ],
-  "current_work": "Complete remaining public HTTP contracts and Rust dataset/domain/API ports, then standalone provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
+  "current_work": "Milestone 1: make standalone Lens self-deployable with ClickHouse and a complete Rust backend, no LiteLLM gateway. Finish datasets and security qualification, then standalone provider/investigation/configuration/API/deployment gaps. Preserve local embedded preview for milestone 2; project-releaser, litellm-ops and remaining plan requirements are milestone 3",
   "acceptance": {
     "B1": {
       "status": "not_run",
@@ -418,7 +418,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-09T00:53:52.004Z",
+  "updated_at_utc": "2026-10-09T02:02:46.495Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -603,12 +603,6 @@
       "status": "requires reviewed generator update and schema parity check"
     },
     {
-      "package": "rustls",
-      "patched": "0.23.45",
-      "scope": "runtime TLS",
-      "status": "requires lockfile update and verification"
-    },
-    {
       "package": "serde_with",
       "patched": "3.21.0",
       "scope": "Rust serialization",
@@ -616,9 +610,14 @@
     }
   ],
   "runtime_decision": {
-    "requirement": "Keep the existing Rust runtime and Python API for the parity-first extraction",
-    "authorized_by": "User answer on 2026-10-08",
-    "status": "retained"
+    "requirement": "All Lens backend feature code in Rust, using the collaborator layout",
+    "authorized_by": "Later user instruction supersedes the earlier Rust/Python split",
+    "status": "migration_in_progress",
+    "exceptions": [
+      "Python eval SDK",
+      "Sandboxed analysis interpreter"
+    ],
+    "retirement": "Retain existing application modules only until the replacement passes integration and parity qualification"
   },
   "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger",
   "rust_migration": {
@@ -689,6 +688,170 @@
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
       }
+    },
+    "datasets_port": {
+      "based_on_main": "3ca154b698b268baf610e74e2f57086184a410be",
+      "status": "Seven dataset routes integrated and qualified; retained Python application awaits complete Rust replacement",
+      "evidence": "docs/extraction/rust-datasets.md",
+      "workspace": {
+        "passed": 2344,
+        "failed": 0,
+        "ignored": 4,
+        "clippy": "passed",
+        "format": "passed"
+      },
+      "golden_dataset_http_cases": 25,
+      "golden_auth_http_cases": 45,
+      "mutation_qualification": {
+        "domain": {
+          "inventory": 131,
+          "counts": {
+            "CaughtMutant": 108,
+            "Unviable": 23
+          },
+          "source_hashes": {
+            "build.rs": "8064dd21d54275a1b9fe68ddbfadafaf77bd14dd8ccd82b0e3f7289b21af38f1",
+            "cases.rs": "0e1cafe6a5e805ce79752051ce953f312a225c41e5c231fb08854e793d700824",
+            "lib.rs": "915550a28dcbdc2cde49f55b48e6dda3596b2ea4dc8ec26454be00823e9a69cc"
+          },
+          "qualification": "Initial full run reconciled with final parser rerun; every final viable mutation caught"
+        },
+        "storage": {
+          "total": 26,
+          "caught": 21,
+          "unviable": 5,
+          "missed": 0,
+          "timeout": 0
+        },
+        "http": {
+          "qualification": "Incomplete historical run on superseded parser. Excluded from final mutation qualification; corrected code qualified by golden replays, exact input regression cases and full workspace tests"
+        },
+        "wiring": {
+          "qualification": "Initial15 mutations found3 configuration gaps, all corrected and caught by4 focused reruns. Existing unrelated HTTP connect-timeout mutation remains outside this dataset qualification"
+        }
+      },
+      "full_product_acceptance": "incomplete"
     }
+  },
+  "local_embedding": {
+    "status": "partial_evidence_preserved_for_milestone_2",
+    "gateway_repository": "BerriAI/litellm",
+    "gateway_base_commit": "f48d837cd21208771ee5b15770e4425a32907f1b",
+    "gateway_worktree": "/Users/mfkhalil/Code/litellm-lens-embedded-local",
+    "gateway_branch": "litellm_lens_embedded_local",
+    "host": "http://127.0.0.1:3000/ui/lens",
+    "gateway": "http://127.0.0.1:4000",
+    "runtime": "http://127.0.0.1:4318",
+    "source": "Shared @litellm/lens-ui packed from src/ui/lib; LiteLLM contains host adapter only for the active page",
+    "api_boundary": "Current gateway Lens API retained; Rust runtime owns trace ingestion/storage. Full external Rust public API adapter remains unfinished",
+    "verified_so_far": [
+      "Normal browser gateway login and shared Lens page render",
+      "Synthetic OTLP ingestion through Rust into real ClickHouse, visible in gateway Lens page",
+      "Real gateway model request succeeds and produces a ClickHouse spend record",
+      "Same trace/span IDs with different tenant ownership do not receive the provider spend join",
+      "Locked frontend dependency restoration with no existing dependency version drift",
+      "Native gateway request-log drawer shows real model request and returns to Lens trace",
+      "Reloaded trace deep link opens its detail pane and model content",
+      "Viewer normal login renders read-only Lens; dataset API GET 200 and POST 403; anonymous Lens/trace reads 401; logout redirects to login"
+    ],
+    "pending": [
+      "Remaining deep-link and browser parity matrix",
+      "External Rust API/delegation adapter",
+      "Complete production dependency pin and source verification",
+      "Retire old gateway UI copies after parity"
+    ],
+    "local_setup_note": "Reused Python environment initially loaded old-checkout litellm-proxy-extras migrations. The latest-main worktree contains the missing migrations. Isolated local schema synchronized for this run; startup must resolve both gateway and extras from the same worktree",
+    "release_status": "No package release, gateway main push or production cutover performed",
+    "evidence": "docs/extraction/local-embedded-qualification.md",
+    "navigation_note": "Clicking the account menu outside the inspector intentionally clears trace query state and closes the pane after exit animation; this behavior matches the gateway baseline"
+  },
+  "dependency_trust": {
+    "requirement": "One canonical Lens implementation, gateway-specific host/server adapters only",
+    "distribution": "Exact authorized Lens release at build time with lockfile integrity; bundle UI into gateway assets; verify source, provenance and digests; no runtime remote executable loader",
+    "identity": "Service/signing credentials stay server-side; delegate authenticated gateway identity with short lifetime and scope enforced by Lens",
+    "qualification": "Viewer write denial, cross-tenant isolation, session lifecycle, secret exposure and package source/integrity checks remain explicit gates",
+    "auth_fix": "Configured Rust delegation secret now requires at least 32 characters, matching the existing setup-token convention; focused tests and Clippy passed",
+    "runtime_advisories": "rustls updated to 0.23.45 and validated; serde_with update remains coupled to the canonical upstream pin. npm audit reported no UI advisories for the audited locks; this is not a comprehensive security certification"
+  },
+  "delivery_milestones": [
+    {
+      "milestone": 1,
+      "goal": "Self-deployable Lens with ClickHouse only",
+      "status": "in_progress",
+      "contract": "completion-plan.md, milestone 1 completion boundary"
+    },
+    {
+      "milestone": 2,
+      "goal": "LiteLLM integration using canonical Lens implementation",
+      "status": "deferred_with_local_prototype",
+      "contract": "completion-plan.md, milestone 2 completion boundary"
+    },
+    {
+      "milestone": 3,
+      "goal": "Every remaining requirement in the full completion plan",
+      "status": "pending",
+      "contract": "completion-plan.md, milestone 3 completion boundary"
+    }
+  ],
+  "publication_policy": {
+    "lens": "Push reviewed, qualified increments directly to main",
+    "companions": "Pull requests for LiteLLM, project-releaser, litellm-ops and other affected repositories",
+    "deployment": "Production release and cutover remain distinct from code publication"
+  },
+  "resolved_dependency_advisories": [
+    {
+      "package": "rustls",
+      "version": "0.23.45",
+      "verification": "Frozen dataset candidate workspace tests and Clippy pass"
+    }
+  ],
+  "required_workflows": [
+    {
+      "skill": "design-product-onboarding",
+      "path": "/Users/mfkhalil/.codex/skills/design-product-onboarding/SKILL.md",
+      "use_when": "Designing, auditing or implementing onboarding and setup flows, including defaults, automation and effort to first useful result",
+      "status": "required_at_applicable_work"
+    },
+    {
+      "skill": "write-product-docs",
+      "path": "/Users/mfkhalil/.codex/skills/write-product-docs/SKILL.md",
+      "use_when": "Creating, revising or auditing product documentation, including setup, maintenance and upgrade guides",
+      "status": "required_at_applicable_work"
+    }
+  ],
+  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign",
+  "onboarding_journeys": [
+    {
+      "starting_point": "Admin using the existing LiteLLM dashboard",
+      "milestone": 2,
+      "success": "Existing login -> verified Lens capability -> agent-specific instrumentation -> real trace -> authorized investigation",
+      "requirements": [
+        "Reuse configured service, endpoint and authorized model",
+        "No simulated infrastructure provisioning",
+        "Concrete operator handoff when service is absent",
+        "Resume partial setup and distinguish connectivity, compatibility and permission failures"
+      ]
+    },
+    {
+      "starting_point": "Developer self-hosting Lens",
+      "milestone": 1,
+      "success": "Complete supported installation -> Lens login -> real agent trace -> direct-provider investigation -> retained data after restart",
+      "requirements": [
+        "Lens and supported ClickHouse stack only",
+        "Generated private credentials and supported defaults",
+        "Analysis-provider setup deferred until needed",
+        "Complete local instructions and separate persistent deployment concerns"
+      ]
+    }
+  ],
+  "release_independence": {
+    "publisher": "project-releaser",
+    "lens": "Own repository, source SHA, product version, trigger and immutable release manifest; no LiteLLM release required",
+    "first_release": "Standalone Lens may be published before LiteLLM integration is ready",
+    "gateway_ui": "Exact shared UI package pin with integrity/provenance for reproducible bundled frontend builds",
+    "lens_backend": "Selected independently in deployment configuration, bounded by supported API/protocol compatibility",
+    "bundled_default": "Optional tested Lens deployment default, never a requirement for equal product versions",
+    "qualification": "Standalone every release; existing published host/UI combinations for integrations claimed by that release",
+    "policy": "Never resolve executable UI code at runtime from mutable remote sources"
   }
 }

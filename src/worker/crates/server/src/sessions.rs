@@ -10,18 +10,19 @@ use axum::{
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
-use lens_auth::{Authentication, Credentials, Error, SessionRepository, session_view};
+use lens_auth::{Authentication, SessionRepository, session_view};
 use lens_contract::auth::{SessionRequest, SessionView};
 use rand::RngCore;
 use serde_json::{Value, json};
 
+use crate::auth::{credentials, session_cookie};
 use crate::error::SessionError;
 
 pub fn router<R: SessionRepository + 'static>(authentication: Authentication<R>) -> Router {
-    shared_router(Arc::new(authentication))
+    router_with_auth(Arc::new(authentication))
 }
 
-pub fn shared_router<R: SessionRepository + 'static>(
+pub fn router_with_auth<R: SessionRepository + 'static>(
     authentication: Arc<Authentication<R>>,
 ) -> Router {
     Router::new()
@@ -85,35 +86,6 @@ async fn sign_out<R: SessionRepository>(
     let now = Utc::now().format("%a, %d %b %Y %H:%M:%S GMT");
     let cookie = format!("lens_session=\"\"; expires={now}; Max-Age=0; Path=/; SameSite=lax");
     Ok((StatusCode::NO_CONTENT, [(header::SET_COOKIE, cookie)]).into_response())
-}
-
-pub(crate) fn credentials<'a>(
-    headers: &'a HeaderMap,
-    method: &'a Method,
-    session: Option<&'a str>,
-) -> Result<Credentials<'a>, Error> {
-    let authorization = headers
-        .get(header::AUTHORIZATION)
-        .map(|header| header.to_str())
-        .transpose()
-        .map_err(|_| Error::Unauthorized("Use a Lens bearer credential"))?;
-    Ok(Credentials {
-        authorization,
-        session,
-        method: method.as_str(),
-        origin: headers
-            .get(header::ORIGIN)
-            .and_then(|value| value.to_str().ok()),
-    })
-}
-
-pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
-    let cookies = headers.get(header::COOKIE)?.to_str().ok()?;
-    cookie::Cookie::split_parse(cookies)
-        .filter_map(Result::ok)
-        .filter(|cookie| cookie.name() == "lens_session")
-        .map(|cookie| cookie.value_trimmed().to_owned())
-        .last()
 }
 
 fn validation(kind: &str, path: Vec<Value>, message: &str, input: Value) -> Value {

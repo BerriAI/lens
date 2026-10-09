@@ -7125,9 +7125,9 @@
       "source": "ui/litellm-dashboard/src/lib/assetPaths.ts",
       "destination": "src/ui/lib/src/lib/assetPaths.ts",
       "sha256": "9462d342a282781c02c97f4c036158faa37e7fc0ab0a14e1df622ccd9c757f5a",
-      "extracted_sha256": "c1e777813ca5b17e7ae0609f4757c50bd3592fbfbf3cdceb152dce3637f2b9d0",
+      "extracted_sha256": "e62bc62ace204a0e3c123f52ee802b43307b6cbd782b684f71fd64cd75e3013a",
       "baseline_identical": false,
-      "change": "adapted_during_extraction"
+      "change": "host_adapter_live_root_path"
     },
     {
       "source": "ui/litellm-dashboard/src/lib/cva.config.ts",
@@ -7197,9 +7197,9 @@
       "source": "ui/litellm-dashboard/src/lib/serverRootPath.ts",
       "destination": "src/ui/lib/src/lib/serverRootPath.ts",
       "sha256": "d4e9258acb020b007d2a76f0d9870d5d10f0a2d6bc8d24bcaa0f65931892b736",
-      "extracted_sha256": "d4e9258acb020b007d2a76f0d9870d5d10f0a2d6bc8d24bcaa0f65931892b736",
-      "baseline_identical": true,
-      "change": "unchanged"
+      "extracted_sha256": "35223e796f12da13c1c9e4aacd3daa7ddda660471551b3d033b9c676fcb095d4",
+      "baseline_identical": false,
+      "change": "host_adapter_live_root_path"
     },
     {
       "source": "ui/litellm-dashboard/src/lib/toast.ts",
@@ -7253,9 +7253,9 @@
       "source": "ui/litellm-dashboard/src/utils/uiHref.ts",
       "destination": "src/ui/lib/src/utils/uiHref.ts",
       "sha256": "ea17df0c800a3917b052e4711913019aa15c567d1112d0f12ae22655f1c8e75b",
-      "extracted_sha256": "d65a42049d8a639b903b5455ad40428b60a339e6bb20aaae347bcb34b938038a",
+      "extracted_sha256": "c2fe8061d8d4032576c4acb7830a46264b64dbef90e145f6aeaec6250e3f5fad",
       "baseline_identical": false,
-      "change": "adapted_during_extraction"
+      "change": "host_adapter_live_root_path"
     },
     {
       "source": "ui/litellm-dashboard/tests/jsdomFetchEnv.ts",

@@ -1,0 +1,10 @@
+{
+  "filename": "litellm-lens-ui-0.1.0-dev.0.tgz",
+  "integrity": "sha512-cR8Dnw/BFfPHTh4RceFuEbFXWHNedFCanoYaQHjAlfEXgJJbUoyOmZ2fclW0p/JWiWuSJSZh+qZc8s5CLHwsDA==",
+  "sha256": "926f0a2eb0f2ea0ab3829d9a51e66c37804e669cd18e01016ee9ec72cd772b66",
+  "entryCount": 379,
+  "bytes": 1016116,
+  "gatewayBaseline": "f48d837cd21208771ee5b15770e4425a32907f1b",
+  "qualification": "local packed UI, unpublished",
+  "unwantedArchivePaths": []
+}

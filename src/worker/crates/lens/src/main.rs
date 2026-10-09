@@ -1,5 +1,5 @@
 use litellm_lens::{
-    State, Storage, auth,
+    State, Storage, api, auth,
     config::{Config, http_client},
     control::Control,
     provision, router,
@@ -54,44 +54,22 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let state = Arc::new(State::new(storage, config.service_token.clone()));
     let (api, eval_task) = match config.authentication {
         Some(settings) => {
-            state.storage.ensure_schema().await?;
-            let connection = state.storage.config.storage();
-            let store = litellm_storage_clickhouse::state::ClickHouseState::new(
-                client.clone(),
-                connection.reader().clone(),
-            );
-            store
-                .initialize(&format!("/lens/{}", connection.database()))
-                .await?;
-            let authentication = Arc::new(lens_auth::Authentication {
+            let (api, task) = api::router(
+                &state,
                 settings,
-                sessions: litellm_storage_clickhouse::sessions::Sessions(store.clone()),
-            });
-            let traces = litellm_traces_clickhouse::evals::EvalTraces::new(
-                client.clone(),
-                connection.reader().clone(),
-            );
-            let eval_task = litellm_lens::eval_runtime::start(
-                litellm_storage_clickhouse::evals::EvalStore::new(store.clone()),
-                traces.clone(),
-                litellm_lens::eval_judge::GatewayJudge::new(
-                    client.clone(),
-                    config.proxy_url.clone(),
-                    config.eval_judge_api_key.clone(),
-                    config.eval_judge_model.clone(),
-                ),
-            );
-            (
-                lens_server::sessions::shared_router(authentication.clone()).merge(
-                    lens_server::evals::router_with_traces(
-                        authentication,
-                        store,
-                        config.public_url,
-                        traces,
+                config.datasets,
+                api::EvalConfig {
+                    public_url: config.public_url,
+                    judge: litellm_lens::eval_judge::GatewayJudge::new(
+                        client.clone(),
+                        config.proxy_url.clone(),
+                        config.eval_judge_api_key.clone(),
+                        config.eval_judge_model.clone(),
                     ),
-                ),
-                Some(eval_task),
+                },
             )
+            .await?;
+            (api, Some(task))
         }
         None => (lens_server::router(), None),
     };

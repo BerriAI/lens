@@ -16,6 +16,7 @@ jsonschema = { version = "0.55.1", default-features = false }
 libc = "0.2"
 lens-contract = { path = "../contract" }
 lens-evals = { path = "../evals" }
+lens-datasets = { path = "../datasets" }
 lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
 litellm-http.workspace = true
@@ -39,6 +40,7 @@ url.workspace = true
 unicode-casefold = "0.2"
 
 [dev-dependencies]
+base64.workspace = true
 jsonwebtoken.workspace = true
 lens-evals-sdk = { path = "../evals-sdk" }
 litellm-http = { workspace = true, features = ["test-support"] }
