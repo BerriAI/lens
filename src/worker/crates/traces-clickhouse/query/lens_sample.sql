@@ -18,6 +18,7 @@ SELECT *, selection_key FROM (
     WHERE {source:String} IN ('traces','both')
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
+      AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces)
       -- The 7 day slack covers spans that started before the window and late ingestion
       AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
       AND (TeamId,ApiKeyHash,TraceId) IN (
