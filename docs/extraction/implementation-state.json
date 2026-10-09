@@ -17,7 +17,7 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Standalone runtime, real provider workflows, data transfer and recovery, browser parity, developer source rebuilds, native CI and current host required checks are qualified. Final companion chart execution, final reviewer dispositions and dedicated removal audit remain. Official release and managed cutover are separate gates.",
+    "readiness": "Standalone runtime, live feature flows, native shared UI, developer rebuilds, migration/recovery, both gateway charts and native CI are qualified. Dedicated final removal audit and final reviewer dispositions remain before merge readiness. Official release and managed cutover are separate gates.",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
@@ -79,7 +79,7 @@
     "Qualified the frozen Rust standalone bootstrap with 2,500 regular workspace tests, Clippy, formatting, real binary login/ingestion/trace/dataset flows and restart persistence; full milestone 1 remains open",
     "Reconciled main through 5c02728f; removed retired Python backend and tests; consolidated final production Rust workspace passed 3,915 tests with zero failures, plus separately executed opt-in ClickHouse cases and final development benchmark tests"
   ],
-  "current_work": "All ten required gateway checks pass on d171e208. Full current-source Rust, UI and both native container jobs pass. Actual final-image chart installs and independent upgrade/rollback are still running; bounded companion docs and requested current-head reviews are being finalized. The dedicated60-minute removal audit has not started.",
+  "current_work": "Both gateway chart families passed actual final-image Kubernetes installation, independent Lens/gateway upgrade, rollback, restart, external and disabled modes. Current host required CI and full Lens native CI pass. Bounded companion documentation and final review dispositions are being frozen; the separate60-minute removal audit starts next, with no implementation-qualification time counted.",
   "acceptance": {
     "B1": {
       "status": "verified_local",
@@ -151,11 +151,10 @@
         "docs/extraction/evidence/final-image-switch.json",
         "docs/extraction/evidence/final-image-ui-controls.json",
         "docs/extraction/evidence/host-final-review-qualification.json",
-        "docs/extraction/evidence/final-native-ci.json"
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [
         "OFFICIAL_RELEASE"
       ],
@@ -595,10 +594,11 @@
         "docs/extraction/evidence/final-reader-requalification.json",
         "docs/extraction/evidence/final-adapter-qualification.json",
         "docs/extraction/evidence/final-image-ui-controls.json",
-        "docs/extraction/evidence/host-final-review-qualification.json"
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
       "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution",
         "Complete the dedicated final-candidate removal audit after the chart/CI implementation gates pass; no part of this reconciliation counts toward that hour"
       ],
       "external_gates": [
@@ -733,10 +733,11 @@
       "evidence": [
         "docs/extraction/evidence/host-final-review-qualification.json",
         "docs/extraction/ui-package.md",
-        "docs/extraction/evidence/final-image-ui-controls.json"
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
       "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution",
         "Complete the dedicated final-candidate removal audit after the chart/CI implementation gates pass; no part of this reconciliation counts toward that hour"
       ],
       "external_gates": [
@@ -799,10 +800,11 @@
         "docs/extraction/evidence/signal-pending-restart.json",
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/helm/argo-final-image.json",
-        "docs/extraction/evidence/helm/adoption.json"
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
       "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution",
         "Complete the dedicated final-candidate removal audit after the chart/CI implementation gates pass; no part of this reconciliation counts toward that hour"
       ],
       "external_gates": [],
@@ -1005,11 +1007,11 @@
         "docs/extraction/evidence/host-final-review-qualification.json",
         "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
         "https://github.com/BerriAI/project-releaser/pull/305",
-        "docs/extraction/ui-package.md"
+        "docs/extraction/ui-package.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [
         "OFFICIAL_RELEASE"
       ],
@@ -1050,12 +1052,10 @@
         "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
         "docs/extraction/evidence/rust-gateway-sdk.json",
         "docs/extraction/evidence/final-image-ui-controls.json",
-        "docs/extraction/qualification-matrix.md"
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution",
-        "Refresh candidate matrix with final sources and explicitly bound supported new UI/API combinations"
-      ],
+      "remaining": [],
       "external_gates": [
         "OFFICIAL_RELEASE"
       ],
@@ -1138,11 +1138,11 @@
         "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/helm/argo-final-image.json",
-        "docs/extraction/evidence/helm/adoption.json"
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [
         "OFFICIAL_RELEASE"
       ],
@@ -1179,11 +1179,11 @@
         "https://github.com/BerriAI/litellm-ops/pull/232",
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/helm/argo-final-image.json",
-        "docs/extraction/evidence/helm/adoption.json"
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [
         "MANAGED_DEPLOYMENT"
       ],
@@ -1196,18 +1196,18 @@
       }
     },
     "O3": {
-      "status": "partial",
+      "status": "verified_local",
       "observed": "Both gateway chart adapters implement bundled, explicit-external and disabled Lens, with render/negative tests. Exact final70/d83 complete installs, independent upgrades and embedded E2E chart execution are currently pending.",
       "evidence": [
         "https://github.com/BerriAI/litellm-ops/pull/232",
         "helm/lens/README.md",
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/helm/argo-final-image.json",
-        "docs/extraction/evidence/helm/adoption.json"
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [],
       "limits": [
         "Standalone Lens chart/Argo success does not certify both full gateway chart families."
@@ -1224,11 +1224,11 @@
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/helm/argo-final-image.json",
         "docs/extraction/evidence/helm/adoption.json",
-        "docs/extraction/evidence/external-clickhouse-boundary.json"
+        "docs/extraction/evidence/external-clickhouse-boundary.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [
         "MANAGED_DEPLOYMENT"
       ],
@@ -1250,10 +1250,11 @@
         "docs/extraction/evidence/populated-migration.json",
         "docs/extraction/evidence/populated-cutover-ui.json",
         "docs/extraction/evidence/importer-credential-preflight.json",
-        "docs/migration.md"
+        "docs/migration.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
       "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution",
         "Complete the dedicated final-candidate removal audit after the chart/CI implementation gates pass; no part of this reconciliation counts toward that hour"
       ],
       "external_gates": [
@@ -1365,11 +1366,11 @@
         "docs/extraction/evidence/gateway-disconnection.json",
         "deploy/lens/README.md",
         "docs/setup-with-agent.md",
-        "https://github.com/BerriAI/litellm-docs/pull/2210"
+        "https://github.com/BerriAI/litellm-docs/pull/2210",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final gateway chart qualification and link its exact candidate result"
-      ],
+      "remaining": [],
       "external_gates": [
         "OFFICIAL_RELEASE"
       ],
@@ -1539,7 +1540,7 @@
       }
     },
     "C5": {
-      "status": "partial",
+      "status": "verified_local",
       "observed": "Pinned ClickHouse26.9.6.6 with KeeperMap accepts two independent Lens processes at one stable endpoint; they share session/dataset/logout and preserve them across a process restart. All four recorded production hashes match70 Missing Keeper and insufficient grants fail before HTTP listener binds. Current Helm README maps observed storage diagnostics to required Keeper/grant recovery steps Bundled setup, restart and cold restore use unchanged canonical deployment assets. Existing Helm adoption proof is retained without pretending it is final70 chart execution Actual final70 local Argo upgrade, provider-backed confined calculation, wrong-digest/unready negatives and rollback preserve populated state and finish Synced/Healthy. This is separate from the pending two full gateway chart families",
       "evidence": [
         "docs/extraction/evidence/external-clickhouse-boundary.json",
@@ -1548,11 +1549,11 @@
         "docs/extraction/evidence/helm/adoption.json",
         "docs/extraction/evidence/helm/argo-successor-final-image.json",
         "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
-        "docs/extraction/evidence/final-image-switch.json"
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
       ],
-      "remaining": [
-        "Complete the final70/d83 real bundled/external/disabled installs and independent gateway/Lens upgrades in both gateway chart families; preserve failed predecessor run attribution"
-      ],
+      "remaining": [],
       "external_gates": [],
       "limits": [
         "Supported storage is one durable ClickHouse server reached through one stable endpoint, with one or more Lens API processes",
@@ -1588,7 +1589,7 @@
       }
     }
   },
-  "updated_at_utc": "2026-10-09T11:48:07.775Z",
+  "updated_at_utc": "2026-10-09T11:56:16.714Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -2405,7 +2406,7 @@
     "start_at": null,
     "end_at": null,
     "candidate_shas": {},
-    "reason": "Implementation and local runtime qualification are complete; final companion chart execution and candidate CI are still in progress. The dedicated audit has not started",
+    "reason": "Implementation and integration qualification passed, including both actual final-image gateway chart variants; final companion docs and source identities are being frozen before the dedicated audit starts",
     "checks": [],
     "findings": []
   },

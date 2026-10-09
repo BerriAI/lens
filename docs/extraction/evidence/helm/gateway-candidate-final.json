@@ -1,0 +1,564 @@
+{
+  "recorded_at": "2026-10-09T11:54:40.170Z",
+  "status": "passed",
+  "scope": "Native amd64 production-image candidate compatibility through both gateway Helm chart families in real Kubernetes",
+  "qualification": "candidate source compatibility",
+  "signed_release_qualification": false,
+  "production_sources": {
+    "lens_baseline": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "lens_current": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "gateway_baseline": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+    "gateway_current": "d83eab03962545fa328222557e193e5519c26ad6"
+  },
+  "actual_qualification": {
+    "recorded_at": "2026-10-09T11:53:47.495Z",
+    "run_id": 37924154315,
+    "run_url": "https://github.com/BerriAI/lens/actions/runs/37924154315",
+    "workflow_source": "ca622f44d7d8c41c656e4ae63a823b59425c853c",
+    "conclusion": "success",
+    "actual_chart_qualification_passed": true,
+    "all_ten_reused_receipts_match_producer": true,
+    "verified_receipts": [
+      "gateway-baseline",
+      "gateway-current",
+      "backend-baseline",
+      "backend-current",
+      "monolith-baseline",
+      "monolith-current",
+      "worker-baseline",
+      "worker-current",
+      "ui-current",
+      "migrations-current"
+    ],
+    "image_run_id": 37916952419,
+    "images_rebuilt": false,
+    "source": {
+      "qualification": "candidate source compatibility",
+      "signed_release_qualification": false,
+      "image_run_id": "37916952419",
+      "qualification_run_id": "37924154315",
+      "harness_repository": "BerriAI/litellm",
+      "harness_commit": "62819736ec18959efdec87e4a4ab06033c097490",
+      "harness_sha256": "cf603541d6e6d23a2bb86087a20caaf42b27b01f48f9fe09c84a55ce98dcc3d3",
+      "lens_baseline": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+      "lens_current": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+      "gateway_baseline": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+      "gateway_current": "d83eab03962545fa328222557e193e5519c26ad6",
+      "platform": "linux/amd64",
+      "registry_push": false,
+      "production_deployment": false
+    },
+    "result": {
+      "started_at": "2026-10-09T11:36:27Z",
+      "completed_at": "2026-10-09T11:52:50Z",
+      "exit_code": 0,
+      "passed": true,
+      "qualification": "candidate source compatibility",
+      "signed_release_qualification": false
+    },
+    "markers": [
+      {
+        "marker": "litellm-helm: fresh install, ingestion, Lens upgrade and rollback, independent gateway image upgrade, and restart passed",
+        "present": true
+      },
+      {
+        "marker": "litellm-helm: external Lens trace reads/writes and disabled gateway behavior passed",
+        "present": true
+      },
+      {
+        "marker": "litellm: fresh install, ingestion, Lens upgrade and rollback, independent gateway image upgrade, and restart passed",
+        "present": true
+      },
+      {
+        "marker": "litellm: external Lens trace reads/writes and disabled gateway behavior passed",
+        "present": true
+      }
+    ],
+    "smoke_sha256": "3d4dd4a759bf4293bd82e7d8ac686e07a1d51b9459019e64f74b02c77ce24d06"
+  },
+  "qualification_artifact": {
+    "id": 11614376511,
+    "name": "lens-candidate-qualification-37924154315",
+    "digest": "sha256:e0845ffc07c0bdd14b08a2f78facc7ec5d56f7521269fbc6e96b1367c16256fe",
+    "size_in_bytes": 11780
+  },
+  "image_producer": {
+    "path": "/tmp/lens-candidate-ci-37916952419/verified-receipts.json",
+    "sha256": "09d99200f86d499d4a68478473157bd202cc5b21f35411337faf6d7f22955b75",
+    "receipt": {
+      "recorded_at": "2026-10-09T10:36:52.547Z",
+      "run_id": "37916952419",
+      "complete": true,
+      "verified_count": 10,
+      "qualification": "candidate source compatibility",
+      "signed_release_qualification": false,
+      "images": [
+        {
+          "component": "gateway",
+          "variant": "baseline",
+          "repository": "BerriAI/litellm",
+          "commit": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+          "tree": "9993e448b3278bbda10ccbde7463f1de0f1d88e2",
+          "dockerfile": "gateway/Dockerfile",
+          "dockerfile_sha256": "d1ed2170019219c1387dd590dc7839f3eb3da4a45bffc3b87c043baee704baa2",
+          "image": "lens-ci-gateway:v0.0.0-lens-ci-baseline",
+          "image_id": "sha256:949342747f595b228519b53542f6e40ed3f1a1433078d2edf6e714a87a0036b6",
+          "platform": "linux/amd64",
+          "archive_sha256": "459fed6cc386f4987d98473dbcc55164e16feab06fa4526804d701e16ad2fd29",
+          "artifact_id": 11610686888,
+          "artifact_digest": "sha256:c2701bc8b340d2054cdf7948be95b04ff351256357c3bf9732538da1cbf90880",
+          "artifact_size": 1183989991
+        },
+        {
+          "component": "gateway",
+          "variant": "current",
+          "repository": "BerriAI/litellm",
+          "commit": "d83eab03962545fa328222557e193e5519c26ad6",
+          "tree": "a1cfcdcc69d30cc748f618e51e08780f618b0447",
+          "dockerfile": "gateway/Dockerfile",
+          "dockerfile_sha256": "d1ed2170019219c1387dd590dc7839f3eb3da4a45bffc3b87c043baee704baa2",
+          "image": "lens-ci-gateway:v0.0.0-lens-ci",
+          "image_id": "sha256:2aab98799fc863dc51655753fdababa3e38e1b0da5df91637bb923580123e669",
+          "platform": "linux/amd64",
+          "archive_sha256": "e17151ea2cd1f6053d660ff8c4f7230078fe794587c2b0d92399e3f2da6df54b",
+          "artifact_id": 11611221480,
+          "artifact_digest": "sha256:9b56b9b998d91b303bbab645e45f3e98bd22c232f75a8c1b86ba02fa3bae9864",
+          "artifact_size": 1150969140
+        },
+        {
+          "component": "backend",
+          "variant": "baseline",
+          "repository": "BerriAI/litellm",
+          "commit": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+          "tree": "9993e448b3278bbda10ccbde7463f1de0f1d88e2",
+          "dockerfile": "backend/Dockerfile",
+          "dockerfile_sha256": "c348504f34e49a0b88014ead202db14d0fb25747ba7fb61715f0b905d7cd5ddb",
+          "image": "lens-ci-backend:v0.0.0-lens-ci-baseline",
+          "image_id": "sha256:258e341decfa7aab094d24610139ade70838731e73440701ca586e04519e783a",
+          "platform": "linux/amd64",
+          "archive_sha256": "7156bfef5a0cc10d7966ae2a1c17f5928872f08f4481985aa575a34a53795648",
+          "artifact_id": 11610632098,
+          "artifact_digest": "sha256:e70afd750eae575da03e3338c4950bc51f521fdd04042cfb58b627ba4fab91aa",
+          "artifact_size": 1187969736
+        },
+        {
+          "component": "backend",
+          "variant": "current",
+          "repository": "BerriAI/litellm",
+          "commit": "d83eab03962545fa328222557e193e5519c26ad6",
+          "tree": "a1cfcdcc69d30cc748f618e51e08780f618b0447",
+          "dockerfile": "backend/Dockerfile",
+          "dockerfile_sha256": "c348504f34e49a0b88014ead202db14d0fb25747ba7fb61715f0b905d7cd5ddb",
+          "image": "lens-ci-backend:v0.0.0-lens-ci",
+          "image_id": "sha256:ec85ac435c15aa9ecb522f61e9b04581e74a388c179d0b683edd198f19c17318",
+          "platform": "linux/amd64",
+          "archive_sha256": "da3c163618435adcc8e4e1b0d25e85da2089b146240c67edec1fadba69a16efc",
+          "artifact_id": 11611116495,
+          "artifact_digest": "sha256:3f3567e9e17484a084bcc6af815c83cbeedcbfee479c5b5e85b119ddaa2d1eaa",
+          "artifact_size": 1154992405
+        },
+        {
+          "component": "monolith",
+          "variant": "baseline",
+          "repository": "BerriAI/litellm",
+          "commit": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+          "tree": "9993e448b3278bbda10ccbde7463f1de0f1d88e2",
+          "dockerfile": "Dockerfile",
+          "dockerfile_sha256": "6b1c1e4dfcc170012d08fa435e6806cf1310742803ce9d061be424d6951ac7f4",
+          "image": "lens-ci-monolith:v0.0.0-lens-ci-baseline",
+          "image_id": "sha256:c109bf80aed93f6e557aaa814133e6a1a51db40a505a11e7154d8e62e98721e1",
+          "platform": "linux/amd64",
+          "archive_sha256": "030e500c31c060bc1687fd8de9d251052bf824b75bdcdd6809ace2353d18567c",
+          "artifact_id": 11610867338,
+          "artifact_digest": "sha256:1b3c2302c8621c21db1f1d763bdba28c54730f7164aafbb00768bf6bc788273f",
+          "artifact_size": 461232288
+        },
+        {
+          "component": "monolith",
+          "variant": "current",
+          "repository": "BerriAI/litellm",
+          "commit": "d83eab03962545fa328222557e193e5519c26ad6",
+          "tree": "a1cfcdcc69d30cc748f618e51e08780f618b0447",
+          "dockerfile": "Dockerfile",
+          "dockerfile_sha256": "6b1c1e4dfcc170012d08fa435e6806cf1310742803ce9d061be424d6951ac7f4",
+          "image": "lens-ci-monolith:v0.0.0-lens-ci",
+          "image_id": "sha256:26932e871f31029df52f0b15b00f4fb87facd3fc922e409e84c43c76656f3460",
+          "platform": "linux/amd64",
+          "archive_sha256": "790de4caf7ec0b5ef467cdb4ca700f5f2387c9964847b5fa0b4643c959466042",
+          "artifact_id": 11610032214,
+          "artifact_digest": "sha256:3a291b64dc644c6efecc649d2cbe4ee0bfdfd35507034c79e5c09c194abf828a",
+          "artifact_size": 459865980
+        },
+        {
+          "component": "worker",
+          "variant": "baseline",
+          "repository": "BerriAI/lens",
+          "commit": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+          "tree": "cb9e748e746f87dc83711a97b514503b6d274c25",
+          "dockerfile": "deploy/runtime/Dockerfile",
+          "dockerfile_sha256": "2baa4fe3c1ca333a7602d8aeb9b0b8528c38cd114b0c0614f40fb8f622b28430",
+          "image": "lens-ci-worker:baseline",
+          "image_id": "sha256:50cc83357ab606ac69cd40f53685ced72622fcdac3d8fdf3c7f54e12825825a6",
+          "platform": "linux/amd64",
+          "archive_sha256": "a6f10ddd699de0820cbb6212f34835dbf4732a5fa5bc77da5ac2691edba24c2b",
+          "artifact_id": 11610977676,
+          "artifact_digest": "sha256:364b3bec12365472ec1ad11c5e1d2398e1192f01596bea507016c3720b27cc37",
+          "artifact_size": 61272509
+        },
+        {
+          "component": "worker",
+          "variant": "current",
+          "repository": "BerriAI/lens",
+          "commit": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+          "tree": "4dfb52915fa676a56c829ca32c8065055b287d9a",
+          "dockerfile": "deploy/runtime/Dockerfile",
+          "dockerfile_sha256": "2baa4fe3c1ca333a7602d8aeb9b0b8528c38cd114b0c0614f40fb8f622b28430",
+          "image": "lens-ci-worker:upgrade",
+          "image_id": "sha256:66c6a367008c44c2ffc374448ffe58a683e815bf2c679e40f2d61d5c3b6c203c",
+          "platform": "linux/amd64",
+          "archive_sha256": "8fb1617a8f2e06d9d3eeedc88a76d076891f0a7337f90c2f9233a2ecdc9215ef",
+          "artifact_id": 11611157053,
+          "artifact_digest": "sha256:8aa44f77807b5ff4c8c5e3df58b647d18fc0dcbb364e020705f310b974cf512f",
+          "artifact_size": 61276416
+        },
+        {
+          "component": "ui",
+          "variant": "current",
+          "repository": "BerriAI/litellm",
+          "commit": "d83eab03962545fa328222557e193e5519c26ad6",
+          "tree": "a1cfcdcc69d30cc748f618e51e08780f618b0447",
+          "dockerfile": "ui/Dockerfile",
+          "dockerfile_sha256": "75e7e69dc452dcb3b107598526a80fe4e0ccb408bbbf493ba55279fff16a91c9",
+          "image": "lens-ci-ui:v0.0.0-lens-ci",
+          "image_id": "sha256:66fd9c0adb3e3f387d43e78525e6bded47a28bc071b2fbfd0783f47c44f687d3",
+          "platform": "linux/amd64",
+          "archive_sha256": "d7ec9d35eac402c71bb959853761b356ea662983b018ad25a773f983f2ea218e",
+          "artifact_id": 11609929885,
+          "artifact_digest": "sha256:1ebdd35a4322e766f85fdd64f5047e9df6a475f0e9ca91fa26d13df9f0642951",
+          "artifact_size": 37639017
+        },
+        {
+          "component": "migrations",
+          "variant": "current",
+          "repository": "BerriAI/litellm",
+          "commit": "d83eab03962545fa328222557e193e5519c26ad6",
+          "tree": "a1cfcdcc69d30cc748f618e51e08780f618b0447",
+          "dockerfile": "migrations/Dockerfile",
+          "dockerfile_sha256": "2c0651c48088d4a7009528db4c169ee7ff54f07ae8d8a4c06d36a86cc1e21b59",
+          "image": "lens-ci-migrations:v0.0.0-lens-ci",
+          "image_id": "sha256:884e27d2a18d5a517962c53211a9ce5fd9e0162dcb46ee4be68439c8576d6595",
+          "platform": "linux/amd64",
+          "archive_sha256": "ac62a7a96fd4ff7ddb058a3ce6f40626781f94aa8b6eebd8a30cf1515c4fc95d",
+          "artifact_id": 11610671784,
+          "artifact_digest": "sha256:497fe035589da79b004b7003792fe4264e870a67962efe16c055cda18c38ccbd",
+          "artifact_size": 1145783137
+        }
+      ]
+    }
+  },
+  "charts": [
+    "helm/litellm-helm",
+    "helm/litellm"
+  ],
+  "checks": {
+    "fresh_install_and_gateway_lens_connection": true,
+    "scoped_key_and_actual_trace_ingestion": true,
+    "clickhouse_trace_record_preserved": true,
+    "repeated_install_preserves_trace": true,
+    "lens_only_upgrade_preserves_gateway_pod_templates": true,
+    "lens_image_rollback_preserves_trace": true,
+    "gateway_only_upgrade_preserves_lens_pod_template_uid_image_and_restart_count": true,
+    "gateway_actual_runtime_image_changes": true,
+    "migration_job_has_one_helm_owner_and_successful_expected_image": true,
+    "migration_job_recreated_for_gateway_upgrade": true,
+    "gateway_and_lens_restart_preserves_trace": true,
+    "external_mode_removes_bundled_lens_deployment": true,
+    "external_lens_reads_existing_trace_and_ingests_new_trace": true,
+    "disabled_gateway_reports_unconfigured_and_datasets_503": true,
+    "disabled_gateway_preserves_external_lens_deployment": true
+  },
+  "published_harness": {
+    "commit": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "script_sha256": "0e1d79ff87ea71e3faa368684497f037baa823aa7ee8e9a3090b44198af75c41",
+    "difference_from_actual_attempt": "One smoke-only migrationJob.ttlSecondsAfterFinished override to3600; no production or chart default change",
+    "reason": "Retain completed Job lifecycle evidence beyond the allowed eight-minute Helm rollout wait",
+    "independent_review": "HTTP independently passed24 actual-render and negative lifecycle-guard cases; root reviewed one-line delta",
+    "review_receipt": {
+      "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-helm-migration-owner-9PyaNm/result.json",
+      "sha256": "6e38d62ad6a5a3d6d97a4496411be042a83f12ab73b10fadc502f368f5d78d12",
+      "receipt": {
+        "recorded_at": "2026-10-09T11:32:54.251Z",
+        "status": "passed",
+        "directory": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-helm-migration-owner-9PyaNm",
+        "checks": [
+          "old monolith values leave migration Job outside Helm hook ownership",
+          "new lifecycle guard rejects old Argo-only values before gateway upgrade",
+          "litellm-helm baseline: completed Job retained beyond eight-minute rollout allowance",
+          "litellm-helm baseline: single Helm-owned completed migration accepted",
+          "litellm-helm baseline: incomplete migration rejected",
+          "litellm-helm baseline: wrong migration image rejected",
+          "litellm-helm baseline: dual ownership rejected",
+          "litellm-helm upgrade: completed Job retained beyond eight-minute rollout allowance",
+          "litellm-helm upgrade: single Helm-owned completed migration accepted",
+          "litellm-helm upgrade: incomplete migration rejected",
+          "litellm-helm upgrade: wrong migration image rejected",
+          "litellm-helm upgrade: dual ownership rejected",
+          "litellm-helm: independent gateway upgrade retains expected migration image policy",
+          "litellm baseline: completed Job retained beyond eight-minute rollout allowance",
+          "litellm baseline: single Helm-owned completed migration accepted",
+          "litellm baseline: incomplete migration rejected",
+          "litellm baseline: wrong migration image rejected",
+          "litellm baseline: dual ownership rejected",
+          "litellm upgrade: completed Job retained beyond eight-minute rollout allowance",
+          "litellm upgrade: single Helm-owned completed migration accepted",
+          "litellm upgrade: incomplete migration rejected",
+          "litellm upgrade: wrong migration image rejected",
+          "litellm upgrade: dual ownership rejected",
+          "litellm: independent gateway upgrade retains expected migration image policy"
+        ],
+        "check_count": 24,
+        "script_sha256": "0e1d79ff87ea71e3faa368684497f037baa823aa7ee8e9a3090b44198af75c41",
+        "chart_source_commit": "62819736ec18959efdec87e4a4ab06033c097490",
+        "actual_old_failure": {
+          "run": 37922022021,
+          "phase": "monolith gateway image upgrade",
+          "error": "Job lens-migrations spec.template field is immutable"
+        },
+        "scope": "Actual Helm 3.20 render of both chart families with old/fixed harness values, plus black-box kubectl response checks for runtime migration lifecycle guard",
+        "actual_fixed_upgrade": "Pending actual candidate chart retry"
+      }
+    },
+    "actual_run_repeated_for_test_only_delta": false
+  },
+  "historical_attempts": [
+    {
+      "path": "/tmp/lens-candidate-ci-37913916986/chart-failure-diagnosis.json",
+      "sha256": "aaab52288f9639055d9f8874bed60085288668d904148b0f31507287a1e8872f",
+      "receipt": {
+        "workflow_run": 37913916986,
+        "url": "https://github.com/BerriAI/lens/actions/runs/37913916986",
+        "conclusion": "failure",
+        "production_image_builds_passed": 10,
+        "source_receipts_verified": 10,
+        "image_archive_load_checks_passed": 10,
+        "chart_qualification_passed": false,
+        "smoke_exit_code": 4,
+        "chart": "litellm-helm",
+        "last_completed_helm_revision": 4,
+        "last_transition": "Lens upgrade returned to baseline image",
+        "failure": "Ready pod runtime identity is missing",
+        "failed_phase": "Snapshot before independent gateway image upgrade",
+        "pod_snapshot_available": false,
+        "diagnosis": "Strict runtime snapshot sampled at least one absent or unready pod/container identity after Helm wait; deleted-cluster logs cannot distinguish transient convergence from a persistent product readiness failure",
+        "harness_correction": {
+          "file": "tests/e2e/migrations/lens_helm_smoke.sh",
+          "sha256": "4f8b0df5e861b5e0981bb488d1fc55055db9e54446280588678200816b6f0811",
+          "change": "Wait180s for full rollout, then retry strict snapshots30 times at1s intervals, preserve UID/image/restart assertions and emit selected pod identity fields on failure",
+          "independent_review": "dataset_http, no findings",
+          "offline_regression": "10 checks passed, historical helper rejects transient fixture and corrected helper converges; all persistent negative states remain failures"
+        },
+        "required_followup": "Actual chart-only qualification with source-verified final70/d83 production images"
+      }
+    },
+    {
+      "path": "/tmp/lens-candidate-ci-37916952419/cancellation-receipt.json",
+      "sha256": "8dbfc2edadc33539d8ff102d7a1e65935406d21575a6d031624508af1c0da368",
+      "receipt": {
+        "recorded_at": "2026-10-09T10:40:50.357Z",
+        "workflow_run": 37916952419,
+        "action": "cancel obsolete99a-harness preparation after all10 final image builds passed",
+        "authorization": "Parent instruction to avoid completing image preparation for obsolete harness before actual chart execution",
+        "active_step": "Verify and load all ten source-matched images",
+        "chart_execution_started": false,
+        "production_image_builds_passed": 10,
+        "source_receipts_independently_verified": 10,
+        "historical_failure_retained": "37913916986",
+        "replacement_harness": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+        "interpretation": "Deliberate cancellation for efficiency, not a product failure or successful chart qualification"
+      }
+    },
+    {
+      "path": "/tmp/lens-candidate-ci-37919175702/qualification-review.json",
+      "sha256": "fe902b6dba413ff0ca6f3396506f980a1e00a1deaca7bccf3aee4c7b23a55d72",
+      "receipt": {
+        "run_id": 37919175702,
+        "conclusion": "failure",
+        "all_ten_reused_receipts_match_producer": true,
+        "image_run_id": 37916952419,
+        "images_rebuilt": false,
+        "actual_chart_qualification_passed": false,
+        "source": {
+          "qualification": "candidate source compatibility",
+          "signed_release_qualification": false,
+          "image_run_id": "37916952419",
+          "qualification_run_id": "37919175702",
+          "harness_repository": "BerriAI/litellm",
+          "harness_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "harness_sha256": "4f8b0df5e861b5e0981bb488d1fc55055db9e54446280588678200816b6f0811",
+          "lens_baseline": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+          "lens_current": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+          "gateway_baseline": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+          "gateway_current": "d83eab03962545fa328222557e193e5519c26ad6",
+          "platform": "linux/amd64",
+          "registry_push": false,
+          "production_deployment": false
+        },
+        "result": {
+          "started_at": "2026-10-09T10:47:40Z",
+          "completed_at": "2026-10-09T10:55:29Z",
+          "exit_code": 4,
+          "passed": false,
+          "qualification": "candidate source compatibility",
+          "signed_release_qualification": false
+        },
+        "failure": {
+          "kind": "Test harness pod ownership selection",
+          "deployment": "lens",
+          "actual_deployment_ready": true,
+          "lens_worker_ready": true,
+          "contaminating_pod": "Completed migration Job sharing gateway selector labels",
+          "assertion": "Every selected pod container must be ready",
+          "required_correction": "Select only pods controlled by ReplicaSets controlled by the exact Deployment UID; keep all readiness checks"
+        },
+        "smoke_sha256": "2becdebad55e604242e843febd60f2edfc98c142b7d92de72f95cfa3283bae01"
+      }
+    },
+    {
+      "path": "/tmp/lens-candidate-ci-37922022021/qualification-review.json",
+      "sha256": "b0611ab5a2547c95423910337d470d9438a1aa5d7041f86852d9d124a73640e2",
+      "receipt": {
+        "recorded_at": "2026-10-09T11:31:50.374Z",
+        "run_id": 37922022021,
+        "run_url": "https://github.com/BerriAI/lens/actions/runs/37922022021",
+        "workflow_source": "256d760e629b10c39446cdcd34361a278fd6173e",
+        "conclusion": "failure",
+        "actual_chart_qualification_passed": false,
+        "all_ten_reused_receipts_match_producer": true,
+        "verified_receipts": [
+          "gateway-baseline",
+          "gateway-current",
+          "backend-baseline",
+          "backend-current",
+          "monolith-baseline",
+          "monolith-current",
+          "worker-baseline",
+          "worker-current",
+          "ui-current",
+          "migrations-current"
+        ],
+        "image_run_id": 37916952419,
+        "images_rebuilt": false,
+        "source": {
+          "qualification": "candidate source compatibility",
+          "signed_release_qualification": false,
+          "image_run_id": "37916952419",
+          "qualification_run_id": "37922022021",
+          "harness_repository": "BerriAI/litellm",
+          "harness_commit": "fde58999fe48db8279d0464465e9ddce75defdca",
+          "harness_sha256": "961e1b82d7f202ffb640c224330e0c972bf267f80d9f06a5c727d83f684e29c5",
+          "lens_baseline": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+          "lens_current": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+          "gateway_baseline": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+          "gateway_current": "d83eab03962545fa328222557e193e5519c26ad6",
+          "platform": "linux/amd64",
+          "registry_push": false,
+          "production_deployment": false
+        },
+        "result": {
+          "started_at": "2026-10-09T11:15:17Z",
+          "completed_at": "2026-10-09T11:22:13Z",
+          "exit_code": 1,
+          "passed": false,
+          "qualification": "candidate source compatibility",
+          "signed_release_qualification": false
+        },
+        "markers": [
+          {
+            "marker": "litellm-helm: fresh install, ingestion, Lens upgrade and rollback, independent gateway image upgrade, and restart passed",
+            "present": false
+          },
+          {
+            "marker": "litellm-helm: external Lens trace reads/writes and disabled gateway behavior passed",
+            "present": false
+          },
+          {
+            "marker": "litellm: fresh install, ingestion, Lens upgrade and rollback, independent gateway image upgrade, and restart passed",
+            "present": false
+          },
+          {
+            "marker": "litellm: external Lens trace reads/writes and disabled gateway behavior passed",
+            "present": false
+          }
+        ],
+        "smoke_sha256": "c81e4191c6270c7a9f27b496c4a845dd478c222858ed0b6977bdd2ade35c466e",
+        "failure": {
+          "kind": "Migration controller configuration mismatch",
+          "chart": "litellm-helm",
+          "phase": "Independent gateway image upgrade",
+          "error": "Helm attempted to patch the immutable migration Job pod template",
+          "completed_before_failure": [
+            "fresh install",
+            "trace key creation and ingestion",
+            "saved trace reads",
+            "Lens-only image upgrade",
+            "Lens image rollback",
+            "strict Deployment-owned pod readiness snapshots"
+          ],
+          "cause": "Monolith chart defaults to Argo PreSync ownership; Helm CLI ignored those annotations and treated the migration Job as an ordinary resource",
+          "correction": "Harness must explicitly select Helm hooks and disable Argo hooks for both chart families; preserve chart defaults, require completed expected-image Job with exclusive ownership and changed UID on gateway upgrade",
+          "actual_fixed_upgrade": "Pending successor qualification"
+        }
+      }
+    }
+  ],
+  "evidence": {
+    "directory": "/tmp/lens-candidate-ci-37924154315",
+    "smoke_log_sha256": "3d4dd4a759bf4293bd82e7d8ac686e07a1d51b9459019e64f74b02c77ce24d06",
+    "sources_sha256": "ab36b1bfdd110db82281b5680f559b4ac8d698dd3bfac6043a3ba188d98c90a0",
+    "result_sha256": "bffea38d00368899197f9f948cc30b1e63b64bad00e8917a02e5787b90b07d38",
+    "workflow_sha256": "d7afaec596e4cd04ba2ac3c0c2cbaf93eb420f734d398c72e23714cb4019bc99",
+    "independent_verifier_sha256": "a486fbd8b0a06bcca9dc32e68816d652921ab85bad40e3739d4543ed57655d20"
+  },
+  "cleanup": {
+    "isolated_kind_cluster_deleted": true,
+    "shared_local_services_untouched": true
+  },
+  "limits": [
+    "Candidate source images built from production Dockerfiles, not officially signed or published Lens releases",
+    "The producer run was intentionally cancelled after all ten image builds succeeded; this run verified and reused those immutable artifacts without rebuilding",
+    "Actual Kubernetes run used62819736 migration ownership fix; subsequent d171e208 extends smoke-only completed Job TTL and passed24 independent render/lifecycle checks without changing product or chart defaults",
+    "Earlier failed attempts and deliberate cancellation remain recorded; they are not relabelled as successes",
+    "No registry push or production deployment; official release staging/promotion and managed-environment rollout remain separate gates"
+  ],
+  "independent_review": {
+    "reviewed_at": "2026-10-09T11:56:55.789143+00:00",
+    "reviewer": "dataset_http",
+    "status": "passed",
+    "findings": [],
+    "run": 37924154315,
+    "actual_harness_commit": "62819736ec18959efdec87e4a4ab06033c097490",
+    "actual_harness_sha256_verified": "cf603541d6e6d23a2bb86087a20caaf42b27b01f48f9fe09c84a55ce98dcc3d3",
+    "actual_harness_controls_independently_read": [
+      "test \"$migration_before\" != \"$migration_after\"",
+      "cmp \"$qa_dir/lens-pods-before.json\" \"$qa_dir/lens-pods-after.json\"",
+      "test \"$before_id\" != \"$after_id\"",
+      "cmp \"$qa_dir/gateway-before.json\" \"$qa_dir/gateway-after.json\"",
+      "cmp \"$qa_dir/external-before.json\" \"$qa_dir/external-after.json\""
+    ],
+    "result_exit_code": 0,
+    "all_four_chart_markers_present": true,
+    "all_ten_producer_receipts_match": true,
+    "published_d171_delta": [
+      "  ttlSecondsAfterFinished: 3600"
+    ],
+    "published_d171_not_relabelled_as_executed": true,
+    "offline_successor_harness_regression_cases": 24,
+    "signed_release_qualification": false,
+    "files": {
+      "result.json": "bffea38d00368899197f9f948cc30b1e63b64bad00e8917a02e5787b90b07d38",
+      "sources.json": "ab36b1bfdd110db82281b5680f559b4ac8d698dd3bfac6043a3ba188d98c90a0",
+      "smoke.log": "3d4dd4a759bf4293bd82e7d8ac686e07a1d51b9459019e64f74b02c77ce24d06"
+    },
+    "scope": "Independently reran receipt verifier, read execution markers and harness controls, verified exact628 script hash and TTL-only d171 delta; no duplicate actual chart run or image rebuild"
+  }
+}

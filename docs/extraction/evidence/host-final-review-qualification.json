@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-09T11:47:29.717153+00:00",
+  "recorded_at": "2026-10-09T11:56:55.639985+00:00",
   "qualification": "Exact current-tip checks and reviews, with separately attributed historical qualification; final release attestation remains pending",
   "pr": "https://github.com/BerriAI/litellm/pull/45529",
   "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
@@ -94,10 +94,11 @@
     ]
   },
   "check_summary": {
-    "IN_PROGRESS": 26,
     "WAITING": 1,
     "SKIPPED": 1,
-    "SUCCESS": 78,
+    "SUCCESS": 102,
+    "FAILURE": 1,
+    "IN_PROGRESS": 5,
     "PENDING": 1,
     "NEUTRAL": 1
   },
@@ -160,13 +161,16 @@
       "human_maintainer_review_requested": false
     },
     "greptile": {
-      "current_tip_reviewed": false,
-      "reviewed_commit": "fde58999fe48db8279d0464465e9ddce75defdca",
-      "updated_at": "2026-10-09T11:20:05Z",
+      "current_tip_reviewed": true,
+      "reviewed_commit": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "updated_at": "2026-10-09T11:52:36Z",
       "confidence": 4,
       "out_of": 5,
       "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853",
-      "status": "Latest completed summary applies to an earlier tip; current-tip review remains pending",
+      "status": "Current-tip review recorded; live-evidence findings still need disposition",
+      "summary_reviewed": true,
+      "new_defects_reported": false,
+      "new_inline_comments_after_refresh": 0,
       "retained_findings": [
         {
           "id": 4227579130,
@@ -203,23 +207,52 @@
     },
     "veria": {
       "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
-      "status": "not_reported",
-      "interpretation": "Earlier-tip Veria successes do not qualify this tip"
+      "check_id": 113804721518,
+      "status": "in_progress",
+      "conclusion": null,
+      "started_at": "2026-10-09T11:47:40Z",
+      "completed_at": null,
+      "summary": "Analyzing changes for security issues...",
+      "url": "https://github.com/BerriAI/litellm/runs/113804721518"
     },
     "bugbot": {
       "status": "absent",
-      "observed_at": "2026-10-09T11:47:29.717153+00:00",
+      "observed_at": "2026-10-09T11:56:55.639985+00:00",
       "interpretation": "No current-tip result; absence is not a pass"
     }
   },
   "python_codeql": {
     "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
-    "status": "IN_PROGRESS",
-    "conclusion": "",
-    "completed_at": "0001-01-01T00:00:00Z",
+    "status": "COMPLETED",
+    "conclusion": "FAILURE",
+    "completed_at": "2026-10-09T11:50:49Z",
     "url": "https://github.com/BerriAI/litellm/actions/runs/37924589886/job/113800585451",
     "historical_diagnosis": "cf59 and fde5899 exceeded the LogInjection result limit; full exact-source and tool-version details remain under historical_tip_qualifications",
-    "interpretation": "Current-tip analysis is not yet qualified; historical scans and manual reviews are not a current pass",
+    "diagnosis": {
+      "recorded_at": "2026-10-09T11:56:27.156425+00:00",
+      "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "run": 37924589886,
+      "job": 113800585451,
+      "url": "https://github.com/BerriAI/litellm/actions/runs/37924589886/job/113800585451",
+      "ci_merge_commit": "50996572fb26b18e28b614d11e33cb26bc1b9723",
+      "ci_base": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+      "branch_merge_base": "a3236ba9479e32ee914d43f12082f4423403e3ca",
+      "cli": "2.27.2",
+      "python_queries": "1.8.12",
+      "query_count": 50,
+      "suite": "security-extended",
+      "ram_mb": 14575,
+      "threads": 4,
+      "failure": "LogInjection.ql result set exceeds 2 GiB after 9m55s",
+      "exit_code": 34,
+      "diff_scope": "Action cannot retrieve complete PR diff at its 300-file limit and explicitly skips diff-informed analysis",
+      "log_sha256": "302a339f91c11b99d6ffef3344b24cf18a7c6759deeb97af3eacd55b09f153b3",
+      "historical_comparison": "fde5899 shows the same query and resource-limit failure with the same CLI2.27.2/query pack1.8.12 and CI base; cf59 and pre-extraction main show the same limit on older2.27.1/1.8.11. These comparisons do not establish an exact-base pass",
+      "interpretation": "Unresolved resource-bound incomplete scan, neither a reported vulnerability nor a pass",
+      "queries_or_limits_changed": false,
+      "rerun_attempted": false
+    },
+    "interpretation": "Current-tip LogInjection query exceeded its 2 GiB result limit after 9m55s; unresolved incomplete scan, neither a reported vulnerability nor a pass",
     "query_suppression_or_limits_change": false
   },
   "external_gates": {
@@ -267,7 +300,7 @@
   "raw_receipts": [
     {
       "name": "d171e20_check_snapshot",
-      "sha256": "eb6cfb4beeb10158685a5ae37480b8c3b7f545e13ef8fb78c6fbc6eaa4a68b12",
+      "sha256": "f0db548ea44a1894af21180d8d55f06dfa47392076d43f615b442ebdd58d7c80",
       "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
     }
   ],
@@ -788,9 +821,9 @@
     "review_requested": false,
     "actual_chart_run": {
       "run": 37924154315,
-      "status": "in_progress_when_successor_pushed",
+      "status": "success",
       "url": "https://github.com/BerriAI/lens/actions/runs/37924154315",
-      "qualification": "Root preserves this actual run at its original628 harness source; final results are recorded separately"
+      "qualification": "Actual run retained at its original628 harness source, with final runtime/image identities unchanged; published d171 adds only smoke-test Job TTL3600, covered by independent24-case harness regression"
     }
   }
 }
