@@ -1,19 +1,20 @@
 "use client";
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { money } from "../../model/format";
 import { Input } from "../../../ui/input";
 import { DurationInput } from "../../../shared/DurationInput";
 import type { InvestigationInput } from "../investigationSchema";
 import { AnalysisModelField, type AnalysisModelFieldProps } from "./AnalysisModelField";
 
-export function RunFields({ models, gate }: AnalysisModelFieldProps) {
+export function RunFields({ models, gate, model }: AnalysisModelFieldProps) {
   const {
     control,
     register,
     setValue,
     formState: { errors },
   } = useFormContext<InvestigationInput>();
-  const repeat = useWatch({ control, name: "repeat" });
+  const [repeat, budget] = useWatch({ control, name: ["repeat", "budget"] });
   return (
     <>
       <div className="space-y-3">
@@ -39,7 +40,7 @@ export function RunFields({ models, gate }: AnalysisModelFieldProps) {
       <details open={!gate.modelValid || undefined}>
         <summary className="cursor-pointer text-sm font-medium">Advanced options</summary>
         <div className="mt-4 space-y-5">
-          <AnalysisModelField models={models} gate={gate} />
+          <AnalysisModelField models={models} gate={gate} model={model} />
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="grid content-start gap-2 text-sm font-medium">
               Maximum runs (optional)
@@ -85,6 +86,11 @@ export function RunFields({ models, gate }: AnalysisModelFieldProps) {
           </div>
         </div>
       </details>
+      {gate.modelValid && Number.isFinite(budget) && budget > 0 && (
+        <p role="note" aria-label="Analysis usage" className="text-xs leading-5 text-muted-foreground">
+          Lens sends selected trace content to {model}. Monthly limit: {money(budget)}. Provider charges apply.
+        </p>
+      )}
     </>
   );
 }

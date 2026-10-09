@@ -351,6 +351,10 @@ it("keeps a duplicated investigation's schedule off and saves the interval once 
   fireEvent.change(screen.getByRole("spinbutton", { name: "Monthly limit (USD)" }), { target: { value: "8" } });
   await user.click(screen.getByRole("checkbox", { name: "Keep watching for new traces" }));
   fireEvent.change(screen.getByRole("spinbutton", { name: "Check every" }), { target: { value: "120" } });
+  await user.click(screen.getByText("Advanced options"));
+  const usage = screen.getByRole("note", { name: "Analysis usage" });
+  expect(usage).toHaveTextContent("Lens sends selected trace content to analysis. Monthly limit: $8.00. Provider charges apply.");
+  expect(usage).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Run and monitor" }));
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({ enabled: true, interval_minutes: 120, monthly_budget: 8 }),
@@ -374,6 +378,13 @@ it("uses the sole Lens analysis model while signals models remain separate", asy
   expect(watching).toBeChecked();
   expect(watching).toBeVisible();
   await waitFor(() => expect(screen.getByRole("button", { name: "Run and monitor" })).toBeEnabled());
+  await user.click(screen.getByText("Advanced options"));
+  expect(screen.getByRole("combobox", { name: "Analysis model" })).toHaveValue("analysis");
+  await user.click(screen.getByText("Advanced options"));
+  const usage = screen.getByRole("note", { name: "Analysis usage" });
+  expect(usage).toHaveTextContent("Lens sends selected trace content to analysis. Monthly limit: $100.00. Provider charges apply.");
+  expect(usage).toBeVisible();
+  expect(screen.getByRole("spinbutton", { name: "Monthly limit (USD)" })).not.toBeVisible();
   await user.click(screen.getByRole("button", { name: "Run and monitor" }));
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -400,6 +411,8 @@ it("requires a model choice when Lens has multiple analysis models", async () =>
       name: /review.*JSON output support unverified/,
     }),
   );
+  expect(screen.getByRole("combobox", { name: "Analysis model" })).toHaveValue("review");
+  expect(screen.getByRole("note", { name: "Analysis usage" })).toHaveTextContent("Lens sends selected trace content to review. Monthly limit: $100.00. Provider charges apply.");
   await user.click(screen.getByRole("button", { name: "Run and monitor" }));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ model: "review" }));
 });
