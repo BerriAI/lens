@@ -87,6 +87,40 @@ it("should keep Home selected when connected agents load and offer their directo
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("agents"));
 });
 
+it("should resume existing-key setup from Traces without creating another tracing key", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (path === "/v1/traces") return Response.json({ data: [], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { onUrlUpdate });
+  act(() =>
+    fireEvent.change(screen.getByRole("textbox", { name: "Agent name" }), { target: { value: "support-agent" } }),
+  );
+  await user.click(screen.getByRole("button", { name: "Connect project" }));
+  await user.click(await screen.findByRole("button", { name: "I already have a tracing key" }));
+  expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("connect_step")).toBe("instructions"));
+  expect(lastUrl(onUrlUpdate).get("connect_agent")).toBe("support-agent");
+
+  await user.click(screen.getByRole("tab", { name: "Traces" }));
+  const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+  expect(waiting.getByRole("heading", { name: "Your first trace will appear here" })).toBeVisible();
+  expect(waiting.getByText("support-agent")).toBeVisible();
+  await user.click(waiting.getByRole("button", { name: "Continue setup" }));
+  expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "I already have a tracing key" })).not.toBeInTheDocument();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("connect_step")).toBe("instructions"));
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  expect(requests.filter(({ path, method }) => path === "/lens/tracing/keys" && method === "POST")).toEqual([]);
+});
+
 it("keeps installation controls mounted while readiness retries and continues after Lens connects", async () => {
   const user = userEvent.setup();
   const unavailable = () => Response.json({ detail: "Configure Lens" }, { status: 503 });
@@ -449,9 +483,10 @@ describe("Lens interactive demo", () => {
     await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
     await waitFor(() => expect(settings).toHaveAttribute("title", "Configure analysis"));
     expect(await panel.findByText("Models are configured; waiting for the investigation worker")).toBeVisible();
-    await user.click(panel.getByRole("button", { name: "Connect an agent" }));
-    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("traces"));
-    expect(tabs.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+    await user.click(panel.getByRole("button", { name: "Connect project" }));
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("home"));
+    expect(tabs.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("textbox", { name: "Agent name" })).toBeVisible();
   });
 
   it("sends the first-time guide's Configure analysis into the Settings tab", async () => {

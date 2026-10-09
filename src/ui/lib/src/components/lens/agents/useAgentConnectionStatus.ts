@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLensAccessToken } from "../data/LensServices";
 import { useTracesApi } from "../traces/api";
+import { connectionAuthStatus } from "../onboarding/connectionErrors";
 import { AGENT_WINDOW_DAYS } from "./useAgents";
 import {
   agentConnectionState,
@@ -29,7 +30,10 @@ export function useAgentConnectionStatus(name: string, enabled = true) {
       const agents = await traces.agents({ startMs: endMs - AGENT_WINDOW_DAYS * 86_400_000, endMs });
       const match = agents.find((agent) => agent.name === name && agent.runs > 0) ?? null;
       const observation = observeAgentConnection(previous, match, Date.now());
-      if (observation.observedAt !== null && observation.observedAt !== previous?.observedAt) {
+      if (
+        (previous === undefined && match !== null) ||
+        (observation.observedAt !== null && observation.observedAt !== previous?.observedAt)
+      ) {
         void queryClient.invalidateQueries({ queryKey: ["lensAgents", accessToken, traces.live] });
       }
       return observation;
@@ -38,7 +42,9 @@ export function useAgentConnectionStatus(name: string, enabled = true) {
     retry: false,
     staleTime: 0,
     gcTime: 0,
-    refetchInterval: active ? CONNECTION_POLL_MS : false,
+    refetchInterval: (query) => (active && !connectionAuthStatus(query.state.error) ? CONNECTION_POLL_MS : false),
+    refetchOnWindowFocus: (query) => !connectionAuthStatus(query.state.error),
+    refetchOnReconnect: (query) => !connectionAuthStatus(query.state.error),
     refetchIntervalInBackground: false,
   });
   const observedAt = query.data?.observedAt;

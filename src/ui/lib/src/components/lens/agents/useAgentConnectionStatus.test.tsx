@@ -1,8 +1,9 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TracesApi } from "../traces/api";
+import { ApiError } from "../../../lib/http/client";
 import type { AgentSummary } from "./agentRollup";
 import { useAgentConnectionStatus } from "./useAgentConnectionStatus";
 
@@ -162,5 +163,47 @@ describe("live agent connection", () => {
     traces.agents.mockResolvedValue([{ ...agent, runs: 2 }]);
     await advance(3000);
     expect(client.getQueryState(directory)?.isInvalidated).toBe(true);
+  });
+
+  it("should refresh an empty directory when the first check already finds the named agent", async () => {
+    const directory = ["lensAgents", "test", true];
+    client.setQueryData(directory, []);
+    traces.agents.mockResolvedValue([agent]);
+    const { result } = renderConnection();
+    await advance(1);
+    expect(result.current.status).toBe("waiting-for-new-traces");
+    expect(result.current.match).toEqual(agent);
+    expect(client.getQueryState(directory)?.isInvalidated).toBe(true);
+
+    client.setQueryData(directory, [agent]);
+    await advance(3000);
+    expect(result.current.status).toBe("waiting-for-new-traces");
+    expect(client.getQueryState(directory)?.isInvalidated).toBe(false);
+  });
+
+  it.each([401, 403])("should stop automatic checks after HTTP %s and resume after manual recovery", async (status) => {
+    traces.agents.mockRejectedValue(new ApiError("Private backend detail", status, {}));
+    const { result } = renderConnection();
+    await advance(1);
+    expect(result.current.status).toBe("error");
+    expect(result.current.isChecking).toBe(false);
+    await advance(12_000);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+      onlineManager.setOnline(false);
+      onlineManager.setOnline(true);
+    });
+    await advance(1);
+    expect(traces.agents).toHaveBeenCalledOnce();
+
+    traces.agents.mockResolvedValue([agent]);
+    act(() => result.current.refresh());
+    await advance(1);
+    expect(result.current.status).toBe("waiting-for-new-traces");
+    expect(result.current.error).toBeNull();
+    expect(traces.agents).toHaveBeenCalledTimes(2);
+    await advance(3000);
+    expect(traces.agents).toHaveBeenCalledTimes(3);
   });
 });

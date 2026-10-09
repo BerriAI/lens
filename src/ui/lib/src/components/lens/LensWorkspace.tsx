@@ -316,7 +316,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         </Button>
                       ) : undefined
                     }
-                    onOpenTraces={() => setTab("traces")}
+                    onConnectProject={connectProject}
                   />
                 </TabsContent>
               )}

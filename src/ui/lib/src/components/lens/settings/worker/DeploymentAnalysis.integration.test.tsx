@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../../tests/test-utils";
 import { DeploymentAnalysis } from "./DeploymentAnalysis";
@@ -26,7 +26,9 @@ describe("Deployment analysis setup", () => {
   it.each([{}, { surface: "embedded" }, { surface: "standalone" }] as const)(
     "uses deployment analysis with host %j and no enrollment options",
     async (host) => {
+      const user = userEvent.setup();
       const gateway = stubGateway();
+      const onConnectProject = vi.fn();
       const list: LensList = { lenses: [], workers, tracing_enabled: true };
       gateway.get.mockImplementation((path) => {
         if (path === "/lens") return list;
@@ -36,7 +38,11 @@ describe("Deployment analysis setup", () => {
       });
       renderWithLens(
         <LensHostProvider host={host}>
-          <LensSettings list={list} onOpenTraces={() => {}} workerReadyAction={<button>New investigation</button>} />
+          <LensSettings
+            list={list}
+            onConnectProject={onConnectProject}
+            workerReadyAction={<button>New investigation</button>}
+          />
         </LensHostProvider>,
       );
       expect(await screen.findByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
@@ -48,6 +54,8 @@ describe("Deployment analysis setup", () => {
         "/lens/signals",
       ]);
       expect(gateway.post).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("button", { name: "Connect project" }));
+      expect(onConnectProject).toHaveBeenCalledOnce();
     },
   );
 

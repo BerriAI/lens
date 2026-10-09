@@ -56,6 +56,8 @@ const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
   connect_integration: parseAsStringLiteral(["auto", "moyai"]).withDefault("auto"),
+  connect_step: parseAsStringLiteral(["instructions"]),
+  connect_endpoint: parseAsString,
 };
 
 export interface ProjectConnection {
@@ -183,10 +185,28 @@ export function useConnectProjectRoute(): [ProjectConnection | null, (project: P
       void setParams({
         connect_agent: next?.name ?? null,
         connect_integration: next?.integration ?? null,
+        connect_step: null,
+        connect_endpoint: null,
       }),
     [setParams],
   );
   return [project, setProject];
+}
+
+export function useProjectSetupRoute() {
+  const [{ connect_step, connect_endpoint }, setParams] = useQueryStates(CONNECT_PROJECT_PARSERS);
+  return {
+    showInstructions: connect_step === "instructions",
+    endpoint: connect_endpoint,
+    setInstructions: useCallback(
+      (show: boolean) => void setParams({ connect_step: show ? "instructions" : null }),
+      [setParams],
+    ),
+    setEndpoint: useCallback(
+      (endpoint: string | null) => void setParams({ connect_endpoint: endpoint }, { history: "replace" }),
+      [setParams],
+    ),
+  };
 }
 
 const ISSUE_ROUTE_PARSERS = {
