@@ -1,8 +1,8 @@
 mod support;
 
-use lens_evals::{Error, EvalSpan, Scorer, SpanStatus, scorer, scorer_keys};
+use lens_evals::{Error, EvalSpan, SpanStatus, scorer};
 use rstest::rstest;
-use support::{FakeJudge, root, span, tool};
+use support::{FakeJudge, judge_scorer, root, span, tool};
 
 #[rstest]
 #[case::never_called(vec![tool("a", "search", 1)], true)]
@@ -66,14 +66,15 @@ fn task_completed_reads_root_status(#[case] spans: Vec<EvalSpan>, #[case] expect
 #[case::one(1.0, true)]
 #[tokio::test]
 async fn judge_threshold(#[case] score: f64, #[case] expected: bool) {
-    let judge = Scorer::Judge {
-        prompt: "p".into(),
-        model: String::new(),
-    };
-    let passed = judge
-        .passes("c", &[root(SpanStatus::Ok)], &FakeJudge::constant(score))
-        .await
-        .unwrap();
+    let judge = judge_scorer("p");
+    let passed = scorer::passes(
+        &judge,
+        "c",
+        &[root(SpanStatus::Ok)],
+        &FakeJudge::constant(score),
+    )
+    .await
+    .unwrap();
     assert_eq!(passed, expected);
 }
 
@@ -83,55 +84,16 @@ async fn judge_threshold(#[case] score: f64, #[case] expected: bool) {
 #[case::nan(f64::NAN)]
 #[tokio::test]
 async fn judge_rejects_out_of_range(#[case] score: f64) {
-    let judge = Scorer::Judge {
-        prompt: "p".into(),
-        model: String::new(),
-    };
-    let result = judge.passes("c", &[], &FakeJudge::constant(score)).await;
+    let judge = judge_scorer("p");
+    let result = scorer::passes(&judge, "c", &[], &FakeJudge::constant(score)).await;
     assert!(matches!(result, Err(Error::JudgeScore { .. })));
 }
 
 #[tokio::test]
 async fn judge_failure_propagates() {
-    let judge = Scorer::Judge {
-        prompt: "missing".into(),
-        model: String::new(),
-    };
-    let result = judge.passes("c", &[], &FakeJudge(Default::default())).await;
+    let judge = judge_scorer("missing");
+    let result = scorer::passes(&judge, "c", &[], &FakeJudge(Default::default())).await;
     assert!(matches!(result, Err(Error::Judge(_))));
-}
-
-fn judge(prompt: &str) -> Scorer {
-    Scorer::Judge {
-        prompt: prompt.into(),
-        model: String::new(),
-    }
-}
-
-fn before() -> Scorer {
-    Scorer::CalledBefore {
-        first: "a".into(),
-        then: "b".into(),
-    }
-}
-
-#[rstest]
-#[case::single(vec![Scorer::TaskCompleted], vec!["task_completed"])]
-#[case::judges_numbered(
-    vec![judge("x"), Scorer::TaskCompleted, judge("y")],
-    vec!["judge_1", "task_completed", "judge_2"]
-)]
-#[case::repeated_called_before(vec![before(), before()], vec!["called_before_1", "called_before_2"])]
-fn scorer_keys_follow_kind(#[case] scorers: Vec<Scorer>, #[case] expected: Vec<&str>) {
-    assert_eq!(scorer_keys(&scorers), expected);
-}
-
-#[rstest]
-#[case::task(r#"{"kind":"task_completed"}"#, Scorer::TaskCompleted)]
-#[case::called_before(r#"{"kind":"called_before","first":"a","then":"b"}"#, before())]
-#[case::judge_without_model(r#"{"kind":"judge","prompt":"x"}"#, judge("x"))]
-fn scorer_matches_contract_shape(#[case] json: &str, #[case] expected: Scorer) {
-    assert_eq!(serde_json::from_str::<Scorer>(json).unwrap(), expected);
 }
 
 #[rstest]

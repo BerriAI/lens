@@ -2,12 +2,12 @@ mod support;
 
 use std::collections::BTreeMap;
 
+use lens_contract::eval::{CalledBefore, CaseDiff, Gate, Scorer, TaskCompleted};
 use lens_evals::{
-    Error, Gate, GateFacts, RunInput, Scorer, SpanStatus, Trial, TrialOutcome, check_gate,
-    evaluate, majority,
+    Error, GateFacts, RunInput, SpanStatus, Trial, TrialOutcome, check_gate, evaluate, majority,
 };
 use rstest::rstest;
-use support::{FakeJudge, baseline, case, error, fail, pass, root, run, tool};
+use support::{FakeJudge, baseline, case, error, fail, judge_scorer, pass, root, run, tool};
 
 fn judge() -> FakeJudge {
     FakeJudge::constant(1.0)
@@ -36,13 +36,13 @@ fn majority_ties_fail(#[case] passing: usize, #[case] trials: usize, #[case] exp
 async fn case_verdict_and_errors(
     #[case] trials: Vec<Trial>,
     #[case] passed: bool,
-    #[case] errors: usize,
+    #[case] errors: u64,
 ) {
     let result = evaluate(&run(3, vec![case("c", false, trials)], None), &judge())
         .await
         .unwrap();
     assert_eq!(result.verdicts["c"], passed);
-    assert_eq!(result.summary.passed, usize::from(passed));
+    assert_eq!(result.summary.passed, u64::from(passed));
     assert_eq!(result.summary.errors, errors);
 }
 
@@ -52,13 +52,7 @@ async fn case_verdict_and_errors(
 #[tokio::test]
 async fn trial_needs_every_scorer(#[case] judge_score: f64, #[case] passed: bool) {
     let input = RunInput {
-        scorers: vec![
-            Scorer::TaskCompleted,
-            Scorer::Judge {
-                prompt: "p".into(),
-                model: String::new(),
-            },
-        ],
+        scorers: vec![Scorer::TaskCompleted(TaskCompleted {}), judge_scorer("p")],
         ..run(1, vec![case("c", false, vec![pass()])], None)
     };
     let result = evaluate(&input, &FakeJudge::constant(judge_score))
@@ -78,19 +72,13 @@ async fn scores_are_per_scorer_trial_means() {
     };
     let input = RunInput {
         scorers: vec![
-            Scorer::TaskCompleted,
-            Scorer::CalledBefore {
+            Scorer::TaskCompleted(TaskCompleted {}),
+            Scorer::CalledBefore(CalledBefore {
                 first: "a".into(),
                 then: "b".into(),
-            },
-            Scorer::Judge {
-                prompt: "first".into(),
-                model: String::new(),
-            },
-            Scorer::Judge {
-                prompt: "second".into(),
-                model: String::new(),
-            },
+            }),
+            judge_scorer("first"),
+            judge_scorer("second"),
         ],
         ..run(
             2,
@@ -175,7 +163,7 @@ async fn regressions_fixed_and_critical_follow_case_order() {
         ])),
     );
     let summary = evaluate(&input, &judge()).await.unwrap().summary;
-    let ids = |diffs: &[lens_evals::CaseDiff]| {
+    let ids = |diffs: &[CaseDiff]| {
         diffs
             .iter()
             .map(|diff| diff.case_id.clone())
@@ -216,10 +204,7 @@ async fn empty_runs_are_rejected(#[case] input: RunInput) {
 #[tokio::test]
 async fn judge_failure_aborts_evaluate() {
     let input = RunInput {
-        scorers: vec![Scorer::Judge {
-            prompt: "p".into(),
-            model: String::new(),
-        }],
+        scorers: vec![judge_scorer("p")],
         ..run(1, vec![case("c", false, vec![pass()])], None)
     };
     assert!(matches!(

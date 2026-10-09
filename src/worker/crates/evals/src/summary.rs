@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
+use lens_contract::eval::{Gate, Scorer, Summary, scorer_names};
 
 use crate::{
     Error, Result,
-    baseline::{Baseline, CaseDiff, CaseVerdict, Diffs, compare},
-    gate::{Gate, GateFacts, GateResult, check_gate},
-    scorer::{Judge, Scorer, scorer_keys},
+    baseline::{Baseline, CaseVerdict, Diffs, compare},
+    gate::{GateFacts, check_gate},
+    scorer::Judge,
     verdict::{Trial, majority, score_trial},
 };
 
@@ -26,22 +26,6 @@ pub struct RunInput {
     pub gate: Gate,
     pub cases: Vec<CaseInput>,
     pub baseline: Option<Baseline>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Summary {
-    pub passed: usize,
-    pub total: usize,
-    pub pass_rate: f64,
-    pub cost_per_case: f64,
-    pub scores: BTreeMap<String, f64>,
-    pub errors: usize,
-    pub baseline_run_id: Option<String>,
-    pub baseline_version: Option<String>,
-    pub regressions: Vec<CaseDiff>,
-    pub fixed: Vec<CaseDiff>,
-    pub gate: GateResult,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -116,7 +100,7 @@ pub async fn evaluate<J: Judge>(run: &RunInput, judge: &J) -> Result<Evaluation>
     let passed = scored.iter().filter(|case| case.passed).count();
     let pass_rate = passed as f64 / total as f64;
     let cost_per_case = scored.iter().map(|case| case.cost).sum::<f64>() / total as f64;
-    let scores: BTreeMap<String, f64> = scorer_keys(&run.scorers)
+    let scores: BTreeMap<String, f64> = scorer_names(&run.scorers)
         .into_iter()
         .enumerate()
         .map(|(index, key)| {
@@ -153,12 +137,12 @@ pub async fn evaluate<J: Judge>(run: &RunInput, judge: &J) -> Result<Evaluation>
             .map(|case| (case.case_id.to_owned(), case.passed))
             .collect(),
         summary: Summary {
-            passed,
-            total,
+            passed: passed as u64,
+            total: total as u64,
             pass_rate,
             cost_per_case,
             scores,
-            errors: scored.iter().map(|case| case.errors).sum(),
+            errors: scored.iter().map(|case| case.errors as u64).sum(),
             baseline_run_id: run
                 .baseline
                 .as_ref()

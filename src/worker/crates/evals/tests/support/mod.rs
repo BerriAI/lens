@@ -5,9 +5,10 @@
 
 use std::collections::BTreeMap;
 
+use lens_contract::eval::{Gate, Scorer, TaskCompleted};
 use lens_evals::{
-    Baseline, CaseInput, EvalSpan, Gate, Judge, JudgeError, JudgeRequest, RunInput, Scorer,
-    SpanStatus, Trial, TrialOutcome,
+    Baseline, CaseInput, EvalSpan, Judge, JudgeError, JudgeRequest, RunInput, SpanStatus, Trial,
+    TrialOutcome,
 };
 
 pub struct FakeJudge(pub BTreeMap<String, f64>);
@@ -74,6 +75,13 @@ pub fn error() -> Trial {
     }
 }
 
+pub fn judge_scorer(prompt: &str) -> Scorer {
+    Scorer::Judge(lens_contract::eval::Judge {
+        prompt: prompt.into(),
+        model: String::new(),
+    })
+}
+
 pub fn case(id: &str, critical: bool, trials: Vec<Trial>) -> CaseInput {
     CaseInput {
         case_id: id.into(),
@@ -99,7 +107,7 @@ pub fn run(trials: usize, cases: Vec<CaseInput>, baseline: Option<Baseline>) -> 
         revision: 1,
         url: "http://lens/runs/candidate".into(),
         trials,
-        scorers: vec![Scorer::TaskCompleted],
+        scorers: vec![Scorer::TaskCompleted(TaskCompleted {})],
         gate: Gate::default(),
         cases,
         baseline,
