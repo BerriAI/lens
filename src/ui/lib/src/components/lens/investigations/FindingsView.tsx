@@ -146,12 +146,15 @@ function InboxDetail({
 }) {
   const { close } = useInspector<InboxRow>();
   const { evidence, setEvidence } = useEvidenceRoute();
-  const owner =
-    row.sources.find(({ finding }) => finding.evidence.some((quote) => quote.execution_id === evidence?.id)) ??
-    row.sources[0];
+  const owner = row.sources.find(
+    ({ finding }) =>
+      finding.evidence.some((quote) => quote.execution_id === evidence?.id) ||
+      finding.occurrences.includes(evidence?.id ?? ""),
+  );
+  const showingEvidence = evidence !== null && owner !== undefined;
   return (
     <>
-      <div hidden={evidence !== null} className={evidence ? undefined : "flex min-h-0 flex-1 flex-col"}>
+      <div hidden={showingEvidence} className={showingEvidence ? undefined : "flex min-h-0 flex-1 flex-col"}>
         <FindingDetails
           key={row.key}
           finding={inboxFinding(row)}
@@ -164,7 +167,7 @@ function InboxDetail({
           onClose={close}
         />
       </div>
-      {evidence && (
+      {evidence && owner && (
         <EvidenceView
           lensId={owner.lens.id}
           evidence={evidence}
@@ -176,15 +179,18 @@ function InboxDetail({
   );
 }
 
-export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
+export function FindingsView({ agent = "", readOnly = false }: { agent?: string; readOnly?: boolean }) {
   const api = useLensApi();
   const list = useQuery(lensQueries.list(api));
   const update = useLensUpdate();
   const { issueKey, setIssueKey } = useIssueRoute();
   const filters = useInboxFilters();
   const now = useNow(30000);
-  const all = inboxRows(list.data?.lenses ?? []);
-  const rows = filterInbox(all, filters);
+  const all = filterInbox(inboxRows(list.data?.lenses ?? []), {
+    agent: agent || ALL_AGENTS,
+    priority: "all",
+  });
+  const rows = filterInbox(all, { ...filters, agent: agent || filters.agent });
   const selected =
     all.find((row) => row.sources.some(({ lens, finding }) => findingKey(lens, finding) === issueKey)) ?? null;
   const agents = [
@@ -216,8 +222,18 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <div className="@container/findings flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <LensPageHeader title="Findings" description="Review what your agents need to improve." />
-        <AutomaticAnalysis lenses={list.data?.lenses ?? []} readOnly={readOnly} ready={connected} />
+        <LensPageHeader
+          title="Findings"
+          description={
+            agent ? "Issues and improvements from this agent’s traces." : "Issues and improvements across your agents."
+          }
+        />
+        <AutomaticAnalysis
+          agent={agent || (filters.agent === ALL_AGENTS ? "" : filters.agent)}
+          lenses={list.data?.lenses ?? []}
+          readOnly={readOnly}
+          ready={connected}
+        />
         {(list.error || update.error) && (
           <InvestigationError
             message={(list.error ?? update.error)!.message}
@@ -233,7 +249,14 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
             className={`flex min-h-0 w-full flex-col border-r @3xl/findings:w-72 @3xl/findings:shrink-0 @5xl/findings:w-80 ${selected ? "hidden @3xl/findings:flex" : "flex"}`}
           >
             <div className="lens-toolbar flex shrink-0 items-center gap-2 border-b px-3 py-3">
-              <FilterSelect label="Filter by agent" value={filters.agent} items={agents} onChange={filters.setAgent} />
+              {!agent && (
+                <FilterSelect
+                  label="Filter by agent"
+                  value={filters.agent}
+                  items={agents}
+                  onChange={filters.setAgent}
+                />
+              )}
               <FilterSelect
                 label="Filter by priority"
                 value={filters.priority}

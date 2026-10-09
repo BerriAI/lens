@@ -319,7 +319,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </TabsContent>
                   <TabsContent value="findings" className={PANEL}>
                     {canViewInvestigations ? (
-                      <FindingsView readOnly={readOnly || !isAdmin} />
+                      <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
                     ) : (
                       <p className="py-6 text-sm text-muted-foreground">Findings require proxy administrator access.</p>
                     )}
