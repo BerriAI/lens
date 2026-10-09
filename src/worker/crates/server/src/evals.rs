@@ -80,7 +80,7 @@ pub fn with_contract_cases(router: Router, cases: Router) -> Router {
             if request.headers().contains_key(CONTRACT_HEADER)
                 && is_dataset_cases_path(request.uri().path())
             {
-                match cases.oneshot(request).await {
+                match cases.oneshot(without_extensions(request)).await {
                     Ok(response) => response,
                     Err(never) => match never {},
                 }
@@ -89,6 +89,17 @@ pub fn with_contract_cases(router: Router, cases: Router) -> Router {
             }
         }
     }))
+}
+
+/// The outer router has already matched this path, so its path params must not leak into the inner match
+fn without_extensions(request: Request) -> Request {
+    let (parts, body) = request.into_parts();
+    let mut clean = Request::new(body);
+    *clean.method_mut() = parts.method;
+    *clean.uri_mut() = parts.uri;
+    *clean.version_mut() = parts.version;
+    *clean.headers_mut() = parts.headers;
+    clean
 }
 
 fn is_dataset_cases_path(path: &str) -> bool {
