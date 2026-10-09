@@ -51,7 +51,7 @@ def test_markdown_escapes_remote_mentions_and_markup():
     )
     body = markdown(Report(value.run.model_copy(update={"summary": summary})))
     assert "@everyone" not in body and "<script>" not in body
-    assert "gate failed" in body
+    assert "Gate failed" in body
 
 
 def test_app_reporter_uses_lens_auth_without_github_token(tmp_path: Path) -> None:

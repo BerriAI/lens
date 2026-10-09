@@ -45,6 +45,17 @@ pub(super) struct ReportInput {
 }
 
 impl ReportInput {
+    fn sdk_report(self) -> Result<Report, GitHubError> {
+        Ok(Report {
+            run: lens_evals_sdk::model::EvalRun {
+                ci_url: self.ci_url,
+                ..sdk_run(self.run)?
+            },
+            baseline: self.baseline.map(sdk_run).transpose()?,
+            trials: Vec::new(),
+        })
+    }
+
     pub(super) fn bind_urls(&mut self, origin: &str) -> Result<(), GitHubError> {
         let base = Url::parse(origin).map_err(|_| GitHubError::Credentials)?;
         let link = |eval: &str, id: &str, case: Option<&str>| -> String {
@@ -425,11 +436,7 @@ pub(super) async fn publish_input(
             None => None,
         };
         validate_workflow(&input.run, connection, id, &workflow, pull.as_ref())?;
-        let report = Report {
-            run: sdk_run(input.run)?,
-            baseline: input.baseline.map(sdk_run).transpose()?,
-            trials: Vec::new(),
-        };
+        let report = input.sdk_report()?;
         publish_report(github, &token, &path, &key, &report).await
     })
     .await
@@ -610,6 +617,24 @@ mod tests {
         run.version = "a".repeat(40);
         run.pr = Some(7);
         run
+    }
+
+    #[rstest]
+    fn app_reports_use_shared_presentation_and_preserve_workflow_links(
+        run: lens_contract::eval::EvalRun,
+    ) {
+        let report = ReportInput {
+            run,
+            baseline: None,
+            ci_url: "https://github.com/org/repo/actions/runs/123".into(),
+        }
+        .sdk_report()
+        .unwrap();
+        let body = reporting::markdown(&report).unwrap();
+        assert!(body.contains("**Confidence 4.5/5**"));
+        assert!(body.contains("**Passed 36** · **Failed 0**"));
+        assert!(body.contains("[Workflow logs](https://github.com/org/repo/actions/runs/123)"));
+        assert!(body.contains("alt=\"Lens\" width=\"108\" height=\"30\""));
     }
 
     #[rstest]
