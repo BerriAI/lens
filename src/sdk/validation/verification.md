@@ -6,7 +6,7 @@ The Python API is backed by `lens-evals-sdk` and `lens-evals-python` in `src/wor
 
 86 Rust behavior tests and 38 Python API/CLI tests pass locally. Python boundary coverage is 92%. Strict Clippy, formatting, Ruff, strict mypy, and generated-model drift checks pass
 
-The added tests exercise returning an accepted trace before completion, root-span closure, 120-second idle closure, custom per-trial deadlines sent over HTTP, late or missing traces, independently stamped build versions, metadata finding selection, and failed absolute gates without a baseline. The installer tests reject a tampered wheel before installation and reuse an already installed native package
+The added tests exercise returning an accepted trace before completion, root-span closure, 120-second idle closure, custom per-trial deadlines sent over HTTP, late or missing traces, independently stamped build versions, metadata finding selection, and failed absolute gates without a baseline. The installer tests reject a tampered wheel before installation and reuse an already installed native package. The focused mutation suite catches all 19 deliberate faults; [mutations.json](mutations.json) records the results
 
 This version sends `timeout_per_trial_ms` and consumes `DatasetCase.meta["finding_id"]`. It requires those additions in the production contract. The canonical eval schema and deployed lifecycle remain pending; local scoring is synthetic
 
@@ -18,7 +18,7 @@ The tests cover the 36-case, three-trial lifecycle; main baseline, individual re
 
 Two regressions found during rehearsal have dedicated tests. Python cancellation must finish before a Rust execution slot is reused, including when coroutine cleanup itself awaits. Discovery must execute the current eval source after a same-size edit or revert, even with an unchanged timestamp
 
-The focused mutation suite catches 14 of 14 deliberate faults in Rust execution, transport, setup, and reporting. [mutations.json](mutations.json) records the cases. This is targeted regression evidence, not exhaustive mutation coverage
+The a2 focused mutation suite caught 14 of 14 deliberate faults in Rust execution, transport, setup, and reporting. The current result file includes the additional a3 cases. This is targeted regression evidence, not exhaustive mutation coverage
 
 ```sh
 cargo test --manifest-path src/worker/Cargo.toml -p lens-evals-sdk

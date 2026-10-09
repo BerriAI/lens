@@ -36,7 +36,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@59e316adfdda30f866f40475336de87d5461965e#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
@@ -225,7 +225,7 @@ steps:
       python-version: '3.11'
   - run: python -m pip install uv==0.10.9
   - run: uv sync --frozen
-  - uses: BerriAI/lens/src/sdk/action@59e316adfdda30f866f40475336de87d5461965e
+  - uses: BerriAI/lens/src/sdk/action@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b
     with:
       python: .venv/bin/python
       sdk-token: ${{ secrets.LENS_SDK_TOKEN }}
