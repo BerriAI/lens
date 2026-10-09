@@ -62,6 +62,7 @@ function fixtureApi(flags: SignalFlag[] = [flag]) {
     live: false,
     handoff: () => ({ text: "Read trace", copied: "Copied" }),
     trace: vi.fn<TracesApi["trace"]>().mockResolvedValue(trace),
+    conversation: vi.fn<TracesApi["conversation"]>().mockResolvedValue({ turns: [], next_cursor: null }),
     signals: vi.fn<TracesApi["signals"]>().mockResolvedValue([result(flags)]),
     feedback: vi.fn<TracesApi["feedback"]>().mockResolvedValue({ ...result([]), feedback: [] }),
     span: vi.fn<TracesApi["span"]>().mockImplementation(async (_traceId, spanId) => ({

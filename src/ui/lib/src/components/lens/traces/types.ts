@@ -1,5 +1,6 @@
 import type { components, paths } from "../../../lib/http/schema";
 import type { TraceSignals as WorkerTraceSignals } from "../../../lib/http/worker";
+export type { TraceConversationPage, TraceConversationRequest } from "../../../lib/http/traces";
 
 export type Trace = paths["/v1/traces/{trace_id}"]["get"]["responses"][200]["content"]["application/json"];
 export type TracePage = paths["/v1/traces"]["get"]["responses"][200]["content"]["application/json"];

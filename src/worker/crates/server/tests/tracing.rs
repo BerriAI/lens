@@ -7,9 +7,11 @@ use std::sync::{Arc, Mutex};
 use lens_contract::auth::{Identity, Role};
 use lens_server::tracing::{TraceAgent, TraceConfig, TraceReadError, TraceReader};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TracePage,
+    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
-    request::{TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest},
+    request::{
+        TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest,
+    },
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -119,6 +121,15 @@ impl TraceReader for Reader {
         )?;
         Ok(None)
     }
+    async fn conversation(
+        &self,
+        scope: ReadAccessParams,
+        trace_id: String,
+        request: TraceConversationRequest,
+    ) -> Result<Option<TraceConversationPage>, TraceReadError> {
+        self.record(scope, json!({"trace_id":trace_id,"trace_ref":request.trace_ref,"cursor":request.cursor,"page_size":request.page_size}))?;
+        Ok(None)
+    }
     async fn span_error(
         &self,
         scope: ReadAccessParams,
@@ -153,6 +164,7 @@ async fn serve(database: &Database, reader: Reader) -> Server {
 #[case::list("GET", "/v1/traces", 200)]
 #[case::agents("GET", "/v1/traces/agents", 200)]
 #[case::trace("GET", "/v1/traces/trace-id", 404)]
+#[case::conversation("GET", "/v1/traces/trace-id/conversation", 404)]
 #[case::span("GET", "/v1/traces/trace-id/spans/span-id", 404)]
 #[case::error("GET", "/v1/traces/trace-id/spans/span-id/error", 404)]
 #[case::sql("POST", "/v1/traces/query", 200)]
@@ -195,6 +207,11 @@ async fn public_reads_use_signed_identity_scope_and_ignore_browser_scope(
 
 #[rstest]
 #[case::list("GET", "/v1/traces", "Not allowed to view agent traces")]
+#[case::conversation(
+    "GET",
+    "/v1/traces/id/conversation",
+    "Not allowed to view agent traces"
+)]
 #[case::sql("POST", "/v1/traces/query", "Not allowed to view logs")]
 #[tokio::test]
 async fn identity_without_a_read_scope_cannot_reach_storage(
@@ -222,6 +239,23 @@ async fn identity_without_a_read_scope_cannot_reach_storage(
         response.json::<Value>().await.unwrap(),
         json!({"detail":detail})
     );
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn conversation_requires_authentication_before_reading_storage(
+    #[future(awt)] database: Database,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = server
+        .client
+        .get(server.url.join("/v1/traces/id/conversation").unwrap())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 401);
     assert!(reader.calls.lock().unwrap().is_empty());
 }
 
@@ -298,6 +332,7 @@ async fn read_failures_preserve_public_status_details_and_retry_headers(
     #[case] code: &str,
     #[case] message: &str,
     #[case] retry: Option<&str>,
+    #[values("/v1/traces", "/v1/traces/id/conversation")] path: &str,
 ) {
     let server = serve(
         &database,
@@ -309,7 +344,7 @@ async fn read_failures_preserve_public_status_details_and_retry_headers(
     .await;
     let response = server
         .client
-        .get(server.url.join("/v1/traces").unwrap())
+        .get(server.url.join(path).unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -331,6 +366,8 @@ async fn read_failures_preserve_public_status_details_and_retry_headers(
 #[rstest]
 #[case::list("/v1/traces?start_ms=bad&end_ms=bad", json!(["query","start_ms"]), "int_parsing")]
 #[case::small_page("/v1/traces/id?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
+#[case::conversation_small_page("/v1/traces/id/conversation?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
+#[case::conversation_large_page("/v1/traces/id/conversation?page_size=51", json!(["query","page_size"]), "less_than_equal")]
 #[case::large_page("/v1/traces/id?page_size=501", json!(["query","page_size"]), "less_than_equal")]
 #[case::wide_page("/v1/traces/id?page_size=999999999999999999999999", json!(["query","page_size"]), "less_than_equal")]
 #[tokio::test]

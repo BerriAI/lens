@@ -27,6 +27,8 @@ import type {
   TraceFeedbackSummary,
   TraceAgentList,
   TraceAgentsQuery,
+  TraceConversationPage,
+  TraceConversationRequest,
 } from "./types";
 
 export interface TraceWindow {
@@ -52,6 +54,7 @@ export interface TracesApi {
   feedback(traceId: string, traceRef?: string): Promise<TraceFeedback>;
   anyRecorded(): Promise<boolean>;
   trace(traceId: string, traceRef?: string, cursor?: string | null): Promise<Trace>;
+  conversation(traceId: string, traceRef?: string, cursor?: string | null): Promise<TraceConversationPage>;
   span(traceId: string, spanId: string, traceRef?: string): Promise<SpanDetail>;
   spanError(
     traceId: string,
@@ -77,7 +80,7 @@ export const agentHandoffText = (traceId: string, spanId?: string | null, traceR
   const what = spanId ? "this step of a LiteLLM agent trace" : "this LiteLLM agent trace";
   const guidance = spanId
     ? "The JSON response contains this step's captured input, output, and attributes. Report missing content and capture warnings explicitly."
-    : `The JSON response contains span summaries. Follow next_cursor by adding cursor to this URL until it is null, preserving trace_ref and page_size. Fetch captured content at ${base}/spans/{span_id}, using the same trace_ref. Report missing content and capture warnings explicitly.`;
+    : `The JSON response contains span summaries. Follow next_cursor by adding cursor to this URL until it is null, preserving trace_ref and page_size. Fetch captured content at ${base}/spans/{span_id}, using the same trace_ref. Fetch earlier recorded conversation turns at ${base}/conversation with the same trace_ref; follow its next_cursor until null. Earlier turns are context from separate runs, not steps of this run. Report missing content and capture warnings explicitly.`;
   return `Read ${what}, explain what happened, and investigate any issues:\ncurl --fail-with-body -sS -H "Authorization: Bearer $LITELLM_API_KEY" ${quotedUrl}\n${guidance}`;
 };
 
@@ -124,6 +127,11 @@ export function liveTracesApi(accessToken: string): TracesApi {
       return page.data.length > 0;
     },
     trace: (traceId, traceRef, cursor) => agentTraceCall(accessToken, traceId, traceRef, cursor),
+    conversation: (traceId, traceRef, cursor) =>
+      apiClient.get<TraceConversationPage>(`/v1/traces/${encodeURIComponent(traceId)}/conversation`, {
+        accessToken,
+        query: { trace_ref: traceRef, cursor: cursor ?? undefined } satisfies TraceConversationRequest,
+      }),
     span: (traceId, spanId, traceRef) => agentTraceSpanCall(accessToken, traceId, spanId, traceRef),
     spanError: (traceId, spanId, options) => agentTraceSpanErrorCall(accessToken, traceId, spanId, options),
   };

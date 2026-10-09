@@ -67,7 +67,7 @@ function contentText(value: string, content?: UIContent): string {
   return prettyPayload(value);
 }
 
-function messages(value: string, content: UIContent | undefined, role: string): TraceMessage[] {
+export function conversationMessages(value: string, content: UIContent | undefined, role: string): TraceMessage[] {
   if (content?.kind === "messages") return content.messages.map(toTraceMessage);
   const source = content?.kind === "text" ? content.text : value;
   const parsed = parseMessages(source) ?? (role === "assistant" ? parseAssistantSummary(source) : null);
@@ -79,7 +79,7 @@ function messages(value: string, content: UIContent | undefined, role: string): 
 function inputMessages(detail: SpanDetail): TraceMessage[] {
   return detail.attributes["lens.capture.messages_separate"] === "true"
     ? []
-    : messages(detail.input, detail.input_ui, "user");
+    : conversationMessages(detail.input, detail.input_ui, "user");
 }
 
 function stableValue(value: unknown): unknown {
@@ -313,7 +313,7 @@ export function buildConversation(
     const key = branch(span);
     const history = histories.get(key) ?? [];
     if (event.output) {
-      const output = messages(detail.output, detail.output_ui, "assistant");
+      const output = conversationMessages(detail.output, detail.output_ui, "assistant");
       const fresh = withoutForwardedAnswers(
         span.span_id,
         newConversationMessages(history, output),
@@ -339,7 +339,7 @@ export function buildConversation(
       continue;
     }
     const input = inputMessages(detail);
-    const output = messages(detail.output, detail.output_ui, "assistant");
+    const output = conversationMessages(detail.output, detail.output_ui, "assistant");
     const fresh =
       detail.attributes["lens.capture.source"] === "session_transcript"
         ? input
@@ -462,10 +462,20 @@ export function conversationWarnings(
       detail.attributes["lens.capture.warning"] ? [detail.attributes["lens.capture.warning"]] : [],
     ),
   ];
+  const omittedMessages = [...details.values()].some((detail) =>
+    conversationMessages(detail.input, detail.input_ui, "user").some(
+      (message) => message.content === "[text omitted: trace size limit]",
+    ),
+  );
+  if (omittedMessages) {
+    warnings.push(
+      "Some model input was omitted by the tracing integration. Earlier recorded turns may still provide context.",
+    );
+  }
   const hasAssistantText = [...details.values()].some(
     (detail) =>
       !toolSpanIds.has(detail.span_id) &&
-      messages(detail.output, detail.output_ui, "assistant").some(
+      conversationMessages(detail.output, detail.output_ui, "assistant").some(
         (message) => message.role === "assistant" && message.content.trim(),
       ),
   );
@@ -476,7 +486,7 @@ export function conversationWarnings(
     (detail) =>
       detail.attributes["span.type"] === "llm_request" &&
       !detail.output &&
-      !messages(detail.output, detail.output_ui, "assistant").length,
+      !conversationMessages(detail.output, detail.output_ui, "assistant").length,
   );
   const missingReplies = !hasAssistantText && !hasReplyEvent && hasEmptyRequest;
   if (complete && missingReplies) {

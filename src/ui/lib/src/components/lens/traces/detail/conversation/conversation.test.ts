@@ -674,6 +674,38 @@ describe("coding sessions", () => {
     ]);
   });
 
+  it.each([false, true])(
+    "warns once when model inputs were omitted by the integration (normalized: %s)",
+    (normalized) => {
+      const message = { role: "user", content: "[text omitted: trace size limit]" };
+      const omitted: SpanDetail = {
+        ...detail("llm", normalized ? "raw input unavailable" : [message], [answer]),
+        ...(normalized ? { input_ui: { kind: "messages" as const, messages: [message] } } : {}),
+      };
+      const details = new Map([
+        ["llm", omitted],
+        ["later-llm", { ...omitted, span_id: "later-llm" }],
+      ]);
+      expect(conversationWarnings(details, false)).toEqual([
+        "Some model input was omitted by the tracing integration. Earlier recorded turns may still provide context.",
+      ]);
+    },
+  );
+
+  it("does not mistake a discussion of the omission marker for missing input", () => {
+    const details = new Map([
+      [
+        "llm",
+        detail(
+          "llm",
+          [{ role: "user", content: "Explain the marker [text omitted: trace size limit]" }],
+          [{ role: "assistant", content: "[text omitted: trace size limit]" }],
+        ),
+      ],
+    ]);
+    expect(conversationWarnings(details, true)).toEqual([]);
+  });
+
   it("warns about old incomplete native captures and clears the warning when reply logs arrive", () => {
     const details = new Map([
       ["llm", { ...detail("llm", [], []), output: "", attributes: { "span.type": "llm_request" } }],

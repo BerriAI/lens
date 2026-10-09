@@ -150,6 +150,26 @@ pub struct TracePage {
 
 #[macro_rules_attribute::apply(crate::response_type)]
 #[derive(Debug, PartialEq)]
+pub struct TraceConversationTurn {
+    pub trace_id: String,
+    pub trace_ref: String,
+    pub span_id: String,
+    pub start_time: String,
+    pub input: String,
+    pub output: String,
+    pub input_ui: UiContent,
+    pub output_ui: UiContent,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Debug, PartialEq)]
+pub struct TraceConversationPage {
+    pub turns: Vec<TraceConversationTurn>,
+    pub next_cursor: Option<String>,
+}
+
+#[macro_rules_attribute::apply(crate::response_type)]
+#[derive(Debug, PartialEq)]
 pub struct SpanDetail {
     pub span_id: String,
     pub input_ui: UiContent,

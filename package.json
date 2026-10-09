@@ -14,7 +14,9 @@
     "qualify:ui-package": "node scripts/qualify_ui_package.mjs",
     "generate:worker-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p lens-contract --example export > schema/lens-worker.v7.json && node scripts/generate_worker_types.mjs",
     "generate:eval-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p lens-contract --example export_eval > schema/lens.v1.json && uv run --project src/sdk --frozen --only-group dev python src/sdk/scripts/generate_contract.py",
-    "check:worker-contract": "node scripts/generate_worker_types.mjs --check"
+    "check:worker-contract": "node scripts/generate_worker_types.mjs --check",
+    "generate:trace-contract": "cargo run --quiet --manifest-path src/worker/Cargo.toml -p litellm-traces --features schema --bin export-traces-schema -- --conversation > schema/lens-traces.json && node scripts/generate_trace_types.mjs",
+    "check:trace-contract": "node scripts/generate_trace_types.mjs --check"
   },
   "engines": {
     "node": ">=24.14.1",
