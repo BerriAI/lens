@@ -49,6 +49,19 @@ test("host enforces concise default answers and strips code fences without colla
   );
 });
 
+test("an empty opportunity list preserves why evidence is unavailable", () => {
+  const blocks = answerBlocks({
+    title: "Evidence unavailable",
+    summary:
+      "Trace reads timed out; stored eval counts do not establish current agent health",
+    sources: [],
+    opportunities: [],
+  });
+  const rendered = JSON.stringify(blocks);
+  assert(rendered.includes("Trace reads timed out"));
+  assert(!rendered.includes("No supported finding"));
+});
+
 test("ClickHouse split settings retain credentials internally and match the server listener defaults", () => {
   const url = new URL(
     clickhouseConnection({
