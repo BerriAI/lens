@@ -10,6 +10,7 @@ import type { LensList } from "../model/types";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
 import { DeploymentAnalysis } from "./worker/DeploymentAnalysis";
 import { LensPageHeader } from "../ui/LensPageHeader";
+import { GatewayConnection } from "./GatewayConnection";
 
 const TRACING_DOCS = "https://docs.litellm.ai/docs/proxy/lens";
 
@@ -70,6 +71,7 @@ export function LensSettings({
   workerReadyAction?: ReactNode;
   onConnectProject?: () => void;
 }) {
+  const standalone = useLensHost().surface === "standalone";
   return (
     <div aria-label="Settings" role="region" className="flex w-full flex-col">
       <LensPageHeader
@@ -82,6 +84,7 @@ export function LensSettings({
           enabled={list.tracing_enabled}
           onConnectProject={onConnectProject}
         />
+        {standalone && <GatewayConnection />}
         <SignalSettings />
         <SettingsSection
           heading="Analysis"

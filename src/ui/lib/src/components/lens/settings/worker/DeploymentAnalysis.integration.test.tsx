@@ -34,6 +34,16 @@ describe("Deployment analysis setup", () => {
         if (path === "/lens") return list;
         if (path === "/lens/model_group/info") return { data: [model] };
         if (path === "/lens/signals") return { model: "", threshold: 0.5, signals: [] };
+        if (path === "/lens/gateway")
+          return {
+            configured: false,
+            connected: false,
+            api_base: null,
+            analysis_models: 0,
+            evaluation_models: 0,
+            error: null,
+            last_refreshed: null,
+          };
         throw new Error(`Unsupported Lens request: ${path}`);
       });
       renderWithLens(
@@ -50,6 +60,7 @@ describe("Deployment analysis setup", () => {
       expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
       expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual([
         "/lens",
+        ...(host.surface === "standalone" ? ["/lens/gateway"] : []),
         "/lens/model_group/info",
         "/lens/signals",
       ]);
@@ -110,5 +121,29 @@ describe("Deployment analysis setup", () => {
     renderWithLens(<DeploymentAnalysis workers={[]} readyAction={<button>New investigation</button>} />);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("waiting for the investigation worker"));
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
+  });
+
+  it("should list only chat or unspecified analysis modes from a mixed gateway catalogue", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockImplementation((path) =>
+      path === "/lens"
+        ? { workers }
+        : {
+            data: [
+              model,
+              { model_group: "compatible-chat", providers: ["gateway"] },
+              { model_group: "embedding-model", providers: ["gateway"], mode: "embedding" },
+              { model_group: "signal-model", providers: ["gateway"], mode: "evaluation" },
+              { model_group: "image-model", providers: ["gateway"], mode: "image_generation" },
+            ],
+          },
+    );
+    renderWithLens(<DeploymentAnalysis workers={workers} />);
+    const models = await screen.findByRole("list", { name: "Analysis models" });
+    expect(models).toHaveTextContent("analysis");
+    expect(models).toHaveTextContent("compatible-chat");
+    expect(models).not.toHaveTextContent("embedding-model");
+    expect(models).not.toHaveTextContent("signal-model");
+    expect(models).not.toHaveTextContent("image-model");
   });
 });

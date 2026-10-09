@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -134,5 +134,37 @@ describe("signal settings", () => {
 
     expect(screen.getByRole("button", { name: /^Tool failure/ })).toHaveAttribute("aria-pressed", "false");
     expect(question).toHaveValue(customQuestion);
+  });
+
+  it("should distinguish model discovery errors from missing configuration and keep the draft on retry", async () => {
+    const user = userEvent.setup();
+    network.mockImplementation(async () => Response.json({ detail: "Model discovery unavailable" }, { status: 503 }));
+    renderWithLens(<SignalForm saved={saved} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not load System 1 models: Model discovery unavailable",
+    );
+    expect(screen.queryByText("Choose a System 1 model to start flagging traces")).not.toBeInTheDocument();
+    const model = screen.getByRole("combobox", { name: "System 1 model" });
+    const threshold = screen.getByRole("spinbutton", { name: "Flag at score" });
+    act(() => fireEvent.change(threshold, { target: { value: "70" } }));
+    expect(model).toHaveValue(saved.model);
+    network.mockImplementation(async () =>
+      Response.json({ data: [{ model_group: saved.model, providers: ["typesafe"], mode: "evaluation" }] }),
+    );
+    await user.click(screen.getByRole("button", { name: "Retry model check" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(model).toHaveValue(saved.model);
+    expect(threshold).toHaveValue(70);
+    expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled();
+  });
+
+  it("should retain a saved model that disappears from the discovered catalogue", async () => {
+    network.mockImplementation(async () =>
+      Response.json({ data: [{ model_group: "another-jev", providers: ["typesafe"], mode: "evaluation" }] }),
+    );
+    renderWithLens(<SignalForm saved={saved} />);
+    expect(await screen.findByText("jev is not in the current model list. Your selection is kept.")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "System 1 model" })).toHaveValue(saved.model);
+    expect(screen.getByRole("button", { name: "Save signals" })).toBeDisabled();
   });
 });

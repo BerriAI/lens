@@ -23,7 +23,7 @@ export function DeploymentAnalysis({
   const models = useQuery(lensQueries.modelDetails(api));
   const list = useQuery(lensQueries.list(api));
   const connected = useWorkerConnected(list.data?.workers ?? workers);
-  const configured = models.data?.data.filter((model) => model.mode !== "evaluation") ?? [];
+  const configured = models.data?.data.filter((model) => !model.mode || model.mode === "chat") ?? [];
   const refresh = () => {
     void models.refetch();
     void list.refetch();
