@@ -1040,6 +1040,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
         tables["data"],
         serde_json::json!([
             {"name": "agent_traces_by_key"},
+            {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
             {"name": "otel_traces"},
             {"name": "spend_logs"}
@@ -1118,7 +1119,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'spend_logs', 'lens_feedback') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_feedback') ORDER BY name",
     )
     .await?;
     let ttl_queries = ttl_queries["data"].as_array().expect("retention tables");
@@ -1129,6 +1130,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
             .collect::<Vec<_>>(),
         [
             "agent_traces_by_key",
+            "lens_eval_traces",
             "lens_feedback",
             "otel_traces",
             "spend_logs"
@@ -1149,7 +1151,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'spend_logs', 'lens_feedback') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_feedback') ORDER BY name",
     )
     .await?;
     for row in ttl_queries["data"].as_array().expect("retention tables") {

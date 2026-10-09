@@ -18,6 +18,9 @@ SELECT *, selection_key FROM (
     WHERE {source:String} IN ('traces','both')
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
+      AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
       -- The 7 day slack covers spans that started before the window and late ingestion
       AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
       AND (TeamId,ApiKeyHash,TraceId) IN (
@@ -57,6 +60,10 @@ SELECT *, selection_key FROM (
       AND ({service:String}='' OR model_group={service:String})
       AND {agent_name:String}=''
       AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+      AND (team_id,api_key,response_id) NOT IN (
+          SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
+          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
       AND ({source:String}!='both' OR (team_id,api_key,response_id) NOT IN (
           SELECT TeamId,ApiKeyHash,LiteLLMRequestId FROM otel_traces
           WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})

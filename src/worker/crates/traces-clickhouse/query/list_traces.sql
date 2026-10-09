@@ -18,6 +18,12 @@ FROM agent_traces_by_key
 WHERE ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND UserIds = [{user_id:String}])
        OR has({team_ids:Array(String)}, TeamId))
+  AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+      WHERE ({all_teams:UInt8} = 1
+             OR ({user_id:String} != '' AND has(UserIds, {user_id:String}))
+             OR has({team_ids:Array(String)}, TeamId))
+      GROUP BY TeamId, ApiKeyHash, TraceId
+      HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64}))
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
