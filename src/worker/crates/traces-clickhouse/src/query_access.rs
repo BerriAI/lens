@@ -13,6 +13,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use super::{Connection, Error, TraceTable};
 
 const MIB: u64 = 1024 * 1024;
+const EVAL_TRACES_VIEW: &str = "lens_eval_traces";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ReaderLimits {
@@ -144,7 +145,10 @@ impl QueryReaders {
             )
             .await?;
         }
-        for table in TraceTable::iter() {
+        for table in TraceTable::iter()
+            .map(<&str>::from)
+            .chain([EVAL_TRACES_VIEW])
+        {
             self.execute(
                 client,
                 format!("GRANT SELECT ON `{database}`.{table} TO {user}"),
