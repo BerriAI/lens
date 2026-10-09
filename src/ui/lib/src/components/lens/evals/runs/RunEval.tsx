@@ -40,13 +40,14 @@ function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {
     null,
   );
   const connection = github.status.data?.connection;
+  const previousCiRun = runs.find((run) => githubRunRepository(run.ci_url));
   const source =
-    connection &&
-    (runs.find(
-      (run) =>
-        githubRunRepository(run.ci_url)?.fullName.toLowerCase() ===
-        connection.repository.toLowerCase(),
-    ) ?? runs.find((run) => githubRunRepository(run.ci_url)));
+    (connection &&
+      runs.find(
+        (run) =>
+          githubRunRepository(run.ci_url)?.fullName.toLowerCase() ===
+          connection.repository.toLowerCase(),
+      )) || previousCiRun;
   const rerun = useMutation({
     mutationFn: (runId: string) =>
       apiClient.post<RerunResponse>("/lens/github/rerun", {
@@ -92,7 +93,9 @@ function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {
           </h2>
           <p className="text-xs leading-5 text-muted-foreground">
             {source
-              ? `Reruns the workflow for ${source.branch}@${shortSha(source.version)} in GitHub Actions. The workflow controls the dataset revision and may run other evals`
+              ? connection
+                ? `Reruns the workflow for ${source.branch}@${shortSha(source.version)} in GitHub Actions. The workflow controls the dataset revision and may run other evals`
+                : "This eval already runs in GitHub Actions. Connect its repository to run the same workflow and commit again from Lens"
               : "Lens stores the test cases, scores and traces. Your project runs the agent locally or in GitHub Actions"}
           </p>
         </div>
@@ -122,7 +125,8 @@ function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {
               size="sm"
               onClick={() => setConnecting(true)}
             >
-              <Github aria-hidden="true" className="size-4" /> Set up execution
+              <Github aria-hidden="true" className="size-4" />
+              {source && !connection ? "Connect GitHub to run again" : "Set up execution"}
             </Button>
           )
         )}

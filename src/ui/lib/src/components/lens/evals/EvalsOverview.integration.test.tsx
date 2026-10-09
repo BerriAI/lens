@@ -164,6 +164,22 @@ describe("Eval execution overview", () => {
     );
   });
 
+  it("should explain that existing CI runs need a GitHub connection before rerunning", async () => {
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
+      path === "/lens/github/status"
+        ? { ...connection, connection: null }
+        : serve(path, request),
+    );
+    renderWithLens(<EvalsView />, {
+      searchParams: `?tab=evals&eval=${definition.name}`,
+    });
+
+    expect(await screen.findByRole("button", { name: "Connect GitHub to run again" })).toBeEnabled();
+    expect(screen.getByText(/This eval already runs in GitHub Actions/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Run again" })).not.toBeInTheDocument();
+    expect(proxy.post).not.toHaveBeenCalled();
+  });
+
   it("should stop waiting after five minutes even when the refresh callback changes", async () => {
     proxy.post.mockResolvedValue({
       ci_url: ciUrl,
