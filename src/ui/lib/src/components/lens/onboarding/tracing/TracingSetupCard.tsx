@@ -28,6 +28,7 @@ import {
 import type { TraceSummary } from "../../traces/types";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
 import { SetupAgentPrompt } from "../SetupAgentPrompt";
+import { projectTracingInstructions } from "../setupPrompt";
 import { connectionAuthStatus } from "../connectionErrors";
 
 const COPIED_RESET_MS = 1500;
@@ -81,14 +82,7 @@ export const codingAgentPrompt = (
     .join("\n\n");
 
 export const projectSetupPrompt = (traceUrl: string): string =>
-  [
-    "Connect this project's agent traces to Lens. Inspect the project and its existing tracing configuration first.",
-    "Keep the existing model provider, model credentials, authentication, and application behavior. Never hardcode or commit secrets.",
-    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Load the dedicated key from this project's local environment. Use LITELLM_TRACING_KEY for new instrumentation and preserve the existing key variable for an already-instrumented app. If it is missing, ask me to configure it locally. Do not request or print secret values in this conversation. Never use a model or Lens admin key for ingestion.`,
-    "If tracing already exists, only configure its exporter and preserve its agent names. For Moyai, set LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY; its endpoint requires HTTPS. Do not add another tracing SDK.",
-    "Otherwise detect the framework, add its supported OpenTelemetry instrumentation, and include gen_ai.agent.name on the root agent span. Use OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_HEADERS, and http/protobuf where supported.",
-    "Restart the project if needed. Run one task and verify its real trace arrives in Lens. Report configuration or credential gaps instead of claiming success.",
-  ].join("\n\n");
+  projectTracingInstructions(traceUrl).join("\n\n");
 
 export const maskSecret = (secret: string): string =>
   secret.length > 10 ? `${secret.slice(0, 5)}${"•".repeat(16)}${secret.slice(-4)}` : "•".repeat(secret.length);

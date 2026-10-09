@@ -19,6 +19,7 @@ interface HomeConnectionStatusProps {
   readonly keyReady?: boolean | null;
   readonly stage?: "name" | "key" | "instructions" | "verify";
   readonly setupIssue?: string | null;
+  readonly discoverAfter?: number;
 }
 
 export function HomeConnectionStatus({
@@ -30,6 +31,7 @@ export function HomeConnectionStatus({
   keyReady,
   stage = "instructions",
   setupIssue,
+  discoverAfter,
 }: HomeConnectionStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
@@ -45,7 +47,9 @@ export function HomeConnectionStatus({
   const token = useLensAccessToken();
   const service = useLensService(token, { enabled, refetchInterval: 3000 });
   const agentName = name.trim();
-  const receipt = useAgentConnectionStatus(agentName, enabled);
+  const discovering = !agentName && Number.isFinite(discoverAfter);
+  const receipt = useAgentConnectionStatus(agentName, enabled, discoverAfter);
+  const matchedAgentName = receipt.match?.name ?? agentName;
   const authStatus = connectionAuthStatus(service.error) ?? connectionAuthStatus(receipt.error);
   const unavailable = Boolean(service.error || receipt.error);
   const apiReady = service.data?.connected ?? null;
@@ -55,7 +59,8 @@ export function HomeConnectionStatus({
   const blocked =
     apiReady === false || storageReady === false || credentialsPending || endpointMissing || Boolean(setupIssue);
   const receiving = !unavailable && !blocked && receipt.status === "receiving";
-  const verifying = stage === "verify";
+  const discovered = discovering && Boolean(receipt.match) && !unavailable && !blocked;
+  const verifying = !discovering && stage === "verify";
   const checking = service.isFetching || receipt.isChecking;
   const title =
     authStatus === 401
@@ -66,11 +71,13 @@ export function HomeConnectionStatus({
           ? "Unable to check"
           : blocked
             ? "Connection needs attention"
-            : receiving
-              ? "Receiving traces"
-              : receipt.status === "waiting-for-new-traces"
-                ? "Waiting for new traces"
-                : "Waiting for traces";
+            : discovered
+              ? "New trace received"
+              : receiving
+                ? "Receiving traces"
+                : receipt.status === "waiting-for-new-traces"
+                  ? "Waiting for new traces"
+                  : "Waiting for traces";
   const guidance =
     authStatus === 401
       ? "Your session is no longer valid. Sign in again to check your connection."
@@ -88,15 +95,19 @@ export function HomeConnectionStatus({
                   ? "Lens is syncing tracing credentials. Check again in a moment."
                   : setupIssue
                     ? setupIssue
-                    : receiving
-                      ? "A recent run is visible in Lens. Open it to inspect your agent's work."
-                      : stage === "name" || !agentName
-                        ? "Choose your project and agent name to watch for its traces here."
-                        : stage === "key"
-                          ? "Get a tracing key, then connect your project using the setup instructions."
-                          : verifying
-                            ? "Run your agent once. Lens will confirm a new trace here."
-                            : "Finish connecting your project, then continue to verify its traces.";
+                    : discovered
+                      ? `A trace arrived from “${matchedAgentName}”. Your coding agent will verify the run it sent before asking: “What would you like to instrument next?”`
+                      : receiving
+                        ? "A recent run is visible in Lens. Open it to inspect your agent's work."
+                        : discovering
+                          ? "Lens is watching for new named traces. Your coding agent will verify the run it sends."
+                          : stage === "name" || !agentName
+                            ? "Choose your project and agent name to watch for its traces here."
+                            : stage === "key"
+                              ? "Get a tracing key, then connect your project using the setup instructions."
+                              : verifying
+                                ? "Run your agent once. Lens will confirm a new trace here."
+                                : "Your coding agent will run one task and verify its trace. Lens checks for new traffic automatically.";
 
   return (
     <section
@@ -110,12 +121,8 @@ export function HomeConnectionStatus({
     >
       <div className={cn(verifying ? "p-5 sm:p-6" : "py-4 lg:px-5")}>
         <div className={cn("items-center justify-between gap-3", verifying ? "flex" : "hidden lg:flex")}>
-          {verifying ? (
-            <p className="font-mono text-[11px] text-muted-foreground">Step 3 of 3</p>
-          ) : (
-            <h3 className="text-sm font-medium">Live connection</h3>
-          )}
-          {enabled && agentName && !authStatus && (
+          <h3 className="text-sm font-medium">Live connection</h3>
+          {enabled && (agentName || discovering) && !authStatus && (
             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse" aria-hidden="true" />
               Checking every 3s
@@ -131,7 +138,7 @@ export function HomeConnectionStatus({
           className={cn(
             "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
             verifying ? "mt-4" : "lg:mt-4",
-            receiving
+            receiving || discovered
               ? "bg-success/10 text-success"
               : unavailable || blocked
                 ? "bg-warning/10 text-warning"
@@ -149,12 +156,12 @@ export function HomeConnectionStatus({
         {(receipt.match || !desktop || unavailable || (blocked && onSetup)) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {receipt.match && !authStatus && (
-              <Button size="sm" onClick={() => onOpenTraces(agentName)}>
+              <Button size="sm" onClick={() => onOpenTraces(matchedAgentName)}>
                 View traces <ArrowRight className="size-3.5" aria-hidden="true" />
               </Button>
             )}
-            {receiving && onConnectGitHub && (
-              <Button size="sm" variant="outline" onClick={() => onConnectGitHub(agentName)}>
+            {(receiving || discovered) && onConnectGitHub && (
+              <Button size="sm" variant="outline" onClick={() => onConnectGitHub(matchedAgentName)}>
                 <Github className="size-3.5" aria-hidden="true" /> Connect GitHub
               </Button>
             )}
@@ -220,12 +227,16 @@ export function HomeConnectionStatus({
           )}
         </dl>
         <div>
-          <p className="text-xs text-muted-foreground">Watching for agent</p>
-          <p className="mt-1 font-mono text-xs break-all">{agentName || "Name your agent to begin"}</p>
+          <p className="text-xs text-muted-foreground">{discovered ? "Detected agent" : "Watching for agent"}</p>
+          <p className="mt-1 font-mono text-xs break-all">
+            {matchedAgentName || (discovering ? "New named traces" : "Name your agent to begin")}
+          </p>
           {receipt.match && (
             <dl className="mt-3 space-y-2 border-t pt-3 text-xs">
               <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">Runs in the last 14 days</dt>
+                <dt className="text-muted-foreground">
+                  {discovering ? "Runs since setup opened" : "Runs in the last 14 days"}
+                </dt>
                 <dd className="font-medium tabular-nums">{receipt.match.runs.toLocaleString()}</dd>
               </div>
               <div className="flex flex-wrap justify-between gap-1">

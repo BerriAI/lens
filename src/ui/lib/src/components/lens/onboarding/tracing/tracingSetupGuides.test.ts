@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { FRAMEWORKS, standaloneFrameworkSnippet } from "./tracingSetupGuides";
+import { projectSetupPrompt } from "./TracingSetupCard";
 
 describe("Standalone agent configuration", () => {
+  it("copies the same receipt and next-instrumentation guidance for project setup without URL secrets", () => {
+    const prompt = projectSetupPrompt("https://sender:private-password@traces.test/observe/?key=private-key#private-fragment");
+    expect(prompt).toContain("Send OTLP/HTTP traces to https://traces.test/observe/v1/traces");
+    expect(prompt).toContain("POST https://traces.test/observe/v1/traces/receipt");
+    expect(prompt).toContain("same dedicated tracing key that exported the run");
+    expect(prompt).toContain("Determine the agent name from the project");
+    expect(prompt).toContain("Only after received is true");
+    expect(prompt).toContain('"What would you like to instrument next?"');
+    expect(prompt).not.toContain("private-");
+    expect(prompt).not.toContain("sender:");
+  });
+
   it.each(FRAMEWORKS)("should safely include the chosen agent name in $label configuration", (guide) => {
     const name = 'Moyai "support"\n${LITELLM_API_KEY} LITELLM_API_KEY';
     const snippet = standaloneFrameworkSnippet(guide, "https://lens.example", name);

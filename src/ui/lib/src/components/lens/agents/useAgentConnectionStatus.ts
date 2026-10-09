@@ -8,6 +8,7 @@ import { connectionAuthStatus } from "../onboarding/connectionErrors";
 import { AGENT_WINDOW_DAYS } from "./useAgents";
 import {
   agentConnectionState,
+  discoverAgentConnection,
   observeAgentConnection,
   RECEIVING_TRACES_WINDOW_MS,
   type AgentConnectionObservation,
@@ -15,26 +16,38 @@ import {
 
 const CONNECTION_POLL_MS = 3000;
 
-export function useAgentConnectionStatus(name: string, enabled = true) {
+export function useAgentConnectionStatus(name: string, enabled = true, discoverAfter?: number) {
   const accessToken = useLensAccessToken();
   const traces = useTracesApi(accessToken);
   const queryClient = useQueryClient();
-  const active = enabled && name.trim().length > 0 && traces.live;
+  const discoveryStart = name.trim().length === 0 && Number.isFinite(discoverAfter) ? discoverAfter : undefined;
+  const active = enabled && (name.trim().length > 0 || discoveryStart !== undefined) && traces.live;
   const [clock, setClock] = useState(Date.now);
-  const queryKey = ["agent-connection-status", accessToken, traces.live, name] as const;
+  const queryKey = ["agent-connection-status", accessToken, traces.live, name, discoveryStart] as const;
   const query = useQuery({
     queryKey,
     queryFn: async () => {
       const previous = queryClient.getQueryData<AgentConnectionObservation>(queryKey);
       const endMs = Date.now();
-      const agents = await traces.agents({ startMs: endMs - AGENT_WINDOW_DAYS * 86_400_000, endMs });
-      const match = agents.find((agent) => agent.name === name && agent.runs > 0) ?? null;
-      const observation = observeAgentConnection(previous, match, Date.now());
+      const agents = await traces.agents({
+        startMs: discoveryStart ?? endMs - AGENT_WINDOW_DAYS * 86_400_000,
+        endMs,
+      });
+      const observation =
+        discoveryStart === undefined
+          ? observeAgentConnection(
+              previous,
+              agents.find((agent) => agent.name === name && agent.runs > 0) ?? null,
+              Date.now(),
+            )
+          : discoverAgentConnection(previous, agents, discoveryStart, endMs);
       if (
-        (previous === undefined && match !== null) ||
+        (previous === undefined && observation.match !== null) ||
         (observation.observedAt !== null && observation.observedAt !== previous?.observedAt)
       ) {
-        void queryClient.invalidateQueries({ queryKey: ["lensAgents", accessToken, traces.live] });
+        void queryClient.invalidateQueries({
+          queryKey: ["lensAgents", accessToken, traces.live],
+        });
       }
       return observation;
     },
