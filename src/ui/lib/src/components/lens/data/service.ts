@@ -4,6 +4,7 @@ import { authHeaders } from "../../../lib/http/authHeaders";
 import type { Client } from "openapi-fetch";
 import type { components, paths } from "../../../lib/http/schema";
 import { liveDatasetsApi, type DatasetsApi } from "../datasets/client";
+import { liveEvalRunsApi, type EvalRunsApi } from "../datasets/runs/client";
 import type {
   ActivitySelection,
   AnalysisModelInfo,
@@ -48,6 +49,7 @@ export interface LensApi {
   /** Partitions query caches between backends (one token, or the demo). */
   readonly scope: string;
   readonly datasets: DatasetsApi;
+  readonly evalRuns: EvalRunsApi;
   lenses(): Promise<LensList>;
   activity(): Promise<components["schemas"]["ActivityAvailability"]>;
   runs(lensId: string, offset: number): Promise<Job[]>;
@@ -93,6 +95,7 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
   return {
     scope: accessToken,
     datasets: liveDatasetsApi(client, apiClient, accessToken),
+    evalRuns: liveEvalRunsApi(apiClient, accessToken),
     lenses: () => required(client.GET("/lens", { headers })),
     activity: () => required(client.GET("/lens/activity/available", { headers })),
     runs: (lensId, offset) =>
