@@ -1,5 +1,6 @@
 use crate::Error;
 use http::HeaderMap;
+use lens_contract::ingestion::IngestionSnapshot;
 use litellm_http::Client;
 use litellm_traces::Tenant;
 use serde::Deserialize;
@@ -70,6 +71,32 @@ pub fn authorize_service(headers: &HeaderMap, expected: &str) -> Result<(), Erro
 }
 
 impl Credentials {
+    pub fn replace_local(&self, snapshot: IngestionSnapshot) -> Result<(), Error> {
+        self.replace(Snapshot {
+            issued_at: u64::try_from(snapshot.issued_at).map_err(|_| Error::Unavailable)?,
+            keys: snapshot
+                .keys
+                .into_iter()
+                .map(|key| {
+                    Ok(Credential {
+                        token_hash: key.token_hash,
+                        tenant: Tenant {
+                            team_id: key.tenant.team_id,
+                            user_id: key.tenant.user_id,
+                            org_id: key.tenant.org_id,
+                            api_key_hash: key.tenant.api_key_hash,
+                        },
+                        expires_at: key
+                            .expires_at
+                            .map(u64::try_from)
+                            .transpose()
+                            .map_err(|_| Error::Unavailable)?,
+                    })
+                })
+                .collect::<Result<_, Error>>()?,
+        })
+    }
+
     pub fn replace(&self, snapshot: Snapshot) -> Result<(), Error> {
         let now = unix_seconds();
         if snapshot.keys.len() > MAX_KEYS

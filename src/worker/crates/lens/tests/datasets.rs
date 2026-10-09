@@ -49,7 +49,7 @@ async fn ingested_traces_build_cases_through_the_application_router(
     #[case] source: Source,
     #[case] index: usize,
 ) {
-    let server = database.serve().await;
+    let server = database.serve(false).await;
     let client = reqwest::Client::new();
     let ingested = client
         .post(format!("{}/v1/traces", server.url))
@@ -103,7 +103,7 @@ async fn ingested_traces_build_cases_through_the_application_router(
 #[rstest]
 #[tokio::test]
 async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] database: Database) {
-    let server = database.serve().await;
+    let server = database.serve(false).await;
     let client = reqwest::Client::new();
     let login = client
         .post(format!("{}/auth/session", server.url))
@@ -148,7 +148,7 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
     let saved: Dataset = save.json().await.unwrap();
     assert_eq!(saved.revision, 1);
     drop(server);
-    let restarted = database.serve().await;
+    let restarted = database.serve(false).await;
     let read = client
         .get(format!("{}/lens/datasets/{}", restarted.url, saved.id))
         .header("cookie", &cookie)

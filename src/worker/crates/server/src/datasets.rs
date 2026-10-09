@@ -1,5 +1,5 @@
 mod json_diagnostics;
-mod validation;
+pub(crate) mod validation;
 
 use std::sync::Arc;
 

@@ -12,6 +12,7 @@ pub mod evidence;
 pub mod grouping;
 mod ingest;
 pub mod journal;
+pub mod local_credentials;
 pub mod model;
 pub mod pipeline;
 pub mod sandbox;
@@ -48,7 +49,7 @@ pub struct State {
     pub credentials: Arc<auth::Credentials>,
     pub storage: Storage,
     pub schema_ready: AtomicBool,
-    service_token: String,
+    service_token: Option<String>,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
@@ -56,6 +57,14 @@ pub struct State {
 
 impl State {
     pub fn new(storage: Storage, service_token: String) -> Self {
+        Self::with_service_token(storage, Some(service_token))
+    }
+
+    pub fn standalone(storage: Storage) -> Self {
+        Self::with_service_token(storage, None)
+    }
+
+    fn with_service_token(storage: Storage, service_token: Option<String>) -> Self {
         Self {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
@@ -65,6 +74,13 @@ impl State {
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
         }
+    }
+
+    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
+        auth::authorize_service(
+            headers,
+            self.service_token.as_deref().ok_or(Error::Unauthorized)?,
+        )
     }
 
     fn require_storage(&self) -> Result<(), Error> {
@@ -102,10 +118,9 @@ pub fn router(state: Arc<State>) -> Router {
                     http::header::CONTENT_ENCODING,
                 ]),
         );
-    public
-        .clone()
-        .nest("/lens-ingest", public)
-        .merge(
+    let routes = public.clone().nest("/lens-ingest", public);
+    let routes = if state.service_token.is_some() {
+        routes.merge(
             Router::new()
                 .route("/internal/read", post(read))
                 .route("/internal/spend", post(spend))
@@ -113,8 +128,10 @@ pub fn router(state: Arc<State>) -> Router {
                 .route("/internal/credentials", post(credentials))
                 .route("/internal/status", get(status)),
         )
-        .with_state(state)
-        .merge(lens_server::router())
+    } else {
+        routes
+    };
+    routes.with_state(state).merge(lens_server::router())
 }
 
 #[derive(serde::Deserialize)]
@@ -154,7 +171,7 @@ async fn status(
     AppState(state): AppState<Arc<State>>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     Ok(Json(serde_json::json!({
         "storage_ready": state.schema_ready.load(Ordering::Acquire),
         "credentials_ready": state.credentials.ready(),
@@ -168,7 +185,7 @@ async fn credentials(
     headers: HeaderMap,
     body: Body,
 ) -> Result<StatusCode, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     let body = tokio::time::timeout(Duration::from_secs(5), to_bytes(body, 8 * 1024 * 1024))
         .await
         .map_err(|_| Error::Unavailable)?
@@ -208,7 +225,7 @@ async fn read(
     headers: HeaderMap,
     body: Body,
 ) -> Result<Json<Value>, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     state.require_storage()?;
     let permit = wait_for_read_slot(state.read_slots.clone().acquire_owned()).await?;
     let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 1024 * 1024))
@@ -246,7 +263,7 @@ async fn insert(
     body: Body,
     table: InsertTable,
 ) -> Result<StatusCode, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     state.require_storage()?;
     let permit = state
         .export_slots

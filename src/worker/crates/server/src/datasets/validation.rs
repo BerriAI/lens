@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::error::{DatasetError, ValidationError};
 
 #[derive(Clone, Copy)]
-pub(super) enum Model {
+pub(crate) enum Model {
     Create,
     Build,
     Revision,
@@ -16,6 +16,8 @@ pub(super) enum Model {
     Trace,
     Finding,
     Text,
+    Query,
+    IngestionKey,
 }
 
 #[derive(Clone, Copy)]
@@ -28,6 +30,7 @@ enum Kind {
     Record(Model),
     Source,
     Tag(&'static str),
+    AwareDatetime,
 }
 
 const STRING: Kind = Kind::String(0, None);
@@ -36,6 +39,12 @@ type Field = (&'static str, bool, Kind);
 impl Model {
     fn fields(self) -> &'static [Field] {
         match self {
+            Self::Query => &[("sql", true, STRING)],
+            Self::IngestionKey => &[
+                ("name", false, Kind::String(1, Some(128))),
+                ("team_id", false, Kind::String(0, Some(256))),
+                ("expires_at", false, Kind::AwareDatetime),
+            ],
             Self::Create => &[
                 ("name", true, Kind::String(1, Some(120))),
                 ("agent_name", false, STRING),
@@ -103,7 +112,7 @@ impl Model {
     }
 }
 
-fn failure(
+pub(crate) fn failure(
     kind: &str,
     path: &[Value],
     message: impl Into<String>,
@@ -121,13 +130,13 @@ fn at(path: &[Value], part: Value) -> Vec<Value> {
     path.iter().cloned().chain(std::iter::once(part)).collect()
 }
 
-pub(super) struct ParsedBody {
+pub(crate) struct ParsedBody {
     value: Value,
     base_revision: Option<String>,
     original: Option<Box<serde_json::value::RawValue>>,
 }
 
-pub(super) fn parse_body(body: &[u8], headers: &HeaderMap) -> Result<ParsedBody, DatasetError> {
+pub(crate) fn parse_body(body: &[u8], headers: &HeaderMap) -> Result<ParsedBody, DatasetError> {
     let json_type = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
@@ -204,7 +213,7 @@ fn json_value(value: &jiter::JsonValue<'_>) -> Value {
     }
 }
 
-pub(super) fn request<T: DeserializeOwned>(
+pub(crate) fn request<T: DeserializeOwned>(
     parsed: ParsedBody,
     model: Model,
 ) -> Result<T, DatasetError> {
@@ -289,6 +298,15 @@ fn raw_input<'a>(
 
 fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<ValidationError>) {
     match kind {
+        Kind::AwareDatetime => {
+            if value.is_null() {
+                return;
+            }
+            match super::super::ingestion::parse_expiry(value, path) {
+                Ok(datetime) => *value = json!(datetime),
+                Err(error) => errors.push(error),
+            }
+        }
         Kind::String(minimum, maximum) => {
             let Some(text) = value.as_str() else {
                 errors.push(failure(
@@ -567,19 +585,19 @@ fn exact_python_repr(value: &jiter::JsonValue<'_>) -> String {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Revision {
+pub(crate) enum Revision {
     Exact(i64),
     OutsideRange { negative: bool },
 }
 
 impl Revision {
-    pub(super) fn exact(self) -> Option<i64> {
+    pub(crate) fn exact(self) -> Option<i64> {
         match self {
             Self::Exact(value) => Some(value),
             Self::OutsideRange { .. } => None,
         }
     }
-    fn negative(self) -> bool {
+    pub(crate) fn negative(self) -> bool {
         match self {
             Self::Exact(value) => value < 0,
             Self::OutsideRange { negative } => negative,
@@ -621,7 +639,11 @@ fn integer_text(text: &str) -> Option<Revision> {
     )
 }
 
-fn integer(value: &Value, path: &[Value], nonnegative: bool) -> Result<Revision, ValidationError> {
+pub(crate) fn integer(
+    value: &Value,
+    path: &[Value],
+    nonnegative: bool,
+) -> Result<Revision, ValidationError> {
     let parsed = match value {
         Value::Bool(boolean) => Some(Revision::Exact(i64::from(*boolean))),
         Value::Number(number) if !number.to_string().contains(['.', 'e', 'E']) => {
