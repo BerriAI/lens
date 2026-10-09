@@ -13,6 +13,7 @@ import {
 import { LensServicesProvider } from "../data/LensServices";
 import { createLensDemo } from "../data/demo/createLensDemo";
 import type { Dataset, DatasetSummary } from "../datasets/types";
+import researchTrace from "../traces/__fixtures__/research_trace.json";
 import { EvalsView } from "./EvalsView";
 import { RunsTab } from "./runs/RunsTab";
 import { diff, evalRun, runCase, step, summary, trial } from "./runs/testRuns";
@@ -52,11 +53,21 @@ const definition: EvalDefinition = {
     revision: null,
     scorers: [
       { kind: "task_completed" },
-      { kind: "called_before", first: "check_refund_policy", then: "issue_refund" },
+      {
+        kind: "called_before",
+        first: "check_refund_policy",
+        then: "issue_refund",
+      },
     ],
     trials: 3,
     baseline: "main",
-    gate: { regressions: 0, critical: 0, pass_rate: null, cost_per_case: null, min: {} },
+    gate: {
+      regressions: 0,
+      critical: 0,
+      pass_rate: null,
+      cost_per_case: null,
+      min: {},
+    },
     timeout_per_trial_ms: 1_200_000,
   },
   updated_at: "2026-10-08T10:00:00Z",
@@ -110,12 +121,14 @@ const cases: Record<string, RunCase> = {
       ],
       {
         checks: [{ ...failedCheck, passed: true }],
+        traces: [{ trace_id: "before-trace", trace_ref: "before-owner" }],
       },
     ),
   ]),
   "run-red": runCase(false, [
     trial(1, [step("lookup_order", 0), step("issue_refund", 20_000_000)], {
       checks: [failedCheck],
+      traces: [{ trace_id: "after-trace", trace_ref: "after-owner" }],
     }),
   ]),
 };
@@ -123,6 +136,15 @@ const cases: Record<string, RunCase> = {
 let proxy = stubGateway();
 
 const serve = (path: string, request: GatewayRequest) => {
+  if (path.startsWith("/v1/traces/"))
+    return {
+      ...researchTrace,
+      summary: {
+        ...researchTrace.summary,
+        trace_id: path.split("/").at(-1),
+        trace_ref: request.query.trace_ref,
+      },
+    };
   if (path === "/lens/datasets") return [datasetSummary];
   if (path === `/lens/datasets/${dataset.id}`) return dataset;
   if (path === "/lens/evals") return [definition];
@@ -133,6 +155,15 @@ const serve = (path: string, request: GatewayRequest) => {
     (item) => path === `/lens/evals/runs/${item.id}`,
   );
   if (run) return run;
+  if (/^\/lens\/evals\/runs\/[^/]+\/cases$/.test(path))
+    return [
+      {
+        case_id: regression.case_id,
+        title: regression.title,
+        critical: regression.critical,
+        passed: path.includes("run-main"),
+      },
+    ];
   const runId = path.match(
     /^\/lens\/evals\/runs\/([^/]+)\/cases\/case-refund$/,
   )?.[1];
@@ -182,7 +213,10 @@ describe("Evals", () => {
   it("lists evals, opens one onto its runs, and lands a red run on its first regression", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
-    const first = renderWithLens(<EvalsView />, { searchParams: "?tab=evals", onUrlUpdate });
+    const first = renderWithLens(<EvalsView />, {
+      searchParams: "?tab=evals",
+      onUrlUpdate,
+    });
 
     const row = await screen.findByRole("row", { name: definition.name });
     expect(row).toHaveTextContent("Refund agent regressions@2");
@@ -190,16 +224,23 @@ describe("Evals", () => {
     expect(row).toHaveTextContent("regressions ≤ 0 · critical ≤ 0");
 
     await user.click(row);
-    await user.click(await screen.findByRole("row", { name: "drop-policy-check@2222222" }));
-    expect(await screen.findByRole("list", { name: "Gate reasons" })).toHaveTextContent(
-      "1 critical case regressed against main",
+    await user.click(
+      await screen.findByRole("row", { name: "drop-policy-check@2222222" }),
     );
     expect(
-      within(screen.getByRole("navigation", { name: "Changed cases" })).getByRole("button", { current: true }),
+      await screen.findByRole("list", { name: "Gate reasons" }),
+    ).toHaveTextContent("1 critical case regressed against main");
+    expect(
+      within(screen.getByRole("navigation", { name: "Cases" })).getByRole(
+        "button",
+        { current: true },
+      ),
     ).toHaveTextContent(regression.title);
     await expectComparison();
 
-    await user.click(screen.getByRole("button", { name: /Can I get a refund/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Can I get a refund/ }),
+    );
     const url = onUrlUpdate.mock.lastCall?.[0].queryString as string;
     expect(Object.fromEntries(new URLSearchParams(url))).toMatchObject({
       tab: "evals",
@@ -220,7 +261,10 @@ describe("Evals", () => {
     });
 
     await expectComparison();
-    expect(proxy.get).not.toHaveBeenCalledWith("/lens/evals/runs", expect.anything());
+    expect(proxy.get).not.toHaveBeenCalledWith(
+      "/lens/evals/runs",
+      expect.anything(),
+    );
   });
 
   it("shows why an errored run failed instead of saying it is still scoring", async () => {
@@ -231,11 +275,13 @@ describe("Evals", () => {
     expect(within(row).getByText("gate errored")).toBeInTheDocument();
 
     await user.click(row);
-    expect(await screen.findByRole("alert")).toHaveTextContent("error: dataset revision 9 not found");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "error: dataset revision 9 not found",
+    );
     expect(screen.queryByText(/scoring/)).not.toBeInTheDocument();
   });
 
-  it("says so when a PR link names a case that did not change, and clears it on dismiss", async () => {
+  it("says so when a PR link names a case outside the run, and clears it on dismiss", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     renderWithLens(<EvalsView />, {
@@ -244,11 +290,120 @@ describe("Evals", () => {
     });
 
     const missing = await screen.findByRole("alert");
-    expect(missing).toHaveTextContent("Case case-gone did not regress or get fixed in this run.");
+    expect(missing).toHaveTextContent(
+      "Case case-gone was not found in this run.",
+    );
 
     await user.click(within(missing).getByRole("button", { name: "Dismiss" }));
     await expectComparison();
-    expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("eval_case")).toBe(false);
+    expect(
+      new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has(
+        "eval_case",
+      ),
+    ).toBe(false);
+  });
+
+  it("opens a passing unchanged case and its scoped trace while preserving eval navigation", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithLens(<EvalsView />, {
+      searchParams: `${evalPage}&eval_run=${mainRun.id}`,
+      onUrlUpdate,
+    });
+
+    const caseButton = await screen.findByRole("button", {
+      name: /Can I get a refund/,
+    });
+    await user.click(caseButton);
+    const traceButton = await screen.findByRole("button", {
+      name: "View candidate eval trace",
+    });
+    expect(screen.getByLabelText("Diagnosis")).not.toHaveTextContent(
+      /fixed|regressed/,
+    );
+    expect(
+      screen.queryByRole("button", { name: "View main eval trace" }),
+    ).not.toBeInTheDocument();
+    await user.click(traceButton);
+    expect(
+      Object.fromEntries(
+        new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString),
+      ),
+    ).toMatchObject({
+      tab: "evals",
+      eval: definition.name,
+      eval_run: mainRun.id,
+      eval_case: regression.case_id,
+      trace: "before-trace",
+      trace_ref: "before-owner",
+    });
+    const drawer = await screen.findByRole("complementary", {
+      name: "Eval trace details",
+    });
+    expect(within(drawer).getByText("Eval trace")).toBeInTheDocument();
+    expect(within(drawer).getByText(definition.name)).toBeInTheDocument();
+    expect(
+      await within(drawer).findByRole("button", { name: "Copy trace ID" }),
+    ).toHaveAttribute("title", "before-trace");
+    await user.click(
+      within(drawer).getByRole("button", { name: "Close eval trace (Esc)" }),
+    );
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has(
+          "trace",
+        ),
+      ).toBe(false),
+    );
+    expect(
+      new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get(
+        "eval_run",
+      ),
+    ).toBe(mainRun.id);
+  });
+
+  it("opens the selected candidate trial, including session references with several traces", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
+      path.endsWith("run-red/cases/case-refund")
+        ? {
+            ...cases["run-red"],
+            trials: [
+              cases["run-red"]!.trials[0],
+              trial(2, [], {
+                traces: [
+                  {
+                    trace_id: "session-first",
+                    trace_ref: "session-first-owner",
+                  },
+                  {
+                    trace_id: "session-second",
+                    trace_ref: "session-second-owner",
+                  },
+                ],
+              }),
+            ],
+          }
+        : serve(path, request),
+    );
+    renderWithLens(<EvalsView />, {
+      searchParams: `${evalPage}&eval_run=${redRun.id}`,
+      onUrlUpdate,
+    });
+
+    await user.click(await screen.findByRole("tab", { name: "trial 2" }));
+    await user.click(
+      screen.getByRole("button", { name: "View candidate eval trace 2" }),
+    );
+    expect(
+      Object.fromEntries(
+        new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString),
+      ),
+    ).toMatchObject({
+      trace: "session-second",
+      trace_ref: "session-second-owner",
+    });
   });
 
   it("creates an eval from the form, stores it in Lens, and opens it", async () => {
@@ -263,15 +418,28 @@ describe("Evals", () => {
 
     await user.click(await screen.findByRole("button", { name: "New eval" }));
     const form = screen.getByRole("form", { name: "New eval" });
-    fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), { target: { value: "refund-order" } });
-    await user.click(within(form).getByRole("combobox", { name: "Dataset" }));
-    await user.click(await screen.findByRole("option", { name: "Refund agent regressions@2" }));
-    expect(within(form).getByRole("textbox", { name: "Agent" })).toHaveValue("refund-agent");
-    await user.click(within(form).getByRole("checkbox", { name: "Tool order" }));
-    fireEvent.change(within(form).getByRole("textbox", { name: "First tool" }), {
-      target: { value: "check_refund_policy" },
+    fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), {
+      target: { value: "refund-order" },
     });
-    fireEvent.change(within(form).getByRole("textbox", { name: "Then tool" }), { target: { value: "issue_refund" } });
+    await user.click(within(form).getByRole("combobox", { name: "Dataset" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Refund agent regressions@2" }),
+    );
+    expect(within(form).getByRole("textbox", { name: "Agent" })).toHaveValue(
+      "refund-agent",
+    );
+    await user.click(
+      within(form).getByRole("checkbox", { name: "Tool order" }),
+    );
+    fireEvent.change(
+      within(form).getByRole("textbox", { name: "First tool" }),
+      {
+        target: { value: "check_refund_policy" },
+      },
+    );
+    fireEvent.change(within(form).getByRole("textbox", { name: "Then tool" }), {
+      target: { value: "issue_refund" },
+    });
     await user.click(within(form).getByRole("button", { name: "Create eval" }));
 
     await waitFor(() => expect(proxy.put).toHaveBeenCalledOnce());
@@ -279,13 +447,32 @@ describe("Evals", () => {
     expect(proxy.put.mock.lastCall?.[1].body).toEqual({
       agent: "refund-agent",
       dataset_id: dataset.id,
-      scorers: [{ kind: "task_completed" }, { kind: "called_before", first: "check_refund_policy", then: "issue_refund" }],
+      scorers: [
+        { kind: "task_completed" },
+        {
+          kind: "called_before",
+          first: "check_refund_policy",
+          then: "issue_refund",
+        },
+      ],
       trials: 3,
       baseline: "main",
-      gate: { regressions: 0, critical: 0, pass_rate: null, cost_per_case: null, min: {} },
+      gate: {
+        regressions: 0,
+        critical: 0,
+        pass_rate: null,
+        cost_per_case: null,
+        min: {},
+      },
     });
-    expect(await screen.findByRole("heading", { name: "refund-order" })).toBeInTheDocument();
-    expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval")).toBe("refund-order");
+    expect(
+      await screen.findByRole("heading", { name: "refund-order" }),
+    ).toBeInTheDocument();
+    expect(
+      new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get(
+        "eval",
+      ),
+    ).toBe("refund-order");
   });
 
   it("opens GitHub setup for an eval with no runs, then opens the first run once it arrives", async () => {
@@ -302,21 +489,35 @@ describe("Evals", () => {
     const connect = await screen.findByRole("region", {
       name: "Connect agent",
     });
-    expect(within(connect).getByRole("button", { name: "Connect GitHub" })).toBeEnabled();
+    expect(
+      within(connect).getByRole("button", { name: "Connect GitHub" }),
+    ).toBeEnabled();
     expect(within(connect).queryByRole("tabpanel")).not.toBeInTheDocument();
-    await user.click(within(connect).getByRole("button", { name: "Connect GitHub" }));
+    await user.click(
+      within(connect).getByRole("button", { name: "Connect GitHub" }),
+    );
     const dialog = await screen.findByRole("dialog", {
       name: "Connect GitHub",
     });
-    expect(await within(dialog).findByRole("heading", { name: "GitHub connection unavailable" })).toBeVisible();
-    expect(within(dialog).queryByRole("textbox", { name: "GitHub repository" })).not.toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole("heading", {
+        name: "GitHub connection unavailable",
+      }),
+    ).toBeVisible();
+    expect(
+      within(dialog).queryByRole("textbox", { name: "GitHub repository" }),
+    ).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
 
     runs = [redRun];
     await testQueryClient.invalidateQueries();
 
     await expectComparison();
-    expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval_run")).toBe(redRun.id);
+    expect(
+      new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get(
+        "eval_run",
+      ),
+    ).toBe(redRun.id);
   });
 
   it("serves an empty run list in sample mode without calling the proxy", async () => {
@@ -326,7 +527,9 @@ describe("Evals", () => {
       </LensServicesProvider>,
     );
 
-    expect(await screen.findByRole("region", { name: "Connect agent" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Connect agent" }),
+    ).toBeInTheDocument();
     expect(proxy.get).not.toHaveBeenCalled();
   });
 });

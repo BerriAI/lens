@@ -389,6 +389,7 @@ mod tests {
     #[fixture]
     fn trace(submitted_at: DateTime<Utc>) -> EvalTrace {
         EvalTrace {
+            traces: Vec::new(),
             spans: vec![EvalSpan {
                 span_id: "root".into(),
                 parent_span_id: String::new(),
@@ -559,6 +560,7 @@ mod tests {
         trace: EvalTrace,
     ) {
         let child_only = EvalTrace {
+            traces: Vec::new(),
             spans: vec![EvalSpan {
                 span_id: "child".into(),
                 parent_span_id: "root".into(),

@@ -119,6 +119,12 @@ async fn eval_reads_keep_spans_and_spend_within_the_authenticated_team(
         .await?
         .unwrap();
     assert_eq!(trace.spans.len(), 2);
+    assert_eq!(trace.traces.len(), 1);
+    assert_eq!(trace.traces[0].trace_id, "trace-a");
+    assert_eq!(
+        trace.spans[0].span_id,
+        format!("{}:root", trace.traces[0].trace_ref)
+    );
     assert_eq!(trace.spans[0].input, expected_input);
     assert_eq!(trace.spans[1].attributes["gen_ai.tool.name"], "run_tests");
     assert_eq!(trace.gateway_cost_usd, 0.25);
@@ -184,6 +190,14 @@ async fn session_reference_includes_every_trace_in_the_session(
         .await?
         .unwrap();
     assert_eq!(trace.spans.len(), 3);
+    assert_eq!(
+        trace
+            .traces
+            .iter()
+            .map(|trace| trace.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["different-trace", "trace-a"]
+    );
     assert!(
         trace
             .spans
