@@ -1,0 +1,33 @@
+{
+  "id": "baseline",
+  "status": "done",
+  "eval": "demo",
+  "agent": "demo",
+  "version": "base",
+  "branch": "main",
+  "pr": null,
+  "url": "http://localhost:8765/runs/baseline",
+  "expected_trials": 108,
+  "received_trials": 108,
+  "summary": {
+    "passed": 36,
+    "total": 36,
+    "pass_rate": 1.0,
+    "cost_per_case": 0.375,
+    "scores": {
+      "task_completed": 1.0
+    },
+    "errors": 0,
+    "baseline_run_id": null,
+    "baseline_version": null,
+    "regressions": [],
+    "fixed": [],
+    "gate": {
+      "passed": true,
+      "reasons": [
+        "no baseline on main for rev 1"
+      ]
+    }
+  },
+  "failure": ""
+}

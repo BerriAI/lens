@@ -1,0 +1,651 @@
+{
+  "$defs": {
+    "ApiError": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "code": {
+          "enum": [
+            "dataset_not_found",
+            "revision_not_found",
+            "run_not_found",
+            "run_closed",
+            "unknown_case",
+            "contract_version",
+            "unauthorized"
+          ],
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "detail",
+        "code"
+      ],
+      "title": "ApiError",
+      "type": "object"
+    },
+    "CalledBefore": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "called_before",
+          "default": "called_before",
+          "title": "Kind",
+          "type": "string"
+        },
+        "first": {
+          "minLength": 1,
+          "title": "First",
+          "type": "string"
+        },
+        "then": {
+          "minLength": 1,
+          "title": "Then",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first",
+        "then"
+      ],
+      "title": "CalledBefore",
+      "type": "object"
+    },
+    "CaseDiff": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "critical": {
+          "title": "Critical",
+          "type": "boolean"
+        },
+        "baseline_url": {
+          "title": "Baseline Url",
+          "type": "string"
+        },
+        "candidate_url": {
+          "title": "Candidate Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "title",
+        "critical",
+        "baseline_url",
+        "candidate_url"
+      ],
+      "title": "CaseDiff",
+      "type": "object"
+    },
+    "CaseError": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 2000,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ],
+      "title": "CaseError",
+      "type": "object"
+    },
+    "CaseResult": {
+      "additionalProperties": false,
+      "description": "PUT /lens/evals/runs/{run_id}/results/{case_id}/{trial}. Exactly one of trace or error.",
+      "properties": {
+        "trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TraceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaseError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        }
+      },
+      "title": "CaseResult",
+      "type": "object"
+    },
+    "CreateEvalRun": {
+      "additionalProperties": false,
+      "properties": {
+        "eval": {
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Eval",
+          "type": "string"
+        },
+        "agent": {
+          "minLength": 1,
+          "title": "Agent",
+          "type": "string"
+        },
+        "dataset_id": {
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "case_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Case Ids"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "branch": {
+          "minLength": 1,
+          "title": "Branch",
+          "type": "string"
+        },
+        "pr": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pr"
+        },
+        "ci_url": {
+          "default": "",
+          "title": "Ci Url",
+          "type": "string"
+        },
+        "trials": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "scorers": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "called_before": "#/$defs/CalledBefore",
+                "judge": "#/$defs/Judge",
+                "task_completed": "#/$defs/TaskCompleted"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TaskCompleted"
+              },
+              {
+                "$ref": "#/$defs/CalledBefore"
+              },
+              {
+                "$ref": "#/$defs/Judge"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Scorers",
+          "type": "array"
+        },
+        "gate": {
+          "$ref": "#/$defs/Gate",
+          "default": {
+            "regressions": 0,
+            "critical": 0,
+            "pass_rate": null,
+            "cost_per_case": null,
+            "min": {}
+          }
+        },
+        "timeout_per_trial_ms": {
+          "default": 1200000,
+          "exclusiveMinimum": 0,
+          "maximum": 18446744073709551615,
+          "title": "Timeout Per Trial Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "eval",
+        "agent",
+        "dataset_id",
+        "revision",
+        "version",
+        "branch",
+        "scorers"
+      ],
+      "title": "CreateEvalRun",
+      "type": "object"
+    },
+    "EvalRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "scoring",
+            "done",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "eval": {
+          "title": "Eval",
+          "type": "string"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "branch": {
+          "title": "Branch",
+          "type": "string"
+        },
+        "pr": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pr"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "expected_trials": {
+          "title": "Expected Trials",
+          "type": "integer"
+        },
+        "received_trials": {
+          "title": "Received Trials",
+          "type": "integer"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Summary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failure": {
+          "default": "",
+          "title": "Failure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "eval",
+        "agent",
+        "version",
+        "branch",
+        "pr",
+        "url",
+        "expected_trials",
+        "received_trials"
+      ],
+      "title": "EvalRun",
+      "type": "object"
+    },
+    "Gate": {
+      "additionalProperties": false,
+      "description": "Every set field must hold for the gate to pass. None means not checked.",
+      "properties": {
+        "regressions": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "title": "Regressions"
+        },
+        "critical": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "title": "Critical"
+        },
+        "pass_rate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pass Rate"
+        },
+        "cost_per_case": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Per Case"
+        },
+        "min": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {},
+          "title": "Min",
+          "type": "object"
+        }
+      },
+      "title": "Gate",
+      "type": "object"
+    },
+    "GateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reasons": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "title": "GateResult",
+      "type": "object"
+    },
+    "Judge": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "judge",
+          "default": "judge",
+          "title": "Kind",
+          "type": "string"
+        },
+        "prompt": {
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "model": {
+          "default": "",
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "title": "Judge",
+      "type": "object"
+    },
+    "ResolvedDataset": {
+      "additionalProperties": false,
+      "description": "GET /lens/datasets/resolve?name=moyai-regressions[&revision=7]",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "revision"
+      ],
+      "title": "ResolvedDataset",
+      "type": "object"
+    },
+    "Summary": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "pass_rate": {
+          "title": "Pass Rate",
+          "type": "number"
+        },
+        "cost_per_case": {
+          "title": "Cost Per Case",
+          "type": "number"
+        },
+        "scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Scores",
+          "type": "object"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "baseline_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Run Id"
+        },
+        "baseline_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Version"
+        },
+        "regressions": {
+          "items": {
+            "$ref": "#/$defs/CaseDiff"
+          },
+          "title": "Regressions",
+          "type": "array"
+        },
+        "fixed": {
+          "items": {
+            "$ref": "#/$defs/CaseDiff"
+          },
+          "title": "Fixed",
+          "type": "array"
+        },
+        "gate": {
+          "$ref": "#/$defs/GateResult"
+        }
+      },
+      "required": [
+        "passed",
+        "total",
+        "pass_rate",
+        "cost_per_case",
+        "scores",
+        "errors",
+        "baseline_run_id",
+        "baseline_version",
+        "regressions",
+        "fixed",
+        "gate"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "TaskCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "task_completed",
+          "default": "task_completed",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "TaskCompleted",
+      "type": "object"
+    },
+    "TraceRef": {
+      "additionalProperties": false,
+      "description": "How Lens finds the trace for one trial. Exactly one key, an OTel attribute on the root span.",
+      "properties": {
+        "attribute": {
+          "default": "session.id",
+          "enum": [
+            "session.id",
+            "trace_id"
+          ],
+          "title": "Attribute",
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "TraceRef",
+      "type": "object"
+    }
+  },
+  "title": "LensV1",
+  "type": "object"
+}
