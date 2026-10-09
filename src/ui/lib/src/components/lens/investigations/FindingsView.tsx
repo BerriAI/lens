@@ -80,7 +80,7 @@ function FindingRow({ row, now }: { row: InboxRow; now: number }) {
           role="row"
           tabIndex={0}
           aria-label={row.title}
-          className="mx-2 block cursor-pointer space-y-2 rounded-md border border-transparent px-3 py-3 transition-colors duration-150 outline-none hover:border-border hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=selected]:border-indigo-200 data-[state=selected]:bg-indigo-50/70 dark:data-[state=selected]:border-indigo-400/30 dark:data-[state=selected]:bg-indigo-400/10"
+          className="mx-2 block cursor-pointer space-y-2 rounded-md border border-transparent px-3 py-3 transition-colors duration-150 outline-none hover:border-border hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=selected]:border-border data-[state=selected]:bg-trace-row-selected"
         />
       }
     >

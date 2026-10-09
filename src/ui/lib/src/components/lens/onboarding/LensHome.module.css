@@ -6,14 +6,11 @@
   border-radius: 1rem;
   background-color: var(--card);
   background-image: radial-gradient(
-      circle at 1px 1px,
-      color-mix(in oklab, var(--muted-foreground) 18%, transparent) 1px,
-      transparent 0
-    ),
-    radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--info) 5%, transparent), transparent 65%);
-  background-size:
-    20px 20px,
-    100% 100%;
+    circle at 1px 1px,
+    color-mix(in oklab, var(--muted-foreground) 18%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 20px 20px;
 }
 
 .eyebrow {

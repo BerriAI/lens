@@ -484,20 +484,20 @@
   --lens-violet: #7951c8;
   --lens-rose: #c75078;
   --lens-amber: #a16c17;
-  --lens-paper: #fafbff;
-  --lens-grid: #d6daec;
-  --lens-nav-active: #eef0ff;
-  --lens-soft: #f3f4fc;
-  --lens-border: #dfe3f2;
+  --lens-paper: #ffffff;
+  --lens-grid: #e1e3e6;
+  --lens-nav-active: #f5f5f5;
+  --lens-soft: #ffffff;
+  --lens-border: #e5e7eb;
   --primary: var(--lens-brand);
   --primary-foreground: #ffffff;
   --ring: var(--lens-brand);
   --trace-brand: var(--lens-brand);
-  --trace-row-hover: #f6f7ff;
-  --trace-row-selected: #eef0ff;
+  --trace-row-hover: #fafafa;
+  --trace-row-selected: #f5f5f5;
   --trace-dot: #a6b0f2;
-  --trace-tab-active: #eef0ff;
-  --trace-tab-hover: #f3f4fc;
+  --trace-tab-active: #f5f5f5;
+  --trace-tab-hover: #fafafa;
 }
 
 .dark .lens-workspace,

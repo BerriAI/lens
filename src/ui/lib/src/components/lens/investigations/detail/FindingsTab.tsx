@@ -92,7 +92,7 @@ export function FindingsTab({ lens, job, findings, children }: FindingsTabProps)
               render={
                 <button
                   type="button"
-                  className="flex w-full gap-3 px-4 py-4 text-left hover:bg-indigo-50/50 focus-visible:outline-2 focus-visible:outline-ring data-[state=selected]:bg-trace-row-selected data-[state=selected]:shadow-[inset_2px_0_0_var(--trace-brand)] dark:hover:bg-indigo-400/5"
+                  className="flex w-full gap-3 px-4 py-4 text-left hover:bg-trace-row-hover focus-visible:outline-2 focus-visible:outline-ring data-[state=selected]:bg-trace-row-selected data-[state=selected]:shadow-[inset_2px_0_0_var(--trace-brand)]"
                 />
               }
             >

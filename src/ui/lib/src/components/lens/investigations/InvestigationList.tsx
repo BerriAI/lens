@@ -255,7 +255,7 @@ export function InvestigationList({
                     aria-label={
                       row.original.kind === "finding" ? row.original.finding.title : row.original.lens.settings.name
                     }
-                    className="group h-12 hover:bg-indigo-50/50 dark:hover:bg-indigo-400/5 md:h-9"
+                    className="group h-12 hover:bg-trace-row-hover md:h-9"
                   />
                 )}
               </InspectorTable.Body>

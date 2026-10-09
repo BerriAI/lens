@@ -296,7 +296,7 @@ function CaseGroup({
               className={cn(
                 "flex w-full items-start gap-2 border-b border-l-2 border-l-transparent px-3 py-1.5 text-left hover:bg-muted/50",
                 diff.case_id === selected &&
-                  "border-l-[var(--lens-brand)] bg-[var(--lens-brand)]/10",
+                  "border-l-[var(--lens-brand)] bg-trace-row-selected",
               )}
             >
               <span

@@ -51,11 +51,7 @@
 
 .detailHeader {
   border-top: 2px solid var(--lens-brand, #0017b7);
-  background: linear-gradient(
-    110deg,
-    color-mix(in oklab, var(--lens-brand, #0017b7) 4%, var(--background)),
-    var(--background)
-  );
+  background: var(--background);
 }
 
 .viewTabs [data-active] {
@@ -64,5 +60,5 @@
 }
 
 .stepHeader {
-  background: color-mix(in oklab, var(--lens-brand, #0017b7) 3%, var(--background));
+  background: var(--background);
 }
