@@ -21,8 +21,14 @@ export function ConnectAgent({ definition, dataset, revision }: ConnectAgentProp
   return (
     <section
       aria-label="Connect agent"
-      className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-10 text-sm"
+      className="lens-empty-state mx-auto my-6 flex max-w-3xl flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-10 text-sm"
     >
+      <span
+        aria-hidden="true"
+        className="flex size-11 items-center justify-center rounded-xl border border-[var(--lens-violet)]/20 bg-[var(--lens-violet)]/10 text-[var(--lens-violet)]"
+      >
+        <Github className="size-5" />
+      </span>
       <div className="text-center">
         <h3 className="font-semibold">No runs yet</h3>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -133,10 +133,10 @@ function DatasetRevision(props: DatasetRevisionProps) {
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex shrink-0 flex-col gap-1 border-b bg-background px-3 pt-2.5 pb-2 sm:px-4">
+      <header className="lens-toolbar flex shrink-0 flex-col gap-2 border-b px-3 py-3 sm:px-4">
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-xs text-muted-foreground"
+          className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground"
         >
           <button
             type="button"
@@ -150,15 +150,14 @@ function DatasetRevision(props: DatasetRevisionProps) {
         </nav>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Database
-              aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground"
-            />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--lens-cyan)]/20 bg-[var(--lens-cyan)]/10 text-[var(--lens-cyan)]">
+              <Database aria-hidden="true" className="size-4" />
+            </span>
             <h2 className="min-w-0 truncate text-base font-semibold">
               {dataset.name}
             </h2>
             <IdChip value={dataset.id} label="Copy dataset ID" />
-            <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+            <span className="hidden truncate font-mono text-xs text-muted-foreground sm:inline">
               {dataset.agent_name || "Any agent"}
             </span>
           </div>
@@ -198,10 +197,7 @@ function DatasetRevision(props: DatasetRevisionProps) {
           </div>
         </div>
       </header>
-      <Tabs
-        value="cases"
-        className="min-h-0 flex-1 gap-0"
-      >
+      <Tabs value="cases" className="min-h-0 flex-1 gap-0">
         <div className="shrink-0 border-b px-3 sm:px-4">
           <TabsList
             variant="line"
@@ -228,7 +224,7 @@ function DatasetRevision(props: DatasetRevisionProps) {
             </p>
           )}
           {cases.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+            <p className="lens-empty-state m-4 rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
               This revision has no cases. Add some from a trace or a finding.
             </p>
           ) : (
@@ -300,7 +296,7 @@ function RevisionPicker({
   return (
     <select
       aria-label="Revision"
-      className="h-8 rounded-md border-0 bg-transparent pr-7 pl-2 text-xs text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+      className="h-8 rounded-md border border-[var(--lens-brand)]/20 bg-background pr-7 pl-2 font-mono text-xs text-[var(--lens-brand)] hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
       value={revision}
       onChange={(event) => onPick(Number(event.target.value))}
     >

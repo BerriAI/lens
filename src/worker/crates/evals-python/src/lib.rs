@@ -8,6 +8,8 @@ use lens_evals_sdk::{
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde_json::json;
 
+mod session;
+
 fn error(value: Error) -> PyErr {
     Python::attach(|py| {
         let module = py.import("lens.errors")?;
@@ -137,6 +139,18 @@ fn control(py: Python<'_>, command: &str) -> PyResult<String> {
                     .map_err(error)?;
                 Ok(String::new())
             }
+            Operation::ReportStart { name, pr, via_app } => {
+                pyo3_async_runtimes::tokio::get_runtime()
+                    .block_on(github::publish_progress(&root, &name, pr, false, via_app))
+                    .map_err(error)?;
+                Ok(String::new())
+            }
+            Operation::ReportFailed { name, pr, via_app } => {
+                pyo3_async_runtimes::tokio::get_runtime()
+                    .block_on(github::publish_progress(&root, &name, pr, true, via_app))
+                    .map_err(error)?;
+                Ok(String::new())
+            }
             _ => Err(PyValueError::new_err(
                 "Evaluation commands require the Python task boundary",
             )),
@@ -248,6 +262,7 @@ fn run_named(
 
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<session::SavedEvaluation>()?;
     module.add_function(wrap_pyfunction!(validate_eval, module)?)?;
     module.add_function(wrap_pyfunction!(settings, module)?)?;
     module.add_function(wrap_pyfunction!(subset_name, module)?)?;

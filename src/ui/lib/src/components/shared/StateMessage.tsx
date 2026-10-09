@@ -26,11 +26,13 @@ export function StateMessage({ icon, tone, title, description, children, classNa
       )}
       {...props}
     >
-      <span aria-hidden="true" className={stateIcon({ tone })}>
+      <span aria-hidden="true" data-slot="state-icon" data-tone={tone ?? "muted"} className={stateIcon({ tone })}>
         {icon}
       </span>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p data-slot="state-title" className="text-sm font-medium text-foreground">
+          {title}
+        </p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       {children && <div className="mt-1 flex items-center gap-2">{children}</div>}

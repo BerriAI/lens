@@ -10,7 +10,7 @@ const TOP_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
 
 function Legend() {
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-muted-foreground">
       <span className="flex items-center gap-1.5">
         <span aria-hidden="true" className="size-2 rounded-sm bg-finding-affected" />
         Affected
@@ -28,21 +28,22 @@ export function FrequencyCard({ frequency }: { frequency: Frequency }) {
   const data = frequency.days.map((d) => ({ ...d, label: dayLabel(d.day) }));
   const range = data.length > 0 ? `${data[0].label} – ${data[data.length - 1].label}` : null;
   return (
-    <section
-      aria-label="Frequency"
-      className="space-y-4 rounded-xl border border-transparent bg-muted/40 p-4 shadow-finding-ring"
-    >
-      <div aria-live="polite" className="flex items-start justify-between gap-4">
+    <section aria-label="Frequency" className="space-y-4 rounded-lg border border-t-2 border-t-indigo-400 bg-card p-4">
+      <div aria-live="polite" className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="mb-1 text-sm font-medium">Frequency</h3>
-          <p className="text-2xl leading-tight font-semibold tracking-tight tabular-nums">
+          <h3 className="lens-section-label mb-2 font-mono text-[10px] font-medium text-muted-foreground">Frequency</h3>
+          <p className="text-3xl leading-tight font-medium tracking-tight text-primary tabular-nums">
             {percent ?? "—"}
-            <span className="ml-1.5 text-sm font-normal tracking-normal text-muted-foreground">
+            <span className="mt-2 block font-mono text-[11px] font-normal tracking-normal text-muted-foreground">
               {frequency.affected} of {frequency.total} traces affected
             </span>
           </p>
         </div>
-        {range && <span className="pt-0.5 text-xs whitespace-nowrap text-muted-foreground">{range}</span>}
+        {range && (
+          <span className="rounded border bg-muted/20 px-2 py-1 font-mono text-[10px] whitespace-nowrap text-muted-foreground">
+            {range}
+          </span>
+        )}
       </div>
       {data.length > 0 && (
         <div className="h-56 md:h-64" data-testid="frequency-chart">

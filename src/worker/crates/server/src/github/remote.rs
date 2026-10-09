@@ -204,6 +204,23 @@ impl Remote {
         )
         .await
     }
+
+    pub(super) async fn progress(
+        &self,
+        credentials: &RemoteCredentials,
+        input: super::progress::ProgressInput,
+    ) -> Result<lens_contract::github::ProgressPublished, GitHubError> {
+        self.request(
+            Method::POST,
+            &format!(
+                "/lens/github/service/connections/{}/progress",
+                credentials.connection_id
+            ),
+            Some(credentials),
+            Some(serde_json::to_value(input).map_err(|_| GitHubError::Credentials)?),
+        )
+        .await
+    }
 }
 
 pub(super) async fn credentials<R>(

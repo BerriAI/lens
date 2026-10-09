@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { Check } from "lucide-react";
+import { Check, FileCode2 } from "lucide-react";
 import { copyToClipboard } from "../../../utils/dataUtils";
 import anthropicLogo from "../../../../public/assets/logos/anthropic.svg";
 import openaiLogo from "../../../../public/assets/logos/openai_small.svg";
@@ -38,10 +38,11 @@ export function IssueBrief({ title, brief }: { title: string; brief: IssueBrief 
     }
   };
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <div className="flex h-10 items-center gap-1 border-b border-border bg-muted/40 px-3">
+    <div className="lens-panel overflow-hidden rounded-md border border-border">
+      <div className="lens-toolbar flex h-10 items-center gap-2 border-b border-border px-3">
+        <FileCode2 aria-hidden="true" className="size-3.5 text-violet-500 dark:text-violet-300" />
         <span className="font-mono text-xs text-muted-foreground">issue-brief.md</span>
-        <span className="mr-1 ml-auto text-xs text-muted-foreground">Copy for</span>
+        <span className="mr-1 ml-auto font-mono text-[10px] text-muted-foreground">Copy for</span>
         {AGENTS.map((agent) => (
           <button
             key={agent.name}

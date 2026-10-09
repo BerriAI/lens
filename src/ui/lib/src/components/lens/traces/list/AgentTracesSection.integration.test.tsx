@@ -381,7 +381,7 @@ describe("AgentTracesSection", () => {
     });
     renderSection();
     expect(await screen.findByTestId("agent-trace-row")).toBeVisible();
-    expect(screen.getByText(/1 run from/)).toBeVisible();
+    expect(screen.getByLabelText("Loaded trace summary")).toHaveTextContent(/Loaded runs\s*1/);
     expect(screen.queryByText(/failed runs|with errors/)).not.toBeInTheDocument();
   });
 

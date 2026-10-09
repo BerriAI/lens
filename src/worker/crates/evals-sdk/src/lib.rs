@@ -7,6 +7,7 @@ pub mod engine;
 mod error;
 pub mod model;
 pub mod named;
+pub mod session;
 pub mod setup;
 
 pub use error::{Error, Result};

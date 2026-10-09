@@ -7,6 +7,8 @@ import { Button } from "../../../../ui/button";
 import { IdChip } from "../../ui/IdChip";
 import { SpanIcon } from "../../ui/SpanIcon";
 import type { SpanType } from "../../types";
+import styles from "../../TraceAppearance.module.css";
+import { cn } from "../../../../../lib/cva.config";
 
 interface PaneHeaderProps {
   type: SpanType;
@@ -23,10 +25,10 @@ interface PaneHeaderProps {
 /** Selected step identity: tile, name, id, then its time and usage on one quiet line. */
 export function PaneHeader({ type, model, failed, title, idValue, facts, actions, links, onClose }: PaneHeaderProps) {
   return (
-    <div className="flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2">
+    <div className={cn(styles.stepHeader, "flex shrink-0 flex-col gap-1.5 border-b px-4 pt-3 pb-2.5")}>
       <div className="flex min-w-0 items-center gap-2">
         <SpanIcon type={type} model={model} error={failed} size="lg" />
-        <h2 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h2>
+        <h2 className="min-w-0 truncate font-mono text-sm font-semibold text-foreground">{title}</h2>
         {idValue && <IdChip value={idValue} label="Copy span ID" />}
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {actions}
@@ -43,11 +45,11 @@ export function PaneHeader({ type, model, failed, title, idValue, facts, actions
       </div>
       {(facts.length > 0 || links) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-8">
-          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground tabular-nums">
             {facts.map(([label, value]) => (
               <div key={label} className="flex items-center gap-1">
                 <dt>{label}</dt>
-                <dd className="font-medium text-foreground">{value}</dd>
+                <dd className="font-medium text-primary">{value}</dd>
               </div>
             ))}
           </dl>

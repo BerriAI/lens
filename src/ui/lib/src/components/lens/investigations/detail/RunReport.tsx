@@ -158,10 +158,10 @@ function facts(job: Job | undefined, findings: readonly Finding[] | null | undef
 
 function Stat({ label, value, note }: { label: string; value: ReactNode; note?: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 truncate text-lg font-semibold tabular-nums">{value}</dd>
-      {note && <dd className="truncate text-xs text-muted-foreground">{note}</dd>}
+    <div className="min-w-0 rounded-md border bg-card p-3">
+      <dt className="font-mono text-[10px] text-muted-foreground">{label}</dt>
+      <dd className="mt-2 truncate text-xl font-medium tabular-nums">{value}</dd>
+      {note && <dd className="mt-1 truncate font-mono text-[10px] text-muted-foreground">{note}</dd>}
     </div>
   );
 }
@@ -197,7 +197,7 @@ function RunStats({ job, findings }: { job: Job; findings: readonly Finding[] | 
   const calls = (job.steps ?? []).filter((step) => step.kind === "model").length;
   const { screened = 0, selected = 0 } = job.coverage ?? {};
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Stat label="Cost" value={money(job.cost ?? 0)} note={plural(calls, "model call")} />
       <Stat label="Duration" value={<RunDuration job={job} />} note={`Started ${shortTime(job.created_at)}`} />
       <Stat
@@ -309,10 +309,10 @@ export function RunReport({ lens, job, findings, connected, ready, busy, picker,
   const known = facts(job, findings);
   const action = nextAction(lens, job, situation);
   return (
-    <section aria-label="Run report" className="space-y-4 rounded-lg border p-4">
+    <section aria-label="Run report" className="space-y-4 rounded-lg border border-t-2 border-t-violet-400 bg-card p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={cn("text-xs font-medium", TONE_CLASS[view.tone])}>{view.status}</p>
+          <p className={cn("font-mono text-[10px] font-medium tracking-wide", TONE_CLASS[view.tone])}>{view.status}</p>
           <h3 className="mt-0.5 text-base font-semibold">{view.headline(known)}</h3>
         </div>
         <div className="flex items-center gap-1">

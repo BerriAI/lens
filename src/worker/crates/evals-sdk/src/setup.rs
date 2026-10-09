@@ -180,6 +180,24 @@ pub enum Operation {
         #[serde(default)]
         via_app: bool,
     },
+    ReportStart {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        pr: Option<u64>,
+        #[arg(long)]
+        #[serde(default)]
+        via_app: bool,
+    },
+    ReportFailed {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        pr: Option<u64>,
+        #[arg(long)]
+        #[serde(default)]
+        via_app: bool,
+    },
 }
 
 pub fn parse(arguments: &[String]) -> serde_json::Value {

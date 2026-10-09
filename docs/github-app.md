@@ -20,6 +20,18 @@ Replacing or disconnecting a connection queues old credentials for revocation. L
 
 Reports are read from completed runs in your Lens instance, then the service verifies the GitHub workflow, PR and commit before publishing
 
+For a saved evaluation, use App mode for the whole CI lifecycle:
+
+```sh
+lens report-start --name coding-regressions --via-app
+pytest tests/test_agent_lens.py --run-lens
+python -m lens.github lens-results.json --via-app
+```
+
+If execution stops before saving a complete report, run `lens report-failed --name coding-regressions --via-app` from the workflow's failure handler. These commands use `LENS_BASE_URL` and `LENS_API_KEY`; the runner needs no App private key or GitHub write token
+
+The App keeps one comment per PR and saved evaluation, updates it from running to the final result, and updates the check for that commit. It verifies App ownership before editing. Repeated publication reuses the result, and a late progress or failure message cannot overwrite that workflow's completed report. The final score and baseline always come from the saved Lens run
+
 The eval runner must be able to reach your Lens instance. For a private deployment, use a runner with access to its network. This integration does not need inbound GitHub webhooks; the hosted service never fetches customer Lens URLs
 
 ## Operate the official Lens App service

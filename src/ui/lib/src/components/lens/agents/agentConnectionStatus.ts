@@ -28,6 +28,22 @@ export function observeAgentConnection(
   };
 }
 
+export function discoverAgentConnection(
+  previous: AgentConnectionObservation | undefined,
+  agents: readonly AgentSummary[],
+  startedAfter: number,
+  checkedAt: number,
+): AgentConnectionObservation {
+  const eligible = agents.filter((agent) => {
+    const startedAt = Date.parse(agent.last_seen);
+    return agent.name.trim().length > 0 && agent.runs > 0 && startedAt >= startedAfter && startedAt <= checkedAt;
+  });
+  const match = previous?.match
+    ? eligible.find((agent) => agent.name === previous.match?.name) ?? previous.match
+    : eligible[0] ?? null;
+  return observeAgentConnection(previous ?? { match: null, checkedAt, observedAt: null }, match, checkedAt);
+}
+
 export function agentConnectionState(
   observation: AgentConnectionObservation | undefined,
   now: number,

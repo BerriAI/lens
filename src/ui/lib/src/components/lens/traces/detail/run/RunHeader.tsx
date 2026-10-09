@@ -16,12 +16,7 @@ import { useTimeout } from "usehooks-ts";
 
 import { Button } from "../../../../ui/button";
 import { ButtonGroup } from "../../../../ui/button-group";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../../ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../../ui/dropdown-menu";
 import { TabsList, TabsTrigger } from "../../../../ui/tabs";
 import { cn } from "../../../../../lib/cva.config";
 import { copyToClipboard } from "../../../../../utils/dataUtils";
@@ -37,6 +32,7 @@ import { FrameworkLogo, traceFramework } from "../../ui/TraceFramework";
 import type { SignalFlag, Trace } from "../../types";
 import { SignalPills } from "../../ui/SignalPills";
 import { fmtMs, fmtTok, traceAgentNames, traceDisplayName } from "../../utils";
+import styles from "../../TraceAppearance.module.css";
 
 type Summary = Trace["summary"];
 
@@ -54,7 +50,7 @@ function StatusPill({ summary }: { summary: Summary }) {
     <span
       title="Status of received spans. More spans may still arrive."
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium",
+        "inline-flex items-center gap-1.5 rounded px-2 py-0.5 font-mono text-[11px] font-medium",
         failed ? "bg-destructive/10 text-destructive" : "bg-trace-ok text-trace-ok-glyph",
       )}
     >
@@ -73,7 +69,7 @@ function Totals({ summary }: { summary: Summary }) {
     `${fmtTok(summary.input_tokens + summary.output_tokens)} tokens`,
     cost && [cost.label, cost.partial?.long].filter(Boolean).join(" · "),
   ].filter(Boolean);
-  return <span className="text-foreground tabular-nums">{parts.join(" · ")}</span>;
+  return <span className="font-mono text-[11px] text-foreground tabular-nums">{parts.join(" · ")}</span>;
 }
 
 function RunIcon({ summary }: { summary: Summary }) {
@@ -103,7 +99,7 @@ function RunActions({ summary, handoff }: { summary: Summary; handoff: TraceHand
         <Button
           variant="outline"
           size="xs"
-          className="h-7 gap-1.5 text-xs shadow-none"
+          className="h-7 gap-1.5 border-primary/20 bg-primary/5 font-mono text-[11px] text-primary shadow-none hover:bg-primary/10"
           onClick={async () => setCopied(await copyToClipboard(handoff.text, handoff.copied))}
         >
           {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
@@ -174,7 +170,7 @@ export function RunHeader({
 }: RunHeaderProps) {
   const { summary } = trace;
   return (
-    <header className="flex shrink-0 flex-col gap-2 border-b bg-background px-4 pt-3 pb-2.5">
+    <header className={cn(styles.detailHeader, "flex shrink-0 flex-col gap-2 border-b px-4 pt-3 pb-2.5")}>
       <div className="flex min-w-0 items-center gap-2">
         {!embedded && (
           <Button variant="ghost" size="icon-xs" onClick={onBack} aria-label="Back to runs">
@@ -182,7 +178,7 @@ export function RunHeader({
           </Button>
         )}
         <RunIcon summary={summary} />
-        <h1 className="min-w-0 shrink truncate text-base font-semibold">{traceDisplayName(summary)}</h1>
+        <h1 className="min-w-0 shrink truncate font-mono text-sm font-semibold">{traceDisplayName(summary)}</h1>
         {summary.source?.user && <RunUser user={summary.source.user} />}
         {summary.source && <RunSourceLink source={summary.source} />}
         <IdChip value={summary.trace_id} label="Copy trace ID" />
@@ -195,7 +191,7 @@ export function RunHeader({
             onClick={onLiveChange}
             aria-label="Live updates"
             title={live ? "Live: refreshes every 30s. Click to pause." : "Paused. Click to follow live."}
-            className="text-muted-foreground"
+            className="font-mono text-[11px] text-muted-foreground"
           >
             <span
               className={cn(
@@ -223,12 +219,15 @@ export function RunHeader({
         <StatusPill summary={summary} />
         {signals.length > 0 && <SignalPills flags={signals} showScore className="flex-wrap" />}
         <Totals summary={summary} />
-        <TabsList aria-label="Trace view" className="ml-auto group-data-horizontal/tabs:h-7">
-          <TabsTrigger value="steps" className="gap-1.5 px-2.5 text-xs">
+        <TabsList
+          aria-label="Trace view"
+          className={cn(styles.viewTabs, "ml-auto rounded-md border bg-background/70 group-data-horizontal/tabs:h-7")}
+        >
+          <TabsTrigger value="steps" className="gap-1.5 rounded-sm px-2.5 font-mono text-[11px]">
             <ListTree className="size-3.5" />
             Steps
           </TabsTrigger>
-          <TabsTrigger value="thread" className="gap-1.5 px-2.5 text-xs">
+          <TabsTrigger value="thread" className="gap-1.5 rounded-sm px-2.5 font-mono text-[11px]">
             <MessagesSquare className="size-3.5" />
             Thread
           </TabsTrigger>

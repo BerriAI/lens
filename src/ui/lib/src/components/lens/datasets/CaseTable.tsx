@@ -62,7 +62,7 @@ function InputText({ item }: { item: DatasetCase }) {
   if (!input) return <span className={MUTED_ITALIC}>No input</span>;
   return (
     <>
-      <span className="text-muted-foreground">{input.role}: </span>
+      <span className="font-mono text-[var(--lens-brand)]">{input.role}: </span>
       <span className="text-foreground">{input.text}</span>
     </>
   );
@@ -136,7 +136,7 @@ function ToolCallsCell({ row: { original: item } }: Cell) {
   return (
     <span
       title={`${count} tool ${count === 1 ? "call" : "calls"}`}
-      className="inline-flex min-w-5 justify-center rounded-full bg-muted px-1.5 font-mono text-xs tabular-nums text-foreground"
+      className="inline-flex min-w-5 justify-center rounded-md bg-[var(--lens-violet)]/10 px-1.5 font-mono text-xs tabular-nums text-[var(--lens-violet)]"
     >
       {count}
     </span>
@@ -210,7 +210,7 @@ export function CaseTable({
           <InspectorTable.Root table={table}>
             <InspectorTable.Grid
               aria-label="Cases"
-              className="text-xs md:min-w-[860px]"
+              className="lens-table text-xs md:min-w-[860px]"
             >
               <InspectorTable.Header />
               <InspectorTable.Body<DatasetCase>
@@ -232,7 +232,7 @@ export function CaseTable({
               </InspectorTable.Body>
             </InspectorTable.Grid>
           </InspectorTable.Root>
-          <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
+          <footer className="lens-toolbar flex h-8 shrink-0 items-center border-t px-3 font-mono text-[11px] text-muted-foreground">
             {cases.length} {cases.length === 1 ? "case" : "cases"} · {included}{" "}
             included
           </footer>

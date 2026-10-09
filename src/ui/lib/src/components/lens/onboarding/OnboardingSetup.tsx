@@ -40,7 +40,7 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
       </div>
       <SetupAgentPrompt connection={connection.data} />
       <OnboardingSteps state={state} includeTracing={includeTracing} />
-      {state.error && (
+      {state.error && connection.data?.configured !== false && (
         <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-destructive">
           <p>Could not check setup. {state.error}</p>
           <Button variant="outline" size="sm" onClick={state.refresh} disabled={state.checking}>

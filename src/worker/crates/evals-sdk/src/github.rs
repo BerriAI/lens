@@ -5,6 +5,7 @@ use std::{
     time::Duration,
 };
 
+use lens_contract::github::{ProgressPublished, ProgressRequest, ProgressState};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -12,7 +13,7 @@ use serde_json::{Value, json};
 use crate::{
     Error, Result,
     client::{Client, segment},
-    model::{EvalRun, Report},
+    model::{EvalRun, Execution, Report},
     reporting,
     setup::{Settings, env_value},
 };
@@ -114,46 +115,159 @@ impl GitHub {
     pub async fn publish(&self, report: &Report, sha: &str) -> Result<()> {
         let body = reporting::markdown(report)?;
         if let Some(pr) = report.run.pr {
-            let marker = format!("<!-- lens:{} -->", report.run.eval);
-            for page in 1.. {
-                let comments: Vec<Comment> = Client::decode(
-                    self.request(
-                        Method::GET,
-                        &format!("/issues/{pr}/comments?per_page=100&page={page}"),
-                        None,
-                    )
-                    .await?,
-                )
-                .await?;
-                if let Some(comment) = comments.iter().find(|comment| {
-                    comment
-                        .body
-                        .as_ref()
-                        .is_some_and(|body| body.starts_with(&marker))
-                        && comment.user.login == "github-actions[bot]"
-                }) {
-                    self.request(
-                        Method::PATCH,
-                        &format!("/issues/comments/{}", comment.id),
-                        Some(json!({"body":body})),
-                    )
-                    .await?;
-                    break;
-                }
-                if comments.len() < 100 {
-                    self.request(
-                        Method::POST,
-                        &format!("/issues/{pr}/comments"),
-                        Some(json!({"body":body})),
-                    )
-                    .await?;
-                    break;
-                }
-            }
+            self.comment(&report.run.eval, pr, &body).await?;
         }
         self.request(Method::POST, "/check-runs", Some(json!({"name":format!("Lens / {}", report.run.eval),"head_sha":sha,"status":"completed","conclusion":reporting::conclusion(report)?,"details_url":report.run.url,"output":{"title":format!("Lens / {}", report.run.eval),"summary":body.chars().take(65000).collect::<String>()}}))).await?;
         Ok(())
     }
+
+    async fn comment(&self, name: &str, pr: u64, body: &str) -> Result<()> {
+        let marker = reporting::marker(name);
+        for page in 1.. {
+            let comments: Vec<Comment> = Client::decode(
+                self.request(
+                    Method::GET,
+                    &format!("/issues/{pr}/comments?per_page=100&page={page}"),
+                    None,
+                )
+                .await?,
+            )
+            .await?;
+            if let Some(comment) = comments.iter().find(|comment| {
+                comment
+                    .body
+                    .as_ref()
+                    .is_some_and(|body| body.starts_with(&marker))
+                    && comment.user.login == "github-actions[bot]"
+            }) {
+                self.request(
+                    Method::PATCH,
+                    &format!("/issues/comments/{}", comment.id),
+                    Some(json!({"body":body})),
+                )
+                .await?;
+                return Ok(());
+            }
+            if comments.len() < 100 {
+                self.request(
+                    Method::POST,
+                    &format!("/issues/{pr}/comments"),
+                    Some(json!({"body":body})),
+                )
+                .await?;
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn progress(&self, name: &str, context: &Execution, failed: bool) -> Result<()> {
+        let pr = context.pr.ok_or(Error::Configuration(
+            "A Lens progress comment requires a pull request event or --pr",
+        ))?;
+        let body = reporting::progress(&ProgressRequest {
+            name: name.to_owned(),
+            version: context.version.clone(),
+            pr,
+            ci_url: context.ci_url.clone(),
+            state: if failed {
+                ProgressState::Failed
+            } else {
+                ProgressState::Running
+            },
+        });
+        self.comment(name, pr, &body).await?;
+        if failed {
+            self.request(Method::POST, "/check-runs", Some(json!({"name":format!("Lens / {name}"),"head_sha":context.version,"status":"completed","conclusion":"failure","details_url":context.ci_url,"output":{"title":format!("Lens / {name}"),"summary":body}}))).await?;
+        }
+        Ok(())
+    }
+}
+
+fn required(key: &str) -> Result<String> {
+    env_value(key).ok_or(Error::Invalid {
+        message: "GitHub reporting requires",
+        value: key.to_owned(),
+    })
+}
+
+fn from_environment() -> Result<GitHub> {
+    GitHub::new(
+        &env_value("GITHUB_API_URL").unwrap_or_else(|| "https://api.github.com".into()),
+        &required("GITHUB_TOKEN")?,
+        &required("GITHUB_REPOSITORY")?,
+    )
+}
+
+pub async fn publish_progress(
+    root: &Path,
+    name: &str,
+    pr: Option<u64>,
+    failed: bool,
+    via_app: bool,
+) -> Result<()> {
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
+    {
+        return Err(Error::Configuration(
+            "Eval name must use letters, digits, hyphens or underscores",
+        ));
+    }
+    let context = crate::setup::execution(root, true)?;
+    let context = Execution {
+        pr: pr.or(context.pr),
+        ..context
+    };
+    if via_app {
+        let lens = Client::new(
+            &Settings::load(root)?.endpoint()?,
+            &required("LENS_API_KEY")?,
+        )?;
+        progress_via_app(
+            &lens,
+            &ProgressRequest {
+                name: name.to_owned(),
+                version: context.version,
+                pr: context.pr.ok_or(Error::Configuration(
+                    "A Lens progress comment requires a pull request event or --pr",
+                ))?,
+                ci_url: context.ci_url,
+                state: if failed {
+                    ProgressState::Failed
+                } else {
+                    ProgressState::Running
+                },
+            },
+        )
+        .await?;
+        return Ok(());
+    }
+    from_environment()?.progress(name, &context, failed).await
+}
+
+pub async fn progress_via_app(
+    lens: &Client,
+    progress: &ProgressRequest,
+) -> Result<ProgressPublished> {
+    let published: ProgressPublished = Client::decode(
+        lens.request(
+            Method::POST,
+            "/lens/github/progress",
+            Some(&serde_json::to_value(progress).map_err(Error::Response)?),
+            None,
+            true,
+        )
+        .await?,
+    )
+    .await?;
+    if published.comment_url.trim().is_empty() || published.check_url.trim().is_empty() {
+        return Err(Error::Infrastructure(
+            "Lens did not confirm publishing eval progress",
+        ));
+    }
+    Ok(published)
 }
 
 pub async fn publish_file(root: &Path, path: &Path) -> Result<()> {
@@ -182,13 +296,21 @@ pub async fn publish_via_app(lens: &Client, run_ids: &[&str]) -> Result<()> {
     Ok(())
 }
 
-pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Result<()> {
-    let required = |key: &str| {
-        env_value(key).ok_or(Error::Invalid {
-            message: "GitHub reporting requires",
-            value: key.to_owned(),
-        })
+pub async fn load_report(lens: &Client, id: &str) -> Result<Report> {
+    let run = lens.get(id, false).await?;
+    let report = Report {
+        run,
+        baseline: None,
+        trials: Vec::new(),
     };
+    let baseline = match &report.summary()?.baseline_run_id {
+        Some(id) => Some(lens.get(id, false).await?),
+        None => None,
+    };
+    Ok(Report { baseline, ..report })
+}
+
+pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Result<()> {
     let key = required("LENS_API_KEY")?;
     let payload: Runs =
         serde_json::from_str(&fs::read_to_string(path)?).map_err(Error::Response)?;
@@ -196,6 +318,7 @@ pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Resul
         return Err(Error::Infrastructure("No completed Lens runs to report"));
     }
     let lens = Client::new(&Settings::load(root)?.endpoint()?, &key)?;
+    let mut reported_runs = Vec::new();
     if via_app {
         publish_via_app(
             &lens,
@@ -206,24 +329,13 @@ pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Resul
                 .collect::<Vec<_>>(),
         )
         .await?;
+        reported_runs = payload.runs;
     } else {
-        let sha = required("GITHUB_SHA")?;
-        let github = GitHub::new(
-            &env_value("GITHUB_API_URL").unwrap_or_else(|| "https://api.github.com".into()),
-            &required("GITHUB_TOKEN")?,
-            &required("GITHUB_REPOSITORY")?,
-        )?;
+        let github = from_environment()?;
         for run in &payload.runs {
-            let report = Report {
-                run: run.clone(),
-                baseline: None,
-                trials: Vec::new(),
-            };
-            let baseline = match &report.summary()?.baseline_run_id {
-                Some(id) => Some(lens.get(id, false).await?),
-                None => None,
-            };
-            github.publish(&Report { baseline, ..report }, &sha).await?;
+            let report = load_report(&lens, &run.id).await?;
+            github.publish(&report, &report.run.version).await?;
+            reported_runs.push(report.run);
         }
     }
     if let Some(output) = env_value("GITHUB_OUTPUT") {
@@ -231,7 +343,7 @@ pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Resul
         writeln!(
             stream,
             "passed={}",
-            payload.runs.iter().all(|run| run
+            reported_runs.iter().all(|run| run
                 .summary
                 .as_ref()
                 .is_some_and(|summary| summary.gate.passed))
@@ -239,7 +351,7 @@ pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Resul
         writeln!(
             stream,
             "run-urls={}",
-            serde_json::to_string(&payload.runs.iter().map(|run| &run.url).collect::<Vec<_>>())
+            serde_json::to_string(&reported_runs.iter().map(|run| &run.url).collect::<Vec<_>>())
                 .map_err(Error::Response)?
         )?;
     }

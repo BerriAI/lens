@@ -35,9 +35,9 @@ export function CasePanel({
 }: CasePanelProps) {
   return (
     <Tabs defaultValue="case" className="min-h-0 flex-1 gap-0">
-      <header className="flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2">
+      <header className="lens-toolbar flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="min-w-0 truncate text-base font-semibold text-foreground">
+          <h2 className="min-w-0 truncate font-mono text-sm font-semibold text-foreground">
             Case #{shortCaseId(item.id)}{" "}
             <span className="font-normal text-muted-foreground">
               @ {datasetName}
@@ -109,7 +109,7 @@ function CaseBody({
       >
         <label
           htmlFor={expectedId}
-          className="text-sm font-semibold text-foreground"
+          className="lens-section-label text-xs font-semibold"
         >
           Expected
         </label>
@@ -118,7 +118,7 @@ function CaseBody({
             id={expectedId}
             value={item.expected}
             placeholder="What a good reply looks like"
-            className="min-h-24 bg-background text-sm"
+            className="min-h-24 border-[var(--lens-brand)]/20 bg-[var(--lens-soft)] text-sm"
             onChange={(event) => onEdit({ expected: event.target.value })}
           />
         ) : (
@@ -154,7 +154,7 @@ function SourceBody({ item }: { item: DatasetCase }) {
   const { source } = item;
   return (
     <div className="flex flex-col gap-4 p-4">
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-2 text-sm">
+      <dl className="lens-panel grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-2 rounded-lg border p-3 font-mono text-xs">
         {SOURCE_FIELDS.map(([label, key]) => (
           <div key={key} className="contents">
             <dt className="text-muted-foreground">{label}</dt>
