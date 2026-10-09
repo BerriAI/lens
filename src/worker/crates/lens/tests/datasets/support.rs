@@ -93,6 +93,14 @@ impl Drop for Server {
 
 impl Database {
     pub async fn serve(&self, standalone: bool) -> Server {
+        self.serve_with_gateway(standalone, None).await
+    }
+
+    pub async fn serve_with_gateway(
+        &self,
+        standalone: bool,
+        gateway_secret: Option<String>,
+    ) -> Server {
         let client = http_client().unwrap();
         let config = Config::new(self.name.clone(), &self.url, 14, 65_536).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
@@ -106,10 +114,11 @@ impl Database {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let application = api::initialize(
             &state,
-            Settings::new(ADMIN, None, &url).unwrap(),
+            Settings::new(ADMIN, gateway_secret, &url).unwrap(),
             Default::default(),
             Default::default(),
             standalone,
+            url.clone(),
         )
         .await
         .unwrap()

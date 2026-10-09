@@ -15,12 +15,13 @@ pub struct Config {
     pub ui_directory: Option<PathBuf>,
     pub query_secret: String,
     pub ingestion_url: String,
+    pub public_url: String,
     pub release: String,
 }
 
 pub enum Mode {
     Standalone,
-    Gateway(Gateway),
+    Gateway(Box<Gateway>),
 }
 
 pub struct Gateway {
@@ -28,6 +29,8 @@ pub struct Gateway {
     pub worker_token: String,
     pub service_token: String,
     pub release: String,
+    pub eval_judge_api_key: Option<String>,
+    pub eval_judge_model: Option<String>,
 }
 
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
@@ -44,8 +47,8 @@ impl Config {
     fn read(read: impl Fn(&str) -> Option<String>) -> Result<Self, Error> {
         let mode = match read("LENS_MODE").as_deref() {
             Some("standalone") => Mode::Standalone,
-            Some("gateway") => Mode::Gateway(Gateway::read(&read)?),
-            None if read("LITELLM_URL").is_some() => Mode::Gateway(Gateway::read(&read)?),
+            Some("gateway") => Mode::Gateway(Box::new(Gateway::read(&read)?)),
+            None if read("LITELLM_URL").is_some() => Mode::Gateway(Box::new(Gateway::read(&read)?)),
             None => Mode::Standalone,
             _ => {
                 return Err(Error::Configuration(
@@ -106,6 +109,7 @@ impl Config {
                 .map(PathBuf::from),
             query_secret,
             ingestion_url: ingestion_url.trim_end_matches('/').into(),
+            public_url,
             release,
             storage: StorageConfig::new(
                 read("CLICKHOUSE_DATABASE").unwrap_or_else(|| database.into()),
@@ -147,6 +151,8 @@ impl Gateway {
             worker_token,
             service_token,
             release: required(read, "LITELLM_RELEASE_TAG")?,
+            eval_judge_api_key: read("LITELLM_API_KEY"),
+            eval_judge_model: read("LENS_EVAL_JUDGE_MODEL"),
         })
     }
 }
@@ -247,6 +253,8 @@ mod tests {
             ),
             ("LITELLM_RELEASE_TAG", "test-release"),
             ("CLICKHOUSE_URL", "http://localhost:8123"),
+            ("LITELLM_API_KEY", "gateway-eval-judge-key"),
+            ("LENS_EVAL_JUDGE_MODEL", "judge-deployment"),
         ])
     }
 
@@ -260,6 +268,7 @@ mod tests {
         assert_eq!(config.address.to_string(), "0.0.0.0:4318");
         assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
         assert_eq!(config.ingestion_url, "http://localhost:4318");
+        assert_eq!(config.public_url, "http://localhost:4318");
         assert_eq!(config.release, env!("CARGO_PKG_VERSION"));
     }
 
@@ -303,6 +312,15 @@ mod tests {
         assert_eq!(worker.worker_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
         assert_eq!(worker.service_token, gateway["LITELLM_LENS_SERVICE_TOKEN"]);
         assert_eq!(worker.release, gateway["LITELLM_RELEASE_TAG"]);
+        assert_eq!(
+            worker.eval_judge_api_key.as_deref(),
+            gateway.get("LITELLM_API_KEY").copied()
+        );
+        assert_eq!(
+            worker.eval_judge_model.as_deref(),
+            gateway.get("LENS_EVAL_JUDGE_MODEL").copied()
+        );
+        assert_eq!(config.public_url, "http://localhost:4000");
         assert_eq!(config.query_secret, worker.service_token);
         assert_eq!(config.storage.storage().database(), "litellm");
         assert!(config.authentication.is_none());

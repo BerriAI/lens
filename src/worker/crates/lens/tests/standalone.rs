@@ -3,9 +3,28 @@ mod datasets {
 }
 
 use datasets::support::{ADMIN, Database, database};
-use lens_contract::ingestion::IngestionKeyCreated;
+use lens_contract::{
+    datasets::Dataset,
+    eval::{EvalRun, RunStatus},
+    ingestion::IngestionKeyCreated,
+};
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
+
+const GATEWAY_SECRET: &str = "standalone-eval-signing-secret-at-least-32";
+
+fn gateway_identity(role: &str, team: &str) -> String {
+    let now = chrono::Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &json!({
+            "iss":"litellm","aud":"litellm-lens","sub":"eval-user","iat":now,"exp":now+60,
+            "identity":{"user_role":role,"user_id":"eval-user","team_id":team,"token":"eval-key"}
+        }),
+        &jsonwebtoken::EncodingKey::from_secret(GATEWAY_SECRET.as_bytes()),
+    )
+    .unwrap()
+}
 
 #[fixture]
 fn payload() -> Value {
@@ -238,4 +257,150 @@ async fn standalone_router_has_public_read_contract_and_rejects_internal_or_unsa
         .await
         .unwrap();
     assert_eq!(csrf.status(), 403);
+}
+
+#[rstest]
+#[tokio::test]
+async fn standalone_bootstrap_keeps_dataset_and_eval_routes_together(
+    #[future(awt)] database: Database,
+) {
+    let server = database
+        .serve_with_gateway(true, Some(GATEWAY_SECRET.into()))
+        .await;
+    let client = reqwest::Client::new();
+    let admin = gateway_identity("proxy_admin", "eval-team");
+    let team = gateway_identity("team", "eval-team");
+    let other_team = gateway_identity("team", "other-team");
+    let service = client
+        .get(format!("{}/lens/service", server.url))
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(service.status(), 200);
+    assert_eq!(service.json::<Value>().await.unwrap()["connected"], true);
+
+    let created = client
+        .post(format!("{}/lens/datasets", server.url))
+        .bearer_auth(&admin)
+        .json(&json!({"name":"bootstrap-eval","agent_name":"bootstrap-agent"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 200, "{}", created.text().await.unwrap());
+    let dataset: Dataset = created.json().await.unwrap();
+    let saved = client
+        .post(format!(
+            "{}/lens/datasets/{}/revisions",
+            server.url, dataset.id
+        ))
+        .bearer_auth(&admin)
+        .json(&json!({"base_revision":0,"cases":[{
+            "id":"case-a","messages":[{"role":"user","content":"Run tests"}],
+            "expected":"Tests pass","source":{}
+        }]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), 200, "{}", saved.text().await.unwrap());
+    let saved: Dataset = saved.json().await.unwrap();
+    let case_id = &saved.cases[0].id;
+    let resolved = client
+        .get(format!("{}/lens/datasets/resolve", server.url))
+        .query(&[("name", "bootstrap-eval")])
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resolved.status(), 200);
+    assert_eq!(resolved.json::<Value>().await.unwrap()["id"], dataset.id);
+    let cases_url = format!(
+        "{}/lens/datasets/{}/revisions/{}/cases",
+        server.url, dataset.id, saved.revision
+    );
+    let cases = client
+        .get(&cases_url)
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(cases.status(), 200, "{}", cases.text().await.unwrap());
+    assert_eq!(
+        cases.json::<Value>().await.unwrap()["cases"][0]["id"],
+        *case_id
+    );
+    let hidden = client
+        .get(&cases_url)
+        .bearer_auth(&other_team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(hidden.status(), 404);
+
+    let created = client
+        .post(format!("{}/lens/evals/runs", server.url))
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .header("Idempotency-Key", "bootstrap-run")
+        .json(&json!({
+            "eval":"bootstrap-eval","agent":"bootstrap-agent","dataset_id":dataset.id,
+            "revision":saved.revision,"version":"test","branch":"main","trials":1,
+            "scorers":[{"kind":"task_completed"}]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201, "{}", created.text().await.unwrap());
+    let run: EvalRun = created.json().await.unwrap();
+    let run_url = format!("{}/lens/evals/runs/{}", server.url, run.id);
+    let result = client
+        .put(format!("{run_url}/results/{case_id}/0"))
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .json(&json!({"error":{"type":"ValueError","message":"agent failed"}}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(result.status(), 204);
+    let read = client
+        .get(&run_url)
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(read.status(), 200);
+    assert_eq!(read.json::<EvalRun>().await.unwrap().received_trials, 1);
+    let hidden = client
+        .get(&run_url)
+        .bearer_auth(&other_team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(hidden.status(), 404);
+    let listed = client
+        .get(format!("{}/lens/evals/runs", server.url))
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), 200);
+    assert_eq!(listed.json::<Vec<EvalRun>>().await.unwrap()[0].id, run.id);
+    let finished = client
+        .post(format!("{run_url}/finish"))
+        .bearer_auth(&team)
+        .header("X-Lens-Contract", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(finished.status(), 202, "{}", finished.text().await.unwrap());
+    assert_eq!(
+        finished.json::<EvalRun>().await.unwrap().status,
+        RunStatus::Scoring
+    );
 }

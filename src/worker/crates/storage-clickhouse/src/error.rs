@@ -1,4 +1,24 @@
 #[derive(Clone, Debug, thiserror::Error)]
+pub enum EvalError {
+    #[error(transparent)]
+    Storage(#[from] Error),
+    #[error("eval run was not found")]
+    RunNotFound,
+    #[error("eval run is closed")]
+    RunClosed,
+    #[error("case does not belong to this eval run")]
+    UnknownCase,
+    #[error("trial index is outside this eval run's trial range")]
+    InvalidTrial,
+    #[error("invalid eval request: {0}")]
+    InvalidRequest(&'static str),
+    #[error("idempotency key is already used by a different eval request")]
+    IdempotencyConflict,
+    #[error("eval scoring lease expired or was replaced")]
+    LeaseLost,
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid ClickHouse insert row")]
     InvalidRow,

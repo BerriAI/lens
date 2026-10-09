@@ -24,8 +24,10 @@ use lens_datasets::{
     DatasetReader, DatasetRepository, Limits, Scope, build_cases, can_access, export_jsonl,
     included_cases, revision_cases, revision_problem,
 };
+use litellm_storage_clickhouse::state::ClickHouseState;
+use litellm_traces_clickhouse::evals::EvalTraces;
 
-use crate::{auth, error::DatasetError};
+use crate::{EvalApiError, auth, error::DatasetError, eval_datasets};
 
 #[derive(Clone, Copy, Debug)]
 pub struct DatasetConfig {
@@ -47,6 +49,7 @@ struct App<R, D, B> {
     datasets: D,
     reader: B,
     config: DatasetConfig,
+    evals: Option<eval_datasets::Datasets>,
 }
 
 pub fn router<R, D, B>(
@@ -54,6 +57,43 @@ pub fn router<R, D, B>(
     datasets: D,
     reader: B,
     config: DatasetConfig,
+) -> Router
+where
+    R: SessionRepository + 'static,
+    D: DatasetRepository + 'static,
+    B: DatasetReader + 'static,
+{
+    configured_router(authentication, datasets, reader, config, None)
+}
+
+pub fn router_with_evals<R, D, B>(
+    authentication: Arc<Authentication<R>>,
+    datasets: D,
+    reader: B,
+    config: DatasetConfig,
+    state: ClickHouseState,
+    traces: Option<EvalTraces>,
+) -> Router
+where
+    R: SessionRepository + 'static,
+    D: DatasetRepository + 'static,
+    B: DatasetReader + 'static,
+{
+    configured_router(
+        authentication,
+        datasets,
+        reader,
+        config,
+        Some(eval_datasets::Datasets::new(state, traces)),
+    )
+}
+
+fn configured_router<R, D, B>(
+    authentication: Arc<Authentication<R>>,
+    datasets: D,
+    reader: B,
+    config: DatasetConfig,
+    evals: Option<eval_datasets::Datasets>,
 ) -> Router
 where
     R: SessionRepository + 'static,
@@ -83,6 +123,7 @@ where
             datasets,
             reader,
             config,
+            evals,
         }))
 }
 
@@ -326,12 +367,61 @@ async fn cases<R: SessionRepository, D: DatasetRepository, B: DatasetReader>(
     Path((id, revision)): Path<(String, String)>,
     headers: HeaderMap,
     method: Method,
+) -> Response {
+    let versioned = app.evals.is_some() && headers.contains_key(lens_contract::CONTRACT_HEADER);
+    if versioned && let Err(error) = crate::evals::validate_contract(&headers) {
+        return error.into_response();
+    }
+    let identity = match auth::identity(&app.authentication, &headers, &method).await {
+        Ok(identity) => identity,
+        Err(error) if versioned => return EvalApiError::from(error).into_response(),
+        Err(error) => return DatasetError::from(error).into_response(),
+    };
+    if let Some(evals) = &app.evals
+        && (versioned
+            || !matches!(
+                identity.user_role,
+                Role::ProxyAdmin | Role::ProxyAdminViewer
+            ))
+    {
+        return eval_cases(evals, &identity, &headers, &id, &revision)
+            .await
+            .into_response();
+    }
+    legacy_cases(&app.datasets, &identity, &id, &revision)
+        .await
+        .into_response()
+}
+
+async fn eval_cases(
+    datasets: &eval_datasets::Datasets,
+    identity: &Identity,
+    headers: &HeaderMap,
+    id: &str,
+    revision: &str,
+) -> Result<Json<eval_datasets::EvalCases>, EvalApiError> {
+    crate::evals::validate_contract(headers)?;
+    let team = identity
+        .team_id
+        .as_deref()
+        .filter(|team| !team.is_empty())
+        .ok_or(EvalApiError::Unauthorized)?;
+    let revision = revision
+        .parse::<u64>()
+        .map_err(|_| crate::ApiError::InvalidRequest("revision must be a positive integer"))?;
+    Ok(Json(datasets.cases(team, id, revision).await?))
+}
+
+async fn legacy_cases<D: DatasetRepository>(
+    datasets: &D,
+    identity: &Identity,
+    id: &str,
+    revision: &str,
 ) -> Result<Json<EvalCases>, DatasetError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let revision = validation::revision_path(&revision)?;
-    let scope = user_scope(&identity, false)?;
+    let revision = validation::revision_path(revision)?;
+    let scope = user_scope(identity, false)?;
     let revision = revision.exact().ok_or(DatasetError::NotFound)?;
-    let dataset = get_dataset(&app.datasets, &id, &scope, Some(revision)).await?;
+    let dataset = get_dataset(datasets, id, &scope, Some(revision)).await?;
     Ok(Json(EvalCases {
         dataset_id: dataset.id,
         revision: dataset.revision,

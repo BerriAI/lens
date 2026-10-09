@@ -60,6 +60,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
                 config.datasets,
                 config.traces,
                 matches!(config.mode, Mode::Standalone),
+                config.public_url,
             )
             .await?
             .with_service(state.clone(), config.ingestion_url, config.release),
@@ -67,6 +68,25 @@ async fn run() -> Result<(), litellm_lens::Error> {
         None => None,
     };
     let mut tasks = tokio::task::JoinSet::new();
+    if let Some(application) = application.as_ref() {
+        let judge = match &config.mode {
+            Mode::Standalone => litellm_lens::eval_judge::GatewayJudge::unconfigured(),
+            Mode::Gateway(gateway) => litellm_lens::eval_judge::GatewayJudge::new(
+                client.clone(),
+                gateway.proxy_url.clone(),
+                gateway.eval_judge_api_key.clone(),
+                gateway.eval_judge_model.clone(),
+            ),
+        };
+        tasks.spawn(litellm_lens::eval_runtime::serve(
+            application.eval_store(),
+            litellm_traces_clickhouse::evals::EvalTraces::new(
+                client.clone(),
+                state.storage.config.storage().reader().clone(),
+            ),
+            judge,
+        ));
+    }
     match config.mode {
         Mode::Standalone => {
             let credentials = application
