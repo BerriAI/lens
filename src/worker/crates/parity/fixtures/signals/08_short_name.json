@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "signals": [
+        {
+          "id": "signal",
+          "name": "",
+          "question": "Question?"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "signals",
+            0,
+            "name"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        }
+      ]
+    }
+  }
+}

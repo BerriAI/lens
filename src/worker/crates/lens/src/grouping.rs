@@ -16,7 +16,7 @@ async fn merge(
     let request = model::request(
         wire::ModelRequestPurpose::Cluster,
         json!({
-            "task": include_str!("../../../../../src/litellm_lens/prompts/cluster.md"),
+            "task": include_str!("../prompts/cluster.md"),
             "response_schema": model::schema("Clusters")?,
             "candidates": inputs.iter().map(|(id, (_, c))| wire::Candidate { execution_ids: vec![id.clone()], ..(*c).clone() }).collect::<Vec<_>>(),
         }),

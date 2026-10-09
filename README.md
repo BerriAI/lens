@@ -7,7 +7,7 @@
     </picture>
   </a>
 
-<h3>Self-improving agents, built into LiteLLM.</h3>
+<h3>Self-improving agents, on your infrastructure.</h3>
 
 <br>
 
@@ -40,7 +40,7 @@
 
 <br>
 
-**Built into LiteLLM.** Your traces stay in your own ClickHouse, next to your gateway.<br>
+**Run Lens on its own or open it inside LiteLLM.** Your traces stay in your own ClickHouse.<br>
 Point Claude Code or Codex at them and let your agents improve your agents.
 
 <br>

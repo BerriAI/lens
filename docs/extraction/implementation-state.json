@@ -17,7 +17,7 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Rust standalone startup, login, ingestion keys, public traces and datasets are qualified. Local investigation execution, direct-provider setup, feedback, signals, deployment and full cross-repository acceptance remain incomplete",
+    "readiness": "Published bootstrap plus locally qualified investigation, feedback, Signals/evals and container recovery candidate. Final integrated source/image, migration and companion acceptance remain in progress",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
@@ -419,7 +419,7 @@
       "evidence": []
     }
   },
-  "updated_at_utc": "2026-10-09T02:02:46.495Z",
+  "updated_at_utc": "2026-10-09T04:38:01.819Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -593,6 +593,158 @@
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
       }
+    },
+    "rust_live_investigation": {
+      "status": "passed_for_local_candidate",
+      "evidence": "docs/extraction/rust-standalone-investigation.md",
+      "provider_connection": "Hosted OpenAI-compatible endpoint; no locally deployed LiteLLM gateway",
+      "native_direct_provider_key": "not_available",
+      "cost_usd": 0.0417111,
+      "selected": 1,
+      "screened": 1,
+      "investigated": 1,
+      "model_steps": 5,
+      "restart": "Findings and budget accounting retained after Lens process restart",
+      "browser": "Finding, citation, original trace, saved dataset case, and analysis configuration refresh exercised",
+      "full_milestone": "incomplete"
+    },
+    "standalone_container_candidate": {
+      "status": "passed_initial_snapshot",
+      "source": "/tmp/lens-container-build.0vMC6F",
+      "image": "lens:standalone-candidate",
+      "image_id": "sha256:fa1b95bc4ec5b63015b294b18e2f6c833998ddf5ecbccf423910cb0da7fef609",
+      "native_sandbox_cases": 10,
+      "smoke": "UI/API authorization, real OTLP trace, Lens and ClickHouse restart passed",
+      "recovery": "Populated physical backup/restore retains trace, dataset revision/export, session and ingestion key; overwrite/symlink/corruption rejection passed",
+      "limitations": [
+        "Snapshot precedes latest Signals/evals, public contract, privacy marker, canonical dependency update and compaction",
+        "Final exact-source image rerun remains required"
+      ],
+      "evidence": "docs/extraction/rust-standalone-recovery.md"
+    },
+    "standalone_onboarding": {
+      "status": "partial",
+      "skills": [
+        "design-product-onboarding",
+        "write-product-docs"
+      ],
+      "focused_ui_cases": 46,
+      "typecheck": "passed",
+      "browser": "Analysis configured state and refresh checked; signals awaiting final runtime build",
+      "limitations": [
+        "Newest copy updates require rebuilt UI browser check",
+        "Fresh install, missing provider, and permissions still require final live flow"
+      ]
+    },
+    "rust_local_execution_mutations": {
+      "status": "paused_after_infrastructure_contention",
+      "inventory": 189,
+      "evidence_log": "/tmp/lens-local-mutants.log",
+      "initial_survivors": "Added live scheduler, unavailable-model pagination, background-loop and UI-readiness composition tests; survivor rerun pending",
+      "complete": false
+    },
+    "rust_local_integration": {
+      "status": "passed",
+      "cases": 18,
+      "evidence": "docs/extraction/evidence/rust-local-integration.log",
+      "includes": [
+        "background execution",
+        "queued and scheduled jobs",
+        "disabled and future schedules",
+        "frozen model eligibility",
+        "pagination beyond twenty unavailable models",
+        "provider failure",
+        "budget denial without a call",
+        "simultaneous claims",
+        "persisted accounting",
+        "HTTP readiness for UI"
+      ],
+      "source_status": "current working candidate; final integrated rerun still required"
+    },
+    "rust_live_signals": {
+      "status": "passed_local_candidate",
+      "provider": "Typesafe protocol through authorized hosted gateway passthrough",
+      "evidence": "docs/extraction/evidence/rust-live-signals.json",
+      "browser": "Save configuration, reload, real background classification, matching flags, original trace content",
+      "native_direct_provider": "not_available"
+    },
+    "rust_live_evals": {
+      "status": "passed_local_candidate",
+      "evidence": "docs/extraction/rust-standalone-evals.md",
+      "provider": "Actual hosted judge call",
+      "browser": "Failed gate, one regression, candidate and baseline exact saved traces, browser Back restoring case comparison"
+    },
+    "connected_routes": {
+      "cases": 5,
+      "status": "passed",
+      "evidence_log": "/tmp/lens-connected-http-tests.log",
+      "boundaries": [
+        "Independent internal service credential",
+        "No remote replacement of Lens-owned ingestion keys",
+        "Scoped internal trace reads"
+      ]
+    },
+    "state_compaction": {
+      "status": "passed_focused_candidate",
+      "cases": 9,
+      "evidence_log": "/tmp/lens-state-compaction-tests.log",
+      "boundaries": [
+        "Fences abandoned and losing writes",
+        "Retains current values and all derived indexes",
+        "Does not substitute changed content for stale snapshots",
+        "Concurrent atomic counters survive",
+        "100 records with 10 versions each compact to one current payload each",
+        "Rejects batches over 100 before writing"
+      ],
+      "remaining": [
+        "Mutation check",
+        "CLI/image proof",
+        "Long-term Keeper cardinality qualification"
+      ]
+    },
+    "ui_complete_candidate": {
+      "status": "passed_with_targeted_collection_fix",
+      "cases": 862,
+      "files": 82,
+      "evidence_log": "/tmp/lens-final-ui-tests.log",
+      "repair_log": "/tmp/lens-ui-navigation-tests.log",
+      "scope": "All Lens components, shared HTTP and host tests. Replaced stale gateway-page imports in eight navigation tests with the shared workspace props."
+    },
+    "rust_clippy_candidate": {
+      "status": "passed",
+      "scope": "Locked workspace, all targets, warnings denied, including migration crate",
+      "evidence_log": "/tmp/lens-final-clippy.log"
+    },
+    "production_ui_audit": {
+      "status": "passed",
+      "vulnerabilities": 0,
+      "evidence_log": "/tmp/lens-final-npm-audit.json"
+    },
+    "embedded_browser_shared_state": {
+      "status": "passed_for_current_source",
+      "host": "http://127.0.0.1:4491",
+      "lens": "http://127.0.0.1:4324",
+      "flow": [
+        "Normal gateway login",
+        "Open shared Signals trace with original content and real classification",
+        "Save a case through embedded UI",
+        "Reopen same dataset in standalone with expected output"
+      ],
+      "dataset_id": "9023c4f4-4ab7-49b8-aa66-e57086d32fee",
+      "screenshots": [
+        "docs/extraction/evidence/ui/connected/shared-trace.png",
+        "docs/extraction/evidence/ui/connected/standalone-shared-case.png"
+      ]
+    },
+    "rust_workspace_current": {
+      "status": "passed",
+      "suites": 135,
+      "passed": 3733,
+      "failed": 0,
+      "ignored": 4,
+      "excluded_crate": "lens-migrate (separately qualified by populated-source suite)",
+      "evidence": "docs/extraction/evidence/rust-workspace-current.log",
+      "dependency_pin": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
     }
   },
   "open_dependency_advisories": [
@@ -607,7 +759,18 @@
       "package": "serde_with",
       "patched": "3.21.0",
       "scope": "Rust serialization",
-      "status": "requires dependency update and verification"
+      "status": "Qualified canonical PR is green and ready for review; Lens pin updated to3969348a and3.21.0, integrated regression running",
+      "installed": "3.16.1",
+      "advisory": "GHSA-7gcf-g7xr-8hxj",
+      "companion_pr": "https://github.com/BerriAI/litellm/pull/45498",
+      "candidate": "3.21.0"
+    },
+    {
+      "package": "paste",
+      "installed": "1.0.15",
+      "advisory": "RUSTSEC-2024-0436",
+      "scope": "Unmaintained transitive dependency of pinned canonical tokenizers; no fixed release",
+      "status": "Disclosed; upstream dependency replacement remains open"
     }
   ],
   "runtime_decision": {
@@ -784,13 +947,13 @@
     {
       "milestone": 2,
       "goal": "LiteLLM integration using canonical Lens implementation",
-      "status": "deferred_with_local_prototype",
+      "status": "in_progress",
       "contract": "completion-plan.md, milestone 2 completion boundary"
     },
     {
       "milestone": 3,
       "goal": "Every remaining requirement in the full completion plan",
-      "status": "pending",
+      "status": "in_progress",
       "contract": "completion-plan.md, milestone 3 completion boundary"
     }
   ],
@@ -859,5 +1022,23 @@
     "greptile": "Request on companion PRs, require at least 4/5 and resolve actionable findings",
     "veria": "Use where available; record missing or pending results, never treat them as passing",
     "merge_order": "Coordinated merge of all affected repositories is authorized"
+  },
+  "companion_reviews": {
+    "canonical_security": {
+      "url": "https://github.com/BerriAI/litellm/pull/45498",
+      "commit": "3969348ad946c8bb6b3f5386d72da2a07e65ce88",
+      "ci": "passed",
+      "greptile": "5/5",
+      "veria": "SUCCESS",
+      "ready_for_review": true
+    },
+    "project_releaser": {
+      "url": "https://github.com/BerriAI/project-releaser/pull/305",
+      "status": "draft; CI passed; Greptile and Veria requested, no result yet"
+    },
+    "litellm_ops": {
+      "url": "https://github.com/BerriAI/litellm-ops/pull/232",
+      "status": "draft; CI passed; reviews pending"
+    }
   }
 }

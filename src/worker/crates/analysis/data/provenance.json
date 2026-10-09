@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/BerriAI/litellm",
+  "revision": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "files": {
+    "model_catalog.json": {
+      "source": "model_prices_and_context_window.json",
+      "sha256": "4ed0c2530fc877388f28f49a6d46266750ea26ebc2b1175ece020d0441c6aa8d"
+    },
+    "anthropic_tokenizer.json": {
+      "source": "litellm/litellm_core_utils/tokenizers/anthropic_tokenizer.json",
+      "sha256": "c241737df24b4e7f7c9af4fdcee29a0ca903dcb288a8b753bc346a3092911767"
+    }
+  }
+}

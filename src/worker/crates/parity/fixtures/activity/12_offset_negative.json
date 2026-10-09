@@ -1,0 +1,36 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "offset": -1,
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "ge": 0
+          },
+          "input": -1,
+          "loc": [
+            "body",
+            "offset"
+          ],
+          "msg": "Input should be greater than or equal to 0",
+          "type": "greater_than_equal"
+        }
+      ]
+    }
+  }
+}

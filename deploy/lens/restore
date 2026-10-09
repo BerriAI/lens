@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+lens_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+lens_backup="${1:?Usage: deploy/lens/restore BACKUP_DIRECTORY}"
+test "$#" -eq 1
+lens_backup="$(cd -- "$lens_backup" && pwd)"
+: "${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME to a new deployment name}"
+[[ "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9][a-z0-9_-]*$ ]]
+test ! -e "$lens_dir/.env"
+test ! -L "$lens_dir/.env"
+(
+  cd -- "$lens_backup"
+  if command -v sha256sum >/dev/null; then
+    lens_actual="$(sha256sum clickhouse.tar .env compose.yaml keeper.xml clickhouse-image.txt lens-image.txt lens-image.tar)"
+  else
+    lens_actual="$(shasum -a 256 clickhouse.tar .env compose.yaml keeper.xml clickhouse-image.txt lens-image.txt lens-image.tar)"
+  fi
+  test "$lens_actual" = "$(cat SHA256SUMS)"
+)
+cmp "$lens_dir/compose.yaml" "$lens_backup/compose.yaml"
+cmp "$lens_dir/../clickhouse/keeper.xml" "$lens_backup/keeper.xml"
+lens_compose=(docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml")
+if [[ -n "$(docker ps --all --quiet --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")" ]] || \
+   [[ -n "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")" ]]; then
+  printf '%s\n' 'Restore requires a new Compose project with no existing containers or volumes.' >&2
+  exit 1
+fi
+export LENS_IMAGE="$(cat "$lens_backup/lens-image.txt")"
+docker image load < "$lens_backup/lens-image.tar" >/dev/null
+test "$(docker image inspect --format '{{.Id}}' "$LENS_IMAGE")" = "$LENS_IMAGE"
+(
+  set -C
+  awk -v image="$LENS_IMAGE" -v project="$COMPOSE_PROJECT_NAME" \
+    '!/^(LENS_IMAGE|COMPOSE_PROJECT_NAME)=/ {print} END {print "LENS_IMAGE=" image; print "COMPOSE_PROJECT_NAME=" project}' \
+    "$lens_backup/.env" > "$lens_dir/.env"
+)
+"${lens_compose[@]}" create clickhouse
+lens_storage="$("${lens_compose[@]}" ps --all --quiet clickhouse)"
+test -n "$lens_storage"
+test "$(docker inspect --format '{{.Config.Image}}' "$lens_storage")" = "$(cat "$lens_backup/clickhouse-image.txt")"
+docker run --rm --network none --read-only --entrypoint sh --volumes-from "$lens_storage:ro" \
+  "$(cat "$lens_backup/clickhouse-image.txt")" -c 'test -z "$(ls -A /var/lib/clickhouse)"'
+docker cp --archive - "$lens_storage:/var/lib/clickhouse/" < "$lens_backup/clickhouse.tar"
+"${lens_compose[@]}" up --detach --wait --wait-timeout 180
+printf '%s\n' 'Restore started the saved deployment. Open a stored trace and dataset to verify recovery.'

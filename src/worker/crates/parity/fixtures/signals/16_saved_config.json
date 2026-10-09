@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "",
+      "signals": [
+        {
+          "id": "failed_lookup",
+          "name": "Lookup failed",
+          "question": "Did the lookup fail?"
+        }
+      ],
+      "threshold": 0.95
+    }
+  }
+}

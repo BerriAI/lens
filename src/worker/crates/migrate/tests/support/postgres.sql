@@ -1,0 +1,11 @@
+CREATE TABLE "LiteLLM_Lens" (id text PRIMARY KEY, version integer NOT NULL DEFAULT 0, data jsonb NOT NULL, due_at timestamp(3));
+CREATE TABLE "LiteLLM_LensRun" (id text PRIMARY KEY, lens_id text NOT NULL, created_at timestamp(3) NOT NULL, data jsonb NOT NULL);
+CREATE TABLE "LiteLLM_LensReview" (lens_id text NOT NULL, criteria_key text NOT NULL, execution_id text NOT NULL, data jsonb NOT NULL, PRIMARY KEY(lens_id,criteria_key,execution_id));
+CREATE TABLE "LiteLLM_LensWorker" (id text PRIMARY KEY, token_hash text UNIQUE NOT NULL, data jsonb NOT NULL);
+CREATE TABLE "LiteLLM_LensIngestionKey" (id text PRIMARY KEY, data jsonb NOT NULL);
+CREATE TABLE "LiteLLM_LensDataset" (id text NOT NULL, revision integer NOT NULL, created_at timestamp(3) NOT NULL, data jsonb NOT NULL, PRIMARY KEY(id,revision));
+CREATE TABLE "LiteLLM_LensSignalConfig" (id text PRIMARY KEY, data jsonb NOT NULL);
+CREATE TABLE "LiteLLM_LensTraceSignal" (trace_id text NOT NULL, trace_ref text NOT NULL DEFAULT '', config_key text NOT NULL, span_count integer NOT NULL, claimed_until timestamp(3), classified_at timestamp(3), data jsonb NOT NULL, PRIMARY KEY(trace_id,trace_ref));
+CREATE ROLE migration_reader LOGIN PASSWORD 'fixture-reader';
+GRANT USAGE ON SCHEMA public TO migration_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO migration_reader;

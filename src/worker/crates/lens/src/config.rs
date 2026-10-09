@@ -5,6 +5,9 @@ use litellm_http::{
 use litellm_traces_clickhouse::Config as StorageConfig;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
+mod analysis;
+mod evaluation;
+
 pub struct Config {
     pub address: SocketAddr,
     pub mode: Mode,
@@ -15,7 +18,12 @@ pub struct Config {
     pub ui_directory: Option<PathBuf>,
     pub query_secret: String,
     pub ingestion_url: String,
+    pub public_url: url::Url,
     pub release: String,
+    pub analysis_models: Vec<lens_analysis::Deployment>,
+    pub evaluation_models: Vec<lens_decisions::Deployment>,
+    pub gateway_inference: Option<lens_inference::GatewayIdentity>,
+    pub gateway_service_token: Option<String>,
 }
 
 pub enum Mode {
@@ -73,7 +81,6 @@ impl Config {
             || parsed.host_str().is_none()
             || !parsed.username().is_empty()
             || parsed.password().is_some()
-            || !parsed.path().trim_matches('/').is_empty()
             || parsed.query().is_some()
             || parsed.fragment().is_some()
         {
@@ -85,7 +92,20 @@ impl Config {
                 .unwrap_or_else(|| env!("CARGO_PKG_VERSION").into()),
             Mode::Gateway(gateway) => gateway.release.clone(),
         };
+        let gateway_service_token = read("LITELLM_LENS_SERVICE_TOKEN");
+        if gateway_service_token
+            .as_ref()
+            .is_some_and(|token| !(32..=512).contains(&token.len()))
+        {
+            return Err(Error::Configuration(
+                "LITELLM_LENS_SERVICE_TOKEN must contain between 32 and 512 characters",
+            ));
+        }
         Ok(Self {
+            gateway_service_token,
+            analysis_models: analysis::read(&read)?,
+            evaluation_models: evaluation::read(&read)?,
+            gateway_inference: gateway_inference(&read)?,
             datasets: dataset_config(&read),
             traces: trace_config(&read)?,
             authentication: admin_token
@@ -106,6 +126,9 @@ impl Config {
                 .map(PathBuf::from),
             query_secret,
             ingestion_url: ingestion_url.trim_end_matches('/').into(),
+            public_url: public_url
+                .parse()
+                .map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?,
             release,
             storage: StorageConfig::new(
                 read("CLICKHOUSE_DATABASE").unwrap_or_else(|| database.into()),
@@ -149,6 +172,21 @@ impl Gateway {
             release: required(read, "LITELLM_RELEASE_TAG")?,
         })
     }
+}
+
+fn gateway_inference(
+    read: &impl Fn(&str) -> Option<String>,
+) -> Result<Option<lens_inference::GatewayIdentity>, Error> {
+    let Some(base) = read("LENS_GATEWAY_URL").filter(|base| !base.is_empty()) else {
+        return Ok(None);
+    };
+    let base = base
+        .parse()
+        .map_err(|_| Error::Configuration("LENS_GATEWAY_URL"))?;
+    let secret = required(read, "LENS_GATEWAY_SECRET")?;
+    lens_inference::GatewayIdentity::new(base, &secret)
+        .map(Some)
+        .map_err(|_| Error::Configuration("LENS_GATEWAY_URL and LENS_GATEWAY_SECRET"))
 }
 
 fn dataset_config(read: impl Fn(&str) -> Option<String>) -> lens_server::datasets::DatasetConfig {
@@ -228,6 +266,39 @@ mod tests {
     use crate::Error;
     use rstest::{fixture, rstest};
     use std::collections::BTreeMap;
+
+    #[rstest]
+    #[case::absent(None, None, true, false)]
+    #[case::secret_without_explicit_url(
+        None,
+        Some("gateway-signing-secret-32-characters"),
+        true,
+        false
+    )]
+    #[case::missing_secret(Some("https://gateway.test"), None, false, false)]
+    #[case::short_secret(Some("https://gateway.test"), Some("short"), false, false)]
+    #[case::valid(
+        Some("https://gateway.test/proxy"),
+        Some("gateway-signing-secret-32-characters"),
+        true,
+        true
+    )]
+    fn inference_requires_explicit_gateway(
+        #[case] url: Option<&str>,
+        #[case] secret: Option<&str>,
+        #[case] valid: bool,
+        #[case] configured: bool,
+    ) {
+        let result = super::gateway_inference(&|name| match name {
+            "LENS_GATEWAY_URL" => url.map(str::to_owned),
+            "LENS_GATEWAY_SECRET" => secret.map(str::to_owned),
+            _ => None,
+        });
+        assert_eq!(result.is_ok(), valid);
+        if valid {
+            assert_eq!(result.unwrap().is_some(), configured);
+        }
+    }
 
     #[fixture]
     fn standalone() -> BTreeMap<&'static str, &'static str> {
@@ -366,7 +437,11 @@ mod tests {
     #[rstest]
     #[case::public_origin(None, "https://lens.example.test")]
     #[case::separate_ingestion(Some("https://traces.example.test/"), "https://traces.example.test")]
-    fn standalone_advertises_the_configured_ingestion_origin(
+    #[case::ingress_prefix(
+        Some("https://gateway.example.test/lens-ingest/"),
+        "https://gateway.example.test/lens-ingest"
+    )]
+    fn standalone_advertises_the_configured_ingestion_url(
         standalone: BTreeMap<&str, &str>,
         #[case] ingestion: Option<&str>,
         #[case] expected: &str,
@@ -386,7 +461,6 @@ mod tests {
     #[rstest]
     #[case::scheme("file:///tmp/traces")]
     #[case::credentials("https://user:password@lens.example.test")]
-    #[case::path("https://lens.example.test/path")]
     #[case::query("https://lens.example.test?token=secret")]
     #[case::fragment("https://lens.example.test#fragment")]
     fn invalid_ingestion_origins_are_rejected(
@@ -404,6 +478,31 @@ mod tests {
             result,
             Err(Error::Configuration("LITELLM_LENS_PUBLIC_URL"))
         ));
+    }
+
+    #[rstest]
+    #[case::absent(None, true)]
+    #[case::configured(Some("optional-gateway-service-token-32-chars"), true)]
+    #[case::empty(Some(""), false)]
+    #[case::short(Some("short-private-value"), false)]
+    fn standalone_gateway_connection_is_optional_and_uses_a_bounded_secret(
+        standalone: BTreeMap<&str, &str>,
+        #[case] token: Option<&str>,
+        #[case] valid: bool,
+    ) {
+        let config = Config::read(|name| match name {
+            "LITELLM_LENS_SERVICE_TOKEN" => token.map(str::to_owned),
+            _ => standalone.get(name).map(|value| value.to_string()),
+        });
+        if valid {
+            let config = config.unwrap();
+            assert_eq!(config.gateway_service_token.as_deref(), token);
+            assert!(matches!(config.mode, Mode::Standalone));
+        } else {
+            let error = config.err().unwrap();
+            assert!(matches!(error, Error::Configuration(_)));
+            assert!(!error.to_string().contains("short-private-value"));
+        }
     }
 
     #[rstest]

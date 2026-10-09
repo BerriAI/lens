@@ -1,0 +1,254 @@
+{
+  "id": "parity-lens",
+  "scope": {
+    "team_id": "alpha",
+    "api_key_hash": "",
+    "all_teams": false
+  },
+  "settings": {
+    "source": "traces",
+    "service": "",
+    "agent_name": "",
+    "filters": [],
+    "sample_size": null,
+    "sample_percent": 100.0,
+    "team_id": "",
+    "execution_ids": [],
+    "name": "Research",
+    "context": "",
+    "lookback_hours": 24,
+    "checks": [
+      {
+        "id": "retries",
+        "instruction": "Find unrecovered retries",
+        "enabled": true
+      }
+    ],
+    "model": "analysis",
+    "enabled": true,
+    "interval_minutes": 15,
+    "concurrency": 8,
+    "monthly_budget": 100.0
+  },
+  "revision": 1,
+  "version": 0,
+  "created_at": "2026-01-15T00:00:00Z",
+  "next_run_at": "2026-01-15T00:00:00Z",
+  "last_scan_at": null,
+  "jobs": [
+    {
+      "id": "job",
+      "status": "queued",
+      "stage": "Queued",
+      "created_at": "2026-01-15T00:00:00Z",
+      "start": "2026-01-14T00:00:00Z",
+      "end": "2026-01-14T23:58:00Z",
+      "settings": {
+        "source": "traces",
+        "service": "",
+        "agent_name": "",
+        "filters": [],
+        "sample_size": null,
+        "sample_percent": 100.0,
+        "team_id": "",
+        "execution_ids": [],
+        "name": "Research",
+        "context": "",
+        "lookback_hours": 24,
+        "checks": [
+          {
+            "id": "retries",
+            "instruction": "Find unrecovered retries",
+            "enabled": true
+          }
+        ],
+        "model": "analysis",
+        "enabled": true,
+        "interval_minutes": 15,
+        "concurrency": 8,
+        "monthly_budget": 100.0
+      },
+      "revision": 1,
+      "worker_id": null,
+      "lease_until": null,
+      "attempts": 0,
+      "finished_at": null,
+      "coverage": {
+        "eligible": 0,
+        "selected": 0,
+        "screened": 0,
+        "investigated": 0,
+        "inconclusive": 0,
+        "grouping_batches": 0,
+        "grouped_batches": 0,
+        "candidates": 0,
+        "partial": 0,
+        "unassessable": 0,
+        "failed_tasks": 0,
+        "reused": 0,
+        "reusable": 0
+      },
+      "error": "",
+      "sample": {
+        "executions": [
+          {
+            "id": "run-0",
+            "source": "traces",
+            "trace_id": "t",
+            "trace_ref": "",
+            "team_id": "alpha",
+            "name": "task",
+            "start_time": "2026-01-15 00:00:00",
+            "span_count": 3,
+            "root_seen": false,
+            "service": "support",
+            "metadata": [
+              {
+                "key": "gen_ai.agent.name",
+                "value": "support"
+              }
+            ]
+          }
+        ],
+        "eligible": 4,
+        "selected": 1,
+        "next_offset": null,
+        "next_cursor": null
+      },
+      "cost": 0.0,
+      "findings": [
+        {
+          "title": "Repeated failed searches",
+          "description": "The agent repeats the same failed search",
+          "check_id": "retries",
+          "kind": "issue",
+          "priority": "medium",
+          "suggestion": "",
+          "limitation": "",
+          "brief": null,
+          "evidence": [
+            {
+              "execution_id": "run",
+              "span_id": "span",
+              "quote": "timeout",
+              "role": "support"
+            }
+          ],
+          "existing_finding_id": null,
+          "check_ids": [
+            "retries"
+          ],
+          "merged_finding_ids": [],
+          "id": "finding",
+          "status": "open",
+          "reason": "",
+          "first_seen": "2026-01-15T00:00:00Z",
+          "last_seen": "2026-01-15T00:00:00Z",
+          "occurrences": [
+            "run"
+          ],
+          "revision": 1,
+          "investigation_runs": []
+        }
+      ],
+      "assessments": [
+        {
+          "execution_id": "run",
+          "issue_checks": [],
+          "pattern_checks": [],
+          "cannot_assess": false
+        }
+      ],
+      "steps": [],
+      "reviews": [
+        {
+          "execution_id": "run-0",
+          "trace_id": "t",
+          "agent": "support",
+          "name": "task",
+          "spans": [],
+          "reasoning": "",
+          "verdicts": [],
+          "cannot_assess": false,
+          "model": "analysis",
+          "duration_ms": 1,
+          "at": "2026-01-15T00:00:00Z",
+          "tool_calls": [],
+          "extraction": {
+            "observations": [
+              {
+                "check_id": "retries",
+                "kind": "issue",
+                "summary": "Observed",
+                "evidence": []
+              }
+            ],
+            "cannot_assess": false,
+            "reasoning": ""
+          },
+          "content_version": "",
+          "reused": false,
+          "consolidated": false,
+          "partial": false
+        }
+      ],
+      "reviewed": 3,
+      "reading": [],
+      "activities": [
+        {
+          "id": "activity",
+          "phase": "review",
+          "label": "Review",
+          "execution_ids": [],
+          "started_at": "2026-01-15T00:00:00Z",
+          "operations": [],
+          "tool_calls": [],
+          "finished": false
+        }
+      ],
+      "trigger": "schedule",
+      "review_versions": []
+    }
+  ],
+  "findings": [
+    {
+      "title": "Repeated failed searches",
+      "description": "The agent repeats the same failed search",
+      "check_id": "retries",
+      "kind": "issue",
+      "priority": "medium",
+      "suggestion": "",
+      "limitation": "",
+      "brief": null,
+      "evidence": [
+        {
+          "execution_id": "run",
+          "span_id": "span",
+          "quote": "timeout",
+          "role": "support"
+        }
+      ],
+      "existing_finding_id": null,
+      "check_ids": [
+        "retries"
+      ],
+      "merged_finding_ids": [
+        "old-finding"
+      ],
+      "id": "finding",
+      "status": "open",
+      "reason": "",
+      "first_seen": "2026-01-15T00:00:00Z",
+      "last_seen": "2026-01-15T00:00:00Z",
+      "occurrences": [
+        "run"
+      ],
+      "revision": 1,
+      "investigation_runs": []
+    }
+  ],
+  "budget_month": "2026-01",
+  "spent": 0.0,
+  "reservations": [],
+  "criteria_updated_at": null
+}

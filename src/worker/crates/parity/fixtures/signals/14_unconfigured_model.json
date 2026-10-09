@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "unconfigured-evaluation-model"
+    }
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Choose a System 1 model (evaluation mode) configured on this proxy"
+    }
+  }
+}

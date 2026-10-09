@@ -1,0 +1,9 @@
+apiVersion: v2
+name: lens
+description: Agent traces, investigations, findings and evaluations
+type: application
+version: 0.1.0-dev.0
+appVersion: "0.1.0-dev.0"
+annotations:
+  org.opencontainers.image.source: https://github.com/BerriAI/lens
+  lens.litellm.ai/protocol: "7"

@@ -1,5 +1,3 @@
-// TODO: replace with types generated from runtime/crates/contract/schema/lens.v1.json (contract B Gate,
-// CaseResult, Summary, EvalRun); names and fields here are guesses until that schema is checked in
 export type Verdict = "pass" | "fail" | "error";
 export type RunStatus = "running" | "finished" | "error";
 
@@ -7,6 +5,7 @@ export interface CaseOutcome {
   readonly verdict: Verdict;
   readonly trace_id: string;
   readonly trace_ref: string;
+  readonly trace_count?: number;
 }
 
 export interface CaseDiff {
@@ -45,11 +44,14 @@ export interface EvalRun {
   readonly branch: string;
   readonly commit_sha: string;
   readonly pr_url: string | null;
+  readonly pr_number?: number | null;
+  readonly failure?: string;
   readonly status: RunStatus;
   readonly created_at: string;
   readonly finished_at: string | null;
   readonly summary: Summary | null;
   readonly gate: GateResult | null;
+  readonly cases?: readonly CaseDiff[];
 }
 
 export interface EvalRunFilter {

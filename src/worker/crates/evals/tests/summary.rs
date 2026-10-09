@@ -151,6 +151,7 @@ async fn no_baseline_skips_diffs_and_regression_gates() {
     assert_eq!(summary.gate.reasons, vec!["no baseline on main for rev 1"]);
 }
 
+#[rstest]
 #[tokio::test]
 async fn regressions_fixed_and_critical_follow_case_order() {
     let input = run(
@@ -182,11 +183,11 @@ async fn regressions_fixed_and_critical_follow_case_order() {
     assert!(summary.regressions[0].critical && !summary.regressions[1].critical);
     assert_eq!(
         summary.regressions[0].baseline_url,
-        "http://lens/runs/baseline?case=c"
+        "http://lens/runs/baseline?eval_case=c"
     );
     assert_eq!(
         summary.regressions[0].candidate_url,
-        "http://lens/runs/candidate?case=c"
+        "http://lens/runs/candidate?eval_case=c"
     );
     assert_eq!(summary.baseline_run_id.as_deref(), Some("baseline"));
     assert_eq!(summary.baseline_version.as_deref(), Some("base"));
@@ -340,4 +341,34 @@ fn gate_defaults_match_contract() {
     let gate: Gate = serde_json::from_str("{}").unwrap();
     assert_eq!(gate, Gate::default());
     assert_eq!((gate.regressions, gate.critical), (Some(0), Some(0)));
+}
+
+#[rstest]
+#[case::existing_query("http://lens/ui/?tab=datasets&dataset=ds&eval_run=candidate#results")]
+#[case::existing_case(
+    "http://lens/ui/?tab=datasets&dataset=ds&eval_run=candidate&eval_case=old#results"
+)]
+#[tokio::test]
+async fn case_links_preserve_the_run_query_and_encode_the_case(#[case] candidate_url: &str) {
+    let case_id = "case / with&symbols";
+    let mut input = run(
+        1,
+        vec![case(case_id, false, vec![fail()])],
+        Some(baseline(&[(case_id, true)])),
+    );
+    input.url = candidate_url.into();
+    let summary = evaluate(&input, &judge()).await.unwrap().summary;
+    let url = url::Url::parse(&summary.regressions[0].candidate_url).unwrap();
+    let pairs: std::collections::BTreeMap<_, _> = url.query_pairs().collect();
+    assert_eq!(pairs.get("tab").unwrap(), "datasets");
+    assert_eq!(pairs.get("dataset").unwrap(), "ds");
+    assert_eq!(pairs.get("eval_run").unwrap(), "candidate");
+    assert_eq!(pairs.get("eval_case").unwrap(), case_id);
+    assert_eq!(
+        url.query_pairs()
+            .filter(|(key, _)| key == "eval_case")
+            .count(),
+        1
+    );
+    assert_eq!(url.fragment(), Some("results"));
 }

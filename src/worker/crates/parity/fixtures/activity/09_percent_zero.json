@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "selection": {
+        "sample_percent": 0
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "gt": 0.0
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "selection",
+            "sample_percent"
+          ],
+          "msg": "Input should be greater than 0",
+          "type": "greater_than"
+        }
+      ]
+    }
+  }
+}

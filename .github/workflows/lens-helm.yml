@@ -1,0 +1,36 @@
+name: Lens Helm chart
+
+on:
+  pull_request:
+    paths: ['helm/**', '.github/workflows/lens-helm.yml']
+  push:
+    branches: [main]
+    paths: ['helm/**', '.github/workflows/lens-helm.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - name: Install verified Helm and chart test tools
+        shell: bash -euo pipefail {0}
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz
+          echo "a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496  $RUNNER_TEMP/helm.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
+          echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+          curl -fsSLo "$RUNNER_TEMP/unittest.tgz" https://github.com/helm-unittest/helm-unittest/releases/download/v0.8.2/helm-unittest-linux-amd64-0.8.2.tgz
+          echo "56ab3091e6fa52a7c92ee951def9bed957f295d9ce98483aed404e748d7b3a94  $RUNNER_TEMP/unittest.tgz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/helm-plugins/unittest"
+          tar -xzf "$RUNNER_TEMP/unittest.tgz" -C "$RUNNER_TEMP/helm-plugins/unittest"
+          echo "HELM_PLUGINS=$RUNNER_TEMP/helm-plugins" >> "$GITHUB_ENV"
+      - name: Check standalone rendering, state and credentials
+        run: |
+          helm lint helm/lens
+          helm unittest -f 'tests/*_tests.yaml' helm/lens
+          helm package helm/lens --destination "$RUNNER_TEMP"

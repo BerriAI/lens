@@ -1,6 +1,6 @@
 # Developing Lens
 
-This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI builds, and the standalone API can serve it with live Rust ingestion and ClickHouse storage. It is not yet an installable standalone release: analysis-provider setup, complete lifecycle, storage qualification and cross-repository qualification remain open
+This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI builds, and the standalone API can serve it with live Rust ingestion and ClickHouse storage. A source-built standalone image is being qualified with ClickHouse. Published artifacts, complete lifecycle, migration and cross-repository qualification remain open
 
 The target deployment is Lens with ClickHouse, including its configured Keeper component. The API runtime and Lens repositories use ClickHouse. PostgreSQL helpers remain for migration work, and their driver is an optional `migration` extra
 
@@ -8,13 +8,13 @@ The target deployment is Lens with ClickHouse, including its configured Keeper c
 
 | Path | Responsibility |
 | --- | --- |
-| `src/litellm_lens/` | Python API, investigation state and model access |
-| `src/worker/` | Rust ingestion, trace storage, investigation worker and sandbox (Python sandbox sources in `crates/lens/sandbox/`) |
+| `src/litellm_lens/` | Legacy parity reference, pending removal after the Rust replacements qualify |
+| `src/worker/` | Rust API, authentication, ingestion, state, investigations and sandbox (Python sandbox sources in `crates/lens/sandbox/`) |
 | `src/ui/lib/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
-| `src/ui/app/` | Small standalone Next.js shell, exported as static files for the Python API |
-| `deploy/runtime/` | Rust runtime image |
+| `src/ui/app/` | Small standalone Next.js shell, exported as static files served by Rust |
+| `deploy/runtime/` | Complete standalone image, including the static UI |
 | `deploy/clickhouse/` | ClickHouse coordination configuration |
-| `deploy/lens/` | Legacy installation assets being migrated to the standalone bundle |
+| `deploy/lens/` | Standalone Compose bundle, repeatable startup and container smoke tests |
 | `migrations/legacy/` | Source PostgreSQL migrations retained for migration compatibility |
 | `scripts/` | Schema and release tooling |
 | `tests/` | Copied behavior tests and standalone integration tests |
@@ -31,7 +31,7 @@ npm ci
 npm run dev:ui
 ```
 
-Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. For the live tracing path, see [standalone development startup](docs/extraction/standalone-startup.md). Provider-backed investigations and the standalone setup experience are still being completed
+Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. For the live tracing path, see [standalone development startup](docs/extraction/standalone-startup.md). For the source-built container path, see [Run Lens](deploy/lens/README.md)
 
 ```sh
 npm run typecheck:ui
@@ -56,28 +56,26 @@ cargo test --manifest-path src/worker/Cargo.toml -p lens-contract -p litellm-len
 
 The worker protocol remains version 7. Its generated artifact is `schema/lens-worker.v7.json`; the public eval API uses `schema/lens.v1.json` and the separate contract version 1. Worker messages and public HTTP responses have different default-field requirements, so do not substitute their types indiscriminately. See [worker contract qualification](docs/extraction/rust-worker-contract.md)
 
-Install Python dependencies with `uv sync --dev`. These copied core behavior tests pass in the extracted package:
+Run the Rust checks from the repository root:
 
 ```sh
-uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py tests/unit/litellm_lens/test_signals.py -q
-cargo check --manifest-path src/worker/Cargo.toml
+cargo fmt --manifest-path src/worker/Cargo.toml --all --check
+cargo clippy --manifest-path src/worker/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --locked --manifest-path src/worker/Cargo.toml
 ```
 
-The ClickHouse state, dataset, signal, investigation and access repositories have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
+Live storage tests start an isolated ClickHouse container with Keeper configured. Docker must be running. To reuse a dedicated test server, set `CLICKHOUSE_STATE_TEST_URL`; the tests create and remove their own databases
+
+To qualify the complete image and calculation sandbox on the host's native Linux architecture:
 
 ```sh
-docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
-CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest \
-  tests/integration/test_clickhouse_state.py \
-  tests/integration/database/test_lens_dataset_repository.py \
-  tests/integration/database/test_lens_signal_repository.py \
-  tests/integration/database/test_lens_repository.py \
-  tests/integration/database/test_lens_scheduler_load.py \
-  tests/integration/database/test_access_repository.py \
-  tests/integration/test_auth.py -q
+docker build --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:local-test .
+deploy/lens/smoke.sh lens:local-test local-test
+docker build --target smoke --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:smoke .
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke
 ```
 
-The tests create and drop isolated databases. Dataset revisions and their latest summaries publish atomically. Signal claims and result writes retain their lease and configuration checks. Investigation updates, archived history, review checkpoints, workers, tracing keys and browser sessions also use ClickHouse. Full capacity, migration and recovery qualification remains open. See [investigation storage qualification](docs/extraction/clickhouse-investigations.md) for the concurrency checks, test limits and observed HTTP interruption. These tests do not demonstrate that the full Lens product runs end to end
+The image smoke test checks private setup, startup, UI delivery, API access and restart. It does not substitute for the full browser, provider, migration and recovery acceptance cases in the completion plan
 
 ## Completion and source provenance
 

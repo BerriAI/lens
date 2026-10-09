@@ -158,6 +158,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     const url = appendQuery(`${getBaseUrl()}${path}`, query);
 
     const headers: Record<string, string> = { Accept: "application/json" };
+    if (path === "/lens" || path.startsWith("/lens/")) headers["X-Lens-Contract"] = "1";
     if (rawBody === undefined) {
       headers["Content-Type"] = "application/json";
     }

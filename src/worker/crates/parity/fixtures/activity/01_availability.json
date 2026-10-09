@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/activity/available",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "requests": false,
+      "traces": true
+    }
+  }
+}

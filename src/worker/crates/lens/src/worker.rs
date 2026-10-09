@@ -5,7 +5,7 @@ use crate::{
 };
 use http::Method;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -51,10 +51,10 @@ impl Worker {
             let client =
                 JobClient::new(self.control.clone(), &identity.lens_id, &identity.job.id, 1)?
                     .with_attempt(identity.job.attempts);
-            self.failure(&client, "The worker could not read this investigation. Update the worker to match the gateway, then retry.").await?;
+            failure(&client, "The worker could not read this investigation. Update the worker to match the gateway, then retry.").await?;
             return Ok(true);
         }
-        let mut claim = claim?;
+        let claim = claim?;
         let client = JobClient::new(
             self.control.clone(),
             &claim.lens_id,
@@ -62,47 +62,8 @@ impl Worker {
             claim.job.settings.concurrency.get() as usize,
         )?
         .with_attempt(u64::try_from(claim.job.attempts).map_err(|_| Error::InvalidRequest)?);
-        let work = async {
-            let sample: wire::Sample = client.get("sample").await?;
-            claim.reviews = Some(client.get("reviews").await?);
-            let result = pipeline::analyze(&claim, sample, client.clone()).await?;
-            let _: Value = client.post("result", &result).await?;
-            Ok::<_, Error>(())
-        };
-        let pulse = async {
-            loop {
-                tokio::time::sleep(Duration::from_secs(30)).await;
-                match client.post::<Value>("heartbeat", &json!({})).await {
-                    Ok(_) => {}
-                    Err(Error::Request(_))
-                    | Err(Error::Control {
-                        status: 429 | 500..=599,
-                        ..
-                    }) => tracing::warn!("Lens heartbeat failed; retrying"),
-                    Err(error) => return Err::<(), _>(error),
-                }
-            }
-        };
-        let outcome = tokio::select! { result = work => result, result = pulse => result };
-        match outcome {
-            Ok(()) | Err(Error::Control { status: 409, .. }) => {}
-            Err(error) => self.failure(&client, &error.to_string()).await?,
-        }
+        execute(claim, client).await?;
         Ok(true)
-    }
-
-    async fn failure(&self, client: &JobClient, message: &str) -> Result<(), Error> {
-        let result = wire::Result {
-            coverage: wire::Coverage::default(),
-            findings: Vec::new(),
-            assessments: Vec::new(),
-            review_versions: Vec::new(),
-            error: message.into(),
-        };
-        match client.post::<Value>("result", &result).await {
-            Ok(_) | Err(Error::Control { status: 409, .. }) => Ok(()),
-            Err(error) => Err(error),
-        }
     }
 
     async fn slot(&self) {
@@ -130,5 +91,49 @@ impl Worker {
 
     pub async fn serve(self) {
         tokio::join!(self.slot(), self.slot(), self.slot());
+    }
+}
+
+pub async fn execute(mut claim: wire::Claim, client: JobClient) -> Result<(), Error> {
+    let work = async {
+        let sample = client.sample().await?;
+        claim.reviews = Some(client.reviews().await?);
+        let result = pipeline::analyze(&claim, sample, client.clone()).await?;
+        client.finish(&result).await?;
+        Ok::<_, Error>(())
+    };
+    let pulse = async {
+        loop {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            match client.heartbeat().await {
+                Ok(_) => {}
+                Err(Error::Request(_))
+                | Err(Error::Control {
+                    status: 429 | 500..=599,
+                    ..
+                }) => tracing::warn!("Lens heartbeat failed; retrying"),
+                Err(error) => return Err::<(), _>(error),
+            }
+        }
+    };
+    let outcome = tokio::select! { result = work => result, result = pulse => result };
+    match outcome {
+        Ok(()) | Err(Error::Control { status: 409, .. }) => {}
+        Err(error) => failure(&client, &error.to_string()).await?,
+    }
+    Ok(())
+}
+
+async fn failure(client: &JobClient, message: &str) -> Result<(), Error> {
+    let result = wire::Result {
+        coverage: wire::Coverage::default(),
+        findings: Vec::new(),
+        assessments: Vec::new(),
+        review_versions: Vec::new(),
+        error: message.into(),
+    };
+    match client.finish(&result).await {
+        Ok(_) | Err(Error::Control { status: 409, .. }) => Ok(()),
+        Err(error) => Err(error),
     }
 }

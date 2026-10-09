@@ -1,0 +1,58 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "signals": [
+        {
+          "id": "signal",
+          "name": "First",
+          "question": "Question?"
+        },
+        {
+          "id": "signal",
+          "name": "Second",
+          "question": "Question?"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "signals": [
+              {
+                "id": "signal",
+                "name": "First",
+                "question": "Question?"
+              },
+              {
+                "id": "signal",
+                "name": "Second",
+                "question": "Question?"
+              }
+            ]
+          },
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, Signal IDs must be unique",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

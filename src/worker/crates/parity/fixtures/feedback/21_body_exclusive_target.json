@@ -1,0 +1,40 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/feedback",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "score": 5,
+      "session_id": "session",
+      "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "score": 5,
+            "session_id": "session",
+            "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+          },
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, Pass exactly one of trace_id or session_id",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

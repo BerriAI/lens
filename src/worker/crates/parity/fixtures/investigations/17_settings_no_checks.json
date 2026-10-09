@@ -1,0 +1,40 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "context": "  ",
+      "model": "x",
+      "name": "x"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "context": "  ",
+            "model": "x",
+            "name": "x"
+          },
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, Describe expected behavior or add an enabled check",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

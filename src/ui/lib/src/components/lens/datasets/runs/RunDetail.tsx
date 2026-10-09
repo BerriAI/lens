@@ -79,7 +79,7 @@ function RunBody({
   if (run.status === "error")
     return (
       <p role="alert" className="py-10 text-center text-sm text-muted-foreground">
-        This run ended with an error before it could be scored.
+        {run.failure || "This run ended with an error before it could be scored."}
       </p>
     );
   if (!run.summary)
@@ -88,13 +88,13 @@ function RunBody({
         This run is still being scored.
       </p>
     );
-  const diff = findDiff(run.summary, caseId);
+  const diff = findDiff(run.summary, caseId) ?? run.cases?.find((item) => item.case_id === caseId);
   return (
     <>
       <SummaryStrip summary={run.summary} />
       <GateReasons run={run} />
       {diff ? (
-        <CaseCompare key={diff.case_id} diff={diff} onClose={() => onOpenCase(null)} />
+        <CaseCompare key={diff.case_id} diff={diff} agent={run.agent} onClose={() => onOpenCase(null)} />
       ) : (
         <>
           {caseId && <MissingCase caseId={caseId} onDismiss={() => onOpenCase(null)} />}
@@ -143,7 +143,7 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
           {run.agent} · revision {run.dataset_revision}
         </span>
         <span className="ml-auto">
-          <PullRequestLink url={run.pr_url} />
+          <PullRequestLink url={run.pr_url} number={run.pr_number} />
         </span>
       </div>
     </header>
@@ -169,7 +169,7 @@ function SummaryStrip({ summary }: { summary: Summary }) {
       <Stat
         label="Passed"
         value={passedLabel(summary)}
-        note={`${summary.failed} failed · ${summary.errored} errored`}
+        note={`${summary.failed} failed · ${summary.errored} trial errors`}
       />
       <Stat
         label="vs baseline"

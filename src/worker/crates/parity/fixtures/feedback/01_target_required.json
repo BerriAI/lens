@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/feedback",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "trace_ref": ""
+          },
+          "loc": [
+            "query"
+          ],
+          "msg": "Value error, Pass exactly one of trace_id or session_id",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

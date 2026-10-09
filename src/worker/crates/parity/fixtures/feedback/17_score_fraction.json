@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/feedback",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "score": 1.5,
+      "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": 1.5,
+          "loc": [
+            "body",
+            "score"
+          ],
+          "msg": "Input should be a valid integer, got a number with a fractional part",
+          "type": "int_from_float"
+        }
+      ]
+    }
+  }
+}

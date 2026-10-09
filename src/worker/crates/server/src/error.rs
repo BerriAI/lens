@@ -438,3 +438,276 @@ mod session_tests {
         );
     }
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvestigationAccessError {
+    #[error("Choose a model configured on this LiteLLM instance")]
+    ModelUnavailable,
+    #[error("This key does not have access to the analysis model")]
+    ModelForbidden,
+    #[error(
+        "No worker can use this analysis model. Choose a model available to the worker's virtual key, or update its model access and pricing."
+    )]
+    WorkerUnavailable,
+    #[error("{reason}")]
+    Rejected { status: StatusCode, reason: String },
+    #[error("Lens is temporarily unavailable")]
+    Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl InvestigationAccessError {
+    fn status(&self) -> StatusCode {
+        match self {
+            Self::ModelUnavailable | Self::WorkerUnavailable => StatusCode::BAD_REQUEST,
+            Self::ModelForbidden => StatusCode::FORBIDDEN,
+            Self::Rejected { status, .. } => *status,
+            Self::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvestigationError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Storage(#[from] lens_investigations::RepositoryError),
+    #[error(transparent)]
+    Request(#[from] DatasetError),
+    #[error(transparent)]
+    Access(#[from] InvestigationAccessError),
+    #[error(transparent)]
+    Domain(#[from] lens_investigations::Error),
+    #[error("Lens requires proxy administrator access")]
+    ForbiddenRead,
+    #[error("Only proxy admins can configure or run Lens")]
+    ForbiddenWrite,
+    #[error("Lens not found")]
+    NotFound,
+    #[error("Investigation not found")]
+    RunNotFound,
+    #[error("Lens changed concurrently; retry the operation")]
+    Changed,
+    #[error("Choose execution IDs returned by the activity preview")]
+    InvalidSelection,
+}
+
+impl IntoResponse for InvestigationError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Authentication(_) | Self::Request(_) => {
+                return match self {
+                    Self::Authentication(error) => SessionError::from(error).into_response(),
+                    Self::Request(error) => error.into_response(),
+                    _ => unreachable!(),
+                };
+            }
+            Self::Storage(lens_investigations::RepositoryError::Conflict) | Self::Changed => {
+                StatusCode::CONFLICT
+            }
+            Self::Storage(lens_investigations::RepositoryError::Unavailable(_)) => {
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+            Self::Access(error) => error.status(),
+            Self::Domain(_) | Self::InvalidSelection => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::ForbiddenRead | Self::ForbiddenWrite => StatusCode::FORBIDDEN,
+            Self::NotFound | Self::RunNotFound => StatusCode::NOT_FOUND,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Lens feedback is temporarily unavailable")]
+pub struct FeedbackStoreError(#[source] pub Box<dyn std::error::Error + Send + Sync>);
+
+#[derive(Debug, thiserror::Error)]
+pub enum FeedbackError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Request(#[from] DatasetError),
+    #[error(transparent)]
+    Storage(#[from] FeedbackStoreError),
+    #[error("Lens requires proxy administrator access")]
+    ForbiddenRead,
+    #[error("Admin viewers cannot write feedback")]
+    ForbiddenViewer,
+    #[error("Feedback requires a team or API key")]
+    ScopeRequired,
+    #[error("Name the user who left this feedback")]
+    AuthorRequired,
+    #[error("Trace not found")]
+    TraceNotFound,
+    #[error("No feedback from this user on this trace")]
+    FeedbackNotFound,
+}
+
+impl IntoResponse for FeedbackError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Authentication(_) | Self::Request(_) => {
+                return match self {
+                    Self::Authentication(error) => SessionError::from(error).into_response(),
+                    Self::Request(error) => error.into_response(),
+                    _ => unreachable!(),
+                };
+            }
+            Self::Storage(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::ForbiddenRead | Self::ForbiddenViewer | Self::ScopeRequired => {
+                StatusCode::FORBIDDEN
+            }
+            Self::AuthorRequired => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::TraceNotFound | Self::FeedbackNotFound => StatusCode::NOT_FOUND,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}
+#[derive(Debug, thiserror::Error)]
+#[error("Lens activity is temporarily unavailable")]
+pub struct ActivityReadError(#[source] pub Box<dyn std::error::Error + Send + Sync>);
+
+#[derive(Debug, thiserror::Error)]
+pub enum ActivityError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Request(#[from] DatasetError),
+    #[error(transparent)]
+    Investigation(#[from] InvestigationError),
+    #[error(transparent)]
+    Storage(#[from] ActivityReadError),
+    #[error("Preview window exceeds the supported calendar range")]
+    Window,
+    #[error("Execution not found")]
+    ExecutionNotFound,
+    #[error("Agent tracing is not enabled. Configure the Lens service and LITELLM_LENS_URL.")]
+    TracingDisabled,
+    #[error("Internal Server Error")]
+    Transport,
+}
+
+impl IntoResponse for ActivityError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Authentication(_) | Self::Request(_) | Self::Investigation(_) => {
+                return match self {
+                    Self::Authentication(error) => SessionError::from(error).into_response(),
+                    Self::Request(error) => error.into_response(),
+                    Self::Investigation(error) => error.into_response(),
+                    _ => unreachable!(),
+                };
+            }
+            Self::Transport => {
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+                    .into_response();
+            }
+            Self::Storage(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Window => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::ExecutionNotFound => StatusCode::NOT_FOUND,
+            Self::TracingDisabled => StatusCode::NOT_IMPLEMENTED,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvalError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Dataset(#[from] lens_datasets::StoreError),
+    #[error(transparent)]
+    Run(#[from] lens_evals::RunError),
+    #[error("unauthorized")]
+    Forbidden,
+    #[error("contract_version")]
+    Contract,
+    #[error("idempotency_key")]
+    Idempotency,
+    #[error("dataset_not_found")]
+    DatasetNotFound,
+    #[error("revision_not_found")]
+    RevisionNotFound,
+    #[error("invalid_request")]
+    InvalidRequest(#[source] serde_json::Error),
+    #[error("invalid_result")]
+    InvalidResult(#[source] serde_json::Error),
+    #[error("invalid_request")]
+    InvalidSpec,
+}
+
+impl IntoResponse for EvalError {
+    fn into_response(self) -> Response {
+        use lens_evals::RunError;
+        let (status, code) = match &self {
+            Self::Authentication(_) => {
+                return match self {
+                    Self::Authentication(error) => SessionError::from(error).into_response(),
+                    _ => unreachable!(),
+                };
+            }
+            Self::Forbidden => (StatusCode::FORBIDDEN, "unauthorized"),
+            Self::Contract => (StatusCode::CONFLICT, "contract_version"),
+            Self::Idempotency => (StatusCode::UNPROCESSABLE_ENTITY, "idempotency_key"),
+            Self::DatasetNotFound => (StatusCode::NOT_FOUND, "dataset_not_found"),
+            Self::RevisionNotFound => (StatusCode::NOT_FOUND, "revision_not_found"),
+            Self::InvalidSpec | Self::InvalidRequest(_) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request")
+            }
+            Self::InvalidResult(_) => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_result"),
+            Self::Dataset(_) => (StatusCode::SERVICE_UNAVAILABLE, "storage_unavailable"),
+            Self::Run(error) => match error {
+                RunError::NotFound => (StatusCode::NOT_FOUND, "run_not_found"),
+                RunError::UnknownCase => (StatusCode::UNPROCESSABLE_ENTITY, "unknown_case"),
+                RunError::InvalidTrial | RunError::InvalidResult => {
+                    (StatusCode::UNPROCESSABLE_ENTITY, "invalid_result")
+                }
+                RunError::Closed => (StatusCode::CONFLICT, "run_closed"),
+                RunError::IdempotencyConflict => (StatusCode::CONFLICT, "idempotency_key"),
+                RunError::InvalidRun => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
+                RunError::StaleLease | RunError::Conflict => {
+                    (StatusCode::CONFLICT, "state_conflict")
+                }
+                RunError::Unavailable(_) => {
+                    (StatusCode::SERVICE_UNAVAILABLE, "storage_unavailable")
+                }
+            },
+        };
+        (status, Json(serde_json::json!({"detail":code,"code":code}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SignalError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Request(#[from] DatasetError),
+    #[error(transparent)]
+    Investigation(#[from] InvestigationError),
+    #[error(transparent)]
+    Storage(#[from] lens_signals::RepositoryError),
+    #[error("Lens signal storage is unavailable")]
+    Invalid(#[from] lens_signals::Error),
+    #[error("Choose a System 1 model (evaluation mode) configured on this proxy")]
+    Model,
+}
+
+impl IntoResponse for SignalError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Authentication(_) | Self::Request(_) | Self::Investigation(_) => {
+                return match self {
+                    Self::Authentication(error) => SessionError::from(error).into_response(),
+                    Self::Request(error) => error.into_response(),
+                    Self::Investigation(error) => error.into_response(),
+                    _ => unreachable!(),
+                };
+            }
+            Self::Storage(_) | Self::Invalid(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Model => StatusCode::BAD_REQUEST,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}

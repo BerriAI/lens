@@ -8,6 +8,9 @@ import {
 } from "react";
 import type { LogEntry } from "../components/logs/types";
 
+export const STANDALONE_DOCS_URL =
+  "https://github.com/BerriAI/lens/blob/main/deploy/lens/README.md";
+
 export interface SpendLogLookup {
   readonly accessToken: string;
   readonly start_date: string;
@@ -26,6 +29,7 @@ export interface SpendLogDrawerProps {
 }
 
 export interface LensHost {
+  readonly analysis?: "deployment";
   readonly spendLogs?: {
     readonly lookup: (
       query: SpendLogLookup,

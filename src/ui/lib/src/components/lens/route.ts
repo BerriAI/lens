@@ -284,9 +284,10 @@ export function useEvalRunRoute() {
   return { datasetTab, runId: eval_run, caseId: eval_case, setDatasetTab, openRun, openCase };
 }
 
-const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, ...OPEN_TRACE_PARSERS };
+const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...OPEN_TRACE_PARSERS };
 
 export interface SourceTrace {
+  readonly agent?: string;
   readonly traceId: string;
   readonly traceRef: string;
   readonly spanId: string;
@@ -300,6 +301,7 @@ export function useOpenSourceTrace() {
     (source: SourceTrace) => {
       const opened = {
         ...FRESH_TRACE_VIEW,
+        ...(source.agent === undefined ? {} : { agent: source.agent }),
         tab: "traces" as const,
         trace: source.traceId,
         trace_ref: source.traceRef || null,

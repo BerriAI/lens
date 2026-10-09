@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/runs/job/reviews?after=3",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "reviewed": 3,
+      "reviews": []
+    }
+  }
+}

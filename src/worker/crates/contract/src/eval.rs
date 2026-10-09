@@ -271,6 +271,35 @@ pub struct EvalRun {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct EvalCaseDetails {
+    pub case_id: String,
+    pub input: String,
+    pub verdict: Option<bool>,
+    pub traces: Vec<crate::feedback::TraceIdentity>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalBaselineDetails {
+    pub run: EvalRun,
+    pub cases: Vec<EvalCaseDetails>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvalRunDetails {
+    pub run: EvalRun,
+    pub dataset_id: String,
+    pub dataset_revision: u64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub ci_url: String,
+    pub cases: Vec<EvalCaseDetails>,
+    pub baseline: Option<EvalBaselineDetails>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ResolvedDataset {
     pub id: String,
     pub name: String,

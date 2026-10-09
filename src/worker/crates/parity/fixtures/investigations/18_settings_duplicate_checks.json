@@ -1,0 +1,58 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "checks": [
+        {
+          "id": "c",
+          "instruction": "abc"
+        },
+        {
+          "id": "c",
+          "instruction": "def"
+        }
+      ],
+      "model": "x",
+      "name": "x"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "checks": [
+              {
+                "id": "c",
+                "instruction": "abc"
+              },
+              {
+                "id": "c",
+                "instruction": "def"
+              }
+            ],
+            "model": "x",
+            "name": "x"
+          },
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, Each check must have a unique ID",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

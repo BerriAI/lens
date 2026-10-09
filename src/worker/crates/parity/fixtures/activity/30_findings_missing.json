@@ -1,0 +1,39 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/traces/findings",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "traces": [
+        {
+          "trace_id": "missing"
+        },
+        {
+          "trace_id": "missing",
+          "trace_ref": "ref"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "finding_count": null,
+        "trace_id": "missing",
+        "trace_ref": ""
+      },
+      {
+        "finding_count": null,
+        "trace_id": "missing",
+        "trace_ref": "ref"
+      }
+    ]
+  }
+}

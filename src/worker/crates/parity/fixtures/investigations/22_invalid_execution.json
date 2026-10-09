@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "context": "ok",
+      "execution_ids": [
+        "bad"
+      ],
+      "model": "x",
+      "name": "x"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Choose execution IDs returned by the activity preview"
+    }
+  }
+}

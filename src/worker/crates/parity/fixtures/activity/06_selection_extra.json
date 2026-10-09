@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "selection": {
+        "all_teams": true
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": true,
+          "loc": [
+            "body",
+            "selection",
+            "all_teams"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "type": "extra_forbidden"
+        }
+      ]
+    }
+  }
+}

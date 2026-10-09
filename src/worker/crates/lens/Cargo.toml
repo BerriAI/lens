@@ -18,6 +18,12 @@ lens-contract = { path = "../contract" }
 lens-datasets = { path = "../datasets" }
 lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
+lens-investigations = { path = "../investigations" }
+lens-inference = { path = "../inference" }
+lens-analysis = { path = "../analysis" }
+lens-evals = { path = "../evals" }
+lens-signals = { path = "../signals" }
+lens-decisions = { path = "../decisions" }
 litellm-http.workspace = true
 litellm-tracing.workspace = true
 litellm-traces.workspace = true
@@ -26,6 +32,7 @@ litellm-traces-clickhouse.workspace = true
 litellm-storage-clickhouse.workspace = true
 prost.workspace = true
 reqwest.workspace = true
+rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -37,11 +44,13 @@ tracing.workspace = true
 tower-http = { version = "0.6.11", features = ["cors"] }
 url.workspace = true
 unicode-casefold = "0.2"
+uuid.workspace = true
 
 [dev-dependencies]
+jsonwebtoken.workspace = true
+lens-parity = { path = "../parity" }
 base64.workspace = true
 rstest.workspace = true
 testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 tokio = { workspace = true, features = ["test-util"] }
 wiremock.workspace = true
-uuid.workspace = true

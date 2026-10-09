@@ -2,11 +2,14 @@
 
 pub mod datasets;
 mod error;
+pub mod evals;
 pub mod ingestion;
 mod insert;
+pub mod investigations;
 mod migrate;
 mod read;
 pub mod sessions;
+pub mod signals;
 pub mod state;
 
 pub use error::Error;

@@ -129,7 +129,7 @@ function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalR
                   <GatePill run={run} />
                 </td>
                 <td className={cn(CELL, "text-right")}>
-                  <PullRequestLink url={run.pr_url} />
+                  <PullRequestLink url={run.pr_url} number={run.pr_number} />
                 </td>
               </tr>
             ))}

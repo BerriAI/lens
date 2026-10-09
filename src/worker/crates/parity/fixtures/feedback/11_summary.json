@@ -1,0 +1,53 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/feedback/summary",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "traces": [
+        {
+          "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+        },
+        {
+          "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+          "trace_ref": "wrong"
+        },
+        {
+          "trace_id": "missing"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "average": 4.5,
+        "count": 2,
+        "lowest": 0,
+        "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "trace_ref": "43C2F9C0E43B8C1FEA25E878720B5ECA1F24E1F0D6092F51215B9D8C50F0059A"
+      },
+      {
+        "average": null,
+        "count": 0,
+        "lowest": null,
+        "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "trace_ref": "wrong"
+      },
+      {
+        "average": null,
+        "count": 0,
+        "lowest": null,
+        "trace_id": "missing",
+        "trace_ref": ""
+      }
+    ]
+  }
+}

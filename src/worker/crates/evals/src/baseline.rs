@@ -21,6 +21,22 @@ pub(crate) struct Diffs {
     pub fixed: Vec<CaseDiff>,
 }
 
+fn case_url(base: &str, case: &str) -> String {
+    let Ok(mut url) = url::Url::parse(base) else {
+        return base.to_owned();
+    };
+    let pairs: Vec<_> = url
+        .query_pairs()
+        .filter(|(key, _)| key != "eval_case")
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    url.query_pairs_mut()
+        .clear()
+        .extend_pairs(pairs)
+        .append_pair("eval_case", case);
+    url.into()
+}
+
 pub(crate) fn compare(
     baseline: Option<&Baseline>,
     candidate_url: &str,
@@ -40,8 +56,8 @@ pub(crate) fn compare(
                 case_id: case.case_id.to_owned(),
                 title: case.case_id.to_owned(),
                 critical: case.critical,
-                baseline_url: format!("{}?case={}", baseline.url, case.case_id),
-                candidate_url: format!("{candidate_url}?case={}", case.case_id),
+                baseline_url: case_url(&baseline.url, case.case_id),
+                candidate_url: case_url(candidate_url, case.case_id),
             })
             .collect()
     };

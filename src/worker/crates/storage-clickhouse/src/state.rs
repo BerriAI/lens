@@ -1,4 +1,6 @@
+mod maintenance;
 mod records;
+mod retry;
 mod transport;
 
 use std::{
@@ -7,13 +9,13 @@ use std::{
 };
 
 use litellm_http::Client;
-use rand::Rng;
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{Connection, Error};
 use records::Blob;
 pub use records::{Change, Head, PreparedCommit, Snapshot};
+pub(crate) use retry::backoff;
 use transport::{command, decode, encode};
 
 #[derive(Clone)]
@@ -49,7 +51,7 @@ impl ClickHouseState {
         Ok(())
     }
 
-    async fn command(
+    pub(crate) async fn command(
         &self,
         query: &'static str,
         parameters: &[(&str, String)],
@@ -187,7 +189,20 @@ impl ClickHouseState {
     }
 
     pub async fn resolve(&self, heads: &[Head]) -> Result<Vec<Snapshot>, Error> {
-        self.values(heads).await?.ok_or(Error::StateUnavailable)
+        if let Some(values) = self.values(heads).await? {
+            return Ok(values);
+        }
+        let keys: Vec<_> = heads.iter().map(|head| head.key.as_str()).collect();
+        let current = self.read_many(&keys).await?;
+        if heads
+            .iter()
+            .zip(&current)
+            .all(|(old, new)| old.digest == new.head.digest)
+        {
+            Ok(current)
+        } else {
+            Err(Error::StateUnavailable)
+        }
     }
 
     pub async fn prepare(&self, changes: Vec<Change>) -> Result<PreparedCommit, Error> {
@@ -276,8 +291,7 @@ impl ClickHouseState {
                 Err(Error::StateConflict) => (),
                 Err(error) => return Err(error),
             }
-            let delay = rand::thread_rng().gen_range(0..=20 * u64::from((attempt + 1).min(8)));
-            tokio::time::sleep(Duration::from_millis(delay)).await;
+            backoff(u64::from(attempt)).await;
         }
         Err(Error::StateConflict)
     }

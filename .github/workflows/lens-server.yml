@@ -51,3 +51,29 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check:worker-contract
       - run: npm run typecheck:ui
+
+  standalone-container:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build standalone Lens
+        run: docker build --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:ci .
+      - name: Start and restart with ClickHouse
+        run: deploy/lens/smoke.sh lens:ci ci
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.1
+      - name: Recover populated deployment
+        run: node deploy/lens/recovery-smoke.mjs lens:ci
+      - name: Build calculation sandbox tests
+        run: docker build --target smoke --build-arg LENS_VERSION=ci -f deploy/runtime/Dockerfile -t lens:smoke .
+      - name: Check calculation confinement on the native kernel
+        run: >-
+          docker run --rm --read-only --cap-drop ALL
+          --security-opt no-new-privileges --network none
+          --pids-limit 128 --memory 2g --cpus 2
+          --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke

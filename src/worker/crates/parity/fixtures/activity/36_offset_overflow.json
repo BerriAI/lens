@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "offset": "18446744073709551616",
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "text/plain; charset=utf-8"
+    },
+    "body": "Internal Server Error"
+  }
+}

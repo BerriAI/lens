@@ -1,3 +1,4 @@
+use crate::routing::PublicRoutes;
 mod json_diagnostics;
 pub(crate) mod validation;
 
@@ -6,9 +7,8 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, RawQuery, Request, State},
+    extract::{DefaultBodyLimit, Path, RawQuery, State},
     http::{HeaderMap, Method, header},
-    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -61,67 +61,31 @@ where
     B: DatasetReader + 'static,
 {
     Router::new()
-        .route(
+        .public_route(
             "/lens/datasets",
             get(list::<R, D, B>).post(create::<R, D, B>),
         )
-        .route("/lens/datasets/build", post(build::<R, D, B>))
-        .route("/lens/datasets/{dataset_id}", get(read::<R, D, B>))
-        .route(
+        .public_route("/lens/datasets/build", post(build::<R, D, B>))
+        .public_route("/lens/datasets/{dataset_id}", get(read::<R, D, B>))
+        .public_route(
             "/lens/datasets/{dataset_id}/revisions",
             post(save::<R, D, B>),
         )
-        .route("/lens/datasets/{dataset_id}/export", get(export::<R, D, B>))
-        .route(
+        .public_route("/lens/datasets/{dataset_id}/export", get(export::<R, D, B>))
+        .public_route(
             "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
             get(cases::<R, D, B>),
         )
         .layer(DefaultBodyLimit::disable())
-        .layer(middleware::from_fn(redirect_trailing_slash))
+        .layer(axum::middleware::from_fn(
+            crate::routing::redirect_trailing_slash,
+        ))
         .with_state(Arc::new(App {
             authentication,
             datasets,
             reader,
             config,
         }))
-}
-
-async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
-    let path = request.uri().path();
-    let normalized = path.trim_end_matches('/');
-    let parts: Vec<_> = normalized.split('/').collect();
-    let known = matches!(
-        parts.as_slice(),
-        ["", "lens", "datasets"]
-            | ["", "lens", "datasets", _]
-            | ["", "lens", "datasets", _, "revisions" | "export"]
-            | ["", "lens", "datasets", _, "revisions", _, "cases"]
-    );
-    if path != normalized && known {
-        let query = request
-            .uri()
-            .query()
-            .map(|query| format!("?{query}"))
-            .unwrap_or_default();
-        let host = request
-            .headers()
-            .get(header::HOST)
-            .and_then(|host| host.to_str().ok());
-        let location = if let Some(host) = host {
-            format!(
-                "{}://{host}{normalized}{query}",
-                request.uri().scheme_str().unwrap_or("http")
-            )
-        } else {
-            format!("{normalized}{query}")
-        };
-        return (
-            axum::http::StatusCode::TEMPORARY_REDIRECT,
-            [(header::LOCATION, location)],
-        )
-            .into_response();
-    }
-    next.run(request).await
 }
 
 fn user_scope(identity: &Identity, write: bool) -> Result<Scope, DatasetError> {

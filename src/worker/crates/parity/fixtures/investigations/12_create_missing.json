@@ -1,0 +1,39 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": {},
+          "loc": [
+            "body",
+            "name"
+          ],
+          "msg": "Field required",
+          "type": "missing"
+        },
+        {
+          "input": {},
+          "loc": [
+            "body",
+            "model"
+          ],
+          "msg": "Field required",
+          "type": "missing"
+        }
+      ]
+    }
+  }
+}

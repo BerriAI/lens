@@ -13,15 +13,22 @@ jiter = "=0.17.0"
 lens-auth = { path = "../auth" }
 lens-contract = { path = "../contract" }
 lens-datasets = { path = "../datasets" }
+lens-evals = { path = "../evals" }
+jsonschema = { version = "0.55.1", default-features = false }
+schemars.workspace = true
+lens-investigations = { path = "../investigations" }
+lens-signals = { path = "../signals" }
 litellm-traces.workspace = true
 rand.workspace = true
 serde_json = { workspace = true, features = ["preserve_order", "raw_value"] }
-axum = { workspace = true, features = ["json"] }
+axum = { workspace = true, features = ["json", "query"] }
 http.workspace = true
 serde.workspace = true
+sha2.workspace = true
 speedate = "=0.17.0"
 strum = "=0.27.2"
 thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
 tower-http = { version = "=0.6.11", features = ["fs", "set-header"] }
 url.workspace = true
 uuid.workspace = true

@@ -1,0 +1,11 @@
+{{- if not .Values.library }}
+{{ include "lens.secrets" . }}
+---
+{{ include "lens.clickhouse" . }}
+---
+{{ include "lens.deployment" . }}
+---
+{{ include "lens.service" . }}
+---
+{{ include "lens.ingress" . }}
+{{- end }}

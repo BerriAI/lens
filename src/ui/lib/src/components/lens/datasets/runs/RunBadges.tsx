@@ -28,9 +28,9 @@ export function CriticalPill() {
   return <span className={cn(PILL, "bg-destructive/10 text-destructive")}>Critical</span>;
 }
 
-export function PullRequestLink({ url }: { url: string | null }) {
+export function PullRequestLink({ url, number }: { url: string | null; number?: number | null }) {
   const href = safeLinkUrl(url);
-  if (!href) return null;
+  if (!href) return number == null ? null : <span className="text-xs text-muted-foreground">Pull request #{number}</span>;
   return (
     <a
       href={href}

@@ -43,7 +43,7 @@ const newestFirst = (a: EvalRun, b: EvalRun): number => b.created_at.localeCompa
 export const groupRuns = (runs: readonly EvalRun[], datasetId: string): RunGroups => {
   const ours = runs.filter((run) => run.dataset_id === datasetId).sort(newestFirst);
   return {
-    main: ours.filter((run) => run.pr_url === null),
-    pulls: ours.filter((run) => run.pr_url !== null),
+    main: ours.filter((run) => run.pr_url === null && run.pr_number == null),
+    pulls: ours.filter((run) => run.pr_url !== null || run.pr_number != null),
   };
 };

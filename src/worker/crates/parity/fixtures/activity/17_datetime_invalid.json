@@ -1,0 +1,36 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "as_of": "yesterday",
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": "input is too short"
+          },
+          "input": "yesterday",
+          "loc": [
+            "body",
+            "as_of"
+          ],
+          "msg": "Input should be a valid datetime or date, input is too short",
+          "type": "datetime_from_date_parsing"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/watch-all",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "skipped": [
+        {
+          "id": "parity-lens",
+          "name": "Paused",
+          "reason": "Choose a model configured on this LiteLLM instance"
+        }
+      ],
+      "watching": []
+    }
+  }
+}

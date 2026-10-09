@@ -1,0 +1,51 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "context": "ok",
+      "interval_minutes": 999999999999999,
+      "lookback_hours": 999999999999999,
+      "model": "x",
+      "name": "x"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": 999999999999999,
+          "loc": [
+            "body",
+            "lookback_hours"
+          ],
+          "msg": "Value error, Lookback exceeds the supported calendar range",
+          "type": "value_error"
+        },
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": 999999999999999,
+          "loc": [
+            "body",
+            "interval_minutes"
+          ],
+          "msg": "Value error, Interval exceeds the supported calendar range",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

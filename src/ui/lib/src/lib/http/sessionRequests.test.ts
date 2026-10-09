@@ -26,6 +26,7 @@ describe("Lens session requests", () => {
           token ? `Bearer ${token}` : null,
         );
         expect(request.headers.get("Authorization")).toBeNull();
+        expect(request.headers.get("X-Lens-Contract")).toBe(new URL(request.url).pathname.includes("/lens") ? "1" : null);
         expect(request.credentials).toBe("same-origin");
         return Response.json([]);
       });

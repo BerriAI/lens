@@ -143,7 +143,7 @@ describe("Worker setup", () => {
     ];
     serve(({ method, path }) => {
       if (method === "POST") return posts.shift();
-      if (path === "/models") return { data: [{ id: "analysis-model" }] };
+      if (path === "/lens/models") return { data: [{ id: "analysis-model" }] };
       if (path === "/lens") return { workers: [] };
       return { keys: [], total_pages: 0 };
     });

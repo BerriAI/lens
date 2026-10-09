@@ -1,3 +1,4 @@
+use crate::routing::PublicRoutes;
 use std::sync::Arc;
 
 use axum::{
@@ -17,6 +18,7 @@ pub struct ServiceStatus {
     pub credentials_ready: bool,
     pub release: String,
     pub protocol_version: u64,
+    pub public_contract: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -42,9 +44,9 @@ pub fn router<R: SessionRepository + 'static, S: ServiceProvider + 'static>(
     service: S,
 ) -> Router {
     Router::new()
-        .route("/lens/service", get(connection::<R, S>))
+        .public_route("/lens/service", get(connection::<R, S>))
         .layer(axum::middleware::from_fn(
-            crate::tracing::redirect_trailing_slash,
+            crate::routing::redirect_trailing_slash,
         ))
         .with_state(Arc::new(App {
             authentication,

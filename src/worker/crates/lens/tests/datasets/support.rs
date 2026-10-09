@@ -79,9 +79,15 @@ pub async fn database() -> Database {
     }
 }
 
+#[allow(
+    dead_code,
+    reason = "Shared fixture handles are used by different integration test targets"
+)]
 pub struct Server {
     pub url: String,
     pub store: ClickHouseState,
+    pub sources: litellm_lens::SourceReader,
+    pub worker: Option<litellm_lens::local::LocalControl>,
     task: tokio::task::JoinHandle<()>,
 }
 
@@ -92,7 +98,19 @@ impl Drop for Server {
 }
 
 impl Database {
+    #[allow(
+        dead_code,
+        reason = "Other integration targets use the configured-model fixture"
+    )]
     pub async fn serve(&self, standalone: bool) -> Server {
+        self.serve_models(standalone, vec![]).await
+    }
+
+    pub async fn serve_models(
+        &self,
+        standalone: bool,
+        models: Vec<lens_analysis::Deployment>,
+    ) -> Server {
         let client = http_client().unwrap();
         let config = Config::new(self.name.clone(), &self.url, 14, 65_536).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
@@ -114,6 +132,16 @@ impl Database {
         .await
         .unwrap()
         .with_service(state.clone(), url.clone(), "standalone-test".into());
+        let application = if standalone {
+            application
+                .with_local(state.clone(), models, vec![], ADMIN, None)
+                .await
+                .unwrap()
+                .with_evaluations(state.clone(), url.parse().unwrap())
+                .unwrap()
+        } else {
+            application
+        };
         if standalone {
             assert!(application.credentials.synchronize().await.unwrap());
         } else {
@@ -134,8 +162,21 @@ impl Database {
                 })
                 .unwrap();
         }
-        let routes = litellm_lens::router(state).merge(application.router);
+        let sources = litellm_lens::SourceReader(state.clone());
+        let worker = application.local_worker.clone();
+        let routes =
+            litellm_lens::router(state)
+                .merge(application.router)
+                .layer(axum::middleware::from_fn(
+                    lens_server::routing::redirect_trailing_slash,
+                ));
         let task = tokio::spawn(async move { axum::serve(listener, routes).await.unwrap() });
-        Server { url, store, task }
+        Server {
+            url,
+            store,
+            sources,
+            worker,
+            task,
+        }
     }
 }

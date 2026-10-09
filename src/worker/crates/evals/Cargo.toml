@@ -6,9 +6,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 lens-contract = { path = "../contract" }
 serde.workspace = true
 thiserror.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

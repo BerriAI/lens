@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/parity-lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "context": "Find unrecovered retries",
+      "model": "analysis",
+      "name": "Research"
+    }
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Choose a model configured on this LiteLLM instance"
+    }
+  }
+}

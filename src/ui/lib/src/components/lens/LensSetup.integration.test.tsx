@@ -53,8 +53,8 @@ function serve({ enabled = false, traces = false, requests = false, connected = 
       const created = { worker: worker(), token: "", image: "test-worker-image", managed: true };
       return Response.json(created);
     }
-    if (path === "/models") return Response.json({ data: [{ id: "analysis" }] });
-    if (path === "/model_group/info")
+    if (path === "/lens/models") return Response.json({ data: [{ id: "analysis" }] });
+    if (path === "/lens/model_group/info")
       return Response.json({ data: [{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }] });
     if (path === "/key/info") return Response.json({ info: { models: ["analysis"], max_budget: 100 } });
     if (path === "/lens/agents") return Response.json(["support_agent"]);

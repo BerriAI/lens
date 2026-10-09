@@ -55,8 +55,8 @@ interface Gateway {
 
 function gatewayResponse(path: string, gateway: Gateway): unknown {
   const { models = ["analysis"], modelDetails = [], keyModels = [], agents = [] } = gateway;
-  if (path === "/models") return { data: models.map((id) => ({ id })) };
-  if (path === "/model_group/info") return { data: modelDetails };
+  if (path === "/lens/models") return { data: models.map((id) => ({ id })) };
+  if (path === "/lens/model_group/info") return { data: modelDetails };
   if (path === "/lens") return { lenses: [], workers: keyModels.length ? [analysisWorker] : [], tracing_enabled: true };
   if (path === "/key/info") return { info: { models: keyModels, max_budget: null } };
   if (path === "/lens/agents") return agents;
@@ -321,7 +321,7 @@ it.each(["loading", "error"])("saves edits with the existing model while models 
   const user = userEvent.setup();
   const save = vi.fn().mockResolvedValue(undefined);
   proxy.get.mockImplementation((path) => {
-    if (path !== "/models") return Promise.resolve(gatewayResponse(path, {}));
+    if (path !== "/lens/models") return Promise.resolve(gatewayResponse(path, {}));
     return state === "loading" ? new Promise(() => {}) : Promise.reject(new Error("Temporarily unavailable"));
   });
   renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
@@ -340,7 +340,7 @@ it.each(["new", "duplicate"] as const)("blocks a %s investigation until its mode
   const user = userEvent.setup();
   const save = vi.fn();
   proxy.get.mockImplementation((path) =>
-    path === "/models"
+    path === "/lens/models"
       ? Promise.reject(new Error("Temporarily unavailable"))
       : Promise.resolve(gatewayResponse(path, {})),
   );

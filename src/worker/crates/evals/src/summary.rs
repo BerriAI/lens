@@ -32,6 +32,7 @@ pub struct RunInput {
 pub struct Evaluation {
     pub summary: Summary,
     pub verdicts: BTreeMap<String, bool>,
+    pub resolved_traces: BTreeMap<String, Vec<lens_contract::feedback::TraceIdentity>>,
 }
 
 struct CaseScore {
@@ -132,6 +133,7 @@ pub async fn evaluate<J: Judge>(run: &RunInput, judge: &J) -> Result<Evaluation>
         },
     );
     Ok(Evaluation {
+        resolved_traces: BTreeMap::new(),
         verdicts: verdicts
             .iter()
             .map(|case| (case.case_id.to_owned(), case.passed))

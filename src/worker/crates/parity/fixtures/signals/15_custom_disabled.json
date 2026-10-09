@@ -1,0 +1,37 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "signals": [
+        {
+          "id": "failed_lookup",
+          "name": "Lookup failed",
+          "question": "Did the lookup fail?"
+        }
+      ],
+      "threshold": "0.95"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "",
+      "signals": [
+        {
+          "id": "failed_lookup",
+          "name": "Lookup failed",
+          "question": "Did the lookup fail?"
+        }
+      ],
+      "threshold": 0.95
+    }
+  }
+}

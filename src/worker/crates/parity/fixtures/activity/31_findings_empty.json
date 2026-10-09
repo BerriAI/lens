@@ -1,0 +1,37 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/traces/findings",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "traces": []
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "actual_length": 0,
+            "field_type": "Tuple",
+            "min_length": 1
+          },
+          "input": [],
+          "loc": [
+            "body",
+            "traces"
+          ],
+          "msg": "Tuple should have at least 1 item after validation, not 0",
+          "type": "too_short"
+        }
+      ]
+    }
+  }
+}

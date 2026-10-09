@@ -20,6 +20,7 @@ impl ServiceProvider for Service {
                 credentials_ready: true,
                 release: "example-release".into(),
                 protocol_version: 1,
+                public_contract: 1,
             },
             configured: true,
             release: "example-release".into(),
@@ -57,7 +58,7 @@ async fn service_connection_is_available_to_authenticated_users(
     if status == 200 {
         assert_eq!(
             body,
-            json!({"url":"https://lens.test/lens-ingest","connected":true,"status":{"storage_ready":true,"credentials_ready":true,"release":"example-release","protocol_version":1},"configured":true,"release":"example-release"})
+            json!({"url":"https://lens.test/lens-ingest","connected":true,"status":{"storage_ready":true,"credentials_ready":true,"release":"example-release","protocol_version":1,"public_contract":1},"configured":true,"release":"example-release"})
         );
     } else {
         assert_eq!(body, json!({"detail":"Sign in to Lens"}));

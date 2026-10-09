@@ -44,7 +44,7 @@ const evalRunQueries = {
     const options = {
       queryKey: evalRunKeys.trace(scope, outcome?.trace_id ?? "", outcome?.trace_ref ?? ""),
       queryFn: () => (outcome ? fullTrace(api, outcome) : null),
-      enabled: outcome !== null,
+      enabled: !!outcome?.trace_id,
       staleTime: Infinity,
     };
     return queryOptions(options);

@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "threshold": 0.96
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "le": 0.95
+          },
+          "input": 0.96,
+          "loc": [
+            "body",
+            "threshold"
+          ],
+          "msg": "Input should be less than or equal to 0.95",
+          "type": "less_than_equal"
+        }
+      ]
+    }
+  }
+}

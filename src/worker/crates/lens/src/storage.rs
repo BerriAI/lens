@@ -9,6 +9,11 @@ use std::{collections::BTreeMap, sync::Arc};
 
 mod tracing;
 pub use tracing::TraceApi;
+mod feedback;
+pub use feedback::FeedbackApi;
+mod activity;
+mod sources;
+pub use sources::{SampleRequest, SourceReader};
 
 pub struct Storage {
     pub config: Config,

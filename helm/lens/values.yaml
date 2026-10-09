@@ -1,0 +1,64 @@
+library: false
+fullnameOverride: ""
+nameOverride: lens
+instanceOverride: ""
+retainResources: false
+component: lens
+replicaCount: 1
+image:
+  repository: ghcr.io/berriai/lens
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+adminTokenSecret:
+  name: ""
+  key: admin-token
+gateway:
+  enabled: false
+serviceTokenSecret:
+  name: ""
+  generatedName: ""
+  key: service-token
+publicUrl: http://localhost:4318
+ingestionUrl: ""
+clickhouse:
+  enabled: true
+  nameOverride: ""
+  image: clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
+  user: default
+  storage: 20Gi
+  storageClassName: null
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+clickhouseDatabase: lens
+clickhouseSecret:
+  name: ""
+  key: url
+retentionDays: 14
+service:
+  port: 4318
+  annotations: {}
+ingress:
+  enabled: false
+  path: /
+  className: ""
+  host: ""
+  annotations: {}
+  tls: []
+tmpSizeLimit: 1Gi
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 2Gi
+extraEnv: []
+extraEnvFrom: []
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,6 +1,5 @@
 use crate::cases::python_whitespace;
 use crate::{Candidate, DatasetReader, Limits, ReadError, Scope, case_from_span, make_case};
-use base64::Engine;
 use lens_contract::datasets::{
     BuildRequest, BuildResult, BuildSource, CaseSource, DatasetCase, DatasetMessage, DatasetRole,
     DatasetToolCall, FindingSource, SkipReason, SkippedCase, TextSource, TraceSource,
@@ -76,46 +75,8 @@ async fn trace_cases(
 }
 
 fn parse_execution(value: &str) -> Option<(String, String)> {
-    if !value.is_ascii() {
-        return None;
-    }
-    let mut encoded = String::new();
-    let mut padding = 0;
-    let mut terminated = false;
-    for character in value.chars() {
-        if character == '=' {
-            padding += 1;
-            if encoded.len() % 4 >= 2 && encoded.len() % 4 + padding >= 4 {
-                terminated = true;
-                break;
-            }
-            continue;
-        }
-        let character = match character {
-            '-' => '+',
-            '_' => '/',
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '+' | '/' => character,
-            _ => continue,
-        };
-        padding = 0;
-        encoded.push(character);
-    }
-    if !terminated && !encoded.len().is_multiple_of(4) {
-        return None;
-    }
-    let engine = base64::engine::general_purpose::GeneralPurpose::new(
-        &base64::alphabet::STANDARD,
-        base64::engine::general_purpose::GeneralPurposeConfig::new()
-            .with_decode_allow_trailing_bits(true)
-            .with_decode_padding_mode(base64::engine::DecodePaddingMode::RequireNone),
-    );
-    let decoded = engine.decode(encoded).ok()?;
-    let parts = serde_json::from_slice::<Vec<String>>(&decoded).ok()?;
-    match parts.as_slice() {
-        [_, _, trace_id] => Some((trace_id.clone(), String::new())),
-        [_, _, trace_id, trace_ref] => Some((trace_id.clone(), trace_ref.clone())),
-        _ => None,
-    }
+    lens_contract::execution::ExecutionId::decode(value)
+        .map(|identity| (identity.trace_id, identity.trace_ref))
 }
 
 async fn finding_cases(

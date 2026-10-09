@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/parity-lens/runs",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "end": "2026-01-01T00:00:00Z",
+      "start": "2026-01-02T00:00:00Z"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "error": {}
+          },
+          "input": {
+            "end": "{{timestamp}}",
+            "start": "{{timestamp}}"
+          },
+          "loc": [
+            "body"
+          ],
+          "msg": "Value error, Start time must be before end time",
+          "type": "value_error"
+        }
+      ]
+    }
+  }
+}

@@ -387,12 +387,10 @@ fn summary(
             .meta
             .get("priority")
             .is_some_and(|value| value == "high"),
-        baseline_url: format!(
-            "{}?case={}",
-            baseline.map(|id| store.runs[id].url.as_str()).unwrap_or(""),
-            case.id
-        ),
-        candidate_url: format!("{}?case={}", store.runs[id].url, case.id),
+        baseline_url: baseline
+            .map(|id| case_url(&store.runs[id].url, &case.id))
+            .unwrap_or_default(),
+        candidate_url: case_url(&store.runs[id].url, &case.id),
     };
     let regressions = cases
         .iter()
@@ -500,6 +498,14 @@ fn summary(
         },
         verdicts,
     )
+}
+
+fn case_url(base: &str, case: &str) -> String {
+    let Ok(mut url) = url::Url::parse(base) else {
+        return base.to_owned();
+    };
+    url.query_pairs_mut().append_pair("eval_case", case);
+    url.into()
 }
 
 async fn finish(

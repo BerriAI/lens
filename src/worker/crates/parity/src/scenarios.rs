@@ -4,6 +4,15 @@ use serde_json::{Value, json};
 
 use crate::runner::{Capture, CaptureSource, Scenario};
 
+mod investigations;
+pub use investigations::investigation_scenarios;
+mod feedback;
+pub use feedback::feedback_scenarios;
+mod activity;
+pub use activity::activity_scenarios;
+mod signals;
+pub use signals::signal_scenarios;
+
 fn step(
     directory: &str,
     name: &str,

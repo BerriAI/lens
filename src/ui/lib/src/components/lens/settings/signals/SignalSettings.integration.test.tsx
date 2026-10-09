@@ -7,6 +7,7 @@ import { testQueryClient } from "../../../../../tests/test-utils";
 
 import type { SignalConfig } from "../../model/types";
 import { SignalForm } from "./SignalSettings";
+import { LensHostProvider } from "../../../../host/LensHost";
 
 const saved: SignalConfig = {
   model: "jev",
@@ -23,12 +24,17 @@ const updated: SignalConfig = {
 const network = vi.fn<typeof fetch>();
 
 describe("signal settings", () => {
+  it("explains automatic provider use before enabling standalone signals", async () => {
+    renderWithLens(<LensHostProvider host={{ analysis: "deployment" }}><SignalForm saved={saved} /></LensHostProvider>);
+    expect(await screen.findByText("Lens sends trace content to this model automatically. Your provider may charge for these requests.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save signals" })).toBeInTheDocument();
+  });
   beforeEach(() => {
     testQueryClient.clear();
     network.mockReset();
     network.mockImplementation(async (input) => {
       const path = new URL(input instanceof Request ? input.url : String(input), "http://localhost").pathname;
-      return Response.json(path === "/model_group/info" ? { data: [] } : {});
+      return Response.json(path === "/lens/model_group/info" ? { data: [] } : {});
     });
     vi.stubGlobal("fetch", network);
   });

@@ -1,0 +1,115 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "concurrency": 0,
+      "interval_minutes": 0,
+      "lookback_hours": 0,
+      "model": "x",
+      "monthly_budget": 0,
+      "name": "x",
+      "sample_percent": 0,
+      "sample_size": 0,
+      "source": "invalid"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "expected": "'traces', 'requests' or 'both'"
+          },
+          "input": "invalid",
+          "loc": [
+            "body",
+            "source"
+          ],
+          "msg": "Input should be 'traces', 'requests' or 'both'",
+          "type": "literal_error"
+        },
+        {
+          "ctx": {
+            "ge": 1
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "sample_size"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "type": "greater_than_equal"
+        },
+        {
+          "ctx": {
+            "gt": 0.0
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "sample_percent"
+          ],
+          "msg": "Input should be greater than 0",
+          "type": "greater_than"
+        },
+        {
+          "ctx": {
+            "ge": 1
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "lookback_hours"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "type": "greater_than_equal"
+        },
+        {
+          "ctx": {
+            "ge": 1
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "interval_minutes"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "type": "greater_than_equal"
+        },
+        {
+          "ctx": {
+            "ge": 1
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "concurrency"
+          ],
+          "msg": "Input should be greater than or equal to 1",
+          "type": "greater_than_equal"
+        },
+        {
+          "ctx": {
+            "gt": 0.0
+          },
+          "input": 0,
+          "loc": [
+            "body",
+            "monthly_budget"
+          ],
+          "msg": "Input should be greater than 0",
+          "type": "greater_than"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,46 @@
+suite: Lens storage persistence
+templates:
+  - resources.yaml
+release:
+  name: lens
+  namespace: lens
+tests:
+  - it: retains volumes when scaled or removed
+    set:
+      clickhouse.storage: 40Gi
+      clickhouse.storageClassName: persistent
+    documentSelector: {path: kind, value: StatefulSet}
+    asserts:
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy
+          value: {whenDeleted: Retain, whenScaled: Retain}
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec
+          value:
+            accessModes: [ReadWriteOnce]
+            storageClassName: persistent
+            resources: {requests: {storage: 40Gi}}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: keeper
+            mountPath: /etc/clickhouse-server/config.d/lens-keeper.xml
+            subPath: lens-keeper.xml
+            readOnly: true
+  - it: persists Keeper and payloads on the same retained volume
+    documentSelector: {path: kind, value: ConfigMap}
+    asserts:
+      - matchRegex:
+          path: data["lens-keeper.xml"]
+          pattern: '<log_storage_path>/var/lib/clickhouse/coordination/log</log_storage_path>'
+      - matchRegex:
+          path: data["lens-keeper.xml"]
+          pattern: '<snapshot_storage_path>/var/lib/clickhouse/coordination/snapshots</snapshot_storage_path>'
+  - it: preserves the configured resource identity
+    set:
+      fullnameOverride: existing-lens-worker
+      clickhouse.nameOverride: existing-lens-clickhouse
+    documentSelector: {path: kind, value: StatefulSet}
+    asserts:
+      - equal: {path: metadata.name, value: existing-lens-clickhouse}
+      - equal: {path: spec.serviceName, value: existing-lens-clickhouse}

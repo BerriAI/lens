@@ -1,0 +1,35 @@
+{
+  "request": {
+    "method": "PATCH",
+    "path": "/lens/parity-lens/findings/finding",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "status": "invalid"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "expected": "'open', 'resolved' or 'dismissed'"
+          },
+          "input": "invalid",
+          "loc": [
+            "body",
+            "status"
+          ],
+          "msg": "Input should be 'open', 'resolved' or 'dismissed'",
+          "type": "literal_error"
+        }
+      ]
+    }
+  }
+}

@@ -9,7 +9,7 @@ repository.workspace = true
 base64.workspace = true
 lens-contract = { path = "../contract" }
 chrono = { version = "0.4", features = ["serde"] }
-jsonwebtoken = { workspace = true, features = ["rust_crypto"] }
+jsonwebtoken = { workspace = true, features = ["aws_lc_rs"] }
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true

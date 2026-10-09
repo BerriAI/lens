@@ -5,14 +5,18 @@ pub mod auth;
 pub mod config;
 pub mod control;
 mod error;
+pub mod evaluations;
 pub mod evidence;
 pub mod grouping;
 mod ingest;
 pub mod journal;
+pub mod local;
 pub mod local_credentials;
 pub mod model;
 pub mod pipeline;
 pub mod sandbox;
+pub mod setup;
+pub mod signals;
 mod storage;
 pub mod worker;
 
@@ -24,6 +28,7 @@ use axum::{
     routing::{get, post},
 };
 pub use error::Error;
+pub use error::EvaluationError;
 use litellm_traces_clickhouse::InsertTable;
 use serde_json::Value;
 use std::{
@@ -35,10 +40,11 @@ use std::{
     },
     time::Duration,
 };
-pub use storage::Storage;
+pub use storage::{SampleRequest, SourceReader, Storage};
 use tokio::sync::Semaphore;
 
 pub use lens_contract::worker as wire;
+pub use storage::FeedbackApi;
 
 const READ_QUEUE_WAIT: Duration = Duration::from_secs(10);
 
@@ -47,6 +53,7 @@ pub struct State {
     pub storage: Storage,
     pub schema_ready: AtomicBool,
     service_token: Option<String>,
+    remote_credentials: bool,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
@@ -54,19 +61,28 @@ pub struct State {
 
 impl State {
     pub fn new(storage: Storage, service_token: String) -> Self {
-        Self::with_service_token(storage, Some(service_token))
+        Self::with_service_token(storage, Some(service_token), true)
+    }
+
+    pub fn connected(storage: Storage, service_token: String) -> Self {
+        Self::with_service_token(storage, Some(service_token), false)
     }
 
     pub fn standalone(storage: Storage) -> Self {
-        Self::with_service_token(storage, None)
+        Self::with_service_token(storage, None, false)
     }
 
-    fn with_service_token(storage: Storage, service_token: Option<String>) -> Self {
+    fn with_service_token(
+        storage: Storage,
+        service_token: Option<String>,
+        remote_credentials: bool,
+    ) -> Self {
         Self {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
             schema_ready: AtomicBool::new(false),
             service_token,
+            remote_credentials,
             ingest_slots: Arc::new(Semaphore::new(2)),
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
@@ -122,9 +138,13 @@ pub fn router(state: Arc<State>) -> Router {
                 .route("/internal/read", post(read))
                 .route("/internal/spend", post(spend))
                 .route("/internal/feedback", post(feedback))
-                .route("/internal/credentials", post(credentials))
                 .route("/internal/status", get(status)),
         )
+    } else {
+        routes
+    };
+    let routes = if state.remote_credentials {
+        routes.route("/internal/credentials", post(credentials))
     } else {
         routes
     };
@@ -172,8 +192,13 @@ async fn status(
     Ok(Json(serde_json::json!({
         "storage_ready": state.schema_ready.load(Ordering::Acquire),
         "credentials_ready": state.credentials.ready(),
-        "release": std::env::var("LITELLM_RELEASE_TAG").unwrap_or_default(),
+        "release": if state.remote_credentials {
+            std::env::var("LITELLM_RELEASE_TAG").unwrap_or_default()
+        } else {
+            std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into())
+        },
         "protocol_version": wire::PROTOCOL_VERSION,
+        "public_contract": 1,
     })))
 }
 

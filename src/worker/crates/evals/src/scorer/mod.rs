@@ -31,6 +31,10 @@ pub struct EvalSpan {
     pub status: SpanStatus,
     #[serde(default)]
     pub tool_name: Option<String>,
+    #[serde(default)]
+    pub input: String,
+    #[serde(default)]
+    pub output: String,
 }
 
 pub async fn passes<J: Judge>(

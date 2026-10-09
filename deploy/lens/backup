@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+lens_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+lens_backup="${1:?Usage: deploy/lens/backup NEW_BACKUP_DIRECTORY}"
+test "$#" -eq 1
+test -f "$lens_dir/.env"
+test ! -L "$lens_dir/.env"
+mkdir -m 700 -- "$lens_backup"
+lens_backup="$(cd -- "$lens_backup" && pwd)"
+lens_compose=(docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml")
+lens_storage="$("${lens_compose[@]}" ps --all --quiet clickhouse)"
+test -n "$lens_storage"
+lens_running="$("${lens_compose[@]}" ps --status running --services)"
+lens_services=()
+while IFS= read -r lens_service; do
+  [[ -z "$lens_service" ]] || lens_services+=("$lens_service")
+done <<< "$lens_running"
+resume() {
+  if [[ "${#lens_services[@]}" -gt 0 ]]; then
+    "${lens_compose[@]}" start "${lens_services[@]}" >/dev/null
+  fi
+}
+trap resume EXIT
+"${lens_compose[@]}" stop lens clickhouse
+docker cp --archive "$lens_storage:/var/lib/clickhouse/." - > "$lens_backup/clickhouse.tar"
+cp -- "$lens_dir/.env" "$lens_backup/.env"
+cp -- "$lens_dir/compose.yaml" "$lens_backup/compose.yaml"
+cp -- "$lens_dir/../clickhouse/keeper.xml" "$lens_backup/keeper.xml"
+docker inspect --format '{{.Config.Image}}' "$lens_storage" > "$lens_backup/clickhouse-image.txt"
+lens_container="$("${lens_compose[@]}" ps --all --quiet lens)"
+test -n "$lens_container"
+docker inspect --format '{{.Image}}' "$lens_container" > "$lens_backup/lens-image.txt"
+docker image save "$(cat "$lens_backup/lens-image.txt")" > "$lens_backup/lens-image.tar"
+(
+  cd -- "$lens_backup"
+  if command -v sha256sum >/dev/null; then
+    sha256sum clickhouse.tar .env compose.yaml keeper.xml clickhouse-image.txt lens-image.txt lens-image.tar > SHA256SUMS
+  else
+    shasum -a 256 clickhouse.tar .env compose.yaml keeper.xml clickhouse-image.txt lens-image.txt lens-image.tar > SHA256SUMS
+  fi
+)
+printf '%s\n' "Backup saved in $lens_backup. It includes credentials; keep the directory private."

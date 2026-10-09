@@ -166,6 +166,7 @@ fn input(report: &sdk::Report, baseline: Option<Baseline>, failing: Option<&str>
     }
 }
 
+#[rstest]
 #[tokio::test]
 async fn summary_matches_dev_server() {
     let server = serve().await;

@@ -18,12 +18,17 @@ pub(crate) enum Model {
     Text,
     Query,
     IngestionKey,
+    Investigation(crate::investigations::validation::Model),
+    Feedback(crate::feedback::validation::Model),
+    Activity(crate::activity::validation::Model),
+    Signals(crate::signals::validation::Model),
 }
 
 #[derive(Clone, Copy)]
-enum Kind {
+pub(crate) enum Kind {
     String(usize, Option<usize>),
     Integer,
+    Unsigned,
     Boolean,
     Role,
     Tuple(&'static Kind, usize),
@@ -31,14 +36,22 @@ enum Kind {
     Source,
     Tag(&'static str),
     AwareDatetime,
+    Optional(&'static Kind),
+    Investigation(crate::investigations::validation::Kind),
+    Feedback(crate::feedback::validation::Kind),
+    Signals(crate::signals::validation::Kind),
 }
 
 const STRING: Kind = Kind::String(0, None);
-type Field = (&'static str, bool, Kind);
+pub(crate) type Field = (&'static str, bool, Kind);
 
 impl Model {
     fn fields(self) -> &'static [Field] {
         match self {
+            Self::Investigation(model) => model.fields(),
+            Self::Feedback(model) => model.fields(),
+            Self::Activity(model) => model.fields(),
+            Self::Signals(model) => model.fields(),
             Self::Query => &[("sql", true, STRING)],
             Self::IngestionKey => &[
                 ("name", false, Kind::String(1, Some(128))),
@@ -296,8 +309,23 @@ fn raw_input<'a>(
     (tag == key).then(|| raw_input(input, rest)).flatten()
 }
 
-fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<ValidationError>) {
+pub(crate) fn validate(
+    value: &mut Value,
+    kind: Kind,
+    path: &[Value],
+    errors: &mut Vec<ValidationError>,
+) {
     match kind {
+        Kind::Optional(kind) => {
+            if !value.is_null() {
+                validate(value, *kind, path, errors);
+            }
+        }
+        Kind::Investigation(kind) => {
+            crate::investigations::validation::validate(value, kind, path, errors)
+        }
+        Kind::Feedback(kind) => crate::feedback::validation::validate(value, kind, path, errors),
+        Kind::Signals(kind) => crate::signals::validation::validate(value, kind, path, errors),
         Kind::AwareDatetime => {
             if value.is_null() {
                 return;
@@ -342,6 +370,18 @@ fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<Vali
         }
         Kind::Integer => match integer(value, path, true) {
             Ok(integer) => *value = json!(integer.exact().unwrap_or_default()),
+            Err(error) => errors.push(error),
+        },
+        Kind::Unsigned => match integer(value, path, true) {
+            Ok(integer) => {
+                if let Some(number) = integer
+                    .exact()
+                    .and_then(|number| u64::try_from(number).ok())
+                    .or_else(|| unsigned(value))
+                {
+                    *value = json!(number);
+                }
+            }
             Err(error) => errors.push(error),
         },
         Kind::Boolean => {
@@ -419,6 +459,7 @@ fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<Vali
             }
         }
         Kind::Record(model) => {
+            let previous = errors.len();
             let input = value.clone();
             let Some(object) = value.as_object_mut() else {
                 errors.push(failure(
@@ -443,10 +484,12 @@ fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<Vali
                     ));
                 }
             }
-            for (key, value) in object
-                .iter()
-                .filter(|(key, _)| !model.fields().iter().any(|(name, _, _)| name == key))
-            {
+            for (key, value) in object.iter().filter(|(key, _)| {
+                !matches!(
+                    model,
+                    Model::Activity(crate::activity::validation::Model::Preview)
+                ) && !model.fields().iter().any(|(name, _, _)| name == key)
+            }) {
                 errors.push(failure(
                     "extra_forbidden",
                     &at(path, json!(key)),
@@ -454,6 +497,19 @@ fn validate(value: &mut Value, kind: Kind, path: &[Value], errors: &mut Vec<Vali
                     value.clone(),
                     None,
                 ));
+            }
+            if errors.len() == previous
+                && let Model::Investigation(model) = model
+            {
+                crate::investigations::validation::after(value, input, model, path, errors);
+            } else if errors.len() == previous
+                && let Model::Feedback(model) = model
+            {
+                crate::feedback::validation::after(value, input, model, path, errors);
+            } else if errors.len() == previous
+                && let Model::Signals(model) = model
+            {
+                crate::signals::validation::after(value, input, model, path, errors);
             }
         }
         Kind::Source => {
@@ -698,6 +754,24 @@ pub(crate) fn integer(
         ));
     }
     Ok(parsed)
+}
+
+fn unsigned(value: &Value) -> Option<u64> {
+    match value {
+        Value::Number(number) => number.as_u64().or_else(|| {
+            number
+                .as_f64()
+                .filter(|number| *number < u64::MAX as f64)
+                .map(|number| number as u64)
+        }),
+        Value::String(text) => text
+            .trim()
+            .replace('_', "")
+            .split('.')
+            .next()
+            .and_then(|text| text.parse().ok()),
+        _ => None,
+    }
 }
 
 pub(super) fn revision_query(query: Option<&str>) -> Result<Option<Revision>, DatasetError> {

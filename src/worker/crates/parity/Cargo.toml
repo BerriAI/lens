@@ -7,10 +7,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+base64.workspace = true
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 httpdate = "1.0"
-jsonwebtoken = { workspace = true, features = ["rust_crypto"] }
+jsonwebtoken = { workspace = true, features = ["aws_lc_rs"] }
 regex = "1"
 reqwest.workspace = true
 serde.workspace = true

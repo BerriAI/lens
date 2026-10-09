@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "",
+      "signals": [],
+      "threshold": 0.05
+    }
+  }
+}

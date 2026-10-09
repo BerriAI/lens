@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/feedback",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "comment": "Corrected feedback",
+      "score": 9,
+      "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "author": "lens-admin",
+      "comment": "Corrected feedback",
+      "created_at": "{{timestamp}}",
+      "score": 9,
+      "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+      "trace_ref": "43C2F9C0E43B8C1FEA25E878720B5ECA1F24E1F0D6092F51215B9D8C50F0059A",
+      "updated_at": "{{timestamp}}"
+    }
+  }
+}

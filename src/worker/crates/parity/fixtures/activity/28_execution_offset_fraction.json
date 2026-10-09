@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/executions/WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==?offset=1.5",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": "1.5",
+          "loc": [
+            "query",
+            "offset"
+          ],
+          "msg": "Input should be a valid integer, unable to parse string as an integer",
+          "type": "int_parsing"
+        }
+      ]
+    }
+  }
+}

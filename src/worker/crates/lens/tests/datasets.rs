@@ -173,3 +173,31 @@ async fn session_and_saved_dataset_survive_application_restart(#[future(awt)] da
         format!("{}\n", serde_json::to_string(&saved.cases[0]).unwrap())
     );
 }
+
+#[rstest]
+#[case::datasets("/lens/datasets///?revision=1", "/lens/datasets?revision=1")]
+#[case::traces("/v1/traces///", "/v1/traces")]
+#[case::feedback("/lens/feedback///", "/lens/feedback")]
+#[case::service("/lens/service///", "/lens/service")]
+#[tokio::test]
+async fn composed_application_preserves_repeated_slash_redirects(
+    #[future(awt)] database: Database,
+    #[case] path: &str,
+    #[case] target: &str,
+) {
+    let server = database.serve(false).await;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let response = client
+        .get(format!("{}{path}", server.url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 307);
+    assert_eq!(
+        response.headers()["location"],
+        format!("{}{target}", server.url)
+    );
+}

@@ -6,13 +6,15 @@ import { StateMessage } from "../../shared/StateMessage";
 import { Button, buttonVariants } from "../../ui/button";
 
 import { ApiError } from "../../../lib/http/client";
+import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
 
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
 
 function DocsLink() {
+  const standalone = useLensHost().analysis === "deployment";
   return (
     <a
-      href={DOCS_URL}
+      href={standalone ? STANDALONE_DOCS_URL : DOCS_URL}
       target="_blank"
       rel="noopener noreferrer"
       className={buttonVariants({ variant: "ghost", size: "sm" })}
@@ -23,24 +25,45 @@ function DocsLink() {
   );
 }
 
-function loadFailureMessage(queryError: unknown, unavailable: boolean): string {
+function loadFailureMessage(
+  queryError: unknown,
+  unavailable: boolean,
+  standalone: boolean,
+): string {
+  if (standalone && unavailable)
+    return "Lens did not recognize this API request. Reload the page, and if it persists, check the Lens deployment.";
   if (unavailable)
     return "This dashboard may be newer than the proxy. Reload the page, and if it persists, check the proxy deployment.";
   if (queryError instanceof Error) return queryError.message;
-  return "Something went wrong while contacting the proxy.";
+  return standalone
+    ? "Something went wrong while contacting Lens."
+    : "Something went wrong while contacting the proxy.";
 }
 
-export function InvestigationsLoadFailed({ queryError, refresh }: { queryError: unknown; refresh: () => void }) {
-  const unavailable = queryError instanceof ApiError && queryError.status === 404;
+export function InvestigationsLoadFailed({
+  queryError,
+  refresh,
+}: {
+  queryError: unknown;
+  refresh: () => void;
+}) {
+  const standalone = useLensHost().analysis === "deployment";
+  const unavailable =
+    queryError instanceof ApiError && queryError.status === 404;
   return (
     <StateMessage
       role="alert"
       tone="destructive"
       icon={<TriangleAlert className="size-5" />}
-      title={unavailable ? "Lens API is unavailable" : "Couldn't load investigations"}
-      description={loadFailureMessage(queryError, unavailable)}
+      title={
+        unavailable ? "Lens API is unavailable" : "Couldn't load investigations"
+      }
+      description={loadFailureMessage(queryError, unavailable, standalone)}
     >
-      <Button size="sm" onClick={() => (unavailable ? window.location.reload() : refresh())}>
+      <Button
+        size="sm"
+        onClick={() => (unavailable ? window.location.reload() : refresh())}
+      >
         {unavailable ? "Reload page" : "Try again"}
       </Button>
       <DocsLink />
@@ -48,7 +71,13 @@ export function InvestigationsLoadFailed({ queryError, refresh }: { queryError: 
   );
 }
 
-export function InvestigationError({ message, refresh }: { message: string; refresh: () => void }) {
+export function InvestigationError({
+  message,
+  refresh,
+}: {
+  message: string;
+  refresh: () => void;
+}) {
   return (
     <div
       role="alert"
@@ -71,13 +100,22 @@ export function InvestigationsLoading() {
   );
 }
 
-export function InvestigationMissing({ selectLens }: { selectLens: (id: string | null) => void }) {
+export function InvestigationMissing({
+  selectLens,
+}: {
+  selectLens: (id: string | null) => void;
+}) {
+  const standalone = useLensHost().analysis === "deployment";
   return (
     <StateMessage
       role="alert"
       icon={<SearchX className="size-5" />}
       title="Investigation not found"
-      description="It may have been deleted, or the link points to a different proxy."
+      description={
+        standalone
+          ? "It may have been deleted, or the link points to a different Lens deployment."
+          : "It may have been deleted, or the link points to a different proxy."
+      }
     >
       <Button size="sm" onClick={() => selectLens(null)}>
         View all investigations

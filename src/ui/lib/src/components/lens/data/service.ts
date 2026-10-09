@@ -145,8 +145,8 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
         }),
       ),
     agents: () => required(client.GET("/lens/agents", { headers })),
-    models: () => apiClient.get("/models", { accessToken }),
-    modelDetails: () => apiClient.get("/model_group/info", { accessToken }),
+    models: () => apiClient.get("/lens/models", { accessToken }),
+    modelDetails: () => apiClient.get("/lens/model_group/info", { accessToken }),
     keys: async (alias, page, signal) =>
       keyPageSchema.parse(
         await apiClient.get("/key/list", {

@@ -25,7 +25,7 @@ const swarmRows = Array.from({ length: 11 }, (_, row) => ({
 
 const organizedColumns = Array.from({ length: 58 }, (_, column) => column - 8);
 
-export function GatewayFlow() {
+export function GatewayFlow({ standalone = false }: { standalone?: boolean }) {
   const id = useId();
   return (
     <div className="mt-5 sm:mt-6">
@@ -35,11 +35,11 @@ export function GatewayFlow() {
           <p className="mt-0.5 leading-4 text-muted-foreground">Every run, every recorded step</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold">LiteLLM gateway</p>
+          <p className="font-semibold">{standalone ? "Lens" : "LiteLLM gateway"}</p>
           <p className="mt-0.5 leading-4 text-muted-foreground">One place, your infrastructure</p>
         </div>
         <div className="text-right">
-          <p className="font-semibold">Lens</p>
+          <p className="font-semibold">{standalone ? "Investigations" : "Lens"}</p>
           <p className="mt-0.5 leading-4 text-muted-foreground">Findings to improve your agents</p>
         </div>
       </div>
@@ -123,7 +123,10 @@ export function GatewayFlow() {
                 <g
                   key={index}
                   className={styles.swarmRow}
-                  style={{ animationDuration: row.duration, animationDelay: row.delay }}
+                  style={{
+                    animationDuration: row.duration,
+                    animationDelay: row.delay,
+                  }}
                 >
                   {row.dots.map((dot, column) => (
                     <circle key={column} cx={dot.x} cy={row.y} r="2.3" className={dot.color} opacity={dot.opacity} />

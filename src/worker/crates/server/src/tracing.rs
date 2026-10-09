@@ -1,11 +1,10 @@
+use crate::routing::PublicRoutes;
 use std::{future::Future, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Path, RawQuery, Request, State},
+    extract::{DefaultBodyLimit, Path, RawQuery, State},
     http::{HeaderMap, Method},
-    middleware::{self, Next},
-    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use chrono::{DateTime, Utc};
@@ -115,65 +114,25 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
     config: TraceConfig,
 ) -> Router {
     Router::new()
-        .route("/v1/traces", get(list::<R, B>))
-        .route("/v1/traces/agents", get(agents::<R, B>))
-        .route("/v1/traces/query", post(query::<R, B>))
-        .route("/v1/traces/query/help", get(help::<R, B>))
-        .route("/v1/traces/{trace_id}", get(trace::<R, B>))
-        .route("/v1/traces/{trace_id}/spans/{span_id}", get(span::<R, B>))
-        .route(
+        .public_route("/v1/traces", get(list::<R, B>))
+        .public_route("/v1/traces/agents", get(agents::<R, B>))
+        .public_route("/v1/traces/query", post(query::<R, B>))
+        .public_route("/v1/traces/query/help", get(help::<R, B>))
+        .public_route("/v1/traces/{trace_id}", get(trace::<R, B>))
+        .public_route("/v1/traces/{trace_id}/spans/{span_id}", get(span::<R, B>))
+        .public_route(
             "/v1/traces/{trace_id}/spans/{span_id}/error",
             get(span_error::<R, B>),
         )
         .layer(DefaultBodyLimit::disable())
-        .layer(middleware::from_fn(redirect_trailing_slash))
+        .layer(axum::middleware::from_fn(
+            crate::routing::redirect_trailing_slash,
+        ))
         .with_state(Arc::new(App {
             authentication,
             reader,
             config,
         }))
-}
-
-pub(crate) async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
-    let path = request.uri().path();
-    let normalized = path.trim_end_matches('/');
-    let parts: Vec<_> = normalized.split('/').collect();
-    let known = matches!(
-        parts.as_slice(),
-        ["", "v1", "traces"]
-            | ["", "v1", "traces", _]
-            | ["", "v1", "traces", "query", "help"]
-            | ["", "v1", "traces", _, "spans", _]
-            | ["", "v1", "traces", _, "spans", _, "error"]
-            | ["", "lens", "tracing", "keys"]
-            | ["", "lens", "tracing", "keys", _]
-            | ["", "lens", "service"]
-    );
-    if path != normalized && known {
-        let query = request
-            .uri()
-            .query()
-            .map(|query| format!("?{query}"))
-            .unwrap_or_default();
-        let host = request
-            .headers()
-            .get(axum::http::header::HOST)
-            .and_then(|host| host.to_str().ok());
-        let location = if let Some(host) = host {
-            format!(
-                "{}://{host}{normalized}{query}",
-                request.uri().scheme_str().unwrap_or("http")
-            )
-        } else {
-            format!("{normalized}{query}")
-        };
-        return (
-            axum::http::StatusCode::TEMPORARY_REDIRECT,
-            [(axum::http::header::LOCATION, location)],
-        )
-            .into_response();
-    }
-    next.run(request).await
 }
 
 fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, TraceHttpError> {

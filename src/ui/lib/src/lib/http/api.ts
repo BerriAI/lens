@@ -29,7 +29,10 @@ const carriesJson = async (response: Response): Promise<boolean> => {
 };
 
 const middleware: Middleware = {
-  onRequest({ request }) {
+  onRequest({ request, schemaPath }) {
+    if ((schemaPath === "/lens" || schemaPath.startsWith("/lens/")) && !request.headers.has("X-Lens-Contract")) {
+      request.headers.set("X-Lens-Contract", "1");
+    }
     if (!request.headers.has("Accept")) {
       request.headers.set("Accept", "application/json");
     }

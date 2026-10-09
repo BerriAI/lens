@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { STANDALONE_DOCS_URL, useLensHost } from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useMediaQuery } from "usehooks-ts";
 import {
@@ -137,6 +138,7 @@ function SidebarNavigation({
   readonly onSelectAgent: (agent: string) => void;
 }) {
   const connected = useWorkerConnected(workers);
+  const standalone = useLensHost().analysis === "deployment";
   const item = (value: LensTab, label: string, Icon: LucideIcon, status?: string) => (
     <TabsTrigger
       value={value}
@@ -187,13 +189,25 @@ function SidebarNavigation({
         {NAVIGATION_ITEMS.map(({ value, label, icon: Icon }) => (
           <div key={value}>{item(value, label, Icon)}</div>
         ))}
-        {workers && item("settings", "Settings", Settings, connected ? "Worker connected" : "Connect worker")}
+        {workers &&
+          item(
+            "settings",
+            "Settings",
+            Settings,
+            standalone
+              ? connected
+                ? "Analysis configured"
+                : "Configure analysis"
+              : connected
+                ? "Worker connected"
+                : "Connect worker",
+          )}
       </TabsList>
       <div className="mt-4 border-t border-sidebar-border pt-3">
         <ThemeToggle collapsed={collapsed} />
       </div>
       <a
-        href="https://docs.litellm.ai/docs/proxy/lens"
+        href={standalone ? STANDALONE_DOCS_URL : "https://docs.litellm.ai/docs/proxy/lens"}
         target="_blank"
         rel="noopener noreferrer"
         title={collapsed ? "Documentation" : undefined}

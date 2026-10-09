@@ -37,6 +37,8 @@ pub fn span(id: &str, parent: &str, start_ns: i64, status: SpanStatus) -> EvalSp
         start_ns,
         status,
         tool_name: None,
+        input: String::new(),
+        output: String::new(),
     }
 }
 

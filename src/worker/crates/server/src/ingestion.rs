@@ -1,3 +1,4 @@
+use crate::routing::PublicRoutes;
 use std::{future::Future, sync::Arc};
 
 use axum::{
@@ -154,14 +155,14 @@ where
     P: CredentialPublisher + 'static,
 {
     Router::new()
-        .route(
+        .public_route(
             "/lens/tracing/keys",
             get(list::<R, I, P>).post(create::<R, I, P>),
         )
-        .route("/lens/tracing/keys/{key_id}", delete(revoke::<R, I, P>))
+        .public_route("/lens/tracing/keys/{key_id}", delete(revoke::<R, I, P>))
         .layer(DefaultBodyLimit::disable())
         .layer(axum::middleware::from_fn(
-            crate::tracing::redirect_trailing_slash,
+            crate::routing::redirect_trailing_slash,
         ))
         .with_state(Arc::new(App {
             authentication,
