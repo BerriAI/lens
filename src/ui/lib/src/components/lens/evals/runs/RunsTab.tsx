@@ -74,10 +74,10 @@ const COLUMNS: ColumnDef<EvalRun>[] = [
   { id: "gate", size: 120, header: "Gate", cell: ({ row }) => <GateStatus run={row.original} /> },
   {
     id: "commit",
-    size: 220,
+    size: 300,
     header: "Commit",
     cell: ({ row: { original: run } }) => (
-      <span className="font-mono">
+      <span className="block min-w-0 truncate font-mono" title={`${run.branch}@${run.version}`}>
         <span className="text-muted-foreground">{run.branch}@</span>
         {shortSha(run.version)}
         {run.pr !== null && <span className="ml-2 text-muted-foreground">#{run.pr}</span>}
