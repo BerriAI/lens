@@ -278,6 +278,10 @@ fn backend_error(error: Error) -> Error {
         | Error::Checkpoint(CheckpointError::Store(RepositoryError::Conflict)) => {
             rejected(409, "Lens changed concurrently; retry the operation")
         }
+        Error::InvestigationStorage(error @ RepositoryError::WriteUnconfirmed)
+        | Error::Checkpoint(CheckpointError::Store(error @ RepositoryError::WriteUnconfirmed)) => {
+            rejected(409, &error.to_string())
+        }
         Error::Checkpoint(CheckpointError::Ownership) => {
             rejected(409, "This worker no longer owns the job")
         }
@@ -541,6 +545,8 @@ mod tests {
         true
     )]
     #[case::checkpoint_conflict(CheckpointError::Store(RepositoryError::Conflict).into(), 409, false)]
+    #[case::unconfirmed_write(RepositoryError::WriteUnconfirmed.into(), 409, false)]
+    #[case::unconfirmed_checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into(), 409, false)]
     #[case::lost_ownership(CheckpointError::Ownership.into(), 409, false)]
     #[case::invalid_progress(CheckpointError::Invalid(lens_investigations::Error::ReviewCount).into(), 422, false)]
     #[case::oversized_response(
@@ -557,6 +563,19 @@ mod tests {
         assert!(error.is_control_failure());
         assert_eq!(error.retryable(), retryable);
         assert!(matches!(error, Error::Control { status: actual, .. } if actual == status));
+    }
+
+    #[rstest]
+    #[case::write(RepositoryError::WriteUnconfirmed.into())]
+    #[case::checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into())]
+    fn unconfirmed_writes_preserve_their_diagnostic(#[case] input: Error) {
+        let Error::Control { diagnostic, .. } = backend_error(input) else {
+            panic!("Expected a control failure");
+        };
+        assert_eq!(
+            diagnostic,
+            Some(RepositoryError::WriteUnconfirmed.to_string())
+        );
     }
 
     struct WaitingJob {

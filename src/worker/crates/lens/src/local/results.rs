@@ -714,7 +714,7 @@ mod tests {
     #[rstest]
     #[case::complete("", false, (JobStatus::Completed, 1))]
     #[case::empty_failure("storage unavailable", true, (JobStatus::Failed, 7))]
-    #[case::partial_failure("one trace unavailable", false, (JobStatus::Completed, 1))]
+    #[case::partial_failure("one trace unavailable", false, (JobStatus::Failed, 1))]
     fn completed_run_preserves_progress_and_schedules_from_its_result(
         lens: Lens,
         job: Job,

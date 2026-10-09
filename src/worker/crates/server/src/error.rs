@@ -414,9 +414,10 @@ impl IntoResponse for ApiError {
 #[cfg(test)]
 mod tests {
     use axum::{body::to_bytes, http::StatusCode, response::IntoResponse};
+    use lens_investigations::RepositoryError;
     use rstest::rstest;
 
-    use super::ApiError;
+    use super::{ApiError, InvestigationError};
 
     #[rstest]
     #[case::not_found(
@@ -448,6 +449,29 @@ mod tests {
 
         assert_eq!(status, expected_status);
         assert_eq!(body.as_ref(), expected_body.as_bytes());
+    }
+
+    #[rstest]
+    #[case::conflict(RepositoryError::Conflict, StatusCode::CONFLICT)]
+    #[case::unconfirmed(RepositoryError::WriteUnconfirmed, StatusCode::CONFLICT)]
+    #[case::unavailable(
+        RepositoryError::Unavailable(Box::new(std::io::Error::other("private detail"))),
+        StatusCode::SERVICE_UNAVAILABLE
+    )]
+    #[tokio::test]
+    async fn investigation_storage_errors_preserve_retry_and_diagnostic_semantics(
+        #[case] error: RepositoryError,
+        #[case] status: StatusCode,
+    ) {
+        let message = error.to_string();
+        let response = InvestigationError::from(error).into_response();
+        assert_eq!(response.status(), status);
+        assert!(!response.headers().contains_key("retry-after"));
+        let body = to_bytes(response.into_body(), 4096).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({"detail": message})
+        );
     }
 }
 
@@ -558,9 +582,11 @@ impl IntoResponse for InvestigationError {
                     _ => unreachable!(),
                 };
             }
-            Self::Storage(lens_investigations::RepositoryError::Conflict) | Self::Changed => {
-                StatusCode::CONFLICT
-            }
+            Self::Storage(
+                lens_investigations::RepositoryError::Conflict
+                | lens_investigations::RepositoryError::WriteUnconfirmed,
+            )
+            | Self::Changed => StatusCode::CONFLICT,
             Self::Storage(lens_investigations::RepositoryError::Unavailable(_)) => {
                 StatusCode::SERVICE_UNAVAILABLE
             }

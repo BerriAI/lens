@@ -136,10 +136,7 @@ pub fn queue_job(
 }
 
 pub fn result_status(result: &InvestigationResult) -> TerminalStatus {
-    if !result.error.is_empty()
-        && result.findings.is_empty()
-        && !result.assessments.iter().any(|item| !item.cannot_assess)
-    {
+    if !result.error.is_empty() {
         TerminalStatus::Failed
     } else {
         TerminalStatus::Completed
