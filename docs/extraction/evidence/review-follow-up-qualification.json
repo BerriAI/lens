@@ -1,0 +1,369 @@
+{
+  "recorded_at": "2026-10-09T18:47:52.083Z",
+  "status": "follow_up_qualification_release_selection_and_reviews_open",
+  "sources": {
+    "lens": "5846697965ba06a0370f83220b12d217884df9da",
+    "litellm": "310295b24da5dd7dabe2e694eb29dafb1c406297",
+    "publisher": "b289b5bb5f6f6bb358a4b4bb15961dd6efcaed82",
+    "ops": "e7f0c45c61336e74f5c6eab1b7f98002758e3485",
+    "docs": "fabf988ef007b8cf21373036b87bea7d5defa875",
+    "integration": "00d7fc0247819ef9d3ea56fa04cd6fca5a603d5e",
+    "examples": "494724eaf3fe905e8eb9731561a19e8cf5da9610"
+  },
+  "official_release": false,
+  "production_deployment": false,
+  "standalone": [
+    {
+      "status": "passed",
+      "lane": "runtime",
+      "image": "sha256:7761c6e4cfa3882f80831120122ba42eb8e0053fbbd71005d1d4a70bd084ad75",
+      "architecture": "arm64",
+      "runtime_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "harness_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "auth_denials": 10,
+      "revoked_key_denied_before_and_after_restart": true,
+      "storage_outage_failures": 3,
+      "rejected_writes_absent_after_recovery": true,
+      "prior_data_retained": true,
+      "ingestion_resumes": true,
+      "providers_contacted": false,
+      "gateway_or_postgres_required": false
+    },
+    {
+      "status": "passed",
+      "lane": "migration",
+      "image": "sha256:7761c6e4cfa3882f80831120122ba42eb8e0053fbbd71005d1d4a70bd084ad75",
+      "architecture": "arm64",
+      "runtime_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "harness_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "source_groups": {
+        "datasets": 2,
+        "ingestion_keys": 1,
+        "lenses": 1,
+        "reviews": 1,
+        "runs": 1,
+        "signal_configs": 1,
+        "trace_signals": 1,
+        "workers": 1
+      },
+      "records": 11,
+      "source_read_only": true,
+      "invalid_sources_rejected_before_target_writes": 2,
+      "missing_handoff_flag_rejected": true,
+      "repeated_import_identical": true,
+      "imported_findings_and_dataset_revisions_readable": true,
+      "ingestion_hash_retained_and_usable": true,
+      "postgres_removed_before_runtime_start": true,
+      "providers_contacted": false
+    },
+    {
+      "status": "passed",
+      "lane": "sdk",
+      "image": "sha256:7761c6e4cfa3882f80831120122ba42eb8e0053fbbd71005d1d4a70bd084ad75",
+      "architecture": "arm64",
+      "runtime_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "harness_source_sha": "5846697965ba06a0370f83220b12d217884df9da",
+      "wheel": "lens_evals-0.1.0a3-cp311-abi3-macosx_11_0_arm64.whl",
+      "wheel_sha256": "eec86690dad4f55839fcba6d20718f15f9e5e773a92f42d85585102f61e8a038",
+      "wheel_provenance_verified": true,
+      "dataset_revision": 1,
+      "baseline_passed": true,
+      "regression_detected": true,
+      "repeat_idempotent": true,
+      "ingestion_key_cannot_read_evals": true,
+      "providers_contacted": false
+    }
+  ],
+  "split_paid": {
+    "started_at": "2026-10-09T18:35:53.828Z",
+    "host_source": "310295b24da5dd7dabe2e694eb29dafb1c406297",
+    "entrypoints": [
+      "backend.main:app",
+      "gateway.main:app"
+    ],
+    "harness": "tests/e2e/migrations/lens_release_qualification.sh",
+    "checks": [
+      {
+        "label": "Split backend rejects inference routes",
+        "passed": true
+      },
+      {
+        "label": "Split gateway rejects management routes",
+        "passed": true
+      },
+      {
+        "label": "Create isolated team",
+        "passed": true
+      },
+      {
+        "label": "Create isolated virtual key",
+        "passed": true
+      },
+      {
+        "label": "before-outage passes the committed inference and billing assertions",
+        "passed": true
+      },
+      {
+        "label": "Split backend reports Lens unavailable",
+        "passed": true
+      },
+      {
+        "label": "Split backend still rejects invalid credentials",
+        "passed": true
+      },
+      {
+        "label": "during-outage passes the committed inference and billing assertions",
+        "passed": true
+      },
+      {
+        "label": "after-recovery passes the committed inference and billing assertions",
+        "passed": true
+      },
+      {
+        "label": "Three billed provider calls stay below one cent",
+        "passed": true
+      }
+    ],
+    "official_release": false,
+    "production_deployment": false,
+    "passed": true,
+    "events": [
+      {
+        "chart": "litellm",
+        "case": "before-outage-real-inference",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:23Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:23Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:25Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:27Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:29Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-billing-matches-usage-and-team",
+        "result": "passed",
+        "at": "2026-10-09T18:37:29Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "before-outage-paid-receipt",
+        "result": "passed",
+        "response_id": "chatcmpl-EX9l35sxAg5hxaTmPieI8fl5c0DhM",
+        "request_id": "78cf6244-c3d9-42bc-a69a-9e60192f7877",
+        "cost_usd": 0.000108
+      },
+      {
+        "chart": "litellm",
+        "case": "during-outage-real-inference",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:33Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "during-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:33Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "during-outage-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:35Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "during-outage-billing-matches-usage-and-team",
+        "result": "passed",
+        "at": "2026-10-09T18:37:35Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "during-outage-paid-receipt",
+        "result": "passed",
+        "response_id": "chatcmpl-EX9lCYJZP0ZfULQvUvk5oSb6bjb9n",
+        "request_id": "99eb1f6b-ecb6-4b9c-9e3f-2e46774d8a87",
+        "cost_usd": 0.00010999999999999999
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-real-inference",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:38Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:38Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:40Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:42Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-billing-read",
+        "result": "http-200",
+        "at": "2026-10-09T18:37:44Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-billing-matches-usage-and-team",
+        "result": "passed",
+        "at": "2026-10-09T18:37:44Z"
+      },
+      {
+        "chart": "litellm",
+        "case": "after-recovery-paid-receipt",
+        "result": "passed",
+        "response_id": "chatcmpl-EX9lJ5leVc4pE0wYwgnhLVgepsaf1",
+        "request_id": "2de5e8f9-06f0-49c1-8510-eee99ba3b124",
+        "cost_usd": 0.000108
+      }
+    ],
+    "total_cost_usd": 0.000326,
+    "finished_at": "2026-10-09T18:37:44.662Z"
+  },
+  "kubernetes": {
+    "run": "https://github.com/BerriAI/lens/actions/runs/37971245107",
+    "sources": {
+      "qualification": "candidate source compatibility",
+      "signed_release_qualification": false,
+      "image_run_id": "37966290979",
+      "qualification_run_id": "37971245107",
+      "harness_repository": "BerriAI/litellm",
+      "harness_commit": "7e21f1b1184d73312e46044a318a03078927768d",
+      "harness_sha256": "f2d5f7e051e8e7ac9c494a5507e43e907538427b4fb91f70367cd506bfc3e101",
+      "lens_baseline": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+      "lens_current": "d1102614a5fc4ca7c94c85df97b9de10b5af3e82",
+      "gateway_baseline": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+      "gateway_current": "550355d5e535122ce1681219eb8e406c44a76dc4",
+      "platform": "linux/amd64",
+      "registry_push": false,
+      "production_deployment": false
+    },
+    "lanes": [
+      {
+        "chart": "litellm",
+        "started_at": "2026-10-09T18:16:49Z",
+        "completed_at": "2026-10-09T18:25:37Z",
+        "exit_code": 0,
+        "passed": true,
+        "qualification": "candidate source compatibility",
+        "signed_release_qualification": false,
+        "recorded_checks": 136,
+        "paid_provider_qualified": false
+      },
+      {
+        "chart": "litellm-helm",
+        "started_at": "2026-10-09T18:14:40Z",
+        "completed_at": "2026-10-09T18:28:02Z",
+        "exit_code": 0,
+        "passed": true,
+        "qualification": "candidate source compatibility",
+        "signed_release_qualification": false,
+        "recorded_checks": 143,
+        "paid_provider_qualified": false
+      }
+    ],
+    "scope": "Both actual Kubernetes chart families, fresh bundled PostgreSQL in monolith, independent upgrades, rollback, restarts, tenant and revoked-key denials, outage, external and disabled Lens. Executed images retain the original source SHAs; not relabeled as latest source or official artifacts."
+  },
+  "review_fixes": {
+    "publisher": {
+      "commit": "b289b5bb5f6f6bb358a4b4bb15961dd6efcaed82",
+      "tests": 2596,
+      "statement_coverage_percent": 100,
+      "branch_coverage_percent": 100,
+      "ruff": "passed",
+      "mypy": "passed",
+      "actionlint": "passed",
+      "zizmor": "passed with existing suppressions",
+      "fixes": [
+        "Removed unnecessary cross-repository read tokens for public Lens",
+        "Scoped write token mint to downstream github-app environment and immutable artifact ID transfer",
+        "Required candidate ancestry in Lens main and exact native/assets checkouts",
+        "Scanned and attested both native platforms",
+        "Verified yq binary checksum and isolated Python module resolution",
+        "Bounded release downloads and actionable missing-file errors"
+      ],
+      "ci": "All six code/security/native smoke jobs passed at b289. Bugbot has no new findings but one remaining draft lookup issue; follow-up fix under test"
+    },
+    "litellm": {
+      "commit": "310295b24da5dd7dabe2e694eb29dafb1c406297",
+      "fixes": [
+        "Split inference reaches gateway; management and billing reads reach backend through all lifecycle phases",
+        "UI source guide matches Lens584 and 389 packaged files"
+      ],
+      "regression_tests": 2,
+      "original_route_mutation": "rejected",
+      "paid_live_proof": "split_paid",
+      "bugbot": "current commit passed; other reviews and required CI remain open"
+    }
+  },
+  "rust_ci": {
+    "run": "https://github.com/BerriAI/lens/actions/runs/37971211333",
+    "source": "5846697965ba06a0370f83220b12d217884df9da",
+    "worker_ui": "passed",
+    "native_amd64": "passed",
+    "native_arm64": "passed",
+    "rust": "failed during ClickHouse fixture startup, 138 of 139 investigations tests passed",
+    "failure": "WaitContainer(StartupTimeout) before behavior assertions",
+    "follow_up": {
+      "status": "local_storage_suite_passed_remote_ci_pending",
+      "command": "cargo test --locked -p litellm-storage-clickhouse -- --test-threads=2",
+      "passed": 394,
+      "failed": 0,
+      "ignored": 0,
+      "shared_database_cleanup": "no lens_rust databases remain",
+      "behavior": "Unchanged production code and test assertions; each test gets a unique database and KeeperMap prefix, while restart tests still use owned containers",
+      "workflow_sha256": "064291217a732f807d49a9bd8072de15a2fd9031f2f2c6f7b5fb266e6a993b4c",
+      "log_sha256": "cf329554e5965a719a253b58facbae167c884b2561935e58a4762f1fd297c4e7"
+    }
+  },
+  "source_publication": {
+    "lens": "PUBLIC",
+    "examples_pr": "https://github.com/BerriAI/litellm-lens-example/pull/3",
+    "examples_source": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+    "original_public_source_links": "resolved",
+    "docs_import_tests": 7
+  },
+  "ui": {
+    "source": "5846697965ba06a0370f83220b12d217884df9da",
+    "package_receipt": "https://github.com/BerriAI/litellm/blob/310295b24da5dd7dabe2e694eb29dafb1c406297/docs/evidence/lens-latest-ui.json",
+    "files": 389,
+    "shared_tests": 178,
+    "host_tests": 3,
+    "embedded": "Horizontal tabs below Lens and agent heading",
+    "standalone": "Sidebar retained",
+    "screenshot": "ui/latest-embedded-research-annotated.png",
+    "screenshot_scope": "Actual embedded gateway with research_agent demo data and visible local configuration warning banners; baseline screenshot is an isolated component preview, not a full old gateway"
+  }
+}
