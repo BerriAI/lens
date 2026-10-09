@@ -72,7 +72,7 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
               onChange={(event) => setSettings({ ...settings, context: event.target.value })}
             />
           </div>
-          <div className="max-w-48">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="analysis-frequency" className="text-sm font-medium">
                 Frequency (minutes)
@@ -90,6 +90,24 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
                 }
               />
             </div>
+            <div className="space-y-2">
+              <label htmlFor="analysis-budget" className="text-sm font-medium">
+                Monthly findings budget (USD)
+              </label>
+              <Input
+                id="analysis-budget"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={settings.monthly_budget}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    monthly_budget: Number(event.target.value),
+                  })
+                }
+              />
+            </div>
           </div>
           <details className="border-t pt-4">
             <summary className="cursor-pointer text-xs text-muted-foreground">Advanced</summary>
@@ -100,24 +118,6 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
                   id="analysis-enabled"
                   checked={settings.enabled}
                   onCheckedChange={(enabled) => setSettings({ ...settings, enabled })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="analysis-budget" className="text-sm font-medium">
-                  Monthly budget (USD)
-                </label>
-                <Input
-                  id="analysis-budget"
-                  type="number"
-                  min={0.01}
-                  step={0.01}
-                  value={settings.monthly_budget}
-                  onChange={(event) =>
-                    setSettings({
-                      ...settings,
-                      monthly_budget: Number(event.target.value),
-                    })
-                  }
                 />
               </div>
               {settings.checks?.map((check, index) => (
