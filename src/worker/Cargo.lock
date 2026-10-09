@@ -2124,6 +2124,7 @@ name = "lens-evals"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "futures-util",
  "lens-contract",
  "lens-evals-sdk",
  "rstest",
@@ -2131,6 +2132,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.19",
  "tokio",
+ "url",
 ]
 
 [[package]]

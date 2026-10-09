@@ -1,5 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
+use futures_util::{StreamExt, stream};
 use lens_contract::eval::{Gate, Scorer, Summary, scorer_names};
 
 use crate::{
@@ -10,9 +11,12 @@ use crate::{
     verdict::{Trial, majority, score_trial},
 };
 
+const JUDGE_CONCURRENCY: usize = 8;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CaseInput {
     pub case_id: String,
+    pub title: String,
     pub critical: bool,
     pub trials: Vec<Trial>,
 }
@@ -41,50 +45,49 @@ struct CaseScore {
     cost: f64,
 }
 
-async fn score_case<J: Judge>(run: &RunInput, case: &CaseInput, judge: &J) -> Result<CaseScore> {
-    let mut passing = 0;
-    let mut errors = 0;
-    let mut scorer_passes = vec![0; run.scorers.len()];
-    for index in 0..run.trials {
-        let Some(passes) =
-            score_trial(&run.scorers, &case.case_id, case.trials.get(index), judge).await?
-        else {
-            errors += 1;
-            continue;
-        };
-        passing += usize::from(passes.iter().all(|passed| *passed));
-        scorer_passes
-            .iter_mut()
-            .zip(&passes)
-            .for_each(|(count, passed)| *count += usize::from(*passed));
-    }
-    Ok(CaseScore {
-        passed: majority(passing, run.trials),
-        errors,
-        scorer_passes,
+fn score_case(run: &RunInput, case: &CaseInput, trials: &[Option<Vec<bool>>]) -> CaseScore {
+    let scored: Vec<&Vec<bool>> = trials.iter().flatten().collect();
+    CaseScore {
+        passed: majority(
+            scored
+                .iter()
+                .filter(|passes| passes.iter().all(|passed| *passed))
+                .count(),
+            run.trials,
+        ),
+        errors: trials.len() - scored.len(),
+        scorer_passes: (0..run.scorers.len())
+            .map(|index| scored.iter().filter(|passes| passes[index]).count())
+            .collect(),
         cost: case.trials.iter().map(Trial::cost).sum(),
-    })
+    }
 }
 
 fn validate(run: &RunInput) -> Result<()> {
-    if run.cases.is_empty() || run.trials == 0 {
+    if run.scorers.is_empty() || run.cases.is_empty() || run.trials == 0 {
         return Err(Error::EmptyRun);
     }
-    let mut seen = BTreeSet::new();
-    if let Some(case) = run
-        .cases
-        .iter()
-        .find(|case| !seen.insert(case.case_id.as_str()))
-    {
+    let mut ids: Vec<&str> = run.cases.iter().map(|case| case.case_id.as_str()).collect();
+    ids.sort_unstable();
+    if let Some(pair) = ids.windows(2).find(|pair| pair[0] == pair[1]) {
         return Err(Error::DuplicateCase {
-            case_id: case.case_id.clone(),
+            case_id: pair[0].to_owned(),
         });
     }
-    match run.cases.iter().find(|case| case.trials.len() > run.trials) {
-        Some(case) => Err(Error::ExtraTrials {
+    if let Some(case) = run.cases.iter().find(|case| case.trials.len() > run.trials) {
+        return Err(Error::ExtraTrials {
             case_id: case.case_id.clone(),
             received: case.trials.len(),
             expected: run.trials,
+        });
+    }
+    match run
+        .cases
+        .iter()
+        .find(|case| !case.trials.iter().all(Trial::has_valid_cost))
+    {
+        Some(case) => Err(Error::InvalidCost {
+            case_id: case.case_id.clone(),
         }),
         None => Ok(()),
     }
@@ -92,10 +95,29 @@ fn validate(run: &RunInput) -> Result<()> {
 
 pub async fn evaluate<J: Judge>(run: &RunInput, judge: &J) -> Result<Evaluation> {
     validate(run)?;
-    let mut scored = Vec::with_capacity(run.cases.len());
-    for case in &run.cases {
-        scored.push(score_case(run, case, judge).await?);
-    }
+    let slots = run
+        .cases
+        .iter()
+        .flat_map(|case| (0..run.trials).map(move |index| (case, index)));
+    let trials: Vec<Option<Vec<bool>>> = stream::iter(slots)
+        .map(|(case, index)| {
+            score_trial(
+                &run.scorers,
+                &case.case_id,
+                index,
+                case.trials.get(index),
+                judge,
+            )
+        })
+        .buffered(JUDGE_CONCURRENCY)
+        .collect()
+        .await;
+    let scored: Vec<CaseScore> = run
+        .cases
+        .iter()
+        .zip(trials.chunks(run.trials))
+        .map(|(case, trials)| score_case(run, case, trials))
+        .collect();
     let total = run.cases.len();
     let passed = scored.iter().filter(|case| case.passed).count();
     let pass_rate = passed as f64 / total as f64;
@@ -114,6 +136,7 @@ pub async fn evaluate<J: Judge>(run: &RunInput, judge: &J) -> Result<Evaluation>
         .zip(&scored)
         .map(|(case, score)| CaseVerdict {
             case_id: &case.case_id,
+            title: &case.title,
             critical: case.critical,
             passed: score.passed,
         })
