@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
@@ -520,7 +520,7 @@ it("keeps trace quick filters in links and clears them when leaving demo data", 
 });
 
 describe("Lens agent selector", () => {
-  it("scopes traces to one agent, switches from the header, and reopens the pick after a refresh", async () => {
+  it("should keep picker keyboard focus, switch agents from the sidebar, and reopen the pick after a refresh", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     const first = renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
@@ -533,7 +533,12 @@ describe("Lens agent selector", () => {
     expect(screen.queryByRole("combobox", { name: "Filter traces by agent" })).not.toBeInTheDocument();
 
     await user.click(picker);
-    await user.type(screen.getByRole("textbox", { name: "Find agent" }), "release");
+    const search = screen.getByRole("textbox", { name: "Find agent" });
+    await user.click(search);
+    expect(search).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(search).toHaveFocus();
+    await user.type(search, "release");
     const options = screen.getByRole("list", { name: "Agents" });
     expect(
       within(options)
@@ -560,5 +565,103 @@ describe("Lens agent selector", () => {
       searchParams: "?demo=true&agent=research_agent",
     });
     expect(await screen.findByRole("button", { name: "Agent: research_agent" })).toBeVisible();
+  });
+
+  it("should open an agent from the directory and select its Traces navigation item", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+      searchParams: "?demo=true&tab=agents",
+      onUrlUpdate,
+    });
+    const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
+    expect(sidebar.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
+    const directory = await screen.findByRole("region", { name: "Agents directory" });
+    await user.click(await within(directory).findByRole("button", { name: "Open research_agent" }));
+
+    expect(sidebar.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+    expect(sidebar.getByRole("button", { name: "Agent: research_agent" })).toBeVisible();
+    expect(await screen.findByRole("table", { name: "Agent runs" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Agents directory" })).not.toBeInTheDocument();
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("research_agent"));
+    expect(lastUrl(onUrlUpdate).get("tab")).toBe("traces");
+    expect(lastUrl(onUrlUpdate).get("demo")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "Agents", exact: true }));
+    expect(await screen.findByRole("region", { name: "Agents directory" })).toBeVisible();
+    expect(sidebar.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
+    expect(network).not.toHaveBeenCalled();
+  });
+
+  it("should keep navigation usable when collapsed and restore the selected agent when expanded", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+      searchParams: "?demo=true&agent=research_agent",
+    });
+    const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
+    expect(await sidebar.findByRole("button", { name: "Agent: research_agent" })).toBeVisible();
+    await user.click(sidebar.getByRole("button", { name: "Collapse navigation" }));
+
+    expect(sidebar.getByRole("button", { name: "Expand navigation" })).toBeVisible();
+    expect(sidebar.queryByRole("button", { name: "Agent: research_agent" })).not.toBeInTheDocument();
+    expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
+    await user.click(sidebar.getByRole("tab", { name: "Investigations" }));
+    expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
+    expect(sidebar.getByRole("tab", { name: "Investigations" })).toHaveAttribute("aria-selected", "true");
+    await user.click(sidebar.getByRole("tab", { name: "Agents" }));
+    expect(await screen.findByRole("region", { name: "Agents directory" })).toBeVisible();
+
+    await user.click(sidebar.getByRole("button", { name: "Expand navigation" }));
+    expect(sidebar.getByRole("button", { name: "Collapse navigation" })).toBeVisible();
+    expect(sidebar.getByRole("button", { name: "Agent: research_agent" })).toBeVisible();
+    expect(sidebar.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("should move focus down the vertical sidebar and activate a view only after Enter", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+      searchParams: "?demo=true&agent=support_agent",
+    });
+    const tabs = screen.getByRole("tablist", { name: "Lens" });
+    expect(tabs).toHaveAttribute("aria-orientation", "vertical");
+    const traces = within(tabs).getByRole("tab", { name: "Traces" });
+    const findings = within(tabs).getByRole("tab", { name: "Findings" });
+    await user.click(traces);
+    await user.keyboard("{ArrowDown}");
+
+    expect(findings).toHaveFocus();
+    expect(traces).toHaveAttribute("aria-selected", "true");
+    expect(findings).toHaveAttribute("aria-selected", "false");
+    await user.keyboard("{Enter}");
+    expect(findings).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  });
+
+  it("should close an open trace when the sidebar switches to another agent", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+      searchParams: "?demo=true&agent=support_agent",
+      onUrlUpdate,
+    });
+    await user.click(await screen.findByText("Where is order #1042?"));
+    const drawer = await screen.findByRole("complementary", { name: "Trace details" });
+    expect(drawer).toBeVisible();
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("trace")).toBeTruthy());
+    const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
+    await user.click(sidebar.getByRole("button", { name: "Agent: support_agent" }));
+    const picker = screen.getByRole("list", { name: "Agents" });
+    await user.click(within(picker).getByRole("button", { name: /release_agent/ }));
+
+    await waitFor(() => expect(drawer).toHaveAttribute("data-state", "closing"));
+    act(() => fireEvent.animationEnd(drawer));
+    expect(screen.queryByRole("complementary", { name: "Trace details" })).not.toBeInTheDocument();
+    expect(sidebar.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
+    expect(sidebar.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+    const runs = screen.getByRole("table", { name: "Agent runs" });
+    expect(within(runs).queryByText("Where is order #1042?")).not.toBeInTheDocument();
+    await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("release_agent"));
+    expect(lastUrl(onUrlUpdate).has("trace")).toBe(false);
+    expect(lastUrl(onUrlUpdate).get("tab")).toBe("traces");
   });
 });
