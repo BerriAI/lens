@@ -36,29 +36,16 @@ const settings: Settings = {
 
 afterEach(() => testQueryClient.clear());
 
-const analysisWorker = {
-  id: "worker",
-  name: "Worker",
-  revoked: false,
-  analysis_key_id: "a".repeat(64),
-  scope: { all_teams: true, api_key_hash: "", team_id: "" },
-  last_seen: "2026-10-01T12:00:00Z",
-};
-
 interface Gateway {
   readonly models?: readonly string[];
   readonly modelDetails?: readonly AnalysisModelInfo[];
-  /** Models the lone worker's analysis key may use; one model becomes the setup's default. */
-  readonly keyModels?: readonly string[];
   readonly agents?: readonly string[];
 }
 
 function gatewayResponse(path: string, gateway: Gateway): unknown {
-  const { models = ["analysis"], modelDetails = [], keyModels = [], agents = [] } = gateway;
+  const { models = ["analysis"], modelDetails = [], agents = [] } = gateway;
   if (path === "/lens/models") return { data: models.map((id) => ({ id })) };
   if (path === "/lens/model_group/info") return { data: modelDetails };
-  if (path === "/lens") return { lenses: [], workers: keyModels.length ? [analysisWorker] : [], tracing_enabled: true };
-  if (path === "/key/info") return { info: { models: keyModels, max_budget: null } };
   if (path === "/lens/agents") return agents;
   return [];
 }
@@ -149,7 +136,7 @@ describe("Investigation setup", () => {
           }
         : { eligible: 0, executions: [] };
     });
-    mockGateway({ keyModels: ["analysis"] });
+    mockGateway({ models: ["analysis"] });
     renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={save} />);
     fireEvent.change(screen.getByRole("textbox", { name: "Investigation name" }), {
       target: { value: "Research follow-up" },
@@ -195,7 +182,7 @@ describe("Investigation setup", () => {
 
 it("walks the three steps in order, reopens a finished step from its summary, and keeps the preview beside them", async () => {
   const user = userEvent.setup();
-  mockGateway({ keyModels: ["analysis"] });
+  mockGateway({ models: ["analysis"] });
   renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />);
   const steps = within(screen.getByRole("list", { name: "Investigation setup" }));
   expect(steps.getByRole("button", { name: /^Activity/ })).toHaveAttribute("aria-current", "step");
@@ -370,10 +357,16 @@ it("keeps a duplicated investigation's schedule off and saves the interval once 
   );
 });
 
-it("watches new investigations every 15 minutes by default, outside advanced options", async () => {
+it("uses the sole Lens analysis model while signals models remain separate", async () => {
   const user = userEvent.setup();
   const save = vi.fn().mockResolvedValue(undefined);
-  mockGateway({ keyModels: ["analysis"] });
+  mockGateway({
+    models: ["analysis", "signals"],
+    modelDetails: [
+      { model_group: "analysis", mode: "chat", providers: ["openai"] },
+      { model_group: "signals", mode: "evaluation", providers: ["typesafe"] },
+    ],
+  });
   renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={save} />);
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -382,7 +375,33 @@ it("watches new investigations every 15 minutes by default, outside advanced opt
   expect(watching).toBeVisible();
   await waitFor(() => expect(screen.getByRole("button", { name: "Run and monitor" })).toBeEnabled());
   await user.click(screen.getByRole("button", { name: "Run and monitor" }));
-  expect(save).toHaveBeenCalledWith(expect.objectContaining({ enabled: true, interval_minutes: 15 }));
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: "analysis",
+      enabled: true,
+      interval_minutes: 15,
+    }),
+  );
+  expect(proxy.get.mock.calls.every(([path]) => !path.startsWith("/key/"))).toBe(true);
+});
+
+it("requires a model choice when Lens has multiple analysis models", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn().mockResolvedValue(undefined);
+  mockGateway({ models: ["analysis", "review"] });
+  renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByText("1 matching run")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Run and monitor" })).toBeDisabled();
+  await user.click(screen.getByRole("combobox", { name: "Analysis model" }));
+  await user.click(
+    await screen.findByRole("option", {
+      name: /review.*JSON output support unverified/,
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Run and monitor" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ model: "review" }));
 });
 
 it("appends the next preview page as the list scrolls near its end, then stops at the last page", async () => {
@@ -556,7 +575,7 @@ describe("Watch for", () => {
   it("saves exactly the presets the user toggled, by click and by number key", async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    mockGateway({ keyModels: ["analysis"] });
+    mockGateway({ models: ["analysis"] });
     renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={save} />);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(tile("unhappy"));
@@ -596,7 +615,7 @@ describe("Watch for", () => {
 
   it("lets a run start from presets alone and blocks it once nothing is selected", async () => {
     const user = userEvent.setup();
-    mockGateway({ keyModels: ["analysis"] });
+    mockGateway({ models: ["analysis"] });
     renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -608,4 +627,23 @@ describe("Watch for", () => {
       "Describe the expected behavior or pick something to watch for",
     );
   });
+});
+
+it("waits for model capabilities before allowing a new investigation", async () => {
+  const user = userEvent.setup();
+  const metadata = Promise.withResolvers<{ data: AnalysisModelInfo[] }>();
+  proxy.get.mockImplementation((path) =>
+    path === "/lens/model_group/info" ? metadata.promise : gatewayResponse(path, {}),
+  );
+  renderWithProviders(<InvestigationSetup mode="new" onClose={vi.fn()} onSave={vi.fn()} />);
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByText("1 matching run")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Run and monitor" })).toBeDisabled();
+  await act(async () =>
+    metadata.resolve({ data: [{ model_group: "analysis", mode: "evaluation", providers: ["typesafe"] }] }),
+  );
+  expect(screen.getByRole("button", { name: "Run and monitor" })).toBeDisabled();
+  await user.click(screen.getByRole("combobox", { name: "Analysis model" }));
+  expect(screen.queryByRole("option", { name: /analysis/ })).not.toBeInTheDocument();
 });

@@ -24,9 +24,21 @@ const updated: SignalConfig = {
 const network = vi.fn<typeof fetch>();
 
 describe("signal settings", () => {
-  it("explains automatic provider use before enabling standalone signals", async () => {
-    renderWithLens(<LensHostProvider host={{ analysis: "deployment" }}><SignalForm saved={saved} /></LensHostProvider>);
-    expect(await screen.findByText("Lens sends trace content to this model automatically. Your provider may charge for these requests.")).toBeInTheDocument();
+  it.each(["standalone", "embedded"] as const)("uses Lens evaluation setup on the %s host", async (surface) => {
+    renderWithLens(
+      <LensHostProvider host={{ surface }}>
+        <SignalForm saved={{ ...saved, model: "" }} />
+      </LensHostProvider>,
+    );
+    expect(await screen.findByRole("link", { name: "Configure signals" })).toHaveAttribute(
+      "href",
+      "https://github.com/BerriAI/lens/blob/main/docs/signals.md",
+    );
+    expect(
+      await screen.findByText(
+        "Lens sends trace content to this model automatically. Your provider may charge for these requests.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save signals" })).toBeInTheDocument();
   });
   beforeEach(() => {

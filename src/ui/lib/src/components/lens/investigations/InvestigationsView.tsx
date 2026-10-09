@@ -107,7 +107,7 @@ export function InvestigationsView({ readOnly = false }: InvestigationsViewProps
   };
   const bannerError = screen.kind === "failed" ? undefined : actions.error ?? list.error;
   const browsing = screen.kind === "list";
-  const showReadiness = browsing && !readOnly && !status.ready;
+  const showReadiness = browsing && !readOnly && !status.loading && !status.ready;
 
   const content = (current: Screen): ReactNode => {
     switch (current.kind) {

@@ -42,8 +42,6 @@ function demoLensApi(data: LensDemoData): LensApi {
     agents: notInDemo,
     models: async () => ({ data: [] }),
     modelDetails: async () => ({ data: [] }),
-    keys: notInDemo,
-    keyInfo: notInDemo,
     saveLens: readOnly,
     startRun: readOnly,
     watchAll: async () => ({ watching: [], skipped: [] }),
@@ -51,11 +49,6 @@ function demoLensApi(data: LensDemoData): LensApi {
     saveSignalConfig: readOnly,
     cancelRun: readOnly,
     reviewFinding: readOnly,
-    registerWorker: readOnly,
-    setWorkerBillingKey: readOnly,
-    revokeWorker: readOnly,
-    generateAnalysisKey: readOnly,
-    deleteKeys: readOnly,
   };
 }
 

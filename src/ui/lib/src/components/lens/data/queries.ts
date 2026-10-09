@@ -1,9 +1,7 @@
 import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { hasActiveJob } from "../model/status";
 import type { Sample, Settings, ActivitySelection, Job } from "../model/types";
-import type { KeyPage, LensApi } from "./service";
-
-export type { Key } from "./service";
+import type { LensApi } from "./service";
 
 type Activity = Awaited<ReturnType<LensApi["activity"]>>;
 const LIVE_REVIEW_POLL_MS = 1500;
@@ -32,9 +30,6 @@ export const lensKeys = {
   preview: (scope: string, selection: ActivitySelection, asOf: string) =>
     [...lensKeys.all, "preview", { scope, selection, asOf }] as const,
   agents: (scope: string) => [...lensKeys.all, "agents", { scope }] as const,
-  analysisKeys: (scope: string, query: string) => [...lensKeys.all, "analysis-keys", { scope, query }] as const,
-  analysisKeyInfo: (scope: string, keyId: string | undefined) =>
-    [...lensKeys.all, "analysis-key-info", { scope, keyId }] as const,
 };
 
 export const lensQueries = {
@@ -90,7 +85,13 @@ export const lensQueries = {
       attempt,
       after,
       live,
-    }: { lensId: string; jobId: string; attempt: number; after: number; live: boolean },
+    }: {
+      lensId: string;
+      jobId: string;
+      attempt: number;
+      after: number;
+      live: boolean;
+    },
   ) {
     const cursor = { lensId, jobId, attempt, after };
     const options = {
@@ -154,23 +155,3 @@ export const lensQueries = {
     return queryOptions(options);
   },
 };
-
-export function analysisKeysQuery(api: LensApi, query: string) {
-  const options = {
-    queryKey: lensKeys.analysisKeys(api.scope, query),
-    initialPageParam: 1,
-    queryFn: ({ pageParam, signal }: { pageParam: number; signal: AbortSignal }) => api.keys(query, pageParam, signal),
-    getNextPageParam: (lastPage: KeyPage, pages: KeyPage[]) =>
-      pages.length < lastPage.total_pages ? pages.length + 1 : undefined,
-  };
-  return infiniteQueryOptions(options);
-}
-
-export function analysisKeyInfoQuery(api: LensApi, keyId?: string) {
-  const options = {
-    queryKey: lensKeys.analysisKeyInfo(api.scope, keyId),
-    enabled: !!keyId,
-    queryFn: () => api.keyInfo(keyId as string),
-  };
-  return queryOptions(options);
-}

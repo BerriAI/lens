@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { ApiClient } from "../../../lib/http/client";
 import { authHeaders } from "../../../lib/http/authHeaders";
 import type { Client } from "openapi-fetch";
@@ -15,35 +14,12 @@ import type {
   Sample,
   Settings,
   SignalConfig,
-  WorkerCreated,
 } from "../model/types";
 
 export type ExecutionContent = components["schemas"]["ExecutionContent"];
 export type FindingStatus = components["schemas"]["FindingUpdate"]["status"];
 
-const keySchema = z.object({ token: z.string(), key_alias: z.string().nullable().optional() });
-const keyPageSchema = z.object({ keys: z.array(keySchema), total_pages: z.number() });
-const keyInfoFields = {
-  key_alias: z.string().nullable().optional(),
-  models: z.array(z.string()),
-  max_budget: z.number().nullable(),
-  budget_duration: z.string().nullable().optional(),
-  rpm_limit: z.number().nullable().optional(),
-  tpm_limit: z.number().nullable().optional(),
-  expires: z.string().nullable().optional(),
-  status: z.string().optional(),
-};
-const keyInfoSchema = z.object({ info: z.object(keyInfoFields) });
-export type Key = z.infer<typeof keySchema>;
-export type KeyPage = z.infer<typeof keyPageSchema>;
-export type KeyInfo = z.infer<typeof keyInfoSchema>["info"];
-
 export type ReviewPage = components["schemas"]["ReviewPage"];
-
-export interface AnalysisKeyRequest {
-  readonly model: string;
-  readonly budget: number;
-}
 
 export interface LensApi {
   /** Partitions query caches between backends (one token, or the demo). */
@@ -60,8 +36,6 @@ export interface LensApi {
   agents(): Promise<string[]>;
   models(): Promise<{ data: { id: string }[] }>;
   modelDetails(): Promise<{ data: AnalysisModelInfo[] }>;
-  keys(alias: string, page: number, signal: AbortSignal): Promise<KeyPage>;
-  keyInfo(keyId: string): Promise<KeyInfo>;
   saveLens(id: string | undefined, settings: Settings): Promise<Lens>;
   startRun(lensId: string, request?: RunWindow): Promise<void>;
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
@@ -69,11 +43,6 @@ export interface LensApi {
   saveSignalConfig(config: SignalConfig): Promise<SignalConfig>;
   cancelRun(lensId: string): Promise<void>;
   reviewFinding(lensId: string, findingId: string, status: FindingStatus, reason: string): Promise<void>;
-  registerWorker(analysisKeyId: string): Promise<WorkerCreated>;
-  setWorkerBillingKey(workerId: string, analysisKeyId: string): Promise<void>;
-  revokeWorker(workerId: string): Promise<void>;
-  generateAnalysisKey(request: AnalysisKeyRequest): Promise<{ token_id?: string }>;
-  deleteKeys(keys: readonly string[]): Promise<void>;
 }
 
 type LensClient = Client<paths>;
@@ -90,8 +59,10 @@ async function sent(request: Promise<unknown>): Promise<void> {
 
 export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToken: string): LensApi {
   const headers = authHeaders(accessToken);
-  const lens = (lens_id: string) => ({ headers, params: { path: { lens_id } } });
-  const worker = (worker_id: string) => ({ headers, params: { path: { worker_id } } });
+  const lens = (lens_id: string) => ({
+    headers,
+    params: { path: { lens_id } },
+  });
   return {
     scope: accessToken,
     datasets: liveDatasetsApi(client, apiClient, accessToken),
@@ -147,25 +118,6 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     agents: () => required(client.GET("/lens/agents", { headers })),
     models: () => apiClient.get("/lens/models", { accessToken }),
     modelDetails: () => apiClient.get("/lens/model_group/info", { accessToken }),
-    keys: async (alias, page, signal) =>
-      keyPageSchema.parse(
-        await apiClient.get("/key/list", {
-          accessToken,
-          signal,
-          query: {
-            page: String(page),
-            size: "25",
-            return_full_object: "true",
-            key_alias: alias || undefined,
-            substring_matching: "true",
-            include_team_keys: "true",
-            include_created_by_keys: "true",
-            status: "active",
-          },
-        }),
-      ),
-    keyInfo: async (keyId) =>
-      keyInfoSchema.parse(await apiClient.get("/key/info", { accessToken, query: { key: keyId } })).info,
     saveLens: (id, settings) =>
       required(
         id
@@ -185,32 +137,5 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
           body: { status, reason },
         }),
       ),
-    registerWorker: (analysisKeyId) =>
-      required(
-        client.POST("/lens/workers/register", {
-          headers,
-          body: { name: "Lens worker", analysis_key_id: analysisKeyId, managed: true },
-        }),
-      ),
-    setWorkerBillingKey: (workerId, analysisKeyId) =>
-      sent(
-        client.PUT("/lens/workers/{worker_id}/billing-key", {
-          ...worker(workerId),
-          body: { analysis_key_id: analysisKeyId },
-        }),
-      ),
-    revokeWorker: (workerId) => sent(client.DELETE("/lens/workers/{worker_id}", worker(workerId))),
-    generateAnalysisKey: (request) =>
-      apiClient.post<{ token_id?: string }>("/key/generate", {
-        accessToken,
-        body: {
-          key_alias: "Lens analysis",
-          models: [request.model],
-          max_budget: request.budget,
-          budget_duration: "1mo",
-          metadata: { purpose: "lens" },
-        },
-      }),
-    deleteKeys: (keys) => apiClient.post("/key/delete", { accessToken, body: { keys } }),
   };
 }

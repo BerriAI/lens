@@ -11,7 +11,7 @@ import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
 
 function DocsLink() {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   return (
     <a
       href={standalone ? STANDALONE_DOCS_URL : DOCS_URL}
@@ -47,7 +47,7 @@ export function InvestigationsLoadFailed({
   queryError: unknown;
   refresh: () => void;
 }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const unavailable =
     queryError instanceof ApiError && queryError.status === 404;
   return (
@@ -105,7 +105,7 @@ export function InvestigationMissing({
 }: {
   selectLens: (id: string | null) => void;
 }) {
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   return (
     <StateMessage
       role="alert"

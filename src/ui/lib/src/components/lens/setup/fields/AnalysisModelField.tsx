@@ -28,7 +28,7 @@ export function AnalysisModelField({ models, gate }: AnalysisModelFieldProps) {
             onValueChange={(value) => field.onChange(value ?? "")}
             placeholder={models.modelsLoading ? "Loading models…" : "Choose a model"}
             disabled={models.modelsLoading}
-            emptyText="No matching models configured on this gateway"
+            emptyText="No matching analysis models configured for Lens"
           />
         )}
       />

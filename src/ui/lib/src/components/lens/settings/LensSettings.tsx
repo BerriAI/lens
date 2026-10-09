@@ -4,7 +4,6 @@ import { type ReactNode } from "react";
 import { Activity, ArrowUpRight } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StatusDot } from "../../shared/StatusDot";
-import { WorkerSettings } from "./worker/WorkerSettings";
 import { SignalSettings } from "./signals/SignalSettings";
 import { SettingsCard, SettingsSection } from "./SettingsSection";
 import type { LensList } from "../model/types";
@@ -62,11 +61,9 @@ export function LensSettings({
   onOpenTraces,
 }: {
   list: LensList;
-  /** Replaces the worker install card's Done button once the new worker connects. */
   workerReadyAction?: ReactNode;
   onOpenTraces: () => void;
 }) {
-  const host = useLensHost();
   return (
     <div
       aria-label="Settings"
@@ -78,27 +75,15 @@ export function LensSettings({
         onOpenTraces={onOpenTraces}
       />
       <SignalSettings />
-      {host.analysis === "deployment" ? (
-        <SettingsSection
-          heading="Analysis"
-          description="Lens runs investigations using your configured models."
-        >
-          <DeploymentAnalysis
-            workers={list.workers}
-            readyAction={workerReadyAction}
-          />
-        </SettingsSection>
-      ) : (
-        <SettingsSection
-          heading="Analysis worker"
-          description="Runs investigations on your server and bills model usage to an analysis key."
-        >
-          <WorkerSettings
-            workers={list.workers}
-            readyAction={workerReadyAction}
-          />
-        </SettingsSection>
-      )}
+      <SettingsSection
+        heading="Analysis"
+        description="Lens runs investigations using your configured models."
+      >
+        <DeploymentAnalysis
+          workers={list.workers}
+          readyAction={workerReadyAction}
+        />
+      </SettingsSection>
     </div>
   );
 }

@@ -140,7 +140,7 @@ function SidebarNavigation({
   readonly onSelectAgent: (agent: string) => void;
 }) {
   const connected = useWorkerConnected(workers);
-  const standalone = useLensHost().analysis === "deployment";
+  const standalone = useLensHost().surface === "standalone";
   const item = (value: LensTab, label: string, Icon: LucideIcon, status?: string) => (
     <TabsTrigger
       value={value}
@@ -191,19 +191,7 @@ function SidebarNavigation({
         {NAVIGATION_ITEMS.map(({ value, label, icon: Icon }) => (
           <div key={value}>{item(value, label, Icon)}</div>
         ))}
-        {workers &&
-          item(
-            "settings",
-            "Settings",
-            Settings,
-            standalone
-              ? connected
-                ? "Analysis configured"
-                : "Configure analysis"
-              : connected
-                ? "Worker connected"
-                : "Connect worker",
-          )}
+        {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
       </TabsList>
       <div className="mt-4 border-t border-sidebar-border pt-3">
         <ThemeToggle collapsed={collapsed} />

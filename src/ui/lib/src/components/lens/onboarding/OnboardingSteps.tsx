@@ -10,7 +10,6 @@ import type { LensReadiness } from "../hooks/useLensReadiness";
 import { initialSetupStep } from "../model/readiness";
 import { StepIndicator, type StepState } from "../ui/StepIndicator";
 import { useOnboarding } from "./OnboardingContext";
-import { useLensHost } from "../../../host/LensHost";
 
 type StepProps = {
   state: LensReadiness;
@@ -53,21 +52,14 @@ function StorageStep({ state, goTo, storageReady }: StepProps) {
   );
 }
 
-function continuationLabel(state: LensReadiness, standalone: boolean) {
-  if (state.connected) return "Continue to investigation";
-  if (standalone) return "Configure analysis";
-  return state.tracesReady ? "Continue to worker" : "Continue with request logs";
-}
-
 function ActivityContinuation({ state }: { state: LensReadiness }) {
-  const standalone = useLensHost().analysis === "deployment";
   const { connect, create } = useOnboarding();
   const locked = useLocked();
   if (!state.activityReady) return null;
   return (
     <div className="mt-4">
       <Button onClick={state.connected ? create : connect} disabled={locked}>
-        {continuationLabel(state, standalone)}
+        {state.connected ? "Continue to investigation" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
       {state.requestsReady && !state.tracesReady && (
@@ -108,30 +100,21 @@ function AgentStep({ state }: StepProps) {
   );
 }
 
-function WorkerStep({ state }: StepProps) {
+function AnalysisStep({ state }: StepProps) {
   const { connect, create } = useOnboarding();
-  const standalone = useLensHost().analysis === "deployment";
   const locked = useLocked();
   return (
     <div className="space-y-4">
       <p role="status" className="text-sm text-muted-foreground">
         {state.connected
-          ? standalone
-            ? "Analysis is configured. You’re ready to create an investigation."
-            : "Worker connected. You’re ready to create an investigation."
-          : standalone
-            ? "Add a provider key and model to your Lens deployment. Choose the model and spending limit when you create an investigation."
-            : "The worker reviews recorded activity using a model on your gateway. You choose its analysis model and spending limit."}
+          ? "Analysis is configured. You’re ready to create an investigation."
+          : "Add a provider key and model to your Lens deployment. Choose the model and spending limit when you create an investigation."}
       </p>
       {!state.activityReady && (
-        <p className="text-sm text-muted-foreground">
-          {standalone
-            ? "Send a trace before starting your first investigation."
-            : "Recorded activity is required before connecting a worker."}
-        </p>
+        <p className="text-sm text-muted-foreground">Send a trace before starting your first investigation.</p>
       )}
       <Button onClick={state.connected ? create : connect} disabled={!state.activityReady || locked}>
-        {state.connected ? "Continue to investigation" : standalone ? "Configure analysis" : "Connect worker"}
+        {state.connected ? "Continue to investigation" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
@@ -139,7 +122,6 @@ function WorkerStep({ state }: StepProps) {
 }
 
 function InvestigationStep({ state }: StepProps) {
-  const standalone = useLensHost().analysis === "deployment";
   const { create } = useOnboarding();
   const locked = useLocked();
   return (
@@ -150,9 +132,7 @@ function InvestigationStep({ state }: StepProps) {
       </p>
       {!state.ready && (
         <p className="text-sm text-muted-foreground">
-          {standalone
-            ? "Recorded activity and an analysis model are required before you can run an investigation."
-            : "Recorded activity and a connected worker are required before you can run an investigation."}
+          Recorded activity and an analysis model are required before you can run an investigation.
         </p>
       )}
       <Button onClick={create} disabled={!state.ready || locked}>
@@ -183,10 +163,10 @@ const STEPS: readonly StepDefinition[] = [
     Content: AgentStep,
   },
   {
-    title: "Connect a worker",
+    title: "Configure analysis",
     description: "Choose an analysis model and spending limit.",
     complete: (state) => state.connected,
-    Content: WorkerStep,
+    Content: AnalysisStep,
   },
   {
     title: "Run your first investigation",
@@ -211,7 +191,6 @@ export function OnboardingSteps({
   includeTracing: boolean;
 }) {
   const id = useId();
-  const standalone = useLensHost().analysis === "deployment";
   const listRef = useRef<HTMLOListElement>(null);
   const offset = includeTracing ? 0 : 2;
   const accessToken = useLensAccessToken();
@@ -251,7 +230,7 @@ export function OnboardingSteps({
                       !open && "text-muted-foreground group-hover:text-foreground",
                     )}
                   >
-                    {standalone && stepIndex === 2 ? "Configure analysis" : title}
+                    {title}
                   </span>
                   <span className="mt-1 block text-sm leading-6 font-normal text-muted-foreground">{description}</span>
                 </span>

@@ -2,9 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useId, useState } from "react";
-import { useLensHost } from "../../../../host/LensHost";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 
 import { SearchSelect } from "../../../shared/SearchSelect";
@@ -13,7 +11,6 @@ import { Button } from "../../../ui/button";
 import { Input } from "../../../ui/input";
 import { Skeleton } from "../../../ui/skeleton";
 import { Textarea } from "../../../ui/textarea";
-import { uiHref } from "../../../../utils/uiHref";
 
 import { useLensApi } from "../../data/LensServices";
 import { lensKeys, lensQueries } from "../../data/queries";
@@ -61,19 +58,14 @@ const FieldError = ({ children }: { children?: string }) =>
   children ? <p className="mt-1 text-xs text-destructive">{children}</p> : null;
 
 function SetupCallout({ hasModels }: { hasModels: boolean }) {
-  const standalone = useLensHost().analysis === "deployment";
   return (
     <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
       <Flag aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
       <div className="space-y-1">
         <p className="font-medium">Choose a System 1 model to start flagging traces</p>
         {hasModels ? (
-          <p className="text-xs text-muted-foreground">
-            {standalone
-              ? "Pick one of the evaluation models configured for Lens below."
-              : "Pick one of the evaluation models on this proxy below."}
-          </p>
-        ) : standalone ? (
+          <p className="text-xs text-muted-foreground">Pick one of the evaluation models configured for Lens below.</p>
+        ) : (
           <p className="text-xs text-muted-foreground">
             Add an evaluation provider to your Lens deployment, then refresh this page.{" "}
             <a
@@ -84,17 +76,6 @@ function SetupCallout({ hasModels }: { hasModels: boolean }) {
             >
               Configure signals
             </a>
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            This proxy has no System 1 models yet. Add one with mode evaluation, for example typesafe/jev-latest, on{" "}
-            <Link
-              href={uiHref("models-and-endpoints")}
-              className="font-medium text-foreground underline underline-offset-2"
-            >
-              Models + Endpoints
-            </Link>
-            .
           </p>
         )}
       </div>
@@ -145,7 +126,6 @@ function SignalFields({
 }
 
 export function SignalForm({ saved }: { saved: SignalConfig }) {
-  const standalone = useLensHost().analysis === "deployment";
   const api = useLensApi();
   const queryClient = useQueryClient();
   const modelId = useId();
@@ -243,14 +223,10 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               onValueChange={(value) => setDraft((current) => ({ ...current, model: value ?? "" }))}
               placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
               disabled={details.isPending}
-              emptyText={standalone ? "No evaluation models configured for Lens" : "No System 1 models on this proxy"}
+              emptyText="No evaluation models configured for Lens"
               allowClear
             />
-            <p className="text-xs text-muted-foreground">
-              {standalone
-                ? "Evaluation models configured for Lens, such as TypeSafe JEV"
-                : "Decisions API models onboarded with mode evaluation, such as TypeSafe JEV"}
-            </p>
+            <p className="text-xs text-muted-foreground">Evaluation models configured for Lens, such as TypeSafe JEV</p>
           </div>
           <div className="space-y-1.5">
             <label htmlFor={thresholdId} className="text-sm font-medium">
@@ -302,11 +278,9 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
           )}
           <FieldError>{problems.signals}</FieldError>
         </div>
-        {standalone && (
-          <p className="text-xs text-muted-foreground">
-            Lens sends trace content to this model automatically. Your provider may charge for these requests.
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Lens sends trace content to this model automatically. Your provider may charge for these requests.
+        </p>
         <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
           {save.error && (
             <p role="alert" className="text-sm text-destructive">

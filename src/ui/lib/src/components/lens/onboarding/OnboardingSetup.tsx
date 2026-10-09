@@ -6,7 +6,6 @@ import { cn } from "../../../lib/cva.config";
 import type { LensReadiness } from "../hooks/useLensReadiness";
 import { useOnboarding } from "./OnboardingContext";
 import { OnboardingSteps } from "./OnboardingSteps";
-import { useLensHost } from "../../../host/LensHost";
 import { useLensAccessToken } from "../data/LensServices";
 import { useLensService } from "./tracing/TracingSetupCard";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
@@ -19,7 +18,6 @@ export type OnboardingSetupProps = Omit<ComponentProps<"section">, "children"> &
 
 export function OnboardingSetup({ state, action, includeTracing = true, className, ...props }: OnboardingSetupProps) {
   const { readOnly, canInvestigate } = useOnboarding();
-  const standalone = useLensHost().analysis === "deployment";
   const titleId = useId();
   const connection = useLensService(useLensAccessToken());
   return (
@@ -52,9 +50,7 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
       )}
       {(readOnly || !canInvestigate) && (
         <p className="mt-4 text-sm text-muted-foreground">
-          {standalone
-            ? "An administrator can configure analysis and run investigations."
-            : "A gateway administrator can connect a worker and run investigations."}
+          An administrator can configure analysis and run investigations.
         </p>
       )}
     </section>

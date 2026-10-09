@@ -1,12 +1,15 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { uiHref } from "../../../utils/uiHref";
+import { useLensRoute } from "../route";
 import { cn } from "../../../lib/cva.config";
 
-export type ReadinessBannerProps = ComponentProps<"div"> & { activityReady: boolean };
+export type ReadinessBannerProps = ComponentProps<"div"> & {
+  activityReady: boolean;
+};
 
 export function ReadinessBanner({ activityReady, className, ...props }: ReadinessBannerProps) {
+  const { setTab } = useLensRoute();
   return (
     <div
       {...props}
@@ -15,12 +18,12 @@ export function ReadinessBanner({ activityReady, className, ...props }: Readines
       className={cn("flex flex-wrap items-center gap-2 border-y py-3 text-sm text-muted-foreground", className)}
     >
       {activityReady
-        ? "Connect a worker to run new investigations. Saved results are still available."
+        ? "Configure analysis in Settings to run new investigations. Saved results are still available."
         : "Recorded activity is not ready. Saved results are still available."}
       {!activityReady && (
-        <a className="font-medium underline" href={uiHref("lens/?tab=traces")}>
+        <button type="button" className="font-medium underline" onClick={() => setTab("traces")}>
           Check traces
-        </a>
+        </button>
       )}
     </div>
   );

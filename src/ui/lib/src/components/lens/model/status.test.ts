@@ -135,7 +135,9 @@ describe("Why a run is queued", () => {
   it("says no worker is connected when every heartbeat is stale or revoked", () => {
     const stale = { ...worker, last_seen: "2026-10-01T11:50:00Z" };
     expect(queueReason(queued, three, [stale, { ...worker, revoked: true }], now)).toEqual({ kind: "no_worker" });
-    expect(queueReasonText({ kind: "no_worker" })).toBe("No worker connected. Start one from Connect worker.");
+    expect(queueReasonText({ kind: "no_worker" })).toBe(
+      "Analysis is unavailable. Check Configure analysis in Settings.",
+    );
   });
 
   it("is picking up when nothing else is running, counting seconds waited", () => {

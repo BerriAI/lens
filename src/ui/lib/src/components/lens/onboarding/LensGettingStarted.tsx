@@ -92,10 +92,7 @@ function Prerequisites() {
       </ul>
       <div className="mt-5 flex gap-2 border-t pt-5 text-xs leading-5 text-muted-foreground">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Your infrastructure stores the traces. Investigation content is sent to your selected model provider
-          {host.analysis === "deployment" ? "." : " through the gateway."}
-        </p>
+        <p>Your infrastructure stores the traces. Investigation content is sent to your selected model provider.</p>
       </div>
     </aside>
   );

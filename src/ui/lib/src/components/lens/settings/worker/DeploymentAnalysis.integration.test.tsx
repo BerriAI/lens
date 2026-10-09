@@ -5,6 +5,8 @@ import { renderWithLens, stubGateway } from "../../../../../tests/lens-test-util
 import { testQueryClient } from "../../../../../tests/test-utils";
 import { DeploymentAnalysis } from "./DeploymentAnalysis";
 import type { LensList } from "../../model/types";
+import { LensHostProvider } from "../../../../host/LensHost";
+import { LensSettings } from "../LensSettings";
 
 const workers: LensList["workers"] = [
   {
@@ -20,6 +22,34 @@ const model = { model_group: "analysis", providers: ["openai"], mode: "chat" };
 
 describe("Deployment analysis setup", () => {
   beforeEach(() => testQueryClient.clear());
+
+  it.each([{}, { surface: "embedded" }, { surface: "standalone" }] as const)(
+    "uses deployment analysis with host %j and no enrollment options",
+    async (host) => {
+      const gateway = stubGateway();
+      const list: LensList = { lenses: [], workers, tracing_enabled: true };
+      gateway.get.mockImplementation((path) => {
+        if (path === "/lens") return list;
+        if (path === "/lens/model_group/info") return { data: [model] };
+        if (path === "/lens/signals") return { model: "", threshold: 0.5, signals: [] };
+        throw new Error(`Unsupported Lens request: ${path}`);
+      });
+      renderWithLens(
+        <LensHostProvider host={host}>
+          <LensSettings list={list} onOpenTraces={() => {}} workerReadyAction={<button>New investigation</button>} />
+        </LensHostProvider>,
+      );
+      expect(await screen.findByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
+      expect(await screen.findByRole("button", { name: "New investigation" })).toBeVisible();
+      expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
+      expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual([
+        "/lens",
+        "/lens/model_group/info",
+        "/lens/signals",
+      ]);
+      expect(gateway.post).not.toHaveBeenCalled();
+    },
+  );
 
   it("reuses configured models and the installed worker without requesting gateway keys", async () => {
     const gateway = stubGateway();

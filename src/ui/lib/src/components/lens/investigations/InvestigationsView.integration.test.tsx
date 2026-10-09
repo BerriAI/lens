@@ -1,3 +1,4 @@
+import { LensHostProvider } from "../../../host/LensHost";
 import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -446,10 +447,10 @@ it("guides a first-time administrator into worker connection and lens setup", as
   );
   expect(guide.queryByRole("button", { name: /Send your first trace/ })).not.toBeInTheDocument();
   expect(guide.queryByRole("button", { name: /Install Lens/ })).not.toBeInTheDocument();
-  expect(guide.getByRole("button", { name: /Connect a worker/ })).toHaveAttribute("aria-expanded", "true");
+  expect(guide.getByRole("button", { name: /Configure analysisChoose/ })).toHaveAttribute("aria-expanded", "true");
   expect(guide.queryByRole("button", { name: "View traces" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-  await user.click(guide.getByRole("button", { name: "Connect worker" }));
+  await user.click(guide.getByRole("button", { name: "Configure analysis" }));
   expect(connect).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   await act(async () => {
@@ -606,8 +607,8 @@ it.each([false, true])(
       expect(guide.getByRole("button", { name: /Send your first trace/ })).toHaveAttribute("aria-expanded", "true"),
     );
     expect(await guide.findByRole("button", { name: "Check for traces" })).toBeVisible();
-    await user.click(guide.getByRole("button", { name: /Connect a worker/ }));
-    expect(guide.getByRole("button", { name: "Connect worker" })).toBeDisabled();
+    await user.click(guide.getByRole("button", { name: /Configure analysisChoose/ }));
+    expect(guide.getByRole("button", { name: "Configure analysis" })).toBeDisabled();
     await user.click(guide.getByRole("button", { name: /Run your first investigation/ }));
     expect(guide.getByRole("button", { name: "New investigation" })).toBeDisabled();
   },
@@ -629,7 +630,7 @@ it("enables first-lens setup when a trace arrives without leaving Investigations
     traceCheck.mockResolvedValue({ traces: true, requests: false });
     await act(async () => vi.advanceTimersByTimeAsync(5000));
     expect(screen.queryByRole("button", { name: /Send your first trace/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Connect worker" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Configure analysis" })).toBeEnabled();
 
     const completedChecks = traceCheck.mock.calls.length;
     await act(async () => vi.advanceTimersByTimeAsync(5000 * 2));
@@ -722,7 +723,7 @@ it("allows request-only accounts to connect a worker without requiring agent tra
   });
   const user = userEvent.setup();
   renderWithProviders(<InvestigationsView />);
-  expect(await screen.findByRole("button", { name: "Connect worker" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Configure analysis" })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /Send your first trace/ })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Run your first investigation/ }));
   expect(screen.getByRole("button", { name: "New investigation" })).toBeDisabled();
@@ -1204,4 +1205,60 @@ it("lists recorded agents in Run now and runs the one picked from the list", asy
   expect(dialog.getByRole("combobox", { name: "Agent" })).toHaveValue("billing-agent");
   await user.click(dialog.getByRole("button", { name: "Run now" }));
   await waitFor(() => expect(sentBody(proxy.post, "/lens/lens/runs")).toEqual([{ agent_name: "billing-agent" }]));
+});
+
+it.each([
+  ["standalone", "/ui/"],
+  ["embedded", "/gateway/ui/lens/"],
+] as const)("opens traces from the readiness banner within the %s host", async (surface, pathname) => {
+  window.history.replaceState({}, "", pathname);
+  testQueryClient.clear();
+  proxy.get.mockImplementation((path) => {
+    if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
+    if (path === "/lens/activity/available") return { traces: false, requests: false };
+    return { data: [] };
+  });
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(
+    <LensHostProvider host={{ surface }}>
+      <InvestigationsView />
+    </LensHostProvider>,
+    {
+      searchParams: "?tab=investigations",
+      onUrlUpdate,
+    },
+  );
+  await user.click(await screen.findByRole("button", { name: "Check traces" }));
+  await waitFor(() =>
+    expect(onUrlUpdate).toHaveBeenCalledWith(expect.objectContaining({ queryString: "?tab=traces" })),
+  );
+  expect(window.location.pathname).toBe(pathname);
+});
+
+it("keeps saved investigations usable without reporting missing activity while readiness loads", async () => {
+  testQueryClient.clear();
+  const traces = Promise.withResolvers<{ data: [] }>();
+  const activity = Promise.withResolvers<{ traces: boolean; requests: boolean }>();
+  proxy.get.mockImplementation((path) => {
+    if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
+    if (path === "/v1/traces") return traces.promise;
+    if (path === "/lens/activity/available") return activity.promise;
+    return { data: [] };
+  });
+  renderWithProviders(<InvestigationsView />, { searchParams: "?tab=investigations" });
+  expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
+  expect(
+    screen.queryByText("Recorded activity is not ready. Saved results are still available."),
+  ).not.toBeInTheDocument();
+  await act(async () => traces.resolve({ data: [] }));
+  expect(
+    screen.queryByText("Recorded activity is not ready. Saved results are still available."),
+  ).not.toBeInTheDocument();
+  await act(async () => activity.resolve({ traces: true, requests: false }));
+  expect(
+    await screen.findByText(
+      "Configure analysis in Settings to run new investigations. Saved results are still available.",
+    ),
+  ).toBeVisible();
 });
