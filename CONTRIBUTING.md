@@ -1,37 +1,68 @@
 # Developing Lens
 
-This repository contains the Lens source extraction and the standalone implementation in progress. It is available for collaborative development. The shared UI builds, and the standalone API can serve it with live Rust ingestion and ClickHouse storage. It is not yet an installable standalone release: analysis-provider setup, complete lifecycle, storage qualification and cross-repository qualification remain open
+Lens owns its API, investigation runtime and shared UI. LiteLLM embeds the same UI package and connects through an authenticated server adapter. You do not need a sibling checkout to work on Lens
 
-The target deployment is Lens with ClickHouse, including its configured Keeper component. The API runtime and Lens repositories use ClickHouse. PostgreSQL helpers remain for migration work, and their driver is an optional `migration` extra
+## Start a development environment
+
+Install Docker with Compose, Node.js 24.14.1 or newer, and npm 11.10.0 or newer. From a fresh checkout:
+
+```sh
+npm ci
+npm run dev
+```
+
+The first start builds the Lens container, creates private credentials in `deploy/lens/.env`, starts Lens and ClickHouse, and starts the UI development server at [http://127.0.0.1:3100/ui/](http://127.0.0.1:3100/ui/). Sign in using `LENS_ADMIN_TOKEN` from that file. The Next.js server forwards API requests to the local Lens container; UI changes reload automatically
+
+If port 4318 is already in use, run `LENS_PORT=4320 LENS_DEV_API_URL=http://127.0.0.1:4320 npm run dev`. The UI still uses port 3100; stop any previous preview using that port before starting
+
+To use an existing Lens image, set `LENS_IMAGE` to its exact local tag or verified release digest before running `npm run dev`. This avoids building the backend. For a UI-only preview using sample data, run `npm run dev:ui` and open [demo data](http://127.0.0.1:3100/ui/?demo=true)
+
+Stop the UI with Ctrl-C. Lens and ClickHouse retain their data and continue running until you stop them:
+
+```sh
+docker compose -f deploy/lens/compose.yaml stop
+```
+
+Use `npm run dev` again to resume. For a deployment without development tooling, follow [Run Lens](deploy/lens/README.md). Provider configuration is optional until you need [analysis](docs/analysis.md) or [Signals](docs/signals.md)
 
 ## Repository layout
 
 | Path | Responsibility |
 | --- | --- |
-| `src/litellm_lens/` | Python API, investigation state and model access |
-| `src/worker/` | Rust ingestion, trace storage, investigation worker and sandbox (Python sandbox sources in `crates/lens/sandbox/`) |
-| `src/ui/lib/` | Shared Lens React UI, owned here and hosted by standalone Lens and LiteLLM |
-| `src/ui/app/` | Small standalone Next.js shell, exported as static files for the Python API |
-| `deploy/runtime/` | Rust runtime image |
-| `deploy/clickhouse/` | ClickHouse coordination configuration |
-| `deploy/lens/` | Legacy installation assets being migrated to the standalone bundle |
-| `migrations/legacy/` | Source PostgreSQL migrations retained for migration compatibility |
-| `scripts/` | Schema and release tooling |
-| `tests/` | Copied behavior tests and standalone integration tests |
-| `docs/extraction/` | Completion contract, baseline provenance and qualification ledger |
+| `src/worker/` | Rust API, domain logic, ClickHouse repositories, ingestion and investigation execution |
+| `src/ui/lib/` | Shared Lens React UI consumed by standalone Lens and LiteLLM |
+| `src/ui/app/` | Standalone shell and local UI development server |
+| `src/sdk/` | Python eval SDK and GitHub action; communicates with Lens over HTTP |
+| `deploy/runtime/` | Complete container image with the static UI and calculation sandbox |
+| `deploy/lens/` | Compose installation, startup, backup, restore and deployment checks |
+| `helm/lens/` | Independently deployable Lens chart |
+| `migrations/legacy/` | Historical PostgreSQL source schemas for the one-time import |
+| `docs/extraction/` | Baseline provenance, completion contract and qualification evidence |
 
-Python unit tests mirror the package under `tests/unit/litellm_lens/`. Deployment scripts are being reorganized. No sibling checkout is required by the Rust workspace or Python package dependency resolution
+All backend code is Rust. The Python eval SDK and confined analysis interpreter under `src/worker/crates/lens/sandbox/` are the only Python exceptions. PostgreSQL is an import source for `lens-migrate`; the Lens server uses ClickHouse only
 
-## Preview and build the UI
+## Work on the backend
 
-Use Node.js 24.14.1 or newer and npm 11.10.0 or newer. From the repository root:
+Install Rust 1.99.0, the toolchain used by CI. Run checks from the repository root:
 
 ```sh
-npm ci
-npm run dev:ui
+cargo fmt --manifest-path src/worker/Cargo.toml --all --check
+cargo clippy --locked --manifest-path src/worker/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --locked --manifest-path src/worker/Cargo.toml --workspace
 ```
 
-Open [the Lens preview](http://127.0.0.1:3100/ui/?demo=true). This uses the existing read-only demo data. For the live tracing path, see [standalone development startup](docs/extraction/standalone-startup.md). Provider-backed investigations and the standalone setup experience are still being completed
+Storage tests create isolated databases in a Dockerized ClickHouse with Keeper and remove them afterward. Keep Docker running. Set `CLICKHOUSE_STATE_TEST_URL` only when reusing a dedicated test server
+
+To try backend changes with the complete UI and native Linux sandbox, rebuild and restart the service:
+
+```sh
+docker build --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:local-test .
+LENS_IMAGE=lens:local-test npm run dev
+```
+
+The source binary can also run on macOS, but its confined Python calculation tool requires a supported native Linux kernel. Use the container for end-to-end investigation checks
+
+## UI and contract checks
 
 ```sh
 npm run typecheck:ui
@@ -40,49 +71,27 @@ npm run build:ui
 npm run qualify:ui-package
 ```
 
-The production build writes static files to `src/ui/app/out`. Package qualification packs `@litellm/lens-ui`, installs it into a temporary consumer with its own dependencies, and builds that consumer. It prints the package integrity and output path. See [the UI package](src/ui/lib/README.md) for the embedding boundary and [qualification notes](docs/extraction/ui-package.md) for the current evidence and limits
+For a specific change, pass the affected paths to Vitest rather than running the whole UI tree. Package qualification packs `@litellm/lens-ui`, installs it in an isolated consumer, and builds that consumer. Production builds write static files to `src/ui/app/out`
 
-## Checks available now
-
-Backend changes go in the Rust workspace, following [the migration specification](docs/rust-migration.md). The Python API remains a parity reference until its Rust replacements are qualified; do not extend it. The eval SDK and sandbox interpreter are the documented Python exceptions
-
-The worker protocol types live in `src/worker/crates/contract/src/worker/`. After changing those types, regenerate the checked-in schema and UI declarations from the repository root:
+Rust owns the public contracts. Regenerate them after changing their owning types:
 
 ```sh
 npm run generate:worker-contract
 npm run check:worker-contract
-cargo test --manifest-path src/worker/Cargo.toml -p lens-contract -p litellm-lens
+npm run generate:eval-contract
 ```
 
-The worker protocol remains version 7. Its generated artifact is `schema/lens-worker.v7.json`; the public eval API uses `schema/lens.v1.json` and the separate contract version 1. Worker messages and public HTTP responses have different default-field requirements, so do not substitute their types indiscriminately. See [worker contract qualification](docs/extraction/rust-worker-contract.md)
+The eval generator requires `uv` for the SDK's pinned generation dependencies. Worker protocol 7 lives in `schema/lens-worker.v7.json`; public eval contract 1 lives in `schema/lens.v1.json`. They are separate interfaces
 
-Install Python dependencies with `uv sync --dev`. These copied core behavior tests pass in the extracted package:
+## Qualify a container
 
 ```sh
-uv run pytest tests/unit/litellm_lens/test_state.py tests/unit/litellm_lens/test_reviews.py tests/unit/litellm_lens/test_agent_contract.py tests/unit/litellm_lens/test_sources.py tests/unit/litellm_lens/test_datasets.py tests/unit/litellm_lens/test_signals.py -q
-cargo check --manifest-path src/worker/Cargo.toml
+deploy/lens/smoke.sh lens:local-test local-test
+node deploy/lens/recovery-smoke.mjs lens:local-test
+docker build --target smoke --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:smoke .
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke
 ```
 
-The ClickHouse state, dataset, signal, investigation and access repositories have integration tests against a real ClickHouse server with KeeperMap enabled. Start the isolated test stack and run:
+Run these on the deployment's native Linux architecture. Startup and recovery checks exercise persisted records and credentials. The sandbox check verifies useful calculation and confinement. Real-provider, browser, import and connected-mode checks remain separate evidence in the [implementation ledger](docs/extraction/implementation-state.json)
 
-```sh
-docker compose -f tests/integration/clickhouse.compose.yaml up -d --wait
-CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 uv run pytest \
-  tests/integration/test_clickhouse_state.py \
-  tests/integration/database/test_lens_dataset_repository.py \
-  tests/integration/database/test_lens_signal_repository.py \
-  tests/integration/database/test_lens_repository.py \
-  tests/integration/database/test_lens_scheduler_load.py \
-  tests/integration/database/test_access_repository.py \
-  tests/integration/test_auth.py -q
-```
-
-The tests create and drop isolated databases. Dataset revisions and their latest summaries publish atomically. Signal claims and result writes retain their lease and configuration checks. Investigation updates, archived history, review checkpoints, workers, tracing keys and browser sessions also use ClickHouse. Full capacity, migration and recovery qualification remains open. See [investigation storage qualification](docs/extraction/clickhouse-investigations.md) for the concurrency checks, test limits and observed HTTP interruption. These tests do not demonstrate that the full Lens product runs end to end
-
-## Completion and source provenance
-
-Copied tests that still initialize the old gateway runtime need standalone fixtures. A full test-suite run is not yet qualified
-
-The [completion plan](docs/extraction/completion-plan.md) includes the standalone, embedded, release, deployment, migration and ClickHouse requirements. The [implementation ledger](docs/extraction/implementation-state.json) records open requirements and partial evidence
-
-The extraction source is LiteLLM commit `0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9`, fetched from main before implementation. Relevant Git history and baseline file hashes are preserved under `docs/extraction/`. Track new changes to Lens in LiteLLM until cutover
+The [completion plan](docs/extraction/completion-plan.md) records the full standalone, embedded, release and operational boundary. Source qualification does not mean an official release has been published

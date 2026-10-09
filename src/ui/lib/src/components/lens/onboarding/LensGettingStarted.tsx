@@ -6,12 +6,16 @@ import { Button } from "../../ui/button";
 import type { LensReadiness } from "../hooks/useLensReadiness";
 import { LensIntroduction } from "./LensIntroduction";
 import { OnboardingSetup } from "./OnboardingSetup";
+import { useLensHost } from "../../../host/LensHost";
 
 const PREREQUISITES = [
   { title: "LiteLLM gateway", detail: "Access to its configuration" },
   { title: "Trace storage", detail: "Included, or use your own ClickHouse" },
   { title: "Docker or Kubernetes", detail: "Use your existing deployment" },
-  { title: "An analysis model", detail: "For investigations, after tracing is connected" },
+  {
+    title: "An analysis model",
+    detail: "For investigations, after tracing is connected",
+  },
 ] as const;
 
 export interface LensGettingStartedProps {
@@ -52,13 +56,31 @@ export function LensGettingStarted({ state, onStart, onExit }: LensGettingStarte
 }
 
 function Prerequisites() {
+  const host = useLensHost();
+  const standalone = host.surface === "standalone";
+  const prerequisites = standalone
+    ? [
+        {
+          title: "Lens and ClickHouse",
+          detail: "Included in your Lens deployment",
+        },
+        {
+          title: "An agent to observe",
+          detail: "Keep its existing model and provider",
+        },
+        {
+          title: "An analysis model",
+          detail: "Needed when you run investigations",
+        },
+      ]
+    : PREREQUISITES;
   return (
     <aside className="rounded-2xl border bg-card p-6" aria-labelledby="lens-prerequisites">
       <h2 id="lens-prerequisites" className="text-base font-semibold">
         Before you start
       </h2>
       <ul className="mt-5 space-y-5 text-sm">
-        {PREREQUISITES.map((item) => (
+        {prerequisites.map((item) => (
           <li key={item.title} className="flex gap-3">
             <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div>
@@ -70,10 +92,7 @@ function Prerequisites() {
       </ul>
       <div className="mt-5 flex gap-2 border-t pt-5 text-xs leading-5 text-muted-foreground">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Your infrastructure stores the traces. Investigation content is sent to your selected model provider through
-          the gateway.
-        </p>
+        <p>Your infrastructure stores the traces. Investigation content is sent to your selected model provider.</p>
       </div>
     </aside>
   );

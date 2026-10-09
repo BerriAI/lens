@@ -1,0 +1,10 @@
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/scripts/src/litellm_release/lens.py:14:SOURCE_REPO = "BerriAI/lens"
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/scripts/tests/test_lens.py:458:            return "https://github.com/BerriAI/lens/releases/tag/fixture"
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/scripts/tests/test_lens_workflows.py:150:    assert "repository: BerriAI/lens" in text
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/scripts/tests/test_lens_workflows.py:165:    source = next(step for step in steps if "repository: BerriAI/lens\n" in step)
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/scripts/tests/test_lens_workflows.py:190:    assert "repository: BerriAI/lens" not in text
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/workflows/lens-stage.yml:62:          repository: BerriAI/lens
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/workflows/lens-stage.yml:104:          repository: BerriAI/lens
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/workflows/lens-stage.yml:125:            org.opencontainers.image.source=https://github.com/BerriAI/lens
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:.github/workflows/lens-stage.yml:200:          repository: BerriAI/lens
+8ef5236c571c2c264a5a05696f2fe835a74ede6b:LENS_RELEASE_SETUP.md:118:https://github.com/BerriAI/lens/releases/download/vVERSION/litellm-lens-ui-VERSION.tgz

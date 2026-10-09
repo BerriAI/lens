@@ -1,0 +1,154 @@
+{
+  "recorded_at": "2026-10-09T08:41:28.638Z",
+  "audit": "Read-only reconciliation, no new test/mutation run",
+  "current_head": "105e7b0923a17311e527aad4d480b57bab431000",
+  "broad": {
+    "outcomes": {
+      "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/qualified/mutants.out/outcomes.json",
+      "sha256": "035b8de7ccf02273a3c406028810a07f5b7ea098fd76343cbe6bcf65fa56f190"
+    },
+    "source_manifest": {
+      "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/source.json",
+      "sha256": "48ed724aa294dd6dc068ff97449a93e010e758f9ce99636e75e1932f56e7b8b6"
+    },
+    "source_recorded_head": "47217e964de5f02e6b5d01b14f43ab1aec5f0b78",
+    "total": 82,
+    "caught": 51,
+    "missed": 16,
+    "timeouts": 3,
+    "unviable": 12,
+    "baseline_build_seconds": 66.997379542,
+    "baseline_test_seconds": 45.819279791
+  },
+  "scheduler_followup": {
+    "outcomes": {
+      "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-final-claim-mutants.jge51k/final/mutants.out/outcomes.json",
+      "sha256": "55eb8963fbcdf1ae6da740c77b865827ce128b58f0e137f653c55ff4fcec4395"
+    },
+    "summary": {
+      "path": "/tmp/lens-final-claim-mutants-corrected.log",
+      "sha256": "18503b60bbbf19db57c0ad39c9ec8a1240b416a9120da983b4a67219bfa45205"
+    },
+    "caught": 2,
+    "total": 2,
+    "current_source_sha256": "1ca4f9f913d73a288d64a8e39bc4d0cdb4b88b092a114051cb878c2616df668c",
+    "current_source_matches_snapshot": true,
+    "current_lockfile_matches_snapshot": true,
+    "semantic_remapping": [
+      {
+        "old": "local.rs:90:58 && -> ||",
+        "current": "local.rs:93:58 && -> ||",
+        "failed_case": "claims_wait_until_exact_due_time::case_1_schedule"
+      },
+      {
+        "old": "local.rs:107:82 != -> == (job ID)",
+        "current": "local.rs:110:82 != -> == (job ID)",
+        "failed_case": "claims_wait_until_exact_due_time::case_2_running_lease"
+      }
+    ],
+    "scope": "Broad snapshot predates private claim_at clock injection. The production diff only extracts the unchanged claim body to accept an explicit time. Targeted final-source rerun catches both former scheduler survivors"
+  },
+  "results_followup": {
+    "receipt": {
+      "path": "docs/extraction/evidence/rust-local-result-mutations.json",
+      "sha256": "c64eba32815d8a13f8f8900e08c81cf33bc35992b83bed698d442fdbdf57babf"
+    },
+    "caught": 14,
+    "total": 14,
+    "snapshot_base": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "merged_source_verification": "27cd04cee08b6c43d3988317342801cac024249e",
+    "scope": "Result production prefix is unchanged from broad snapshot and focused snapshot; final test-only overlay catches all 14 former result survivors. A separate merged-source result module passed 28 cases"
+  },
+  "reconciled": {
+    "inventory": 82,
+    "unviable_excluded": 12,
+    "viable_denominator": 70,
+    "explicit_assertion_kills": 67,
+    "assertion_kill_rate": 0.9571428571428572,
+    "remaining_survivors_from_original_16": 0,
+    "timeout_mutants": 3,
+    "claim": "67/70 viable (95.7%) explicitly caught; 3 additional mutants timed out. This is reconciled historical plus targeted evidence, not an 82-mutant fresh final-head run",
+    "not_claimed": "Do not call this 82/82 or 70/70 explicit passes; no whole-product mutation score"
+  },
+  "timeouts": [
+    {
+      "mutant": "crates/lens/src/local.rs:123:27: replace < with == in LocalControl::claim",
+      "phases": [
+        {
+          "phase": "Build",
+          "duration_seconds": 17.731536542,
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "duration_seconds": 180.037240125,
+          "status": "Timeout"
+        }
+      ],
+      "log": {
+        "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/qualified/mutants.out/log/crates__lens__src__local.rs_line_123_col_27.log",
+        "sha256": "2959c277b63165bce9c163c958cdef2ce203c164ce37cf09b710a3146f51784f"
+      },
+      "stalled_tests": [
+        "test claims_respect_schedule_and_frozen_job_model::case_1_due_schedule has been running for over 60 seconds",
+        "test claims_respect_schedule_and_frozen_job_model::case_2_future_schedule has been running for over 60 seconds"
+      ],
+      "classification": "Mutation-induced test liveness failure, not compile/resource timeout",
+      "basis": "Changing page.len() < 20 to == or > removes the empty-page exit and repeatedly requests an empty page. Unit tests finish before the integration claim tests hang.",
+      "counted_as_assertion_kill": false
+    },
+    {
+      "mutant": "crates/lens/src/local.rs:123:27: replace < with > in LocalControl::claim",
+      "phases": [
+        {
+          "phase": "Build",
+          "duration_seconds": 28.016388625,
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "duration_seconds": 180.045144583,
+          "status": "Timeout"
+        }
+      ],
+      "log": {
+        "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/qualified/mutants.out/log/crates__lens__src__local.rs_line_123_col_27_001.log",
+        "sha256": "d738a0e9247e6b14a7ae0ca5e82feed3cf94ff1a8359c6892b3ce616a12a35dd"
+      },
+      "stalled_tests": [
+        "test claims_respect_schedule_and_frozen_job_model::case_1_due_schedule has been running for over 60 seconds",
+        "test claims_respect_schedule_and_frozen_job_model::case_2_future_schedule has been running for over 60 seconds"
+      ],
+      "classification": "Mutation-induced test liveness failure, not compile/resource timeout",
+      "basis": "Changing page.len() < 20 to == or > removes the empty-page exit and repeatedly requests an empty page. Unit tests finish before the integration claim tests hang.",
+      "counted_as_assertion_kill": false
+    },
+    {
+      "mutant": "crates/lens/src/control/job.rs:56:9: replace JobClient::heartbeat -> Result<(), Error> with Ok(())",
+      "phases": [
+        {
+          "phase": "Build",
+          "duration_seconds": 21.115762625,
+          "status": "Success"
+        },
+        {
+          "phase": "Test",
+          "duration_seconds": 180.057042167,
+          "status": "Timeout"
+        }
+      ],
+      "log": {
+        "path": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-clean-local-mutants.bc26v7qq/qualified/mutants.out/log/crates__lens__src__control__job.rs_line_56_col_9.log",
+        "sha256": "e7bca6ae967d21293a923387bec1cea243165af7fcf55155f3f0da83a378173f"
+      },
+      "stalled_tests": [
+        "test local::tests::heartbeat_storage_failure_keeps_work_alive_but_revocation_stops_it::case_1_storage_recovers has been running for over 60 seconds",
+        "test local::tests::heartbeat_storage_failure_keeps_work_alive_but_revocation_stops_it::case_2_ownership_revoked has been running for over 60 seconds"
+      ],
+      "classification": "Mutation-induced test liveness failure, not compile/resource timeout",
+      "basis": "The heartbeat no-op prevents pulse_seen notification; both paused-clock cases wait for that notification indefinitely.",
+      "counted_as_assertion_kill": false
+    }
+  ],
+  "recommendation": "Optional test-harness hardening can bound the claim await and heartbeat-notification awaits so future mutants fail quickly. No unmutated product defect is demonstrated by these three mutation-induced hangs"
+}

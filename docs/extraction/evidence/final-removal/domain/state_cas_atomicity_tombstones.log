@@ -1,0 +1,171 @@
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.07s
+     Running tests/state.rs (target/debug/deps/state-6ac00e61fb54a84c)
+
+running 29 tests
+test compaction::abandoned_first_write_cannot_publish_after_reclamation ... ok
+test compaction::compaction_bounds_history_for_a_full_batch ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_1_empty ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_2_over_limit ... ok
+test compaction::compaction_keeps_current_values_and_fences_prepared_losers ... ok
+test compaction::compaction_preserves_unselected_keys_and_new_writes ... ok
+test compaction::concurrent_compaction_preserves_atomic_counters ... FAILED
+test compaction::deleted_revision_cannot_resolve_to_changed_content ... FAILED
+test concurrent_claims_have_one_winner ... FAILED
+test invalid_commits_fail_before_writing ... FAILED
+test isolated_container_restart_preserves_commits_and_fencing ... ok
+test missing_payload_is_unavailable_and_never_returns_null ... FAILED
+test payload_roundtrip_and_historical_resolve::case_1_text ... FAILED
+test payload_roundtrip_and_historical_resolve::case_2_scalars ... FAILED
+test publication_is_atomic_and_repeating_it_cannot_advance_state ... FAILED
+test reads_python_payloads_and_advances_the_existing_head::case_1_scalars ... FAILED
+test reads_python_payloads_and_advances_the_existing_head::case_2_unicode ... FAILED
+test reads_python_payloads_and_advances_the_existing_head::case_3_tombstone ... FAILED
+test session_authentication_survives_forced_clickhouse_restart ... ok
+test session_storage_failure_does_not_look_like_missing_session ... FAILED
+test sessions_preserve_python_keys_conflicts_and_tombstones ... FAILED
+test stale_progress_cannot_publish_its_checkpoint ... FAILED
+test stored_session_validation::case_1_python_timestamp ... FAILED
+test stored_session_validation::case_2_offset_timestamp ... FAILED
+test stored_session_validation::case_3_no_timezone ... FAILED
+test stored_session_validation::case_4_missing_field ... FAILED
+test stored_session_validation::case_5_unknown_field ... FAILED
+test tombstones_fence_stale_writes_and_keys_page_over_prepared_records ... FAILED
+test update_retries_contention_and_noop_preserves_revision ... FAILED
+
+failures:
+
+---- compaction::concurrent_compaction_preserves_atomic_counters stdout ----
+
+thread 'compaction::concurrent_compaction_preserves_atomic_counters' (9470154) panicked at crates/storage-clickhouse/tests/state/support.rs:199:18:
+called `Result::unwrap()` on an `Err` value: StateFailed { status: 503, code: Some(439) }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test database cleanup failed: lens_rust_state_01c2e5a0925e4c3cb2d3a4f30b2131a7: ClickHouse query transport failed
+
+---- compaction::deleted_revision_cannot_resolve_to_changed_content stdout ----
+
+thread 'compaction::deleted_revision_cannot_resolve_to_changed_content' (9470156) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- concurrent_claims_have_one_winner stdout ----
+
+thread 'concurrent_claims_have_one_winner' (9470157) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- invalid_commits_fail_before_writing stdout ----
+
+thread 'invalid_commits_fail_before_writing' (9470158) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- missing_payload_is_unavailable_and_never_returns_null stdout ----
+
+thread 'missing_payload_is_unavailable_and_never_returns_null' (9470325) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- payload_roundtrip_and_historical_resolve::case_1_text stdout ----
+
+thread 'payload_roundtrip_and_historical_resolve::case_1_text' (9470326) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- payload_roundtrip_and_historical_resolve::case_2_scalars stdout ----
+
+thread 'payload_roundtrip_and_historical_resolve::case_2_scalars' (9470327) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- publication_is_atomic_and_repeating_it_cannot_advance_state stdout ----
+
+thread 'publication_is_atomic_and_repeating_it_cannot_advance_state' (9470328) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- reads_python_payloads_and_advances_the_existing_head::case_1_scalars stdout ----
+
+thread 'reads_python_payloads_and_advances_the_existing_head::case_1_scalars' (9470329) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- reads_python_payloads_and_advances_the_existing_head::case_2_unicode stdout ----
+
+thread 'reads_python_payloads_and_advances_the_existing_head::case_2_unicode' (9470330) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- reads_python_payloads_and_advances_the_existing_head::case_3_tombstone stdout ----
+
+thread 'reads_python_payloads_and_advances_the_existing_head::case_3_tombstone' (9470331) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- session_storage_failure_does_not_look_like_missing_session stdout ----
+
+thread 'session_storage_failure_does_not_look_like_missing_session' (9470558) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- sessions_preserve_python_keys_conflicts_and_tombstones stdout ----
+
+thread 'sessions_preserve_python_keys_conflicts_and_tombstones' (9470559) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stale_progress_cannot_publish_its_checkpoint stdout ----
+
+thread 'stale_progress_cannot_publish_its_checkpoint' (9470560) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stored_session_validation::case_1_python_timestamp stdout ----
+
+thread 'stored_session_validation::case_1_python_timestamp' (9470561) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stored_session_validation::case_2_offset_timestamp stdout ----
+
+thread 'stored_session_validation::case_2_offset_timestamp' (9470562) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stored_session_validation::case_3_no_timezone stdout ----
+
+thread 'stored_session_validation::case_3_no_timezone' (9470563) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stored_session_validation::case_4_missing_field stdout ----
+
+thread 'stored_session_validation::case_4_missing_field' (9470564) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- stored_session_validation::case_5_unknown_field stdout ----
+
+thread 'stored_session_validation::case_5_unknown_field' (9470565) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- tombstones_fence_stale_writes_and_keys_page_over_prepared_records stdout ----
+
+thread 'tombstones_fence_stale_writes_and_keys_page_over_prepared_records' (9470566) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+---- update_retries_contention_and_noop_preserves_revision stdout ----
+
+thread 'update_retries_contention_and_noop_preserves_revision' (9470567) panicked at crates/storage-clickhouse/tests/state/support.rs:138:6:
+called `Result::unwrap()` on an `Err` value: Transport
+
+
+failures:
+    compaction::concurrent_compaction_preserves_atomic_counters
+    compaction::deleted_revision_cannot_resolve_to_changed_content
+    concurrent_claims_have_one_winner
+    invalid_commits_fail_before_writing
+    missing_payload_is_unavailable_and_never_returns_null
+    payload_roundtrip_and_historical_resolve::case_1_text
+    payload_roundtrip_and_historical_resolve::case_2_scalars
+    publication_is_atomic_and_repeating_it_cannot_advance_state
+    reads_python_payloads_and_advances_the_existing_head::case_1_scalars
+    reads_python_payloads_and_advances_the_existing_head::case_2_unicode
+    reads_python_payloads_and_advances_the_existing_head::case_3_tombstone
+    session_storage_failure_does_not_look_like_missing_session
+    sessions_preserve_python_keys_conflicts_and_tombstones
+    stale_progress_cannot_publish_its_checkpoint
+    stored_session_validation::case_1_python_timestamp
+    stored_session_validation::case_2_offset_timestamp
+    stored_session_validation::case_3_no_timezone
+    stored_session_validation::case_4_missing_field
+    stored_session_validation::case_5_unknown_field
+    tombstones_fence_stale_writes_and_keys_page_over_prepared_records
+    update_retries_contention_and_noop_preserves_revision
+
+test result: FAILED. 8 passed; 21 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.10s
+
+error: test failed, to rerun pass `-p litellm-storage-clickhouse --test state`

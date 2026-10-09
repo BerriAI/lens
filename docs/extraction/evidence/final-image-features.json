@@ -1,0 +1,157 @@
+{
+  "created_at": "2026-10-09T08:07:05.453Z",
+  "source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "image": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+  "fixture": "Synthetic recorded invoice contradiction, not customer traffic or provider output",
+  "trace": "80879eada088350e1472122017387cb5",
+  "trace_ref": "50BA062E8196D4DA12E313E09A9CF6650C5BDCED8DF7051F75D86CAF7F9FBA2C",
+  "agent": "final-invoice-fixture",
+  "checks": [
+    "Two-span synthetic invoice fixture ingested and readable",
+    "Feedback create/read/update preserves one record per author",
+    "Feedback summary reports count2 average5 lowest3",
+    "Feedback deletion leaves other author intact",
+    "Fixture ingestion credential revoked after seed"
+  ],
+  "harness_correction": "Initial DELETE sent JSON body and expected200; actual documented contract uses query and204. Corrected harness against retained same fixture; no product change.",
+  "dataset": {
+    "id": "f777aab5-7fce-4b22-ab36-8a193913ae34",
+    "ui_created": true,
+    "ui_revised": true,
+    "ui_history_read_only": true,
+    "revisions": [
+      {
+        "revision": 0,
+        "cases": 0
+      },
+      {
+        "revision": 1,
+        "cases": 1
+      },
+      {
+        "revision": 2,
+        "cases": 1
+      }
+    ],
+    "exports": [
+      {
+        "revision": 1,
+        "rows": 1,
+        "sha256": "290d896c1d67b8c52be29c1690aff2c1a4366ec07c9de463a607527f74a9bd80",
+        "expected": "Invoice INV-42 is unpaid according to the lookup."
+      },
+      {
+        "revision": 2,
+        "rows": 1,
+        "sha256": "930392802a514998df6dca9079f14ba4c4c5108dd0e4e01c0e543e377da475ff",
+        "expected": "Invoice INV-42 is unpaid; payment has not been received."
+      }
+    ]
+  },
+  "investigation": {
+    "id": "eae24e6b-f12d-4f94-9d34-ed434f631235",
+    "job_id": "c69e88ad-a6a8-4749-a901-fbedeed5ad8c",
+    "source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "fixture": "Synthetic invoice contradiction; actual paid hosted OpenAI-compatible analysis",
+    "model": "analysis",
+    "status": "completed",
+    "cost": 0.0711204,
+    "model_calls": 8,
+    "coverage": {
+      "candidates": 2,
+      "eligible": 1,
+      "failed_tasks": 0,
+      "grouped_batches": 1,
+      "grouping_batches": 1,
+      "inconclusive": 0,
+      "investigated": 2,
+      "partial": 0,
+      "reusable": 0,
+      "reused": 0,
+      "screened": 1,
+      "selected": 1,
+      "unassessable": 0
+    },
+    "reservations": 0,
+    "finding_id": "b5d02760-7b29-44cd-9bb0-b794573e2888",
+    "citations": 4,
+    "ui_created": true,
+    "ui_resolved": true,
+    "review_note": "QA review: corrected the sample response to reflect unpaid status."
+  },
+  "reuse": {
+    "source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "id": "eae24e6b-f12d-4f94-9d34-ed434f631235",
+    "original_job": "c69e88ad-a6a8-4749-a901-fbedeed5ad8c",
+    "reuse_job": "0a0939a6-01b6-435a-81e8-f0b4010daee5",
+    "original_cost": 0.0711204,
+    "reuse_cost": 0,
+    "spent_after": 0.0711204,
+    "coverage": {
+      "candidates": 0,
+      "eligible": 1,
+      "failed_tasks": 0,
+      "grouped_batches": 0,
+      "grouping_batches": 0,
+      "inconclusive": 0,
+      "investigated": 0,
+      "partial": 0,
+      "reusable": 1,
+      "reused": 1,
+      "screened": 1,
+      "selected": 1,
+      "unassessable": 0
+    },
+    "model_calls": 0,
+    "reservations": 0,
+    "completed_at": "2026-10-09T08:14:02.406Z"
+  },
+  "signals": {
+    "source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+    "image": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+    "fixture": "Synthetic cancellation complaint; real hosted Typesafe-compatible classification",
+    "trace_id": "7504e4ffae42d11733f5b4bd4c8653c4",
+    "trace_ref": "A1E14FCBC6A907B43311DD2AFB12D698B6ACBD79227DFE9D9F837B1B8A4138D3",
+    "agent": "final-signals-fixture",
+    "result": {
+      "trace_id": "7504e4ffae42d11733f5b4bd4c8653c4",
+      "trace_ref": "A1E14FCBC6A907B43311DD2AFB12D698B6ACBD79227DFE9D9F837B1B8A4138D3",
+      "status": "classified",
+      "flags": [
+        {
+          "signal_id": "user_frustration",
+          "name": "User frustration",
+          "score": 0.99
+        },
+        {
+          "signal_id": "missing_capability",
+          "name": "Missing capability",
+          "score": 0.94
+        }
+      ],
+      "model": "signals",
+      "classified_at": "2026-10-09T08:16:55.558599Z"
+    },
+    "completed_at": "2026-10-09T08:16:56.977Z"
+  },
+  "images": [
+    "docs/extraction/evidence/ui/connected/final-image-trace.png",
+    "docs/extraction/evidence/ui/connected/final-image-empty-conversation.png",
+    "docs/extraction/evidence/ui/connected/final-image-feedback.png",
+    "docs/extraction/evidence/ui/connected/final-image-dataset-history.png",
+    "docs/extraction/evidence/ui/connected/final-image-investigation.png",
+    "docs/extraction/evidence/ui/connected/final-image-signals.png",
+    "docs/extraction/evidence/ui/connected/final-image-review-after-restart.png"
+  ],
+  "process_restart": {
+    "same_image": true,
+    "credentials_and_database_unchanged": true,
+    "added_evaluation_model": true,
+    "ui_session_retained": true,
+    "dataset_revision_and_expected_retained": true,
+    "feedback_retained": true,
+    "review_note_and_resolved_state_observed_in_browser": true,
+    "reopened_through_ui_and_read_back": true,
+    "checked_at": "2026-10-09T08:24:30.050Z"
+  }
+}

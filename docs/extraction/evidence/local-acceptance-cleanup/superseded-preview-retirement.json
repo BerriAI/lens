@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-09T13:21:50.457Z",
+  "retired_preview": "http://127.0.0.1:4490",
+  "gateway_pid": 41161,
+  "launcher_pid": 41149,
+  "prisma_pid": 41916,
+  "scope_evidence": "docs/extraction/evidence/rust-gateway-sdk.json",
+  "all_three_exited": true,
+  "identity_and_retired_master_rechecked": true,
+  "shared_storage_stopped": false,
+  "data_mutations": 0
+}

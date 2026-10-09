@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/signals",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "",
+      "signals": [
+        {
+          "id": "user_frustration",
+          "name": "User frustration",
+          "question": "Does the user show frustration, annoyance or dissatisfaction with the agent in this run, for example complaints, irritated corrections, all caps, profanity, or giving up on the task?"
+        },
+        {
+          "id": "missing_capability",
+          "name": "Missing capability",
+          "question": "Does the user ask for something the agent cannot do in this run, so that the agent refuses, says it lacks a tool, permission, integration or data source, or fails because the capability does not exist?"
+        },
+        {
+          "id": "repeated_request",
+          "name": "Repeated request",
+          "question": "Does the user ask for the same thing more than once in this run, usually because the agent did not deliver it the first time?"
+        }
+      ],
+      "threshold": 0.5
+    }
+  }
+}

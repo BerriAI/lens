@@ -1,0 +1,27 @@
+
+> my-website@0.0.0 build
+> node scripts/build.cjs
+
+[build] Rendering up to 4 pages at a time
+
+ ------------------------------------------------------------------------------                                                                                                         Update available 3.8.1 → 3.10.2                                                                                                                 To upgrade Docusaurus packages with the latest version, run the                                       following command:                                            `npm i @docusaurus/core@latest @docusaurus/faster@latest                               @docusaurus/plugin-client-redirects@latest                       @docusaurus/plugin-ideal-image@latest @docusaurus/preset-classic@latest         @docusaurus/theme-mermaid@latest @docusaurus/module-type-aliases@latest`                                                                                     ------------------------------------------------------------------------------ 
+
+[INFO] [en] Creating an optimized production build...
+[webpack-cache] before build: optimize-images 104 MB, social-cards 45 MB, webpack 7.71 GB (client-development-en: 0.pack 1390 MB, 1.pack 132 MB, 10.pack 0 MB, 11.pack 9 MB, 12.pack 0 MB, 13.pack 1 MB, 14.pack 1295 MB, 15.pack 47 MB, 16.pack 2 MB, 17.pack 0 MB, 18.pack 0 MB, 19.pack 7 MB, 2.pack 101 MB, 20.pack 70 MB, 21.pack 0 MB, 22.pack 749 MB, 23.pack 1 MB, 3.pack 2 MB, 4.pack 72 MB, 5.pack 0 MB, 6.pack 2 MB, 7.pack 0 MB, 8.pack 376 MB, 9.pack 136 MB, index.pack 8 MB, index.pack.old 8 MB; client-production-en: 0.pack 314 MB, 1.pack 374 MB, 10.pack 8 MB, 11.pack 1 MB, 12.pack 4 MB, 13.pack 0 MB, 14.pack 1 MB, 15.pack 1 MB, 16.pack 1 MB, 17.pack 96 MB, 18.pack 0 MB, 19.pack 2 MB, 2.pack 1074 MB, 3.pack 150 MB, 4.pack 2 MB, 5.pack 24 MB, 6.pack 0 MB, 7.pack 1 MB, 8.pack 11 MB, 9.pack 2 MB, index.pack 9 MB, index.pack.old 9 MB; server-production-en: 0.pack 130 MB, 1.pack 76 MB, 10.pack 0 MB, 11.pack 5 MB, 12.pack 1 MB, 13.pack 0 MB, 14.pack 0 MB, 15.pack 0 MB, 16.pack 0 MB, 17.pack 0 MB, 18.pack 0 MB, 2.pack 956 MB, 3.pack 0 MB, 4.pack 0 MB, 5.pack 0 MB, 6.pack 2 MB, 7.pack 0 MB, 8.pack 20 MB, 9.pack 6 MB, index.pack 9 MB, index.pack.old 9 MB)
+[social-cards] Ready: 1182 page previews (0 rendered, 1182 from cache)
+[WARNING] Docusaurus site warnings:
+- Your site is using the SWC js loader. You can safely remove the Babel config file at `babel.config.js`.
+Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[webpackbar] ℹ Compiling Client
+[webpackbar] ℹ Compiling Server
+[webpackbar] ✔ Server: Compiled successfully in 10.33s
+[webpackbar] ✔ Client: Compiled successfully in 12.88s
+(node:49597) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[optimize-images] Optimizing 3225 images, 2 at a time
+[webpack-cache] after build: optimize-images 104 MB, social-cards 45 MB, webpack 7.70 GB (client-development-en: 0.pack 1390 MB, 1.pack 132 MB, 10.pack 0 MB, 11.pack 9 MB, 12.pack 0 MB, 13.pack 1 MB, 14.pack 1295 MB, 15.pack 47 MB, 16.pack 2 MB, 17.pack 0 MB, 18.pack 0 MB, 19.pack 7 MB, 2.pack 101 MB, 20.pack 70 MB, 21.pack 0 MB, 22.pack 749 MB, 23.pack 1 MB, 3.pack 2 MB, 4.pack 72 MB, 5.pack 0 MB, 6.pack 2 MB, 7.pack 0 MB, 8.pack 376 MB, 9.pack 136 MB, index.pack 8 MB, index.pack.old 8 MB; client-production-en: 0.pack 314 MB, 1.pack 374 MB, 10.pack 8 MB, 11.pack 0 MB, 12.pack 4 MB, 13.pack 0 MB, 14.pack 1 MB, 15.pack 1 MB, 16.pack 1 MB, 17.pack 96 MB, 18.pack 0 MB, 19.pack 2 MB, 2.pack 1074 MB, 3.pack 148 MB, 4.pack 2 MB, 5.pack 24 MB, 6.pack 1 MB, 7.pack 1 MB, 8.pack 11 MB, 9.pack 1 MB, index.pack 9 MB, index.pack.old 9 MB; server-production-en: 0.pack 130 MB, 1.pack 76 MB, 10.pack 19 MB, 11.pack 5 MB, 12.pack 1 MB, 13.pack 0 MB, 14.pack 0 MB, 15.pack 0 MB, 16.pack 0 MB, 17.pack 0 MB, 18.pack 0 MB, 2.pack 956 MB, 3.pack 0 MB, 4.pack 0 MB, 5.pack 0 MB, 6.pack 2 MB, 7.pack 0 MB, 8.pack 1 MB, 9.pack 6 MB, index.pack 9 MB, index.pack.old 9 MB)
+[optimize-images] Compressed 3225 images (3225 from cache), saved 292.9 MB
+[SUCCESS] Generated static files in "build".
+[INFO] Use `npm run serve` command to test your build locally.

@@ -18,7 +18,14 @@ function demoLensApi(data: LensDemoData): LensApi {
   return {
     scope: "demo",
     datasets: demoDatasetsApi(data),
-    evalRuns: { list: async () => [], get: notInDemo },
+    evalRuns: {
+      list: async () => [],
+      get: notInDemo,
+      runCase: notInDemo,
+      evals: async () => [],
+      evalDefinition: notInDemo,
+      saveEval: notInDemo,
+    },
     lenses: async () => ({ lenses: data.lenses, workers: [], tracing_enabled: true }),
     activity: async () => ({ traces: true, requests: false }),
     runs: (lensId, offset) => found(jobs(lensId)?.slice(offset)),
@@ -35,8 +42,6 @@ function demoLensApi(data: LensDemoData): LensApi {
     agents: notInDemo,
     models: async () => ({ data: [] }),
     modelDetails: async () => ({ data: [] }),
-    keys: notInDemo,
-    keyInfo: notInDemo,
     saveLens: readOnly,
     startRun: readOnly,
     watchAll: async () => ({ watching: [], skipped: [] }),
@@ -44,11 +49,6 @@ function demoLensApi(data: LensDemoData): LensApi {
     saveSignalConfig: readOnly,
     cancelRun: readOnly,
     reviewFinding: readOnly,
-    registerWorker: readOnly,
-    setWorkerBillingKey: readOnly,
-    revokeWorker: readOnly,
-    generateAnalysisKey: readOnly,
-    deleteKeys: readOnly,
   };
 }
 

@@ -1,0 +1,247 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-09T12:48:31.382177+00:00",
+  "scope": "Fresh HTTP audit logs, live check results, helpers and independent review receipts, including the corrected initial team-scope assumption",
+  "sanitization": {
+    "known_task_provider_and_fixture_credential_values_and_hashes_scanned": true,
+    "known_session_identifier_hashes_scanned": true,
+    "raw_cookie_pattern_scanned": true,
+    "sensitive_matches": 0,
+    "redactions": 0,
+    "private_manifests_or_cookie_files_copied": false
+  },
+  "files": [
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-analysis-marker.log",
+      "source_name": "http-analysis-marker.log",
+      "sha256": "6d7086e2800b96eda004d73f4894448bc802dc4af217329eb494ba179decbb7b",
+      "bytes": 3685,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-analysis-redirect.log",
+      "source_name": "http-analysis-redirect.log",
+      "sha256": "13797c3c54419e3085488b4045e7e3dbc6765cf32e82ae042b05ad1c39168ae8",
+      "bytes": 403,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-cleanup-guard-tests.log",
+      "source_name": "http-cleanup-guard-tests.log",
+      "sha256": "0e43e4ce254f82da0fa4db01dfc0f2804aa45054c4157e50a4b4cc1b641b2bc9",
+      "bytes": 3047,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-cleanup-harness-correction-review.json",
+      "source_name": "http-cleanup-harness-correction-review.json",
+      "sha256": "4c3f857dbd41be5e818665b26f23846243b930ae204e322d597ff9de7a92edb6",
+      "bytes": 5641,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-domain-evidence-verification.json",
+      "source_name": "http-domain-evidence-verification.json",
+      "sha256": "be949004746950d66bc924b894574cabd1a18569e39fbda5fcaa6285b9700c0c",
+      "bytes": 4455,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-focused-tests.log",
+      "source_name": "http-focused-tests.log",
+      "sha256": "c96c3b196d538e938ab130e2a15979cf729163c24f0973bbbbcf6d3e9e5bb80d",
+      "bytes": 8616,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-focused-tests.xml",
+      "source_name": "http-focused-tests.xml",
+      "sha256": "9aa45bd2869a7f31e3e010017544b1c2e4715212b55ece560701c297383af175",
+      "bytes": 42618,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-legacy-routes.json",
+      "source_name": "http-legacy-routes.json",
+      "sha256": "7a3c8d4a676bc8826042aa57393ee41aa70dd21fad056e3dba3b6daf49364263",
+      "bytes": 7296,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-live-roles-revocation.json",
+      "source_name": "http-live-roles-revocation.json",
+      "sha256": "42ba381e1c88b364aa9c6de5bbdf853c2810c49cff758c4eee5aace6609c5bed",
+      "bytes": 5612,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-live-roles-revocation.log",
+      "source_name": "http-live-roles-revocation.log",
+      "sha256": "fac292faee6de0bbbc61452245542203c55b738cb9baf355f870f64682681e77",
+      "bytes": 102,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-live-roles-revocation.mjs",
+      "source_name": "http-live-roles-revocation.mjs",
+      "sha256": "4512c13029a5e05a49aed73154397769b53ff9409bd4fe1bc9e41aa648cfa03b",
+      "bytes": 4484,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries-attempt1-diagnosis.json",
+      "source_name": "http-negative-boundaries-attempt1-diagnosis.json",
+      "sha256": "46c3c6619ef868ba7daec2bb89f0c0be24a13e4632337b41a81099701c888b7a",
+      "bytes": 514,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries-attempt1.json",
+      "source_name": "http-negative-boundaries-attempt1.json",
+      "sha256": "88e083fa778d50a1994e52241ea11b40b77dc7dcb54cff9024e35e6708c32a12",
+      "bytes": 635,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries-attempt1.log",
+      "source_name": "http-negative-boundaries-attempt1.log",
+      "sha256": "be6e92756fb5c547dc64aea8dcd7502bda1837d8c6bd37eae66dc88ebba851ba",
+      "bytes": 577,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries.json",
+      "source_name": "http-negative-boundaries.json",
+      "sha256": "180169b44ca076d6c868de4f9fda85ad1c5d0bcfdcf2176b5eeda037e2e3c115",
+      "bytes": 6391,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries.log",
+      "source_name": "http-negative-boundaries.log",
+      "sha256": "59d2f8bdf5006935e0b80fa1b35f26837a74b8a2acda3d6a71c52df9c641a703",
+      "bytes": 100,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-negative-boundaries.mjs",
+      "source_name": "http-negative-boundaries.mjs",
+      "sha256": "1c51731310228b37538e1e6fbc36a8f7a990cdd0ed6fdb9a90e17aeb8627b130",
+      "bytes": 6103,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-publisher-source-auth-independent.log",
+      "source_name": "http-publisher-source-auth-independent.log",
+      "sha256": "bb4561c4c0b72ab39a622d89802619e2edb40253a541825fc3c2ee4a4a748417",
+      "bytes": 113,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-publisher-source-auth-review.json",
+      "source_name": "http-publisher-source-auth-review.json",
+      "sha256": "97cc96118f4f31848c8d93abf9203e08a20fc77f39b62ef9320efc6a5824fa31",
+      "bytes": 2407,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-root-evidence-verification.json",
+      "source_name": "http-root-evidence-verification.json",
+      "sha256": "be81aec355dbf113b5d2a5f160e2405764e15d9e28ca1b326fcc2f0163870898",
+      "bytes": 3911,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-route-reachability.json",
+      "source_name": "http-route-reachability.json",
+      "sha256": "53ada15dece9aea56aeb841a43ebca8e0a0ff3dfa31698704ee31d8535cb835a",
+      "bytes": 16118,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-rust-gateway-marker-tests.log",
+      "source_name": "http-rust-gateway-marker-tests.log",
+      "sha256": "5175640e12d62b2efa7b73b231f4cec59b66ac0dee5103f5c93d9901d7962c16",
+      "bytes": 1764,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-rust-ui-tests.log",
+      "source_name": "http-rust-ui-tests.log",
+      "sha256": "3929db8c4ddb1ce4962eb45c5ac7efc420b1aee3e15ae9e1625a2af5b68dfeae",
+      "bytes": 1207,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-session-static.json",
+      "source_name": "http-session-static.json",
+      "sha256": "b20fd2d6142ca4c7d611414b2a9b61e227dc38962ca3992227d1e348d97bb8f8",
+      "bytes": 5510,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-session-static.log",
+      "source_name": "http-session-static.log",
+      "sha256": "8ee19ba1a7da5bb48429bbcebfe8d9a0dfe800f7b7508f9dfeb44ed61392cfd4",
+      "bytes": 95,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-session-static.mjs",
+      "source_name": "http-session-static.mjs",
+      "sha256": "759baba88b5ab46fdda83951aec568134e50889f537a5388949014a5434833d1",
+      "bytes": 4668,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-signals-marker.log",
+      "source_name": "http-signals-marker.log",
+      "sha256": "32f8ca1612579c02ab4b1caae62e7613e5ef60600015d56fd4f77561b3c0a95d",
+      "bytes": 937,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-signals-redirect.log",
+      "source_name": "http-signals-redirect.log",
+      "sha256": "aa19b27cf56ac80676c08ba680407a6913194552f39c158357469e968fb8f17e",
+      "bytes": 703,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/http-transport-tests.json",
+      "source_name": "http-transport-tests.json",
+      "sha256": "dcbb5bd1fbf65aa446daab2160c4937cbf98ec4ff5e5cab1b20b85b2ab27f74b",
+      "bytes": 1893,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/storage-cross-review-http-negative.json",
+      "source_name": "storage-cross-review-http-negative.json",
+      "sha256": "7e47d976e6746d700757c3bc9d7241d103f7d7d4118dc7815d0c0f655f2dd9ed",
+      "bytes": 6391,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/storage-cross-review-http-negative.mjs",
+      "source_name": "storage-cross-review-http-negative.mjs",
+      "sha256": "f1afbb9a522351bca89fedecce3fd72ea31d728f25a58227b551c2202d89c174",
+      "bytes": 6123,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/storage-http-cross-review.json",
+      "source_name": "storage-http-cross-review.json",
+      "sha256": "10428a9166701b4420c4c446941e225956bfe1404680b9f599d6d6f3fdfb9d73",
+      "bytes": 3630,
+      "byte_identical_to_original": true
+    },
+    {
+      "path": "docs/extraction/evidence/final-removal/http/storage-http-negative-replay.log",
+      "source_name": "storage-http-negative-replay.log",
+      "sha256": "84d5e15ee133bc4a96665417d9989425b906acc53be28ade581ff2e53e25c410",
+      "bytes": 110,
+      "byte_identical_to_original": true
+    }
+  ],
+  "note": "Execution-time command and source metadata retain original paths; this manifest maps the retained bytes to durable repository paths."
+}

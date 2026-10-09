@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "independent_focused_review_passed_not_executed",
+  "reviewer": "dataset_http",
+  "reviewed_at": "2026-10-09T13:08:56.517Z",
+  "script": "resume-reviewed-rotation.mjs",
+  "script_sha256": "41eb81d6bcac305b3cf0e39420e3dbe2c8c1547f0e29dc529393fdba3a9f66fc",
+  "scope": "Narrow recovery from a verified pre-start container configuration mismatch after four task credentials had already rotated",
+  "resolved_findings": [
+    "Retired startup files must match original rotation manifest hashes",
+    "Session cleanup receipt must retain exact database/source binding and fresh inventory age",
+    "Both original gateway PIDs must still be absent"
+  ],
+  "read_only_checks": {
+    "retired_startup_hashes_match": true,
+    "original_gateway_pids_absent": true,
+    "all_64_state_rows_match_post_session_snapshot": true,
+    "payload_preserves_normalized_original_configuration": true,
+    "syntax_exit_code": 0
+  },
+  "reviewed_guards": [
+    "Exact interrupted phase with no Lens or gateway startup",
+    "Exact never-started incomplete container and seven known configuration differences",
+    "Exact current rotated startup files and protected provider bytes",
+    "Local Docker socket only and original full Config/HostConfig copied",
+    "Full recreated configuration equality before startup",
+    "Original HTTP, retained fixture, worker lifecycle and old-credential denial checks preserved"
+  ],
+  "remaining_findings": [],
+  "service_mutations_by_reviewer": 0,
+  "frozen_audit_evidence_modified": false,
+  "cleanup_success_claimed": false
+}

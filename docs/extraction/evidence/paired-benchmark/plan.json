@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "scope": "Sequential single-client trace HTTP comparison between the exact pre-extraction gateway/Rust source stack and the final standalone Rust image",
+  "baseline": {
+    "source": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+    "tree": "dd8f4a19325ee2f12cc73b5d56e86aef3d7628e3",
+    "third_party_lock_sha256": "8da17106c937521744b5c4c605c0ccc564acb196dc88a58cb8a82d03a753f671",
+    "rust_lock_sha256": "838afc5c347d3c085bdf4cea0921dfcec5927eaaee64918c8f51ac65edffa74d",
+    "gateway_recipe_sha256": "48bda74c23a92c8cb19855b9b10bc92d612acfa4a0ea42267576b3ccaecc33f9",
+    "runtime_recipe_sha256": "13a7adbb5e48f13c2e7fe6741464652b6f94611e12c1164a0c4f986ff1495cb6",
+    "qualification": "Application/extras/enterprise source archived from this commit without edits; third-party Python environment uses the same frozen lock and dependency selections as the original Dockerfile; exact-source gateway public reads and dedicated Lens OTLP/receipt APIs"
+  },
+  "runner": {
+    "binary_sha256": "f85c73eb20fa73a8dfd9d21eb3bc4927f82ed26c16d0d40b63933f10a73feab7",
+    "source_sha256": "523710a421c557fd5bf130c189d824bcbbc1104a400cbf5075b7102814583698",
+    "tests_passed": 30,
+    "all_target_clippy": "passed",
+    "script_sha256": "ccfc393702bae19898200e80005f53565f4e0531e5b9fe4506cdd8c5ee3545dd"
+  },
+  "workload": {
+    "stages": [
+      100,
+      1000
+    ],
+    "spans_per_trace": 10,
+    "ingest_batch_traces": 10,
+    "ingest_samples": [
+      10,
+      90
+    ],
+    "warmups_per_read": 1,
+    "read_samples_per_stage": 11,
+    "read_operations": [
+      "receipt",
+      "list_all_traces",
+      "trace_details",
+      "span_content"
+    ],
+    "correctness": [
+      "Exact list IDs/counts with complete pagination and no duplicates",
+      "Receipt acknowledges all ten expected spans",
+      "Representative complete trace span graph",
+      "Representative root input/output content"
+    ]
+  },
+  "threshold": {
+    "formula": "candidate p90 <= baseline p90 * 1.25 + 10ms",
+    "checks": 10,
+    "required": "all10pass",
+    "percentile": "sorted sample at floor((n-1)*0.9)"
+  },
+  "resources": {
+    "architecture": "linux/arm64",
+    "total_app_cpu": 2,
+    "total_app_memory_bytes": 2147483648,
+    "baseline_gateway": {
+      "cpu": 1,
+      "memory_bytes": 1610612736
+    },
+    "baseline_runtime": {
+      "cpu": 1,
+      "memory_bytes": 536870912
+    },
+    "candidate_runtime": {
+      "cpu": 2,
+      "memory_bytes": 2147483648
+    },
+    "clickhouse": {
+      "cpu": 2,
+      "memory_bytes": 2147483648,
+      "image": "sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+      "isolation": "fresh separate database/storage for each run; identical Keeper configuration"
+    },
+    "baseline_postgres": {
+      "cpu": 0.5,
+      "memory_bytes": 536870912,
+      "reason": "Original tracing-key repository requires PostgreSQL; this extra dependency is recorded outside the equal application budget"
+    },
+    "compiler": "2 build jobs; release thinLTO,codegen16; same settings as standalone image"
+  },
+  "limitations": [
+    "Trace workload only, no concurrency/large-payload/investigation/query/sandbox capacity claim",
+    "Baseline is rebuilt exact source with its frozen dependencies, not an archived published release image",
+    "Run only after heavy build/test lanes release host resources; preserve raw failed runs before any repeat",
+    "Existing shared preview and ClickHouse services remain untouched; record residual host interference"
+  ]
+}

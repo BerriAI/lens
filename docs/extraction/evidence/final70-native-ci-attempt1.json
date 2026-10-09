@@ -1,0 +1,113 @@
+{
+  "recorded_at": "2026-10-09T11:05:43.311Z",
+  "run_id": 37916396253,
+  "run_url": "https://github.com/BerriAI/lens/actions/runs/37916396253",
+  "source_sha": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "run_attempt": 1,
+  "status": "completed",
+  "conclusion": "failure",
+  "jobs": [
+    {
+      "id": 113773524310,
+      "name": "worker-ui-contract",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37916396253/job/113773524310",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T10:14:46Z",
+      "completed_at": "2026-10-09T10:16:20Z",
+      "log_path": "/tmp/lens-final70-native-ci/worker-ui-contract.log",
+      "log_sha256": "3d4c08cc5bb2216599c40e9ad43c35b2edf8d197b632fe04d06d8f2358739029",
+      "rust_suite_count": 0,
+      "rust_test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "ui_test_summary": [
+        "2026-10-09T10:16:17.1000230Z  Test Files  7 passed (7)",
+        "2026-10-09T10:16:17.1002646Z       Tests  93 passed (93)"
+      ]
+    },
+    {
+      "id": 113773524574,
+      "name": "rust",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37916396253/job/113773524574",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-09T10:14:47Z",
+      "completed_at": "2026-10-09T10:59:25Z",
+      "log_path": "/tmp/lens-final70-native-ci/rust.log",
+      "log_sha256": "b50f12d0e0220d50b57e58b4f0a2e2c73dc6233a575a3ae7892f6a072803ed77",
+      "rust_suite_count": 96,
+      "rust_test_totals": {
+        "passed": 2749,
+        "failed": 1,
+        "ignored": 14,
+        "measured": 0,
+        "filtered": 0
+      }
+    },
+    {
+      "id": 113773524710,
+      "name": "standalone-container (ubuntu-24.04-arm)",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37916396253/job/113773524710",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T10:14:49Z",
+      "completed_at": "2026-10-09T10:42:52Z",
+      "log_path": "/tmp/lens-final70-native-ci/container-arm64.log",
+      "log_sha256": "6781e0fff6699d308900f73f8de1670b8b6ff892e23d4734b7312187537c8440",
+      "rust_suite_count": 1,
+      "rust_test_totals": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      }
+    },
+    {
+      "id": 113773524716,
+      "name": "standalone-container (ubuntu-24.04)",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37916396253/job/113773524716",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T10:14:46Z",
+      "completed_at": "2026-10-09T10:58:10Z",
+      "log_path": "/tmp/lens-final70-native-ci/container-amd64.log",
+      "log_sha256": "386d85ecc2cad718de27506693cbee9a0aa59b60d64431d7ea532e216db43dfc",
+      "rust_suite_count": 1,
+      "rust_test_totals": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      }
+    }
+  ],
+  "failure": {
+    "test": "writes::expired_owner_cannot_begin_publication_even_without_a_successor",
+    "source_path": "src/worker/crates/storage-clickhouse/tests/investigations/support.rs",
+    "source_line": 140,
+    "error": "WaitContainer(StartupTimeout)",
+    "phase": "ClickHouse test fixture container startup, before the test body",
+    "suite_passed": 138,
+    "suite_failed": 1,
+    "log_lines": [
+      4856,
+      4864
+    ],
+    "behavior_assertion_executed": false,
+    "root_cause": "Undetermined from available CI logs",
+    "rerun_performed": false
+  },
+  "limits": [
+    "This records failed attempt 1 and must not be treated as a successful full Rust qualification",
+    "Both native architecture container suites and UI contract checks succeeded independently",
+    "Startup failure occurred before this test body but its absence does not establish a successful behavior check",
+    "Previous passing source 105e7b0923a17311e527aad4d480b57bab431000 is distinct"
+  ]
+}

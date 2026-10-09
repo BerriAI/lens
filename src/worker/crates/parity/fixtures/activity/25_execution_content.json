@@ -1,0 +1,47 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/executions/WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "execution": {
+        "id": "WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==",
+        "metadata": [],
+        "name": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "root_seen": false,
+        "service": "",
+        "source": "traces",
+        "span_count": 1,
+        "start_time": "",
+        "team_id": "alpha",
+        "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "trace_ref": ""
+      },
+      "next_cursor": null,
+      "partial": true,
+      "parts": [
+        {
+          "content": "Input: \nOutput: \nStatus:  ",
+          "end_time": "{{sql_timestamp}}",
+          "execution_id": "WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==",
+          "kind": "agent",
+          "name": "feedback fixture",
+          "parent_span_id": "",
+          "span_id": "0101010101010101",
+          "start_time": "{{sql_timestamp}}",
+          "truncated": false
+        }
+      ]
+    }
+  }
+}

@@ -18,8 +18,16 @@ import otelLogo from "../../../../../public/assets/logos/opentelemetry.svg";
 import { agentTraceCall, apiClient, getProxyBaseUrl } from "../../../../lib/http/requests";
 import { ActiveDot } from "../../traces/ui/ActiveDot";
 import { sampleTraceExport } from "./sampleTrace";
-import { FRAMEWORKS, frameworkSnippet, type FrameworkGuide } from "./tracingSetupGuides";
+import {
+  FRAMEWORKS,
+  directModelConnection,
+  frameworkSnippet,
+  standaloneFrameworkSnippet,
+  type FrameworkGuide,
+} from "./tracingSetupGuides";
 import type { TraceSummary } from "../../traces/types";
+import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
+import { SetupAgentPrompt } from "../SetupAgentPrompt";
 
 const COPIED_RESET_MS = 1500;
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
@@ -47,17 +55,25 @@ export const tracingEnvSnippet = (proxyUrl: string, tracingKey: string | null = 
     'export OTEL_LOGS_EXPORTER="none"',
   ].join("\n");
 
-export const codingAgentPrompt = (proxyUrl: string, traceUrl: string, guide: FrameworkGuide, model: string): string =>
+export const codingAgentPrompt = (
+  proxyUrl: string,
+  traceUrl: string,
+  guide: FrameworkGuide,
+  model: string,
+  standalone = false,
+): string =>
   [
-    `Send this ${guide.label} project's OpenTelemetry traces to LiteLLM.`,
-    "Keep the existing model configuration, authentication, and application behavior. Never hardcode keys. Read the model key from LITELLM_API_KEY and the dedicated tracing key from LITELLM_TRACING_KEY.",
+    `Send this ${guide.label} project's OpenTelemetry traces to ${standalone ? "Lens" : "LiteLLM"}.`,
+    standalone
+      ? "Keep the existing model configuration, authentication, and application behavior. Never hardcode keys. Keep model calls pointed at the existing provider and read the dedicated tracing key from LITELLM_TRACING_KEY. Lens receives traces, not model requests."
+      : "Keep the existing model configuration, authentication, and application behavior. Never hardcode keys. Read the model key from LITELLM_API_KEY and the dedicated tracing key from LITELLM_TRACING_KEY.",
     "Set the trace destination wherever this project loads environment variables:",
     tracingEnvSnippet(traceUrl),
     guide.install ?? `Install and enable the ${guide.plugin?.label}: ${guide.plugin?.url}`,
     guide.plugin?.instruction ??
       "Initialize OpenTelemetry before creating the agent. If the app already configures a tracer provider, keep it and point its exporter at the destination above instead.",
     "Adapt this example to the existing application, replacing research_agent with the agent's name:",
-    frameworkSnippet(guide, proxyUrl, model, traceUrl),
+    standalone ? standaloneFrameworkSnippet(guide, traceUrl) : frameworkSnippet(guide, proxyUrl, model, traceUrl),
     guide.note ?? "",
     "Run the agent once and confirm its named run appears in Lens > Traces.",
   ]
@@ -229,7 +245,10 @@ function SendTestTrace({
     setState(
       trace
         ? { kind: "ready", trace }
-        : { kind: "failed", message: "Sent, but it has not shown up yet. Check again in a moment." },
+        : {
+            kind: "failed",
+            message: "Sent, but it has not shown up yet. Check again in a moment.",
+          },
     );
   };
   if (state.kind === "ready") {
@@ -316,7 +335,7 @@ function TracingKey({
         accessToken,
         body: TRACING_KEY_REQUEST,
       });
-      if (!result.key) throw new Error("The proxy did not return the new key");
+      if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
       onCreated(result.key);
     } catch (cause) {
@@ -447,7 +466,27 @@ function EnableTracing({
   checking: boolean;
   onCheck: () => void;
 }) {
+  const standalone = useLensHost().surface === "standalone";
   const configured = connection.configured ?? connection.connected;
+  if (standalone)
+    return (
+      <div className="space-y-4">
+        <p className="text-sm font-medium">Check the Lens connection</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {!connection.connected
+            ? "Lens is unavailable. Check the service logs and retry."
+            : !connection.status.storage_ready
+              ? "Lens cannot reach its trace storage. Check that ClickHouse is running with the bundled configuration."
+              : "Set LENS_PUBLIC_URL to the address your agents can reach, then restart Lens."}
+        </p>
+        <a href={STANDALONE_DOCS_URL} target="_blank" rel="noreferrer" className="text-sm underline underline-offset-4">
+          Deployment guide
+        </a>
+        <Button variant="outline" onClick={onCheck} disabled={checking}>
+          {checking ? "Checking…" : "Check setup"}
+        </Button>
+      </div>
+    );
   let message = "Lens is connected. Set its public tracing address so your agents know where to send traces.";
   if (!configured) {
     message =
@@ -464,20 +503,14 @@ function EnableTracing({
       <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       {!configured && (
         <p className="text-sm text-muted-foreground">
-          {connection.release ? (
-            <>
-              Use Lens <code>{connection.release}</code> to match this LiteLLM deployment.
-            </>
-          ) : (
-            "Use Lens from the same release as this LiteLLM deployment."
-          )}{" "}
+          Use a Lens release supported by this LiteLLM integration.{" "}
           The deployment connects the services and supplies trace storage.
         </p>
       )}
       <div className="flex flex-wrap gap-3">
         <a
           className="inline-flex items-center gap-1 text-sm underline underline-offset-4"
-          href={`${DEPLOYMENT_URL}#using-helm`}
+          href={`${DEPLOYMENT_URL}/kubernetes#existing-deployment`}
           target="_blank"
           rel="noreferrer"
         >
@@ -485,7 +518,7 @@ function EnableTracing({
         </a>
         <a
           className="inline-flex items-center gap-1 text-sm underline underline-offset-4"
-          href={`${DEPLOYMENT_URL}#using-docker`}
+          href={`${DEPLOYMENT_URL}/docker-compose`}
           target="_blank"
           rel="noreferrer"
         >
@@ -511,9 +544,10 @@ function CodingAgentSetup({
   guide: FrameworkGuide;
   model: string;
 }) {
+  const standalone = useLensHost().surface === "standalone";
   const [codingAgent, setCodingAgent] = useState<CodingAgent>("Claude Code");
   const [copied, setCopied] = useState<string | null>(null);
-  const command = codingAgentCommand(codingAgent, codingAgentPrompt(proxyUrl, traceUrl, guide, model));
+  const command = codingAgentCommand(codingAgent, codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone));
   useTimeout(() => setCopied(null), copied === null ? null : COPIED_RESET_MS);
   const copy = async () => {
     if (await copyToClipboard(command)) setCopied(command);
@@ -576,6 +610,7 @@ function ConnectAgent({
   tracingKey,
   setTracingKey,
 }: ConnectAgentProps) {
+  const standalone = useLensHost().surface === "standalone";
   const proxyUrl = getProxyBaseUrl().replace(/\/$/, "");
   const connection = useLensService(accessToken);
   const traceUrl = connection.data?.url ?? "";
@@ -584,13 +619,17 @@ function ConnectAgent({
     ? PY_INSTALL[installer](guide.install.slice("pip install ".length))
     : guide.install;
   const model = EXAMPLE_MODEL;
-  const quickstart = frameworkSnippet(guide, proxyUrl, model, traceUrl);
+  const quickstart = standalone
+    ? standaloneFrameworkSnippet(guide, traceUrl)
+    : frameworkSnippet(guide, proxyUrl, model, traceUrl);
   if (!traceUrl)
     return (
       <p role="status" className="text-sm text-muted-foreground">
         {connection.isPending
           ? "Checking Lens connection…"
-          : "Set LITELLM_LENS_PUBLIC_URL on LiteLLM to the Lens address your agents can reach, then restart LiteLLM."}
+          : standalone
+            ? "Set LENS_PUBLIC_URL to the Lens address your agents can reach, then restart Lens."
+            : "Set LITELLM_LENS_PUBLIC_URL on LiteLLM to the Lens address your agents can reach, then restart LiteLLM."}
       </p>
     );
   return (
@@ -636,7 +675,11 @@ function ConnectAgent({
         {canMintTracingKey && !readOnly ? (
           <TracingKey accessToken={accessToken} tracingKey={tracingKey} onCreated={setTracingKey} />
         ) : (
-          <p className="text-sm text-muted-foreground">Ask your proxy admin for a dedicated Lens tracing key.</p>
+          <p className="text-sm text-muted-foreground">
+            {standalone
+              ? "Ask your Lens administrator for a dedicated tracing key."
+              : "Ask your proxy admin for a dedicated Lens tracing key."}
+          </p>
         )}
       </Step>
       <div className="mt-6 border-t pt-6">
@@ -668,7 +711,18 @@ function ConnectAgent({
         )}
         <Step title="Configure environment">
           <p className="mb-3 text-sm leading-6 text-muted-foreground">
-            {tracingKey ? (
+            {standalone ? (
+              <>
+                Tracing uses <code>LITELLM_TRACING_KEY</code>. Keep your agent’s existing provider credentials
+                {guide.existingModel ? (
+                  "."
+                ) : (
+                  <>
+                    ; this example reads <code>{directModelConnection(guide).key}</code>.
+                  </>
+                )}
+              </>
+            ) : tracingKey ? (
               <>
                 Tracing uses the key above. Set <code>LITELLM_API_KEY</code> to a key with model access.
               </>
@@ -691,7 +745,8 @@ function ConnectAgent({
           <p className="mb-3 text-sm leading-6 text-muted-foreground">
             {guide.existingModel ? "Keep your existing model settings. " : "Save and run this example. "}
             Replace <code>research_agent</code> with your agent’s name.
-            {!guide.existingModel && " Use a model configured on this proxy."}
+            {!guide.existingModel &&
+              (standalone ? " This example calls the provider directly." : " Use a model configured on this proxy.")}
           </p>
           <CodeBlock code={quickstart} tabs={<FileLabel>{guide.fileName}</FileLabel>} wrap />
           {guide.note && <p className="mt-3 text-sm leading-6 text-muted-foreground">{guide.note}</p>}
@@ -704,7 +759,11 @@ function ConnectAgent({
             </div>
           )}
           <a
-            href={`${DOCS_URL}/first-trace?framework=${guide.id}`}
+            href={
+              standalone
+                ? `${STANDALONE_DOCS_URL}#record-your-first-trace`
+                : `${DOCS_URL}/first-trace?framework=${guide.id}`
+            }
             className="mt-3 inline-flex items-center gap-1 text-sm underline underline-offset-4"
             target="_blank"
             rel="noreferrer"
@@ -799,6 +858,7 @@ export function TracingSetupFields({
 }
 
 export function TracingSetupCard(props: TracingSetupProps) {
+  const standalone = useLensHost().surface === "standalone";
   const connection = useLensService(props.accessToken);
   const enabled = Boolean(connection.data?.connected && connection.data.status.storage_ready && connection.data.url);
 
@@ -816,7 +876,7 @@ export function TracingSetupCard(props: TracingSetupProps) {
         </span>
         <a
           className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm underline underline-offset-4"
-          href={DOCS_URL}
+          href={standalone ? STANDALONE_DOCS_URL : DOCS_URL}
           target="_blank"
           rel="noreferrer"
         >
@@ -825,9 +885,12 @@ export function TracingSetupCard(props: TracingSetupProps) {
       </div>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         {enabled
-          ? "Send your agent’s runs to LiteLLM to see its inputs, outputs, and tool calls."
+          ? standalone
+            ? "Send your agent’s runs to Lens to see its inputs, outputs, and tool calls."
+            : "Send your agent’s runs to LiteLLM to see its inputs, outputs, and tool calls."
           : "Connect Lens to start recording your agent’s runs."}
       </p>
+      <SetupAgentPrompt goal="tracing" connection={connection.data} />
       <TracingSetupFields {...props} />
     </div>
   );

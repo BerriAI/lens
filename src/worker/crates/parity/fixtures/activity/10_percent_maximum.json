@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "selection": {
+        "sample_percent": 101
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "le": 100.0
+          },
+          "input": 101,
+          "loc": [
+            "body",
+            "selection",
+            "sample_percent"
+          ],
+          "msg": "Input should be less than or equal to 100",
+          "type": "less_than_equal"
+        }
+      ]
+    }
+  }
+}

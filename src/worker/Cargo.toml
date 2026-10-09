@@ -6,17 +6,20 @@ resolver = "2"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
-repository = "https://github.com/BerriAI/litellm-lens"
+repository = "https://github.com/BerriAI/lens"
 
 [workspace.dependencies]
-litellm-tracing = { git = "https://github.com/BerriAI/litellm", rev = "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9" }
+litellm-tracing = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
 litellm-traces = { path = "crates/traces" }
 litellm-traces-cache = { path = "crates/traces-cache" }
 litellm-traces-clickhouse = { path = "crates/traces-clickhouse" }
 litellm-storage-clickhouse = { path = "crates/storage-clickhouse" }
-litellm-http = { git = "https://github.com/BerriAI/litellm", rev = "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9" }
-litellm-llms-types = { git = "https://github.com/BerriAI/litellm", rev = "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9" }
-litellm-core-utils = { git = "https://github.com/BerriAI/litellm", rev = "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9" }
+litellm-http = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
+litellm-llms-types = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
+litellm-core-utils = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
+litellm-model-catalog = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
+litellm-token-counter = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88", default-features = false, features = ["tiktoken", "huggingface"] }
+litellm-cost = { git = "https://github.com/BerriAI/litellm", rev = "3969348ad946c8bb6b3f5386d72da2a07e65ce88" }
 
 askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
 tracing = "0.1"
@@ -47,9 +50,9 @@ vaultrs = { version = "=0.8.0", default-features = false, features = ["rustls"] 
 rustls-native-certs = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
-serde_with = { version = "=3.16.1", default-features = false, features = ["std", "macros"] }
+serde_with = { version = "=3.21.0", default-features = false, features = ["std", "macros"] }
 sha2 = "0.10"
-sqlx = { version = "0.9.0", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio", "chrono", "tls-rustls-ring-native-roots"] }
+sqlx = { version = "0.9.0", default-features = false }
 proc-macro2 = "1"
 quote = "1"
 subtle = "2"

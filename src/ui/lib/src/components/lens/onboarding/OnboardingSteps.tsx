@@ -11,7 +11,11 @@ import { initialSetupStep } from "../model/readiness";
 import { StepIndicator, type StepState } from "../ui/StepIndicator";
 import { useOnboarding } from "./OnboardingContext";
 
-type StepProps = { state: LensReadiness; goTo: (step: number) => void; storageReady: boolean };
+type StepProps = {
+  state: LensReadiness;
+  goTo: (step: number) => void;
+  storageReady: boolean;
+};
 
 function useLocked() {
   const { readOnly, canInvestigate } = useOnboarding();
@@ -48,11 +52,6 @@ function StorageStep({ state, goTo, storageReady }: StepProps) {
   );
 }
 
-function continuationLabel(state: LensReadiness) {
-  if (state.connected) return "Continue to investigation";
-  return state.tracesReady ? "Continue to worker" : "Continue with request logs";
-}
-
 function ActivityContinuation({ state }: { state: LensReadiness }) {
   const { connect, create } = useOnboarding();
   const locked = useLocked();
@@ -60,7 +59,7 @@ function ActivityContinuation({ state }: { state: LensReadiness }) {
   return (
     <div className="mt-4">
       <Button onClick={state.connected ? create : connect} disabled={locked}>
-        {continuationLabel(state)}
+        {state.connected ? "Continue to investigation" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
       {state.requestsReady && !state.tracesReady && (
@@ -101,21 +100,21 @@ function AgentStep({ state }: StepProps) {
   );
 }
 
-function WorkerStep({ state }: StepProps) {
+function AnalysisStep({ state }: StepProps) {
   const { connect, create } = useOnboarding();
   const locked = useLocked();
   return (
     <div className="space-y-4">
       <p role="status" className="text-sm text-muted-foreground">
         {state.connected
-          ? "Worker connected. You’re ready to create an investigation."
-          : "The worker reviews recorded activity using a model on your gateway. You choose its analysis model and spending limit."}
+          ? "Analysis is configured. You’re ready to create an investigation."
+          : "Add a provider key and model to your Lens deployment. Choose the model and spending limit when you create an investigation."}
       </p>
       {!state.activityReady && (
-        <p className="text-sm text-muted-foreground">Recorded activity is required before connecting a worker.</p>
+        <p className="text-sm text-muted-foreground">Send a trace before starting your first investigation.</p>
       )}
       <Button onClick={state.connected ? create : connect} disabled={!state.activityReady || locked}>
-        {state.connected ? "Continue to investigation" : "Connect worker"}
+        {state.connected ? "Continue to investigation" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
@@ -133,7 +132,7 @@ function InvestigationStep({ state }: StepProps) {
       </p>
       {!state.ready && (
         <p className="text-sm text-muted-foreground">
-          Recorded activity and a connected worker are required before you can run an investigation.
+          Recorded activity and an analysis model are required before you can run an investigation.
         </p>
       )}
       <Button onClick={create} disabled={!state.ready || locked}>
@@ -164,10 +163,10 @@ const STEPS: readonly StepDefinition[] = [
     Content: AgentStep,
   },
   {
-    title: "Connect a worker",
+    title: "Configure analysis",
     description: "Choose an analysis model and spending limit.",
     complete: (state) => state.connected,
-    Content: WorkerStep,
+    Content: AnalysisStep,
   },
   {
     title: "Run your first investigation",

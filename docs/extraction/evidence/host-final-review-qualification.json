@@ -1,0 +1,844 @@
+{
+  "recorded_at": "2026-10-09T12:21:38.195423+00:00",
+  "qualification": "Exact current-tip checks and reviews, with separately attributed historical qualification; final release attestation remains pending",
+  "pr": "https://github.com/BerriAI/litellm/pull/45529",
+  "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+  "image_source": "d83eab03962545fa328222557e193e5519c26ad6",
+  "backend_source": "ba4cc3ded3aa805eac1808a8ae3eff7271c425db",
+  "head_delta": "After d83 only the Helm smoke harness and two migration-controller documentation files change; production runtime source, shared UI, chart templates and defaults are unchanged",
+  "image_source_equivalence": {
+    "from": "d83eab03962545fa328222557e193e5519c26ad6",
+    "to": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "changed_paths": [
+      "docs/lens-integration.md",
+      "helm/litellm-helm/README.md",
+      "tests/e2e/migrations/lens_helm_smoke.sh"
+    ],
+    "production_files_unchanged": true,
+    "chart_templates_and_defaults_unchanged": true
+  },
+  "required_checks": {
+    "all_ten_passed": true,
+    "coverage_gate": "Only the current-tip assert-ci-coverage result below applies; no coverage percentage or threshold change is claimed",
+    "checks": [
+      {
+        "name": "frontend-lint",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:37:26Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585612"
+      },
+      {
+        "name": "lint",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:45:06Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585373"
+      },
+      {
+        "name": "cost-map-guard",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:38:50Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924586631/job/113800364309"
+      },
+      {
+        "name": "Core checks (Python 3.10)",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:39:23Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585677"
+      },
+      {
+        "name": "Core checks (Python 3.11)",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:38:26Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585734"
+      },
+      {
+        "name": "Core checks (Python 3.12)",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:39:31Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585741"
+      },
+      {
+        "name": "Core checks (Python 3.13)",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:38:39Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585795"
+      },
+      {
+        "name": "Core checks (Python 3.14)",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:38:23Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585778"
+      },
+      {
+        "name": "Dashboard build",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:37:27Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585572"
+      },
+      {
+        "name": "assert-ci-coverage",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS",
+        "completed_at": "2026-10-09T11:35:45Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37924589835/job/113800585694"
+      }
+    ]
+  },
+  "check_summary": {
+    "WAITING": 1,
+    "SKIPPED": 1,
+    "SUCCESS": 109,
+    "FAILURE": 1,
+    "NEUTRAL": 1
+  },
+  "shared_ui": {
+    "lens_commit": "af29e72a67893e9eb1e682ad0aee656647c63d20",
+    "package_sha256": "9857c81d91d3dae64dfc00d6d9277b10c19b2cf5b34360eb3e929ed712081927",
+    "npm_integrity": "sha512-LUbDFIITjHkXo4NDbs/qGWbRW/EQK3O5q8/vHiPf0Koi5zCcbHdSrnNn68iNJQYUXMzrfFgLOkersPPljlMaUw==",
+    "files_matching_published_source_and_install": 383,
+    "file_manifest_sha256": "9ea122fc31db9284f5c9fe363954e6ae1e82dace755843f743a5d4067991bb00",
+    "lockfile_delta": "Only Lens package integrity changes; dependency versions and all other entries unchanged",
+    "qualification": {
+      "standalone_consumer_build": "passed",
+      "clean_host_install": "passed",
+      "host_integration_tests": 7,
+      "host_test_files": 2,
+      "host_production_static_routes": 55,
+      "host_production_typecheck": "passed",
+      "lens_metadata_regression_tests": 31,
+      "lens_metadata_typecheck": "passed",
+      "full_vitest_suite_run": false
+    },
+    "independent_package_review": {
+      "agent": "dataset_storage",
+      "findings": []
+    },
+    "regression": "Populated metadata reproduced the duplicate-investigation add-condition crash before the guard; append/remove/reindex/edit/save checks pass afterward",
+    "evidence_url": "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-gateway.json",
+    "limits": [
+      "Package/build evidence does not certify older deployment images as containing the af29 UI fix",
+      "Six npm audit findings affect unchanged development-only dependency nodes"
+    ],
+    "final_image_browser_receipts": [
+      "docs/extraction/evidence/final-image-ui-controls.json",
+      "docs/extraction/evidence/final70-paired-ui.json"
+    ],
+    "independent_final_image_screenshot_review": {
+      "reviewer": "dataset_http",
+      "screenshots_viewed": 4,
+      "image_hashes_verified": 6,
+      "findings": [],
+      "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+      "candidate": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+      "frequency_card_source_identical": true,
+      "frequency_model_source_identical": true,
+      "finding_details_source_difference": "Five import paths relocated; component body unchanged",
+      "tick_difference": "Consistent with unchanged responsive tick spacing in the narrower sidebar layout",
+      "limits": [
+        "Independent screenshot and source review, not a second browser replay",
+        "Original preview includes a development overlay",
+        "Whole-shell pixel equality and deployed merge-base gateway behavior are not claimed"
+      ]
+    }
+  },
+  "automated_reviews": {
+    "request": {
+      "new_request_sent_for_current_tip": true,
+      "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6080232737",
+      "requested_at": "2026-10-09T11:47:20Z",
+      "human_maintainer_review_requested": false
+    },
+    "greptile": {
+      "current_tip_reviewed": true,
+      "reviewed_commit": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "updated_at": "2026-10-09T11:52:36Z",
+      "confidence": 4,
+      "out_of": 5,
+      "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853",
+      "status": "Current-tip review recorded; live-evidence findings still need disposition",
+      "summary_reviewed": true,
+      "new_defects_reported": false,
+      "new_inline_comments_after_refresh": 0,
+      "retained_findings": [
+        {
+          "id": 4227579130,
+          "priority": "P2",
+          "title": "Required live proof is missing",
+          "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227579130",
+          "text": "The new `EmbeddedLens` integration still lacks current-tip live browser proof and final-image runs for both charts. Earlier source-candidate receipts do not cover those artifacts. Repository rules require comprehensive live QA before merging; complete these runs and record the results in the PR",
+          "created_at": "2026-10-09T07:06:57Z",
+          "original_commit": "c0a60518e587e5c814dc54e9eafb0d774d4ea343",
+          "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "required_evidence": [
+            "Current embedded browser screenshots and matching source/package provenance",
+            "Both actual final-image chart variants with exact image/source links",
+            "PR body updated with concrete results and source equivalence"
+          ]
+        },
+        {
+          "id": 4227627231,
+          "priority": "P2",
+          "title": "Live integration proof is missing",
+          "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227627231",
+          "text": "Current-tip live QA remains pending. Repository rules require real end-to-end proof before merging. Complete native SDK, outage, browser, and both final-image chart runs",
+          "created_at": "2026-10-09T07:14:18Z",
+          "original_commit": "4d690b74dbeb0f247d1f9c6e8113d75cca20fb2a",
+          "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "required_evidence": [
+            "Native SDK and outage receipts with exact source attribution",
+            "Current standalone/embedded browser receipts",
+            "Both actual final-image chart runs",
+            "Concrete published evidence links in the PR"
+          ]
+        }
+      ]
+    },
+    "veria": {
+      "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "check_id": 113804721518,
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T11:47:40Z",
+      "completed_at": "2026-10-09T11:58:45Z",
+      "summary": "No security issues found",
+      "url": "https://github.com/BerriAI/litellm/runs/113804721518"
+    },
+    "bugbot": {
+      "status": "absent",
+      "observed_at": "2026-10-09T11:59:03.174124+00:00",
+      "interpretation": "No current-tip result; absence is not a pass"
+    }
+  },
+  "python_codeql": {
+    "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "status": "COMPLETED",
+    "conclusion": "FAILURE",
+    "completed_at": "2026-10-09T11:50:49Z",
+    "url": "https://github.com/BerriAI/litellm/actions/runs/37924589886/job/113800585451",
+    "historical_diagnosis": "cf59 and fde5899 exceeded the LogInjection result limit; full exact-source and tool-version details remain under historical_tip_qualifications",
+    "diagnosis": {
+      "recorded_at": "2026-10-09T11:56:27.156425+00:00",
+      "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "run": 37924589886,
+      "job": 113800585451,
+      "url": "https://github.com/BerriAI/litellm/actions/runs/37924589886/job/113800585451",
+      "ci_merge_commit": "50996572fb26b18e28b614d11e33cb26bc1b9723",
+      "ci_base": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+      "branch_merge_base": "a3236ba9479e32ee914d43f12082f4423403e3ca",
+      "cli": "2.27.2",
+      "python_queries": "1.8.12",
+      "query_count": 50,
+      "suite": "security-extended",
+      "ram_mb": 14575,
+      "threads": 4,
+      "failure": "LogInjection.ql result set exceeds 2 GiB after 9m55s",
+      "exit_code": 34,
+      "diff_scope": "Action cannot retrieve complete PR diff at its 300-file limit and explicitly skips diff-informed analysis",
+      "log_sha256": "302a339f91c11b99d6ffef3344b24cf18a7c6759deeb97af3eacd55b09f153b3",
+      "historical_comparison": "fde5899 shows the same query and resource-limit failure with the same CLI2.27.2/query pack1.8.12 and CI base; cf59 and pre-extraction main show the same limit on older2.27.1/1.8.11. These comparisons do not establish an exact-base pass",
+      "interpretation": "Unresolved resource-bound incomplete scan, neither a reported vulnerability nor a pass",
+      "queries_or_limits_changed": false,
+      "rerun_attempted": false
+    },
+    "interpretation": "Current-tip LogInjection query exceeded its 2 GiB result limit after 9m55s; unresolved incomplete scan, neither a reported vulnerability nor a pass",
+    "query_suppression_or_limits_change": false
+  },
+  "external_gates": {
+    "oauth": {
+      "status": "WAITING",
+      "conclusion": "",
+      "url": "https://github.com/BerriAI/litellm/actions/runs/37924589965/job/113800376863",
+      "reason": "Human e2e-changed environment approval",
+      "approval_attempted": false
+    },
+    "buildkite": {
+      "state": "SUCCESS",
+      "started_at": "2026-10-09T12:09:04Z",
+      "url": "https://buildkite.com/berriai-1/e2e-tests/builds/25996"
+    }
+  },
+  "harness_ownership_regression": {
+    "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+    "script": "tests/e2e/migrations/lens_helm_smoke.sh",
+    "script_sha256": "961e1b82d7f202ffb640c224330e0c972bf267f80d9f06a5c727d83f684e29c5",
+    "regression_script_sha256": "2b44940fc08d0ae465229d3803508587514bda5621fac219c1c5ec8f13783036",
+    "cases": 19,
+    "author_run": "passed",
+    "independent_review": {
+      "reviewer": "dataset_http",
+      "status": "passed",
+      "findings": []
+    },
+    "checks": {
+      "prior_harness_rejects_healthy_deployment_with_shared_label_job": true,
+      "fixed_harness_excludes_job_by_owner": true,
+      "transient_owned_pod_converges": true,
+      "unready_owned_pod_remains_failure": true,
+      "foreign_healthy_pod_cannot_substitute": true,
+      "missing_image_status_owner_or_pods_fail": true,
+      "completed_owned_pod_is_not_dropped_by_phase": true,
+      "missing_or_incorrect_replicaset_controller_fails": true,
+      "foreign_unready_pods_do_not_contaminate_snapshot": true,
+      "rollout_failure_propagated": true,
+      "changed_uid_image_restart_visible": true,
+      "private_spec_fields_absent_from_diagnostics": true
+    },
+    "product_qualification": false
+  },
+  "raw_receipts": [
+    {
+      "name": "d171e20_check_snapshot",
+      "sha256": "543a6925d7d5923172db7ce3f4986fd8c090acad76e6aaca539e188e9a070bb1",
+      "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
+    },
+    {
+      "name": "d171e20_dedicated_audit_check_snapshot",
+      "observed_at": "2026-10-09T12:21:38.195423+00:00",
+      "sha256": "3304c14755468acd58620edd3cca7f3c86d4b92511434d0a268881022c7541b0",
+      "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
+    }
+  ],
+  "remaining": [
+    "Finish current-tip required checks and automated reviews with finding disposition",
+    "Resolve or explicitly retain incomplete CodeQL and human OAuth gate",
+    "Finish both actual final-image chart runs and reconcile live browser/SDK/outage evidence with exact sources",
+    "Perform the dedicated final audit; earlier bounded reviews do not count toward it",
+    "Publish signed release artifacts through the separate official release lane"
+  ],
+  "complete": false,
+  "signed_release_qualification": false,
+  "harness_migration_owner_regression": {
+    "published_script_head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "script_sha256": "0e1d79ff87ea71e3faa368684497f037baa823aa7ee8e9a3090b44198af75c41",
+    "tested_working_tree_parent": "62819736ec18959efdec87e4a4ab06033c097490",
+    "checks": [
+      "old monolith values leave migration Job outside Helm hook ownership",
+      "new lifecycle guard rejects old Argo-only values before gateway upgrade",
+      "litellm-helm baseline: completed Job retained beyond eight-minute rollout allowance",
+      "litellm-helm baseline: single Helm-owned completed migration accepted",
+      "litellm-helm baseline: incomplete migration rejected",
+      "litellm-helm baseline: wrong migration image rejected",
+      "litellm-helm baseline: dual ownership rejected",
+      "litellm-helm upgrade: completed Job retained beyond eight-minute rollout allowance",
+      "litellm-helm upgrade: single Helm-owned completed migration accepted",
+      "litellm-helm upgrade: incomplete migration rejected",
+      "litellm-helm upgrade: wrong migration image rejected",
+      "litellm-helm upgrade: dual ownership rejected",
+      "litellm-helm: independent gateway upgrade retains expected migration image policy",
+      "litellm baseline: completed Job retained beyond eight-minute rollout allowance",
+      "litellm baseline: single Helm-owned completed migration accepted",
+      "litellm baseline: incomplete migration rejected",
+      "litellm baseline: wrong migration image rejected",
+      "litellm baseline: dual ownership rejected",
+      "litellm upgrade: completed Job retained beyond eight-minute rollout allowance",
+      "litellm upgrade: single Helm-owned completed migration accepted",
+      "litellm upgrade: incomplete migration rejected",
+      "litellm upgrade: wrong migration image rejected",
+      "litellm upgrade: dual ownership rejected",
+      "litellm: independent gateway upgrade retains expected migration image policy"
+    ],
+    "check_count": 24,
+    "independent_review": {
+      "reviewer": "dataset_http",
+      "status": "passed",
+      "remaining_findings": [],
+      "resolved_finding": "A 120-second completed Job TTL could expire during the allowed eight-minute rollout; smoke-only TTL3600 preserves the UID assertion without changing product defaults"
+    },
+    "scope": "Actual Helm 3.20 render of both chart families with old/fixed harness values, plus black-box kubectl response checks for runtime migration lifecycle guard",
+    "product_qualification": false,
+    "earlier_actual_failure": {
+      "run": 37922022021,
+      "phase": "monolith gateway image upgrade",
+      "error": "Job lens-migrations spec.template field is immutable"
+    }
+  },
+  "historical_tip_qualifications": [
+    {
+      "head": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+      "recorded_at": "2026-10-09T11:03:50.728735+00:00",
+      "required_checks": {
+        "all_ten_passed": true,
+        "coverage_gate": "assert-ci-coverage passed on cf59; no coverage percentage or threshold change is claimed",
+        "checks": [
+          {
+            "name": "frontend-lint",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:32:03Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778800819"
+          },
+          {
+            "name": "lint",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:39:30Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801092"
+          },
+          {
+            "name": "cost-map-guard",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:34:13Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37917996275/job/113778790564"
+          },
+          {
+            "name": "Core checks (Python 3.10)",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:33:40Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801240"
+          },
+          {
+            "name": "Core checks (Python 3.11)",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:33:52Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801063"
+          },
+          {
+            "name": "Core checks (Python 3.12)",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:34:08Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801043"
+          },
+          {
+            "name": "Core checks (Python 3.13)",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:34:03Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801209"
+          },
+          {
+            "name": "Core checks (Python 3.14)",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:34:41Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801191"
+          },
+          {
+            "name": "Dashboard build",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:32:17Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801069"
+          },
+          {
+            "name": "assert-ci-coverage",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T10:31:03Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37918000092/job/113778801071"
+          }
+        ]
+      },
+      "check_summary": {
+        "WAITING": 1,
+        "SKIPPED": 1,
+        "SUCCESS": 108,
+        "FAILURE": 1,
+        "NEUTRAL": 1
+      },
+      "automated_reviews": {
+        "request": {
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6079263244",
+          "head": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "requested_at": "2026-10-09T10:41:10.458709+00:00",
+          "human_maintainer_review_requested": false
+        },
+        "greptile": {
+          "reviewed_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "updated_at": "2026-10-09T10:46:27Z",
+          "confidence": 4,
+          "out_of": 5,
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853",
+          "status": "reviewed; two existing live-evidence findings remain open",
+          "findings": [
+            {
+              "id": 4227579130,
+              "priority": "P2",
+              "title": "Required live proof is missing",
+              "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227579130",
+              "text": "The new `EmbeddedLens` integration still lacks current-tip live browser proof and final-image runs for both charts. Earlier source-candidate receipts do not cover those artifacts. Repository rules require comprehensive live QA before merging; complete these runs and record the results in the PR",
+              "created_at": "2026-10-09T07:06:57Z",
+              "original_commit": "c0a60518e587e5c814dc54e9eafb0d774d4ea343",
+              "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+              "required_evidence": [
+                "Current embedded browser screenshots and matching source/package provenance",
+                "Both actual final-image chart variants with exact image/source links",
+                "PR body updated with concrete results and source equivalence"
+              ]
+            },
+            {
+              "id": 4227627231,
+              "priority": "P2",
+              "title": "Live integration proof is missing",
+              "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227627231",
+              "text": "Current-tip live QA remains pending. Repository rules require real end-to-end proof before merging. Complete native SDK, outage, browser, and both final-image chart runs",
+              "created_at": "2026-10-09T07:14:18Z",
+              "original_commit": "4d690b74dbeb0f247d1f9c6e8113d75cca20fb2a",
+              "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+              "required_evidence": [
+                "Native SDK and outage receipts with exact source attribution",
+                "Current standalone/embedded browser receipts",
+                "Both actual final-image chart runs",
+                "Concrete published evidence links in the PR"
+              ]
+            }
+          ],
+          "finding_attribution": "Findings were created earlier and are retained by the current cf59 summary; this receipt does not mark them resolved"
+        },
+        "veria": {
+          "head": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+          "check_id": 113782510185,
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-09T10:41:18Z",
+          "completed_at": "2026-10-09T10:54:04Z",
+          "summary": "No security issues found",
+          "url": "https://github.com/BerriAI/litellm/runs/113782510185"
+        },
+        "bugbot": {
+          "status": "absent",
+          "observed_at": "2026-10-09T11:03:50.729003+00:00",
+          "interpretation": "No matching current-tip check or review; absence is not a pass"
+        }
+      },
+      "python_codeql": {
+        "head": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+        "status": "FAILURE",
+        "completed_at": "2026-10-09T10:40:34Z",
+        "run": 37917999871,
+        "job": 113778931507,
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37917999871/job/113778931507",
+        "ci_merge_commit": "829cc4db37b94e4ae46d49829df4eb8920090849",
+        "ci_merge_base": "b005af81e6dce48f01583dfd9de244fae9cf3b48",
+        "failure": "LogInjection.ql exceeded the 2 GiB result limit after 6m45s; exit 34",
+        "query_configuration": "CodeQL 2.27.1, python-queries 1.8.11, 50 security-extended queries, RAM 14575 MB, four threads",
+        "diff_scope": "808-file extraction exceeds the action 300-file diff limit, so diff-informed analysis is skipped",
+        "historical_main_reproducer": {
+          "source": "0338498067c60720cac27f5df176def143173bff",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37663492719/job/112939522545",
+          "result": "Same LogInjection 2 GiB limit with the same CLI/query pack on a full main scan before extraction",
+          "limit": "Older source/action and broader 168-query suite; corroboration rather than an exact-base reproduction"
+        },
+        "successful_peer_comparison": {
+          "source": "ecd812db5986e8106c767b5248e93e48e9888b5a",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37912765155/job/113761604411",
+          "result": "Same 50-query suite passed with 26 diff ranges over five files",
+          "limit": "Same base as host99a, but not the newer cf59 CI merge; materially narrower evaluation scope"
+        },
+        "bounded_manual_review": {
+          "source": "d83eab03962545fa328222557e193e5519c26ad6",
+          "python_files_reviewed": 18,
+          "added_direct_logging_calls": 0,
+          "finding": "No new log-injection path identified in the changed adapters; this is not an exhaustive transitive security scan or the final audit"
+        },
+        "interpretation": "Unresolved resource-bound full-graph analysis; neither a reported vulnerability nor a pass. Manual review and Veria complement it without replacing it",
+        "query_suppression_or_limits_change": false
+      },
+      "external_gates": {
+        "oauth": {
+          "status": "WAITING",
+          "conclusion": "",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37917999911/job/113778803464",
+          "reason": "Human e2e-changed environment approval from LiteLLM Engineering",
+          "approval_attempted": false
+        },
+        "buildkite": {
+          "state": "SUCCESS",
+          "started_at": "2026-10-09T10:59:37Z",
+          "url": "https://buildkite.com/berriai-1/e2e-tests/builds/25986"
+        }
+      },
+      "raw_receipts": [
+        {
+          "name": "cf59_check_snapshot",
+          "sha256": "ff34304d5d006368fe9c75f991f9f619dd2cff2e07b57eefe3bce055c7084d05",
+          "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
+        },
+        {
+          "name": "cf59_codeql_log",
+          "sha256": "bc46755b279091d610689de310a7220e2da5b80f0a1c0cabbcbde45221588118",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37917999871/job/113778931507"
+        },
+        {
+          "name": "historical_main_codeql_log",
+          "sha256": "1571c5c83ee1ca3c2b2bb86c62756fa8a10fe5d85a4723f9b1fa69e412e33283",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37663492719/job/112939522545"
+        },
+        {
+          "name": "successful_peer_codeql_log",
+          "sha256": "2fdbc25ddaf99e89d867fb5810fd3575ff6e6160c4d0292a281c777321fd7947",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37912765155/job/113761604411"
+        },
+        {
+          "name": "greptile_current_summary",
+          "sha256": "71cd094ada52fa1e239d74d4216c4c5fbb0e58cd9d02f6c31967be6cdb02e971",
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853"
+        },
+        {
+          "name": "current_bot_check_snapshot",
+          "sha256": "1449dbb62f1dc928f719b61299d60eb569ed6dd8b322dd031803f08546e88943",
+          "url": "https://github.com/BerriAI/litellm/runs/113782510185"
+        }
+      ]
+    },
+    {
+      "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+      "recorded_at": "2026-10-09T11:33:28.262817+00:00",
+      "required_checks": {
+        "all_ten_passed": true,
+        "coverage_gate": "Only the current-tip assert-ci-coverage result below applies; no coverage percentage or threshold change is claimed",
+        "checks": [
+          {
+            "name": "frontend-lint",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:06:47Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368000"
+          },
+          {
+            "name": "lint",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:14:04Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368405"
+          },
+          {
+            "name": "cost-map-guard",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:07:56Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921531383/job/113790357902"
+          },
+          {
+            "name": "Core checks (Python 3.10)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:09:06Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368438"
+          },
+          {
+            "name": "Core checks (Python 3.11)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:09:05Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368666"
+          },
+          {
+            "name": "Core checks (Python 3.12)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:09:34Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368433"
+          },
+          {
+            "name": "Core checks (Python 3.13)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:08:38Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368248"
+          },
+          {
+            "name": "Core checks (Python 3.14)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:08:19Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368296"
+          },
+          {
+            "name": "Dashboard build",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:06:49Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368213"
+          },
+          {
+            "name": "assert-ci-coverage",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completed_at": "2026-10-09T11:05:43Z",
+            "url": "https://github.com/BerriAI/litellm/actions/runs/37921534739/job/113790368270"
+          }
+        ]
+      },
+      "check_summary": {
+        "SUCCESS": 107,
+        "NEUTRAL": 1,
+        "CANCELLED": 1,
+        "SKIPPED": 1,
+        "FAILURE": 2
+      },
+      "automated_reviews": {
+        "request": {
+          "new_request_sent_for_current_tip": true,
+          "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6079768845",
+          "requested_at": "2026-10-09T11:15:22Z",
+          "previous_request": {
+            "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6079263244",
+            "head": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+            "requested_at": "2026-10-09T10:41:10.458709+00:00",
+            "human_maintainer_review_requested": false
+          },
+          "human_maintainer_review_requested": false
+        },
+        "greptile": {
+          "current_tip_reviewed": true,
+          "reviewed_commit": "fde58999fe48db8279d0464465e9ddce75defdca",
+          "updated_at": "2026-10-09T11:20:05Z",
+          "confidence": 4,
+          "out_of": 5,
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853",
+          "status": "Current tip reviewed; retained findings need live evidence disposition",
+          "retained_findings": [
+            {
+              "id": 4227579130,
+              "priority": "P2",
+              "title": "Required live proof is missing",
+              "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227579130",
+              "text": "The new `EmbeddedLens` integration still lacks current-tip live browser proof and final-image runs for both charts. Earlier source-candidate receipts do not cover those artifacts. Repository rules require comprehensive live QA before merging; complete these runs and record the results in the PR",
+              "created_at": "2026-10-09T07:06:57Z",
+              "original_commit": "c0a60518e587e5c814dc54e9eafb0d774d4ea343",
+              "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+              "required_evidence": [
+                "Current embedded browser screenshots and matching source/package provenance",
+                "Both actual final-image chart variants with exact image/source links",
+                "PR body updated with concrete results and source equivalence"
+              ]
+            },
+            {
+              "id": 4227627231,
+              "priority": "P2",
+              "title": "Live integration proof is missing",
+              "url": "https://github.com/BerriAI/litellm/pull/45529#discussion_r4227627231",
+              "text": "Current-tip live QA remains pending. Repository rules require real end-to-end proof before merging. Complete native SDK, outage, browser, and both final-image chart runs",
+              "created_at": "2026-10-09T07:14:18Z",
+              "original_commit": "4d690b74dbeb0f247d1f9c6e8113d75cca20fb2a",
+              "current_mapping_commit": "cf59ce73d28e0abd5e690bfab81b579937ee10f8",
+              "required_evidence": [
+                "Native SDK and outage receipts with exact source attribution",
+                "Current standalone/embedded browser receipts",
+                "Both actual final-image chart runs",
+                "Concrete published evidence links in the PR"
+              ]
+            }
+          ]
+        },
+        "veria": {
+          "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+          "check_id": 113793958302,
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-10-09T11:15:39Z",
+          "completed_at": "2026-10-09T11:28:16Z",
+          "summary": "No security issues found",
+          "url": "https://github.com/BerriAI/litellm/runs/113793958302"
+        },
+        "bugbot": {
+          "status": "absent",
+          "observed_at": "2026-10-09T11:33:28.262817+00:00",
+          "interpretation": "No matching current-tip check or review; absence is not a pass"
+        }
+      },
+      "python_codeql": {
+        "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+        "status": "COMPLETED",
+        "conclusion": "FAILURE",
+        "completed_at": "2026-10-09T11:20:25Z",
+        "url": "https://github.com/BerriAI/litellm/actions/runs/37921534790/job/113790368144",
+        "historical_diagnosis": "The cf59 scan exceeded its LogInjection result limit; full details and limits remain separately attributed under historical_tip_qualification",
+        "diagnosis": {
+          "recorded_at": "2026-10-09T11:24:57.549503+00:00",
+          "head": "fde58999fe48db8279d0464465e9ddce75defdca",
+          "run": 37921534790,
+          "job": 113790368144,
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37921534790/job/113790368144",
+          "ci_merge_commit": "3273f33be43b59846373c0edb924c6e1b658c904",
+          "ci_base": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+          "branch_merge_base": "a3236ba9479e32ee914d43f12082f4423403e3ca",
+          "cli": "2.27.2",
+          "python_queries": "1.8.12",
+          "query_count": 50,
+          "suite": "security-extended",
+          "ram_mb": 14575,
+          "threads": 4,
+          "failure": "LogInjection.ql result set exceeds 2 GiB after 9m57s",
+          "exit_code": 34,
+          "diff_scope": "Action cannot retrieve complete PR diff at its 300-file limit and explicitly skips diff-informed analysis",
+          "log_sha256": "bf13774ecf4b2bf2f4d2b5244fa5fcf4ffef13394c682d724282fa5053d0c6e3",
+          "historical_comparison": "cf59 and pre-extraction main exhibit the same query/resource-limit failure with older CLI2.27.1/query pack1.8.11; corroboration, not an exact-base or exact-version reproduction",
+          "interpretation": "Unresolved resource-bound incomplete scan, neither a reported vulnerability nor a pass",
+          "queries_or_limits_changed": false,
+          "rerun_attempted": false
+        },
+        "interpretation": "Current-tip LogInjection exceeds the 2 GiB result limit. This is an unresolved resource-bound incomplete scan, neither a reported vulnerability nor a pass; historical manual review and Veria do not make it pass",
+        "query_suppression_or_limits_change": false
+      },
+      "external_gates": {
+        "oauth": {
+          "status": "COMPLETED",
+          "conclusion": "CANCELLED",
+          "url": "https://github.com/BerriAI/litellm/actions/runs/37921534871/job/113790371423",
+          "reason": "Awaited human e2e-changed approval; cancelled after the successor push without an execution result",
+          "approval_attempted": false
+        },
+        "buildkite": {
+          "state": "FAILURE",
+          "started_at": "2026-10-09T11:29:55Z",
+          "url": "https://buildkite.com/berriai-1/e2e-tests/builds/25988",
+          "description": "Build #25988 canceled",
+          "interpretation": "Cancelled build reported as failure by the external status; not a failed test assertion"
+        }
+      },
+      "raw_receipts": [
+        {
+          "name": "fde5899_check_snapshot",
+          "sha256": "ae01522f9ff17a88d33a8286cc6affa1c0cf86054ead3f9ceb420155d02fd1a9",
+          "url": "https://github.com/BerriAI/litellm/pull/45529/checks"
+        },
+        {
+          "name": "fde5899_greptile_summary",
+          "sha256": "324721681436f16fb2c7c5207fcc07630d51f0d83014c25bd70138384e747027",
+          "url": "https://github.com/BerriAI/litellm/pull/45529#issuecomment-6076095853"
+        },
+        {
+          "name": "fde5899_bot_check_snapshot",
+          "sha256": "3c9c8ec7dbb466929af16016afad6ab30a8950650d092548c0fee25ff415bcaf",
+          "url": "https://github.com/BerriAI/litellm/runs/113793958302"
+        }
+      ]
+    }
+  ],
+  "intermediate_628_tip": {
+    "head": "62819736ec18959efdec87e4a4ab06033c097490",
+    "result_scope": "Check states captured after the TTL successor push; no current-tip pass is inferred",
+    "check_summary": {
+      "failure": 1,
+      "success": 35,
+      "in_progress": 32,
+      "cancelled": 36,
+      "neutral": 1,
+      "skipped": 1
+    },
+    "review_requested": false,
+    "actual_chart_run": {
+      "run": 37924154315,
+      "status": "success",
+      "url": "https://github.com/BerriAI/lens/actions/runs/37924154315",
+      "qualification": "Actual run retained at its original628 harness source, with final runtime/image identities unchanged; published d171 adds only smoke-test Job TTL3600, covered by independent24-case harness regression"
+    }
+  },
+  "dedicated_audit_ci_snapshot": {
+    "observed_at": "2026-10-09T12:21:38.195423+00:00",
+    "head": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "draft": true,
+    "all_ten_required_passed": true,
+    "greptile_body_unchanged": true,
+    "new_inline_comments_after_refresh": 0,
+    "oauth_approval_attempted": false,
+    "raw_checks_sha256": "b5efb56fc0245e15cdb604207dbf0c776839382d7d0235ab852804fcfc5efce8",
+    "raw_review_comments_sha256": "38c2b06f598c70c3db2bc31963cf3fdbc29fb419cb51a7c13036ba8d43fc3430"
+  }
+}

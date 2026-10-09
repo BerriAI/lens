@@ -123,7 +123,7 @@ const ACTIONS: Record<RunAction, ActionView> = {
   stop: { label: () => "Stop run", icon: CircleStop, variant: "outline", needsReady: false },
   retry: { label: () => "Retry", icon: RefreshCw, variant: "default", needsReady: true },
   raiseBudget: { label: () => "Raise budget", icon: Wallet, variant: "default", needsReady: false },
-  connectWorker: { label: () => "Connect worker", icon: Plug, variant: "default", needsReady: false },
+  connectWorker: { label: () => "Configure analysis", icon: Plug, variant: "default", needsReady: false },
   reviewIssues: {
     label: ({ openIssues: count }) => `Review ${plural(count, "issue")}`,
     icon: ListChecks,

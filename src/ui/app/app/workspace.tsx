@@ -4,7 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
-import { configureLensHttp, LensWorkspace } from "@litellm/lens-ui";
+import {
+  configureLensHttp,
+  LensHostProvider,
+  LensWorkspace,
+} from "@litellm/lens-ui";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 
 const baseUrl = () => process.env.NEXT_PUBLIC_LENS_API_URL ?? "";
@@ -72,7 +76,9 @@ function Surface({
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
+      <LensHostProvider host={{ analysis: "deployment", surface: "standalone" }}>
+        <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
+      </LensHostProvider>
     </div>
   );
 }

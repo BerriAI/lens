@@ -1,0 +1,437 @@
+{
+  "qualified_at": "2026-10-09T05:09:52.527Z",
+  "scope": "ClickHouseState::compact and ClickHouseState::resolve fallback",
+  "source_sha256": {
+    "crates/storage-clickhouse/src/state/maintenance.rs": "88badd76e8dcf68d06a713ea5bb399479d15ce98ee6234828759d73648f1600d",
+    "crates/storage-clickhouse/src/state.rs": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518",
+    "Cargo.lock": "d7cf6c43ce57a73d28b923c9ad52ce06d5436fa2828334c1618e1447f910bb0b",
+    "crates/storage-clickhouse/tests/state/compaction.rs": "56f004ce47d73b8e1209b24275095315939165a7ee61a0530def37ac9bde9d26",
+    "crates/storage-clickhouse/tests/investigations/compaction.rs": "0d51ac3c613b4569647a7f921f5ff21b5736e1d09aded100cdbf5bf2be51aa5e"
+  },
+  "source_restored": {
+    "crates/storage-clickhouse/src/state/maintenance.rs": true,
+    "crates/storage-clickhouse/src/state.rs": true,
+    "Cargo.lock": true,
+    "crates/storage-clickhouse/tests/state/compaction.rs": true,
+    "crates/storage-clickhouse/tests/investigations/compaction.rs": true
+  },
+  "baseline": {
+    "tests": 9,
+    "failed": 0,
+    "log_sha256": "049fd60889e87c7491b6ac5625b68ae1929301be8fc04620bfff43a61c10d221"
+  },
+  "restored_baseline": {
+    "tests": 9,
+    "failed": 0,
+    "log_sha256": "fff73d37f31a66af9dd7f19b4340e27eb6cae59200e9e0cc400f138ca2599200"
+  },
+  "test_command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "litellm-storage-clickhouse",
+    "--test",
+    "state",
+    "--test",
+    "investigations",
+    "compaction::",
+    "--",
+    "--test-threads=2"
+  ],
+  "environment": {
+    "RUSTFLAGS": "-C link-arg=-undefined -C link-arg=dynamic_lookup",
+    "SQLX_OFFLINE": "true",
+    "CLICKHOUSE_STATE_TEST_URL": "http://127.0.0.1:18124",
+    "CARGO_TARGET_DIR": "/tmp/lens-local-mutants.HXtIJg/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "generated": {
+    "total": 9,
+    "caught": 8,
+    "unviable": 1,
+    "missed": 0,
+    "timeout": 0,
+    "version": "27.1.0",
+    "cases": [
+      {
+        "name": "crates/storage-clickhouse/src/state.rs:192:9: replace ClickHouseState::resolve -> Result<Vec<Snapshot>, Error> with Ok(vec![])",
+        "status": "CaughtMutant",
+        "replacement": "Ok(vec![])",
+        "diff": "--- crates/storage-clickhouse/src/state.rs\n+++ replace ClickHouseState::resolve -> Result<Vec<Snapshot>, Error> with Ok(vec![])\n@@ -184,30 +184,17 @@\n                 } else {\n                     values.get(head).cloned()\n                 }\n             })\n             .collect())\n     }\n \n     pub async fn resolve(&self, heads: &[Head]) -> Result<Vec<Snapshot>, Error> {\n-        if let Some(values) = self.values(heads).await? {\n-            return Ok(values);\n-        }\n-        let keys: Vec<_> = heads.iter().map(|head| head.key.as_str()).collect();\n-        let current = self.read_many(&keys).await?;\n-        if heads\n-            .iter()\n-            .zip(&current)\n-            .all(|(old, new)| old.digest == new.head.digest)\n-        {\n-            Ok(current)\n-        } else {\n-            Err(Error::StateUnavailable)\n-        }\n+        Ok(vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub async fn prepare(&self, changes: Vec<Change>) -> Result<PreparedCommit, Error> {\n         let keys: BTreeSet<_> = changes\n             .iter()\n             .map(|change| &change.previous.head.key)\n             .collect();\n         if changes.is_empty()\n",
+        "log_sha256": "e3c9e5ebb36cfb587efafd694d3176c673d3cc31cb150e34e4812e0499730543"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state.rs:192:9: replace ClickHouseState::resolve -> Result<Vec<Snapshot>, Error> with Ok(vec![Default::default()])",
+        "status": "Unviable",
+        "replacement": "Ok(vec![Default::default()])",
+        "diff": "--- crates/storage-clickhouse/src/state.rs\n+++ replace ClickHouseState::resolve -> Result<Vec<Snapshot>, Error> with Ok(vec![Default::default()])\n@@ -184,30 +184,17 @@\n                 } else {\n                     values.get(head).cloned()\n                 }\n             })\n             .collect())\n     }\n \n     pub async fn resolve(&self, heads: &[Head]) -> Result<Vec<Snapshot>, Error> {\n-        if let Some(values) = self.values(heads).await? {\n-            return Ok(values);\n-        }\n-        let keys: Vec<_> = heads.iter().map(|head| head.key.as_str()).collect();\n-        let current = self.read_many(&keys).await?;\n-        if heads\n-            .iter()\n-            .zip(&current)\n-            .all(|(old, new)| old.digest == new.head.digest)\n-        {\n-            Ok(current)\n-        } else {\n-            Err(Error::StateUnavailable)\n-        }\n+        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub async fn prepare(&self, changes: Vec<Change>) -> Result<PreparedCommit, Error> {\n         let keys: BTreeSet<_> = changes\n             .iter()\n             .map(|change| &change.previous.head.key)\n             .collect();\n         if changes.is_empty()\n",
+        "log_sha256": "04feffb630d0232a95be6c44df33e7d9f2c56d2e32a7393c4b8cd847b0dd57b2"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state.rs:200:42: replace == with != in ClickHouseState::resolve",
+        "status": "CaughtMutant",
+        "replacement": "!=",
+        "diff": "--- crates/storage-clickhouse/src/state.rs\n+++ replace == with != in ClickHouseState::resolve\n@@ -192,17 +192,17 @@\n         if let Some(values) = self.values(heads).await? {\n             return Ok(values);\n         }\n         let keys: Vec<_> = heads.iter().map(|head| head.key.as_str()).collect();\n         let current = self.read_many(&keys).await?;\n         if heads\n             .iter()\n             .zip(&current)\n-            .all(|(old, new)| old.digest == new.head.digest)\n+            .all(|(old, new)| old.digest != /* ~ changed by cargo-mutants ~ */ new.head.digest)\n         {\n             Ok(current)\n         } else {\n             Err(Error::StateUnavailable)\n         }\n     }\n \n     pub async fn prepare(&self, changes: Vec<Change>) -> Result<PreparedCommit, Error> {\n",
+        "log_sha256": "a0c9178c3bce0b1ad7d68185384d0b3faff8f6a7006b0c0103f4d33c5cbdf712"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:7:9: replace ClickHouseState::compact -> Result<(), Error> with Ok(())",
+        "status": "CaughtMutant",
+        "replacement": "Ok(())",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ replace ClickHouseState::compact -> Result<(), Error> with Ok(())\n@@ -1,72 +1,9 @@\n use super::{Change, ClickHouseState, transport::encode};\n use crate::Error;\n use std::collections::BTreeMap;\n \n impl ClickHouseState {\n     pub async fn compact(&self, keys: &[&str]) -> Result<(), Error> {\n-        if keys.is_empty() {\n-            return Ok(());\n-        }\n-        if keys.len() > 100 {\n-            return Err(Error::InvalidState);\n-        }\n-        let changes = self\n-            .read_many(keys)\n-            .await?\n-            .into_iter()\n-            .map(|previous| Change {\n-                value: previous.value.clone(),\n-                previous,\n-            })\n-            .collect();\n-        let prepared = self.prepare(changes).await?;\n-        self.publish(&prepared).await?;\n-        let versions: BTreeMap<_, _> = prepared\n-            .blobs\n-            .iter()\n-            .map(|blob| (&blob.head.key, blob.head.revision))\n-            .collect();\n-        let digests: BTreeMap<_, _> = prepared\n-            .blobs\n-            .iter()\n-            .map(|blob| (&blob.head.key, &blob.head.digest))\n-            .collect();\n-        for table in [\n-            \"lens_state_blobs\",\n-            \"lens_schedule\",\n-            \"lens_jobs\",\n-            \"lens_workers\",\n-        ] {\n-            match self\n-                .command(\n-                    \"EXISTS TABLE {table:Identifier}\",\n-                    &[(\"table\", table.into())],\n-                    String::new(),\n-                )\n-                .await?\n-                .trim()\n-            {\n-                \"0\" => continue,\n-                \"1\" => (),\n-                _ => return Err(Error::InvalidResponse),\n-            }\n-            self.command(\n-                \"ALTER TABLE {table:Identifier} DELETE WHERE \\\n-             key IN JSONExtract({keys:String}, 'Array(String)') AND \\\n-             (revision < JSONExtract({versions:String}, 'Map(String, UInt64)')[key] OR \\\n-             (revision = JSONExtract({versions:String}, 'Map(String, UInt64)')[key] AND \\\n-             digest != JSONExtract({digests:String}, 'Map(String, String)')[key])) \\\n-             SETTINGS mutations_sync=2\",\n-                &[\n-                    (\"table\", table.into()),\n-                    (\"keys\", encode(&keys)?),\n-                    (\"versions\", encode(&versions)?),\n-                    (\"digests\", encode(&digests)?),\n-                ],\n-                String::new(),\n-            )\n-            .await?;\n-        }\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n }\n",
+        "log_sha256": "3111741367f485cb027ee7fde69db0aafe274ca260552e9f48689dc55a6ebe9a"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:10:23: replace > with == in ClickHouseState::compact",
+        "status": "CaughtMutant",
+        "replacement": "==",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ replace > with == in ClickHouseState::compact\n@@ -2,17 +2,17 @@\n use crate::Error;\n use std::collections::BTreeMap;\n \n impl ClickHouseState {\n     pub async fn compact(&self, keys: &[&str]) -> Result<(), Error> {\n         if keys.is_empty() {\n             return Ok(());\n         }\n-        if keys.len() > 100 {\n+        if keys.len() == /* ~ changed by cargo-mutants ~ */ 100 {\n             return Err(Error::InvalidState);\n         }\n         let changes = self\n             .read_many(keys)\n             .await?\n             .into_iter()\n             .map(|previous| Change {\n                 value: previous.value.clone(),\n",
+        "log_sha256": "08c3a61faca9ebf8b4654fe68beb5b894218da8c7ed96a0684eb8993322608e8"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:10:23: replace > with < in ClickHouseState::compact",
+        "status": "CaughtMutant",
+        "replacement": "<",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ replace > with < in ClickHouseState::compact\n@@ -2,17 +2,17 @@\n use crate::Error;\n use std::collections::BTreeMap;\n \n impl ClickHouseState {\n     pub async fn compact(&self, keys: &[&str]) -> Result<(), Error> {\n         if keys.is_empty() {\n             return Ok(());\n         }\n-        if keys.len() > 100 {\n+        if keys.len() < /* ~ changed by cargo-mutants ~ */ 100 {\n             return Err(Error::InvalidState);\n         }\n         let changes = self\n             .read_many(keys)\n             .await?\n             .into_iter()\n             .map(|previous| Change {\n                 value: previous.value.clone(),\n",
+        "log_sha256": "b01c54e2ac32bed60a82afac6039c797f699ccfa20e385dbfbc57bbc6e2904cc"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:10:23: replace > with >= in ClickHouseState::compact",
+        "status": "CaughtMutant",
+        "replacement": ">=",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ replace > with >= in ClickHouseState::compact\n@@ -2,17 +2,17 @@\n use crate::Error;\n use std::collections::BTreeMap;\n \n impl ClickHouseState {\n     pub async fn compact(&self, keys: &[&str]) -> Result<(), Error> {\n         if keys.is_empty() {\n             return Ok(());\n         }\n-        if keys.len() > 100 {\n+        if keys.len() >= /* ~ changed by cargo-mutants ~ */ 100 {\n             return Err(Error::InvalidState);\n         }\n         let changes = self\n             .read_many(keys)\n             .await?\n             .into_iter()\n             .map(|previous| Change {\n                 value: previous.value.clone(),\n",
+        "log_sha256": "3e18d0769144a93fdf77639c6c44cbe72271f2454a85c3f85d5791d331db1b23"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:49:17: delete match arm \"0\" in ClickHouseState::compact",
+        "status": "CaughtMutant",
+        "replacement": "",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ delete match arm \"0\" in ClickHouseState::compact\n@@ -41,17 +41,17 @@\n                 .command(\n                     \"EXISTS TABLE {table:Identifier}\",\n                     &[(\"table\", table.into())],\n                     String::new(),\n                 )\n                 .await?\n                 .trim()\n             {\n-                \"0\" => continue,\n+                 /* ~ changed by cargo-mutants ~ */\n                 \"1\" => (),\n                 _ => return Err(Error::InvalidResponse),\n             }\n             self.command(\n                 \"ALTER TABLE {table:Identifier} DELETE WHERE \\\n              key IN JSONExtract({keys:String}, 'Array(String)') AND \\\n              (revision < JSONExtract({versions:String}, 'Map(String, UInt64)')[key] OR \\\n              (revision = JSONExtract({versions:String}, 'Map(String, UInt64)')[key] AND \\\n",
+        "log_sha256": "f12d571b072578f6e9783178f91d01bb76a75c31b29f0a25bf458a8e0d417be7"
+      },
+      {
+        "name": "crates/storage-clickhouse/src/state/maintenance.rs:50:17: delete match arm \"1\" in ClickHouseState::compact",
+        "status": "CaughtMutant",
+        "replacement": "",
+        "diff": "--- crates/storage-clickhouse/src/state/maintenance.rs\n+++ delete match arm \"1\" in ClickHouseState::compact\n@@ -42,17 +42,17 @@\n                     \"EXISTS TABLE {table:Identifier}\",\n                     &[(\"table\", table.into())],\n                     String::new(),\n                 )\n                 .await?\n                 .trim()\n             {\n                 \"0\" => continue,\n-                \"1\" => (),\n+                 /* ~ changed by cargo-mutants ~ */\n                 _ => return Err(Error::InvalidResponse),\n             }\n             self.command(\n                 \"ALTER TABLE {table:Identifier} DELETE WHERE \\\n              key IN JSONExtract({keys:String}, 'Array(String)') AND \\\n              (revision < JSONExtract({versions:String}, 'Map(String, UInt64)')[key] OR \\\n              (revision = JSONExtract({versions:String}, 'Map(String, UInt64)')[key] AND \\\n              digest != JSONExtract({digests:String}, 'Map(String, String)')[key])) \\\n",
+        "log_sha256": "17e7baf9c1c1458c240369a63cf90c7e5b352ba9651aaa6e2597217074470756"
+      }
+    ]
+  },
+  "manual": {
+    "total": 10,
+    "caught": 10,
+    "cases": [
+      {
+        "name": "omit_publication_fence",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "        self.publish(&prepared).await?;\n",
+        "replacement": "",
+        "mutated_sha256": "6aaea4c726053a8c5fd8a3a0378d4bd1505c95b550af5bcb2fb1132deb0ca9df",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 5.574,
+        "log": "/tmp/lens-compaction-qualification-20261008/omit_publication_fence.log",
+        "failures": [
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers"
+        ]
+      },
+      {
+        "name": "delete_current_revision",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "revision < JSONExtract",
+        "replacement": "revision <= JSONExtract",
+        "mutated_sha256": "bde001cd67657ac9eaf32706ee9d61e98d148b61ca4a6f2dd0917654f87fb63c",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 6.655,
+        "log": "/tmp/lens-compaction-qualification-20261008/delete_current_revision.log",
+        "failures": [
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers"
+        ]
+      },
+      {
+        "name": "invert_digest_exclusion",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "digest != JSONExtract",
+        "replacement": "digest = JSONExtract",
+        "mutated_sha256": "fb18e3be0a58a6d13392ba17a9104af6fe5e148ae2e2627414c1a9ab5e008af7",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 6.978,
+        "log": "/tmp/lens-compaction-qualification-20261008/invert_digest_exclusion.log",
+        "failures": [
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers"
+        ]
+      },
+      {
+        "name": "omit_schedule_cleanup",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_reclaims_indexes",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "            \"lens_schedule\",\n",
+        "replacement": "",
+        "mutated_sha256": "ef24753993f64b55b1be589b6f90349d0d196e94711742fa6a760c0b08afd1be",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 4.64,
+        "log": "/tmp/lens-compaction-qualification-20261008/omit_schedule_cleanup.log",
+        "failures": [
+          "compaction::compaction_reclaims_indexes_without_changing_schedule_history_or_workers"
+        ]
+      },
+      {
+        "name": "omit_job_cleanup",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_reclaims_indexes",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "            \"lens_jobs\",\n",
+        "replacement": "",
+        "mutated_sha256": "fec82cf877cadd2e1a5aa7c3b53edc8ae78fccebdc4d84851aec9df982a94263",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 4.997,
+        "log": "/tmp/lens-compaction-qualification-20261008/omit_job_cleanup.log",
+        "failures": [
+          "compaction::compaction_reclaims_indexes_without_changing_schedule_history_or_workers"
+        ]
+      },
+      {
+        "name": "omit_worker_cleanup",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_reclaims_indexes",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "            \"lens_workers\",\n",
+        "replacement": "",
+        "mutated_sha256": "a862bdce576523665a654f31d42f0a708cbfa04ccc5ef1360afe73cee33dbeed",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 8.972,
+        "log": "/tmp/lens-compaction-qualification-20261008/omit_worker_cleanup.log",
+        "failures": [
+          "compaction::compaction_reclaims_indexes_without_changing_schedule_history_or_workers"
+        ]
+      },
+      {
+        "name": "resolve_changed_content",
+        "file": "crates/storage-clickhouse/src/state.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::deleted_revision_cannot_resolve",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": ".all(|(old, new)| old.digest == new.head.digest)",
+        "replacement": ".all(|_| true)",
+        "mutated_sha256": "90ddd5178f9ced8e63a42087d56341276227b739132401f92c7ed80878393193",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 13.142,
+        "log": "/tmp/lens-compaction-qualification-20261008/resolve_changed_content.log",
+        "failures": [
+          "compaction::deleted_revision_cannot_resolve_to_changed_content"
+        ]
+      },
+      {
+        "name": "remove_batch_bound",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_checks_batch_size",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "        if keys.len() > 100 {\n            return Err(Error::InvalidState);\n        }\n",
+        "replacement": "",
+        "mutated_sha256": "ba928c34127cce2d9bb8047cf0197809fc72d548061ce883ceeb77d4686280b4",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 17.898,
+        "log": "/tmp/lens-compaction-qualification-20261008/remove_batch_bound.log",
+        "failures": [
+          "compaction::compaction_checks_batch_size_before_writing::case_2_over_limit"
+        ]
+      },
+      {
+        "name": "invert_history_predicate",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "revision < JSONExtract",
+        "replacement": "revision > JSONExtract",
+        "mutated_sha256": "6883bbb7cb5d974cd0321466029f832a41c6d22299d46d19855ff0b97ca777ba",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 6.998,
+        "log": "/tmp/lens-compaction-qualification-20261008/invert_history_predicate.log",
+        "failures": [
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers"
+        ]
+      },
+      {
+        "name": "retain_competing_digest",
+        "file": "crates/storage-clickhouse/src/state/maintenance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "litellm-storage-clickhouse",
+          "--test",
+          "state",
+          "--test",
+          "investigations",
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers",
+          "--",
+          "--test-threads=2"
+        ],
+        "search": "digest != JSONExtract",
+        "replacement": "0 AND digest != JSONExtract",
+        "mutated_sha256": "862fba10428e8187532622ac085a36a36e1811ed60db256d972cdd64f842cf70",
+        "status": "caught",
+        "exit_status": 101,
+        "signal": null,
+        "elapsed_seconds": 5.571,
+        "log": "/tmp/lens-compaction-qualification-20261008/retain_competing_digest.log",
+        "failures": [
+          "compaction::compaction_keeps_current_values_and_fences_prepared_losers"
+        ]
+      }
+    ]
+  },
+  "viable_kill_rate": 1,
+  "limits": [
+    "Compaction and historical reference fallback only; this does not qualify evals merged later from main",
+    "Only existing ClickHouse on localhost18124 was used; no shared production source was mutated"
+  ],
+  "local_evidence_directory": "/tmp/lens-compaction-qualification-20261008"
+}

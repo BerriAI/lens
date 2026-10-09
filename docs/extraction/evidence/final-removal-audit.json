@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "status": "passed_source_removal_audit_external_release_gates_remain",
+  "start_at": "2026-10-09T11:59:21Z",
+  "earliest_completion_at": "2026-10-09T12:59:21.000Z",
+  "minimum_wall_clock_minutes": 60,
+  "end_at": "2026-10-09T13:02:20.802297+00:00",
+  "candidate_shas": {
+    "lens": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "lens_production": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "gateway": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "gateway_production": "d83eab03962545fa328222557e193e5519c26ad6",
+    "publisher": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+    "ops": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+    "docs": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+    "codex_integration": "2e0920128158046c8a3f0de230c366574c130672",
+    "examples_local": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+    "shared_rust_dependency": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
+  },
+  "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "upstream_at_preflight": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+  "entry_gates": {
+    "product_source_frozen": true,
+    "full_native_ci": "docs/extraction/evidence/final-native-ci.json",
+    "gateway_ten_required_checks_pass": true,
+    "gateway_greptile_current_confidence": "4/5",
+    "gateway_veria_current": "SUCCESS",
+    "both_actual_gateway_chart_families": "docs/extraction/evidence/helm/gateway-candidate-final.json",
+    "developer_source_rebuild": "docs/extraction/evidence/fresh-developer-rust-source.json",
+    "framework_versions": "docs/extraction/evidence/framework-versions-final70.json",
+    "companion_docs": "Bounded reviewed docs-only commits; implementation sources retain earlier passing CI, new docs-tip CI separately tracked"
+  },
+  "lanes": {
+    "root": "Remaining callers, removed paths and upstream merge preservation; ordinary gateway inference/billing/schema and docs/entrypoints; independent cross-review",
+    "dataset_http": "Authentication, tenancy, immediate revocation, server adapters and safe existing-fixture reads",
+    "dataset_domain": "Isolated real ClickHouse, state publication, budgets, progress, leases, expired owners, jobs, migration and cancellation",
+    "dataset_storage": "Independent release and deployment selections, chart/ops resource ownership, artifact provenance, dependencies and publication permissions"
+  },
+  "checks": [
+    {
+      "lane": "root",
+      "path": "docs/extraction/evidence/final-removal-root.json",
+      "sha256": "f087e0c6a20213ea7bade7e8389550672beb297f6dbaba7b2dbb592484d7d368"
+    },
+    {
+      "lane": "http",
+      "path": "docs/extraction/evidence/final-removal-http.json",
+      "sha256": "98b7ac971b0505cf2c42a6163beb00ee2c1fb23da64d783645ea77f4fb29f610"
+    },
+    {
+      "lane": "domain",
+      "path": "docs/extraction/evidence/final-removal-domain.json",
+      "sha256": "5d0ff5967e77ce6d5eecad33d77aacdf7fdc6584a96f8cb2984e053fc96bf419"
+    },
+    {
+      "lane": "storage",
+      "path": "docs/extraction/evidence/final-removal-storage.json",
+      "sha256": "fdced0671efada4670c22acd1bb1ca837f6ec7da96b9887845df999d2d65d4cb"
+    }
+  ],
+  "findings": [
+    {
+      "id": "storage-docs-01",
+      "found_at": "2026-10-09T12:09:00Z",
+      "status": "fixed",
+      "severity": "documentation",
+      "description": "Legacy Ops worker guide presented release-coupled enrollment as current; dev setup still described direct gateway ClickHouse and omitted independent Lens reader RBAC",
+      "resolution": "Retired legacy procedure, linked current independent guide, moved current bootstrap/read-access instructions with --lens-only, corrected post-handoff type:lens/ClickHouse ownership and ingestion URL",
+      "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "diff_sha256": "0fa62bf2bd4511af9472e5ce25b8f26a24a4efd37c9eb9e7ba1465c606e46b3b",
+      "reviewer": "dataset_domain",
+      "review_result": "Independently reviewed all3 files against active overlay, Lens application, checker and RBAC; no remaining findings",
+      "validation": "git diff --check, rendered3 Markdown pages, checked4 shell snippets and7 local links/anchors; final-head GitHub CI37928931469 passed36 tests, complete overlay render and actionlint",
+      "source_changed": false,
+      "ci": {
+        "run_id": 37928931469,
+        "head_sha": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+        "conclusion": "success",
+        "checkout": "Synthetic PR merge2cdb4d0 of167c553 into main4d5c16a",
+        "log": "ops-167-checks.log",
+        "log_sha256": "2e5f8c6adde2106970d99e076ed89451d3df1162a1e1c12d5e013baa81717ca1",
+        "check_runs": "ops-167-check-runs.json",
+        "check_runs_sha256": "522ce241629063f65f53e62a952b8cd398004db40b797229c56d7bbdc96a023d"
+      }
+    },
+    {
+      "id": "storage-release-02",
+      "found_at": "2026-10-09T12:27:39.984508+00:00",
+      "status": "fixed",
+      "severity": "staging-blocker",
+      "description": "Standalone stage checks out internal BerriAI/lens in3 jobs using default repository-scoped GITHUB_TOKEN from project-releaser; no cross-repository source credential is supplied",
+      "evidence": {
+        "repository_visibility": "storage-lens-repository-visibility.json",
+        "visibility_sha256": "8f3e19804ab99881935c69b13529801837e25bd8572ea4b57ccd4e62182a1e75",
+        "workflow": ".github/workflows/lens-stage.yml",
+        "head": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "source_checkouts": [
+          "plan",
+          "native",
+          "assets"
+        ]
+      },
+      "proposed_fix": "Use existing GitHub App to mint token scoped to lens with contents:read in each source-fetch job; pass to checkout with persist-credentials:false; keep source execution isolated and document prerequisite",
+      "operational_limit": "App installation/credential availability still external; no source token mint or official stage attempted locally",
+      "commit": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+      "diff_sha256": "c83f267da291df53c9c76ce8d4ce1ef1a9d8f0a6ab8868e78155a654bd694c30",
+      "resolution": "All3 source jobs mint fixed-owner Lens-only app tokens with contents:read and pass them only to checkout with persist-credentials:false; source image/build, package publication and production approval unchanged. Docs add internal repository and asset access prerequisites",
+      "validation": {
+        "regression_before": "3 failed on original missing source credentials",
+        "regression_after": "3 passed",
+        "full_local_check": "make check:2553 passed,100% coverage,Ruff and strict mypy passed",
+        "independent_reviewers": [
+          "dataset_domain",
+          "dataset_http"
+        ],
+        "http_review": "http-publisher-source-auth-review.json",
+        "final_head_ci": {
+          "sha": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+          "strict_run": 37931602044,
+          "strict": "passed:2553 tests/100% coverage+342 Buildkite,Ruff and mypy",
+          "zizmor_run": 37931601960,
+          "zizmor": "success",
+          "native_run": 37931601888,
+          "native": "success: Python and Rust native amd64/arm64 fixture smoke; all4 lanes passed",
+          "strict_log_sha256": "90847b023fa995e14d83a2d8d9ed6e5d9bb2ce775fc33fbd0aebd4429534e0a7",
+          "native_log": "publisher-8ef-native-smoke.log",
+          "native_log_sha256": "add2799ab6613d9ea7b5bb1bc697f4ac85f85294a3530fa96d53973a2f7600cb",
+          "check_runs": "publisher-8ef-check-runs.json",
+          "check_runs_sha256": "bd15b46b9f7c6a53240fdda7d335324748e0086927240c435a1124d1558c95eb",
+          "all_checks_passed": 6,
+          "reviewed_at": "2026-10-09T12:57:17.237517+00:00",
+          "qualification": "Native CI exercises immutable pre-extraction BerriAI/litellm Python1454f5c and Rust890ffe5 fixtures; does not run official independent Lens staging or mint the source app token"
+        },
+        "exact_source_ci": {
+          "sha": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+          "strict_run": 37930865209,
+          "strict_result": "2553 tests,100% coverage,Ruff and mypy;342 additional Buildkite tests",
+          "strict_log_sha256": "1346dadf7927ccccd67be263a2c2f9eafa0c2031fd968b1f85a917b214921b84",
+          "zizmor_run": 37930865245,
+          "zizmor_result": "No findings; existing20 ignored/76 suppressed, no new suppressions",
+          "native_run": 37930865240,
+          "native_status": "cancelled by successor8ef run under existing concurrency policy; not a pass",
+          "note": "Synthetic PR merge1a68484 ofcca09f3 into main0903cc1",
+          "native_cancellation_receipt": "publisher-cca-native-smoke-cancelled.json"
+        }
+      }
+    },
+    {
+      "id": "public-docs-current-runtime",
+      "status": "fixed",
+      "commit": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+      "description": "Thirteen public documentation pages still included coupled release, enrollment and obsolete source setup instructions",
+      "validation": "Strict Docusaurus build, exact-head CI, independent source/command checks and desktop/narrow browser review"
+    },
+    {
+      "id": "local-cleanup-verifier",
+      "status": "fixed_in_reviewed_local_harness",
+      "description": "Cleanup verifier assumed restart could not create a new internal worker and discovered state through an incomplete join",
+      "validation": "Complete head inventory and narrowly checked new worker lifecycle;45 negative guard cases and independent reviews; no product source changed",
+      "execution": "Actual local credential cleanup is a separate post-audit receipt"
+    }
+  ],
+  "limits": [
+    "This audit qualifies the frozen source and exercised boundaries, not an official release or a production deployment",
+    "CodeQL remains an incomplete resource-limited scan; official release, managed cutover and examples publication permissions remain external gates",
+    "Implementation qualification and all work before start_at are excluded from the dedicated hour",
+    "Current Lens source is INTERNAL; public source/artifact availability requires a deliberate owner decision",
+    "A Git-pinned shared Rust dependency PR remains open, and absent external review output is not a pass",
+    "Standalone control-body caps and storage topology/capacity limits remain explicit in the lane receipts and qualification matrix"
+  ],
+  "elapsed_wall_clock_seconds": 3779.802297,
+  "elapsed_wall_clock_minutes": 62.997,
+  "implementation_successors": {
+    "publisher": {
+      "head": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "workflow_source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+      "reason": "Audit found internal source checkout lacked a cross-repository read credential; scoped token fix independently reviewed and tested, with docs-only successor"
+    },
+    "ops_docs": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+    "public_docs": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+    "codex_docs": "e58b4f481e3145c592fb93a46b2938267ac18b77"
+  },
+  "conclusion": "No unresolved removal regression was identified in the qualified source and exercised boundaries. This is not an absolute security guarantee or an official release/production cutover attestation."
+}

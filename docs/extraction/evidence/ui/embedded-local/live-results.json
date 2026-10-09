@@ -1,0 +1,45 @@
+{
+  "gatewayBaseCommit": "f48d837cd21208771ee5b15770e4425a32907f1b",
+  "uiPackage": "local packed @litellm/lens-ui, unpublished",
+  "dependencyProof": {
+    "source": "f48d837cd21208771ee5b15770e4425a32907f1b",
+    "lockfileUnchanged": true,
+    "existingDependencyVersionDrift": [],
+    "packedLensVersion": "0.1.0-dev.0"
+  },
+  "providerCompletion": {
+    "id": "chatcmpl-178a3ac2-679f-4a56-ad58-6fec46d26a57",
+    "content": "Lens local integration works",
+    "tokens": 32
+  },
+  "traceJoin": [
+    {
+      "trace_id": "cdef1234567890abcdef1234567890ab",
+      "trace_ref": "A8E742FECAF392AE6AE7297658400AB481A12DC553B08FE760128EAB28D51B3D",
+      "name": "Real gateway completion",
+      "spend": 0.000136,
+      "priced_calls": 1
+    },
+    {
+      "trace_id": "cdef1234567890abcdef1234567890ab",
+      "trace_ref": "4EFA4507FABFFD7AE51A93DC7E130D08B938CF438EEE622070E3F6C7B9C82D35",
+      "name": "Local Lens integration",
+      "spend": null,
+      "priced_calls": 0
+    }
+  ],
+  "authorization": {
+    "viewerRead": 200,
+    "viewerWrite": 403,
+    "anonymousLens": 401,
+    "anonymousTraces": 401
+  },
+  "browser": {
+    "login": "normal gateway login",
+    "drawer": "matched native request drawer; back returned to Lens",
+    "reload": "selected trace and model content loaded",
+    "viewer": "normal viewer login; no settings or dataset write actions",
+    "logout": "redirected to gateway login"
+  },
+  "scope": "Partial milestone 2 evidence; complete standalone self-deployment is milestone 1 and remains incomplete"
+}

@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.20s
+     Running tests/transport.rs (target/debug/deps/transport-373871906ed7594e)
+
+running 5 tests
+test failures_are_sanitized_and_never_retried_or_redirected::case_1_bad_request ... ok
+test failures_are_sanitized_and_never_retried_or_redirected::case_2_unauthorized ... ok
+test failures_are_sanitized_and_never_retried_or_redirected::case_4_server_failure ... ok
+test failures_are_sanitized_and_never_retried_or_redirected::case_3_rate_limited ... ok
+test failures_are_sanitized_and_never_retried_or_redirected::case_5_redirect ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.00s
+

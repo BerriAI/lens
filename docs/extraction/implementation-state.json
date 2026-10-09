@@ -1,6 +1,6 @@
 {
   "objective": "Complete all requirements in completion-plan.md; create any new repos as BerriAI internal repositories",
-  "status": "in_progress",
+  "status": "implementation_qualified_external_gates_pending",
   "started_at_utc": "2026-10-08T21:09:32.261897+00:00",
   "baseline": {
     "repository": "BerriAI/litellm",
@@ -17,17 +17,19 @@
     "branch": "litellm_lens_standalone",
     "pull_request": null,
     "first_pushed_commit": "fc50525d1ecac7e802a99b346462d56763079187",
-    "readiness": "Rust storage and opt-in authentication are implemented and tested. The standalone application still uses the Python control plane; complete Rust API replacement, analysis setup, full E2E, migration and cross-repository qualification remain incomplete",
+    "readiness": "Standalone Rust runtime, ClickHouse storage, shared UI, real feature flows, native containers, populated transfer/recovery, developer rebuild and both gateway charts are qualified. The separate dedicated removal audit passed. Official public release and managed cutover remain external gates.",
     "merged_extraction": "https://github.com/BerriAI/litellm-lens/pull/2",
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "7ae28fbea3ba8a897457d18a5d430db54938ee9c",
+    "candidate_commit": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
       "https://github.com/BerriAI/litellm-lens/pull/4"
-    ]
+    ],
+    "last_published_commit": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "publication_checkpoint_note": "Last verified remote checkpoint before this evidence update. The containing Git commit identifies this ledger version; product qualification remains pinned separately."
   },
   "completed_actions": [
     "Fetched latest LiteLLM main",
@@ -74,362 +76,1521 @@
     "Incorporated the concurrently merged SDK fixes at d04caacd; checked its updated schema with the locked SDK generator and formatter",
     "Reconciled worker contracts with the public eval contract on main at fd817339, preserving both protocol versions and passing SDK generation against schema/lens.v1.json",
     "Passed 1,964 regular workspace tests, four live HTTP/ClickHouse cases, 138 combined UI tests, formatting and Clippy; worker contract mutations caught 41 of 44 viable changes",
-    "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open"
+    "Published Rust worker contract ownership directly to main as 7ae28fbe after reconciling concurrent UI, SDK and eval-contract changes; full-product acceptance remains open",
+    "Qualified the frozen Rust standalone bootstrap with 2,500 regular workspace tests, Clippy, formatting, real binary login/ingestion/trace/dataset flows and restart persistence; full milestone 1 remains open",
+    "Reconciled main through 5c02728f; removed retired Python backend and tests; consolidated final production Rust workspace passed 3,915 tests with zero failures, plus separately executed opt-in ClickHouse cases and final development benchmark tests",
+    "Completed the separately timed final removal audit with independent lanes, source reconciliation, fresh negative/live checks and reviewed fixes; original implementation qualification is excluded from the hour",
+    "Retired four local task startup credentials and the exact old sessions, preserved all original state and billing rows, and verified retained findings/traces/feedback in both browser shells after restart. Shared provider credentials were not rotated."
   ],
-  "current_work": "Complete remaining public HTTP contracts and Rust dataset/domain/API ports, then standalone provider/browser E2E, migration/recovery and LiteLLM/ops/project-releaser integration",
+  "current_work": "Source implementation and the separate final removal audit are qualified. Lens source/evidence delivery and companion review PRs are the authorized handoff. Official release, managed deployment, examples publication and incomplete external reviews remain explicit external gates.",
   "acceptance": {
     "B1": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Original latest-main extraction base, source hashes, route inventory and move map are recorded. Final upstream reconciliation is a separate B3 gate.",
+      "evidence": [
+        "docs/extraction/source-manifest.json",
+        "docs/extraction/source-commit-map.txt",
+        "docs/extraction/baseline-routes.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "B1"
+      }
     },
     "B2": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "All55 baseline routes have43 current owners and12 explicitly retired clean-cut routes, with no unmapped owner. Behavioral replay, current paired feature controls and final70 changed-metadata controls supplement source review. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/rust-worker-contract.md (worker wire and prompt schema parity; full product parity remains open)"
-      ]
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/paired-ui-controls.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "The newer shared navigation shell is an intentional concurrent UI change; whole-shell pixel identity is not claimed. Existing supported features remain required."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "B2"
+      }
     },
     "B3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "The original baseline and subsequent relevant Lens fixes are reconciled, including reservation starvation4ed0267. During the final audit, current upstream was fetched and the proposed merge preserved every newly changed upstream blob without deleted-path overlap; exact identities and the final refresh are recorded in final-removal-root.json.",
+      "evidence": [
+        "docs/extraction/evidence/upstream-removal-reconciliation.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/metadata-filter-regression.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Prior upstream receipt is explicitly preparatory, not the required final hour or a promise that upstream has not advanced."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "B3"
+      }
     },
     "B4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "The supported initial topology, contract1, protocol7 and development artifact identities are explicit. Final70 runtime, af29 UI, d83 host production UI and ba4 host backend are now qualified in separate receipts.",
+      "evidence": [
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No mixed legacy/current Lens support is promised; new UI/service compatibility remains an explicit boundary."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "B4"
+      }
     },
     "S1": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Generated/repeated standalone setup and durable first trace passed on105; final70 starts against retained storage with an identical server executable. Native amd64/arm64 installation and restore were executed in105 CI; final70 native jobs are separate.",
+      "evidence": [
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/fresh-developer.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/host-final-review-qualification.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "A public setup-bundle install has not occurred; a locally built image is not a published release."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S1"
+      }
     },
     "S2": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Standalone browser sign-in, sample exploration, dedicated tracing key, test trace and actual trace inspection pass without analysis credentials; fresh isolated developer setup repeats the first useful result.",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)",
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)",
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
-      ]
+        "docs/extraction/evidence/fresh-developer.json",
+        "docs/extraction/rust-standalone-bootstrap.md",
+        "docs/extraction/evidence/successor-container-qualification.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Sample data is not counted as proof of agent integration; actual ingested trace is separately observed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S2"
+      }
     },
     "S3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Provider-compatible direct and gateway framework runs plus real Codex resumed-session receipts and Claude trace/log capture reach standalone Lens with dedicated telemetry credentials.",
+      "evidence": [
+        "docs/extraction/evidence/standalone-agent-examples.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Hosted compatible provider accounts were used, not every official native provider account. Only the executed framework/agent versions are claimed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S3"
+      }
     },
     "S4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Standalone hosted-compatible analysis preserves selected model, budget, citations and findings. Direct-compatible paid analysis succeeds with the optional local gateway stopped. Final70 Argo analysis also completes with evidence-backed findings and confined calculations.",
+      "evidence": [
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/successor-investigation-controls.json",
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/final-image-ui-controls.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "No live official-native account path is claimed. Outbound hosted inference is not a dependency on a locally operated LiteLLM gateway."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S4"
+      }
     },
     "S5": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Repeated setup, application/storage restart and cold restore preserve credentials and data. Corrupt/unsafe restores fail, supported capability failures stop startup before bind, and final70 Argo wrong-digest/unready checks reject success until recovery.",
       "evidence": [
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/external-clickhouse-boundary.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Detailed ClickHouse failures may require server logs; helm/lens/README.md maps Keeper/privilege diagnostics to recovery."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S5"
+      }
     },
     "S6": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Lens-owned API authentication performs tracing-key, ingestion, trace, dataset, investigation, feedback, signal and eval operations without a LiteLLM account. Final70 signal restart executes the public API with isolated Lens credentials.",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)",
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/successor-eval-qualification.json",
+        "docs/extraction/evidence/signal-pending-restart.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/fresh-developer.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Published artifact delivery is tracked under release requirements, separate from this local API behavior."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "S6"
+      }
     },
     "F1": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Canonical trace and log encodings preserve identities/content through JSON and protobuf. Decoder cases cover native assistant/tool logs, invalid contexts, timestamps, fanout and decoded-byte limits HTTP receiver covers tenant replacement, malformed400, oversized413, retryable503+Retry-After, pending-key429 versus invalid-key401, unchanged receipt and ingress prefix behavior. Clean-cut crate executed16 receiver cases plus the separately opt-in real ClickHouse cases Actual Codex/Claude exporters produced readable prompt/tool/reply data; actual key revocation denies persistence. Optional local gateway outage retained the existing key and accepted/read fresh telemetry after138 seconds, exceeding the90-second credential snapshot TTL Imported credential still authenticated trace receipt after PostgreSQL stop and after cold restore",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/standalone-agent-examples.json",
+        "docs/extraction/evidence/final-tracing-key-revocation.json",
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Retired gateway ingestion aliases, remote worker enrollment and mixed old/new client compatibility are explicitly outside clean-cut scope",
+        "Decoder fixture coverage and live exporter coverage are complementary, not a claim that every encoding/error combination was replayed through a70 container"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F1"
+      }
     },
     "F2": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "API/SQL scope, metadata/team filters, large-trace completeness and stable cursor paging have behavior tests. Paired browser empty/typical search/status/time/refresh and exact100/1000-trace readback complement the fixed-workload latency comparisons.",
+      "evidence": [
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/paired-ui-controls.json",
+        "docs/extraction/evidence/service-benchmark-paired.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Ordering is the current fixed ordering, not a new sort control. Paired benchmark is single-client and does not establish production throughput."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F2"
+      }
     },
     "F3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Paired baseline/current browser checks cover error rows, tool groups, Thread, spans, Waterfall, attributes, finding citations and stored links; current narrow viewport supplemental checks passed Conversation tests separately cover nested/parallel agents, resumed sessions, deferred paged replies, failed page retry, long input with visible output and partial-capture warning. Real trace readers/evidence tests preserve long Unicode pages and recorded native content Both migrated UI shells display the same two-span original input/output, Thread, feedback and cited evidence; restored views remain readable",
+      "evidence": [
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/paired-ui-controls.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "No single paired screenshot combines every nested/resumed/paged/partial case, and mobile baseline pairing was not executed. The plan requires representative fixtures, paging and paired captures; these complementary receipts satisfy that evidence shape without claiming an exhaustive screenshot matrix",
+        "Metadata-filter guard is outside the trace UI subtree; entire shared UI is not claimed identical"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F3"
+      }
     },
     "F4": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Create/edit/preview/run and source sampling/concurrency selections have behavioral coverage. Final70 standalone and d83 embedded UI repeat duplicate metadata append/remove/reindex and navigation without crash, preserve model/budget/sample/team selections, reject a no-match submit and leave the original unchanged after cancel/reload.",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/successor-investigation-controls.json",
+        "docs/extraction/evidence/metadata-filter-regression.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "The deliberately unmatched duplicate was not saved in the final-image browser check; persisted duplicate filter values are covered by the31 integration cases."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F4"
+      }
     },
     "F5": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Normal scheduling, exact due times, background execution, monitoring/pause, frozen sample/model and actual process-kill lease recovery pass. The recovered job finishes once with settled spend; targeted local-control mutation evidence has67 explicit kills and3 separate timeouts. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/successor-investigation-controls.json",
+        "docs/extraction/evidence/rust-local-mutation-reconciliation.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Cancellation was interrupted before provider forwarding. Expiry does not abort an already submitted storage transaction. Retired remote worker enrollment is outside clean-cut scope."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F5"
+      }
     },
     "F6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Prompt/contract replay, paging, Unicode evidence, citation repair, compaction and result publication have behavioral and targeted mutation proof.105 native image executes10 confinement/resource/cancellation cases; final70 Argo runs real evidence-backed analysis and exact85877 confined computation. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/rust-local-result-mutations.json",
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Zero native sandbox tests on macOS are never counted as execution. Whole-product mutation completeness is not asserted."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F6"
+      }
     },
     "F7": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Paired browser views preserve finding summary/frequency, evidence links, history/run selection and saved state; actual resolve with explanation, restart readback and reopen were observed Domain tests preserve review feedback across replay, reopen only on new support, follow semantic merged aliases using oldest identity, and keep current-run evidence distinct from accumulated feedback Populated migration preserves finding and old alias, current/archived histories and both UI views; one new paid finding cites contradictory source records and survives restore byte-exactly in its completed job",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Semantic finding aliases remain required; retired HTTP route aliases do not"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F7"
+      }
     },
     "F8": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Exact-window actual rerun reused one completed review, made zero model calls, spent zero and left total spend unchanged Criteria-only hashing, equal-length edits on every evidence page, cache inclusion of full reusable reviews, version matching, partial result preservation and failed/stale atomic checkpoints have existing behavioral tests Added result tests exercised28 cases and caught14 former mutation survivors; scheduler follow-up caught both prior survivors. The underlying result production prefix is identical through70 Older actual changed-criteria run created fresh analysis and advanced the finding revision; identity review carries the relevant unchanged criteria/evidence/domain logic only",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/investigation-writer-lease.json",
+        "docs/extraction/evidence/rust-local-result-mutations.json",
+        "docs/extraction/evidence/rust-local-mutation-reconciliation.json",
+        "docs/extraction/evidence/investigation-criteria-change.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Older criteria-change image is not relabeled as105 or70; no duplicate paid criteria run is necessary solely for importer/UI guard changes"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F8"
+      }
     },
     "F9": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Golden dataset HTTP replay and domain tests cover messages with roles/names/tool history, reply/tool calls, expected values, included/excluded cases, provenance, agent version, revision conflicts and newline-delimited exports Actual UI creates revisions0/1/2, modifies expected response and opens read-only historical revision with distinct exports Migration and cold restore preserve revisions1/2 and distinct export hashes; both standalone/embedded UIs show latest and historical data, and post-backup sentinel is deliberately absent",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial: dataset revision and summary persistence; UI and exports pending)",
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/rust-datasets-mutations.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Historical HTTP mutation inventory was incomplete; no blanket dataset mutation-completeness claim is made"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F9"
+      }
     },
     "F10": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Golden/real HTTP cases cover separate read/write roles, own-author overwrite, tenant/key scope, ambiguous IDs requiring trace reference, cross-author aggregation and tombstone persistence through a new HTTP server Real ClickHouse retention test changes TTL, removes expired feedback through materialization/OPTIMIZE and proves repeated reconciliation is idempotent Actual API create/read/update/delete preserves other author; UI read-only display matches. Feedback stays visible in both shells after PostgreSQL stop and restore Latest host reader/authentication follow-up preserves admin/viewer/owner/foreign access and immediate revoked gateway key rejection",
+      "evidence": [
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/final-reader-requalification.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Current product UI intentionally displays end-user feedback; creating a new admin feedback editor is not an acceptance obligation"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F10"
+      }
     },
     "F11": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Actual hosted Typesafe-compatible classification flags the synthetic trace, displayed in UI; threshold/current labels/config policy and failure/retry/claim ownership have domain/API cases Clean-cut two signals-runtime cases exercise classified and provider-failure outcomes without a gateway; storage test separately kills/restarts ClickHouse and preserves configuration/completed results HTTP/activity mutation inventory catches45 of45 viable mutations; this is a focused boundary score, not all signal runtime behavior On final70, SIGKILL preserves a pending signal claim/config; after the unchanged five-minute lease, a newer claim performs one real hosted-compatible classification. Completed state/result survive a second process restart without another request; owned side resources are removed",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/rust-live-signals.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/rust-signals-activity-mutations.json",
+        "docs/extraction/evidence/signal-pending-restart.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "A fresh Signals repository over the same store is NOT an application-process restart",
+        "ClickHouse restart after completed classification is NOT a pending application task restart",
+        "Official native vendor endpoint credentials are not exercised; hosted-compatible provider path is the actual account-qualified boundary"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F11"
+      }
     },
     "F12": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Real independent progress clients contend with reserve/renew/settle without starving them; writer fencing and owner-aware cleanup preserve successors. Budget policy covers held allowance, idempotent settlement, month rollover, late settlement and failed-call release Exact105 SIGKILL/reclaim preserves frozen sample and settles five actual completions to matching step/job/Lens total$0.0378381 with zero active reservations. Cancellation before provider forwarding costs zero; exhausted budget returns402 with no additional call Migrated installation uses a separately restricted one-model/$1/one-hour credential. Stored legacy hash and denied model fail; new completed job, Lens spend delta and gateway-key spend all equal$0.0426491, with zero active reservations, and survive restore Direct-compatible analysis succeeds while local gateway is stopped; gateway-backed analysis fails explicitly with no charge. Existing transport fixtures distinguish context-limit failure, empty/missing usage fallback, gateway attribution and SDK estimates The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/investigation-writer-lease.json",
+        "docs/extraction/evidence/current-feature-reconciliation.json",
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "docs/extraction/evidence/rust-gateway-sdk.json",
+        "docs/extraction/evidence/rust-embedded-gateway.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Configured hosted provider accounting is qualified; every native account/provider billing combination is not",
+        "Actual cancellation after the remote provider has accepted a request was not executed; the before-forward cancellation result must not be broadened to that case",
+        "Lease expiry does not cancel an already submitted ClickHouse transaction; takeover/revision fencing determines publication",
+        "No whole-product mutation score: local reconciliation is67 explicit kills out of70 viable, with3 separate timeouts"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "F12"
+      }
     },
     "I1": {
-      "status": "not_run",
+      "status": "partial",
+      "observed": "Normal gateway login opens Lens in native navigation without a second login. Final70/d83 browser controls work through that entrypoint; auth/role/tenant setup and revocation retain27 live checks on unchanged backend source. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
-      ]
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-native-isolation.json",
+        "docs/extraction/evidence/final-reader-requalification.json",
+        "docs/extraction/evidence/final-adapter-qualification.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No live OAuth environment approval occurred; alternate identity-provider login itself is not newly exercised. Legacy aliases are outside scope."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I1"
+      }
     },
     "I2": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Paired desktop feature panels preserve trace/findings/history, search/time/status, keyboard span/trace selection, Escape/focus and column controls. Current390px layout remains usable. Native spend drawer/back navigation and final metadata dialogs work in embedded UI.",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-http-parity.log (partial standalone auth/dataset HTTP parity; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/paired-ui-controls.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/local-embedded-qualification.md",
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "The shared navigation shell intentionally changed; no whole-page pixel identity or paired mobile baseline is claimed. Nested/paged/error UI cases also have component fixtures."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I2"
+      }
     },
     "I3": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Paired trace/span/thread reload and finding-evidence return, live investigation/history selection, historical dataset revisions and current eval/run reload/back behavior retain identifiers. Shared route-state tests cover current supported navigation.",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/paired-ui-controls.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/successor-eval-qualification.json",
+        "docs/extraction/ui-package.md",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "No exhaustive live browser Cartesian product of every link and history action was run. Retired route aliases are not required."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I3"
+      }
     },
     "I4": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Native adapter evidence plus27 current reader checks preserve admin/viewer/owner/foreign scope, viewer write denial, immediate revoked gateway-key rejection and authenticated setup. Auth tests separately cover forged/expired delegated identity, logout and session lifecycle. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
-      ]
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-native-isolation.json",
+        "docs/extraction/evidence/final-reader-requalification.json",
+        "docs/extraction/evidence/final-adapter-qualification.json",
+        "docs/extraction/rust-auth.md",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Browser role claims are presentation only. The final identity audit must inspect privilege-change/session revalidation, not infer it solely from a successful login."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I4"
+      }
     },
     "I5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Connected paid analysis, restricted key/model denial, stored-hash rejection, exact gateway/Lens spend attribution, request correlation, privacy redaction and native log drawer are exercised. Migrated paid job cost0.0426491 equals both Lens delta and fresh restricted gateway-key spend.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-native-isolation.json",
+        "docs/extraction/evidence/final-reader-requalification.json",
+        "docs/extraction/evidence/final-adapter-qualification.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/rust-embedded-gateway.json",
+        "docs/extraction/evidence/rust-gateway-sdk.json",
+        "docs/extraction/local-embedded-qualification.md",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Only configured account/model policies were exercised. Gateway billing requires a gateway source; unknown/unmatched external cost is not fabricated."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I5"
+      }
     },
     "I6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Embedded-created dataset and standalone-edited revision retain one ID across views. The populated migration and restore show the same trace, feedback, findings/history and current/historical dataset exports in both authenticated shells.",
+      "evidence": [
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/final-image-features.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Both shells target the same deployment; there is no promise of automatic synchronization across separate Lens installations."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I6"
+      }
     },
     "I7": {
-      "status": "not_run",
+      "status": "partial",
+      "observed": "Lens owns the feature UI. d83 gateway consumes the af29 package, with383 files compared byte-for-byte, npm lock integrity, clean install,7 focused tests and55-route production build. Gateway retains narrow host/rendering adapters. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "docs/extraction/ui-package.md",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Current vendored development tarball provenance is not an officially published package. No runtime remote executable UI fetch is introduced."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "I7"
+      }
     },
     "M1": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Actual read-only PostgreSQL transfer imports all eight legacy metadata groups and11 records. PostgreSQL is stopped before standalone/embedded trace, feedback, findings/aliases/history, datasets/revisions and exports are inspected. Restricted new analysis and fresh-volume restore retain the imported records.",
+      "evidence": [
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Execution used105 with synthetic representative data; final70 only adds invalid-credential refusal and preserves valid bytes. No customer database size is claimed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M1"
+      }
     },
     "M2": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Supported current exporters point to Lens with dedicated tracing keys; actual framework/Codex/Claude traces and delivery receipts remain readable. Revoked key rejection is confirmed.",
+      "evidence": [
+        "docs/extraction/evidence/standalone-agent-examples.json",
+        "docs/extraction/evidence/final-tracing-key-revocation.json"
+      ],
+      "remaining": [],
+      "scope": "Legacy-specific exporter compatibility is optional under the clean-cutover clarification; currently supported OTLP exporters remain covered by F1/S3/D5",
+      "external_gates": [
+        "EXAMPLES_PUBLICATION_PERMISSION"
+      ],
+      "limits": [
+        "Exporter destination reconfiguration is permitted by the clean-cut beta scope; legacy gateway credential polling is removed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M2"
+      }
     },
     "M3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Importer requires source-stopped acknowledgement and verifies the full transfer before new writers start. Populated source PostgreSQL was stopped before Lens runtime, while unrelated gateway data/config remained unchanged. Expired jobs and signals recover under normal persisted leases. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/signal-pending-restart.json",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "The CLI verifies operator acknowledgement, not remote process ownership. The executed cutover is a documented stop-and-transfer, not dual-writer coexistence."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M3"
+      }
     },
     "M4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Legacy gateway credential hashes are preserved as metadata and rejected as bearer access. One separately created one-model/1USD/one-hour key succeeds after model denial checks; job, Lens and gateway spend all agree at0.0426491 with no reservations left.",
+      "evidence": [
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "A configured restricted outbound credential remains required for gateway-backed analysis; hashes cannot be converted back into secrets."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M4"
+      }
     },
     "M5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Actual investigation SIGKILL recovers the same frozen task after normal lease expiry, completes evidence and settles spend. Final70 signal task survives pending and completed process restarts. Cold restore preserves completed jobs/checkpoints/history and credentials. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/signal-pending-restart.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "No-duplicate guarantees concern fenced publication and accounting; an external provider request already accepted cannot be recalled by lease expiry."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M5"
+      }
     },
     "M6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Ten real provider inference requests and matching PostgreSQL billing records succeed while Lens and shared ClickHouse are actually stopped;43 checks pass. Separate actual exporter fault injection exercises finite event/byte bounds, retries, drop accounting and recovery. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-storage-outage.json",
+        "docs/extraction/evidence/rust-gateway-outage.json",
+        "docs/extraction/evidence/upstream-removal-reconciliation.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Final host production backend is unchanged from its qualified ba4 source. HTTP outage logs do not expose exact private queue/drop counters; bounded-counter evidence comes from a separate explicit exporter harness."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M6"
+      }
     },
     "M7": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Existing tracing credentials still ingest and read after138 seconds of optional gateway outage, beyond the90-second snapshot TTL. Dataset save/export and paid direct-compatible analysis succeed; gateway-backed analysis fails clearly with no spend/reservation leak.",
+      "evidence": [
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Executed with105; server executable is byte-identical in70. The external hosted provider still supplies inference."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M7"
+      }
     },
     "M8": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Canonical cold backup/restore to a fresh task volume retains migrated state plus new paid job digest/spend, historical exports, feedback, tracing key and browser session. A post-backup sentinel is absent, demonstrating the recovery point. Local backup24s and restore28s are recorded.",
+      "evidence": [
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/successor-container-qualification.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "This is forward restore, not zero-downtime or image-only database rollback. Customer downtime/data-loss expectations require that installation data size and backup."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M8"
+      }
     },
     "M9": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "All ten predeclared p90 thresholds pass at100/1000 traces with fixed resources and exact IDs/content; no lost benchmark records. State workload, writer-contention and native sandbox limits retain independent execution evidence.",
       "evidence": [
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/service-benchmark-paired.json",
+        "docs/extraction/evidence/state-capacity.json",
+        "docs/extraction/evidence/investigation-writer-lease.json",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Single-client trace workloads do not establish arbitrary concurrent production throughput. The six-minute state run does not establish a long physical-disk plateau; inactive parts reached2.12GB and the2GiB cgroup reached its limit without OOM."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "M9"
+      }
     },
     "R1": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Independent Lens staging/promotion orchestration, source/UI/SDK version agreement and complete manifest selection are implemented and fixture-tested in publisherfb7462. Native historical-runtime publisher jobs pass separately from final70 publication.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py",
+        "docs/extraction/evidence/rust-final-image-smokes.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No approved real final70 Lens-only stage/promote has been executed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R1"
+      }
     },
     "R2": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Publisher fixtures preserve approved artifact bytes/digests, select a complete manifest and prohibit rebuild during promotion. Immutable drift and mismatched bytes are rejected.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No actual staged-versus-promoted public image/UI/chart/setup byte comparison exists yet."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R2"
+      }
     },
     "R3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Publisher trust tests isolate privileged publication from source-owned scripts and verify source-attested signatures. Native jobs exercise hostile-source-script, unsigned, wrong-source and wrong-version negatives on historical Rust/Python fixtures.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_release_security.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py",
+        "https://github.com/BerriAI/project-releaser/actions/runs/37897965282"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE",
+        "EXTERNAL_REVIEW_AVAILABILITY"
+      ],
+      "limits": [
+        "Official package writer ACL/signing/application/runner provisioning and final published provenance remain unverified; native historical fixture signing does not certify final70 artifacts."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R3"
+      }
     },
     "R4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Current gateway clean build consumes the exact af29 development UI package. Publisher host adapter verifies independently versioned signed Lens chart/manifest and rejects incompatible or unavailable selections.",
+      "evidence": [
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "docs/extraction/ui-package.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No final published package consumer build or approved gateway release is claimed."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R4"
+      }
     },
     "R5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Independent Lens/gateway version identities and disabled-gateway publication paths are tested. Contract1/protocol7 compatibility is checked independently of tag equality; unsupported contract requests are rejected.",
+      "evidence": [
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
+        "docs/extraction/evidence/rust-gateway-sdk.json",
+        "helm/lens/README.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Unequal released version selection and actual official Lens-only publication remain release exercises."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R5"
+      }
     },
     "R6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Current UI/service contract checks, negative incompatible identity tests and signed artifact adapter fixtures exist; final70/d83 browser works on the selected current pair.",
+      "evidence": [
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
+        "docs/extraction/evidence/rust-gateway-sdk.json",
+        "docs/extraction/evidence/final-image-ui-controls.json",
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Clean-cut scope removes legacy coexistence; it does not prove arbitrary older UI/newer API compatibility. A concrete published compatibility range still needs published-artifact qualification."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R6"
+      }
     },
     "R7": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Publisherfb7462 regression suite has2550 passes and100percent branch coverage with strict checks. Standard/Rust streams, older source charts, chart-only recovery and private distribution policy have fixtures. Four native historical worker/signature jobs passed.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py",
+        "https://github.com/BerriAI/project-releaser/actions/runs/37897965230",
+        "https://github.com/BerriAI/project-releaser/actions/runs/37897965233",
+        "https://github.com/BerriAI/project-releaser/actions/runs/37897965282"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Relevant official standard/Rust/older-source staging and recovery were not performed by this extraction run."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R7"
+      }
     },
     "R8": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Failure/retry fixtures enforce immutable pushes, manifest completeness and idempotent step retries while preserving existing drafts and rejecting drift.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens.py",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_workflows.py"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "No actual interrupted remote publication/resume was executed. A stateful local image-success/chart-failure orchestration sequence was not located; individual operation retries have fixture coverage."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R8"
+      }
     },
     "R9": {
-      "status": "not_run",
-      "evidence": []
+      "status": "blocked",
+      "observed": "No complete supported public Lens image/UI/chart/setup release and manifest has been published. Local images and source bundles are qualified development artifacts.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "deploy/lens/README.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Do not mark this requirement passed from local source installation or a private/temporary registry."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R9"
+      }
     },
     "R10": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Publisher, chart and ops selections independently pin Lens and gateway artifacts with compatibility and immutable-digest checks. Final70 local Argo upgrade/rollback retains saved data while changing only declared Lens version/image.",
+      "evidence": [
+        "https://github.com/BerriAI/project-releaser/pull/305",
+        "https://github.com/BerriAI/litellm-ops/pull/232",
+        "/Users/mfkhalil/Code/project-releaser/.github/scripts/tests/test_lens_host.py",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Rolling labels must not replace immutable selected digests. Final both-chart independent-rollout checks remain separate."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "R10"
+      }
     },
     "O1": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Ops8e541 separates gateway and Lens source/version configuration and its recorded CI passes. Scheduled dev source acquisition is implemented.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm-ops/pull/232"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "No authorized scheduled managed dev deployment has run against final destination/credentials."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O1"
+      }
     },
     "O2": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Both gateway chart families passed actual final70 Lens/d83 gateway install, Lens-only upgrade and rollback, gateway-only upgrade, restart, external Lens and disabled modes. Pod UID/template/image/restart and persisted-record comparisons demonstrate local product independence. Managed environment rollout remains a separate external gate.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm-ops/pull/232",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "Historical all-ten-images run failed chart snapshot convergence and is not a passing rollout receipt."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O2"
+      }
     },
     "O3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Both gateway chart adapters implement bundled, explicit-external and disabled Lens with render/negative tests. Exact final70/d83 complete installs and actual independent upgrade/rollback/read-write lifecycle scenarios passed for helm/litellm-helm and helm/litellm in run37924154315; the receipt retains executed image and harness sources.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm-ops/pull/232",
+        "helm/lens/README.md",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Standalone Lens chart/Argo success does not certify both full gateway chart families."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O3"
+      }
     },
     "O4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Actual Helm adoption preserves Deployment/Service/PVC, credentials and data; final70 Argo upgrades/rollbacks preserve populated state. Supported external ClickHouse has multi-client and startup-negative proof.",
+      "evidence": [
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/external-clickhouse-boundary.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "Managed dev/prod values are not replaced by synthetic local values. Initial supported storage remains one durable ClickHouse server at a stable endpoint."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O4"
+      }
     },
     "O5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Actual Helm resource adoption and final70 Argo ownership/recovery retain identities and persistent state. Separate populated PostgreSQL handoff preserves all Lens metadata and unrelated gateway schema/config, followed by paid analysis and forward restore. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/migration.md",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "The chart ownership exercise and PostgreSQL transfer are complementary local rehearsals, not one managed production event."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O5"
+      }
     },
     "O6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Final70 local Argo executes a real trace and paid evidence-backed investigation with exact85877 confined computation,0.05103 spend and no reservations. Readiness/digest/zero-replica/RBAC checks reject invalid success and rollback preserves saved data.",
+      "evidence": [
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/helm/argo-final-image.json",
+        "https://github.com/BerriAI/litellm-ops/pull/232"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "Local registry and chart repository were used. Managed registry mirror, reconciliation, destination credentials and actual canary remain deployment gates."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O6"
+      }
     },
     "O7": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Native gateway callback/reader comparison, actual spend correlation, and stopped-Lens/storage inference evidence establish bounded asynchronous gateway export for the configured local adapter. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-native-isolation.json",
+        "docs/extraction/evidence/final-reader-requalification.json",
+        "docs/extraction/evidence/final-adapter-qualification.json",
+        "docs/extraction/evidence/rust-embedded-gateway.json",
+        "docs/extraction/evidence/rust-gateway-outage.json",
+        "https://github.com/BerriAI/litellm/blob/cf59ce73d28e0abd5e690bfab81b579937ee10f8/docs/evidence/lens-storage-outage.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "MANAGED_DEPLOYMENT"
+      ],
+      "limits": [
+        "Final auto-router destination/credential wiring needs scope review and managed validation; local standard request export is not every managed forwarder route."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "O7"
+      }
     },
     "D1": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Fresh GitHub clone, npm ci, real trace, UI HMR/revert and original container rebuild/restart passed. A separate actual Rust source edit was compiled, observed through both the service and development UI proxy, then reverted and recompiled. Trace content and credentials survived both restarts; the isolated clone is clean and its Compose data removed.",
       "evidence": [
-        "docs/extraction/standalone-startup.md (partial startup/tracing evidence; full acceptance remains open)"
-      ]
+        "docs/extraction/evidence/fresh-developer.json",
+        "CONTRIBUTING.md",
+        "docs/extraction/evidence/fresh-developer-rust-source.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Rust development uses explicit image rebuild/restart; automatic backend hot reload is not claimed. macOS with native Linux arm64 Docker was exercised; CI separately qualifies native amd64/arm64 runtime images."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D1"
+      }
     },
     "D2": {
-      "status": "not_run",
+      "status": "partial",
+      "observed": "Lens owns Rust backend/importer, shared UI, SDK, contracts, prompts, schemas, deploy/chart assets and both codegen directions. Workspace/native source checks, fresh isolated clone and exact host package clean build provide dependency ownership evidence. The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/ui-package.md (partial UI package evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
-        "docs/extraction/rust-worker-contract.md (Rust worker contract and UI generation; remaining HTTP contracts and route ownership remain open)"
-      ]
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/fresh-developer.json",
+        "docs/extraction/evidence/host-final-review-qualification.json",
+        "src/sdk/validation/verification.md",
+        "package.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "Python SDK and confined analysis interpreter are intentional exceptions. Final signed released consumer interfaces remain an artifact delivery boundary."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D2"
+      }
     },
     "D3": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "Source install, first trace, analysis, development and recovery guides have actual complementary walkthroughs and docs-site build/desktop390px QA. Tracing versus analysis credentials and optional agent setup are distinguished.",
+      "evidence": [
+        "docs/extraction/evidence/fresh-developer.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "deploy/lens/README.md",
+        "docs/setup-with-agent.md",
+        "https://github.com/BerriAI/litellm-docs/pull/2210",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "A verbatim public-artifact clean installation and published-release upgrade cannot pass before the artifacts exist. Composite source walkthroughs are not relabeled as one final public walkthrough."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D3"
+      }
     },
     "D4": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "All17 imported example guides preserve source provenance; importer tests, full docs build, existing route/entrypoint checks and representative desktop/narrow pages pass. Required source links remain blocked by examples repository write permission.",
+      "evidence": [
+        "https://github.com/BerriAI/litellm-docs/pull/2210",
+        "docs/extraction/evidence/standalone-agent-examples.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "EXAMPLES_PUBLICATION_PERMISSION"
+      ],
+      "limits": [
+        "READ-only repository access returned403 on push. Imported links must resolve before docs merge; a successful docs build does not fix unavailable source URLs."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D4"
+      }
     },
     "D5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "partial",
+      "observed": "OpenAI Agents0.23.1 and generic OpenTelemetry1.45.1 each passed real direct-compatible and gateway-backed runs on final70, with package versions captured before execution and model text matching trace span output. Codex0.160 resumption and Claude2.1.293 retain their separate executed receipts. The new temporary tracing key was revoked and denied without adding rows.",
+      "evidence": [
+        "docs/extraction/evidence/standalone-agent-examples.json",
+        "https://github.com/BerriAI/litellm-lens-codex-integration/pull/3",
+        "docs/extraction/evidence/framework-versions-final70.json"
+      ],
+      "remaining": [],
+      "external_gates": [
+        "EXAMPLES_PUBLICATION_PERMISSION",
+        "OFFICIAL_RELEASE"
+      ],
+      "limits": [
+        "The four current simple runs cover two frameworks in two connection modes, not every version or all17 imported guides. Official native provider accounts were not exercised.",
+        "Framework calls cost$0.007166; pre-existing global Signals also classified those four traces with no separately attributable cost receipt. The combined total is not asserted.",
+        "Examples source494724 is tested locally; publication to the examples repository remains blocked by write permission."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D5"
+      }
     },
     "D6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Current Rust HTTP benchmark runner is reproducible with source/artifact identity, exact record/content checks and46 viable comparator/fixture mutations caught. Paired baseline/candidate100/1000-trace work subsequently passes all ten predeclared thresholds.",
+      "evidence": [
+        "docs/extraction/evidence/service-benchmark-development.json",
+        "docs/extraction/evidence/service-benchmark-mutations.json",
+        "docs/extraction/evidence/service-benchmark-paired.json",
+        "docs/benchmarks.md"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Historical Python worker benchmarks remain historical and are not used as current runtime proof."
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "D6"
+      }
     },
     "C1": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Exact105 fresh standalone install generates credentials, exposes API/UI, accepts trace and survives Lens/ClickHouse restart; configured Rust runtime runs without a LiteLLM gateway or PostgreSQL Gateway outage longer than credential TTL retains tracing, datasets and actual direct-compatible analysis; populated migrated runtime continues after its source PostgreSQL is stopped and removed Standalone eval discovery/scoring and confined analysis interpreter are separately exercised; frozen Dockerfile packages Rust server, separate Rust importer and built shared UI",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
-      ]
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/gateway-disconnection.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/successor-eval-qualification.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/host-final-review-qualification.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Python3.13 remains solely for the explicitly allowed confined analysis interpreter; Python eval SDK is a client package",
+        "Normal cargo tree contains sqlx-core/macros through shared utility dependencies, but no PostgreSQL driver was found in the Lens server normal dependency closure; do not describe the whole image as having no PostgreSQL-related code because the separate importer intentionally reads PostgreSQL"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C1"
+      }
     },
     "C2": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "State concurrent claims have one winner; stale summary/checkpoint cannot publish. Dataset competing revision writes preserve winning revision and survive restart Writer lease tests include four independent progress clients versus reserve/renew/settle, replaced/expired owner fencing, cancelled acquisition cleanup and delayed publication before/after takeover.139 investigation storage cases including3 restarts and9 focused mutations passed Two exact due-time scheduler cases plus targeted mutation follow-up preserve no early claim/reclaim; lifecycle fault execution demonstrates same frozen job is reclaimed after normal lease expiration The separate final removal audit now passes with exact source, caller, concurrency, auth, deployment and publication boundary records.",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-state-budget.log (partial: claims and settlement primitive)",
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
-      ]
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/runtime-clean-cut.json",
+        "docs/extraction/evidence/investigation-writer-lease.json",
+        "docs/extraction/evidence/rust-local-mutation-reconciliation.json",
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "No FIFO/fairness guarantee; bounded acquisition may return conflict",
+        "An already submitted transaction may complete until fenced; timeout is not a promise of abort"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C2"
+      }
     },
     "C3": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Prepared immutable payloads remain invisible until atomic KeeperMap revision publication; stale/missing payload and lost-response/retry tests preserve all-or-nothing visibility Summary plus full review checkpoint publish together; failed checkpoint insertion leaves prior visible progress; parent state and removed-job archives publish together; future/unpublished archives remain hidden Historical reference compaction verifies matching digest and revision fences so reclaimed/stale prepared data cannot become current",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-state-budget.log (partial: coupled record publication primitive)",
-        "docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
-        "docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)"
-      ]
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/rust-state-mutations.json",
+        "docs/extraction/evidence/investigation-writer-lease.json",
+        "docs/extraction/evidence/state-compaction-mutations.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Source carry is limited to the unchanged state and investigation storage owners; later eval registration has its own successor receipt"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C3"
+      }
     },
     "C4": {
-      "status": "not_run",
+      "status": "verified_local",
+      "observed": "Compaction preserves live values, tombstone fences, unselected/new writes and atomic counters; abandoned first preparations cannot publish after reclamation and changed content cannot resolve an old digest Bounded20,000-write workload retained1,000 current keys with no lost/failed writes; repeated compaction reduced retained history to1,000 blobs. Source hashes all match70 Exact105 cold backup/restore retains trace, dataset export/revision, session and key; corruption/symlink/overwrite guards and failure recovery pass. Populated migrated installation additionally preserves the complete paid job digest and spend, finding/history and feedback after restore to a fresh volume",
       "evidence": [
-        "docs/extraction/evidence/clickhouse-restart-result.json (partial: restart only; restore and reclamation pending)",
-        "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
-      ]
+        "docs/extraction/evidence/state-compaction-mutations.json",
+        "docs/extraction/evidence/state-capacity.json",
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Six-minute workload did not establish a long-term physical disk plateau: inactive parts reached2.12GB and normal retention remained in force",
+        "The2GiB cgroup reached its limit including filesystem cache without OOM, not spare-capacity evidence",
+        "Fixed-key state-history bounds are not ingestion throughput, unlimited unique-key growth or production sizing claims",
+        "Cold backup deliberately loses writes after the recovery point, demonstrated by absent post-backup sentinel"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C4"
+      }
     },
     "C5": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Pinned ClickHouse26.9.6.6 with KeeperMap accepts two independent Lens processes at one stable endpoint; they share session/dataset/logout and preserve them across a process restart. All four recorded production hashes match70 Missing Keeper and insufficient grants fail before HTTP listener binds. Current Helm README maps observed storage diagnostics to required Keeper/grant recovery steps Bundled setup, restart and cold restore use unchanged canonical deployment assets. Existing Helm adoption proof is retained without pretending it is final70 chart execution Actual final70 local Argo upgrade, provider-backed confined calculation, wrong-digest/unready negatives and rollback preserve populated state and finish Synced/Healthy. Both full gateway chart families are now separately passed in gateway-candidate-final.json; neither local run claims managed production deployment",
+      "evidence": [
+        "docs/extraction/evidence/external-clickhouse-boundary.json",
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/helm/adoption.json",
+        "docs/extraction/evidence/helm/argo-successor-final-image.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/helm/gateway-candidate-final.json",
+        "docs/extraction/qualification-matrix.md"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Supported storage is one durable ClickHouse server reached through one stable endpoint, with one or more Lens API processes",
+        "ClickHouse load balancing across nodes, replicated/distributed payload substitution and automatic failover are outside documented scope",
+        "Startup does not detect the endpoint topology. Detailed rejected statement still requires ClickHouse logs, with documented diagnostic mapping"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C5"
+      }
     },
     "C6": {
-      "status": "not_run",
-      "evidence": []
+      "status": "verified_local",
+      "observed": "Read-only importer plans all eight legacy metadata groups, applies/verifies11 state records, repeats idempotently and preserves gateway schema/team configuration. Source PostgreSQL is stopped before Lens serves both standalone and embedded views Both UIs preserve imported finding/alias, history, trace/feedback, dataset revisions and historical exports. A fresh restricted analysis identity succeeds with exact cost attribution, then cold restore retains old data plus new paid job and existing session Final70 importer intentionally differs: malformed SHA-256 and duplicate hashes are rejected during source planning before target construction. Actual PostgreSQL CLI refusal creates zero target tables;76 tests cover valid apply/retry/readback and invalid sources Final6592 image importer executable runs actual read-only source plan, mandatory stopped-source acknowledgement, malformed/duplicate zero-table refusals and valid scoped8group/11record apply with exact repeat/readback; owned sources and target cleaned",
+      "evidence": [
+        "docs/extraction/evidence/populated-migration.json",
+        "docs/extraction/evidence/populated-cutover-ui.json",
+        "docs/extraction/evidence/importer-credential-preflight.json",
+        "docs/extraction/evidence/importer-final-image.json",
+        "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+        "docs/extraction/evidence/final-image-switch.json"
+      ],
+      "remaining": [],
+      "external_gates": [],
+      "limits": [
+        "Do not carry the old migrate subtree as unchanged: only valid-data transformations are unchanged, explicitly reviewed and tested",
+        "The pre-migration PostgreSQL snapshot/dump was preserved; the executed recovery was a forward restore after new writes, not dual-writer or zero-downtime rollback",
+        "Synthetic representative data was used, not a customer database"
+      ],
+      "qualification_basis": {
+        "reference": "docs/extraction/evidence/acceptance-ledger-update-proposal.json",
+        "requirement": "C6"
+      }
     }
   },
-  "updated_at_utc": "2026-10-09T00:53:52.004Z",
+  "updated_at_utc": "2026-10-09T13:29:29.178740+00:00",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
     "candidate": "ClickHouse payload records and atomic KeeperMap pointer publication; bundled in-process Keeper",
-    "status": "Application repositories and sessions implemented on ClickHouse; production storage qualification incomplete",
-    "open_qualification": [
-      "Full app integration and remaining copied endpoint/lifecycle test fixtures",
-      "Schema version migration runner, metadata backfill and PostgreSQL import",
-      "Safe payload reclamation, Keeper metadata growth, and capacity/query budgets",
-      "Backup/restore and external or multi-node ClickHouse compatibility",
-      "Investigate intermittent HTTP disconnect observed once during the combined workload"
+    "status": "Implemented with locally qualified ClickHouse repositories, atomic KeeperMap publication, sessions, jobs, signals, datasets, compaction, transfer and restore",
+    "open_qualification": [],
+    "supported_boundary": "One ClickHouse server with in-process Keeper and one stable endpoint; independent Lens processes may share it. Distributed storage failover and physical-disk steady-state at production capacity are not qualified",
+    "evidence": [
+      "docs/extraction/evidence/acceptance-reconciliation-proposal.json",
+      "docs/extraction/evidence/populated-migration.json",
+      "docs/extraction/evidence/successor-container-qualification.json",
+      "docs/extraction/evidence/external-clickhouse-boundary.json",
+      "docs/extraction/evidence/final-removal-domain.json"
     ]
   },
   "verification": {
@@ -592,40 +1753,312 @@
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
       }
-    }
+    },
+    "rust_live_investigation": {
+      "status": "passed_for_local_candidate",
+      "evidence": "docs/extraction/rust-standalone-investigation.md",
+      "provider_connection": "Hosted OpenAI-compatible endpoint; no locally deployed LiteLLM gateway",
+      "native_direct_provider_key": "not_available",
+      "cost_usd": 0.0417111,
+      "selected": 1,
+      "screened": 1,
+      "investigated": 1,
+      "model_steps": 5,
+      "restart": "Findings and budget accounting retained after Lens process restart",
+      "browser": "Finding, citation, original trace, saved dataset case, and analysis configuration refresh exercised",
+      "full_milestone": "incomplete"
+    },
+    "standalone_container_candidate": {
+      "status": "passed_initial_snapshot",
+      "source": "/tmp/lens-container-build.0vMC6F",
+      "image": "lens:standalone-candidate",
+      "image_id": "sha256:fa1b95bc4ec5b63015b294b18e2f6c833998ddf5ecbccf423910cb0da7fef609",
+      "native_sandbox_cases": 10,
+      "smoke": "UI/API authorization, real OTLP trace, Lens and ClickHouse restart passed",
+      "recovery": "Populated physical backup/restore retains trace, dataset revision/export, session and ingestion key; overwrite/symlink/corruption rejection passed",
+      "limitations": [
+        "Snapshot precedes latest Signals/evals, public contract, privacy marker, canonical dependency update and compaction",
+        "Final exact-source image rerun remains required"
+      ],
+      "evidence": "docs/extraction/rust-standalone-recovery.md"
+    },
+    "standalone_onboarding": {
+      "status": "partial",
+      "skills": [
+        "design-product-onboarding",
+        "write-product-docs"
+      ],
+      "focused_ui_cases": 46,
+      "typecheck": "passed",
+      "browser": "Analysis configured state and refresh checked; signals awaiting final runtime build",
+      "limitations": [
+        "Newest copy updates require rebuilt UI browser check",
+        "Fresh install, missing provider, and permissions still require final live flow"
+      ]
+    },
+    "rust_local_execution_mutations": {
+      "status": "paused_after_infrastructure_contention",
+      "inventory": 189,
+      "evidence_log": "/tmp/lens-local-mutants.log",
+      "initial_survivors": "Added live scheduler, unavailable-model pagination, background-loop and UI-readiness composition tests; survivor rerun pending",
+      "complete": false
+    },
+    "rust_local_integration": {
+      "status": "passed",
+      "cases": 18,
+      "evidence": "docs/extraction/evidence/rust-local-integration.log",
+      "includes": [
+        "background execution",
+        "queued and scheduled jobs",
+        "disabled and future schedules",
+        "frozen model eligibility",
+        "pagination beyond twenty unavailable models",
+        "provider failure",
+        "budget denial without a call",
+        "simultaneous claims",
+        "persisted accounting",
+        "HTTP readiness for UI"
+      ],
+      "source_status": "current working candidate; final integrated rerun still required"
+    },
+    "rust_live_signals": {
+      "status": "passed_local_candidate",
+      "provider": "Typesafe protocol through authorized hosted gateway passthrough",
+      "evidence": "docs/extraction/evidence/rust-live-signals.json",
+      "browser": "Save configuration, reload, real background classification, matching flags, original trace content",
+      "native_direct_provider": "not_available"
+    },
+    "rust_live_evals": {
+      "status": "passed_local_candidate",
+      "evidence": "docs/extraction/rust-standalone-evals.md",
+      "provider": "Actual hosted judge call",
+      "browser": "Failed gate, one regression, candidate and baseline exact saved traces, browser Back restoring case comparison"
+    },
+    "connected_routes": {
+      "cases": 5,
+      "status": "passed",
+      "evidence_log": "/tmp/lens-connected-http-tests.log",
+      "boundaries": [
+        "Independent internal service credential",
+        "No remote replacement of Lens-owned ingestion keys",
+        "Scoped internal trace reads"
+      ]
+    },
+    "state_compaction": {
+      "status": "passed_focused_candidate",
+      "cases": 9,
+      "evidence_log": "/tmp/lens-state-compaction-tests.log",
+      "boundaries": [
+        "Fences abandoned and losing writes",
+        "Retains current values and all derived indexes",
+        "Does not substitute changed content for stale snapshots",
+        "Concurrent atomic counters survive",
+        "100 records with 10 versions each compact to one current payload each",
+        "Rejects batches over 100 before writing"
+      ],
+      "remaining": [
+        "CLI/image proof",
+        "Long-term Keeper cardinality qualification"
+      ],
+      "mutation": {
+        "generated": {
+          "caught": 8,
+          "unviable": 1,
+          "survived": 0,
+          "timeouts": 0
+        },
+        "manual": {
+          "caught": 10,
+          "total": 10
+        },
+        "evidence": "docs/extraction/evidence/state-compaction-mutations.json"
+      }
+    },
+    "ui_complete_candidate": {
+      "status": "passed_with_targeted_collection_fix",
+      "cases": 862,
+      "files": 82,
+      "evidence_log": "/tmp/lens-final-ui-tests.log",
+      "repair_log": "/tmp/lens-ui-navigation-tests.log",
+      "scope": "All Lens components, shared HTTP and host tests. Replaced stale gateway-page imports in eight navigation tests with the shared workspace props."
+    },
+    "rust_clippy_candidate": {
+      "status": "passed",
+      "scope": "Locked workspace, all targets, warnings denied, including migration crate",
+      "evidence_log": "/tmp/lens-final-clippy.log"
+    },
+    "production_ui_audit": {
+      "status": "passed",
+      "vulnerabilities": 0,
+      "evidence_log": "/tmp/lens-final-npm-audit.json"
+    },
+    "embedded_browser_shared_state": {
+      "status": "passed_for_current_source",
+      "host": "http://127.0.0.1:4491",
+      "lens": "http://127.0.0.1:4324",
+      "flow": [
+        "Normal gateway login",
+        "Open shared Signals trace with original content and real classification",
+        "Save a case through embedded UI",
+        "Reopen same dataset in standalone with expected output",
+        "Exclude case and save revision2 in standalone; gateway reload displays same revision2"
+      ],
+      "dataset_id": "9023c4f4-4ab7-49b8-aa66-e57086d32fee",
+      "screenshots": [
+        "docs/extraction/evidence/ui/connected/shared-trace.png",
+        "docs/extraction/evidence/ui/connected/standalone-shared-case.png",
+        "docs/extraction/evidence/ui/connected/embedded-shared-revision.png"
+      ]
+    },
+    "rust_workspace_current": {
+      "status": "passed",
+      "suites": 135,
+      "passed": 3733,
+      "failed": 0,
+      "ignored": 4,
+      "excluded_crate": "lens-migrate (separately qualified by populated-source suite)",
+      "evidence": "docs/extraction/evidence/rust-workspace-current.log",
+      "dependency_pin": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
+    },
+    "dependency_audit": {
+      "rust": {
+        "known_vulnerabilities": 0,
+        "warning": "RUSTSEC-2024-0436 paste1.0.15 unmaintained transitive dependency",
+        "chacha20": "0.10.2"
+      },
+      "npm_production": {
+        "known_vulnerabilities": 0
+      },
+      "sqlx": "Server dependency graph excludes PostgreSQL; import CLI retains read-only PostgreSQL support",
+      "status": "Pre-main-reconciliation checks; rerun final lock verification after merge",
+      "merged_lockfile": {
+        "status": "passed",
+        "vulnerabilities": 0,
+        "maintenance_warnings": [
+          "paste1.0.15: RUSTSEC-2024-0436"
+        ],
+        "command": "cargo audit audit --json",
+        "runtime_postgresql_dependency": false,
+        "runtime_check": "cargo tree --locked --offline -p litellm-lens --edges normal --prefix none"
+      }
+    },
+    "development_first_trace": {
+      "status": "passed",
+      "command": "LENS_PORT=4335 LENS_DEV_API_URL=http://127.0.0.1:4335 LENS_IMAGE=lens:standalone-candidate npm run dev",
+      "environment": "Local macOS Docker and Node; existing premerge candidate runtime with current dev UI",
+      "observed": [
+        "Private generated credentials reused for browser login",
+        "Next dev proxies auth and Lens API requests",
+        "Send a test trace succeeds without a redirect",
+        "Trace list shows the recorded weather_agent run",
+        "Trace details show3spans and the actual submitted inputs/output"
+      ],
+      "evidence": [
+        "docs/extraction/evidence/ui/connected/development-first-trace.png"
+      ],
+      "limits": [
+        "Uses the previous container candidate; final merged container qualified separately",
+        "Narrow viewport override was not applied by the browser tool; only1280x720 observed in this walkthrough"
+      ]
+    },
+    "rust_live_evals_merged": {
+      "status": "passed_local_candidate",
+      "evidence": "docs/extraction/evidence/rust-live-eval-merged.json",
+      "scope": "Merged local binary and production UI; controlled OTLP trace payloads, real hosted judge calls. Not a published image or native direct-provider credential test.",
+      "browser": [
+        "Persisted baseline and candidate comparison",
+        "Missing check_math call and failed gate",
+        "All four runs with gates",
+        "Browser Back restores comparison"
+      ]
+    },
+    "ui_merged_candidate": {
+      "status": "passed_with_regression_fix",
+      "initial": {
+        "files_passed": 83,
+        "tests_passed": 862,
+        "tests_failed": 1,
+        "log": "/tmp/lens-merged-ui-suite.log"
+      },
+      "fix": {
+        "files_passed": 3,
+        "tests_passed": 18,
+        "log": "/tmp/lens-ui-navigation-fix.log",
+        "covers": "Agent change and live/demo changes clear current and retired eval URL keys"
+      },
+      "production_build": {
+        "status": "passed",
+        "log": "/tmp/lens-merged-ui-build.log"
+      }
+    },
+    "final_candidate_evidence": [
+      "docs/extraction/evidence/final-container-qualification.json",
+      "docs/extraction/evidence/final-image-boundaries.json",
+      "docs/extraction/evidence/final-adapter-qualification.json",
+      "docs/extraction/evidence/final-tracing-key-revocation.json",
+      "docs/extraction/evidence/final-image-features.json",
+      "docs/extraction/evidence/final-image-eval-qualification.json",
+      "docs/extraction/evidence/rust-final-image-smokes.json",
+      "docs/extraction/evidence/helm/argo-final-image.json",
+      "docs/extraction/evidence/current-feature-reconciliation.json"
+    ],
+    "successor": {
+      "source_commit": "105e7b0923a17311e527aad4d480b57bab431000",
+      "image": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+      "host": "ba4cc3ded3aa805eac1808a8ae3eff7271c425db",
+      "matrix": "docs/extraction/qualification-matrix.md",
+      "receipts": [
+        "docs/extraction/evidence/successor-container-qualification.json",
+        "docs/extraction/evidence/successor-eval-qualification.json",
+        "docs/extraction/evidence/final-image-lifecycle.json",
+        "docs/extraction/evidence/paired-current-ui.json",
+        "docs/extraction/evidence/successor-investigation-controls.json",
+        "docs/extraction/evidence/successor-source-reconciliation.json",
+        "docs/extraction/evidence/upstream-removal-reconciliation.json",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/paired-ui-controls.json"
+      ],
+      "ci": {
+        "status": "passed",
+        "source": "105e7b0923a17311e527aad4d480b57bab431000",
+        "receipt": "docs/extraction/evidence/successor-native-ci.json",
+        "rust_passed": 3964,
+        "rust_ignored": 14,
+        "container_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "sandbox_cases_per_architecture": 10,
+        "ui_tests_passed": 93
+      }
+    },
+    "_scope": "Historical implementation checkpoints preserved verbatim. Current qualification is in acceptance, rust_migration.current_qualification and qualification-matrix.md; old partial/failure entries are not current execution status."
   },
   "open_dependency_advisories": [
     {
-      "package": "datamodel-code-generator",
-      "installed": "0.66.0",
-      "patched": "0.81.0",
-      "scope": "development tool; protobuf weak-import path traversal",
-      "status": "requires reviewed generator update and schema parity check"
-    },
-    {
-      "package": "rustls",
-      "patched": "0.23.45",
-      "scope": "runtime TLS",
-      "status": "requires lockfile update and verification"
-    },
-    {
-      "package": "serde_with",
-      "patched": "3.21.0",
-      "scope": "Rust serialization",
-      "status": "requires dependency update and verification"
+      "package": "paste",
+      "installed": "1.0.15",
+      "advisory": "RUSTSEC-2024-0436",
+      "scope": "Unmaintained transitive dependency of pinned canonical tokenizers; no fixed release",
+      "status": "Disclosed; upstream dependency replacement remains open"
     }
   ],
   "runtime_decision": {
-    "requirement": "Keep the existing Rust runtime and Python API for the parity-first extraction",
-    "authorized_by": "User answer on 2026-10-08",
-    "status": "retained"
+    "requirement": "All Lens backend feature code in Rust, using the collaborator layout",
+    "authorized_by": "Later user instruction supersedes the earlier Rust/Python split",
+    "status": "rust_only_runtime_qualified",
+    "exceptions": [
+      "Python eval SDK",
+      "Sandboxed analysis interpreter"
+    ],
+    "retirement": "Legacy Python application and remote gateway-worker mode are removed. The Python eval SDK and confined calculation interpreter remain"
   },
   "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger",
   "rust_migration": {
     "language_decision": "User superseded the earlier Rust/Python split and requires the backend in Rust",
     "layout_specification": "docs/rust-migration.md",
-    "state_port": "Implemented in storage-clickhouse and used by the new Rust session repository; other application repositories remain in Python",
-    "api_routes_still_owned_by_python": 58,
+    "state_port": "All Lens-owned runtime persistence uses Rust ClickHouse repositories; PostgreSQL driver is confined to lens-migrate",
+    "api_routes_still_owned_by_python": 0,
     "parity_and_completion_scope": "All completion-plan.md requirements retained, including embedded Lens and companion repositories",
     "evidence": "docs/extraction/rust-state.md",
     "layout_commit": "514e1b9dab7c3c12ef0c56eee45139cdff80722a",
@@ -651,7 +2084,8 @@
         "failed": 0,
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
-      }
+      },
+      "historical_checkpoint": true
     },
     "auth_port": {
       "source_commit": "8937b00150c6643a1a997ebbd3e8c53da3140b6c",
@@ -688,7 +2122,493 @@
         "failed": 0,
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
-      }
+      },
+      "historical_checkpoint": true
+    },
+    "datasets_port": {
+      "based_on_main": "3ca154b698b268baf610e74e2f57086184a410be",
+      "status": "Seven dataset routes integrated and qualified; retained Python application awaits complete Rust replacement",
+      "evidence": "docs/extraction/rust-datasets.md",
+      "workspace": {
+        "passed": 2344,
+        "failed": 0,
+        "ignored": 4,
+        "clippy": "passed",
+        "format": "passed"
+      },
+      "golden_dataset_http_cases": 25,
+      "golden_auth_http_cases": 45,
+      "mutation_qualification": {
+        "domain": {
+          "inventory": 131,
+          "counts": {
+            "CaughtMutant": 108,
+            "Unviable": 23
+          },
+          "source_hashes": {
+            "build.rs": "8064dd21d54275a1b9fe68ddbfadafaf77bd14dd8ccd82b0e3f7289b21af38f1",
+            "cases.rs": "0e1cafe6a5e805ce79752051ce953f312a225c41e5c231fb08854e793d700824",
+            "lib.rs": "915550a28dcbdc2cde49f55b48e6dda3596b2ea4dc8ec26454be00823e9a69cc"
+          },
+          "qualification": "Initial full run reconciled with final parser rerun; every final viable mutation caught"
+        },
+        "storage": {
+          "total": 26,
+          "caught": 21,
+          "unviable": 5,
+          "missed": 0,
+          "timeout": 0
+        },
+        "http": {
+          "qualification": "Incomplete historical run on superseded parser. Excluded from final mutation qualification; corrected code qualified by golden replays, exact input regression cases and full workspace tests"
+        },
+        "wiring": {
+          "qualification": "Initial15 mutations found3 configuration gaps, all corrected and caught by4 focused reruns. Existing unrelated HTTP connect-timeout mutation remains outside this dataset qualification"
+        }
+      },
+      "full_product_acceptance": "incomplete",
+      "historical_checkpoint": true
+    },
+    "python_retirement": {
+      "checkpoint": "0b99737f",
+      "status": "Legacy application/tests/root Python packaging and trace codegen removed; Rust behavior fixtures retained",
+      "exceptions": [
+        "src/sdk",
+        "src/worker/crates/lens/sandbox/python_runtime.py"
+      ],
+      "migration_source": "migrations/legacy retained for import provenance"
+    },
+    "checkpoint_policy": "validation, auth_port and datasets_port retain their original historical checkpoint claims. They are not the current completion status; see current_qualification and the acceptance ledger",
+    "current_qualification": {
+      "source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+      "backend_routes_owned_by_python": 0,
+      "evidence": [
+        "docs/extraction/qualification-matrix.md",
+        "docs/extraction/evidence/successor-native-ci.json",
+        "docs/extraction/evidence/final-image-switch.json",
+        "docs/extraction/evidence/signal-pending-restart.json",
+        "docs/extraction/evidence/final-native-ci.json",
+        "docs/extraction/evidence/final-removal-audit.json"
+      ],
+      "status": "native_ci_and_final_removal_audit_passed"
     }
+  },
+  "local_embedding": {
+    "status": "partial_evidence_preserved_for_milestone_2",
+    "gateway_repository": "BerriAI/litellm",
+    "gateway_base_commit": "f48d837cd21208771ee5b15770e4425a32907f1b",
+    "gateway_worktree": "/Users/mfkhalil/Code/litellm-lens-embedded-local",
+    "gateway_branch": "litellm_lens_embedded_local",
+    "host": "http://127.0.0.1:3000/ui/lens",
+    "gateway": "http://127.0.0.1:4000",
+    "runtime": "http://127.0.0.1:4318",
+    "source": "Shared @litellm/lens-ui packed from src/ui/lib; LiteLLM contains host adapter only for the active page",
+    "api_boundary": "Current gateway Lens API retained; Rust runtime owns trace ingestion/storage. Full external Rust public API adapter remains unfinished",
+    "verified_so_far": [
+      "Normal browser gateway login and shared Lens page render",
+      "Synthetic OTLP ingestion through Rust into real ClickHouse, visible in gateway Lens page",
+      "Real gateway model request succeeds and produces a ClickHouse spend record",
+      "Same trace/span IDs with different tenant ownership do not receive the provider spend join",
+      "Locked frontend dependency restoration with no existing dependency version drift",
+      "Native gateway request-log drawer shows real model request and returns to Lens trace",
+      "Reloaded trace deep link opens its detail pane and model content",
+      "Viewer normal login renders read-only Lens; dataset API GET 200 and POST 403; anonymous Lens/trace reads 401; logout redirects to login"
+    ],
+    "pending": [
+      "Remaining deep-link and browser parity matrix",
+      "External Rust API/delegation adapter",
+      "Complete production dependency pin and source verification",
+      "Retire old gateway UI copies after parity"
+    ],
+    "local_setup_note": "Reused Python environment initially loaded old-checkout litellm-proxy-extras migrations. The latest-main worktree contains the missing migrations. Isolated local schema synchronized for this run; startup must resolve both gateway and extras from the same worktree",
+    "release_status": "No package release, gateway main push or production cutover performed",
+    "evidence": "docs/extraction/local-embedded-qualification.md",
+    "navigation_note": "Clicking the account menu outside the inspector intentionally clears trace query state and closes the pane after exit animation; this behavior matches the gateway baseline",
+    "historical_checkpoint": true,
+    "current_successor": "docs/extraction/evidence/host-final-review-qualification.json",
+    "scope_note": "Original local prototype evidence retained without rewriting history. The canonical native adapter, source pin and both current UI shells are now separately qualified; see acceptance I1-I7."
+  },
+  "dependency_trust": {
+    "requirement": "One canonical Lens implementation, gateway-specific host/server adapters only",
+    "distribution": "Exact authorized Lens release at build time with lockfile integrity; bundle UI into gateway assets; verify source, provenance and digests; no runtime remote executable loader",
+    "identity": "Service/signing credentials stay server-side; delegate authenticated gateway identity with short lifetime and scope enforced by Lens",
+    "qualification": "Viewer write denial, cross-tenant isolation, session lifecycle, secret exposure and package source/integrity checks remain explicit gates",
+    "auth_fix": "Configured Rust delegation secret now requires at least 32 characters, matching the existing setup-token convention; focused tests and Clippy passed",
+    "runtime_advisories": "Qualified dependency fixes retained; paste1.0.15 maintenance advisory remains without a fixed release. Final source-removal audit passed; official package signing/access checks remain external."
+  },
+  "delivery_milestones": [
+    {
+      "milestone": 1,
+      "goal": "Self-deployable Lens with ClickHouse only",
+      "status": "implementation_qualified_release_pending",
+      "contract": "completion-plan.md, milestone 1 completion boundary"
+    },
+    {
+      "milestone": 2,
+      "goal": "LiteLLM integration using canonical Lens implementation",
+      "status": "implementation_qualified_release_pending",
+      "contract": "completion-plan.md, milestone 2 completion boundary"
+    },
+    {
+      "milestone": 3,
+      "goal": "Every remaining requirement in the full completion plan",
+      "status": "implementation_qualified_external_gates_pending",
+      "contract": "completion-plan.md, milestone 3 completion boundary"
+    }
+  ],
+  "publication_policy": {
+    "lens": "Push reviewed, qualified increments directly to main",
+    "companions": "Pull requests for LiteLLM, project-releaser, litellm-ops and other affected repositories",
+    "deployment": "Production release and cutover remain distinct from code publication"
+  },
+  "resolved_dependency_advisories": [
+    {
+      "package": "rustls",
+      "version": "0.23.45",
+      "verification": "Frozen dataset candidate workspace tests and Clippy pass"
+    },
+    {
+      "package": "serde_with",
+      "version": "3.21.0",
+      "verification": "Canonical source pin3969348a qualified by premerge Rust workspace checks and cargo audit"
+    },
+    {
+      "package": "datamodel-code-generator",
+      "version": "0.81.0",
+      "verification": "Removed retired backend generator; SDK independently pins patched0.81.0"
+    },
+    {
+      "package": "chacha20",
+      "version": "0.10.2",
+      "verification": "Replaced yanked0.10.1 and reran cargo audit with0 known vulnerabilities"
+    }
+  ],
+  "required_workflows": [
+    {
+      "skill": "design-product-onboarding",
+      "path": "/Users/mfkhalil/.codex/skills/design-product-onboarding/SKILL.md",
+      "use_when": "Designing, auditing or implementing onboarding and setup flows, including defaults, automation and effort to first useful result",
+      "status": "required_at_applicable_work"
+    },
+    {
+      "skill": "write-product-docs",
+      "path": "/Users/mfkhalil/.codex/skills/write-product-docs/SKILL.md",
+      "use_when": "Creating, revising or auditing product documentation, including setup, maintenance and upgrade guides",
+      "status": "required_at_applicable_work"
+    }
+  ],
+  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign",
+  "onboarding_journeys": [
+    {
+      "starting_point": "Admin using the existing LiteLLM dashboard",
+      "milestone": 2,
+      "success": "Existing login -> verified Lens capability -> agent-specific instrumentation -> real trace -> authorized investigation",
+      "requirements": [
+        "Reuse configured service, endpoint and authorized model",
+        "No simulated infrastructure provisioning",
+        "Concrete operator handoff when service is absent",
+        "Resume partial setup and distinguish connectivity, compatibility and permission failures"
+      ]
+    },
+    {
+      "starting_point": "Developer self-hosting Lens",
+      "milestone": 1,
+      "success": "Complete supported installation -> Lens login -> real agent trace -> direct-provider investigation -> retained data after restart",
+      "requirements": [
+        "Lens and supported ClickHouse stack only",
+        "Generated private credentials and supported defaults",
+        "Analysis-provider setup deferred until needed",
+        "Complete local instructions and separate persistent deployment concerns"
+      ]
+    }
+  ],
+  "release_independence": {
+    "publisher": "project-releaser",
+    "lens": "Own repository, source SHA, product version, trigger and immutable release manifest; no LiteLLM release required",
+    "first_release": "Standalone Lens may be published before LiteLLM integration is ready",
+    "gateway_ui": "Exact shared UI package pin with integrity/provenance for reproducible bundled frontend builds",
+    "lens_backend": "Selected independently in deployment configuration, bounded by supported API/protocol compatibility",
+    "bundled_default": "Optional tested Lens deployment default, never a requirement for equal product versions",
+    "qualification": "Standalone every release; existing published host/UI combinations for integrations claimed by that release",
+    "policy": "Never resolve executable UI code at runtime from mutable remote sources"
+  },
+  "review_requirements": {
+    "greptile": "Request on companion PRs, require at least 4/5 and resolve actionable findings",
+    "veria": "Use where available; record missing or pending results, never treat them as passing",
+    "merge_order": "Coordinated merge of all affected repositories is authorized"
+  },
+  "companion_reviews": {
+    "canonical_security": {
+      "url": "https://github.com/BerriAI/litellm/pull/45498",
+      "commit": "3969348ad946c8bb6b3f5386d72da2a07e65ce88",
+      "ci": "passed",
+      "greptile": "5/5",
+      "veria": "SUCCESS",
+      "ready_for_review": true,
+      "merge_status": "Open and mergeable but blocked by repository requirements; not merged as of the final audit"
+    },
+    "project_releaser": {
+      "url": "https://github.com/BerriAI/project-releaser/pull/305",
+      "status": "Ready for review; all six final-head checks passed, source-read token finding fixed and independently reviewed. Approval remains required. Official release and unavailable review bots are separate gates.",
+      "commit": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "workflow_source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d"
+    },
+    "litellm_ops": {
+      "url": "https://github.com/BerriAI/litellm-ops/pull/232",
+      "status": "Ready for review; final-head CI passed. Managed deployment and unavailable review bots remain separate gates.",
+      "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3"
+    },
+    "public_docs": {
+      "url": "https://github.com/BerriAI/litellm-docs/pull/2210",
+      "commit": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+      "status": "Draft; exact-head CI and strict local Docusaurus build pass. Canonical examples publication and internal source access remain explicit prerequisites."
+    },
+    "codex_integration": {
+      "url": "https://github.com/BerriAI/litellm-lens-codex-integration/pull/3",
+      "commit": "e58b4f481e3145c592fb93a46b2938267ac18b77",
+      "status": "Ready for review; all eight final-head Linux/macOS Python3.11/3.14 checks pass. Docs-only successor of qualified2e092 states internal repository access and no public release. Approval remains required."
+    }
+  },
+  "integration_decision": {
+    "status": "confirmed_by_user",
+    "experience": "Native Lens workspace in the LiteLLM left navigation through the shared Lens UI package; complete standalone Lens remains available",
+    "embedded_ui_releases": "User accepts adopting new embedded Lens UI with a LiteLLM frontend release",
+    "backend_versions": "Independently selected, within tested API compatibility; matching product version numbers are not required",
+    "alternatives_considered": [
+      "Separate app links",
+      "iframe"
+    ],
+    "installation": "Optional Lens service and ClickHouse stack installed alongside the gateway with credentials wired by the supported installer"
+  },
+  "onboarding_agent_prompts": {
+    "status": "verified_local",
+    "request": "Optional contextual Set it up for me prompt on README and every setup entrypoint",
+    "principles": [
+      "Inspect before asking",
+      "Preserve manual setup and landing page",
+      "Use observed standalone/embedded context",
+      "No copied credentials",
+      "Verify first useful result"
+    ],
+    "evidence": "docs/extraction/evidence/setup-agent-prompts.json",
+    "publication": "Pending integrated source push and companion PR"
+  },
+  "scope_clarification": {
+    "recorded_at": "2026-10-09T07:03:16.924Z",
+    "request": "Finish a clean cut; beta/internal Lens backward compatibility is optional, data transfer is acceptable; spend a dedicated final hour auditing removal boundaries after implementation is ready",
+    "retired_requirements": [
+      "Legacy Lens API aliases and old worker modes solely for backward compatibility",
+      "Mixed old/new Lens coexistence or arbitrary merge-order compatibility",
+      "Zero-downtime Lens data migration as a prerequisite"
+    ],
+    "retained_requirements": [
+      "Standalone Lens plus ClickHouse and native shared Lens UI inside LiteLLM",
+      "Working current feature flows, data transfer, persistence and recovery",
+      "Unrelated gateway APIs, authentication, model traffic, data and release behavior",
+      "Independent Lens releases with a tested current UI/service contract",
+      "Source publication to Lens main; companion PRs; production cutover stays separate"
+    ],
+    "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised"
+  },
+  "final_removal_audit": {
+    "schema": 1,
+    "status": "passed_source_removal_audit_external_release_gates_remain",
+    "start_at": "2026-10-09T11:59:21Z",
+    "earliest_completion_at": "2026-10-09T12:59:21.000Z",
+    "minimum_wall_clock_minutes": 60,
+    "end_at": "2026-10-09T13:02:20.802297+00:00",
+    "candidate_shas": {
+      "lens": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+      "lens_production": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+      "gateway": "d171e208a18d3f3559e3a338f7769387e01749e5",
+      "gateway_production": "d83eab03962545fa328222557e193e5519c26ad6",
+      "publisher": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "ops": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+      "docs": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "codex_integration": "2e0920128158046c8a3f0de230c366574c130672",
+      "examples_local": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+      "shared_rust_dependency": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
+    },
+    "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+    "upstream_at_preflight": "bbe5595a996c74bd9ae9b97bbb42c41c8f4118dd",
+    "entry_gates": {
+      "product_source_frozen": true,
+      "full_native_ci": "docs/extraction/evidence/final-native-ci.json",
+      "gateway_ten_required_checks_pass": true,
+      "gateway_greptile_current_confidence": "4/5",
+      "gateway_veria_current": "SUCCESS",
+      "both_actual_gateway_chart_families": "docs/extraction/evidence/helm/gateway-candidate-final.json",
+      "developer_source_rebuild": "docs/extraction/evidence/fresh-developer-rust-source.json",
+      "framework_versions": "docs/extraction/evidence/framework-versions-final70.json",
+      "companion_docs": "Bounded reviewed docs-only commits; implementation sources retain earlier passing CI, new docs-tip CI separately tracked"
+    },
+    "lanes": {
+      "root": "Remaining callers, removed paths and upstream merge preservation; ordinary gateway inference/billing/schema and docs/entrypoints; independent cross-review",
+      "dataset_http": "Authentication, tenancy, immediate revocation, server adapters and safe existing-fixture reads",
+      "dataset_domain": "Isolated real ClickHouse, state publication, budgets, progress, leases, expired owners, jobs, migration and cancellation",
+      "dataset_storage": "Independent release and deployment selections, chart/ops resource ownership, artifact provenance, dependencies and publication permissions"
+    },
+    "checks": [
+      {
+        "lane": "root",
+        "path": "docs/extraction/evidence/final-removal-root.json",
+        "sha256": "f087e0c6a20213ea7bade7e8389550672beb297f6dbaba7b2dbb592484d7d368"
+      },
+      {
+        "lane": "http",
+        "path": "docs/extraction/evidence/final-removal-http.json",
+        "sha256": "98b7ac971b0505cf2c42a6163beb00ee2c1fb23da64d783645ea77f4fb29f610"
+      },
+      {
+        "lane": "domain",
+        "path": "docs/extraction/evidence/final-removal-domain.json",
+        "sha256": "5d0ff5967e77ce6d5eecad33d77aacdf7fdc6584a96f8cb2984e053fc96bf419"
+      },
+      {
+        "lane": "storage",
+        "path": "docs/extraction/evidence/final-removal-storage.json",
+        "sha256": "fdced0671efada4670c22acd1bb1ca837f6ec7da96b9887845df999d2d65d4cb"
+      }
+    ],
+    "findings": [
+      {
+        "id": "storage-docs-01",
+        "found_at": "2026-10-09T12:09:00Z",
+        "status": "fixed",
+        "severity": "documentation",
+        "description": "Legacy Ops worker guide presented release-coupled enrollment as current; dev setup still described direct gateway ClickHouse and omitted independent Lens reader RBAC",
+        "resolution": "Retired legacy procedure, linked current independent guide, moved current bootstrap/read-access instructions with --lens-only, corrected post-handoff type:lens/ClickHouse ownership and ingestion URL",
+        "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+        "diff_sha256": "0fa62bf2bd4511af9472e5ce25b8f26a24a4efd37c9eb9e7ba1465c606e46b3b",
+        "reviewer": "dataset_domain",
+        "review_result": "Independently reviewed all3 files against active overlay, Lens application, checker and RBAC; no remaining findings",
+        "validation": "git diff --check, rendered3 Markdown pages, checked4 shell snippets and7 local links/anchors; final-head GitHub CI37928931469 passed36 tests, complete overlay render and actionlint",
+        "source_changed": false,
+        "ci": {
+          "run_id": 37928931469,
+          "head_sha": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+          "conclusion": "success",
+          "checkout": "Synthetic PR merge2cdb4d0 of167c553 into main4d5c16a",
+          "log": "ops-167-checks.log",
+          "log_sha256": "2e5f8c6adde2106970d99e076ed89451d3df1162a1e1c12d5e013baa81717ca1",
+          "check_runs": "ops-167-check-runs.json",
+          "check_runs_sha256": "522ce241629063f65f53e62a952b8cd398004db40b797229c56d7bbdc96a023d"
+        }
+      },
+      {
+        "id": "storage-release-02",
+        "found_at": "2026-10-09T12:27:39.984508+00:00",
+        "status": "fixed",
+        "severity": "staging-blocker",
+        "description": "Standalone stage checks out internal BerriAI/lens in3 jobs using default repository-scoped GITHUB_TOKEN from project-releaser; no cross-repository source credential is supplied",
+        "evidence": {
+          "repository_visibility": "storage-lens-repository-visibility.json",
+          "visibility_sha256": "8f3e19804ab99881935c69b13529801837e25bd8572ea4b57ccd4e62182a1e75",
+          "workflow": ".github/workflows/lens-stage.yml",
+          "head": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+          "source_checkouts": [
+            "plan",
+            "native",
+            "assets"
+          ]
+        },
+        "proposed_fix": "Use existing GitHub App to mint token scoped to lens with contents:read in each source-fetch job; pass to checkout with persist-credentials:false; keep source execution isolated and document prerequisite",
+        "operational_limit": "App installation/credential availability still external; no source token mint or official stage attempted locally",
+        "commit": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+        "diff_sha256": "c83f267da291df53c9c76ce8d4ce1ef1a9d8f0a6ab8868e78155a654bd694c30",
+        "resolution": "All3 source jobs mint fixed-owner Lens-only app tokens with contents:read and pass them only to checkout with persist-credentials:false; source image/build, package publication and production approval unchanged. Docs add internal repository and asset access prerequisites",
+        "validation": {
+          "regression_before": "3 failed on original missing source credentials",
+          "regression_after": "3 passed",
+          "full_local_check": "make check:2553 passed,100% coverage,Ruff and strict mypy passed",
+          "independent_reviewers": [
+            "dataset_domain",
+            "dataset_http"
+          ],
+          "http_review": "http-publisher-source-auth-review.json",
+          "final_head_ci": {
+            "sha": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+            "strict_run": 37931602044,
+            "strict": "passed:2553 tests/100% coverage+342 Buildkite,Ruff and mypy",
+            "zizmor_run": 37931601960,
+            "zizmor": "success",
+            "native_run": 37931601888,
+            "native": "success: Python and Rust native amd64/arm64 fixture smoke; all4 lanes passed",
+            "strict_log_sha256": "90847b023fa995e14d83a2d8d9ed6e5d9bb2ce775fc33fbd0aebd4429534e0a7",
+            "native_log": "publisher-8ef-native-smoke.log",
+            "native_log_sha256": "add2799ab6613d9ea7b5bb1bc697f4ac85f85294a3530fa96d53973a2f7600cb",
+            "check_runs": "publisher-8ef-check-runs.json",
+            "check_runs_sha256": "bd15b46b9f7c6a53240fdda7d335324748e0086927240c435a1124d1558c95eb",
+            "all_checks_passed": 6,
+            "reviewed_at": "2026-10-09T12:57:17.237517+00:00",
+            "qualification": "Native CI exercises immutable pre-extraction BerriAI/litellm Python1454f5c and Rust890ffe5 fixtures; does not run official independent Lens staging or mint the source app token"
+          },
+          "exact_source_ci": {
+            "sha": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+            "strict_run": 37930865209,
+            "strict_result": "2553 tests,100% coverage,Ruff and mypy;342 additional Buildkite tests",
+            "strict_log_sha256": "1346dadf7927ccccd67be263a2c2f9eafa0c2031fd968b1f85a917b214921b84",
+            "zizmor_run": 37930865245,
+            "zizmor_result": "No findings; existing20 ignored/76 suppressed, no new suppressions",
+            "native_run": 37930865240,
+            "native_status": "cancelled by successor8ef run under existing concurrency policy; not a pass",
+            "note": "Synthetic PR merge1a68484 ofcca09f3 into main0903cc1",
+            "native_cancellation_receipt": "publisher-cca-native-smoke-cancelled.json"
+          }
+        }
+      },
+      {
+        "id": "public-docs-current-runtime",
+        "status": "fixed",
+        "commit": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+        "description": "Thirteen public documentation pages still included coupled release, enrollment and obsolete source setup instructions",
+        "validation": "Strict Docusaurus build, exact-head CI, independent source/command checks and desktop/narrow browser review"
+      },
+      {
+        "id": "local-cleanup-verifier",
+        "status": "fixed_in_reviewed_local_harness",
+        "description": "Cleanup verifier assumed restart could not create a new internal worker and discovered state through an incomplete join",
+        "validation": "Complete head inventory and narrowly checked new worker lifecycle;45 negative guard cases and independent reviews; no product source changed",
+        "execution": "Actual local credential cleanup is a separate post-audit receipt"
+      }
+    ],
+    "limits": [
+      "This audit qualifies the frozen source and exercised boundaries, not an official release or a production deployment",
+      "CodeQL remains an incomplete resource-limited scan; official release, managed cutover and examples publication permissions remain external gates",
+      "Implementation qualification and all work before start_at are excluded from the dedicated hour",
+      "Current Lens source is INTERNAL; public source/artifact availability requires a deliberate owner decision",
+      "A Git-pinned shared Rust dependency PR remains open, and absent external review output is not a pass",
+      "Standalone control-body caps and storage topology/capacity limits remain explicit in the lane receipts and qualification matrix"
+    ],
+    "elapsed_wall_clock_seconds": 3779.802297,
+    "elapsed_wall_clock_minutes": 62.997,
+    "implementation_successors": {
+      "publisher": {
+        "head": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+        "workflow_source": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+        "reason": "Audit found internal source checkout lacked a cross-repository read credential; scoped token fix independently reviewed and tested, with docs-only successor"
+      },
+      "ops_docs": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "public_docs": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+      "codex_docs": "e58b4f481e3145c592fb93a46b2938267ac18b77"
+    },
+    "conclusion": "No unresolved removal regression was identified in the qualified source and exercised boundaries. This is not an absolute security guarantee or an official release/production cutover attestation.",
+    "evidence": "docs/extraction/evidence/final-removal-audit.json"
+  },
+  "qualification_scope": {
+    "source_delivery": "Lens main and companion PR candidates",
+    "local_qualification": "Actual container, browser, provider, migration, recovery, chart and native CI receipts retain the source executed",
+    "external_gates": {
+      "OFFICIAL_RELEASE": "Protected environment, package ownership/writer ACL, approved signing/application/runner provisioning, authorized real staging/promotion and exact published-artifact consumption. Lens source is INTERNAL; public source or artifact access must be deliberately provisioned by its owner. No visibility, provisioning or release action inferred.",
+      "MANAGED_DEPLOYMENT": "Authorized destination/credentials and representative managed values; actual schedule/mirror/Argo/canary or customer cutover, with installation-specific data-size/recovery planning",
+      "EXAMPLES_PUBLICATION_PERMISSION": "Maintainer publication or write permission for the examples source; local branch push returned403; docs source links must resolve",
+      "EXTERNAL_REVIEW_AVAILABILITY": "Requested external reviewer and environment-gated jobs must remain pending/unavailable when they are; incomplete CodeQL/OAuth or missing bot output is never a pass"
+    },
+    "status_rule": "External release and deployment gates remain incomplete even when underlying code is locally qualified. The dedicated audit is a separate source-removal gate"
+  },
+  "post_audit_local_cleanup": {
+    "status": "completed_and_browser_verified",
+    "evidence": "docs/extraction/evidence/local-acceptance-cleanup.json",
+    "provider_credential_owner_rotation_required": true
   }
 }

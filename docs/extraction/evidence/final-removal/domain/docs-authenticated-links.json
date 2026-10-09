@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-09T12:24:00.919Z",
+  "repository": "BerriAI/lens",
+  "visibility": "INTERNAL",
+  "source": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+  "unauthenticated_status": 404,
+  "checked": [
+    {
+      "path": "docs/setup-with-agent.md",
+      "found": true
+    },
+    {
+      "path": "docs/migration.md",
+      "found": true
+    },
+    {
+      "path": "docs/analysis.md",
+      "found": true
+    },
+    {
+      "path": "deploy/lens/README.md",
+      "found": true
+    },
+    {
+      "path": "helm/lens/README.md",
+      "found": true
+    },
+    {
+      "path": "docs/signals.md",
+      "found": true
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "found": true
+    },
+    {
+      "path": "deploy/runtime/Dockerfile",
+      "found": true
+    },
+    {
+      "path": "deploy/lens/compose.yaml",
+      "found": true
+    },
+    {
+      "path": "docs/sandbox.md",
+      "found": true
+    },
+    {
+      "path": "docs/backup.md",
+      "found": true
+    },
+    {
+      "path": "helm/lens",
+      "found": true
+    },
+    {
+      "path": "deploy/clickhouse/keeper.xml",
+      "found": true
+    },
+    {
+      "path": "docs/benchmarks.md",
+      "found": true
+    }
+  ]
+}

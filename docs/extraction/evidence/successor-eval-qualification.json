@@ -1,0 +1,34 @@
+{
+  "recorded_at": "2026-10-09T08:51:40.584Z",
+  "source_commit": "105e7b0923a17311e527aad4d480b57bab431000",
+  "image": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "status": "passed",
+  "main": {
+    "id": "18444952537913201365_f3e31f19ff2d4e3081216676e9d8a24f",
+    "passed": 1
+  },
+  "candidate": {
+    "id": "18444952537908530127_0a9f7533d08947c79dbdbcc8b1ee1041",
+    "passed": 0,
+    "regressions": 1,
+    "gate_passed": false
+  },
+  "definition_registered_atomically": true,
+  "definition_listed_without_manual_PUT": true,
+  "baseline_branch": "main",
+  "ingestion_key_revoked": true,
+  "ui": [
+    "Evals list displays successor-runtime-proof",
+    "Click definition shows main and arithmetic-regression runs",
+    "Click candidate shows failed gate,1regression,main pass/candidate fail",
+    "Reload preserves eval/run selection and comparison"
+  ],
+  "screenshots": [
+    "ui/connected/successor-eval-discovery.png",
+    "ui/connected/successor-eval-regression.png"
+  ],
+  "data_scope": "Synthetic arithmetic task outputs. Actual paid hosted-provider judge. Declared taskcost0.001 is a synthetic fixture, not measured provider billing",
+  "predecessor_defect": "6507/0b8 SDK runs absent from definition list; fixed by27cd source and validated by this successor",
+  "log": "/tmp/lens-successor-eval/proof.log",
+  "log_sha256": "727802bfcd2f2e2a6ccbff740b9927b4d8e0bc551e5b32888ecfae4a21bb740d"
+}

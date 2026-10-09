@@ -1,0 +1,145 @@
+{
+  "recorded_at": "2026-10-09T12:07:05.162Z",
+  "audit_window_start": "2026-10-09T11:59:21Z",
+  "source": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+  "production_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "groups": [
+    {
+      "subject": "State publication",
+      "files": [
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/state.rs",
+          "sha256": "a2f490cba197fcf060b744dccd69c9d1f3e0643ad431c5c939194171b272a518"
+        },
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/state/transport.rs",
+          "sha256": "aa1071b1dbd1b200b27d79f64309df87cf5b7834c347679612ab2f2a842c6f76"
+        },
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/state/maintenance.rs",
+          "sha256": "88badd76e8dcf68d06a713ea5bb399479d15ce98ee6234828759d73648f1600d"
+        }
+      ],
+      "observations": [
+        "Prepared blobs do not become visible until revision-fenced KeeperMap publication; strict mode, synchronous insertion and wait_end_of_query are forced by storage transport",
+        "Multi-record reads confirm heads before and after value reads; missing or mismatched blobs fail closed rather than becoming null",
+        "Compaction republishes the same content at a newer revision before deleting obsolete history, preserving stale-writer fences"
+      ],
+      "validation_targets": [
+        "state_cas_atomicity_tombstones"
+      ]
+    },
+    {
+      "subject": "Investigation writer and progress ownership",
+      "files": [
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/investigations/writes.rs",
+          "sha256": "0c199e7c81af2b139f1affcff26347e897d970f87bdf53c8074b576904f7df0f"
+        },
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/investigations/reviews.rs",
+          "sha256": "6c986ee655805a50034f7870fb60c4199a71fab8f4112482195dc32d637106fa"
+        },
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/investigations.rs",
+          "sha256": "b21ba23fac345474355fcb99dfa455126b8f0d323766a647377b434c146159f9"
+        }
+      ],
+      "observations": [
+        "Budget transforms and progress publication acquire the same per-investigation writer; publication includes the held writer revision and releases it atomically with updated records",
+        "Acquisition verifies token and expiry; abandoned acquisition or cancelled publication schedules bounded cleanup only when the stored token still belongs to the cancelled owner",
+        "Progress checks job id, worker, attempt, running state and strictly live lease after elapsed wait; stale owners cannot publish a review checkpoint"
+      ],
+      "validation_targets": [
+        "investigation_writer_budget_cancellation"
+      ]
+    },
+    {
+      "subject": "Budget and cancellation",
+      "files": [
+        {
+          "path": "src/worker/crates/inference/src/budget.rs",
+          "sha256": "d7d03b77abde444c1b058c30aae605b4fff7355138d6ecc5cd58b4dbb6a08981"
+        },
+        {
+          "path": "src/worker/crates/lens/src/local/inference.rs",
+          "sha256": "055f0cfde0a0ab5c7a9e45dfffc5808a870eb2d8565234b89cd02afadb2ab87e"
+        },
+        {
+          "path": "src/worker/crates/investigations/src/lifecycle.rs",
+          "sha256": "7558de1527adec5f17b8ef4fed4d43945b434b0ae7cbfed4d51c5aec5b8307d5"
+        }
+      ],
+      "observations": [
+        "Reservation admission rechecks active job ownership and attempt under storage lock; held live current-month amounts reduce remaining capacity without charging them",
+        "Settlement removes the reservation by identity and is therefore idempotent, charges the originating job, and does not add old-month cost to a new month",
+        "Cancellation cleanup carries already observed provider cost and step; pre-response cancellation releases unused allowance. Provider behavior and unknown cost after network loss are outside synthetic test guarantees"
+      ],
+      "validation_targets": [
+        "inference_budget_negative_boundaries",
+        "job_lifecycle_cancellation_and_expiry",
+        "local_inference_cancellation"
+      ]
+    },
+    {
+      "subject": "Eval and signal lease ownership",
+      "files": [
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/evals/scoring.rs",
+          "sha256": "6e604b9b1e8a3451f97be2853830203d2f982829692edef0518b12837872212b"
+        },
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/signals.rs",
+          "sha256": "a92e5b78ea654616418ccfaaca73bdca838039c640acee8a5ef536e714c4a47e"
+        }
+      ],
+      "observations": [
+        "Eval renewal validates a matching live token and cannot shorten its stored deadline; completion atomically seals the run, clears its scoring index and writes the baseline reference",
+        "Signal completion requires both the same configuration fingerprint and exact persisted claim deadline; a replaced claim is not overwritten"
+      ],
+      "validation_targets": [
+        "eval_leases_publication_and_scope",
+        "signals_stale_owner_fencing"
+      ]
+    },
+    {
+      "subject": "Credential revocation and migration",
+      "files": [
+        {
+          "path": "src/worker/crates/storage-clickhouse/src/ingestion.rs",
+          "sha256": "128577b8a62551e355a2761f55b981eac64d40933fa00129e0f5f1dc6b783f31"
+        },
+        {
+          "path": "src/worker/crates/migrate/src/source.rs",
+          "sha256": "cd03577d091f32aeac0005a3270930752710290eebe5d4b4d4e2f410c0a309e5"
+        },
+        {
+          "path": "src/worker/crates/migrate/src/plan.rs",
+          "sha256": "6e4751a96372388b11e60fdcd30e271c54e36f3de360f4c3ee6d0da3934ee670"
+        },
+        {
+          "path": "src/worker/crates/migrate/src/target.rs",
+          "sha256": "417f8702d0687fa37c433e466220abc72002b865a31db8886cfc7e15fc6762f7"
+        },
+        {
+          "path": "src/worker/crates/migrate/src/main.rs",
+          "sha256": "e2df1f1330a539e8861aa22d259b0d3a4a2f0f4dc15da2080835d7334abdc3f5"
+        }
+      ],
+      "observations": [
+        "Tracing-key catalog creation and revocation retry revision conflicts against the latest catalog; creation cannot replace an existing key identity",
+        "Importer obtains all eight Lens source groups in one repeatable-read read-only transaction and validates the complete plan before target setup",
+        "Target import checks the exact plan fingerprint, rejects existing unknown or changed state and verifies each batch before publishing completion; explicit stopped-writer handoff remains a deployment prerequisite"
+      ],
+      "validation_targets": [
+        "tracing_key_revocation_races",
+        "migration_conflicts_resume_validation"
+      ]
+    }
+  ],
+  "confirmed_product_findings": [],
+  "limitations": [
+    "Review is scoped to the frozen Rust implementation and these executable boundaries",
+    "No production storage, provider call or managed migration is performed by this lane"
+  ]
+}

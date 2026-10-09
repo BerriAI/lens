@@ -1,0 +1,197 @@
+use super::{Scenario, dataset_admin, json_headers, step};
+use serde_json::{Value, json};
+
+fn request(name: &str, method: &str, path: &str, body: Value) -> Scenario {
+    step(
+        "feedback",
+        name,
+        method,
+        path,
+        dataset_admin(),
+        body,
+        vec![],
+    )
+}
+
+pub fn feedback_scenarios() -> Vec<Scenario> {
+    let trace = "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0";
+    let endpoint = format!("/lens/feedback?trace_id={trace}");
+    vec![
+        step(
+            "feedback",
+            "00_auth_required",
+            "GET",
+            &endpoint,
+            json_headers(None),
+            Value::Null,
+            vec![],
+        ),
+        request("01_target_required", "GET", "/lens/feedback", Value::Null),
+        request(
+            "02_target_exclusive",
+            "GET",
+            "/lens/feedback?trace_id=trace&session_id=session",
+            Value::Null,
+        ),
+        request(
+            "03_target_nonempty",
+            "GET",
+            "/lens/feedback?trace_id=",
+            Value::Null,
+        ),
+        request(
+            "04_target_unknown_field",
+            "GET",
+            "/lens/feedback?trace_id=trace&scope=all",
+            Value::Null,
+        ),
+        request(
+            "05_trace_missing",
+            "GET",
+            "/lens/feedback?trace_id=missing",
+            Value::Null,
+        ),
+        request("06_empty_feedback", "GET", &endpoint, Value::Null),
+        request(
+            "07_write",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":7,"comment":"Useful response"}),
+        ),
+        request("08_read", "GET", &endpoint, Value::Null),
+        request(
+            "09_update",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":9,"comment":"Corrected feedback"}),
+        ),
+        request(
+            "10_second_author",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"user":"reviewer","score":0}),
+        ),
+        request(
+            "11_summary",
+            "POST",
+            "/lens/feedback/summary",
+            json!({"traces":[{"trace_id":trace},{"trace_id":trace,"trace_ref":"wrong"},{"trace_id":"missing"}]}),
+        ),
+        request(
+            "12_delete_absent_author",
+            "DELETE",
+            &format!("{endpoint}&user=missing"),
+            Value::Null,
+        ),
+        request(
+            "13_delete_author",
+            "DELETE",
+            &format!("{endpoint}&user=reviewer"),
+            Value::Null,
+        ),
+        request("14_read_after_delete", "GET", &endpoint, Value::Null),
+        request(
+            "15_negative_score",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":-1}),
+        ),
+        request(
+            "16_score_maximum",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":11}),
+        ),
+        request(
+            "17_score_fraction",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":1.5}),
+        ),
+        request(
+            "18_comment_null",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":5,"comment":null}),
+        ),
+        request(
+            "19_comment_length",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":5,"comment":"a".repeat(10001)}),
+        ),
+        request(
+            "20_body_unknown_field",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":5,"all_teams":true}),
+        ),
+        request(
+            "21_body_exclusive_target",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"session_id":"session","score":5}),
+        ),
+        request(
+            "22_score_coercion",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":trace,"score":"6.0"}),
+        ),
+        request(
+            "23_session_write",
+            "PUT",
+            "/lens/feedback",
+            json!({"session_id":"parity-session","score":10,"comment":"Session feedback"}),
+        ),
+        request(
+            "24_session_read",
+            "GET",
+            "/lens/feedback?session_id=parity-session",
+            Value::Null,
+        ),
+        request(
+            "25_session_delete",
+            "DELETE",
+            "/lens/feedback?session_id=parity-session",
+            Value::Null,
+        ),
+        request(
+            "26_empty_summary",
+            "POST",
+            "/lens/feedback/summary",
+            json!({"traces":[]}),
+        ),
+        request(
+            "27_summary_bound",
+            "POST",
+            "/lens/feedback/summary",
+            json!({"traces":vec![json!({"trace_id":trace});501]}),
+        ),
+        request(
+            "28_summary_bad_identity",
+            "POST",
+            "/lens/feedback/summary",
+            json!({"traces":[{"trace_id":"","trace_ref":false}]}),
+        ),
+        request(
+            "29_delete_trace_missing",
+            "DELETE",
+            "/lens/feedback?trace_id=missing",
+            Value::Null,
+        ),
+        request(
+            "30_write_trace_missing",
+            "PUT",
+            "/lens/feedback",
+            json!({"trace_id":"missing","score":8}),
+        ),
+        request("31_delete_final", "DELETE", &endpoint, Value::Null),
+        request(
+            "32_final_summary",
+            "POST",
+            "/lens/feedback/summary",
+            json!({"traces":[{"trace_id":trace}]}),
+        ),
+    ]
+}

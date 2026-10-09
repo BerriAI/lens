@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/feedback/summary",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "traces": [
+        {
+          "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "average": null,
+        "count": 0,
+        "lowest": null,
+        "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+        "trace_ref": ""
+      }
+    ]
+  }
+}

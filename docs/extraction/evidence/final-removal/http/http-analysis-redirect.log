@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running tests/transport.rs (target/debug/deps/transport-aa77a8de53bfdef7)
+
+running 2 tests
+test redirects_cannot_forward_credentials::case_2_preserve_post ... ok
+test redirects_cannot_forward_credentials::case_1_redirect ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.16s
+

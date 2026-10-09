@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "directory": "/var/folders/pl/f4fm9jpd3_n2s90lqp8cxmzw0000gn/T/lens-helm-ownership-QuWQMm",
+  "cases": 19,
+  "checks": {
+    "prior_harness_rejects_healthy_deployment_with_shared_label_job": true,
+    "fixed_harness_excludes_job_by_owner": true,
+    "transient_owned_pod_converges": true,
+    "unready_owned_pod_remains_failure": true,
+    "foreign_healthy_pod_cannot_substitute": true,
+    "missing_image_status_owner_or_pods_fail": true,
+    "completed_owned_pod_is_not_dropped_by_phase": true,
+    "missing_or_incorrect_replicaset_controller_fails": true,
+    "foreign_unready_pods_do_not_contaminate_snapshot": true,
+    "rollout_failure_propagated": true,
+    "changed_uid_image_restart_visible": true,
+    "private_spec_fields_absent_from_diagnostics": true
+  },
+  "product_qualification": false
+}

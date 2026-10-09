@@ -1,4 +1,4 @@
-WITH concat(leftPad(toString(cityHash64(concat(source,team_id,trace_ref,trace_id))),20,'0'),
+concat(leftPad(toString(cityHash64(concat(source,team_id,trace_ref,trace_id))),20,'0'),
     hex(concat(source,char(0),team_id,char(0),trace_ref,char(0),trace_id))) AS selection_key
 SELECT *, selection_key FROM (
     SELECT *, if({sample_cap:UInt64}=0, ceiling(eligible*{sample_percent:Float64}/100),
@@ -18,6 +18,9 @@ SELECT *, selection_key FROM (
     WHERE {source:String} IN ('traces','both')
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
+      AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
+          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
       -- The 7 day slack covers spans that started before the window and late ingestion
       AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
       AND (TeamId,ApiKeyHash,TraceId) IN (
@@ -57,6 +60,14 @@ SELECT *, selection_key FROM (
       AND ({service:String}='' OR model_group={service:String})
       AND {agent_name:String}=''
       AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+      AND (team_id,api_key,spend_logs.trace_id) NOT IN eval_traces
+      AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),
+          JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'
+      AND NOT is_eval_request(team_id,api_key,response_id,provider_request_id,litellm_call_id,request_id,spend_logs.trace_id,span_id)
+      AND (team_id,api_key,response_id) NOT IN (
+          SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
+          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
+            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
       AND ({source:String}!='both' OR (team_id,api_key,response_id) NOT IN (
           SELECT TeamId,ApiKeyHash,LiteLLMRequestId FROM otel_traces
           WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})

@@ -1,0 +1,72 @@
+{
+  "inventory": 14,
+  "counts": {
+    "CaughtMutant": 13,
+    "Unviable": 1
+  },
+  "source_sha256": {
+    "src/worker/crates/evals/src/baseline.rs": "146b720e33a96e426c6f21e24bfbbeedb3a8e531d0bbb56b8832c7323eee1617",
+    "src/worker/crates/evals-sdk/src/devserver.rs": "a77bae9798887c1ceed242f32ad9da05f5a0c88201f4921527644f5f029f928e"
+  },
+  "viable_kill_rate": 1,
+  "results": [
+    {
+      "name": "crates/evals/src/baseline.rs:25:5: replace case_url -> String with String::new()",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:25:5: replace case_url -> String with \"xyzzy\".into()",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:30:32: replace != with == in case_url",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:45:5: replace compare -> Diffs with Default::default()",
+      "status": "Unviable"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:54:78: replace && with || in compare",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:54:64: replace == with != in compare",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals/src/baseline.rs:54:93: replace != with == in compare",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:504:5: replace case_url -> String with String::new()",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:504:5: replace case_url -> String with \"xyzzy\".into()",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:524:9: delete field status from struct EvalRun expression in finish",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:542:9: delete field timeout from struct Wait expression in advance",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:559:13: delete field status from struct EvalRun expression in advance",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:560:13: delete field summary from struct EvalRun expression in advance",
+      "status": "CaughtMutant"
+    },
+    {
+      "name": "crates/evals-sdk/src/devserver.rs:579:9: delete field trace from struct CaseResult expression in trace",
+      "status": "CaughtMutant"
+    }
+  ],
+  "scope": "Merged Lens eval case URL generation and baseline comparison, including SDK field mutations",
+  "tool": "cargo-mutants 27.1.0"
+}

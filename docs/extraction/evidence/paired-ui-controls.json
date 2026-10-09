@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-09T09:27:57.032Z",
+  "baseline": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "current": "105e7b0923a17311e527aad4d480b57bab431000",
+  "scope": "Supplement to paired-current-ui.json; loaded demo UI only, no service API claims. Service intentionally stopped during gateway image builds.",
+  "checks": [
+    {
+      "name": "ArrowDown selects next span",
+      "baseline": "search_docs,340ms,matching input and result",
+      "current": "search_docs,340ms,matching input and result",
+      "passed": true
+    },
+    {
+      "name": "j selects next trace",
+      "baseline": "2/4,3.87s,3steps,808tokens,$0.0040,audit-log answer",
+      "current": "2/4,3.87s,3steps,808tokens,$0.0040,audit-log answer",
+      "passed": true
+    },
+    {
+      "name": "Escape closes span details before trace drawer",
+      "baseline": "first Escape hides Span details,second closes Trace details",
+      "current": "first Escape hides Span details,second closes Trace details",
+      "passed": true
+    },
+    {
+      "name": "Column controls",
+      "baseline": "Cost toggle removes/restores header;Escape restores focus to Columns",
+      "current": "Cost toggle removes/restores header;Escape restores focus to Columns",
+      "passed": true
+    },
+    {
+      "name": "Current narrow viewport",
+      "width": 390,
+      "height": 844,
+      "passed": true,
+      "observed": "Navigation collapses; table exposes input and signals; visible input opens trace; span content and close controls accessible",
+      "limitation": "Trace toolbar extends horizontally as in existing component layout; no whole-shell pixel equality claim",
+      "screenshot": "ui/paired-current/current-mobile-trace.png"
+    }
+  ],
+  "not_claimed": [
+    "Mobile baseline pairing (baseline tab retained1280x720)",
+    "Network requests or reload while service stopped"
+  ]
+}

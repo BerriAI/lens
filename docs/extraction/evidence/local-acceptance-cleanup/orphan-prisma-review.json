@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-09T13:04:15.027Z",
+  "pid": 88810,
+  "ppid": "1",
+  "command": "/Users/mfkhalil/.cache/prisma-python/binaries/5.4.2/ac9d7041ed77bcc8a8dbd2ab6616b39013829574/node_modules/prisma/query-engine-darwin-arm64 -p 62795 --enable-metrics --enable-raw-queries",
+  "started_at": "Fri Oct  9 03:06:17 2026",
+  "cwd": "/Users/mfkhalil/Code/litellm-lens-host",
+  "expected_fields_match": {
+    "LENS_ADMIN_TOKEN": true,
+    "LENS_HOST_MASTER_KEY": true,
+    "LENS_GATEWAY_SECRET": false,
+    "LITELLM_LENS_SERVICE_TOKEN": false,
+    "DATABASE_URL": true
+  },
+  "command_sha256": "42e1873737b1eb721d5991287b9d4d12b4bce0090dff8cc394c353e10b5fd40a"
+}

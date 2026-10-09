@@ -1,6 +1,6 @@
 "use client";
 
-import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { Controller, useFormContext } from "react-hook-form";
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { analysisModelOptions, type ModelGate } from "./analysisModels";
 import type { AnalysisModels } from "./useAnalysisModels";
@@ -9,11 +9,11 @@ import type { InvestigationInput } from "../investigationSchema";
 export interface AnalysisModelFieldProps {
   readonly models: AnalysisModels;
   readonly gate: ModelGate;
+  readonly model: string;
 }
 
-export function AnalysisModelField({ models, gate }: AnalysisModelFieldProps) {
+export function AnalysisModelField({ models, gate, model }: AnalysisModelFieldProps) {
   const { control } = useFormContext<InvestigationInput>();
-  const model = useWatch({ control, name: "selectedModel" });
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">Analysis model</p>
@@ -24,11 +24,11 @@ export function AnalysisModelField({ models, gate }: AnalysisModelFieldProps) {
           <SearchSelect
             aria-label="Analysis model"
             options={analysisModelOptions(models.models, models.modelDetails)}
-            value={field.value ?? ""}
+            value={model}
             onValueChange={(value) => field.onChange(value ?? "")}
             placeholder={models.modelsLoading ? "Loading models…" : "Choose a model"}
             disabled={models.modelsLoading}
-            emptyText="No matching models configured on this gateway"
+            emptyText="No matching analysis models configured for Lens"
           />
         )}
       />

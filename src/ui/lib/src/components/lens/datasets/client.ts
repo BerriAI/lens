@@ -26,14 +26,19 @@ export interface DatasetsApi {
 
 async function required<T>(request: Promise<{ data?: T }>): Promise<T> {
   const { data } = await request;
-  if (data === undefined) throw new Error("The proxy returned an empty response");
+  if (data === undefined)
+    throw new Error("The proxy returned an empty response");
   return data;
 }
 
 export const datasetExportPath = (datasetId: string): string =>
   `/lens/datasets/${encodeURIComponent(datasetId)}/export`;
 
-export function liveDatasetsApi(client: Client<paths>, apiClient: ApiClient, accessToken: string): DatasetsApi {
+export function liveDatasetsApi(
+  client: Client<paths>,
+  apiClient: ApiClient,
+  accessToken: string,
+): DatasetsApi {
   const headers = authHeaders(accessToken);
   return {
     list: () => required(client.GET("/lens/datasets", { headers })),
@@ -44,8 +49,10 @@ export function liveDatasetsApi(client: Client<paths>, apiClient: ApiClient, acc
           params: { path: { dataset_id: datasetId }, query: { revision } },
         }),
       ),
-    create: (body) => required(client.POST("/lens/datasets", { headers, body })),
-    build: (body) => required(client.POST("/lens/datasets/build", { headers, body })),
+    create: (body) =>
+      required(client.POST("/lens/datasets", { headers, body })),
+    build: (body) =>
+      required(client.POST("/lens/datasets/build", { headers, body })),
     saveRevision: (datasetId, body) =>
       required(
         client.POST("/lens/datasets/{dataset_id}/revisions", {
@@ -55,7 +62,10 @@ export function liveDatasetsApi(client: Client<paths>, apiClient: ApiClient, acc
         }),
       ),
     exportJsonl: (datasetId, revision) =>
-      apiClient.getBlob(datasetExportPath(datasetId), { accessToken, query: { revision } }),
+      apiClient.getBlob(datasetExportPath(datasetId), {
+        accessToken,
+        query: { revision },
+      }),
     evalCases: (datasetId, revision) =>
       required(
         client.GET("/lens/datasets/{dataset_id}/revisions/{revision}/cases", {

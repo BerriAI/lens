@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, Trash2 } from "lucide-react";
-import Link from "next/link";
 import { useId, useState } from "react";
+import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { StatusDot } from "../../../shared/StatusDot";
@@ -11,7 +11,6 @@ import { Button } from "../../../ui/button";
 import { Input } from "../../../ui/input";
 import { Skeleton } from "../../../ui/skeleton";
 import { Textarea } from "../../../ui/textarea";
-import { uiHref } from "../../../../utils/uiHref";
 
 import { useLensApi } from "../../data/LensServices";
 import { lensKeys, lensQueries } from "../../data/queries";
@@ -65,17 +64,18 @@ function SetupCallout({ hasModels }: { hasModels: boolean }) {
       <div className="space-y-1">
         <p className="font-medium">Choose a System 1 model to start flagging traces</p>
         {hasModels ? (
-          <p className="text-xs text-muted-foreground">Pick one of the evaluation models on this proxy below.</p>
+          <p className="text-xs text-muted-foreground">Pick one of the evaluation models configured for Lens below.</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            This proxy has no System 1 models yet. Add one with mode evaluation, for example typesafe/jev-latest, on{" "}
-            <Link
-              href={uiHref("models-and-endpoints")}
+            Add an evaluation provider to your Lens deployment, then refresh this page.{" "}
+            <a
+              href="https://github.com/BerriAI/lens/blob/main/docs/signals.md"
+              target="_blank"
+              rel="noreferrer"
               className="font-medium text-foreground underline underline-offset-2"
             >
-              Models + Endpoints
-            </Link>
-            .
+              Configure signals
+            </a>
           </p>
         )}
       </div>
@@ -196,6 +196,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
   return (
     <>
       <SettingsCard className="space-y-4">
+        <SetupAgentPrompt goal="signals" featureConfigured={active} />
         <p role="status" className="inline-flex items-center gap-2 text-sm">
           <StatusDot state={active ? "ok" : "off"} />
           {active ? `Flagging traces with ${saved.model}` : "Signals are off"}
@@ -222,12 +223,10 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               onValueChange={(value) => setDraft((current) => ({ ...current, model: value ?? "" }))}
               placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
               disabled={details.isPending}
-              emptyText="No System 1 models on this proxy"
+              emptyText="No evaluation models configured for Lens"
               allowClear
             />
-            <p className="text-xs text-muted-foreground">
-              Decisions API models onboarded with mode evaluation, such as TypeSafe JEV
-            </p>
+            <p className="text-xs text-muted-foreground">Evaluation models configured for Lens, such as TypeSafe JEV</p>
           </div>
           <div className="space-y-1.5">
             <label htmlFor={thresholdId} className="text-sm font-medium">
@@ -279,6 +278,9 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
           )}
           <FieldError>{problems.signals}</FieldError>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Lens sends trace content to this model automatically. Your provider may charge for these requests.
+        </p>
         <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
           {save.error && (
             <p role="alert" className="text-sm text-destructive">

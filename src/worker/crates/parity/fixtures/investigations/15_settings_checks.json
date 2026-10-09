@@ -1,0 +1,104 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "checks": [
+        {
+          "enabled": "bad",
+          "id": "",
+          "instruction": "x"
+        }
+      ],
+      "filters": [
+        {
+          "key": "",
+          "value": ""
+        }
+      ],
+      "model": "x",
+      "name": "x"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "filters",
+            0,
+            "key"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        },
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "filters",
+            0,
+            "value"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        },
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "checks",
+            0,
+            "id"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        },
+        {
+          "ctx": {
+            "min_length": 3
+          },
+          "input": "x",
+          "loc": [
+            "body",
+            "checks",
+            0,
+            "instruction"
+          ],
+          "msg": "String should have at least 3 characters",
+          "type": "string_too_short"
+        },
+        {
+          "input": "bad",
+          "loc": [
+            "body",
+            "checks",
+            0,
+            "enabled"
+          ],
+          "msg": "Input should be a valid boolean, unable to interpret input",
+          "type": "bool_parsing"
+        }
+      ]
+    }
+  }
+}

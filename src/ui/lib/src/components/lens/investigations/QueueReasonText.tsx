@@ -7,11 +7,11 @@ export function QueueReasonText({ reason, onConnect }: { reason: QueueReason; on
   if (reason.kind !== "no_worker" || !onConnect) return <>{queueReasonText(reason)}</>;
   return (
     <>
-      No worker connected. Start one from{" "}
+      Analysis is unavailable. Check{" "}
       <button type="button" onClick={onConnect} className="font-medium text-foreground underline underline-offset-2">
-        Connect worker
-      </button>
-      .
+        Configure analysis
+      </button>{" "}
+      in Settings.
     </>
   );
 }

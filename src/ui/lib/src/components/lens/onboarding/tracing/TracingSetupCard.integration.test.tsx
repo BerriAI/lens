@@ -225,7 +225,7 @@ describe("TracingSetupCard", () => {
     expect(screen.queryByRole("button", { name: /View trace/ })).not.toBeInTheDocument();
   });
 
-  it("shows matching-version installation instructions without changing the landing design", async () => {
+  it("offers compatible installation and a contextual agent prompt without changing the manual path", async () => {
     const user = userEvent.setup();
     const onCheck = vi.fn();
     const missingService = {
@@ -238,14 +238,21 @@ describe("TracingSetupCard", () => {
     vi.mocked(apiClient.get).mockResolvedValue(missingService);
     const { card } = await renderCard({ detail: "Agent tracing is not enabled", onCheck });
     expect(await screen.findByText("Install Lens")).toBeVisible();
-    expect(card).toHaveTextContent("Use Lens v1.2.3 to match this LiteLLM deployment");
+    expect(card).toHaveTextContent("Use a Lens release supported by this LiteLLM integration");
+    await user.click(screen.getByRole("button", { name: "Set it up for me" }));
+    expect(copyToClipboard).toHaveBeenLastCalledWith(
+      expect.stringContaining("I opened Lens from an existing LiteLLM admin dashboard"),
+      "Prompt copied",
+    );
+    expect(vi.mocked(copyToClipboard).mock.lastCall?.[0]).toContain("Lens connection is not configured");
+    expect(vi.mocked(copyToClipboard).mock.lastCall?.[0]).not.toContain("sk-admin");
     expect(screen.getByRole("link", { name: "Helm setup" })).toHaveAttribute(
       "href",
-      "https://docs.litellm.ai/docs/proxy/lens/deployment#using-helm",
+      "https://docs.litellm.ai/docs/proxy/lens/deployment/kubernetes#existing-deployment",
     );
     expect(screen.getByRole("link", { name: "Docker setup" })).toHaveAttribute(
       "href",
-      "https://docs.litellm.ai/docs/proxy/lens/deployment#using-docker",
+      "https://docs.litellm.ai/docs/proxy/lens/deployment/docker-compose",
     );
     expect(screen.queryByRole("combobox", { name: "Your agent framework" })).not.toBeInTheDocument();
     const readyService = {
@@ -258,6 +265,8 @@ describe("TracingSetupCard", () => {
     await user.click(screen.getByRole("button", { name: "Check setup" }));
     expect(onCheck).toHaveBeenCalledOnce();
     expect(await screen.findByRole("combobox", { name: "Your agent framework" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Set it up for me" }));
+    expect(vi.mocked(copyToClipboard).mock.lastCall?.[0]).toContain("Reuse this installation");
   });
 
   it.each([

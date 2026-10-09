@@ -1,0 +1,29 @@
+[package]
+name = "lens-migrate"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+lens-contract = { path = "../contract" }
+lens-investigations = { path = "../investigations" }
+litellm-http.workspace = true
+litellm-storage-clickhouse.workspace = true
+percent-encoding.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx = { workspace = true, features = ["json", "postgres", "runtime-tokio", "chrono", "tls-rustls-ring-native-roots"] }
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+lens-auth = { path = "../auth" }
+lens-datasets = { path = "../datasets" }
+lens-signals = { path = "../signals" }
+litellm-http = { workspace = true, features = ["test-support"] }
+rstest.workspace = true
+testcontainers-modules = { version = "0.15.0", features = ["clickhouse", "postgres"] }
+uuid.workspace = true

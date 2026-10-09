@@ -1,0 +1,19 @@
+
+> my-website@0.0.0 test:lens
+> node --test scripts/sync-lens-docs.test.mjs
+
+✔ rejects duplicate routes and paths that escape the source repository (0.4915ms)
+✔ rewrites published READMEs, code links, references, images, and legacy anchors (6.864625ms)
+✔ fails a missing source link before producing generated pages (0.6135ms)
+✔ replaces imported guides after staging the new directory (5.174583ms)
+✔ restores imported guides when installing the stage directory fails (2.079625ms)
+✔ installs imported guides when the destination does not exist yet (1.022333ms)
+✔ old section and framework links stay within the Proxy Lens category (1.1895ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 132.233459

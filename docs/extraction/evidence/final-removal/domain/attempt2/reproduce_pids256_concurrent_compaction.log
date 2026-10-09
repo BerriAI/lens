@@ -1,0 +1,28 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.67s
+     Running tests/state.rs (target/debug/deps/state-6ac00e61fb54a84c)
+
+running 1 test
+test compaction::concurrent_compaction_preserves_atomic_counters ... FAILED
+
+failures:
+
+---- compaction::concurrent_compaction_preserves_atomic_counters stdout ----
+
+thread 'compaction::concurrent_compaction_preserves_atomic_counters' (9473688) panicked at crates/storage-clickhouse/tests/state/support.rs:199:18:
+called `Result::unwrap()` on an `Err` value: StateFailed { status: 500, code: Some(236) }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'compaction::concurrent_compaction_preserves_atomic_counters' (9473688) panicked at crates/storage-clickhouse/tests/state/support.rs:199:18:
+called `Result::unwrap()` on an `Err` value: StateFailed { status: 503, code: Some(439) }
+
+thread 'compaction::concurrent_compaction_preserves_atomic_counters' (9473688) panicked at crates/storage-clickhouse/tests/state/support.rs:199:18:
+called `Result::unwrap()` on an `Err` value: StateFailed { status: 503, code: Some(439) }
+test database cleanup failed: lens_rust_state_3d3eea7fdfa34376a3cc0255e32ba3ca: ClickHouse query transport failed
+
+
+failures:
+    compaction::concurrent_compaction_preserves_atomic_counters
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.17s
+
+error: test failed, to rerun pass `-p litellm-storage-clickhouse --test state`

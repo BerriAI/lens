@@ -1,5 +1,18 @@
 import { expectTypeOf, test } from "vitest";
-import type { SpanErrorQuery, SpanQuery, TraceDetailQuery, TraceListQuery, TraceQueryBody } from "./types";
+import type {
+  SpanErrorQuery,
+  SpanQuery,
+  TraceDetailQuery,
+  TraceListQuery,
+  TraceMessage,
+  TraceQueryBody,
+  UIMessage,
+} from "./types";
+
+test("trace messages accept API names while adapting tool calls", () => {
+  expectTypeOf<TraceMessage["name"]>().toEqualTypeOf<UIMessage["name"]>();
+  expectTypeOf<UIMessage["content"]>().toEqualTypeOf<TraceMessage["content"]>();
+});
 
 test("trace request aliases match the generated OpenAPI shapes", () => {
   expectTypeOf<TraceListQuery>().toEqualTypeOf<{

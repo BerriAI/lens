@@ -1,0 +1,271 @@
+{
+  "created_at": "2026-10-09T05:23:10.632Z",
+  "scope": "Signals HTTP validation and reads; activity HTTP filters, request content, agent discovery",
+  "tool": "cargo-mutants 27.1.0",
+  "inventory": 60,
+  "caught": 45,
+  "unviable": 15,
+  "missed": 0,
+  "timeouts": 0,
+  "viable_kill_rate": 1,
+  "source": [
+    {
+      "path": "src/worker/crates/server/src/signals.rs",
+      "sha256": "a39e3307ae79ae71d85075fdc8700a2500dd8114fdedd05ccb9f8d7eae0bc58f"
+    },
+    {
+      "path": "src/worker/crates/server/src/activity.rs",
+      "sha256": "e048e0a358a88bb60ddd50943dafc0be181ff8983d7d914c5d1f79e80ea50846"
+    },
+    {
+      "path": "src/worker/crates/server/src/signals/validation.rs",
+      "sha256": "e646dcf4cb89b241287e17d9b41253dc85af416799064b000312057430b9d306"
+    },
+    {
+      "path": "src/worker/crates/lens/src/storage/activity.rs",
+      "sha256": "8b7637bfe5d8805ad4408e95cf1cf40e13eded1552a385db1a2ff1353ab146fc"
+    }
+  ],
+  "results": [
+    {
+      "name": "crates/server/src/signals.rs:40:5: replace router -> Router with Default::default()",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:55:5: replace authorize -> Result<(), InvestigationError> with Ok(())",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:67:5: replace read -> Result<Json<SignalConfig>, SignalError> with Ok(Json::new())",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:67:5: replace read -> Result<Json<SignalConfig>, SignalError> with Ok(Json::from_iter([Default::default()]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:67:5: replace read -> Result<Json<SignalConfig>, SignalError> with Ok(Json::new(Default::default()))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:67:5: replace read -> Result<Json<SignalConfig>, SignalError> with Ok(Json::from(Default::default()))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:78:5: replace save -> Result<Json<SignalConfig>, SignalError> with Ok(Json::new())",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:78:5: replace save -> Result<Json<SignalConfig>, SignalError> with Ok(Json::from_iter([Default::default()]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:78:5: replace save -> Result<Json<SignalConfig>, SignalError> with Ok(Json::new(Default::default()))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:78:5: replace save -> Result<Json<SignalConfig>, SignalError> with Ok(Json::from(Default::default()))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:85:33: replace && with || in save",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:85:8: delete ! in save",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:85:36: delete ! in save",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::new())",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::from_iter([vec![]]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::new(vec![]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::from(vec![]))",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::from_iter([vec![Default::default()]]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::new(vec![Default::default()]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals.rs:98:5: replace traces -> Result<Json<Vec<TraceSignals>>, SignalError> with Ok(Json::from(vec![Default::default()]))",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/activity.rs:121:9: delete field all_teams from struct Scope expression in scope",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:210:5: replace content_query -> Result<(String, u32), ActivityError> with Ok((String::new(), 0))",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:210:5: replace content_query -> Result<(String, u32), ActivityError> with Ok((String::new(), 1))",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:210:5: replace content_query -> Result<(String, u32), ActivityError> with Ok((\"xyzzy\".into(), 0))",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:210:5: replace content_query -> Result<(String, u32), ActivityError> with Ok((\"xyzzy\".into(), 1))",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:225:34: replace < with == in content_query",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:225:34: replace < with > in content_query",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:225:34: replace < with <= in content_query",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/activity.rs:253:9: delete match arm \"requests\" in content",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:22:9: replace Model::fields -> &'static[Field] with Vec::leak(Vec::new())",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:22:9: replace Model::fields -> &'static[Field] with Vec::leak(vec![Default::default()])",
+      "classification": "Unviable"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:51:5: replace after with ()",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:51:8: delete ! in after",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:57:36: replace > with == in after",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:57:36: replace > with < in after",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:57:36: replace > with >= in after",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:64:9: replace != with == in after",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:87:5: replace validate with ()",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:91:29: replace != with == in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:97:17: replace || with && in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:96:17: replace || with && in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:95:25: replace > with == in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:95:25: replace > with < in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:95:25: replace > with >= in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:96:20: delete ! in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:97:20: delete ! in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:99:84: replace || with && in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:99:59: replace || with && in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:99:92: replace == with != in validate",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:120:5: replace threshold -> Result<(), ValidationError> with Ok(())",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:141:8: delete ! in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:150:15: replace < with == in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:150:15: replace < with > in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:150:15: replace < with <= in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:159:15: replace > with == in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:159:15: replace > with < in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/server/src/signals/validation.rs:159:15: replace > with >= in threshold",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/lens/src/storage/activity.rs:25:9: replace <impl ActivityReader for SourceReader>::agents -> Result<Vec<String>, ActivityReadError> with Ok(vec![])",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/lens/src/storage/activity.rs:25:9: replace <impl ActivityReader for SourceReader>::agents -> Result<Vec<String>, ActivityReadError> with Ok(vec![String::new()])",
+      "classification": "CaughtMutant"
+    },
+    {
+      "name": "crates/lens/src/storage/activity.rs:25:9: replace <impl ActivityReader for SourceReader>::agents -> Result<Vec<String>, ActivityReadError> with Ok(vec![\"xyzzy\".into()])",
+      "classification": "CaughtMutant"
+    }
+  ]
+}

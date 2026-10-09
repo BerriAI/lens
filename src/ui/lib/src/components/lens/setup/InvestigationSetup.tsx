@@ -196,7 +196,7 @@ function SetupEditor({
             </div>
           </SetupStep>
           <SetupStep id="run" heading="Run" description="Schedule, analysis model, and budget" summary="">
-            <RunFields models={analysis} gate={gate} />
+            <RunFields models={analysis} gate={gate} model={model} />
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {error}

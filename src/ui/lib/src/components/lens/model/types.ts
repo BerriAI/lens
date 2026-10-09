@@ -13,8 +13,6 @@ export type Finding = components["schemas"]["Finding"];
 
 export type Sample = components["schemas"]["Sample"];
 
-export type WorkerCreated = components["schemas"]["WorkerCreated"];
-
 export type Job = components["schemas"]["Job"];
 
 export type IssueBrief = Wire.IssueBrief;

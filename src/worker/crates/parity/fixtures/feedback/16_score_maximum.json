@@ -1,0 +1,36 @@
+{
+  "request": {
+    "method": "PUT",
+    "path": "/lens/feedback",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "score": 11,
+      "trace_id": "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "le": 10
+          },
+          "input": 11,
+          "loc": [
+            "body",
+            "score"
+          ],
+          "msg": "Input should be less than or equal to 10",
+          "type": "less_than_equal"
+        }
+      ]
+    }
+  }
+}

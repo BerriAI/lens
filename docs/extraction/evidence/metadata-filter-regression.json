@@ -1,0 +1,54 @@
+{
+  "recorded_at": "2026-10-09T10:06:22.265072+00:00",
+  "commit": "af29e72a67893e9eb1e682ad0aee656647c63d20",
+  "scope": [
+    "src/ui/lib/src/components/lens/setup/fields/MetadataFilters.tsx",
+    "src/ui/lib/src/components/lens/setup/InvestigationSetup.integration.test.tsx"
+  ],
+  "change": "Guard a newly appended filter row until useWatch catches up with useFieldArray",
+  "before": {
+    "outcome": "new populated-metadata regression fails",
+    "message": "TypeError: Cannot read properties of undefined (reading 'key')",
+    "location": "MetadataFilters.tsx:57"
+  },
+  "after": {
+    "tests_passed": 31,
+    "test_files": 1,
+    "typecheck": "passed",
+    "full_suite_run": false
+  },
+  "independent_review": {
+    "agent": "dataset_storage",
+    "findings": []
+  },
+  "coverage": [
+    "duplicate investigation with loaded metadata",
+    "first and second append",
+    "sorted deduplicated suggestions by selected key",
+    "remove and reindex preserves remaining key/value",
+    "edit key updates suggestions",
+    "append after removal",
+    "saved filters preserve user selection"
+  ],
+  "warnings": [
+    "Existing jsdom canvas getContext warnings",
+    "Existing node localStorage-file warning",
+    "Default80column formatting does not match existing source;120column check only flags3preexisting untouched assertions"
+  ],
+  "logs": {
+    "before": {
+      "path": "/tmp/lens-metadata-filters-before.log",
+      "sha256": "35f6d2f5079094ba2fe5402fd3a5b19b3e372b36925ff7d0ba386c8bbdca73d0"
+    },
+    "after": {
+      "path": "/tmp/lens-metadata-filters-after.log",
+      "sha256": "d98d7ced7ff8669681bfaa35f2020905667da2b8076bf5109451a274eb842009"
+    },
+    "typecheck": {
+      "path": "/tmp/lens-metadata-filters-typecheck.log",
+      "sha256": "3cea5e5e9f18766054450e04d337e51b49430c814478a4fed2bc965f97b17dc2"
+    }
+  },
+  "publication": "Lens sourceaf29e72a published to main by parent; shared host UI package refresh is in progress",
+  "runtime_scope": "No Rust or backend source changes; old105 image still contains the UI crash until rebuilt"
+}

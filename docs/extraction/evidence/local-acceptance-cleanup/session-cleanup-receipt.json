@@ -1,0 +1,12 @@
+{
+  "status": "applied_and_verified",
+  "database": "lens_final_acceptance",
+  "sessions_total": 4,
+  "sessions_tombstoned": 2,
+  "existing_tombstones_unchanged": 2,
+  "non_session_records_preserved": 60,
+  "non_session_content_sha256": "2c1042909dcf3a98a41a05691e9c8f23326b3a9f733f2ef228bff208e0820c79",
+  "manifest_sha256": "f3f039b1a322b035dc8a8e352a3d3f0958fccda9c65fb4670c3e772235cf9da3",
+  "source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "finished_at": "2026-10-09T13:04:53.381631Z"
+}

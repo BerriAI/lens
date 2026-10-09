@@ -2,6 +2,7 @@
 
 mod error;
 mod gateway;
+pub mod ingestion;
 
 use chrono::{DateTime, Utc};
 use lens_contract::auth::{Identity, Role, SessionView};
@@ -9,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::future::Future;
 use subtle::ConstantTimeEq;
 
-pub use error::{Error, StoreError};
+pub use error::{Error, IngestionError, StoreError};
 
 pub const SESSION_LIFETIME_SECONDS: i64 = 8 * 60 * 60;
 
@@ -55,6 +56,14 @@ impl Settings {
         if admin_token.chars().count() < 32 {
             return Err(Error::Configuration(
                 "setup token must contain at least 32 characters",
+            ));
+        }
+        if gateway_secret
+            .as_deref()
+            .is_some_and(|secret| secret.chars().count() < 32)
+        {
+            return Err(Error::Configuration(
+                "gateway secret must contain at least 32 characters",
             ));
         }
         let url = url::Url::parse(public_url).map_err(|_| Error::Configuration("public URL"))?;
@@ -158,11 +167,11 @@ impl<R: SessionRepository> Authentication<R> {
         {
             return Err(Error::OriginMismatch);
         }
-        if !self
+        if self
             .sessions
             .expires_at(&SessionId::for_token(session))
             .await?
-            .is_some_and(|expires| expires > now)
+            .is_none_or(|expires| expires <= now)
         {
             return Err(Error::Unauthorized("Lens session has expired"));
         }

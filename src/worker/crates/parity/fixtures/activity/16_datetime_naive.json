@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "as_of": "2026-01-01T00:00:00",
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": "2026-01-01T00:00:00",
+          "loc": [
+            "body",
+            "as_of"
+          ],
+          "msg": "Input should have timezone info",
+          "type": "timezone_aware"
+        }
+      ]
+    }
+  }
+}

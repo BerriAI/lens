@@ -4,19 +4,33 @@ import { type ReactNode } from "react";
 import { Activity, ArrowUpRight } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StatusDot } from "../../shared/StatusDot";
-import { WorkerSettings } from "./worker/WorkerSettings";
 import { SignalSettings } from "./signals/SignalSettings";
 import { SettingsCard, SettingsSection } from "./SettingsSection";
 import type { LensList } from "../model/types";
+import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
+import { DeploymentAnalysis } from "./worker/DeploymentAnalysis";
 
 const TRACING_DOCS = "https://docs.litellm.ai/docs/proxy/lens";
 
-function TracingSection({ enabled, onOpenTraces }: { enabled: boolean; onOpenTraces: () => void }) {
+function TracingSection({
+  enabled,
+  onOpenTraces,
+}: {
+  enabled: boolean;
+  onOpenTraces: () => void;
+}) {
+  const standalone = useLensHost().surface === "standalone";
   return (
-    <SettingsSection heading="Tracing" description="Where your agents send runs so Lens can read them.">
+    <SettingsSection
+      heading="Tracing"
+      description="Where your agents send runs so Lens can read them."
+    >
       <SettingsCard className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-sm">
-          <Activity aria-hidden="true" className="size-4 text-muted-foreground" />
+          <Activity
+            aria-hidden="true"
+            className="size-4 text-muted-foreground"
+          />
           <span role="status" className="inline-flex items-center gap-2">
             <StatusDot state={enabled ? "ok" : "off"} />
             {enabled ? "Tracing enabled" : "Tracing is not enabled"}
@@ -24,7 +38,7 @@ function TracingSection({ enabled, onOpenTraces }: { enabled: boolean; onOpenTra
         </div>
         <div className="flex items-center gap-3">
           <a
-            href={TRACING_DOCS}
+            href={standalone ? STANDALONE_DOCS_URL : TRACING_DOCS}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -47,19 +61,28 @@ export function LensSettings({
   onOpenTraces,
 }: {
   list: LensList;
-  /** Replaces the worker install card's Done button once the new worker connects. */
   workerReadyAction?: ReactNode;
   onOpenTraces: () => void;
 }) {
   return (
-    <div aria-label="Settings" role="region" className="flex w-full flex-col divide-y divide-border">
-      <TracingSection enabled={list.tracing_enabled} onOpenTraces={onOpenTraces} />
+    <div
+      aria-label="Settings"
+      role="region"
+      className="flex w-full flex-col divide-y divide-border"
+    >
+      <TracingSection
+        enabled={list.tracing_enabled}
+        onOpenTraces={onOpenTraces}
+      />
       <SignalSettings />
       <SettingsSection
-        heading="Analysis worker"
-        description="Runs investigations on your server and bills model usage to an analysis key."
+        heading="Analysis"
+        description="Lens runs investigations using your configured models."
       >
-        <WorkerSettings workers={list.workers} readyAction={workerReadyAction} />
+        <DeploymentAnalysis
+          workers={list.workers}
+          readyAction={workerReadyAction}
+        />
       </SettingsSection>
     </div>
   );

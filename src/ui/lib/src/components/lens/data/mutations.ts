@@ -44,13 +44,3 @@ export function useSaveLens() {
     },
   });
 }
-
-export function useRevokeWorker() {
-  const api = useLensApi();
-  const client = useQueryClient();
-  return useMutation({
-    retry: false,
-    mutationFn: (id: string) => api.revokeWorker(id),
-    onSettled: () => client.invalidateQueries({ queryKey: lensKeys.list(api.scope) }),
-  });
-}

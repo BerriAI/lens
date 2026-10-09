@@ -1,0 +1,135 @@
+[
+  {
+    "status": "setup_failed_before_timed_samples",
+    "recorded_at": "2026-10-09T09:47:01.523744+00:00",
+    "baseline_exit_code": 1,
+    "candidate_executed": false,
+    "raw_timing_samples": 0,
+    "observed": "Baseline readiness did not succeed within the predeclared120second startup bound; gateway ingestion-credentials200 but worker claim401. Diagnostic logs retained privately",
+    "reason_under_investigation": false,
+    "private_log_directory": "/tmp/lens-paired-private.HjAKmf",
+    "root_cause": "Docker Desktop did not publish requested host ports on the internal-only bridge; disposable confirmation returned no public4318port",
+    "resolution": "Use a separate ordinary bridge for each baseline/candidate workload; no workload or resource/threshold change",
+    "attempt": "attempt-1",
+    "outcome_sha256": "a28ff610a49efb957f701eb196e2ccaa9066e9788aacb957da0d4bbe5bfaa61c",
+    "log_files": [
+      {
+        "path": "/tmp/lens-paired-final/attempt-1/baseline-run.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "private_logs": [
+      {
+        "path": "/tmp/lens-paired-private.HjAKmf/lens-paired-baseline-81212-postgres.log",
+        "sha256": "156daabacbb59c1b0ba228ec5ddbd3c6c6e486aff363127ea5ca7b055759714f"
+      },
+      {
+        "path": "/tmp/lens-paired-private.HjAKmf/prisma-push.log",
+        "sha256": "1472faa4de5a51a07714684e8b438513b0a4bbecf7bc5a5f6657b776d694880f"
+      },
+      {
+        "path": "/tmp/lens-paired-private.HjAKmf/lens-paired-baseline-81212-gateway.log",
+        "sha256": "e39722ee2d6488e7657d2d99608bfa9b0b1de448167fb283a690f0a080a6dbc0"
+      },
+      {
+        "path": "/tmp/lens-paired-private.HjAKmf/lens-paired-baseline-81212-runtime.log",
+        "sha256": "7425b3151b447d0ebb31fdbfcda1de14abb50914547bf4a78479e90b44e480ac"
+      },
+      {
+        "path": "/tmp/lens-paired-private.HjAKmf/lens-paired-baseline-81212-clickhouse.log",
+        "sha256": "a158c63c2cecc5cd87473ca42c813b48b0484389cad6a1b963abcadb09781708"
+      }
+    ]
+  },
+  {
+    "status": "baseline_passed_candidate_setup_failed",
+    "baseline_timing_report": "baseline.json",
+    "candidate_timing_samples": 0,
+    "candidate_exit_code": 1,
+    "candidate_error": "Error: Storage(Storage(Transport))",
+    "diagnosis": "Harness localhost native-port healthcheck can observe temporary ClickHouse setup server; retry aligns with supported Compose network-host healthcheck",
+    "candidate_private_logs": "/tmp/lens-paired-private.FshxVe",
+    "attempt": "attempt-2",
+    "outcome_sha256": "2e37c022b7c7e7e66ff23b9e9e4ab94bc0c0d480d4851c2e5b1a5091527dfb8a",
+    "log_files": [
+      {
+        "path": "/tmp/lens-paired-final/attempt-2/candidate-run.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/tmp/lens-paired-final/attempt-2/baseline-run.log",
+        "sha256": "419a1bc0ba5011c38b2d29c1eccbfb9adb0279dd98a6f355a2b76e402f71bc1e"
+      }
+    ],
+    "private_logs": [
+      {
+        "path": "/tmp/lens-paired-private.7kz7hf/lens-paired-baseline-82052-gateway.log",
+        "sha256": "bbf6a04ad9a9dbf6756e0e2a21732418ebabca42f9a3c111e573e3756f93219a"
+      },
+      {
+        "path": "/tmp/lens-paired-private.7kz7hf/prisma-push.log",
+        "sha256": "fc796257b9b1419a29f16a72217f6d9d5f488a6a4366b33a3ac43f6080e1f472"
+      },
+      {
+        "path": "/tmp/lens-paired-private.7kz7hf/lens-paired-baseline-82052-postgres.log",
+        "sha256": "c6ee6cc8a01885562bcf2bccf0c387ce80163730b6ee44e73410a8d936ab0ae9"
+      },
+      {
+        "path": "/tmp/lens-paired-private.7kz7hf/lens-paired-baseline-82052-clickhouse.log",
+        "sha256": "a158c63c2cecc5cd87473ca42c813b48b0484389cad6a1b963abcadb09781708"
+      },
+      {
+        "path": "/tmp/lens-paired-private.7kz7hf/lens-paired-baseline-82052-runtime.log",
+        "sha256": "e2d4c656d4ad6702929060af0bd07aeb7fe0cdbe1e503d6bae7ec331e07f5978"
+      },
+      {
+        "path": "/tmp/lens-paired-private.FshxVe/lens-paired-candidate-82370-runtime.log",
+        "sha256": "ea4fc28f75e62e1b47bee936f41bb087d53c4be2e8609df48f20e2535e4fc808"
+      },
+      {
+        "path": "/tmp/lens-paired-private.FshxVe/lens-paired-candidate-82370-gateway.log",
+        "sha256": "323441c9b6e6ff0e7dd4f14945138f297146c1a2c7655a1655fc3c8b536045b7"
+      },
+      {
+        "path": "/tmp/lens-paired-private.FshxVe/lens-paired-candidate-82370-clickhouse.log",
+        "sha256": "a158c63c2cecc5cd87473ca42c813b48b0484389cad6a1b963abcadb09781708"
+      },
+      {
+        "path": "/tmp/lens-paired-private.FshxVe/lens-paired-candidate-82370-postgres.log",
+        "sha256": "895347d8d2ac60e673482a6c00ae8e50789abfdabfe857b4900584c11aa48cbb"
+      }
+    ]
+  },
+  {
+    "status": "operator_invocation_failed_before_measurement",
+    "candidate_exit_code": 125,
+    "candidate_timing_samples": 0,
+    "cause": "Image digest transcription omitted characters; Docker rejected the invocation. Use candidate_image directly from the recorded manifest for the next attempt",
+    "attempt": "attempt-3",
+    "outcome_sha256": "79a704d930d6cc4a7320a0af8733410190797f5360c989dfb99eb6984286fa8d",
+    "log_files": [
+      {
+        "path": "/tmp/lens-paired-final/attempt-3/candidate-run.log",
+        "sha256": "9b82dd2c607eade8750cf9592178c8a185997e329749f7f7a6c36ab194a9db60"
+      }
+    ],
+    "private_logs": [
+      {
+        "path": "/tmp/lens-paired-private.05CFBd/lens-paired-candidate-82997-runtime.log",
+        "sha256": "c6ea7056ce00ff4087af165cd3da0945af5f71c7615cd3ff1c452aab32fbbbb5"
+      },
+      {
+        "path": "/tmp/lens-paired-private.05CFBd/lens-paired-candidate-82997-clickhouse.log",
+        "sha256": "a158c63c2cecc5cd87473ca42c813b48b0484389cad6a1b963abcadb09781708"
+      },
+      {
+        "path": "/tmp/lens-paired-private.05CFBd/lens-paired-candidate-82997-postgres.log",
+        "sha256": "37051af4a603f9fb6cc591f3f9807d43c6f261f6f5e3fae1e065a1fd6b4798f7"
+      },
+      {
+        "path": "/tmp/lens-paired-private.05CFBd/lens-paired-candidate-82997-gateway.log",
+        "sha256": "d80d8742ae05c41848402e1cc47f9a69be8200b14a74038f8e979c6fe630667a"
+      }
+    ]
+  }
+]

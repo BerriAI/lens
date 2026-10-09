@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-09T12:13:44.647Z",
+  "reviewer": "root",
+  "lane": "dataset_domain",
+  "log_checks": [
+    {
+      "label": "ignored_external_clickhouse_scope",
+      "recorded": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+      "actual": "0fe355da2992a65eb74e35626040119e69666f4473abc5c5eae6d03317fdf12c",
+      "code": 0,
+      "passed": 4,
+      "start_after_audit": true
+    },
+    {
+      "label": "state_cas_atomicity_tombstones",
+      "recorded": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+      "actual": "738a5b3af5b9565b3ecd9681e78ef2f46dd66152fd845e29424e9e0a38156dfe",
+      "code": 0,
+      "passed": 29,
+      "start_after_audit": true
+    },
+    {
+      "label": "investigation_writer_budget_cancellation",
+      "recorded": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+      "actual": "a04e7797c6624ce76ecd571f89087216326e3a68acaec0b0fd0d04225a554b62",
+      "code": 0,
+      "passed": 14,
+      "start_after_audit": true
+    },
+    {
+      "label": "eval_leases_publication_and_scope",
+      "recorded": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+      "actual": "861a7bc95ea2d78ce2071db35d2c3fa016d831865ca9be7b0b87d9cf32e93cf7",
+      "code": 0,
+      "passed": 36,
+      "start_after_audit": true
+    },
+    {
+      "label": "tracing_key_revocation_races",
+      "recorded": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+      "actual": "1ed4a15c4d26115b50503a87a7afc37a5feb44342d7330337fac5ef5f27a601c",
+      "code": 0,
+      "passed": 15,
+      "start_after_audit": true
+    },
+    {
+      "label": "signals_stale_owner_fencing",
+      "recorded": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+      "actual": "24a6b88a4ebe5e5aa9fe54df89eba15b4bdb668463b8fdadd3c9504c9fdb6c59",
+      "code": 0,
+      "passed": 34,
+      "start_after_audit": true
+    },
+    {
+      "label": "migration_conflicts_resume_validation",
+      "recorded": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+      "actual": "560a60386cb6e178cb447521a2808f08c40d117e4c69ec63fdb4261c1d3875fd",
+      "code": 0,
+      "passed": 63,
+      "start_after_audit": true
+    },
+    {
+      "label": "inference_budget_negative_boundaries",
+      "recorded": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+      "actual": "ff334a0b7a2ad8f05b59847f6e68dc13a3586c7b78c0d5b5ea2b0d6d664c2c4e",
+      "code": 0,
+      "passed": 47,
+      "start_after_audit": true
+    },
+    {
+      "label": "job_lifecycle_cancellation_and_expiry",
+      "recorded": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+      "actual": "7910864f37f56504a20b5af0c35cdd7c58d9dbdd1ca050ac46f7da8d96d3bb10",
+      "code": 0,
+      "passed": 42,
+      "start_after_audit": true
+    },
+    {
+      "label": "local_inference_cancellation",
+      "recorded": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+      "actual": "a91ed5f2f3c4bd5d1dec3f7abacdbf95a3cfa676c4387d2dade3f14a050d0a70",
+      "code": 0,
+      "passed": 13,
+      "start_after_audit": true
+    }
+  ],
+  "total_passed": 297,
+  "runtime_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+  "current_tree": "f2369c5095eb7370c3ae81736a917c812bcb91c2",
+  "confirmed_product_findings": [],
+  "retained_failed_attempts": 4,
+  "source_review": [
+    "KeeperMap compare-and-publish checks every expected revision in one update; payload inserted first with synchronous durable settings",
+    "Compaction publishes a newer fence before deleting older blobs; concurrent future revisions and unrelated records survive",
+    "Writer token+expiry checked after acquisition and bounded before publication; cleanup verifies its token and preserves successor ownership",
+    "Importer rejects source fingerprint drift and unknown target records; partial matching imports read back and resume"
+  ]
+}

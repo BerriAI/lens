@@ -1,0 +1,126 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/runs",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "activities": [
+          {
+            "execution_ids": [],
+            "finished": false,
+            "id": "activity",
+            "label": "Review",
+            "operations": [],
+            "phase": "review",
+            "started_at": "{{timestamp}}",
+            "tool_calls": []
+          }
+        ],
+        "assessments": [],
+        "attempts": 0,
+        "cost": 0.0,
+        "coverage": {
+          "candidates": 0,
+          "eligible": 0,
+          "failed_tasks": 0,
+          "grouped_batches": 0,
+          "grouping_batches": 0,
+          "inconclusive": 0,
+          "investigated": 0,
+          "partial": 0,
+          "reusable": 0,
+          "reused": 0,
+          "screened": 0,
+          "selected": 0,
+          "unassessable": 0
+        },
+        "created_at": "{{timestamp}}",
+        "end": "{{timestamp}}",
+        "error": "",
+        "findings": null,
+        "finished_at": null,
+        "id": "job",
+        "lease_until": null,
+        "reading": [],
+        "review_versions": [],
+        "reviewed": 3,
+        "reviews": [
+          {
+            "agent": "support",
+            "at": "{{timestamp}}",
+            "cannot_assess": false,
+            "consolidated": false,
+            "content_version": "",
+            "duration_ms": 1,
+            "execution_id": "run-0",
+            "extraction": {
+              "cannot_assess": false,
+              "observations": [
+                {
+                  "check_id": "retries",
+                  "evidence": [],
+                  "kind": "issue",
+                  "summary": "Observed"
+                }
+              ],
+              "reasoning": ""
+            },
+            "model": "analysis",
+            "name": "task",
+            "partial": false,
+            "reasoning": "",
+            "reused": false,
+            "spans": [],
+            "tool_calls": [],
+            "trace_id": "t",
+            "verdicts": []
+          }
+        ],
+        "revision": 1,
+        "sample": null,
+        "settings": {
+          "agent_name": "",
+          "checks": [
+            {
+              "enabled": true,
+              "id": "retries",
+              "instruction": "Find unrecovered retries"
+            }
+          ],
+          "concurrency": 8,
+          "context": "",
+          "enabled": true,
+          "execution_ids": [],
+          "filters": [],
+          "interval_minutes": 15,
+          "lookback_hours": 24,
+          "model": "analysis",
+          "monthly_budget": 100.0,
+          "name": "Research",
+          "sample_percent": 100.0,
+          "sample_size": null,
+          "service": "",
+          "source": "traces",
+          "team_id": ""
+        },
+        "stage": "Queued",
+        "start": "{{timestamp}}",
+        "status": "queued",
+        "steps": [],
+        "trigger": "schedule",
+        "worker_id": null
+      }
+    ]
+  }
+}

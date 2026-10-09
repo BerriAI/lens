@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "started_at": "2026-10-09T10:01:39.889Z",
+  "runtime_source": "105e7b0923a17311e527aad4d480b57bab431000",
+  "gateway_source": "99a4705a3093e0ecef3d8f05c656657af313d439",
+  "observations": [
+    {
+      "surface": "standalone",
+      "check": "Imported2span trace,exactoutput,feedback3/10withcomment",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Imported2span trace,exactoutput,feedback3/10withcomment",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Thread has identicalinputandanswer",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Thread has identicalinputandanswer",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Datasetrevision1deeplinkreload",
+      "passed": false
+    },
+    {
+      "surface": "embedded",
+      "check": "Datasetrevision1deeplinkreload",
+      "passed": false
+    },
+    {
+      "surface": "standalone",
+      "check": "Importedfindingvisible",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Importedfindingvisible",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Two imported historyentries",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Two imported historyentries",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Historical revision deep link after reload and loading finishes",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Historical revision deep link after reload and loading finishes",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Newpaidruncompleted6calls1issuecost0.043",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Newpaidruncompleted6calls1issuecost0.043",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "New finding cites exact unpaid tool output and incorrect paid answer",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "New finding cites exact unpaid tool output and incorrect paid answer",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Restoredpaidrunandfindingwithcostsame",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Restoredpaidrunandfindingwithcostsame",
+      "passed": true
+    },
+    {
+      "surface": "standalone",
+      "check": "Restoredread-onlyrevision1",
+      "passed": true
+    },
+    {
+      "surface": "embedded",
+      "check": "Restoredread-onlyrevision1",
+      "passed": true
+    }
+  ],
+  "observation_note": "Initial immediate reload snapshots recorded false while data loaded; subsequent checks wait for visible historical content and pass. No product correction required.",
+  "local_session_note": "Signing in to another task Lens instance on the same127.0.0.1hostname replaced the browsercookie across ports. Migration sign-in was repeated successfully; server/API sessions were unaffected.",
+  "finished_at": "2026-10-09T10:08:32.012Z"
+}

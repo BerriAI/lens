@@ -186,7 +186,18 @@ fn match_string(
                 "{{uuid}}".to_owned(),
                 format!("{value:?}"),
             ),
-            "timestamp" | "http_date" | "uuid" => {}
+            "sql_timestamp"
+                if chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f")
+                    .is_err() =>
+            {
+                mismatch(
+                    mismatches,
+                    path.to_owned(),
+                    "{{sql_timestamp}}".to_owned(),
+                    format!("{value:?}"),
+                )
+            }
+            "timestamp" | "sql_timestamp" | "http_date" | "uuid" => {}
             name => match bindings.get(name) {
                 Some(bound) if bound != value => mismatch(
                     mismatches,
@@ -284,6 +295,8 @@ mod tests {
     #[case::rejects_repeated_name_mismatch(json!({"name": "{{dataset_id}}/{{dataset_id}}"}), json!({"name": "abc/other"}), None, Some("abc"), false)]
     #[case::matches_multiple_names(json!({"name": "{{dataset_id}}/r{{revision}}"}), json!({"name": "abc/r1"}), None, Some("abc"), true)]
     #[case::accepts_timestamp(json!({"at": "{{timestamp}}"}), json!({"at": "2025-01-02T03:04:05Z"}), None, None, true)]
+    #[case::accepts_sql_timestamp(json!({"at":"{{sql_timestamp}}"}),json!({"at":"2025-01-02 03:04:05.123456789"}),None,None,true)]
+    #[case::rejects_sql_timestamp(json!({"at":"{{sql_timestamp}}"}),json!({"at":"yesterday"}),None,None,false)]
     #[case::rejects_timestamp(json!({"at": "{{timestamp}}"}), json!({"at": "not-a-time"}), None, None, false)]
     #[case::accepts_http_date(json!({"at": "{{http_date}}"}), json!({"at": "Thu, 02 Jan 2025 03:04:05 GMT"}), None, None, true)]
     #[case::rejects_http_date(json!({"at": "{{http_date}}"}), json!({"at": "not-a-date"}), None, None, false)]

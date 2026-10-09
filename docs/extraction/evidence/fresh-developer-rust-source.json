@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "recorded_at": "2026-10-09T11:36:37.681Z",
+  "source": "256d760e629b10c39446cdcd34361a278fd6173e",
+  "production_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "supplements": "docs/extraction/evidence/fresh-developer.json",
+  "environment": {
+    "host": "macOS",
+    "container": "native linux/arm64",
+    "backend": "original production Dockerfile and release profile",
+    "ui": "documented Next development proxy"
+  },
+  "temporary_edit": {
+    "file": "src/worker/crates/lens/src/lib.rs",
+    "before_sha256": "84570a4101f64ffd99fbcfead36d9977ea0d4d29850dedefdf75cf27538c0d2f",
+    "marker": "lens-rust-source-proof-20261009",
+    "after_sha256": "c31e6b55a45c8df0a7b11c902e2e2ca3bf3d5a46685636e2e0a327a438245889"
+  },
+  "images": {
+    "edited": "sha256:c051a0325213aa814230f9d3234af45e42e097a122d90ec1b1fca2c02ee1f907",
+    "restored": "sha256:efc8d087c7c589ce407f9a567e82039a7a329e321f26aa3b1b33ee0c99a97376"
+  },
+  "commands": [
+    "docker build --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:fresh-developer-rust-source .",
+    "COMPOSE_PROJECT_NAME=lens-rust-dev-20261009 LENS_PORT=4328 LENS_DEV_API_URL=http://127.0.0.1:4328 LENS_IMAGE=lens:fresh-developer-rust-source npm run dev",
+    "Restore src/worker/crates/lens/src/lib.rs to the recorded source",
+    "docker build --build-arg LENS_VERSION=local-test -f deploy/runtime/Dockerfile -t lens:fresh-developer-rust-restored .",
+    "COMPOSE_PROJECT_NAME=lens-rust-dev-20261009 LENS_PORT=4328 LENS_PUBLIC_URL=http://127.0.0.1:3100 LENS_IMAGE=lens:fresh-developer-rust-restored ./deploy/lens/start"
+  ],
+  "checks": {
+    "original_response_empty": true,
+    "source_edit_compiled": true,
+    "edited_response_seen_at_service_and_ui_proxy": true,
+    "restored_response_seen_at_service_and_ui_proxy": true,
+    "trace_id": "336b88e9f588cb50db886ffcdba77fa6",
+    "span_id": "54b2dbca76329e3d",
+    "exact_trace_summary_unchanged": true,
+    "private_credentials_file_hash_unchanged": true,
+    "original_tracing_key_receipt_succeeded_after_both_restarts": true,
+    "service_release": "local-test",
+    "source_restored": true,
+    "clone_clean": true,
+    "owned_dev_process_stopped": true,
+    "owned_compose_and_volume_removed": true
+  },
+  "logs": [
+    {
+      "path": "/tmp/lens-fresh-developer-rust-build.log",
+      "sha256": "3138fcd5c97734b28d720dbe9a939bd641168bd1a7e3ddfaf99c5fc44ac83925"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-rust-revert-build.log",
+      "sha256": "da4b73ae20414018276ad43ea6ce24da3aab7fdc730d350d255fff16cd7e32ed"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-rust-baseline-start.log",
+      "sha256": "5a8f0446e7ba511b351a0ee1adedc4bb23d6a82a4e28e1260f3af84bbb5ced21"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-rust-dev.log",
+      "sha256": "14281abb1ad21eb80b9ff0dbb3f15794e79970e227931696a75c9d87e8021a85"
+    },
+    {
+      "path": "/tmp/lens-fresh-developer-rust-restored-start.log",
+      "sha256": "5d1c7541b336d5a00a4bb5ccbb79d67f08ba395e8f3cbcd99569aa579df90762"
+    }
+  ],
+  "limits": [
+    "Backend changes require the documented explicit image rebuild and restart; automatic Rust hot reload is not claimed",
+    "Proof images carry a local-test version and were never published as release candidates",
+    "The first earlier build used cached Rust layers; this separate proof includes actual Rust compilation for an edited response and its restoration"
+  ],
+  "independent_review": {
+    "recorded_at": "2026-10-09T11:39:52.387231+00:00",
+    "reviewer": "dataset_http",
+    "receipt": "docs/extraction/evidence/fresh-developer-rust-source.json",
+    "status": "passed",
+    "findings": [],
+    "checks": {
+      "all_five_log_hashes_match": true,
+      "both_build_logs_contain_actual_Rust_compilation_and_release_completion": true,
+      "both_image_ids_and_native_arm64_platforms_match": true,
+      "clone_head_matches_recorded_source": true,
+      "clone_clean_and_lib_source_restored": true,
+      "Dockerfile_unchanged": true,
+      "private_credential_file_unchanged": true,
+      "stored_trace_and_span_match_receipt": true,
+      "strict_flow_assertions_cover_edit_restore_and_ingestion_receipt": true,
+      "owned_compose_containers_and_volumes_absent": true,
+      "runtime_sources_unchanged_from70_to_clone256": true
+    },
+    "limits": [
+      "Independent review of existing source, logs, immutable image IDs, private-state comparisons and cleanup; no duplicate build or live replay",
+      "UI proxy response observations are recorded by root, while the retained strict flow script directly verifies backend responses"
+    ]
+  }
+}

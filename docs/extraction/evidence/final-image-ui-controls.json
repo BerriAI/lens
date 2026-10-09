@@ -1,0 +1,67 @@
+{
+  "recorded_at": "2026-10-09T10:35:28.291Z",
+  "runtime_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "runtime_image": "sha256:6592e532802c79b08bb45a26e7a332d1711b9f862984e7c7d45702fad6d060ef",
+  "host_source": "d83eab03962545fa328222557e193e5519c26ad6",
+  "shared_ui_source": "af29e72a67893e9eb1e682ad0aee656647c63d20",
+  "scope": "Actual final-image standalone UI and production static shared UI served by gateway4494",
+  "observations": [
+    {
+      "surface": "standalone",
+      "passed": true,
+      "check": "Duplicate investigation opens with original criteria, selected invented-claims check, analysis model, maximum one run and monthly1USD limit"
+    },
+    {
+      "surface": "standalone",
+      "passed": true,
+      "check": "Append first and second metadata condition, remove first, reindex remaining condition, edit key/value and reappend without crash"
+    },
+    {
+      "surface": "standalone",
+      "passed": true,
+      "check": "Application, team,25percent sample and one qa.fixture=unmatched condition survive Activity to Criteria to Run to Activity navigation"
+    },
+    {
+      "surface": "standalone",
+      "passed": true,
+      "check": "Zero matching scope disables one-off and monitoring submission and explains no matches"
+    },
+    {
+      "surface": "embedded",
+      "passed": true,
+      "check": "Same investigation opens under native gateway sidebar with gateway login"
+    },
+    {
+      "surface": "embedded",
+      "passed": true,
+      "check": "Repeated metadata append/edit and first-row removal preserve qa.second=retained as row1 without crash"
+    },
+    {
+      "surface": "both",
+      "passed": true,
+      "check": "Cancel duplicate and reload preserve original investigation, paused state, one existing investigation and zero watching"
+    }
+  ],
+  "limits": [
+    "Deliberately unmatched duplicate was not saved: submission correctly disabled. Persisted duplicate filter values are covered by metadata-filter-regression.json integration test, not claimed as a new final-image write",
+    "This supplements earlier paid runs and complete feature receipts; it is not a fresh execution of every feature"
+  ],
+  "screenshots": [
+    {
+      "path": "ui/final70-controls/embedded-after-reload.png",
+      "sha256": "9a783dd74b8dcc38ceeb7d571e603286c71a75a096b4f13cc77d76020e6dc717"
+    },
+    {
+      "path": "ui/final70-controls/embedded-metadata-reindex.png",
+      "sha256": "944342ac98290daebeac7d24fb05858b65b272b8919d22f77543aaaab7ea950d"
+    },
+    {
+      "path": "ui/final70-controls/metadata-filter-roundtrip.png",
+      "sha256": "dff4ffa6a1f1e9a0d026e78ea3d35305b4705101a342c9a9f8c7a39faeb9a83d"
+    },
+    {
+      "path": "ui/final70-controls/unmatched-scope.png",
+      "sha256": "fdb0702e319c9ffaebe50fd46800302fd55b68e24659d22aafbf0925ee91142f"
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "created_at": "2026-10-09T09:54:41.653Z",
+  "gateway_source": "99a4705a3093e0ecef3d8f05c656657af313d439",
+  "gateway_production_source": "ba4cc3ded3aa805eac1808a8ae3eff7271c425db",
+  "lens_source": "105e7b0923a17311e527aad4d480b57bab431000",
+  "lens_image_id": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "trace_id": "01a8ca446a5875c6cf64712040596add",
+  "checks": [
+    {
+      "label": "admin trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "admin Lens product role is preserved",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "viewer trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "viewer Lens product role is preserved",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "viewer cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "owner trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "owner reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "owner Lens product role is preserved",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "owner can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "owner sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "owner cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "other trace access stays scoped",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "other Lens product role is preserved",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "other can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "other sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "other cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "Temporary gateway key is created",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Temporary key reads Lens before revocation",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Temporary gateway key is revoked",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Revocation denies Lens immediately",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Revocation denies setup immediately",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    }
+  ]
+}

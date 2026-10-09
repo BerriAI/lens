@@ -1,0 +1,113 @@
+{
+  "reviewed_at": "2026-10-09T12:22:23.129544+00:00",
+  "reviewer": "dataset_http",
+  "root_receipt_sha256": "4990f231a4c15c83d3b6f7991dbd90c03f2a692100bfc9e50a27593beeb55999",
+  "status": "passed_scoped_receipt_and_source_verification",
+  "raw_receipts_verified": [
+    {
+      "path": "root-upstream.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-python-imports.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-schema-preservation.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-route-owner-reconciliation.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-browser-asset-secret-scan.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-source-secret-scan.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-domain-cross-review.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-ui-package-source.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    },
+    {
+      "path": "root-storage-cross-review.json",
+      "hash_matches": true,
+      "embedded_result_matches": true,
+      "timestamp_after_start": true
+    }
+  ],
+  "tests_verified": [
+    {
+      "label": "gateway_spend_python",
+      "log_hash_matches": true,
+      "summary_matches": true,
+      "passed": 45,
+      "skipped": 8
+    },
+    {
+      "label": "gateway_spend_native_python",
+      "log_hash_matches": true,
+      "summary_matches": true,
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "label": "gateway_spend_rust",
+      "log_hash_matches": true,
+      "summary_matches": true,
+      "passed": 26,
+      "skipped": 0
+    },
+    {
+      "label": "gateway_authorization_suite",
+      "log_hash_matches": true,
+      "summary_matches": true,
+      "passed": 3567,
+      "skipped": 2
+    }
+  ],
+  "upstream_changed_git_blobs_verified": 25,
+  "unchanged_gateway_paths_verified": 5,
+  "route_owner_module_blobs_verified": 9,
+  "browser_screenshot_hashes_verified": [
+    "browser/standalone-finding.png",
+    "browser/embedded-finding.png"
+  ],
+  "confirmed_product_findings": [],
+  "limits": [
+    "Both browser screenshots were visually inspected and hashes verified; gateway auth test assertions are not all independently re-executed by this receipt. Raw test/source evidence and authentication behavior are cross-reviewed with the HTTP lane.",
+    "Root spend test entries do not currently record exact start/end timestamps; only the authorization suite does. Their raw log hashes match.",
+    "Shared UI archive/source hashes and credential scan implementation are separately owned root assertions; verified receipt immutability here, not a new credential scan."
+  ],
+  "visual_screenshot_review": {
+    "reviewed_at": "2026-10-09T12:23:16.841078+00:00",
+    "observations": [
+      "Independently opened both recorded screenshots. Both display finding b5d02760 with the same invoice title, medium priority, agent, trace/run counts, summary, suggested fix and evidence-section controls in the shared finding panel.",
+      "The embedded view retains the LiteLLM shell and its existing local-environment warnings; the standalone view retains the Lens shell. No visible finding-panel regression observed."
+    ],
+    "scope": "Two recorded screenshots; no new browser session or exhaustive visual comparison."
+  }
+}

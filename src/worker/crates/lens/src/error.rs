@@ -8,8 +8,30 @@ use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Configure an analysis model before using the eval judge scorer")]
+    EvalJudgeUnavailable,
+    #[error("Eval evidence exceeds the judge model context window")]
+    EvalJudgeContext,
+    #[error("The eval judge returned an incomplete or invalid score")]
+    EvalJudgeResponse,
+    #[error("The eval judge could not match the trial to its recorded evidence")]
+    EvalJudgeEvidence,
+    #[error(transparent)]
+    Investigation(#[from] lens_investigations::Error),
+    #[error(transparent)]
+    InvestigationStorage(#[from] lens_investigations::RepositoryError),
+    #[error(transparent)]
+    Checkpoint(#[from] lens_investigations::CheckpointError),
+    #[error(transparent)]
+    Inference(#[from] lens_inference::Error),
+    #[error(transparent)]
+    Analysis(#[from] lens_analysis::Error),
+    #[error(transparent)]
+    Evaluation(#[from] lens_decisions::Error),
     #[error(transparent)]
     Authentication(#[from] lens_auth::Error),
+    #[error("Lens ingestion credential storage failed")]
+    Ingestion(#[from] lens_auth::IngestionError),
     #[error("Lens application state storage failed")]
     StateStorage(#[from] litellm_storage_clickhouse::Error),
     #[error("{schema} response invalid after two attempts: {detail}")]
@@ -18,7 +40,7 @@ pub enum Error {
         detail: String,
     },
     #[error(
-        "The gateway rejected a worker request (HTTP {status}): {}", diagnostic.as_deref().unwrap_or("Check worker access, model availability and investigation budget.")
+        "The service rejected a worker request (HTTP {status}): {}", diagnostic.as_deref().unwrap_or("Check worker access, model availability and investigation budget.")
     )]
     Control {
         status: u16,

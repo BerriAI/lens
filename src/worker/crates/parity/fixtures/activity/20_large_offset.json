@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "offset": 4294967296,
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "eligible": 0,
+      "executions": [],
+      "next_cursor": null,
+      "next_offset": null,
+      "selected": 0
+    }
+  }
+}

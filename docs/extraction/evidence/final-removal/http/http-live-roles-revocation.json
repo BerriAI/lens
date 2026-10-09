@@ -1,0 +1,193 @@
+{
+  "audit_start": "2026-10-09T11:59:21Z",
+  "fixture_scope": "Existing traces only; temporary gateway key is created and revoked; no ingestion, paid calls or service changes",
+  "created_at": "2026-10-09T12:02:05.896Z",
+  "gateway_source": "d171e208a18d3f3559e3a338f7769387e01749e5",
+  "lens_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "lens_image_id": "sha256:6592e532802c79b08bb45a26e7a332d1711b9f862984e7c7d45702fad6d060ef",
+  "trace_id": "01a8ca446a5875c6cf64712040596add",
+  "checks": [
+    {
+      "label": "admin trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "admin Lens product role is preserved",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "admin sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "viewer trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "viewer Lens product role is preserved",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "viewer sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "viewer cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "owner trace access stays scoped",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "owner reads the stored trace",
+      "expected": "01a8ca446a5875c6cf64712040596add",
+      "observed": "01a8ca446a5875c6cf64712040596add",
+      "passed": true
+    },
+    {
+      "label": "owner Lens product role is preserved",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "owner can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "owner sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "owner cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "other trace access stays scoped",
+      "expected": 404,
+      "observed": 404,
+      "passed": true
+    },
+    {
+      "label": "other Lens product role is preserved",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "other can read authenticated setup status",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "other sees connected storage",
+      "expected": true,
+      "observed": true,
+      "passed": true
+    },
+    {
+      "label": "other cannot perform Lens admin mutation",
+      "expected": 403,
+      "observed": 403,
+      "passed": true
+    },
+    {
+      "label": "Temporary gateway key is created",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Temporary key reads Lens before revocation",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Temporary gateway key is revoked",
+      "expected": 200,
+      "observed": 200,
+      "passed": true
+    },
+    {
+      "label": "Revocation denies Lens immediately",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    },
+    {
+      "label": "Revocation denies setup immediately",
+      "expected": 401,
+      "observed": 401,
+      "passed": true
+    }
+  ],
+  "lens_image_revision_label_present": false,
+  "lens_source_attribution": "Running image ID matches immutable importer-final-image.json at48758; no OCI revision label is present",
+  "gateway_backend_source": "ba4cc3ded3aa805eac1808a8ae3eff7271c425db",
+  "gateway_image_source": "d83eab03962545fa328222557e193e5519c26ad6",
+  "backend_git_tree_equivalence": {
+    "litellm": {
+      "ba4cc3ded3aa805eac1808a8ae3eff7271c425db": "b2b173fe0e213aadbdc608fca4baddca80b5622a",
+      "d83eab03962545fa328222557e193e5519c26ad6": "b2b173fe0e213aadbdc608fca4baddca80b5622a",
+      "d171e208a18d3f3559e3a338f7769387e01749e5": "b2b173fe0e213aadbdc608fca4baddca80b5622a"
+    },
+    "litellm-rust": {
+      "ba4cc3ded3aa805eac1808a8ae3eff7271c425db": "a1e2433032753e3f1126ed971f92796b2d03f470",
+      "d83eab03962545fa328222557e193e5519c26ad6": "a1e2433032753e3f1126ed971f92796b2d03f470",
+      "d171e208a18d3f3559e3a338f7769387e01749e5": "a1e2433032753e3f1126ed971f92796b2d03f470"
+    }
+  },
+  "receipt_enrichment_after_execution": [
+    "Replace empty OCI revision label with source attribution through exact image ID match in immutable published receipt",
+    "Rename ambiguous helper gateway_production_source field to gateway_backend_source; add full image source and verified unchanged Python/native Git trees"
+  ]
+}

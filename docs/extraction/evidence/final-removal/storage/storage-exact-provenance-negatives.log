@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-09T12:15:49.743021+00:00",
+  "passed": true,
+  "workflow_sha256": "fe981cfe3eeb1326136e6d6b8e4309c7258587899abccc883d4d56f589433dde",
+  "actual_predicate_sha256": "a2a83b4700d63ad484105a89428b465f464548e6872d1279912f2f734742e8d0",
+  "original_chart_run": 37924154315,
+  "original_image_run": 37916952419,
+  "source_receipts": 10,
+  "scope": "Fresh exact workflow source-gate execution against real successful receipts and independently read Git trees/Dockerfiles; each field changed and removed in isolated files",
+  "limits": "No image rebuilt or loaded, no registry or production write, not an official release"
+}
+cases 230

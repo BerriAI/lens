@@ -1,0 +1,149 @@
+{
+  "created_at": "2026-10-09T08:23:34.665Z",
+  "gateway_production_source": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+  "lens_source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "lens_image_id": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+  "checks": [
+    {
+      "label": "revoked fixture key created",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "active fixture key created",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Target key ingests before revocation",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Target key revocation succeeds",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Revoked-key attempt 0 is rejected",
+      "passed": true,
+      "elapsed_ms": 3,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "label": "Revoked-key attempt 1 is rejected",
+      "passed": true,
+      "elapsed_ms": 5009,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "label": "Revoked-key attempt 2 is rejected",
+      "passed": true,
+      "elapsed_ms": 10016,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "label": "Revoked-key attempt 3 is rejected",
+      "passed": true,
+      "elapsed_ms": 15022,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "label": "Revoked-key attempt 4 is rejected",
+      "passed": true,
+      "elapsed_ms": 20082,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "label": "Revoked-key attempt 5 is rejected",
+      "passed": true,
+      "elapsed_ms": 25103,
+      "status": 401,
+      "code": 16,
+      "retry_after": null
+    },
+    {
+      "label": "Revoked key reaches terminal Unauthorized after snapshot refresh",
+      "passed": true
+    },
+    {
+      "label": "Revoked-key payload was never persisted",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "label": "Active-key positive control still ingests",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Earlier target-key trace is retained",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Positive-control payload is persisted",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "label": "Owned fixture keys are cleaned up",
+      "passed": true,
+      "status": 200
+    }
+  ],
+  "trace_ids": {
+    "before": "309f08807b6f7abdb3e859ad550eb7a8",
+    "denied": "1dae1cc99c76f539d531daa41dc273a5",
+    "positive_control": "06aeae6132dbc0dc697edbd6935c557d"
+  },
+  "revoked_attempts": [
+    {
+      "elapsed_ms": 3,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "elapsed_ms": 5009,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "elapsed_ms": 10016,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "elapsed_ms": 15022,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "elapsed_ms": 20082,
+      "status": 429,
+      "code": 8,
+      "retry_after": "5"
+    },
+    {
+      "elapsed_ms": 25103,
+      "status": 401,
+      "code": 16,
+      "retry_after": null
+    }
+  ],
+  "finished_at": "2026-10-09T08:24:00.292Z"
+}

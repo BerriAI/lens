@@ -1,0 +1,316 @@
+{
+  "created_at": "2026-10-09T08:03:09.877Z",
+  "gateway_implementation": "bc3083be4c2ec3f6676a4fa0261bd4be2d9ae68f",
+  "gateway_test_followup": "09a3d18dfd363c5eaa0c69889e5466cd026316c7",
+  "lens_source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+  "image_id": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+  "environment": {
+    "lens_url": "http://127.0.0.1:4326",
+    "gateway_url": "http://127.0.0.1:4494",
+    "clickhouse_database": "lens_final_acceptance",
+    "gateway_database": "Existing local gateway fixture database, isolated gateway process",
+    "private_credentials": "Excluded"
+  },
+  "evidence": [
+    {
+      "name": "auth-proof.json",
+      "sha256": "6c8b77aea416b9615e7be1f7d4bd1483aa483726658ce9b0fa14d1076c9d51cc",
+      "result": {
+        "source": "0b8e2c23f73588c4b3e40e850edd1bad1654c19c",
+        "gateway_source": "bc3083be4c2ec3f6676a4fa0261bd4be2d9ae68f",
+        "image_id": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+        "created_at": "2026-10-09T07:56:47.070Z",
+        "checks": [
+          {
+            "label": "Lens requires authentication",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Standalone sign-in succeeds",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Session cookie is HttpOnly and SameSite Strict",
+            "passed": true
+          },
+          {
+            "label": "Cookie mutation rejects missing origin",
+            "passed": true,
+            "status": 403
+          },
+          {
+            "label": "Cookie mutation rejects foreign origin",
+            "passed": true,
+            "status": 403
+          },
+          {
+            "label": "Gateway administrator creates active Lens-owned tracing key",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Direct OTLP ingestion accepts tracing key",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Key listing does not disclose plaintext credential",
+            "passed": true
+          },
+          {
+            "label": "Ingestion key cannot read traces",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Gateway service key cannot administer Lens",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Gateway trace access for admin",
+            "passed": true,
+            "status": 200,
+            "expected": 200
+          },
+          {
+            "label": "Gateway trace access for viewer",
+            "passed": true,
+            "status": 200,
+            "expected": 200
+          },
+          {
+            "label": "Gateway trace access for owner",
+            "passed": true,
+            "status": 200,
+            "expected": 200
+          },
+          {
+            "label": "Gateway trace access for other",
+            "passed": true,
+            "status": 404,
+            "expected": 404
+          },
+          {
+            "label": "Gateway viewer cannot create tracing keys",
+            "passed": true,
+            "status": 403
+          },
+          {
+            "label": "Gateway owner cannot create tracing keys",
+            "passed": true,
+            "status": 403
+          },
+          {
+            "label": "Gateway other cannot create tracing keys",
+            "passed": true,
+            "status": 403
+          },
+          {
+            "label": "Incompatible public contract is rejected",
+            "passed": true,
+            "status": 409
+          },
+          {
+            "label": "Delegated identity rejects expired",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Delegated identity rejects wrong subject",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Delegated identity rejects excess lifetime",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Gateway administrator revokes Lens-owned key",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Revoked key cannot ingest",
+            "passed": true,
+            "status": 429
+          },
+          {
+            "label": "Revocation preserves stored trace",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Standalone logout succeeds",
+            "passed": true,
+            "status": 204
+          },
+          {
+            "label": "Revoked session cannot authenticate",
+            "passed": true,
+            "status": 401
+          }
+        ],
+        "trace_id": "01a8ca446a5875c6cf64712040596add",
+        "span_id": "bd26ef13758394f5"
+      }
+    },
+    {
+      "name": "outage-proof.json",
+      "sha256": "0fdf913926b4ffdaf2d2219785244ba253652ffd77386770394df5408ff45631",
+      "result": {
+        "created_at": "2026-10-09T07:58:10.361Z",
+        "image_id": "sha256:6507a7912b1eb948253a7c76bfa0df004f9b4df5ef6c95ddd95d941af239500b",
+        "gateway_source": "bc3083be4c2ec3f6676a4fa0261bd4be2d9ae68f",
+        "calls": [
+          {
+            "phase": "before",
+            "status": 200,
+            "elapsed_ms": 3524,
+            "trace_id": "424967edc13f847a7548afe1ac0b12e5",
+            "parent_span_id": "89be640b2aee818c",
+            "request_id": "6aaa503f-4e04-4cca-ac7c-6e1dac9ed7e5",
+            "response_id": "chatcmpl-EWzmV2j4VVRwaUVeKXUzLIT26gSEf",
+            "cost_usd": 0.00010999999999999999,
+            "response_characters": 5
+          },
+          {
+            "phase": "during",
+            "status": 200,
+            "elapsed_ms": 2315,
+            "trace_id": "d557cb86a796150dcdf81fcd4f4616c7",
+            "parent_span_id": "0de4b592c9b94e8b",
+            "request_id": "cf4baabb-3657-4a35-9cee-02abd96b7aa1",
+            "response_id": "chatcmpl-EWzmdV37AlNyBadvGRHraVSijSECy",
+            "cost_usd": 0.000108,
+            "response_characters": 5
+          },
+          {
+            "phase": "after",
+            "status": 200,
+            "elapsed_ms": 2107,
+            "trace_id": "d7cf27915c9dead897a6313d9af2a258",
+            "parent_span_id": "f5f49f2b622c2638",
+            "request_id": "dd5e8142-6e4c-4f66-94e4-cd09888cd6e0",
+            "response_id": "chatcmpl-EWzmmCWsaLDTHKKhM0xzDK1xC2O4H",
+            "cost_usd": 0.000108,
+            "response_characters": 5
+          }
+        ],
+        "checks": [
+          {
+            "label": "Ordinary gateway inference succeeds before",
+            "passed": true,
+            "status": 200,
+            "elapsed_ms": 3524
+          },
+          {
+            "label": "Fixture model cost stays within authorized budget",
+            "passed": true
+          },
+          {
+            "label": "Gateway reports configured Lens outage",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Lens product requests fail explicitly during outage",
+            "passed": true,
+            "status": 503
+          },
+          {
+            "label": "Gateway still rejects invalid credentials during outage",
+            "passed": true,
+            "status": 401
+          },
+          {
+            "label": "Ordinary gateway inference succeeds during",
+            "passed": true,
+            "status": 200,
+            "elapsed_ms": 2315
+          },
+          {
+            "label": "Fixture model cost stays within authorized budget",
+            "passed": true
+          },
+          {
+            "label": "Gateway reconnects to recovered Lens",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Stored fixture trace survives Lens restart",
+            "passed": true,
+            "status": 200
+          },
+          {
+            "label": "Ordinary gateway inference succeeds after",
+            "passed": true,
+            "status": 200,
+            "elapsed_ms": 2107
+          },
+          {
+            "label": "Fixture model cost stays within authorized budget",
+            "passed": true
+          },
+          {
+            "label": "Available-service requests persist billing records",
+            "passed": true
+          }
+        ],
+        "stored": [
+          {
+            "request_id": "chatcmpl-EWzmV2j4VVRwaUVeKXUzLIT26gSEf",
+            "response_id": "chatcmpl-EWzmV2j4VVRwaUVeKXUzLIT26gSEf",
+            "trace_id": "424967edc13f847a7548afe1ac0b12e5",
+            "span_id": "89be640b2aee818c",
+            "spend": 0.00010999999999999999
+          },
+          {
+            "request_id": "chatcmpl-EWzmmCWsaLDTHKKhM0xzDK1xC2O4H",
+            "response_id": "chatcmpl-EWzmmCWsaLDTHKKhM0xzDK1xC2O4H",
+            "trace_id": "d7cf27915c9dead897a6313d9af2a258",
+            "span_id": "f5f49f2b622c2638",
+            "spend": 0.000108
+          }
+        ],
+        "outage_telemetry_persisted": false,
+        "total_cost_usd": 0.000326,
+        "finished_at": "2026-10-09T07:58:31.222Z"
+      }
+    },
+    {
+      "name": "gateway-key-revocation-proof.json",
+      "sha256": "f6deb84fc3512e680b162e7005979fb833fda1e5d87199af791ee93b4b108d7e",
+      "result": {
+        "recorded_at": "2026-10-09T08:00:49.393Z",
+        "gateway_source": "bc3083be4c2ec3f6676a4fa0261bd4be2d9ae68f",
+        "temporary_key_created": 200,
+        "read_before_revocation": 200,
+        "delete_status": 200,
+        "read_after_revocation": 401,
+        "passed": true
+      }
+    }
+  ],
+  "limits": [
+    "The during-outage request completed successfully but its asynchronous telemetry did not persist; bounded retry loss is documented",
+    "These checks cover live authentication, revocation, persistence and gateway outage with real provider calls; browser parity, full SDK/eval flows, Helm installs and the dedicated removal audit are separate",
+    "The gateway followup only changes one existing test; the runtime and UI artifact source remain the frozen implementation commit"
+  ],
+  "gateway_successor": {
+    "production_source": "a41b93a709b95a7fd30ed8093a9b8d799990c3ea",
+    "evidence_followup": "7e1f24cc9a396e985ad477ec88166a8bbfc6e462",
+    "evidence": "docs/extraction/evidence/final-adapter-qualification.json",
+    "sha256": "a0dd7de78f145914969956c34a2701196c89d11a758a376a983bc7df1df47dc8",
+    "scope": "The original checks above ran on bc3083 plus test-only09a. The later a41b93 adapter removes an unused product-request team lookup. Its 27 live scope, role, setup and immediate key-revocation checks pass against the same0b8/6507 Lens image. The original receipt source labels and hashes remain unchanged."
+  },
+  "tracing_key_revocation_followup": {
+    "evidence": "docs/extraction/evidence/final-tracing-key-revocation.json",
+    "sha256": "8d95ce9a0b41db0eb53fa642c83c76e4db20fc969182781b1b9d3baf872eb41e",
+    "scope": "The earlier429 proves immediate rejection during the pending-credential snapshot window. This followup reaches terminal401 after refresh, confirms the denied trace never persists, accepts and reads an active-key positive-control trace, and cleans up both owned keys."
+  }
+}

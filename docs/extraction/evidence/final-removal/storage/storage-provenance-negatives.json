@@ -1,0 +1,1393 @@
+{
+  "at": "2026-10-09T12:15:49.743021+00:00",
+  "passed": true,
+  "workflow_sha256": "fe981cfe3eeb1326136e6d6b8e4309c7258587899abccc883d4d56f589433dde",
+  "actual_predicate_sha256": "a2a83b4700d63ad484105a89428b465f464548e6872d1279912f2f734742e8d0",
+  "original_chart_run": 37924154315,
+  "original_image_run": 37916952419,
+  "source_receipts": 10,
+  "checks": [
+    {
+      "receipt": "backend-baseline.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-baseline.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "backend-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-baseline.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "gateway-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "migrations-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-baseline.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "monolith-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "ui-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-baseline.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "valid",
+      "accepted": true,
+      "expected_accepted": true
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-repository",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-component",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-variant",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-image",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-dockerfile",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-build_argument",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-commit",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-run_id",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-tree",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-dockerfile_sha256",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "changed-platform",
+      "accepted": false,
+      "expected_accepted": false
+    },
+    {
+      "receipt": "worker-current.json",
+      "case": "missing-platform",
+      "accepted": false,
+      "expected_accepted": false
+    }
+  ],
+  "scope": "Fresh exact workflow source-gate execution against real successful receipts and independently read Git trees/Dockerfiles; each field changed and removed in isolated files",
+  "limits": "No image rebuilt or loaded, no registry or production write, not an official release"
+}

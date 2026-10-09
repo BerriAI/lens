@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on build directory
+   Compiling litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 06s
+     Running tests/investigations.rs (runtime/standalone-target/debug/deps/investigations-eac02aff206979a9)
+
+running 1 test
+test compaction::compaction_reclaims_indexes_without_changing_schedule_history_or_workers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 2.07s
+
+     Running tests/state.rs (runtime/standalone-target/debug/deps/state-ed0894801c117717)
+
+running 8 tests
+test compaction::abandoned_first_write_cannot_publish_after_reclamation ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_1_empty ... ok
+test compaction::compaction_checks_batch_size_before_writing::case_2_over_limit ... ok
+test compaction::compaction_keeps_current_values_and_fences_prepared_losers ... ok
+test compaction::compaction_preserves_unselected_keys_and_new_writes ... ok
+test compaction::concurrent_compaction_preserves_atomic_counters ... ok
+test compaction::deleted_revision_cannot_resolve_to_changed_content ... ok
+test compaction::compaction_bounds_history_for_a_full_batch ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 16.26s
+

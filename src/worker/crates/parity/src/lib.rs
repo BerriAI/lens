@@ -1,3 +1,4 @@
+pub mod benchmark;
 mod error;
 mod matcher;
 mod model;
@@ -8,3 +9,5 @@ pub mod scenarios;
 pub use error::{Error, Result};
 pub use model::{Fixture, FixtureFailure, Mismatch, ReplayReport, RequestFixture, ResponseFixture};
 pub use runner::{Capture, CaptureSource, Scenario, Tokens, record_scenarios, replay_fixtures};
+
+pub use error::BenchmarkError;

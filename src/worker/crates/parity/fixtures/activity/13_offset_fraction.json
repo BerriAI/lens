@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "offset": 1.5,
+      "selection": {}
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": 1.5,
+          "loc": [
+            "body",
+            "offset"
+          ],
+          "msg": "Input should be a valid integer, got a number with a fractional part",
+          "type": "int_from_float"
+        }
+      ]
+    }
+  }
+}

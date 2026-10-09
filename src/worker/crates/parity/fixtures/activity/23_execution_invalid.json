@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/executions/invalid",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Execution not found"
+    }
+  }
+}

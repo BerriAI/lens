@@ -1,0 +1,57 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "selection": {
+        "filters": [
+          {
+            "key": "",
+            "value": 7
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "selection",
+            "filters",
+            0,
+            "key"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        },
+        {
+          "input": 7,
+          "loc": [
+            "body",
+            "selection",
+            "filters",
+            0,
+            "value"
+          ],
+          "msg": "Input should be a valid string",
+          "type": "string_type"
+        }
+      ]
+    }
+  }
+}

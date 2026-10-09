@@ -1,0 +1,21 @@
+[package]
+name = "lens-inference"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+indexmap = "2"
+jiter = "=0.17.0"
+jsonwebtoken = { workspace = true, features = ["aws_lc_rs"] }
+lens-contract = { path = "../contract" }
+lens-investigations = { path = "../investigations" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true

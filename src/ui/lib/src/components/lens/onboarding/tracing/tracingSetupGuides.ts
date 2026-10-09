@@ -499,3 +499,22 @@ export function frameworkSnippet(guide: FrameworkGuide, proxyUrl: string, model:
   );
   return guide.existingModel ? code.replaceAll("${LITELLM_API_KEY}", "${LITELLM_TRACING_KEY}") : code;
 }
+
+export function directModelConnection(guide: FrameworkGuide) {
+  return guide.id === "claude"
+    ? {
+        url: "https://api.anthropic.com",
+        model: "claude-sonnet-5",
+        key: "ANTHROPIC_API_KEY",
+      }
+    : {
+        url: "https://api.openai.com",
+        model: "gpt-6.1-sol",
+        key: "OPENAI_API_KEY",
+      };
+}
+
+export function standaloneFrameworkSnippet(guide: FrameworkGuide, traceUrl: string): string {
+  const provider = directModelConnection(guide);
+  return frameworkSnippet(guide, provider.url, provider.model, traceUrl).replaceAll("LITELLM_API_KEY", provider.key);
+}

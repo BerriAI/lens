@@ -1,0 +1,766 @@
+{
+  "schema": 1,
+  "lane": "dataset_storage",
+  "status": "passed_with_external_prerequisites",
+  "start_at": "2026-10-09T11:59:21Z",
+  "earliest_completion_at": "2026-10-09T12:59:21.000Z",
+  "candidate_shas": {
+    "lens": "9e4974603aa1e3f638ebe93284eb309110dc5ec8",
+    "lens_production": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+    "gateway": "d171e208a18d3f3559e3a338f7769387e01749e5",
+    "gateway_production": "d83eab03962545fa328222557e193e5519c26ad6",
+    "publisher": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+    "ops": "3d46c5f4c62f681763d175ca1ad4de2acf0b2dc2",
+    "docs": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+    "codex_integration": "2e0920128158046c8a3f0de230c366574c130672",
+    "examples_local": "494724eaf3fe905e8eb9731561a19e8cf5da9610",
+    "shared_rust_dependency": "3969348ad946c8bb6b3f5386d72da2a07e65ce88"
+  },
+  "checks": [
+    {
+      "name": "storage-publisher-focused",
+      "cwd": "/Users/mfkhalil/Code/project-releaser/.github/scripts",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "tests/test_lens.py",
+        "tests/test_lens_host.py",
+        "tests/test_lens_release_security.py",
+        "tests/test_lens_workflows.py"
+      ],
+      "started_at": "2026-10-09T12:01:38.850111+00:00",
+      "completed_at": "2026-10-09T12:01:51.343436+00:00",
+      "duration_seconds": 12.493,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-publisher-focused.log",
+      "sha256": "4873c1a527b010a614aaa37ae4f0e0db5f430a7f6aef0d7d983a1609b4886ee3",
+      "observed_results": {
+        "passed": 170,
+        "failed": 0,
+        "coverage": "Standalone release input/source/manifest integrity, promotion refusal, unchanged staged bytes, gateway Lens chart independence, hostile source isolation and legacy source compatibility"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-publisher-focused.log"
+    },
+    {
+      "name": "storage-ops-negative-suite",
+      "cwd": "/Users/mfkhalil/Code/litellm-ops",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "started_at": "2026-10-09T12:02:26.609225+00:00",
+      "completed_at": "2026-10-09T12:02:34.385401+00:00",
+      "duration_seconds": 7.776,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-ops-negative-suite.log",
+      "sha256": "69d6aec4eadd4199e9dc105d789bd3d609df85618ed528437c4686a34c1bb243",
+      "observed_results": {
+        "passed": 36,
+        "failed": 0,
+        "coverage": "Named read-only RBAC, exact digest/revision/replica rollout refusal, independent source selection, interrupted publication, archive verification, resource ownership and trace forwarding"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-ops-negative-suite.log"
+    },
+    {
+      "name": "storage-helm-lifecycle-negative",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-host",
+      "command": [
+        "node",
+        "/tmp/lens-helm-migration-owner-regression.mjs"
+      ],
+      "started_at": "2026-10-09T12:04:03.106765+00:00",
+      "completed_at": "2026-10-09T12:04:03.947252+00:00",
+      "duration_seconds": 0.84,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-helm-lifecycle-negative.log",
+      "sha256": "abf4f0b8213dd40d1a56a7b85384ca269074ecc1a7bfd32d119fc546bea064cf",
+      "observed_results": {
+        "passed": 24,
+        "failed": 0,
+        "coverage": "Exclusive Helm migration ownership, expected image/completion, distinct source policy and TTL retention"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-helm-lifecycle-negative.log"
+    },
+    {
+      "name": "storage-pod-controller-negative",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-host",
+      "command": [
+        "node",
+        "/tmp/lens-helm-ownership-regression.mjs"
+      ],
+      "started_at": "2026-10-09T12:06:37.523030+00:00",
+      "completed_at": "2026-10-09T12:06:42.998612+00:00",
+      "duration_seconds": 5.475,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-pod-controller-negative.log",
+      "sha256": "657787fa790e76952efd0697987dd08a203c55f9f873fe79d5336971edde800f",
+      "observed_results": {
+        "passed": 19,
+        "failed": 0,
+        "coverage": "Deployment\u2192ReplicaSet\u2192Pod ownership, unready/missing/wrong-image refusal, shared-label Job exclusion, safe diagnostic fields"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-pod-controller-negative.log"
+    },
+    {
+      "name": "storage-http-negative-replay",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens",
+      "command": [
+        "node",
+        "/tmp/lens-final-removal-audit/storage-cross-review-http-negative.mjs"
+      ],
+      "started_at": "2026-10-09T12:10:10.676346+00:00",
+      "completed_at": "2026-10-09T12:10:10.862618+00:00",
+      "duration_seconds": 0.186,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-http-negative-replay.log",
+      "sha256": "84d5e15ee133bc4a96665417d9989425b906acc53be28ade581ff2e53e25c410",
+      "observed_results": {
+        "passed": 30,
+        "failed": 0,
+        "coverage": "Independent cross-review of stateless live authenticated reads and denied identity/scope escalation"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-http-negative-replay.log"
+    },
+    {
+      "name": "storage-residual-callers",
+      "cwd": "/Users/mfkhalil/Code",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-residual-scan.py"
+      ],
+      "started_at": "2026-10-09T12:11:18.801422+00:00",
+      "completed_at": "2026-10-09T12:11:20.456968+00:00",
+      "duration_seconds": 1.655,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-residual-callers.log",
+      "sha256": "a87f633845dac4cc3be24cf57a00bc34dc332b946cd51d794abdaab86d1ee14d",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-residual-callers.log"
+    },
+    {
+      "name": "storage-ops-docs-render",
+      "cwd": "/Users/mfkhalil/Code/litellm-ops",
+      "command": [
+        "node",
+        "/tmp/lens-final-removal-audit/storage-render-ops-docs.mjs"
+      ],
+      "started_at": "2026-10-09T12:14:23.301700+00:00",
+      "completed_at": "2026-10-09T12:14:23.508013+00:00",
+      "duration_seconds": 0.206,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-ops-docs-render.log",
+      "sha256": "0f91f6bd095e8ba4502695d144643c679cd8a4609c575ebdc456d79bb572d4ed",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-ops-docs-render.log"
+    },
+    {
+      "name": "storage-exact-provenance-negatives",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-provenance-negatives.py"
+      ],
+      "started_at": "2026-10-09T12:15:48.004116+00:00",
+      "completed_at": "2026-10-09T12:15:49.748242+00:00",
+      "duration_seconds": 1.744,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-exact-provenance-negatives.log",
+      "sha256": "0cd04d62f24fadf69ca7a008c05ca20445b522284a48cf444ac6462d98842b1f",
+      "observed_results": {
+        "passed": 230,
+        "failed": 0,
+        "coverage": "All10 real producer source receipts checked against independent Git objects;220 changed/missing required fields rejected by exact workflow source gate"
+      },
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-exact-provenance-negatives.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:24:38.088484+00:00",
+      "completed_at": "2026-10-09T12:24:38.317582+00:00",
+      "duration_seconds": 0.229,
+      "exit_code": 1,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review.log",
+      "sha256": "f173addd237c68014941252fac232a490738a45738c23c231d998a673cd10aa7",
+      "result_kind": "corrected_harness_attempt",
+      "expected_exit_code": 0,
+      "corrected_by": "storage-public-docs-cross-review-qualified",
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review-final",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:25:06.321621+00:00",
+      "completed_at": "2026-10-09T12:25:06.429130+00:00",
+      "duration_seconds": 0.107,
+      "exit_code": 1,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review-final.log",
+      "sha256": "8cd58b4db66d5c1933cc28630d46c6a3f2644012aafa3b47f5c977cddaae4eae",
+      "result_kind": "corrected_harness_attempt",
+      "expected_exit_code": 0,
+      "corrected_by": "storage-public-docs-cross-review-qualified",
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review-final.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review-qualified",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:25:17.334627+00:00",
+      "completed_at": "2026-10-09T12:25:17.661024+00:00",
+      "duration_seconds": 0.326,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review-qualified.log",
+      "sha256": "03ef07379c3de51cfe2df9ced9321141288c7bcedf771e4ce407657ad4c391ad",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review-qualified.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review-revised",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:26:11.991851+00:00",
+      "completed_at": "2026-10-09T12:26:12.153975+00:00",
+      "duration_seconds": 0.162,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review-revised.log",
+      "sha256": "03ef07379c3de51cfe2df9ced9321141288c7bcedf771e4ce407657ad4c391ad",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review-revised.log"
+    },
+    {
+      "name": "storage-publisher-source-auth-regression-before",
+      "cwd": "/Users/mfkhalil/Code/project-releaser/.github/scripts",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "tests/test_lens_workflows.py",
+        "-k",
+        "staging_authenticates_each_internal_source_checkout"
+      ],
+      "started_at": "2026-10-09T12:29:47.405925+00:00",
+      "completed_at": "2026-10-09T12:29:48.020889+00:00",
+      "duration_seconds": 0.615,
+      "exit_code": 1,
+      "log": "/tmp/lens-final-removal-audit/storage-publisher-source-auth-regression-before.log",
+      "sha256": "10e76efb7d0ed327362672dade133ac38e0533303825c9bdef2809f32e034ed8",
+      "result_kind": "expected_regression_reproduction",
+      "expected_exit_code": 1,
+      "observed_failed_cases": 3,
+      "corrected_by": "storage-publisher-source-auth-regression-after",
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-publisher-source-auth-regression-before.log"
+    },
+    {
+      "name": "storage-publisher-source-auth-regression-after",
+      "cwd": "/Users/mfkhalil/Code/project-releaser/.github/scripts",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "--no-cov",
+        "-q",
+        "tests/test_lens_workflows.py",
+        "-k",
+        "staging_authenticates_each_internal_source_checkout"
+      ],
+      "started_at": "2026-10-09T12:30:28.184623+00:00",
+      "completed_at": "2026-10-09T12:30:28.488206+00:00",
+      "duration_seconds": 0.303,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-publisher-source-auth-regression-after.log",
+      "sha256": "4b68a7be8356c5497863f3ff219e0aa1f3e5fbb531de1a075b31f7467f229ff8",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-publisher-source-auth-regression-after.log"
+    },
+    {
+      "name": "storage-publisher-source-auth-full-check",
+      "cwd": "/Users/mfkhalil/Code/project-releaser/.github/scripts",
+      "command": [
+        "make",
+        "check"
+      ],
+      "started_at": "2026-10-09T12:30:44.784831+00:00",
+      "completed_at": "2026-10-09T12:31:31.135948+00:00",
+      "duration_seconds": 46.351,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-publisher-source-auth-full-check.log",
+      "sha256": "b00bf85568acd0c1e00070ffcac1ba90e4641f0af2619e3e4e5aba3ffc2c4a07",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-publisher-source-auth-full-check.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review-13pages",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:33:04.929785+00:00",
+      "completed_at": "2026-10-09T12:33:05.003342+00:00",
+      "duration_seconds": 0.073,
+      "exit_code": 1,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review-13pages.log",
+      "sha256": "2cd335127e02bdf8a846bcac253cb77ac308ab40b47204f1c973432215fae6d0",
+      "result_kind": "corrected_harness_attempt",
+      "expected_exit_code": 0,
+      "corrected_by": "storage-public-docs-cross-review-509b3d73",
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review-13pages.log"
+    },
+    {
+      "name": "storage-public-docs-cross-review-509b3d73",
+      "cwd": "/Users/mfkhalil/Code/litellm-lens-docs",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-docs-cross-review.py"
+      ],
+      "started_at": "2026-10-09T12:33:22.239514+00:00",
+      "completed_at": "2026-10-09T12:33:22.896593+00:00",
+      "duration_seconds": 0.657,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-public-docs-cross-review-509b3d73.log",
+      "sha256": "bb67f9ad1f1ec17fdac36365f7e5cab1c02cb03e71b1e64f69ac892e23db6708",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-public-docs-cross-review-509b3d73.log"
+    },
+    {
+      "name": "storage-residual-final-callers",
+      "cwd": "/Users/mfkhalil/Code",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-residual-final-scan.py"
+      ],
+      "started_at": "2026-10-09T12:34:44.860638+00:00",
+      "completed_at": "2026-10-09T12:34:46.396058+00:00",
+      "duration_seconds": 1.535,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-residual-final-callers.log",
+      "sha256": "e16f1180e979ada5793da4cdcf0d1873d59ef34c94cddff70380fd3c6a54c6e3",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-residual-final-callers.log"
+    },
+    {
+      "name": "storage-residual-8ef-callers",
+      "cwd": "/Users/mfkhalil/Code",
+      "command": [
+        "python3",
+        "/tmp/lens-final-removal-audit/storage-residual-final-scan.py"
+      ],
+      "started_at": "2026-10-09T12:51:18.066918+00:00",
+      "completed_at": "2026-10-09T12:51:19.760076+00:00",
+      "duration_seconds": 1.693,
+      "exit_code": 0,
+      "log": "/tmp/lens-final-removal-audit/storage-residual-8ef-callers.log",
+      "sha256": "22ef014a8d70b21e15f9354a2d124ecbb357f9fed2f73432c6c3c97139e9296d",
+      "result_kind": "passed",
+      "expected_exit_code": 0,
+      "durable_log": "docs/extraction/evidence/final-removal/storage/storage-residual-8ef-callers.log"
+    }
+  ],
+  "reviews": [
+    {
+      "at": "2026-10-09T12:04:37.499283+00:00",
+      "kind": "dependency-and-approval-read-only-review",
+      "sources": [
+        "src/worker/Cargo.toml",
+        "src/worker/Cargo.lock",
+        "project-releaser/.github/workflows/lens-stage.yml",
+        "project-releaser/.github/workflows/lens-release.yml",
+        "project-releaser/LENS_RELEASE_SETUP.md"
+      ],
+      "result": "Seven shared crates and lockfile pin exact canonical3969348; serde_with and macros use3.21.0; PR45498 OPEN non-draft and mergeable, GitHub mergeState BLOCKED; production-release requires reviewers and branch policy",
+      "shared_rust_pr": {
+        "state": "OPEN",
+        "isDraft": false,
+        "headRefOid": "3969348ad946c8bb6b3f5386d72da2a07e65ce88",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+        "url": "https://github.com/BerriAI/litellm/pull/45498"
+      },
+      "environment": {
+        "reviewer_count": 2,
+        "branch_policy": {
+          "branch_policies": [
+            {
+              "name": "main",
+              "type": "branch"
+            }
+          ],
+          "total_count": 1
+        }
+      },
+      "limits": "Package ACL isolation, signing secret configuration and app installation remain operational prerequisites; no credentials or production state changed"
+    },
+    {
+      "at": "2026-10-09T12:04:37.499447+00:00",
+      "kind": "helm-helper-metadata-attribution",
+      "result": "Fresh24-case d171 render/negative regression passed; helper contains historical actual_fixed_upgrade pending label, which is not the current state. The actual628 chart run37924154315 passed before this audit and remains separately recorded in gateway-candidate-final.json; this audit does not claim a second live cluster run"
+    },
+    {
+      "at": "2026-10-09T12:16:36.624904+00:00",
+      "kind": "http-independent-cross-review",
+      "producer_receipt": "final-removal-http.json",
+      "independent_replay": "storage-cross-review-http-negative.json",
+      "passed": true,
+      "checks": 30,
+      "scope": "Inspected complete replay and fixture-team correction, then executed copy changing only output path; stateless existing trace reads and authorization denials, no provider calls or ingestion",
+      "source_review": [
+        "auth/src/gateway.rs",
+        "server/src/tracing.rs"
+      ],
+      "observations": [
+        "HS256 issuer/audience/subject and bounded lifetime checked before identity use",
+        "Trace scope constructed from authenticated identity, not browser query scope",
+        "Corrected producer attribution separates ba4 backend source and d83 full gateway image source",
+        "General control-API body-size limitation remains declared; not a new hardening claim"
+      ]
+    },
+    {
+      "at": "2026-10-09T12:16:36.624904+00:00",
+      "kind": "companion-residual-callers-initial",
+      "receipt": "storage-residual-scan.json",
+      "outcomes": {
+        "publisher": "17 old runtime references attributed to guarded pre-extraction compatibility and fixtures; no old worker endpoint or old product repository links",
+        "ops": "12 old runtime references attributed to guarded legacy source selection and tests; stale prose repaired separately",
+        "codex": "No removed runtime/worker protocol or old product repository references",
+        "public_docs": "Found obsolete development commands and active claim.svg showing removed claim endpoint; routed to dataset_domain with root approval"
+      }
+    },
+    {
+      "at": "2026-10-09T12:22:41.400149+00:00",
+      "kind": "ops-final-head-ci-read",
+      "head_sha": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "run_id": 37928931469,
+      "result": "Success;36 tests, full kustomize overlay and actionlint; expected Node20 deprecation annotation only",
+      "checkout": "Synthetic PR merge2cdb4d0 containing exact requested head"
+    },
+    {
+      "at": "2026-10-09T12:26:11.964587+00:00",
+      "kind": "public-docs-cross-review-harness-corrections",
+      "result": "First check stopped because expected11 files became12 after local quickstart internal repository notice; second stopped because helm was not on PATH. Scope adjusted to12 and existing qualified Helm3.20 binary used. Third execution passed all14 shell fences,39 local targets and2 actual configuration renders",
+      "failed_logs": [
+        "storage-public-docs-cross-review.log",
+        "storage-public-docs-cross-review-final.log"
+      ],
+      "passing_log": "storage-public-docs-cross-review-qualified.log",
+      "product_regression": false,
+      "prior_receipt": "storage-public-docs-cross-review-12pages-initial.json"
+    },
+    {
+      "at": "2026-10-09T12:34:23.848874+00:00",
+      "kind": "docs-final-commit-harness-selection-correction",
+      "result": "13-page source review had passed before producer committed. Follow-up uncommitted-diff enumeration stopped after commit509b3d73 because working tree was clean. Changed enumeration to compare frozen78c66d03 baseline; final509b receipt passes14 shell fences,41 local targets and2 actual config renders",
+      "failed_log": "storage-public-docs-cross-review-13pages.log",
+      "passing_log": "storage-public-docs-cross-review-509b3d73.log",
+      "product_regression": false
+    },
+    {
+      "at": "2026-10-09T12:37:22.000946+00:00",
+      "kind": "companion-residual-callers-final",
+      "receipt": "residual-final-cca/storage-residual-scan.json",
+      "outcomes": {
+        "publisher": "17 guarded legacy source compatibility/catalog/fixture references; no old worker endpoint or old product repository URL",
+        "ops": "12 guarded legacy source selection/fixture references; no old worker endpoint or old product repository URL",
+        "codex": "No removed runtime, worker protocol or old product repository references",
+        "public_docs": "No removed runtime or obsolete product repository URL. Only2 worker endpoint strings in unreferenced static historical claim.svg; current scalability page links immutable archived image and explicitly labels old protocol historical"
+      },
+      "finding_status": "Previously current-looking development, deployment and investigation instructions corrected in509b3d73"
+    },
+    {
+      "at": "2026-10-09T12:40:22.838099+00:00",
+      "kind": "publisher-kubernetes-credential-docs-correction",
+      "result": "Current standalone chart renders and generates its admin secret without adminTokenSecret. Corrected stale publisher setup phrase claiming it was required; explicit reference is for supplied secrets and GitOps. Pending docs-only successor, exact release-workflow tree remainscca09f3",
+      "runtime_changed": false
+    },
+    {
+      "at": "2026-10-09T12:45:01.448441+00:00",
+      "kind": "source-equivalence-and-clean-worktrees",
+      "receipt": "storage-final-source-equivalence.json",
+      "passed": 12,
+      "result": "Current Lens Rust/UI/runtime image source matches70;gateway Python/native/UI source matchesd83;publisher8ef workflow/runtime/test source matchescca;Ops implementation matches8e. Reviewed paths have no working-tree edits or untracked source files"
+    },
+    {
+      "at": "2026-10-09T12:51:54.822576+00:00",
+      "kind": "companion-residual-final-publisher-docs-head",
+      "receipt": "residual-final/storage-residual-scan.json",
+      "publisher_sha": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "result": "Latest publisher docs-only successor rescanned; same classified17 publisher and12 Ops legacy references,0removed Codex/runtime docs callers,2unused historical SVG endpoint labels and0old product repo links",
+      "preserved_prior_receipt": "residual-final-cca/storage-residual-scan.json"
+    },
+    {
+      "at": "2026-10-09T12:57:17.237517+00:00",
+      "kind": "final-publisher-native-log-review",
+      "run_id": 37931601888,
+      "head": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "conclusion": "success",
+      "checks": 6,
+      "native_lanes": 4,
+      "log_observations": [
+        "Each lane completed the exact publisher-owned smoke while source smoke.sh was replaced with a hostile exit99 script",
+        "Each lane rejected an unsigned image, accepted the fixture signature, and rejected wrong release/source annotations",
+        "Cosign transparency-log warnings are expected because this local-registry fixture intentionally disables tlog; production signing configuration was not exercised"
+      ],
+      "official_independent_release": false
+    },
+    {
+      "at": "2026-10-09T12:59:39.597121+00:00",
+      "kind": "final-lane-closure",
+      "result": "All bounded findings fixed, reviewed and committed in companion branches; final-head publisher6/6 and Ops CI passed; final source equivalence12/12 and durable hash checks passed",
+      "unresolved_product_findings": 0,
+      "limitations_preserved": true,
+      "required_minimum_seconds": 3600,
+      "actual_seconds": 3618.597
+    }
+  ],
+  "findings": [
+    {
+      "id": "storage-docs-01",
+      "found_at": "2026-10-09T12:09:00Z",
+      "status": "fixed",
+      "severity": "documentation",
+      "description": "Legacy Ops worker guide presented release-coupled enrollment as current; dev setup still described direct gateway ClickHouse and omitted independent Lens reader RBAC",
+      "resolution": "Retired legacy procedure, linked current independent guide, moved current bootstrap/read-access instructions with --lens-only, corrected post-handoff type:lens/ClickHouse ownership and ingestion URL",
+      "commit": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "diff_sha256": "0fa62bf2bd4511af9472e5ce25b8f26a24a4efd37c9eb9e7ba1465c606e46b3b",
+      "reviewer": "dataset_domain",
+      "review_result": "Independently reviewed all3 files against active overlay, Lens application, checker and RBAC; no remaining findings",
+      "validation": "git diff --check, rendered3 Markdown pages, checked4 shell snippets and7 local links/anchors; final-head GitHub CI37928931469 passed36 tests, complete overlay render and actionlint",
+      "source_changed": false,
+      "ci": {
+        "run_id": 37928931469,
+        "head_sha": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+        "conclusion": "success",
+        "checkout": "Synthetic PR merge2cdb4d0 of167c553 into main4d5c16a",
+        "log": "ops-167-checks.log",
+        "log_sha256": "2e5f8c6adde2106970d99e076ed89451d3df1162a1e1c12d5e013baa81717ca1",
+        "check_runs": "ops-167-check-runs.json",
+        "check_runs_sha256": "522ce241629063f65f53e62a952b8cd398004db40b797229c56d7bbdc96a023d"
+      }
+    },
+    {
+      "id": "storage-release-02",
+      "found_at": "2026-10-09T12:27:39.984508+00:00",
+      "status": "fixed",
+      "severity": "staging-blocker",
+      "description": "Standalone stage checks out internal BerriAI/lens in3 jobs using default repository-scoped GITHUB_TOKEN from project-releaser; no cross-repository source credential is supplied",
+      "evidence": {
+        "repository_visibility": "storage-lens-repository-visibility.json",
+        "visibility_sha256": "8f3e19804ab99881935c69b13529801837e25bd8572ea4b57ccd4e62182a1e75",
+        "workflow": ".github/workflows/lens-stage.yml",
+        "head": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+        "source_checkouts": [
+          "plan",
+          "native",
+          "assets"
+        ]
+      },
+      "proposed_fix": "Use existing GitHub App to mint token scoped to lens with contents:read in each source-fetch job; pass to checkout with persist-credentials:false; keep source execution isolated and document prerequisite",
+      "operational_limit": "App installation/credential availability still external; no source token mint or official stage attempted locally",
+      "commit": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+      "diff_sha256": "c83f267da291df53c9c76ce8d4ce1ef1a9d8f0a6ab8868e78155a654bd694c30",
+      "resolution": "All3 source jobs mint fixed-owner Lens-only app tokens with contents:read and pass them only to checkout with persist-credentials:false; source image/build, package publication and production approval unchanged. Docs add internal repository and asset access prerequisites",
+      "validation": {
+        "regression_before": "3 failed on original missing source credentials",
+        "regression_after": "3 passed",
+        "full_local_check": "make check:2553 passed,100% coverage,Ruff and strict mypy passed",
+        "independent_reviewers": [
+          "dataset_domain",
+          "dataset_http"
+        ],
+        "http_review": "http-publisher-source-auth-review.json",
+        "final_head_ci": {
+          "sha": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+          "strict_run": 37931602044,
+          "strict": "passed:2553 tests/100% coverage+342 Buildkite,Ruff and mypy",
+          "zizmor_run": 37931601960,
+          "zizmor": "success",
+          "native_run": 37931601888,
+          "native": "success: Python and Rust native amd64/arm64 fixture smoke; all4 lanes passed",
+          "strict_log_sha256": "90847b023fa995e14d83a2d8d9ed6e5d9bb2ce775fc33fbd0aebd4429534e0a7",
+          "native_log": "publisher-8ef-native-smoke.log",
+          "native_log_sha256": "add2799ab6613d9ea7b5bb1bc697f4ac85f85294a3530fa96d53973a2f7600cb",
+          "check_runs": "publisher-8ef-check-runs.json",
+          "check_runs_sha256": "bd15b46b9f7c6a53240fdda7d335324748e0086927240c435a1124d1558c95eb",
+          "all_checks_passed": 6,
+          "reviewed_at": "2026-10-09T12:57:17.237517+00:00",
+          "qualification": "Native CI exercises immutable pre-extraction BerriAI/litellm Python1454f5c and Rust890ffe5 fixtures; does not run official independent Lens staging or mint the source app token"
+        },
+        "exact_source_ci": {
+          "sha": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+          "strict_run": 37930865209,
+          "strict_result": "2553 tests,100% coverage,Ruff and mypy;342 additional Buildkite tests",
+          "strict_log_sha256": "1346dadf7927ccccd67be263a2c2f9eafa0c2031fd968b1f85a917b214921b84",
+          "zizmor_run": 37930865245,
+          "zizmor_result": "No findings; existing20 ignored/76 suppressed, no new suppressions",
+          "native_run": 37930865240,
+          "native_status": "cancelled by successor8ef run under existing concurrency policy; not a pass",
+          "note": "Synthetic PR merge1a68484 ofcca09f3 into main0903cc1",
+          "native_cancellation_receipt": "publisher-cca-native-smoke-cancelled.json"
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Qualification only: no official release, cloud registry mirror, managed secret mutation or production deployment",
+    "Existing fixture tests do not prove official independent release publication",
+    "Canonical shared Rust dependency PR45498 at3969348 remains OPEN and non-draft, MERGEABLE but GitHub mergeStateStatus BLOCKED; not merged or ready for automatic merge",
+    "BerriAI/lens is internal; app installation and secret availability for source read remain operational prerequisites. Future release assets need authorized retrieval or an explicitly approved public distribution policy; no visibility or ACL change performed"
+  ],
+  "docs_only_successors": {
+    "ops": {
+      "sha": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "frozen_implementation": "8e541e2fa89f41cd24c7fc4f22d5b325e39a8e5e",
+      "changed_paths_from_implementation": [
+        "docs/autorouter-lens-forwarding.md",
+        "docs/berrie-litellm-dev-setup.md",
+        "docs/lens-independent-deployment.md",
+        "docs/lens-worker-dev-rollout.md"
+      ],
+      "push_completed": true
+    },
+    "docs": {
+      "sha": "509b3d73aeefe4a7485c046e51377265f4b9d120",
+      "original_frozen_head": "78c66d034dafecab8a8d7efa41591cedd8a23c84",
+      "review": "storage-public-docs-cross-review.json",
+      "files_reviewed": 13
+    },
+    "publisher": {
+      "sha": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "implementation": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+      "changed_paths": [
+        "LENS_RELEASE_SETUP.md"
+      ],
+      "scope": "Clarify optional administrator secret and generated credential reuse",
+      "independent_reviewer": "dataset_domain",
+      "push_completed": true
+    }
+  },
+  "interim_review_at": "2026-10-09T12:57:17.237517+00:00",
+  "completion_attestation": true,
+  "release_boundary_review": {
+    "current_independent_lens": {
+      "source": "BerriAI/lens",
+      "publisher": "BerriAI/project-releaser",
+      "stage": "lens-stage.yml: immutable source SHA, native amd64/arm64 qualification, private staging and checksummed assets",
+      "promotion": "lens-release.yml: default branch, production-release approval, revalidate exact staged bytes, publish image/chart, sign, Lens-scoped app token, draft release",
+      "ops": "lens-dev.yml resolves Lens independently; lens-mirror.yml verifies publisher manifest/image/SBOM before cloud identity; Argo Lens application selects independent chart",
+      "official_release_qualified": false
+    },
+    "legacy_gateway_source": {
+      "purpose": "Allow publishing older supported LiteLLM revisions that still physically contain deploy/lens/Dockerfile and litellm/proxy/lens/release.py",
+      "selection": "Publisher steps_version.py and Ops source matrix check BOTH files; extracted gateway source does not build its own Lens worker",
+      "fixture_attribution": "Four publisher runtime CI lanes intentionally use immutable pre-extraction Python/Rust fixtures; their success is not official independent Lens staging",
+      "historical_docs": "Old active-looking Ops worker procedure retired in167c553, retaining only transfer context"
+    },
+    "configuration_gate": "Environment reviewer/main policy inspected read-only; package ACL isolation, signing credentials and Lens app installation are prerequisites, not declared verified"
+  },
+  "implementation_successors": {
+    "publisher": {
+      "sha": "cca09f3b6a00327ccf056181d2fb1ea2636dd96d",
+      "original_frozen_head": "f149de92cd26c5fe659d8df3f3ad2aae3e8744f0",
+      "changed_paths": [
+        ".github/workflows/lens-stage.yml",
+        ".github/scripts/tests/test_lens_workflows.py",
+        "LENS_RELEASE_SETUP.md"
+      ],
+      "scope": "Source checkout authentication and docs/test only; no Lens or gateway product/runtime change",
+      "push_completed": true
+    }
+  },
+  "execution_summary": {
+    "command_groups": 19,
+    "passed_groups": 15,
+    "expected_regression_reproductions": 1,
+    "corrected_harness_attempts": 3,
+    "unresolved_failed_commands": 0,
+    "unique_test_total": "Not summed: focused reruns and full publisher suite overlap",
+    "latest_full_publisher_suite": {
+      "passed": 2553,
+      "coverage_percent": 100
+    },
+    "ci_additional_buildkite_suite": {
+      "passed": 342
+    },
+    "final_native_ci": "All4 native Python/Rust architecture fixture lanes passed at8ef5236; independent official staging remains unrun",
+    "overall_completion_attestation": true
+  },
+  "final_external_gates": {
+    "recorded_at": "2026-10-09T12:57:56.374751+00:00",
+    "companion_snapshot": "storage-external-review-status-closed.json",
+    "shared_dependency_snapshot": "shared-rust-dependency-pr-closed.json",
+    "shared_dependency": {
+      "headRefOid": "3969348ad946c8bb6b3f5386d72da2a07e65ce88",
+      "isDraft": false,
+      "mergeStateStatus": "BLOCKED",
+      "mergeable": "MERGEABLE",
+      "state": "OPEN",
+      "url": "https://github.com/BerriAI/litellm/pull/45498"
+    },
+    "publisher": "All6 checks passed; OPEN/DRAFT; review required and merge state blocked",
+    "ops": "Final head check passed; OPEN/DRAFT; mergeable and clean",
+    "external_review_limits": "No Greptile, Veria or Bugbot review returned in either companion PR; missing results are not passes",
+    "release_prerequisites": [
+      "Shared Rust dependency PR45498 remains unmerged",
+      "App installation and staging-readable app credentials for internal Lens source checkout",
+      "Package writer isolation and signing key configuration",
+      "Authorized internal release asset retrieval or explicitly approved distribution policy",
+      "Official independent stage, approved promotion and installation from its signed manifest",
+      "Managed deployment handoff"
+    ]
+  },
+  "completed_at": "2026-10-09T12:59:39.597121+00:00",
+  "duration_seconds": 3618.597,
+  "completion_scope": "This release/Ops/dependency/independent-cross-review lane is complete after the required audit interval; completion does not attest official release publication, managed deployment, external reviewer approval or merged shared dependency",
+  "durable_evidence": {
+    "directory": "docs/extraction/evidence/final-removal/storage",
+    "manifest": "docs/extraction/evidence/final-removal/storage/manifest.json",
+    "copied_at": "2026-10-09T12:59:39.742900+00:00",
+    "files": 102,
+    "sanitization": "Credential-pattern scan passed; copied bytes unchanged so original log hashes remain valid. No source scripts, environment files or real credentials copied"
+  }
+}

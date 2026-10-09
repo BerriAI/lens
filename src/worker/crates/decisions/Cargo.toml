@@ -1,0 +1,26 @@
+[package]
+name = "lens-decisions"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono = "0.4"
+lens-contract = { path = "../contract" }
+lens-inference = { path = "../inference" }
+lens-signals = { path = "../signals" }
+litellm-model-catalog.workspace = true
+litellm-http.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+jsonwebtoken = { workspace = true, features = ["aws_lc_rs"] }
+rstest.workspace = true
+wiremock.workspace = true
+tokio = { workspace = true, features = ["io-util"] }

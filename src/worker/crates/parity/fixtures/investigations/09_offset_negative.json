@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/runs?offset=-1",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "ge": 0
+          },
+          "input": "-1",
+          "loc": [
+            "query",
+            "offset"
+          ],
+          "msg": "Input should be greater than or equal to 0",
+          "type": "greater_than_equal"
+        }
+      ]
+    }
+  }
+}

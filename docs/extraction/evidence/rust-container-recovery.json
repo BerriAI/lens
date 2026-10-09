@@ -1,0 +1,1 @@
+{"status":"passed","image":"lens:standalone-candidate","trace_retained":true,"dataset_revision":1,"export_identical":true,"session_retained":true,"ingestion_key_retained":true,"repeated_setup_preserves_credentials":true,"rejects_existing_project":true,"rejects_existing_environment":true,"rejects_symlink":true,"rejects_corrupt_backup":true}

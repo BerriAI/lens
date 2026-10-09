@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "script": "/tmp/lens-populated-cutover.mjs",
+  "script_sha256": "61ead4ef8bbd69732ab844ace4b2ec53e9e523babc8570d397abe933716930bb",
+  "validation": "Migration, bounded restricted paid analysis, canonical cold backup/restore,20 independent browser observations and scoped cleanup passed",
+  "image": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "runtime_source": "105e7b0923a17311e527aad4d480b57bab431000",
+  "ownership": {
+    "temporary_directory": "/tmp/lens-populated-handoff-20261009, must not exist before prepare",
+    "projects": "lens-populated-<pid>-<random>-source and -restored",
+    "postgres": "lens-populated-<pid>-<random>-postgres",
+    "ports": "Three distinct OS-selected loopback ports, recorded in private.json and printed as public UI URLs; no use or stop of4494 or4496",
+    "clickhouse": "One new source container, stopped before one new restore container is started; source data and Keeper stay within task Compose volume",
+    "gateway": "One separate native process from current host checkout, with generated master/signing/service/UI credentials and task config. PID command line ownership checked before termination",
+    "shared_read_only_inputs": [
+      "/tmp/lens-final-acceptance/environment.json",
+      "/tmp/lens-final-acceptance/gateway.json"
+    ],
+    "shared_database_write": "Only a newly generated unique analysis virtual key and its paid request accounting in the existing local task gateway database; cleanup revokes that key. No existing records/config are edited",
+    "source_guards": "Image ID exact; migrate,trace-storage,Compose and Keeper trees must match runtime105; current host SHA recorded; target path and Compose-name prefix checked before nonprepare phases",
+    "unrelated_gateway_database": "Read-only psql compares base-table schema count/hash from PostgreSQL catalog and LiteLLM_TeamTable count/stable identity+model configuration hash before import, after import and after restore. Raw rows/credentials are excluded. Unique key and spend records are excluded",
+    "pid_guard": "ps command line must contain exact unique gateway.json and port before process-group termination; absent process is treated as stopped"
+  },
+  "private_inputs_by_path_only": [
+    "/tmp/lens-final-acceptance/environment.json",
+    "/tmp/lens-final-acceptance/gateway.json",
+    "/tmp/lens-final-acceptance/lens.env",
+    "/tmp/lens-final-acceptance/lens-with-signals.env",
+    "/tmp/lens-examples-provider.env",
+    "/tmp/lens-examples-gateway.env",
+    "/tmp/lens-embedded-local-20261008/local.env",
+    "/Users/mfkhalil/Code/litellm-lens/deploy/lens/.env"
+  ],
+  "commands": [
+    "node --check /tmp/lens-populated-cutover.mjs",
+    "node /tmp/lens-populated-cutover.mjs prepare /tmp/lens-populated-handoff-20261009",
+    "node /tmp/lens-populated-cutover.mjs analyze /tmp/lens-populated-handoff-20261009",
+    "node /tmp/lens-populated-cutover.mjs backup /tmp/lens-populated-handoff-20261009",
+    "node /tmp/lens-populated-cutover.mjs restore /tmp/lens-populated-handoff-20261009",
+    "node /tmp/lens-populated-cutover.mjs cleanup /tmp/lens-populated-handoff-20261009"
+  ],
+  "phase_boundaries": {
+    "prepare": "Copy canonical installation assets, create private task credentials, start CH and temporary PG, seed canonical trace schema with2spans+feedback and all8legacy metadata shapes. Backup source PG SQL and cold CH directory. Run plan/apply/repeat/readback via actual image importer. Stop PG before starting Lens. Start isolated gateway, create one-model/$1/1h key, reject old stored hash and denied model. API comparisons preserve investigation/finding/alias/history, dataset revisions1/2/export, trace/feedback and imported ingestion receipt",
+    "analyze": "One manual investigation over the migrated2span trace, maximum15minute poll. Requires completed paid result, actual restricted-key spend equal to job cost and Lens spend delta, no active reservations. No automatic retry of a failed paid run",
+    "backup": "Requires successful bounded analysis. Uses the canonical backup helper; verifies current API readback. Writes a post-backup dataset sentinel",
+    "restore": "Stop only task source services/gateway. Canonical restore helper creates fresh project/volume from cold backup. Restart only task gateway pointing to restored Lens. Compare both API views, historic/current dataset exports, imported trace/key, feedback and session; post-backup sentinel must be absent; PG remains stopped; completed paid job full-body digest and investigation spend must exactly match pre-backup values",
+    "cleanup": "Revoke only generated analysis key, verify task process ownership then terminate it, remove only2task Compose projects/volumes and temporary PG. Private artifacts/backups remain for deliberate deletion after safe receipts are copied"
+  },
+  "browser_pauses": [
+    {
+      "after": "prepare",
+      "action": "Open both printed UI URLs through the normal login flow. Standalone admin is in private.json; embedded login uses migration-admin and private uiPassword. Inspect migration-proof trace in Thread and Steps, preserved feedback, Migrated order cases revision1and2, Preserved finding and migrated-archive. Reload saved links. Capture standalone+embedded screenshots and visible content comparisons"
+    },
+    {
+      "after": "analyze",
+      "action": "Open Migrated invoice investigation, inspect completed new run, evidence citations, model and recorded cost in both shells. Capture screenshots"
+    },
+    {
+      "after": "restore",
+      "action": "Open restored standalone URL and unchanged task gateway URL, inspect prior investigation, historical dataset/export and trace. Confirm source PG is stopped from proof, and record final screenshots. Only then append a separate browser receipt with actual observations"
+    }
+  ],
+  "receipt_policy": "proof.json contains no credentials; private.json, .env, gateway.json, command logs and backups stay private. Script leaves browser evidence pending; do not claim full migration acceptance before manual captures and reviewer reconciliation",
+  "limits": [
+    "Local synthetic migration qualified; official artifact and managed production gates remain separate",
+    "Uses synthetic internal representative data rather than a customer database dump",
+    "Current host source/static UI are consumed; production gateway image and actual chart cutover remain storage-lane boundaries",
+    "Reuses existing local task gateway database for the uniquely generated key; no new full gateway database needed",
+    "M7 is the HTTP lane and intentionally not duplicated",
+    "Cold backup elapsed time and restored elapsed time are local operation measurements, not measured end-user outage of an actual prior deployment",
+    "Pre-migration rollback is represented by untouched PostgreSQL plus source dumps; the executed recovery path is post-write forward restore to the new Lens image"
+  ],
+  "prepare_execution": {
+    "directory": "/tmp/lens-populated-handoff-20261009",
+    "script_sha256": "6a5622dc13ff73c057c339b4253cbf5fa92b17ddc69c79ce2d621acb3536ee45",
+    "script_note": "Only subsequent harness change saves generated restricted key immediately, before further assertions, so failed setup can revoke it"
+  },
+  "executions": [
+    {
+      "phase": "prepare",
+      "script_sha256": "6a5622dc13ff73c057c339b4253cbf5fa92b17ddc69c79ce2d621acb3536ee45"
+    },
+    {
+      "phase": "analyze",
+      "script_sha256": "9a5cbdec8d58ea552e748737abf1b65f58d6f1979b06e59d79e8789070e25daa"
+    },
+    {
+      "phase": "backup",
+      "script_sha256": "61ead4ef8bbd69732ab844ace4b2ec53e9e523babc8570d397abe933716930bb"
+    },
+    {
+      "phase": "restore",
+      "script_sha256": "61ead4ef8bbd69732ab844ace4b2ec53e9e523babc8570d397abe933716930bb"
+    },
+    {
+      "phase": "cleanup",
+      "script_sha256": "61ead4ef8bbd69732ab844ace4b2ec53e9e523babc8570d397abe933716930bb"
+    }
+  ],
+  "harness_changes": [
+    "After successful prepare, save generated analysis credential immediately for reliable failure cleanup; no effect on successful execution",
+    "After successful analysis, strengthen backup/restore to compare full completed-job digest and investigation spend; no product change"
+  ],
+  "browser_receipt": "docs/extraction/evidence/populated-cutover-ui.json"
+}

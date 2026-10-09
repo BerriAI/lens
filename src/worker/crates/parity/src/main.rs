@@ -1,7 +1,11 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use lens_parity::scenarios::{auth_boundary_scenarios, auth_scenarios, dataset_scenarios};
+use lens_parity::scenarios::signal_scenarios;
+use lens_parity::scenarios::{
+    activity_scenarios, auth_boundary_scenarios, auth_scenarios, dataset_scenarios,
+    feedback_scenarios, investigation_scenarios,
+};
 use lens_parity::{Tokens, record_scenarios, replay_fixtures};
 use url::Url;
 
@@ -36,6 +40,10 @@ enum Group {
     Auth,
     AuthBoundaries,
     Datasets,
+    Investigations,
+    Feedback,
+    Activity,
+    Signals,
 }
 
 impl Group {
@@ -44,6 +52,10 @@ impl Group {
             Self::Auth => "auth",
             Self::AuthBoundaries => "auth-boundaries",
             Self::Datasets => "datasets",
+            Self::Investigations => "investigations",
+            Self::Feedback => "feedback",
+            Self::Activity => "activity",
+            Self::Signals => "signals",
         }
     }
 }
@@ -57,6 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(Group::Auth) => auth_scenarios(),
                 Some(Group::AuthBoundaries) => auth_boundary_scenarios(),
                 Some(Group::Datasets) => dataset_scenarios(),
+                Some(Group::Investigations) => investigation_scenarios(),
+                Some(Group::Feedback) => feedback_scenarios(),
+                Some(Group::Activity) => activity_scenarios(),
+                Some(Group::Signals) => signal_scenarios(),
                 None => [
                     auth_scenarios(),
                     auth_boundary_scenarios(),

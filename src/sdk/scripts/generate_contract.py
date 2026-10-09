@@ -17,11 +17,19 @@ SDK: Final = Path(__file__).resolve().parents[1]
 REPOSITORY: Final = SDK.parents[1]
 
 
+UNSIGNED_MAXIMUM: Final = {"uint8": 2**8 - 1, "uint16": 2**16 - 1, "uint32": 2**32 - 1, "uint64": 2**64 - 1}
+
+
 def normalize(value: JsonValue) -> JsonValue:
     if isinstance(value, list):
         return [normalize(item) for item in value]
     if not isinstance(value, dict):
         return value
+    width: Final = value.get("format")
+    if isinstance(width, str) and width in UNSIGNED_MAXIMUM:
+        return normalize(
+            {"maximum": UNSIGNED_MAXIMUM[width], **{key: item for key, item in value.items() if key != "format"}}
+        )
     branches: Final = value.get("anyOf")
     if not isinstance(branches, list):
         return {key: normalize(item) for key, item in value.items()}
@@ -82,6 +90,7 @@ def main() -> int:
                 "ruff-check",
                 "ruff-format",
                 "--collapse-root-models",
+                "--use-title-as-name",
             ],
             check=True,
         )

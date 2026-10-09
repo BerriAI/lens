@@ -42,7 +42,7 @@ async fn serve(clickhouse: &str, ready: bool) -> Server {
         http_client().unwrap(),
         SERVICE_TOKEN.into(),
     );
-    let state = Arc::new(State::new(storage, SERVICE_TOKEN.into()));
+    let state = Arc::new(State::connected(storage, SERVICE_TOKEN.into()));
     state.schema_ready.store(ready, Ordering::Release);
     state
         .credentials
@@ -368,38 +368,6 @@ async fn shared_ingress_prefix_exposes_uploads_without_internal_control_routes()
             .headers()
             .contains_key("access-control-allow-credentials")
     );
-}
-
-#[rstest]
-#[tokio::test]
-async fn only_the_service_secret_can_replace_ingestion_credentials() {
-    let server = serve("http://127.0.0.1:1", true).await;
-    let client = http_client().unwrap();
-    let snapshot = json!({"issued_at": unix_seconds(), "keys": []});
-    let denied = client
-        .post(format!("{}/internal/credentials", server.url))
-        .bearer_auth(KEY)
-        .json(&snapshot)
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(denied.status(), 401);
-    let accepted = client
-        .post(format!("{}/internal/credentials", server.url))
-        .bearer_auth(SERVICE_TOKEN)
-        .json(&snapshot)
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(accepted.status(), 204);
-    let revoked = client
-        .post(format!("{}/v1/traces", server.url))
-        .bearer_auth(KEY)
-        .json(&export())
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(revoked.status(), 401);
 }
 
 #[rstest]

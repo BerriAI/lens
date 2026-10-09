@@ -1,0 +1,69 @@
+{
+  "at": "2026-10-09T12:41:35.393669+00:00",
+  "results": [
+    {
+      "url": "https://github.com/BerriAI/project-releaser/pull/305",
+      "state": "OPEN",
+      "isDraft": true,
+      "headRefOid": "8ef5236c571c2c264a5a05696f2fe835a74ede6b",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "repository": "publisher",
+      "checks": [
+        {
+          "name": "ruff + mypy + pytest",
+          "status": "IN_PROGRESS",
+          "conclusion": "",
+          "url": "https://github.com/BerriAI/project-releaser/actions/runs/37931602044/job/113823412461"
+        },
+        {
+          "name": "zizmor",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/BerriAI/project-releaser/actions/runs/37931601960/job/113823411245"
+        }
+      ],
+      "reviews": [],
+      "comments": [
+        {
+          "author": "moe-berri",
+          "url": "https://github.com/BerriAI/project-releaser/pull/305#issuecomment-6074348319",
+          "body": "@greptile please review the independent Lens release pipeline, concentrating on immutable promotion, source isolation, artifact integrity, and recovery behavior."
+        },
+        {
+          "author": "moe-berri",
+          "url": "https://github.com/BerriAI/project-releaser/pull/305#issuecomment-6074348539",
+          "body": "@veria please review release authorization boundaries, signing and verification, native runtime qualification, and preservation of the existing LiteLLM release paths."
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/BerriAI/litellm-ops/pull/232",
+      "state": "OPEN",
+      "isDraft": true,
+      "headRefOid": "167c553aeb3679bb52a6e5dc0b8d0f8cbbcfaaf3",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "repository": "ops",
+      "checks": [
+        {
+          "name": "checks",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/BerriAI/litellm-ops/actions/runs/37928931469/job/113814559486"
+        }
+      ],
+      "reviews": [],
+      "comments": [
+        {
+          "author": "moe-berri",
+          "url": "https://github.com/BerriAI/litellm-ops/pull/232#issuecomment-6075701086",
+          "body": "@greptileai @veria-ai Please review independent Lens source selection, signed image promotion, chart ownership, and rollout verification at the current head\n"
+        }
+      ]
+    }
+  ],
+  "limits": "Read-only snapshot. No external review sent by this lane. Missing bot responses are not passes and do not establish installation/availability"
+}

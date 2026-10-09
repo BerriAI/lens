@@ -90,7 +90,7 @@ export function queueReasonText(reason: QueueReason): string {
       return `Worker is busy with ${count} ${count === 1 ? "investigation" : "investigations"}${when}`;
     }
     case "no_worker":
-      return "No worker connected. Start one from Connect worker.";
+      return "Analysis is unavailable. Check Configure analysis in Settings.";
     case "starting":
       return `Picking up… ${reason.seconds}s`;
   }

@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "scope": "Immutable local Linux arm64 runtime image qualification; bundled UI predates the final setup prompts and background-refetch fix",
+  "image_id": "sha256:9afc49697339c52fc6aab557136f1166263b8be7b624cdf78da885b020227f5b",
+  "image_manifest": "sha256:0ad4512c394e2e8b589f87d471bbed31261cc22b47cb34eb0f59f2fd5ad830f6",
+  "source_base": "0b99737fac2313fce2927875ba9ee3d66b536a20",
+  "source_snapshot_manifest_sha256": "7b75b6bc536835739d2fec935d569fa607c3a22725762829bf1470981d7a2ff4",
+  "architecture": "linux/arm64",
+  "migration": {
+    "passed": true,
+    "script_sha256": "9417ed5f749192c0a3ccf5951941f5e60c639f01cde2a8d5e0b1853a00b264f1",
+    "command": "bash /tmp/lens-migration-image-smoke.sh sha256:9afc49697339c52fc6aab557136f1166263b8be7b624cdf78da885b020227f5b",
+    "result": {
+      "applied": true,
+      "verified": true,
+      "plan": {
+        "schema": 1,
+        "fingerprint": "0d84c83f1d8d64641f07207beb6547d3fbdda1941984ab816c2b07f833570e39",
+        "records": 10,
+        "source_rows": {
+          "datasets": 1,
+          "ingestion_keys": 1,
+          "lenses": 1,
+          "reviews": 1,
+          "runs": 1,
+          "signal_configs": 1,
+          "trace_signals": 1,
+          "workers": 1
+        }
+      }
+    },
+    "checks": [
+      "All eight legacy PostgreSQL metadata tables populated",
+      "SELECT-only PostgreSQL role",
+      "Planning creates zero destination ClickHouse tables",
+      "Apply returns verified readback fingerprint",
+      "Repeated apply returns the identical result",
+      "Source plan remains byte-identical after both applies"
+    ]
+  },
+  "publisher": {
+    "passed": true,
+    "source_repository": "BerriAI/project-releaser",
+    "source_commit": "6d0dc2cb8ade6538c0fcc4af25505dd9abae9e53",
+    "script": ".github/lens/runtime-smoke.sh",
+    "script_sha256": "0acbaedfe3f8c5a086595c6e21a3617f06ad689bb222830ceaca22ada42b8209",
+    "command": "bash .github/lens/runtime-smoke.sh sha256:9afc49697339c52fc6aab557136f1166263b8be7b624cdf78da885b020227f5b 0.1.0-dev.0",
+    "checks": [
+      "Version and protocol7",
+      "Separate Rust migration executable help",
+      "Non-root uid65532",
+      "Standalone UI served",
+      "Unauthenticated API request rejected401",
+      "Administrator creates dedicated tracing key",
+      "OTLP trace ingested with tracing key",
+      "Trace returned by public list API",
+      "Same trace retained after ClickHouse and Lens restarts"
+    ]
+  },
+  "isolation": "Two sequential disposable internal Docker networks; at most one additional ClickHouse; shared preview and database unchanged; created containers, network and volume removed",
+  "limitations": [
+    "No public image/chart/UI/SDK release or signing/promotion performed",
+    "Only local Linux arm64 runtime, not the two native publisher CI legs",
+    "This UI predates final setup prompts/refetch fix; final UI source image requires its own qualification",
+    "Migration smoke is not the full populated gateway/ops cutover and exporter continuity rehearsal"
+  ]
+}

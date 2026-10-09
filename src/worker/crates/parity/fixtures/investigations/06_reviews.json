@@ -1,0 +1,52 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/lens/parity-lens/runs/job/reviews?after=2",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "reviewed": 3,
+      "reviews": [
+        {
+          "agent": "support",
+          "at": "{{timestamp}}",
+          "cannot_assess": false,
+          "consolidated": false,
+          "content_version": "",
+          "duration_ms": 1,
+          "execution_id": "run-0",
+          "extraction": {
+            "cannot_assess": false,
+            "observations": [
+              {
+                "check_id": "retries",
+                "evidence": [],
+                "kind": "issue",
+                "summary": "Observed"
+              }
+            ],
+            "reasoning": ""
+          },
+          "model": "analysis",
+          "name": "task",
+          "partial": false,
+          "reasoning": "",
+          "reused": false,
+          "spans": [],
+          "tool_calls": [],
+          "trace_id": "t",
+          "verdicts": []
+        }
+      ]
+    }
+  }
+}

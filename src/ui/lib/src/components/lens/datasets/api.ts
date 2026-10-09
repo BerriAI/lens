@@ -1,13 +1,23 @@
 "use client";
 
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { ApiError } from "../../../lib/http/client";
 
 import { lensKeys } from "../data/queries";
 import { useLensApi } from "../data/LensServices";
 import type { DatasetsApi } from "./client";
-import type { BuildRequest, Dataset, DatasetCreate, RevisionSave } from "./types";
+import type {
+  BuildRequest,
+  Dataset,
+  DatasetCreate,
+  RevisionSave,
+} from "./types";
 
 export const datasetKeys = {
   all: () => [...lensKeys.all, "datasets"] as const,
@@ -16,21 +26,35 @@ export const datasetKeys = {
   details: () => [...datasetKeys.all(), "detail"] as const,
   detail: (scope: string, datasetId: string, revision: number | null) =>
     [...datasetKeys.details(), { scope, datasetId, revision }] as const,
-  build: (scope: string, request: BuildRequest) => [...datasetKeys.all(), "build", { scope, request }] as const,
+  build: (scope: string, request: BuildRequest) =>
+    [...datasetKeys.all(), "build", { scope, request }] as const,
 };
 
 export const datasetQueries = {
   list(api: DatasetsApi, scope: string) {
-    return queryOptions({ queryKey: datasetKeys.list(scope), queryFn: () => api.list() });
+    return queryOptions({
+      queryKey: datasetKeys.list(scope),
+      queryFn: () => api.list(),
+    });
   },
-  detail(api: DatasetsApi, scope: string, datasetId: string | null, revision: number | null = null) {
+  detail(
+    api: DatasetsApi,
+    scope: string,
+    datasetId: string | null,
+    revision: number | null = null,
+  ) {
     return queryOptions({
       queryKey: datasetKeys.detail(scope, datasetId ?? "", revision),
       queryFn: () => api.get(datasetId ?? "", revision ?? undefined),
       enabled: !!datasetId,
     });
   },
-  build(api: DatasetsApi, scope: string, request: BuildRequest, enabled = true) {
+  build(
+    api: DatasetsApi,
+    scope: string,
+    request: BuildRequest,
+    enabled = true,
+  ) {
     const options = {
       queryKey: datasetKeys.build(scope, request),
       queryFn: () => api.build(request),
@@ -42,21 +66,29 @@ export const datasetQueries = {
   },
 };
 
-export const isRevisionConflict = (error: unknown): boolean => error instanceof ApiError && error.status === 409;
+export const isRevisionConflict = (error: unknown): boolean =>
+  error instanceof ApiError && error.status === 409;
 
 export function useDatasets() {
   const api = useLensApi();
   return useQuery(datasetQueries.list(api.datasets, api.scope));
 }
 
-export function useDataset(datasetId: string | null, revision: number | null = null) {
+export function useDataset(
+  datasetId: string | null,
+  revision: number | null = null,
+) {
   const api = useLensApi();
-  return useQuery(datasetQueries.detail(api.datasets, api.scope, datasetId, revision));
+  return useQuery(
+    datasetQueries.detail(api.datasets, api.scope, datasetId, revision),
+  );
 }
 
 export function useBuildCases(request: BuildRequest, enabled = true) {
   const api = useLensApi();
-  return useQuery(datasetQueries.build(api.datasets, api.scope, request, enabled));
+  return useQuery(
+    datasetQueries.build(api.datasets, api.scope, request, enabled),
+  );
 }
 
 export function useInvalidateDatasets() {
@@ -83,13 +115,21 @@ export function useSaveRevision() {
   const invalidate = useInvalidateDatasets();
   return useMutation({
     retry: false,
-    mutationFn: ({ datasetId, body }: { datasetId: string; body: RevisionSave }) =>
-      api.datasets.saveRevision(datasetId, body),
+    mutationFn: ({
+      datasetId,
+      body,
+    }: {
+      datasetId: string;
+      body: RevisionSave;
+    }) => api.datasets.saveRevision(datasetId, body),
     onSettled: invalidate,
   });
 }
 
-export async function downloadDataset(api: DatasetsApi, dataset: Pick<Dataset, "id" | "name" | "revision">) {
+export async function downloadDataset(
+  api: DatasetsApi,
+  dataset: Pick<Dataset, "id" | "name" | "revision">,
+) {
   const blob = await api.exportJsonl(dataset.id, dataset.revision);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -103,6 +143,7 @@ export function useExportDataset() {
   const api = useLensApi();
   return useMutation({
     retry: false,
-    mutationFn: (dataset: Pick<Dataset, "id" | "name" | "revision">) => downloadDataset(api.datasets, dataset),
+    mutationFn: (dataset: Pick<Dataset, "id" | "name" | "revision">) =>
+      downloadDataset(api.datasets, dataset),
   });
 }

@@ -1,0 +1,72 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/traces/findings",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "traces": [
+        {
+          "trace_id": "",
+          "trace_ref": false
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "min_length": 1
+          },
+          "input": "",
+          "loc": [
+            "body",
+            "traces",
+            0,
+            "trace_id"
+          ],
+          "msg": "String should have at least 1 character",
+          "type": "string_too_short"
+        },
+        {
+          "input": false,
+          "loc": [
+            "body",
+            "traces",
+            0,
+            "trace_ref"
+          ],
+          "msg": "Input should be a valid string",
+          "type": "string_type"
+        },
+        {
+          "ctx": {
+            "actual_length": 0,
+            "field_type": "Tuple",
+            "min_length": 1
+          },
+          "input": [
+            {
+              "trace_id": "",
+              "trace_ref": false
+            }
+          ],
+          "loc": [
+            "body",
+            "traces"
+          ],
+          "msg": "Tuple should have at least 1 item after validation, not 0",
+          "type": "too_short"
+        }
+      ]
+    }
+  }
+}

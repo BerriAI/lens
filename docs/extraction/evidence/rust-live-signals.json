@@ -1,0 +1,26 @@
+{
+  "trace_id": "af8ea707e173b962fe40f13e21946407",
+  "trace_ref": "006FEFD34EEC7A8EC25A2463CB50B486CCE3E4BB6AB19E9B693160BAD0489B8B",
+  "agent": "signals-proof-agent",
+  "status": "passed",
+  "result": {
+    "trace_id": "af8ea707e173b962fe40f13e21946407",
+    "trace_ref": "006FEFD34EEC7A8EC25A2463CB50B486CCE3E4BB6AB19E9B693160BAD0489B8B",
+    "status": "classified",
+    "flags": [
+      {
+        "signal_id": "user_frustration",
+        "name": "User frustration",
+        "score": 0.99
+      },
+      {
+        "signal_id": "missing_capability",
+        "name": "Missing capability",
+        "score": 0.94
+      }
+    ],
+    "model": "signals",
+    "classified_at": "2026-10-09T04:26:14.631514Z"
+  },
+  "completed_at": "2026-10-09T04:26:17.117Z"
+}

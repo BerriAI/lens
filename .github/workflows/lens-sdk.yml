@@ -145,7 +145,7 @@ jobs:
       - name: Install and exercise the wheel
         shell: bash
         run: |
-          python -m pip install --only-binary=:all: --find-links src/sdk/dist lens-evals==0.1.0a3
+          python -m pip install --only-binary=:all: src/sdk/dist/*.whl
           python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0 httpx==0.28.1
           python -m lens.cli --help
           python -m pytest src/sdk/tests/test_sdk.py -q

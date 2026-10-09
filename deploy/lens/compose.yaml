@@ -1,21 +1,55 @@
+name: lens
+
 services:
-  lens-worker:
-    image: ${LENS_WORKER_IMAGE:-${LITELLM_VERSION:+ghcr.io/berriai/litellm-lens-worker:v}${LITELLM_VERSION:-}}
+  lens:
+    image: ${LENS_IMAGE:-lens:local}
+    env_file: .env
     environment:
-      LITELLM_URL: ${LITELLM_URL:?Set the URL reachable from this container}
-      LENS_WORKER_TOKEN: ${LENS_WORKER_TOKEN:-}
-      LITELLM_LENS_SERVICE_TOKEN: ${LITELLM_LENS_SERVICE_TOKEN:?Set the same secret on LiteLLM and Lens}
-      CLICKHOUSE_URL: ${CLICKHOUSE_URL:?Set the ClickHouse URL reachable from Lens}
-      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-litellm}
+      LENS_MODE: standalone
+      LENS_ADMIN_TOKEN: ${LENS_ADMIN_TOKEN:?Run ./deploy/lens/start to create deployment credentials}
+      LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: lens
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run ./deploy/lens/start to create deployment credentials}
+      CLICKHOUSE_DATABASE: lens
       AGENT_TRACING_RETENTION_DAYS: ${AGENT_TRACING_RETENTION_DAYS:-14}
     ports:
-      - "127.0.0.1:${LENS_PORT:-4318}:4318"
+      - "${LENS_BIND_ADDRESS:-127.0.0.1}:${LENS_PORT:-4318}:4318"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks: [default, storage]
     mem_limit: 2g
     cpus: 2
-    pids_limit: 64
+    pids_limit: 128
     restart: unless-stopped
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=${LENS_WORKER_TMP_SIZE:-1g}
+      - /tmp:rw,noexec,nosuid,size=${LENS_TMP_SIZE:-1g}
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
+    environment:
+      CLICKHOUSE_USER: lens
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run ./deploy/lens/start to create deployment credentials}
+      CLICKHOUSE_DB: lens
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ../clickhouse/keeper.xml:/etc/clickhouse-server/config.d/lens-keeper.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --host clickhouse --user lens --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [storage]
+
+networks:
+  storage:
+    internal: true
+
+volumes:
+  clickhouse_data:

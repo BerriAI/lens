@@ -11,6 +11,8 @@ use crate::model::ResponseFixture;
 static RFC3339: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\b").unwrap()
 });
+static SQL_TIMESTAMP: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?\b").unwrap());
 static HTTP_DATE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT\b").unwrap()
 });
@@ -70,6 +72,15 @@ fn normalize_text(text: &str, bindings: &BTreeMap<String, String>) -> String {
             }
         })
         .into_owned();
+    normalized = SQL_TIMESTAMP
+        .replace_all(&normalized, |matched: &regex::Captures<'_>| {
+            if chrono::NaiveDateTime::parse_from_str(&matched[0], "%Y-%m-%d %H:%M:%S%.f").is_ok() {
+                "{{sql_timestamp}}".to_owned()
+            } else {
+                matched[0].to_owned()
+            }
+        })
+        .into_owned();
     normalized = HTTP_DATE
         .replace_all(&normalized, |matched: &regex::Captures<'_>| {
             if httpdate::parse_http_date(&matched[0]).is_ok() {
@@ -103,6 +114,8 @@ mod tests {
     #[rstest]
     #[case::captured_values("dataset-abc-r1", "dataset-{{dataset_id}}-r1", "abc")]
     #[case::timestamp("2025-01-02T03:04:05Z", "{{timestamp}}", "")]
+    #[case::sql_timestamp("2025-01-02 03:04:05.123456789", "{{sql_timestamp}}", "")]
+    #[case::invalid_sql_timestamp("2025-99-02 03:04:05", "2025-99-02 03:04:05", "")]
     #[case::http_date("Thu, 02 Jan 2025 03:04:05 GMT", "{{http_date}}", "")]
     #[case::uuid("f47ac10b-58cc-4372-a567-0e02b2c3d479", "{{uuid}}", "")]
     fn normalizes_bound_and_volatile_strings(

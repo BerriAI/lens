@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "status": "passed_with_intentional_shell_difference",
+  "recorded_at": "2026-10-09T11:20:57.801Z",
+  "baseline_source": "0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9",
+  "candidate_source": "70c2d61e36503116241dcc2fbf5f51ed69cbf430",
+  "candidate_image": "sha256:6592e532802c79b08bb45a26e7a332d1711b9f862984e7c7d45702fad6d060ef",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "observations": {
+    "recorded_at": "2026-10-09T11:20:57.801Z",
+    "trace_text_identical": true,
+    "finding_text_identical": false,
+    "baseline_finding_url": "http://127.0.0.1:3101/lens-preview/?demo=true&agent=research_agent&tab=findings&issue=research:unsupported-claim",
+    "current_finding_url": "http://127.0.0.1:4326/ui/?demo=true&agent=research_agent&tab=findings&issue=research:unsupported-claim",
+    "sample_data": true,
+    "finding_text_difference": {
+      "line": 24,
+      "baseline": "Sep 27",
+      "current": "Sep 26",
+      "other_46_lines_identical": true,
+      "scope": "First automatically placed date tick in responsive frequency chart; header range and1of4/25% remain identical"
+    }
+  },
+  "method": "Same built-in research_agent demo fixture, identical trace selection, full-screen trace inspector and selected research finding, captured through the actual browser. Product data was not modified. Red rectangles mark the intentionally changed navigation shell; original unannotated screenshots are retained.",
+  "limitations": [
+    "These are sample-data visual comparisons, separate from real trace/provider receipts",
+    "Baseline runs the isolated original Lens component tree in a development preview, not an entire merge-base gateway release",
+    "The current left navigation and Evals are intentional concurrent UI additions; whole-shell pixel identity is not claimed",
+    "Demo timestamps are generated at page load; reloads were less than one second apart and visible inspector timestamps matched",
+    "The current sidebar reduces the chart width; the first auto-selected date tick differs. Finding narrative, counts, range and evidence text remain identical",
+    "The pre-reload current tab had a cached image-load failure from earlier service switching; the asset returned PNG200 and reloading restored natural width1290; no product patch required"
+  ],
+  "files": [
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/baseline-finding-annotated.png",
+      "sha256": "90ca1fe69211d101c880dc245fa0a61a6532ce04b03aa4478dd34a161d55f4d9"
+    },
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/baseline-finding.png",
+      "sha256": "131e673b893f5b49291a30c6bb3477ed7db75edb92003e99d633dc717f304e42"
+    },
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/baseline-trace.png",
+      "sha256": "6039bd9d12051cbab3ffc032560c9cea5438a0bcd63d28b248e5df0db7db163a"
+    },
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/current-finding-annotated.png",
+      "sha256": "b6d5aa834c0cfe1abce4f18cc52a91b1fd2f4f4ac4dd137dd6f6d441ef579ddd"
+    },
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/current-finding.png",
+      "sha256": "f2de1027c32d1f9ec2a3186f0d9187b6c387a307e991adcf0b9c4d5f011670bc"
+    },
+    {
+      "path": "docs/extraction/evidence/ui/final70-paired/current-trace.png",
+      "sha256": "88626721b0ce878c63969d885ca9059212903e83732e173598748474fab2c9ca"
+    }
+  ]
+}

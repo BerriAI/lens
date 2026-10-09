@@ -1,16 +1,24 @@
 pub mod activity;
 pub mod agent;
+pub mod api;
 pub mod auth;
 pub mod config;
 pub mod control;
 mod error;
+pub mod eval_judge;
+pub mod eval_runtime;
+pub mod eval_scoring;
 pub mod evidence;
 pub mod grouping;
 mod ingest;
 pub mod journal;
+pub mod local;
+pub mod local_credentials;
 pub mod model;
 pub mod pipeline;
 pub mod sandbox;
+pub mod setup;
+pub mod signals;
 mod storage;
 pub mod worker;
 
@@ -33,10 +41,11 @@ use std::{
     },
     time::Duration,
 };
-pub use storage::Storage;
+pub use storage::{SampleRequest, SourceReader, Storage};
 use tokio::sync::Semaphore;
 
 pub use lens_contract::worker as wire;
+pub use storage::FeedbackApi;
 
 const READ_QUEUE_WAIT: Duration = Duration::from_secs(10);
 
@@ -44,14 +53,22 @@ pub struct State {
     pub credentials: Arc<auth::Credentials>,
     pub storage: Storage,
     pub schema_ready: AtomicBool,
-    service_token: String,
+    service_token: Option<String>,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
 }
 
 impl State {
-    pub fn new(storage: Storage, service_token: String) -> Self {
+    pub fn connected(storage: Storage, service_token: String) -> Self {
+        Self::with_service_token(storage, Some(service_token))
+    }
+
+    pub fn standalone(storage: Storage) -> Self {
+        Self::with_service_token(storage, None)
+    }
+
+    fn with_service_token(storage: Storage, service_token: Option<String>) -> Self {
         Self {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
@@ -61,6 +78,13 @@ impl State {
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
         }
+    }
+
+    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
+        auth::authorize_service(
+            headers,
+            self.service_token.as_deref().ok_or(Error::Unauthorized)?,
+        )
     }
 
     fn require_storage(&self) -> Result<(), Error> {
@@ -98,19 +122,19 @@ pub fn router(state: Arc<State>) -> Router {
                     http::header::CONTENT_ENCODING,
                 ]),
         );
-    public
-        .clone()
-        .nest("/lens-ingest", public)
-        .merge(
+    let routes = public.clone().nest("/lens-ingest", public);
+    let routes = if state.service_token.is_some() {
+        routes.merge(
             Router::new()
                 .route("/internal/read", post(read))
                 .route("/internal/spend", post(spend))
                 .route("/internal/feedback", post(feedback))
-                .route("/internal/credentials", post(credentials))
                 .route("/internal/status", get(status)),
         )
-        .with_state(state)
-        .merge(lens_server::router())
+    } else {
+        routes
+    };
+    routes.with_state(state).merge(lens_server::router())
 }
 
 #[derive(serde::Deserialize)]
@@ -150,29 +174,14 @@ async fn status(
     AppState(state): AppState<Arc<State>>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     Ok(Json(serde_json::json!({
         "storage_ready": state.schema_ready.load(Ordering::Acquire),
         "credentials_ready": state.credentials.ready(),
-        "release": std::env::var("LITELLM_RELEASE_TAG").unwrap_or_default(),
+        "release": std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
         "protocol_version": wire::PROTOCOL_VERSION,
+        "public_contract": 1,
     })))
-}
-
-async fn credentials(
-    AppState(state): AppState<Arc<State>>,
-    headers: HeaderMap,
-    body: Body,
-) -> Result<StatusCode, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
-    let body = tokio::time::timeout(Duration::from_secs(5), to_bytes(body, 8 * 1024 * 1024))
-        .await
-        .map_err(|_| Error::Unavailable)?
-        .map_err(|_| Error::TooLarge)?;
-    state
-        .credentials
-        .replace(serde_json::from_slice(&body).map_err(|_| Error::InvalidRequest)?)?;
-    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn ready(AppState(state): AppState<Arc<State>>) -> StatusCode {
@@ -204,7 +213,7 @@ async fn read(
     headers: HeaderMap,
     body: Body,
 ) -> Result<Json<Value>, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     state.require_storage()?;
     let permit = wait_for_read_slot(state.read_slots.clone().acquire_owned()).await?;
     let body = tokio::time::timeout(Duration::from_secs(10), to_bytes(body, 1024 * 1024))
@@ -242,7 +251,7 @@ async fn insert(
     body: Body,
     table: InsertTable,
 ) -> Result<StatusCode, Error> {
-    auth::authorize_service(&headers, &state.service_token)?;
+    state.authorize_service(&headers)?;
     state.require_storage()?;
     let permit = state
         .export_slots

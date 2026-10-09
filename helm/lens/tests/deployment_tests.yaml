@@ -1,0 +1,131 @@
+suite: Standalone Lens deployment
+templates:
+  - resources.yaml
+release:
+  name: lens
+  namespace: lens
+tests:
+  - it: runs the complete product without a gateway
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_MODE, value: standalone}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LENS_ADMIN_TOKEN
+            valueFrom:
+              secretKeyRef: {name: lens-admin, key: admin-token}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: CLICKHOUSE_HOST, value: lens-clickhouse}
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/berriai/lens:0.1.0-dev.0
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+  - it: selects an independent immutable release
+    set:
+      image.tag: 4.2.1
+      image.digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/berriai/lens@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - it: rejects malformed digest pins
+    set:
+      image.digest: sha256:untrusted
+    asserts:
+      - failedTemplate:
+          errorMessage: Lens image.digest must be sha256 followed by 64 lowercase hex characters
+  - it: connects supplied storage without creating another database
+    set:
+      clickhouseSecret: {name: existing-clickhouse, key: CLICKHOUSE_URL}
+      adminTokenSecret: {name: existing-admin, key: token}
+    asserts:
+      - hasDocuments: {count: 2}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLICKHOUSE_URL
+            valueFrom:
+              secretKeyRef: {name: existing-clickhouse, key: CLICKHOUSE_URL}
+        documentSelector: {path: kind, value: Deployment}
+  - it: requires a connection when bundled storage is disabled
+    set:
+      clickhouse.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: Lens clickhouseSecret.name is required when bundled storage is disabled
+  - it: reuses the gateway credential only on the server
+    set:
+      gateway.enabled: true
+      serviceTokenSecret: {name: gateway-delegation, key: signing-key}
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LENS_GATEWAY_SECRET
+            valueFrom:
+              secretKeyRef: {name: gateway-delegation, key: signing-key}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LITELLM_LENS_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef: {name: gateway-delegation, key: signing-key}
+  - it: exposes the UI and API through the same ingress
+    set:
+      ingress.enabled: true
+      ingress.host: lens.example
+    documentSelector:
+      path: kind
+      value: Ingress
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0]
+          value:
+            path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lens
+                port: {name: otlp}
+  - it: allows gateway wrappers to own rendering once
+    set:
+      library: true
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: uses a separately managed gateway signing secret
+    set:
+      gateway.enabled: true
+      gateway.secretName: delegated-identity
+      gateway.secretKey: signature
+      serviceTokenSecret: {name: worker-service, key: token}
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LENS_GATEWAY_SECRET
+            valueFrom:
+              secretKeyRef: {name: delegated-identity, key: signature}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LITELLM_LENS_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef: {name: worker-service, key: token}

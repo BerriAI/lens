@@ -7,6 +7,7 @@ import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
+import { LensHostProvider } from "../../host/LensHost";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
   new URLSearchParams(String(onUrlUpdate.mock.lastCall?.[0].queryString ?? ""));
@@ -26,6 +27,54 @@ beforeEach(() => {
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: false });
     return Response.json({ data: [], traces: false, requests: false });
   });
+});
+
+it("keeps installation controls mounted while readiness retries and continues after Lens connects", async () => {
+  const user = userEvent.setup();
+  const unavailable = () => Response.json({ detail: "Configure Lens" }, { status: 503 });
+  const listResponse = vi.fn<() => Promise<Response>>(async () => unavailable());
+  const traceResponse = vi.fn(() => Response.json({ detail: "Tracing is not enabled" }, { status: 501 }));
+  const serviceResponse = vi.fn(() =>
+    Response.json({ configured: false, connected: false, url: "", status: { storage_ready: false } }),
+  );
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens") return listResponse();
+    if (path === "/v1/traces") return traceResponse();
+    if (path === "/lens/service") return serviceResponse();
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return Response.json({ data: [], traces: false, requests: false });
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", analysis: "deployment" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  const setup = within(await screen.findByRole("region", { name: "Get Lens running" }));
+  expect(await setup.findByRole("link", { name: "Helm setup" })).toBeVisible();
+  const copy = setup.getByRole("button", { name: "Set it up for me" });
+  const retry = Promise.withResolvers<Response>();
+  listResponse.mockImplementationOnce(() => retry.promise);
+
+  act(() => {
+    void testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
+  });
+  await waitFor(() => expect(listResponse).toHaveBeenCalledTimes(2));
+  expect(copy).toBeVisible();
+  expect(screen.queryByText("Checking Lens setup…")).not.toBeInTheDocument();
+  await user.click(copy);
+  expect(await navigator.clipboard.readText()).toContain("Lens connection is not configured");
+  await act(async () => retry.resolve(unavailable()));
+
+  listResponse.mockImplementation(async () => Response.json({ lenses: [], workers: [], tracing_enabled: true }));
+  traceResponse.mockImplementation(() => Response.json({ data: [], next_cursor: null }));
+  serviceResponse.mockImplementation(() =>
+    Response.json({ configured: true, connected: true, url: "https://lens.test", status: { storage_ready: true } }),
+  );
+  await user.click(await setup.findByRole("button", { name: "Check setup" }));
+  await user.click(await setup.findByRole("button", { name: "Continue to your agent" }));
+  expect(await setup.findByRole("button", { name: "Generate tracing key" })).toBeVisible();
+  expect(setup.getByRole("button", { name: /Send your first trace/ })).toHaveAttribute("aria-expanded", "true");
 });
 
 describe("Lens interactive demo", () => {
@@ -174,7 +223,13 @@ describe("Lens interactive demo", () => {
     const saved = data.lenses[0];
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: [saved], workers: [], tracing_enabled: true });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [saved],
+          workers: [],
+          tracing_enabled: true,
+        });
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/v1/traces") return Response.json({ data: data.runs.map((run) => run.trace.summary) });
@@ -198,7 +253,13 @@ describe("Lens interactive demo", () => {
     const saved = createLensDemoData().lenses[0];
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: [saved], workers: [], tracing_enabled: false });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [saved],
+          workers: [],
+          tracing_enabled: false,
+        });
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
@@ -227,7 +288,13 @@ describe("Lens interactive demo", () => {
     const lenses = vi.fn(() => [withJob("running")]);
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: lenses(), workers: [], tracing_enabled: false });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: lenses(),
+          workers: [],
+          tracing_enabled: false,
+        });
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
       return Response.json({ data: [], traces: false, requests: false });
     });
@@ -244,7 +311,13 @@ describe("Lens interactive demo", () => {
     const saved = createLensDemoData().lenses[0];
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: [saved], workers: [], tracing_enabled: true });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [saved],
+          workers: [],
+          tracing_enabled: true,
+        });
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/lens/agents") return Response.json([]);
@@ -265,7 +338,7 @@ describe("Lens interactive demo", () => {
     expect(await screen.findByRole("table", { name: "Investigations" })).toBeVisible();
   });
 
-  it("adds a quiet Settings tab that manages the worker inline and reflects its health", async () => {
+  it.each(["standalone", "embedded"] as const)("shows deployment analysis and worker health on %s", async (surface) => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     const saved = createLensDemoData().lenses[0];
@@ -280,44 +353,61 @@ describe("Lens interactive demo", () => {
     const workers = vi.fn(() => [worker]);
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: [saved], workers: workers(), tracing_enabled: true });
+      if (path === "/lens/model_group/info")
+        return Response.json({
+          data: [{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }],
+        });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [saved],
+          workers: workers(),
+          tracing_enabled: true,
+        });
       if (path.endsWith("/reviews")) return Response.json({ reviews: [], reviewed: saved.jobs[0].reviewed });
       if (path.endsWith("/runs")) return Response.json(saved.jobs);
       if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
       return Response.json({ data: [], traces: true, requests: false });
     });
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { onUrlUpdate });
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+      </LensHostProvider>,
+      { onUrlUpdate },
+    );
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
     const settings = await tabs.findByRole("tab", { name: "Settings" });
-    expect(settings).toHaveAttribute("title", "Worker connected");
+    expect(settings).toHaveAttribute("title", "Analysis configured");
     await user.click(settings);
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("settings"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const panel = within(screen.getByRole("region", { name: "Settings" }));
     expect(panel.getByText("Tracing enabled", { exact: true })).toBeVisible();
-    expect(panel.getByRole("heading", { name: "Analysis worker" })).toBeVisible();
-    expect(panel.getByRole("heading", { name: worker.name })).toBeVisible();
-    expect(panel.getByText("Connected")).toBeVisible();
-    await user.click(panel.getByRole("button", { name: "Edit access" }));
-    expect(panel.getByRole("heading", { name: "Analysis access" })).toBeVisible();
-    await user.click(panel.getByRole("button", { name: "Cancel" }));
-    expect(panel.getByRole("heading", { name: "Analysis worker" })).toBeVisible();
+    expect(panel.getByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
+    expect(await panel.findByText("Analysis is configured")).toBeVisible();
+    expect(panel.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · OpenAI");
+    expect(panel.getByRole("button", { name: "Check configuration" })).toBeEnabled();
     workers.mockReturnValue([{ ...worker, revoked: true }]);
     await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
-    await waitFor(() => expect(settings).toHaveAttribute("title", "Connect worker"));
-    expect(panel.getByRole("heading", { name: "Connect a worker" })).toBeVisible();
-    expect(panel.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    await waitFor(() => expect(settings).toHaveAttribute("title", "Configure analysis"));
+    expect(await panel.findByText("Models are configured; waiting for the investigation worker")).toBeVisible();
     await user.click(panel.getByRole("button", { name: "Connect an agent" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("traces"));
     expect(tabs.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("sends the first-time guide's Connect worker into the Settings tab", async () => {
+  it("sends the first-time guide's Configure analysis into the Settings tab", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     network.mockImplementation(async (input) => {
       const path = requestPath(input);
-      if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [],
+          workers: [],
+          tracing_enabled: true,
+        });
       if (path === "/v1/traces") return Response.json({ data: [{}] });
       return Response.json({ data: [], traces: true, requests: false });
     });
@@ -326,36 +416,44 @@ describe("Lens interactive demo", () => {
       onUrlUpdate,
     });
     const guide = within(await screen.findByRole("region", { name: "Get Lens running" }));
-    await user.click(await guide.findByRole("button", { name: "Connect worker" }));
+    await user.click(await guide.findByRole("button", { name: "Configure analysis" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("settings"));
     const panel = within(await screen.findByRole("region", { name: "Settings" }));
-    expect(panel.getByRole("heading", { name: "Connect a worker" })).toBeVisible();
-    expect(panel.getByRole("button", { name: "Enable investigations" })).toBeVisible();
+    expect(await panel.findByRole("heading", { name: "Add an analysis provider" })).toBeVisible();
+    expect(panel.getByRole("link", { name: "Configure analysis models" })).toHaveAttribute(
+      "href",
+      "https://github.com/BerriAI/lens/blob/main/docs/analysis.md",
+    );
   });
 
-  it("keeps a pending worker install across tab switches and offers the first investigation once it connects", async () => {
+  it("resumes deployment setup across tab switches and offers the first investigation when ready", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
-    const token = "b".repeat(64);
     const worker = {
       id: "worker",
       name: "Lens worker",
       revoked: false,
-      analysis_key_id: token,
+      analysis_key_id: "b".repeat(64),
       scope: { all_teams: true, api_key_hash: "", team_id: "" },
       last_seen: "1970-01-01T00:00:00Z",
     };
     const workers = vi.fn((): (typeof worker)[] => []);
-    network.mockImplementation(async (input, init) => {
-      const { path, method } = await readRequest(input, init);
-      if (path === "/lens") return Response.json({ lenses: [], workers: workers(), tracing_enabled: true });
-      if (path === "/lens/workers/register" && method === "POST") {
-        workers.mockReturnValue([worker]);
-        const created = { token: "", managed: true, image: "lens-worker:v1", worker };
-        return Response.json(created);
-      }
-      if (path === "/key/list") return Response.json({ keys: [{ token, key_alias: "Analysis" }], total_pages: 1 });
-      if (path === "/key/info") return Response.json({ info: { models: [], max_budget: null } });
+    const models = vi.fn((): { model_group: string; providers: string[]; mode: string }[] => []);
+    network.mockImplementation(async (input) => {
+      const path = requestPath(input);
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+      if (path === "/lens")
+        return Response.json({
+          lenses: [],
+          workers: workers(),
+          tracing_enabled: true,
+        });
+      if (path === "/lens/model_group/info") return Response.json({ data: models() });
+      if (path === "/lens/models")
+        return Response.json({
+          data: models().map(({ model_group }) => ({ id: model_group })),
+        });
+      if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
       if (path === "/lens/agents") return Response.json([]);
       if (path.startsWith("/lens/preview")) return Response.json({ eligible: 0, selected: 0, executions: [] });
       if (path === "/v1/traces") return Response.json({ data: [createLensDemoData().runs[0].trace.summary] });
@@ -368,43 +466,35 @@ describe("Lens interactive demo", () => {
       onUrlUpdate,
     });
     const panel = within(await screen.findByRole("region", { name: "Settings" }));
-    await user.click(panel.getByText("Advanced options"));
-    await user.click(panel.getByRole("switch", { name: "Use an existing virtual key" }));
-    await user.click(panel.getByRole("combobox", { name: "Charge analysis to" }));
-    await user.click(await screen.findByRole("option", { name: "Analysis" }));
-    await user.click(panel.getByRole("button", { name: "Enable investigations" }));
-    expect(
-      await panel.findByText(
-        "Connecting your Lens service… This page updates automatically. Check the service logs if it does not connect.",
-      ),
-    ).toBeInTheDocument();
+    expect(await panel.findByRole("heading", { name: "Add an analysis provider" })).toBeVisible();
+    expect(panel.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
+    models.mockReturnValue([{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }]);
+    workers.mockReturnValue([worker]);
+    await user.click(panel.getByRole("button", { name: "Check configuration" }));
+    expect(await panel.findByText("Models are configured; waiting for the investigation worker")).toBeVisible();
+    expect(panel.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
     await user.click(tabs.getByRole("tab", { name: "Traces" }));
-    await waitFor(() =>
-      expect(
-        panel.getByText(
-          "Connecting your Lens service… This page updates automatically. Check the service logs if it does not connect.",
-        ),
-      ).not.toBeVisible(),
-    );
+    expect(await screen.findByRole("table", { name: "Agent runs" })).toBeVisible();
     await user.click(tabs.getByRole("tab", { name: "Settings" }));
-    expect(
-      panel.getByText(
-        "Connecting your Lens service… This page updates automatically. Check the service logs if it does not connect.",
-      ),
-    ).toBeVisible();
-    expect(panel.queryByLabelText("Docker command preview")).not.toBeInTheDocument();
+    expect(panel.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · OpenAI");
     workers.mockReturnValue([{ ...worker, last_seen: new Date().toISOString() }]);
-    await testQueryClient.refetchQueries({ queryKey: lensKeys.lists() });
-    expect(await panel.findByRole("heading", { name: "Worker connected" })).toBeVisible();
+    await user.click(panel.getByRole("button", { name: "Check configuration" }));
+    expect(await panel.findByText("Analysis is configured")).toBeVisible();
+    expect(network.mock.calls.every(([input]) => !requestPath(input).startsWith("/key/"))).toBe(true);
+    expect(network.mock.calls.every(([input]) => !requestPath(input).startsWith("/lens/workers/"))).toBe(true);
     await user.click(panel.getByRole("button", { name: "New investigation" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("investigations"));
     expect(lastUrl(onUrlUpdate).get("dialog")).toBe("new");
     expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
   });
 
-  it("hides the Settings tab for read-only sessions", async () => {
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly />);
+  it.each(["standalone", "embedded"] as const)("hides Settings for read-only %s sessions", async (surface) => {
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly />
+      </LensHostProvider>,
+    );
     expect(await screen.findByRole("tablist", { name: "Lens" })).toBeVisible();
     await waitFor(() => expect(network).toHaveBeenCalled());
     expect(screen.queryByRole("tab", { name: "Settings" })).not.toBeInTheDocument();
@@ -431,16 +521,22 @@ describe("Lens interactive demo", () => {
       };
       network.mockImplementation(async (input) => {
         const path = requestPath(input);
-        if (path === "/lens") return Response.json({ lenses: [saved], workers: [worker], tracing_enabled: true });
+        if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+        if (path === "/lens")
+          return Response.json({
+            lenses: [saved],
+            workers: [worker],
+            tracing_enabled: true,
+          });
         if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
         return Response.json({ data: [], traces: true, requests: false });
       });
       renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />);
       const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
       const settings = await tabs.findByRole("tab", { name: "Settings" });
-      expect(settings).toHaveAttribute("title", "Worker connected");
+      expect(settings).toHaveAttribute("title", "Analysis configured");
       await vi.advanceTimersByTimeAsync(130000);
-      await waitFor(() => expect(settings).toHaveAttribute("title", "Connect worker"));
+      await waitFor(() => expect(settings).toHaveAttribute("title", "Configure analysis"));
     } finally {
       vi.useRealTimers();
     }
@@ -462,7 +558,13 @@ describe("Lens interactive demo", () => {
       const listCalls = () => network.mock.calls.filter(([input]) => requestPath(input) === "/lens").length;
       network.mockImplementation(async (input) => {
         const path = requestPath(input);
-        if (path === "/lens") return Response.json({ lenses: [saved], workers: workers(), tracing_enabled: true });
+        if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+        if (path === "/lens")
+          return Response.json({
+            lenses: [saved],
+            workers: workers(),
+            tracing_enabled: true,
+          });
         if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
         return Response.json({ data: [], traces: true, requests: false });
       });
@@ -638,33 +740,72 @@ describe("Lens agent selector", () => {
     expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
   });
 
-  it("should close an open trace when the sidebar switches to another agent", async () => {
+  it.each(["standalone", "embedded"] as const)("closes an open trace when %s switches agents", async (surface) => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
-    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-      searchParams: "?demo=true&agent=support_agent",
-      onUrlUpdate,
-    });
+    renderWithProviders(
+      <LensHostProvider host={{ surface }}>
+        <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+      </LensHostProvider>,
+      { searchParams: "?demo=true&agent=support_agent", onUrlUpdate },
+    );
     await user.click(await screen.findByText("Where is order #1042?"));
     const drawer = await screen.findByRole("complementary", { name: "Trace details" });
     expect(drawer).toBeVisible();
     await expectUrl(onUrlUpdate, (url) => expect(url.get("trace")).toBeTruthy());
-    const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
-    await user.click(sidebar.getByRole("button", { name: "Agent: support_agent" }));
+    await user.click(screen.getByRole("button", { name: "Agent: support_agent" }));
     const picker = screen.getByRole("list", { name: "Agents" });
     await user.click(within(picker).getByRole("button", { name: /release_agent/ }));
 
     await waitFor(() => expect(drawer).toHaveAttribute("data-state", "closing"));
     act(() => fireEvent.animationEnd(drawer));
     expect(screen.queryByRole("complementary", { name: "Trace details" })).not.toBeInTheDocument();
-    expect(sidebar.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
-    expect(sidebar.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
     const runs = screen.getByRole("table", { name: "Agent runs" });
     expect(within(runs).queryByText("Where is order #1042?")).not.toBeInTheDocument();
     await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("release_agent"));
     expect(lastUrl(onUrlUpdate).has("trace")).toBe(false);
     expect(lastUrl(onUrlUpdate).get("tab")).toBe("traces");
   });
+});
+
+it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  const workspace = (
+    <LensHostProvider host={{ surface: "embedded" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>
+  );
+  const first = renderWithProviders(workspace, {
+    searchParams: "?demo=true&agent=support_agent&tab=traces",
+    onUrlUpdate,
+  });
+  expect(screen.getByRole("heading", { name: "Lens", level: 1 })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Agent: support_agent" })).toBeVisible();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
+  const tabs = screen.getByRole("tablist", { name: "Lens" });
+  const traces = within(tabs).getByRole("tab", { name: "Traces" });
+  const findings = within(tabs).getByRole("tab", { name: "Findings" });
+  await user.click(traces);
+  await user.keyboard("{ArrowRight}");
+  expect(findings).toHaveFocus();
+  expect(traces).toHaveAttribute("aria-selected", "true");
+  await user.keyboard("{Enter}");
+  expect(findings).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
+  const searchParams = lastUrl(onUrlUpdate);
+  expect(searchParams.get("agent")).toBe("support_agent");
+  expect(searchParams.get("demo")).toBe("true");
+  first.unmount();
+  renderWithProviders(workspace, { searchParams });
+  expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  expect(network).not.toHaveBeenCalled();
 });
 
 it("should switch color themes from the sidebar and restore the saved preference after reopening", async () => {

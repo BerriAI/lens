@@ -47,16 +47,12 @@ function serve({ enabled = false, traces = false, requests = false, connected = 
       return Response.json(saved);
     }
     if (path === "/lens") return Response.json(await list());
-    if (path === "/key/generate") return Response.json({ token_id: worker().analysis_key_id });
-    if (path === "/lens/workers/register") {
-      list.mockResolvedValue({ lenses: [], workers: [worker()], tracing_enabled: true });
-      const created = { worker: worker(), token: "", image: "test-worker-image", managed: true };
-      return Response.json(created);
-    }
-    if (path === "/models") return Response.json({ data: [{ id: "analysis" }] });
-    if (path === "/model_group/info")
-      return Response.json({ data: [{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }] });
-    if (path === "/key/info") return Response.json({ info: { models: ["analysis"], max_budget: 100 } });
+    if (path === "/lens/models") return Response.json({ data: [{ id: "analysis" }] });
+    if (path === "/lens/model_group/info")
+      return Response.json({
+        data: [{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }],
+      });
+    if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
     if (path === "/lens/agents") return Response.json(["support_agent"]);
     if (path === "/lens/preview/sample") return Response.json({ eligible: 1, selected: 1, executions: [] });
     if (path.endsWith("/reviews"))
@@ -86,13 +82,16 @@ const renderWorkspace = (options?: Parameters<typeof renderWithProviders>[1], us
 const setupParam = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
   new URLSearchParams(String(onUrlUpdate.mock.lastCall?.[0].queryString ?? "")).get("setup");
 
-async function connectWorkerFromSettings(user: ReturnType<typeof userEvent.setup>) {
+async function configureAnalysisFromSettings(user: ReturnType<typeof userEvent.setup>) {
   const settings = within(await screen.findByRole("region", { name: "Settings" }));
-  expect(settings.getByRole("heading", { name: "Connect a worker" })).toBeVisible();
-  await user.click(settings.getByRole("combobox", { name: "Analysis model" }));
-  await user.click(await screen.findByRole("option", { name: "analysis" }));
-  await user.click(settings.getByRole("button", { name: "Enable investigations" }));
-  expect(await settings.findByRole("heading", { name: "Worker connected" })).toBeVisible();
+  expect(settings.getByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
+  list.mockResolvedValue({
+    lenses: [],
+    workers: [worker()],
+    tracing_enabled: true,
+  });
+  await user.click(await settings.findByRole("button", { name: "Check configuration" }));
+  expect(await settings.findByText("Analysis is configured")).toBeVisible();
   await user.click(settings.getByRole("button", { name: "New investigation" }));
   expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -204,9 +203,9 @@ describe("Lens setup journey", () => {
     expect(await intro.findByText(/Your first trace is ready/)).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "Agent runs" })).not.toBeInTheDocument();
-    await user.click(intro.getByRole("button", { name: "Continue to worker" }));
+    await user.click(intro.getByRole("button", { name: "Configure analysis" }));
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBeNull());
-    await connectWorkerFromSettings(user);
+    await configureAnalysisFromSettings(user);
   });
 
   it("continues to agent setup when a background service check detects the installation", async () => {
@@ -241,7 +240,7 @@ describe("Lens setup journey", () => {
     expect(agent.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
     serve({ enabled: true, traces: true });
     await user.click(intro.getByRole("button", { name: "Check for traces" }));
-    expect(await intro.findByRole("button", { name: "Continue to worker" })).toBeEnabled();
+    expect(await intro.findByRole("button", { name: "Configure analysis" })).toBeEnabled();
   });
 
   it("resumes setup from the URL and leaves only when the user chooses traces", async () => {
@@ -250,7 +249,7 @@ describe("Lens setup journey", () => {
     const onUrlUpdate = vi.fn();
     renderWorkspace({ searchParams: "?tab=investigations&setup=lens", onUrlUpdate });
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    expect(await intro.findByRole("button", { name: "Connect worker" })).toBeVisible();
+    expect(await intro.findByRole("button", { name: "Configure analysis" })).toBeVisible();
     expect(intro.getByRole("heading", { name: "Get Lens running" })).toBeVisible();
     await user.click(intro.getByRole("button", { name: "View traces" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -258,7 +257,7 @@ describe("Lens setup journey", () => {
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBeNull());
     await user.click(screen.getByRole("tab", { name: "Investigations" }));
     const guide = within(await screen.findByRole("region", { name: "Get Lens running" }));
-    expect(guide.getByRole("button", { name: /Connect a worker/ })).toHaveAttribute("aria-expanded", "true");
+    expect(guide.getByRole("button", { name: /Configure analysisChoose/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -267,18 +266,18 @@ describe("Lens setup journey", () => {
     const user = userEvent.setup();
     const welcome = renderWorkspace({ searchParams: "?tab=investigations" });
     expect(await screen.findByRole("region", { name: "Get Lens running" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Connect worker" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Configure analysis" })).toBeEnabled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     welcome.unmount();
     renderWorkspace({ searchParams: "?tab=investigations&setup=lens" });
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
     expect(await intro.findByRole("heading", { name: "Before you start" })).toBeVisible();
-    expect(intro.getByRole("button", { name: "Connect worker" })).toBeEnabled();
+    expect(intro.getByRole("button", { name: "Configure analysis" })).toBeEnabled();
     await user.click(intro.getByRole("button", { name: /Install Lens/ }));
-    expect(intro.getByRole("button", { name: "Continue with request logs" })).toBeEnabled();
+    expect(intro.getByRole("button", { name: "Configure analysis" })).toBeEnabled();
     await user.click(intro.getByRole("button", { name: /Send your first trace/ }));
-    await user.click(intro.getByRole("button", { name: "Continue with request logs" }));
-    await connectWorkerFromSettings(user);
+    await user.click(intro.getByRole("button", { name: "Configure analysis" }));
+    await configureAnalysisFromSettings(user);
   });
 
   it("keeps setup recoverable when checking for a first trace fails", async () => {
@@ -295,10 +294,10 @@ describe("Lens setup journey", () => {
     });
     await user.click(intro.getByRole("button", { name: "Check for traces" }));
     expect(await intro.findByRole("alert")).toHaveTextContent("Could not check setup");
-    expect(intro.queryByRole("button", { name: "Continue to worker" })).not.toBeInTheDocument();
+    expect(intro.queryByRole("button", { name: "Configure analysis" })).not.toBeInTheDocument();
     serve({ enabled: true, traces: true });
     await user.click(intro.getByRole("button", { name: "Retry" }));
-    expect(await intro.findByRole("button", { name: "Continue to worker" })).toBeEnabled();
+    expect(await intro.findByRole("button", { name: "Configure analysis" })).toBeEnabled();
     expect(intro.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -327,8 +326,8 @@ describe("Lens setup journey", () => {
     serve({ enabled: true, traces: true });
     renderWorkspace({ searchParams: "?setup=lens" }, "Internal User");
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    expect(await intro.findByText(/A gateway administrator can connect a worker/)).toBeVisible();
-    expect(intro.getByRole("button", { name: "Connect worker" })).toBeDisabled();
+    expect(await intro.findByText(/An administrator can configure analysis/)).toBeVisible();
+    expect(intro.getByRole("button", { name: "Configure analysis" })).toBeDisabled();
     expect(network.mock.calls.some(([input]) => requestPath(input) === "/lens")).toBe(false);
   });
 

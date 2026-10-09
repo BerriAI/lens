@@ -1,0 +1,124 @@
+{
+  "status": "passed_consolidated_workspace",
+  "verified_at": "2026-10-09T06:46:17.122Z",
+  "commands": {
+    "workspace": "CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 cargo test --workspace --locked --no-fail-fast -- --test-threads=2",
+    "affected": "cargo test --locked -p lens-server -p litellm-lens -p litellm-traces-clickhouse --no-fail-fast -- --test-threads=2",
+    "analysis": "cargo test --locked -p lens-analysis --test transport",
+    "lens": "cargo test --locked -p litellm-lens --test eval_judge --test local --test worker --test standalone -- --test-threads=2",
+    "ignored": "LENS_TEST_CLICKHOUSE_URL=http://127.0.0.1:18124 cargo test --locked -p litellm-lens --test clickhouse -- --ignored --test-threads=2",
+    "reads": "cargo test --locked -p litellm-traces-clickhouse --test reads list_costs_match_each_run_when_response_ids_are_reused::case_1_api_key -- --exact",
+    "clippy": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+    "sdk": ".venv/bin/pytest -q",
+    "consolidated_workspace": "CLICKHOUSE_STATE_TEST_URL=http://127.0.0.1:18124 CARGO_TARGET_DIR=runtime/standalone-target cargo test --manifest-path src/worker/Cargo.toml --locked --workspace -- --test-threads=2"
+  },
+  "runs": {
+    "initial_workspace": {
+      "log_path": "/tmp/lens-merged-workspace-tests.log",
+      "log_sha256": "3851f7e58776ca93bbc3dac2622360258b39b6224bfaa2966134604d957f250a",
+      "targets": 144,
+      "passed": 3877,
+      "failed": 3,
+      "ignored": 4
+    },
+    "affected_packages": {
+      "log_path": "/tmp/lens-merged-affected-tests.log",
+      "log_sha256": "99da66d9f427df969478ab6057f78367bc6943a416998e6ffa86e88147ada61c",
+      "targets": 46,
+      "passed": 918,
+      "failed": 3,
+      "ignored": 4
+    },
+    "analysis_attribution": {
+      "log_path": "/tmp/lens-merged-analysis-attribution-tests.log",
+      "log_sha256": "7a2d3c0eaeb3c197c4be001fdaefccbafa86c3439b492de9cdfdf6e5534177c5",
+      "targets": 1,
+      "passed": 79,
+      "failed": 0,
+      "ignored": 0
+    },
+    "final_lens_targets": {
+      "log_path": "/tmp/lens-merged-final-lens-tests.log",
+      "log_sha256": "e49c4d3cfea54423ed34566ec3c09aec8ecb820d08864705356744d97bb12c1a",
+      "targets": 4,
+      "passed": 60,
+      "failed": 0,
+      "ignored": 0
+    },
+    "real_clickhouse_explicit": {
+      "log_path": "/tmp/lens-merged-ignored-clickhouse.log",
+      "log_sha256": "3f1da305d8d1c78284d2c6d7fb6a815969be5bdb0f98486ab58faa3f62c2a746",
+      "targets": 1,
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0
+    },
+    "reads_startup_retry": {
+      "log_path": "/tmp/lens-merged-reads-retry.log",
+      "log_sha256": "7585a147f05f64cb3cfbd075e7e44187a952a0cbb3eb34b162bd2f63d40579df",
+      "targets": 1,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "clippy": {
+      "log_path": "/tmp/lens-merged-final-clippy.log",
+      "log_sha256": "e07230d9d4443b9e4b9400c67277359c2a0c3030bc0f192db24556b1a1bb67b6",
+      "targets": 0,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "status": "passed"
+    },
+    "sdk": {
+      "log_path": "/tmp/lens-merged-sdk-tests.log",
+      "log_sha256": "80172d55091ed2d969fe1c04469f8226d49983f214413cf10d30eeacf14b96e9",
+      "targets": 0,
+      "passed": 38,
+      "failed": 0,
+      "ignored": 0
+    },
+    "consolidated_workspace": {
+      "log_path": "/tmp/lens-merged-workspace-final.log",
+      "log_sha256": "75ba7df0e17434a553f88d4d056e441e7a6642d33779b0f37a097b65ff77b4d9",
+      "exit_code": 0,
+      "targets": 146,
+      "passed": 3915,
+      "failed": 0,
+      "ignored": 4
+    }
+  },
+  "source_sha256": {
+    "src/worker/crates/lens/src/eval_judge.rs": "1e3ed79b27a8dc0e40aa85f89a4c58e919a2825c00077a3a579bc53bbc0f90f7",
+    "src/worker/crates/analysis/src/transport.rs": "2019992954c5e0e73e13f2d69ebe7209f3516009393c8cc9b7e97aceb36a948a",
+    "src/worker/crates/lens/src/control/job.rs": "7969295e494807c14c7ab4577d1ac19a3789bbfff8d27813623b1cacacf20115",
+    "src/worker/crates/traces-clickhouse/src/query/evals.rs": "3047cec0e332305e3c7b0191d1f6f744677bbee6aa2349ad4cdcd6231886684c"
+  },
+  "resolutions": [
+    {
+      "run": "initial_workspace",
+      "failures": 3,
+      "reason": "Dataset metadata fixtures needed the new credential-owner lookup before reading root attributes",
+      "verified_by": "affected_packages"
+    },
+    {
+      "run": "affected_packages",
+      "failures": 2,
+      "reason": "New standalone regression initially hardcoded a case ID; fixture now uses the canonical ID returned by saved dataset",
+      "verified_by": "final_lens_targets"
+    },
+    {
+      "run": "affected_packages",
+      "failures": 1,
+      "reason": "Isolated ClickHouse testcontainer startup timed out under concurrent builds before the test ran",
+      "verified_by": "reads_startup_retry"
+    },
+    {
+      "run": "initial_workspace",
+      "ignored": 4,
+      "reason": "Explicit opt-in isolated real ClickHouse tests",
+      "verified_by": "real_clickhouse_explicit"
+    }
+  ],
+  "counting": "Counts are per execution and must not be summed as unique tests. The consolidated full workspace rerun covers final production Rust after the gateway-attribution and fixture repairs. During that run the development-only benchmark gained a separate ingestion endpoint and nine tests; its final 30 cases and strict Clippy passed separately in service-benchmark-merged-tests.log and service-benchmark-merged-clippy.log. The four opt-in ClickHouse tests passed in real_clickhouse_explicit."
+}

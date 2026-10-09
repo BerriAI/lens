@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/lens/preview/sample",
+    "headers": {
+      "authorization": "Bearer {{admin_token}}",
+      "content-type": "application/json"
+    },
+    "body": {
+      "selection": {
+        "source": "all"
+      }
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "ctx": {
+            "expected": "'traces', 'requests' or 'both'"
+          },
+          "input": "all",
+          "loc": [
+            "body",
+            "selection",
+            "source"
+          ],
+          "msg": "Input should be 'traces', 'requests' or 'both'",
+          "type": "literal_error"
+        }
+      ]
+    }
+  }
+}

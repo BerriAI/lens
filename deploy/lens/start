@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+lens_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+lens_root="$(cd -- "$lens_dir/../.." && pwd)"
+if [[ -z "${LENS_IMAGE:-}" ]]; then
+  unset LENS_IMAGE
+fi
+docker info >/dev/null
+docker compose version >/dev/null
+lens_compose=(docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml")
+prepare() {
+  test ! -L "$lens_dir/.env"
+  if [[ -z "${LENS_IMAGE:-}" && -f "$lens_dir/.env" ]] && \
+      ! "${lens_compose[@]}" config --images lens | grep -Fxq 'lens:local'; then
+    return
+  fi
+  if [[ -z "${LENS_IMAGE:-}" && -f "$lens_dir/image" ]]; then
+    export LENS_IMAGE="$(cat "$lens_dir/image")"
+  fi
+  if [[ -z "${LENS_IMAGE:-}" ]]; then
+    export LENS_IMAGE=lens:local
+    docker build --file "$lens_root/deploy/runtime/Dockerfile" --tag "$LENS_IMAGE" "$lens_root"
+  elif ! docker image inspect "$LENS_IMAGE" >/dev/null 2>&1; then
+    docker pull "$LENS_IMAGE"
+  fi
+  docker run --rm --user "$(id -u):$(id -g)" --volume "$lens_dir:/setup" "$LENS_IMAGE" init /setup
+  if ! grep -q '^LENS_IMAGE=' "$lens_dir/.env"; then
+    printf '\nLENS_IMAGE=%s\n' "$LENS_IMAGE" >> "$lens_dir/.env"
+  fi
+}
+prepare
+"${lens_compose[@]}" up --detach --wait --wait-timeout 180
+lens_public_url="$("${lens_compose[@]}" exec -T lens sh -c 'printf "%s" "$LENS_PUBLIC_URL"')"
+printf '%s\n' "Lens is ready at ${lens_public_url%/}/ui/" 'Sign in with LENS_ADMIN_TOKEN from deploy/lens/.env. Keep the file private and retain it across restarts.'

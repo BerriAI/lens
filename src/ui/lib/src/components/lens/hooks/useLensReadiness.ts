@@ -41,9 +41,9 @@ export function useLensReadiness(canInvestigate: boolean): LensReadiness {
   const state = readiness(input);
   const activityError = state.activityReady ? null : (tracesDisabled ? null : traces.error) || activity.error;
   const error = list.error || activityError;
-  const loadingTraces = !state.activityReady && traces.isPending;
-  const loadingActivity = !state.activityReady && list.isSuccess && activity.isPending;
-  const loadingInvestigations = canInvestigate && (list.isPending || loadingActivity);
+  const loadingTraces = !state.activityReady && traces.isPending && !traces.isFetched;
+  const loadingActivity = !state.activityReady && list.isSuccess && activity.isPending && !activity.isFetched;
+  const loadingInvestigations = canInvestigate && ((!list.isFetched && list.isPending) || loadingActivity);
   const refresh = () => {
     void traces.refetch();
     if (!canInvestigate) return;

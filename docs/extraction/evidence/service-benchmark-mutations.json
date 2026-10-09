@@ -1,0 +1,21 @@
+{
+  "scope": "lens-parity benchmark comparator and fixture; HTTP runner is separately exercised against a live development service",
+  "inventory": 47,
+  "caught": 46,
+  "unviable": 1,
+  "survived": 0,
+  "viable_kill_percent": 100,
+  "initial": {
+    "caught": 44,
+    "missed": 2,
+    "unviable": 1
+  },
+  "followup": {
+    "caught": 2,
+    "missed": 0,
+    "unviable": 0
+  },
+  "source_sha256": "a35a9e70457f616a181296b015341477ab86fa9c26f8b1f152358fc79cff59ee",
+  "tests_sha256": "0650dba53e5e9e5cd2321d76140c62b85cdafddcfa1c8b75a877927d8cbf3ade",
+  "limitation": "The smoke used a shared development host and is not paired capacity qualification"
+}

@@ -1,0 +1,41 @@
+{
+  "recorded_at": "2026-10-09T09:05:08.852Z",
+  "source_commit": "105e7b0923a17311e527aad4d480b57bab431000",
+  "image": "sha256:9a2eba30f01720fe66a6f45bcc3beba63caac2d3e44e59445bf1ccede7715563",
+  "architecture": "linux/arm64",
+  "status": "passed",
+  "source_build": "Frozen committed source with 1652 tracked files; no working-tree source used",
+  "checks": {
+    "fresh_install": "Generated credentials, UI and API, authentication, trace upload, Lens and ClickHouse restart persistence",
+    "backup_restore": "Trace, dataset revision/export, session and ingestion key retained; repeated setup preserves credentials; existing project/environment, symlink and corrupt archive rejected; failed backup resumes services; compaction preserves state",
+    "sandbox": {
+      "passed": 10,
+      "failed": 0,
+      "scope": "Native Linux sandbox standard-library calculations, host-file and network denial, path escape denial, cancellation/reaping, process output preservation, memory/file/output/scratch limits"
+    }
+  },
+  "logs": {
+    "fresh_install": {
+      "path": "docs/extraction/evidence/successor-fresh_install.log",
+      "sha256": "038e373ce61e52aac368a0ac01d55ebd6186216f084712d057b928b366a03e39",
+      "status": "passed"
+    },
+    "backup_restore": {
+      "path": "docs/extraction/evidence/successor-backup_restore.log",
+      "sha256": "fb7dbd4ec1d99d35fb3632f8ad59b3ef09de499bc49f9fba6f40dec79332046c",
+      "status": "passed"
+    },
+    "sandbox": {
+      "path": "docs/extraction/evidence/successor-sandbox.log",
+      "sha256": "8dcc8e605fe47cbb9427fa3179c3f5f055ec1f8934a247ad43d63b1a1bbef03c",
+      "status": "passed",
+      "original_log_sha256": "7dec88cbe1d129fe4c69909ac368c55b35492c6e7f8dafe89da4661849ba0a47",
+      "normalization": "Trailing blank line removed for repository whitespace check; test output otherwise unchanged"
+    }
+  },
+  "scope_limits": [
+    "Local immutable image qualification, not an official public release",
+    "Actual provider investigation and browser qualification are recorded separately",
+    "Native amd64 image execution is tracked in CI, not this arm64 host receipt"
+  ]
+}
