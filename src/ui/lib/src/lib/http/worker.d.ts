@@ -1,5 +1,11 @@
 /* Generated from schema/lens-worker.v7.json. Run npm run generate:worker-contract. */
 
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TraceSignalStatus".
+ */
+export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
+
 export interface LensWorker {
   [k: string]: unknown;
 }
@@ -585,4 +591,34 @@ export interface Result {
   error?: string;
   findings?: FindingDraft[];
   review_versions?: ReviewVersion[];
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalEvidence".
+ */
+export interface SignalEvidence {
+  quote: string;
+  span_id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalFlag".
+ */
+export interface SignalFlag {
+  evidence?: SignalEvidence | null;
+  name: string;
+  score: number;
+  signal_id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TraceSignals".
+ */
+export interface TraceSignals {
+  classified_at?: string | null;
+  flags?: SignalFlag[];
+  model?: string;
+  status: TraceSignalStatus;
+  trace_id: string;
+  trace_ref?: string;
 }

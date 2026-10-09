@@ -26,15 +26,13 @@ fn request() -> DecisionRequest {
         questions: BTreeMap::from([
             (
                 "frustration".into(),
-                Question {
-                    r#type: "noul",
+                Question::Noul {
                     instructions: "Does the user express frustration?".into(),
                 },
             ),
             (
                 "repeated".into(),
-                Question {
-                    r#type: "noul",
+                Question::Noul {
                     instructions: "Did the user repeat a request?".into(),
                 },
             ),
@@ -151,5 +149,88 @@ async fn refusal_leaves_the_signal_unanswered_instead_of_scoring_zero(request: D
     assert_eq!(
         result["answers"],
         json!({"repeated":{"type":"noul","noul":0.6}})
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn gateway_selects_evidence_and_scores_in_one_request(mut request: DecisionRequest) {
+    request.questions.insert(
+        "evidence_frustration".into(),
+        Question::Choice {
+            instructions: "Which passage shows the user's frustration?".into(),
+            criteria: BTreeMap::from([
+                ("passage_0".into(), None),
+                ("none".into(), Some("No supporting passage".into())),
+            ]),
+        },
+    );
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/gateway/v1/decisions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"answers":[
+            {"type":"predicate","name":"frustration","probability":0.94},
+            {"type":"predicate","name":"repeated","probability":0.81},
+            {"type":"choice","name":"evidence_frustration","choice":"passage_0","confidence":0.9,
+             "probabilities":[{"value":"passage_0","probability":0.95},{"value":"none","probability":0.05}]}
+        ]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = client(&server).evaluate(&request).await.unwrap();
+    assert_eq!(
+        result["answers"]["frustration"],
+        json!({"type":"noul","noul":0.94})
+    );
+    assert_eq!(
+        result["answers"]["evidence_frustration"],
+        json!({"type":"choice","choice":"passage_0","confidence":0.9})
+    );
+    let received = server.received_requests().await.unwrap();
+    assert_eq!(received.len(), 1);
+    let body: Value = received[0].body_json().unwrap();
+    assert_eq!(
+        body["questions"][0],
+        json!({
+            "type":"choice","name":"evidence_frustration",
+            "instructions":"Which passage shows the user's frustration?",
+            "choices":[{"value":"none","description":"No supporting passage"},{"value":"passage_0"}]
+        })
+    );
+}
+
+#[rstest]
+#[case::refusal(json!({"type":"refusal","name":"evidence_frustration"}))]
+#[case::unknown_passage(json!({"type":"choice","name":"evidence_frustration","choice":"made_up","confidence":0.9}))]
+#[case::bad_confidence(json!({"type":"choice","name":"evidence_frustration","choice":"passage_0","confidence":2}))]
+#[case::wrong_shape(json!({"type":"choice","name":"evidence_frustration","choice":42,"confidence":"certain"}))]
+#[case::missing_fields(json!({"type":"choice","name":"evidence_frustration"}))]
+#[case::unknown_type(json!({"type":"unknown","name":"evidence_frustration"}))]
+#[case::missing_type(json!({"name":"evidence_frustration"}))]
+#[case::malformed_predicate(json!({"type":"predicate","name":"evidence_frustration"}))]
+#[tokio::test]
+async fn unusable_evidence_keeps_valid_signal_scores(
+    mut request: DecisionRequest,
+    #[case] evidence: Value,
+) {
+    request.questions.insert(
+        "evidence_frustration".into(),
+        Question::Choice {
+            instructions: "Which passage supports this signal?".into(),
+            criteria: BTreeMap::from([("passage_0".into(), None), ("none".into(), None)]),
+        },
+    );
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"answers":[
+            {"type":"predicate","name":"frustration","probability":0.94}, evidence
+        ]})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = client(&server).evaluate(&request).await.unwrap();
+    assert_eq!(
+        result["answers"],
+        json!({"frustration":{"type":"noul","noul":0.94}})
     );
 }

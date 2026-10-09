@@ -1,10 +1,10 @@
 mod support;
 use lens_contract::{
     investigations::Scope,
-    signals::{SignalAttemptStatus, SignalConfig},
+    signals::{SignalAttemptStatus, SignalConfig, SignalEvidence},
     worker::Execution,
 };
-use lens_signals::{classify, signal_state};
+use lens_signals::{Question, classify, signal_state};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, time::Duration};
@@ -39,12 +39,116 @@ async fn classifier_sends_recorded_steps_questions_and_logging_tags(
     );
     assert_eq!(
         serde_json::to_value(&request.state.steps).unwrap(),
-        json!([{"kind":"user","name":"question","content":"user text"}])
+        json!([{"kind":"user","name":"question","content":"[L000] user text"}])
     );
     assert_eq!(
-        serde_json::to_value(&request.questions).unwrap(),
+        serde_json::to_value(
+            request
+                .questions
+                .iter()
+                .filter(|(id, _)| !id.starts_with("__evidence_"))
+                .collect::<BTreeMap<_, _>>()
+        )
+        .unwrap(),
         json!({"a":{"type":"noul","instructions":"First question?"},"b":{"type":"noul","instructions":"Second question?"}})
     );
+    let Question::Choice {
+        instructions,
+        criteria,
+    } = &request.questions["__evidence_0"]
+    else {
+        panic!("Expected an evidence choice");
+    };
+    assert!(instructions.contains("First question?"));
+    assert_eq!(
+        criteria.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec!["L000", "none"]
+    );
+    assert_eq!(request.questions.len(), 4);
+}
+
+#[rstest]
+#[tokio::test]
+async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_call(
+    reader: Reader,
+    completion: Completion,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    let quote = "You ignored my request again. This still does not work.";
+    let reader = Reader {
+        contents: BTreeMap::from([(
+            "".into(),
+            page(
+                vec![
+                    part("Earlier request"),
+                    lens_contract::worker::TracePart {
+                        span_id: "problem-step".into(),
+                        ..part(quote)
+                    },
+                ],
+                None,
+            ),
+        )]),
+        ..reader
+    };
+    let completion = Completion {
+        response: json!({"answers":{
+            "a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2},
+            "__evidence_0":{"type":"choice","choice":"L001","confidence":0.9},
+            "__evidence_1":{"type":"choice","choice":"none","confidence":0.8}
+        }}),
+        ..completion
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(
+        result.evidence,
+        BTreeMap::from([(
+            "a".into(),
+            SignalEvidence {
+                span_id: "problem-step".into(),
+                quote: quote.into(),
+            }
+        )])
+    );
+    let calls = completion.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].state.steps[1].content, format!("[L001] {quote}"));
+    assert_eq!(*reader.content_calls.lock().unwrap(), vec![""]);
+}
+
+#[rstest]
+#[case::missing(json!(null))]
+#[case::unknown_candidate(json!({"type":"choice","choice":"invented","confidence":0.8}))]
+#[case::none(json!({"type":"choice","choice":"none","confidence":0.8}))]
+#[case::refused(json!({"type":"refusal"}))]
+#[case::wrong_type(json!({"type":"noul","choice":"L000","confidence":0.8}))]
+#[case::bad_confidence(json!({"type":"choice","choice":"L000","confidence":1.2}))]
+#[case::missing_confidence(json!({"type":"choice","choice":"L000"}))]
+#[tokio::test]
+async fn unavailable_evidence_preserves_valid_signal_scores(
+    reader: Reader,
+    completion: Completion,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] evidence: Value,
+) {
+    let completion = Completion {
+        response: json!({"answers":{"a":{"type":"noul","noul":0.9},
+            "b":{"type":"noul","noul":0.2},"__evidence_0":evidence}}),
+        ..completion
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(
+        result.scores,
+        BTreeMap::from([("a".into(), 0.9), ("b".into(), 0.2)])
+    );
+    assert!(result.evidence.is_empty());
+    assert_eq!(completion.calls.lock().unwrap().len(), 1);
 }
 
 #[rstest]

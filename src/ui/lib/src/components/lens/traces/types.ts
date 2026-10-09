@@ -1,4 +1,5 @@
 import type { components, paths } from "../../../lib/http/schema";
+import type { TraceSignals as WorkerTraceSignals } from "../../../lib/http/worker";
 
 export type Trace = paths["/v1/traces/{trace_id}"]["get"]["responses"][200]["content"]["application/json"];
 export type TracePage = paths["/v1/traces"]["get"]["responses"][200]["content"]["application/json"];
@@ -16,7 +17,7 @@ export type TraceAgentList = components["schemas"]["TraceAgentList"];
 export type TraceAgentsQuery = NonNullable<paths["/v1/traces/agents"]["get"]["parameters"]["query"]>;
 export type TraceFindingsRequest = components["schemas"]["TraceFindingsRequest"];
 export type TraceFindingCount = components["schemas"]["TraceFindingCount"];
-export type TraceSignals = components["schemas"]["TraceSignals"];
+export type TraceSignals = WorkerTraceSignals;
 export type SignalFlag = NonNullable<TraceSignals["flags"]>[number];
 export type TraceFeedback = components["schemas"]["TraceFeedback"];
 export type Feedback = components["schemas"]["Feedback"];

@@ -2,7 +2,7 @@ import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } f
 import { useCallback, useState } from "react";
 
 import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
-import type { TraceSummary } from "./types";
+import type { SignalFlag, TraceSummary } from "./types";
 
 export const TRACE_VIEWS = ["steps", "thread"] as const;
 export type TraceView = (typeof TRACE_VIEWS)[number];
@@ -36,7 +36,10 @@ export interface RunSelection {
   spanTab: SpanTab;
   stepQuery: string;
   errorsOnly: boolean;
+  signalId: string | null;
+  signalFocus: number;
   selectSpan: (id: string) => void;
+  selectSignal: (signal: SignalFlag | null) => void;
   setView: (view: TraceView) => void;
   setSpanTab: (tab: SpanTab) => void;
   setStepQuery: (query: string) => void;
@@ -47,6 +50,7 @@ export const OPEN_TRACE_PARSERS = {
   trace: parseAsString,
   trace_ref: parseAsString,
   span: parseAsString,
+  signal: parseAsString,
   view: parseAsStringLiteral(TRACE_VIEWS).withDefault("steps"),
   span_tab: parseAsStringLiteral(SPAN_TABS).withDefault("content"),
   steps_q: parseAsString.withDefault(""),
@@ -64,16 +68,24 @@ export const RUN_FILTER_PARSERS = {
 export interface OpenTraceRouting {
   trace: TraceRef | null;
   openTrace: (ref: TraceRef | null) => void;
+  openSignal: (ref: TraceRef, signal: SignalFlag) => void;
   selection: RunSelection;
   fullScreen: boolean;
   setFullScreen: (fullScreen: boolean) => void;
 }
 
-const FRESH_RUN = { span: null, view: null, span_tab: null, steps_q: null, errors: null };
+const FRESH_RUN = { span: null, signal: null, view: null, span_tab: null, steps_q: null, errors: null };
+
+const signalSelection = (signal: SignalFlag | null) => ({
+  ...FRESH_RUN,
+  signal: signal?.signal_id ?? null,
+  span: signal?.evidence?.span_id ?? null,
+});
 
 /** The open run is a history entry; moving within it (step, view, section) replaces the current one. */
 export function useOpenTraceRouting(): OpenTraceRouting {
   const [params, setParams] = useQueryStates(OPEN_TRACE_PARSERS, { history: "push" });
+  const [signalFocus, setSignalFocus] = useState(0);
   const openTrace = useCallback(
     (ref: TraceRef | null) => {
       const run = { trace: ref?.traceId ?? null, trace_ref: ref?.traceRef || null };
@@ -81,8 +93,26 @@ export function useOpenTraceRouting(): OpenTraceRouting {
     },
     [setParams],
   );
+  const openSignal = useCallback(
+    (ref: TraceRef, signal: SignalFlag) => {
+      setSignalFocus((value) => value + 1);
+      void setParams({
+        ...signalSelection(signal),
+        trace: ref.traceId,
+        trace_ref: ref.traceRef || null,
+      });
+    },
+    [setParams],
+  );
+  const selectSignal = useCallback(
+    (signal: SignalFlag | null) => {
+      setSignalFocus((value) => value + 1);
+      void setParams(signalSelection(signal), { history: "replace" });
+    },
+    [setParams],
+  );
   const selectSpan = useCallback(
-    (id: string) => void setParams({ span: id, span_tab: null }, { history: "replace" }),
+    (id: string) => void setParams({ span: id, span_tab: null, signal: null }, { history: "replace" }),
     [setParams],
   );
   const setView = useCallback((view: TraceView) => void setParams({ view }, { history: "replace" }), [setParams]);
@@ -105,13 +135,17 @@ export function useOpenTraceRouting(): OpenTraceRouting {
   return {
     trace: params.trace === null ? null : { traceId: params.trace, traceRef: params.trace_ref ?? undefined },
     openTrace,
+    openSignal,
     selection: {
       spanId: params.span,
       view: params.view,
       spanTab: params.span_tab,
       stepQuery: params.steps_q,
       errorsOnly: params.errors,
+      signalId: params.signal,
+      signalFocus,
       selectSpan,
+      selectSignal,
       setView,
       setSpanTab,
       setStepQuery,
@@ -129,11 +163,37 @@ export function useLocalRunSelection(initialSpanId: string | null): RunSelection
   const [spanTab, setSpanTab] = useState<SpanTab>("content");
   const [stepQuery, setStepQuery] = useState("");
   const [errorsOnly, setErrorsOnly] = useState(false);
+  const [signalId, setSignalId] = useState<string | null>(null);
+  const [signalFocus, setSignalFocus] = useState(0);
   const selectSpan = useCallback((id: string) => {
     setSpanId(id);
     setSpanTab("content");
+    setSignalId(null);
   }, []);
-  return { spanId, view, spanTab, stepQuery, errorsOnly, selectSpan, setView, setSpanTab, setStepQuery, setErrorsOnly };
+  const selectSignal = useCallback((signal: SignalFlag | null) => {
+    setSignalId(signal?.signal_id ?? null);
+    setSpanId(signal?.evidence?.span_id ?? null);
+    setSignalFocus((value) => value + 1);
+    setView("steps");
+    setSpanTab("content");
+    setStepQuery("");
+    setErrorsOnly(false);
+  }, []);
+  return {
+    spanId,
+    view,
+    spanTab,
+    stepQuery,
+    errorsOnly,
+    signalId,
+    signalFocus,
+    selectSpan,
+    selectSignal,
+    setView,
+    setSpanTab,
+    setStepQuery,
+    setErrorsOnly,
+  };
 }
 
 export function useRunFilterRouting() {

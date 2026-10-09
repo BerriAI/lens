@@ -192,7 +192,8 @@ fn projection_sorts_scores_stably_and_uses_current_names(
         span_count: 2,
         claimed_until: None,
         classified_at: None,
-        data: json!({"status":"classified","scores":{"a":0.5,"b":0.9,"c":0.9,"removed":1.0}}),
+        data: json!({"status":"classified","scores":{"a":0.5,"b":0.9,"c":0.9,"removed":1.0},
+            "evidence":{"b":{"span_id":"problem-step","quote":"This still does not work"}}}),
     };
     let result = trace_signals(&identity, Some(&row), &config).unwrap();
     assert_eq!(
@@ -207,6 +208,15 @@ fn projection_sorts_scores_stably_and_uses_current_names(
             ("a", "First", 0.5)
         ]
     );
+    assert_eq!(
+        result.flags[0].evidence.as_ref().unwrap().span_id,
+        "problem-step"
+    );
+    assert_eq!(
+        result.flags[0].evidence.as_ref().unwrap().quote,
+        "This still does not work"
+    );
+    assert!(result.flags[1].evidence.is_none());
     let raised = trace_signals(
         &identity,
         Some(&row),
