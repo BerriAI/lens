@@ -68,6 +68,7 @@ impl Investigations {
             })
             .transpose()?;
         for attempt in 0..40 {
+            let writer = self.writer(lens_id).await?;
             let previous = self.snapshot(lens_id).await?;
             if previous.value.is_null() {
                 return Ok(None);
@@ -92,7 +93,7 @@ impl Investigations {
                 None => None,
             };
             match self
-                .publish_lens(previous, &current.lens, &candidate, checkpoint)
+                .publish_lens(writer, previous, &current.lens, &candidate, checkpoint)
                 .await
             {
                 Ok(lens) => return Ok(Some(lens)),

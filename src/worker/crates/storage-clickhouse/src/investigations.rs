@@ -4,6 +4,7 @@ mod scheduling;
 mod schema;
 mod trace_findings;
 mod workers;
+mod writes;
 
 use chrono::{DateTime, Utc};
 use lens_contract::{
@@ -123,13 +124,18 @@ impl Investigations {
 
     async fn publish_lens(
         &self,
+        writer: writes::Writer,
         previous: Snapshot,
         current: &Lens,
         candidate: &Lens,
         checkpoint: Option<Change>,
     ) -> Result<Lens, RepositoryError> {
+        if current.id != candidate.id {
+            return Err(failure(Error::InvalidState));
+        }
         let changed = document(candidate)? != document(current)?;
         if !changed && checkpoint.is_none() {
+            writer.commit(Vec::new()).await?;
             return Ok(current.clone());
         }
         let updated = Lens {
@@ -151,7 +157,7 @@ impl Investigations {
         .chain(archives)
         .chain(checkpoint)
         .collect();
-        self.0.commit(changes).await.map_err(failure)?;
+        writer.commit(changes).await?;
         Ok(updated)
     }
 }
@@ -191,17 +197,17 @@ impl LensRepository for Investigations {
     }
 
     async fn create(&self, lens: &Lens) -> Result<Lens, RepositoryError> {
+        let writer = self.writer(&lens.id).await?;
         let previous = self.snapshot(&lens.id).await?;
         if !previous.value.is_null() {
             return Err(RepositoryError::Conflict);
         }
-        self.0
+        writer
             .commit(vec![Change {
                 previous,
                 value: stored(lens)?,
             }])
-            .await
-            .map_err(failure)?;
+            .await?;
         Ok(lens.clone())
     }
 
@@ -209,6 +215,7 @@ impl LensRepository for Investigations {
         if expected.id != candidate.id {
             return Err(failure(Error::InvalidState));
         }
+        let writer = self.writer(&expected.id).await?;
         let previous = self.snapshot(&expected.id).await?;
         if previous.value.is_null() {
             return Err(RepositoryError::Conflict);
@@ -217,7 +224,8 @@ impl LensRepository for Investigations {
         if current.version != expected.version {
             return Err(RepositoryError::Conflict);
         }
-        self.publish_lens(previous, &current, candidate, None).await
+        self.publish_lens(writer, previous, &current, candidate, None)
+            .await
     }
 
     async fn jobs(&self, lens_id: &str, offset: u64) -> Result<Vec<Job>, RepositoryError> {

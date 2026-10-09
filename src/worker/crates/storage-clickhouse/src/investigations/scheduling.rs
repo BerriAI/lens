@@ -4,10 +4,7 @@ use lens_investigations::{DueLens, RepositoryError, ScheduleRepository, due_at};
 use serde::Deserialize;
 
 use super::{Investigations, StoredLens, decode, failure, stored};
-use crate::{
-    Error,
-    state::{Change, Head},
-};
+use crate::state::{Change, Head};
 
 const DUE: &str = "SELECT s.key AS key, s.revision AS revision, s.digest AS digest,
     formatDateTime(s.due_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS due_at
@@ -80,6 +77,7 @@ impl ScheduleRepository for Investigations {
     }
 
     async fn sync_due(&self, lens: &Lens) -> Result<(), RepositoryError> {
+        let writer = self.writer(&lens.id).await?;
         let previous = self.snapshot(&lens.id).await?;
         if previous.value.is_null() {
             return Ok(());
@@ -89,16 +87,15 @@ impl ScheduleRepository for Investigations {
             return Ok(());
         }
         let corrected = stored(&current.lens)?;
-        match self
-            .0
+        match writer
             .commit(vec![Change {
                 previous,
                 value: corrected,
             }])
             .await
         {
-            Ok(()) | Err(Error::StateConflict) => Ok(()),
-            Err(error) => Err(failure(error)),
+            Ok(()) | Err(RepositoryError::Conflict) => Ok(()),
+            Err(error) => Err(error),
         }
     }
 }

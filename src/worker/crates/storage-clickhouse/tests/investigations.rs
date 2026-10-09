@@ -12,6 +12,8 @@ mod support;
 mod trace_findings;
 #[path = "investigations/workers.rs"]
 mod workers;
+#[path = "investigations/writes.rs"]
+mod writes;
 
 use chrono::{DateTime, Duration, Utc};
 use lens_contract::{

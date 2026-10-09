@@ -56,6 +56,10 @@ impl Drop for Database {
 }
 
 impl Database {
+    pub fn url(&self) -> url::Url {
+        self.connection.url().clone()
+    }
+
     pub async fn sql(&self, sql: &str) -> String {
         let response = Client::no_redirect_for_test()
             .post(self.connection.url().clone())

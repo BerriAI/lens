@@ -28,6 +28,7 @@ url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+lens-inference = { path = "../inference" }
 litellm-http = { workspace = true, features = ["test-support"] }
 rstest.workspace = true
 testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }

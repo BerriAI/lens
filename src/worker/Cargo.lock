@@ -2556,6 +2556,7 @@ dependencies = [
  "lens-auth",
  "lens-contract",
  "lens-datasets",
+ "lens-inference",
  "lens-investigations",
  "lens-signals",
  "litellm-http",
