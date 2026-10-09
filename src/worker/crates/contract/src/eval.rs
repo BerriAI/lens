@@ -339,6 +339,9 @@ pub struct EvalRun {
     pub version: String,
     pub branch: String,
     pub pr: Option<u64>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[schemars(extend("default" = ""))]
+    pub ci_url: String,
     pub url: String,
     pub expected_trials: u64,
     pub received_trials: u64,

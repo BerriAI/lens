@@ -219,6 +219,7 @@ class EvalRun(BaseModel):
     )
     agent: str
     branch: str
+    ci_url: str = ""
     eval: str
     expected_trials: int = Field(..., ge=0, le=18446744073709551615)
     failure: str = ""

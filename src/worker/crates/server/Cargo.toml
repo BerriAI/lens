@@ -17,6 +17,7 @@ lens-auth = { path = "../auth" }
 lens-contract = { path = "../contract" }
 lens-datasets = { path = "../datasets" }
 lens-evals = { path = "../evals" }
+lens-evals-sdk = { path = "../evals-sdk" }
 jsonschema = { version = "0.55.1", default-features = false }
 schemars.workspace = true
 lens-investigations = { path = "../investigations" }
@@ -26,8 +27,12 @@ litellm-traces-clickhouse.workspace = true
 litellm-traces.workspace = true
 rand.workspace = true
 serde_json = { workspace = true, features = ["preserve_order", "raw_value"] }
-axum = { workspace = true, features = ["json", "query"] }
+axum = { workspace = true, features = ["json", "query", "form"] }
 http.workspace = true
+hmac = "0.12"
+jsonwebtoken = { workspace = true, features = ["aws_lc_rs", "use_pem"] }
+reqwest.workspace = true
+ring = "=0.17.14"
 serde.workspace = true
 sha2.workspace = true
 speedate = "=0.17.0"
@@ -40,12 +45,10 @@ uuid.workspace = true
 
 [dev-dependencies]
 wiremock.workspace = true
-jsonwebtoken.workspace = true
 tempfile.workspace = true
 lens-parity = { path = "../parity" }
 litellm-http = { workspace = true, features = ["test-support"] }
 litellm-storage-clickhouse.workspace = true
-reqwest.workspace = true
 testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 rstest.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

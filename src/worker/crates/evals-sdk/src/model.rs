@@ -296,6 +296,8 @@ pub struct EvalRun {
     pub version: String,
     pub branch: String,
     pub pr: Option<u64>,
+    #[serde(default)]
+    pub ci_url: String,
     pub url: String,
     pub expected_trials: usize,
     pub received_trials: usize,

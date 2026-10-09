@@ -117,6 +117,13 @@ async fn run() -> Result<(), litellm_lens::Error> {
         evals,
     )
     .await?
+    .with_github(
+        config.github,
+        config.public_url.clone(),
+        &config.query_secret,
+        config.github_service_url,
+        config.github_service_enabled,
+    )?
     .with_local(
         state.clone(),
         config.analysis_models,

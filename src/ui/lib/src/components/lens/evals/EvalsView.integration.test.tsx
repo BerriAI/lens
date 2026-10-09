@@ -288,23 +288,29 @@ describe("Evals", () => {
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval")).toBe("refund-order");
   });
 
-  it("offers Connect to GitHub for an eval with no runs, then opens the first run once it arrives", async () => {
+  it("opens GitHub setup for an eval with no runs, then opens the first run once it arrives", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     let runs: EvalRun[] = [];
-    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
-      path === "/lens/evals/runs" ? runs : serve(path, request),
-    );
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) => {
+      if (path === "/lens/evals/runs") return runs;
+      if (path === "/lens/github/status") return { configured: false, app_slug: null, connection: null };
+      return serve(path, request);
+    });
     renderWithLens(<EvalsView />, { searchParams: evalPage, onUrlUpdate });
 
-    const connect = await screen.findByRole("region", { name: "Connect agent" });
-    expect(within(connect).getByRole("button", { name: /Connect to GitHub/ })).toBeInTheDocument();
+    const connect = await screen.findByRole("region", {
+      name: "Connect agent",
+    });
+    expect(within(connect).getByRole("button", { name: "Connect GitHub" })).toBeEnabled();
     expect(within(connect).queryByRole("tabpanel")).not.toBeInTheDocument();
-    await user.click(within(connect).getByRole("button", { name: "Set up manually" }));
-    await user.click(within(connect).getByRole("tab", { name: "evals/agent_regressions.py" }));
-    expect(within(connect).getByRole("tabpanel", { name: "evals/agent_regressions.py" })).toHaveTextContent(
-      'scorers.called_before("check_refund_policy", "issue_refund")',
-    );
+    await user.click(within(connect).getByRole("button", { name: "Connect GitHub" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Connect GitHub",
+    });
+    expect(await within(dialog).findByRole("heading", { name: "GitHub connection unavailable" })).toBeVisible();
+    expect(within(dialog).queryByRole("textbox", { name: "GitHub repository" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     runs = [redRun];
     await testQueryClient.invalidateQueries();

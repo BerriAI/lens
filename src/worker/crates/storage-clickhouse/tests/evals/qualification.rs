@@ -3,6 +3,67 @@ use super::{qualification_support::*, *};
 use litellm_storage_clickhouse::state::Change;
 
 #[rstest]
+#[case::legacy(None)]
+#[case::stale(Some("https://github.com/old/repo/actions/runs/1"))]
+#[tokio::test]
+async fn stored_request_preserves_ci_provenance_for_existing_runs(
+    #[future(awt)] live_run: LiveRun,
+    #[case] saved_url: Option<&str>,
+) {
+    let ci_url = "https://github.com/example/agent/actions/runs/42";
+    let mut saved = serde_json::to_value(&live_run.run).unwrap();
+    saved["request"]["ci_url"] = ci_url.into();
+    let run = saved["run"].as_object_mut().unwrap();
+    match saved_url {
+        Some(url) => run.insert("ci_url".into(), url.into()),
+        None => run.remove("ci_url"),
+    };
+    live_run.replace(saved).await;
+    let restored = live_run
+        .store
+        .get("team", &live_run.run.run.id)
+        .await
+        .unwrap();
+    assert_eq!(restored.request.ci_url, ci_url);
+    assert!(restored.run.ci_url.is_empty());
+    assert_eq!(
+        live_run
+            .store
+            .list("team", &RunFilter::default())
+            .await
+            .unwrap(),
+        vec![restored]
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn ci_metadata_keeps_the_stored_run_compatible_with_older_readers(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+) {
+    let ci_url = "https://github.com/example/agent/actions/runs/42";
+    let store = EvalStore::new(database.store.clone());
+    let run = create(
+        &store,
+        "team",
+        CreateEvalRun {
+            ci_url: ci_url.into(),
+            ..request
+        },
+        cases,
+        Utc::now(),
+    )
+    .await;
+    let key = database.store.keys("eval-run/", "", 100).await.unwrap();
+    let snapshot = database.store.read(&key[0]).await.unwrap();
+    assert_eq!(snapshot.value["request"]["ci_url"], ci_url);
+    assert!(snapshot.value["run"].get("ci_url").is_none());
+    assert!(run.run.ci_url.is_empty());
+}
+
+#[rstest]
 #[case::run("eval-run/")]
 #[case::idempotency("eval-idempotency/")]
 #[tokio::test]

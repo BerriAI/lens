@@ -131,9 +131,9 @@ fn control(py: Python<'_>, command: &str) -> PyResult<String> {
                     .map_err(error)?;
                 Ok(String::new())
             }
-            Operation::Report { file } => {
+            Operation::Report { file, via_app } => {
                 pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_file(&root, &file))
+                    .block_on(github::publish_file_mode(&root, &file, via_app))
                     .map_err(error)?;
                 Ok(String::new())
             }

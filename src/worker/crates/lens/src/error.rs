@@ -8,6 +8,8 @@ use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    GitHub(#[from] lens_server::github::GitHubError),
     #[error("Configure an analysis model before using the eval judge scorer")]
     EvalJudgeUnavailable,
     #[error("Eval evidence exceeds the judge model context window")]

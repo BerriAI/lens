@@ -206,7 +206,7 @@ fn parse_body<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, EvalApiE
         .map_err(|_| ApiError::InvalidRequest("body does not match the eval contract").into())
 }
 
-fn valid_eval_name(name: &str) -> bool {
+pub(crate) fn valid_eval_name(name: &str) -> bool {
     !name.is_empty()
         && name.bytes().enumerate().all(|(index, character)| {
             character.is_ascii_lowercase()
@@ -285,7 +285,14 @@ async fn create<R: SessionRepository>(
         .store
         .create(&team.0, request, cases, key, &state.public_url, Utc::now())
         .await?;
-    Ok((StatusCode::CREATED, Json(stored.run)).into_response())
+    Ok((StatusCode::CREATED, Json(without_ci(stored.run))).into_response())
+}
+
+fn without_ci(run: EvalRun) -> EvalRun {
+    EvalRun {
+        ci_url: String::new(),
+        ..run
+    }
 }
 
 async fn definitions<R: SessionRepository>(
@@ -362,7 +369,7 @@ async fn finish<R: SessionRepository>(
     Path(run): Path<String>,
 ) -> Result<Response, EvalApiError> {
     let stored = state.store.finish(&team.0, &run, Utc::now()).await?;
-    Ok((StatusCode::ACCEPTED, Json(stored.run)).into_response())
+    Ok((StatusCode::ACCEPTED, Json(without_ci(stored.run))).into_response())
 }
 
 #[derive(Default, Deserialize)]
@@ -385,7 +392,7 @@ async fn read<R: SessionRepository>(
         if matches!(latest.status, RunStatus::Done | RunStatus::Failed)
             || tokio::time::Instant::now() >= deadline
         {
-            return Ok(Json(latest));
+            return Ok(Json(without_ci(latest)));
         }
         tokio::time::sleep_until(
             (tokio::time::Instant::now() + Duration::from_millis(100)).min(deadline),
@@ -393,7 +400,7 @@ async fn read<R: SessionRepository>(
         .await;
         latest = match tokio::time::timeout_at(deadline, state.store.get(&team.0, &run)).await {
             Ok(stored) => stored?.run,
-            Err(_) => return Ok(Json(latest)),
+            Err(_) => return Ok(Json(without_ci(latest))),
         };
     }
 }
@@ -406,6 +413,8 @@ struct ListQuery {
     dataset: Option<String>,
     cursor: Option<String>,
     limit: Option<u32>,
+    #[serde(default)]
+    include_ci: bool,
 }
 
 async fn list<R: SessionRepository>(
@@ -428,7 +437,16 @@ async fn list<R: SessionRepository>(
             .list(&team.0, &filter)
             .await?
             .into_iter()
-            .map(|stored| stored.run)
+            .map(|stored| {
+                if query.include_ci {
+                    EvalRun {
+                        ci_url: stored.request.ci_url,
+                        ..stored.run
+                    }
+                } else {
+                    without_ci(stored.run)
+                }
+            })
             .collect(),
     ))
 }

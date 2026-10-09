@@ -12,10 +12,14 @@ import { useDatasets } from "../datasets/api";
 import { buildEvalSpec, EMPTY_DRAFT, type NewEvalDraft } from "./newEvalSpec";
 import { useSaveEval } from "./runs/api";
 
-export function NewEval({ onCancel, onSaved }: { onCancel: () => void; onSaved: (name: string) => void }) {
+export function NewEval({ onCancel, onSaved, initialAgent = "" }: {
+  onCancel: () => void;
+  onSaved: (name: string) => void;
+  initialAgent?: string;
+}) {
   const datasets = useDatasets();
   const save = useSaveEval();
-  const [draft, setDraft] = useState<NewEvalDraft>(EMPTY_DRAFT);
+  const [draft, setDraft] = useState<NewEvalDraft>({ ...EMPTY_DRAFT, agent: initialAgent });
   const [error, setError] = useState<string | null>(null);
   const set = (change: Partial<NewEvalDraft>) => setDraft((current) => ({ ...current, ...change }));
   const items = (datasets.data ?? []).map((dataset) => ({
@@ -79,7 +83,7 @@ export function NewEval({ onCancel, onSaved }: { onCancel: () => void; onSaved: 
               </Select>
             </Field>
             <Field label="Agent">
-              <Input value={draft.agent} onChange={(event) => set({ agent: event.target.value })} />
+              <Input readOnly={Boolean(initialAgent)} value={draft.agent} onChange={(event) => set({ agent: event.target.value })} />
             </Field>
           </Section>
           <Section title="Scorers">

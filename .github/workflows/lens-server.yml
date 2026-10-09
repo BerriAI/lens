@@ -86,6 +86,8 @@ jobs:
         run: >-
           npm exec --workspace @litellm/lens-ui -- vitest run
           src/components/lens/onboarding
+          src/components/lens/agents
+          src/components/lens/evals
           src/components/lens/LensSetup.integration.test.tsx
           src/components/lens/LensWorkspace.integration.test.tsx
           --maxWorkers 2

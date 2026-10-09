@@ -26,12 +26,14 @@ export function LensHome({
   onOpenAgent,
   onOpenAgents,
   onSetup,
+  onConnectGitHub,
 }: {
   readonly agents: LensAgents;
   readonly enabled: boolean;
   readonly onOpenAgent: (name: string) => void;
   readonly onOpenAgents: () => void;
   readonly onSetup?: () => void;
+  readonly onConnectGitHub?: (name: string) => void;
 }) {
   const [project, setProject] = useConnectProjectRoute();
   const setup = useProjectSetupRoute();
@@ -132,6 +134,7 @@ export function LensHome({
               setupIssue={project && setup.showInstructions ? configurationIssue : null}
               onOpenTraces={onOpenAgent}
               onSetup={onSetup}
+              onConnectGitHub={onConnectGitHub}
             />
             <div
               hidden={setup.verifying && Boolean(project)}

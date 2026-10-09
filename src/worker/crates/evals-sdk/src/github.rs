@@ -32,6 +32,16 @@ struct Runs {
     runs: Vec<EvalRun>,
 }
 
+#[derive(Deserialize)]
+struct AppReport {
+    run_id: String,
+}
+
+#[derive(Deserialize)]
+struct AppReports {
+    reports: Vec<AppReport>,
+}
+
 pub struct GitHub {
     http: reqwest::Client,
     base: String,
@@ -147,37 +157,74 @@ impl GitHub {
 }
 
 pub async fn publish_file(root: &Path, path: &Path) -> Result<()> {
+    publish_file_mode(root, path, false).await
+}
+
+pub async fn publish_via_app(lens: &Client, run_ids: &[&str]) -> Result<()> {
+    for run_id in run_ids {
+        let response: AppReports = Client::decode(
+            lens.request(
+                Method::POST,
+                "/lens/github/report",
+                Some(&json!({"run_ids": [run_id]})),
+                None,
+                true,
+            )
+            .await?,
+        )
+        .await?;
+        if response.reports.len() != 1 || response.reports[0].run_id != *run_id {
+            return Err(Error::Infrastructure(
+                "Lens did not confirm publishing the requested eval run",
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub async fn publish_file_mode(root: &Path, path: &Path, via_app: bool) -> Result<()> {
     let required = |key: &str| {
         env_value(key).ok_or(Error::Invalid {
             message: "GitHub reporting requires",
             value: key.to_owned(),
         })
     };
-    let token = required("GITHUB_TOKEN")?;
     let key = required("LENS_API_KEY")?;
-    let sha = required("GITHUB_SHA")?;
     let payload: Runs =
         serde_json::from_str(&fs::read_to_string(path)?).map_err(Error::Response)?;
     if payload.runs.is_empty() {
         return Err(Error::Infrastructure("No completed Lens runs to report"));
     }
     let lens = Client::new(&Settings::load(root)?.endpoint()?, &key)?;
-    let github = GitHub::new(
-        &env_value("GITHUB_API_URL").unwrap_or_else(|| "https://api.github.com".into()),
-        &token,
-        &required("GITHUB_REPOSITORY")?,
-    )?;
-    for run in &payload.runs {
-        let report = Report {
-            run: run.clone(),
-            baseline: None,
-            trials: Vec::new(),
-        };
-        let baseline = match &report.summary()?.baseline_run_id {
-            Some(id) => Some(lens.get(id, false).await?),
-            None => None,
-        };
-        github.publish(&Report { baseline, ..report }, &sha).await?;
+    if via_app {
+        publish_via_app(
+            &lens,
+            &payload
+                .runs
+                .iter()
+                .map(|run| run.id.as_str())
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+    } else {
+        let sha = required("GITHUB_SHA")?;
+        let github = GitHub::new(
+            &env_value("GITHUB_API_URL").unwrap_or_else(|| "https://api.github.com".into()),
+            &required("GITHUB_TOKEN")?,
+            &required("GITHUB_REPOSITORY")?,
+        )?;
+        for run in &payload.runs {
+            let report = Report {
+                run: run.clone(),
+                baseline: None,
+                trials: Vec::new(),
+            };
+            let baseline = match &report.summary()?.baseline_run_id {
+                Some(id) => Some(lens.get(id, false).await?),
+                None => None,
+            };
+            github.publish(&Report { baseline, ..report }, &sha).await?;
+        }
     }
     if let Some(output) = env_value("GITHUB_OUTPUT") {
         let mut stream = OpenOptions::new().create(true).append(true).open(output)?;

@@ -10,6 +10,85 @@ use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_a
 use tower::ServiceExt;
 
 #[rstest]
+#[case::legacy("", false)]
+#[case::disabled("&include_ci=false", false)]
+#[case::dashboard("&include_ci=true", true)]
+#[tokio::test]
+async fn ci_provenance_is_only_returned_when_requested_by_the_dashboard(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] query: &str,
+    #[case] includes_ci: bool,
+) {
+    let ci_url = "https://github.com/example/agent/actions/runs/42";
+    let mut payload = create_payload();
+    payload["ci_url"] = ci_url.into();
+    let created = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("POST", "/lens/evals/runs", "team-a", Some(payload)))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201);
+    let created: Value = body(created).await;
+    assert!(created.get("ci_url").is_none());
+    let created: EvalRun = serde_json::from_value(created).unwrap();
+    let read = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs/{}", created.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(read.status(), 200);
+    assert!(body::<Value>(read).await.get("ci_url").is_none());
+    let list = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs?agent=agent{query}"),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(list.status(), 200);
+    let list: Vec<Value> = body(list).await;
+    assert_eq!(list.len(), 1);
+    assert_eq!(
+        list[0].get("ci_url").and_then(Value::as_str),
+        includes_ci.then_some(ci_url)
+    );
+    let finished = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "POST",
+            &format!("/lens/evals/runs/{}/finish", created.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(finished.status(), 202);
+    assert!(body::<Value>(finished).await.get("ci_url").is_none());
+    assert_eq!(
+        eval_fixture
+            .store
+            .get("team-a", &created.id)
+            .await
+            .unwrap()
+            .request
+            .ci_url,
+        ci_url
+    );
+}
+
+#[rstest]
 #[tokio::test]
 async fn should_create_once_per_team_and_snapshot_included_cases(
     #[future(awt)] eval_fixture: EvalFixture,

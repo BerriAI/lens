@@ -6,6 +6,59 @@ use axum::{
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
+pub enum GitHubError {
+    #[error(
+        "The stored GitHub connection could not be opened. Reconnect GitHub or restore the Lens admin credential used when connecting"
+    )]
+    Credentials,
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error("GitHub connection storage is unavailable")]
+    Storage(#[from] litellm_storage_clickhouse::Error),
+    #[error("Invalid GitHub App configuration: {0}")]
+    Configuration(&'static str),
+    #[error("A GitHub App has not been configured for this Lens deployment")]
+    NotConfigured,
+    #[error("{0}")]
+    Invalid(&'static str),
+    #[error("You cannot manage this GitHub connection")]
+    Forbidden,
+    #[error("GitHub authorization expired or was already used. Connect again")]
+    Expired,
+    #[error("Too many GitHub connection requests. Try again in a minute")]
+    RateLimited,
+    #[error("GitHub rejected the request (HTTP {status})")]
+    Upstream { status: u16 },
+    #[error("GitHub could not be reached. Try connecting again")]
+    Transport(#[source] reqwest::Error),
+    #[error("GitHub returned an invalid response")]
+    Decode(#[source] reqwest::Error),
+    #[error("The GitHub App could not authenticate. Check its private key")]
+    Signing(#[source] jsonwebtoken::errors::Error),
+}
+
+impl IntoResponse for GitHubError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Authentication(_) => {
+                let Self::Authentication(error) = self else {
+                    unreachable!()
+                };
+                return SessionError::from(error).into_response();
+            }
+            Self::Invalid(_) => StatusCode::BAD_REQUEST,
+            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Expired => StatusCode::GONE,
+            Self::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            Self::Storage(litellm_storage_clickhouse::Error::StateConflict) => StatusCode::CONFLICT,
+            Self::Upstream { .. } | Self::Transport(_) | Self::Decode(_) => StatusCode::BAD_GATEWAY,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum TraceReadError {
     #[error("{0}")]
     InvalidRequest(String),

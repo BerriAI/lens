@@ -27,7 +27,7 @@ The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported.
 
 ## Install
 
-This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI; the Action download path requires that release before use. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
+This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI. Generated workflows use `install-from-source: 'true'` to build the SDK from the Action's pinned checkout without a release download. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
 
 ```sh
 uv add --dev /absolute/path/to/lens_evals-0.1.0a3-cp311-abi3-PLATFORM.whl
@@ -38,7 +38,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@e420dbd248edec641833fbb743a5c8c9b49a1056#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@51651cc61bc3863b524683a34f02732e2717b7b7#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
@@ -210,7 +210,9 @@ Each normal invocation creates a separate execution, even at the same commit. Sa
 
 ## GitHub Action
 
-Setup generates a workflow for main pushes and same-repository PRs. Add `LENS_API_KEY` and `LENS_SDK_TOKEN` as repository secrets and `LENS_BASE_URL` as a repository variable. `LENS_SDK_TOKEN` needs contents-read access to `BerriAI/lens` to download its internal release; the consuming repo’s `GITHUB_TOKEN` is used separately for checks and comments. Add your agent's dependencies, sandbox startup, and service credentials to that workflow
+Start from the agent’s **Connect GitHub** button in Lens to authorize the [GitHub App](../../docs/github-app.md) and save a repository connection. Then choose **Set up PR evals**. The [eval setup](../../docs/github-evals.md) selects an eval, prepares the workflow and adapter, and checks for the first PR eval received from that repository
+
+Setup generates a workflow for main pushes, same-repository PRs, and manual runs. Add `LENS_API_KEY` as a repository secret and `LENS_BASE_URL` as a repository variable. Enable private Action access for the consuming repository. Add your agent's dependencies, sandbox startup, and service credentials to that workflow. Run it on main first to establish the baseline, then open a same-repository PR to receive the comparison comment
 
 For a project using uv, the relevant steps are:
 
@@ -227,17 +229,21 @@ steps:
       python-version: '3.11'
   - run: python -m pip install uv==0.10.9
   - run: uv sync --frozen
-  - uses: BerriAI/lens/src/sdk/action@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b
+  - uses: BerriAI/lens/src/sdk/action@51651cc61bc3863b524683a34f02732e2717b7b7
     with:
       python: .venv/bin/python
-      sdk-token: ${{ secrets.LENS_SDK_TOKEN }}
+      install-from-source: 'true'
       api-key: ${{ secrets.LENS_API_KEY }}
       base-url: ${{ vars.LENS_BASE_URL }}
 ```
 
-The `python` input selects the agent's environment for execution and reporting. The Action uses an installed `0.1.0a3` native package or downloads the matching wheel from the versioned GitHub release, verifies its SHA-256 checksum, and installs it. It never compiles Rust on the consuming runner. A missing wheel or missing release access produces an actionable error. Private Action access must be enabled for consuming repositories
+The `python` input selects the agent's environment for execution and reporting. With `install-from-source: 'true'`, the Action installs Rust 1.99.0 through the runner's existing rustup and builds its own checked-out SDK using the pinned maturin build backend and Cargo lockfile. No release token is needed. GitHub-hosted runners include rustup; self-hosted runners need it installed
 
-The Action updates its own PR comment, creates `Lens / <eval-name>`, and exposes `passed` and `run-urls`. The comment includes baseline/candidate pass counts, costs, scores, broken cases, and Lens-provided trace links
+The default `install-from-source: 'false'` reuses an installed `0.1.0a3` native package or downloads the matching release wheel and verifies its SHA-256 checksum. Once wheels are published, use that mode with `sdk-token: ${{ secrets.LENS_SDK_TOKEN }}` when the consuming repository needs separate contents-read access to the internal SDK release
+
+For an agent connected to the Lens GitHub App, set `report-via-app: 'true'`. The publish step sends run IDs to Lens, which checks the saved repository connection and GitHub workflow before publishing the server’s verdict as the App. This mode only needs `contents: read` for the workflow token. Each eval run gets its own report, and publication retries reuse it. The equivalent standalone command is `python -m lens.github runs.json --via-app`
+
+Without that input, the Action updates its own GitHub Actions bot comment using the write permissions shown above. Both modes create `Lens / <eval-name>` and expose `passed` and `run-urls`. The comment includes baseline/candidate pass counts, costs, scores, broken cases, and Lens-provided trace links
 
 On a PR, the check is **neutral** only when there is no comparable main baseline and the server gate passes every configured absolute condition (`pass_rate`, `cost_per_case`, and scorer `min`). A failed absolute condition produces a **failure** check and a red job. With a baseline, the server gate determines success or failure. The SDK does not recompute the gate
 

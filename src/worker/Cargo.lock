@@ -2080,9 +2080,11 @@ dependencies = [
  "base64 0.22.1",
  "getrandom 0.2.17",
  "js-sys",
+ "pem",
  "serde",
  "serde_json",
  "signature",
+ "simple_asn1",
  "zeroize",
 ]
 
@@ -2325,6 +2327,7 @@ dependencies = [
  "chrono",
  "cookie",
  "futures-util",
+ "hmac 0.12.1",
  "http",
  "jiter",
  "jsonschema",
@@ -2333,6 +2336,7 @@ dependencies = [
  "lens-contract",
  "lens-datasets",
  "lens-evals",
+ "lens-evals-sdk",
  "lens-investigations",
  "lens-parity",
  "lens-signals",
@@ -2343,6 +2347,7 @@ dependencies = [
  "percent-encoding",
  "rand 0.8.7",
  "reqwest 0.12.28",
+ "ring",
  "rstest",
  "schemars 1.2.2",
  "serde",
@@ -3147,6 +3152,16 @@ name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
+
+[[package]]
+name = "pem"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
+dependencies = [
+ "base64 0.22.1",
+ "serde_core",
+]
 
 [[package]]
 name = "percent-encoding"
@@ -4241,6 +4256,18 @@ name = "similar"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+
+[[package]]
+name = "simple_asn1"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "thiserror 2.0.19",
+ "time",
+]
 
 [[package]]
 name = "slab"

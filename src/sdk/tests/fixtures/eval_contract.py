@@ -128,6 +128,7 @@ class EvalRun(Record):
     version: str
     branch: str
     pr: int | None
+    ci_url: str = ""
     url: str  # Lens page for this run
     expected_trials: int  # len(cases) * trials
     received_trials: int

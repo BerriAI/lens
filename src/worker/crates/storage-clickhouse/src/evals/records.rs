@@ -156,7 +156,13 @@ pub(super) fn stored_run(snapshot: &Snapshot, team: &str) -> Result<StoredRun, E
     if run.team != team {
         return Err(EvalError::RunNotFound);
     }
-    Ok(run)
+    Ok(StoredRun {
+        run: EvalRun {
+            ci_url: String::new(),
+            ..run.run
+        },
+        ..run
+    })
 }
 
 pub(super) fn encode(value: &impl Serialize) -> Result<serde_json::Value, EvalError> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Activity, ArrowRight, Check, ChevronDown, Circle, RefreshCw } from "lucide-react";
+import { Activity, ArrowRight, Check, ChevronDown, Circle, Github, RefreshCw } from "lucide-react";
 import { useMediaQuery } from "usehooks-ts";
 import { Button } from "../../ui/button";
 import { cn } from "../../../lib/cva.config";
@@ -15,6 +15,7 @@ interface HomeConnectionStatusProps {
   readonly enabled: boolean;
   readonly onOpenTraces: (name: string) => void;
   readonly onSetup?: () => void;
+  readonly onConnectGitHub?: (name: string) => void;
   readonly keyReady?: boolean | null;
   readonly stage?: "name" | "key" | "instructions" | "verify";
   readonly setupIssue?: string | null;
@@ -25,6 +26,7 @@ export function HomeConnectionStatus({
   enabled,
   onOpenTraces,
   onSetup,
+  onConnectGitHub,
   keyReady,
   stage = "instructions",
   setupIssue,
@@ -149,6 +151,11 @@ export function HomeConnectionStatus({
             {receipt.match && !authStatus && (
               <Button size="sm" onClick={() => onOpenTraces(agentName)}>
                 View traces <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Button>
+            )}
+            {receiving && onConnectGitHub && (
+              <Button size="sm" variant="outline" onClick={() => onConnectGitHub(agentName)}>
+                <Github className="size-3.5" aria-hidden="true" /> Connect GitHub
               </Button>
             )}
             {authStatus === 401 && (

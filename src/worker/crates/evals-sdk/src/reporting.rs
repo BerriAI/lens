@@ -5,6 +5,7 @@ use crate::{Result, model::Report};
 
 pub fn safe_text(value: &str) -> String {
     value
+        .replace('\\', "\\\\")
         .replace(['\n', '\r'], " ")
         .replace('|', "\\|")
         .replace('<', "&lt;")

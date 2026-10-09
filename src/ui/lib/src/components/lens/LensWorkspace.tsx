@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
-import { BookOpen, ChevronRight, Loader2 } from "lucide-react";
+import { BookOpen, ChevronRight, Github, Loader2 } from "lucide-react";
 import { useLensHost } from "../../host/LensHost";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
@@ -23,7 +23,7 @@ import { LensTabs } from "./LensTabs";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
-import { LENS_TABS, useDialogRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
+import { LENS_TABS, useDialogRoute, useGitHubRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
@@ -32,6 +32,7 @@ import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
 import { LensHome } from "./onboarding/LensHome";
+import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -95,6 +96,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const embedded = useLensHost().surface === "embedded";
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
+  const github = useGitHubRoute();
   const { dialog, openDialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
@@ -102,6 +104,12 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const canViewInvestigations = isProxyAdminTierRole(userRole);
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
+  const connectGitHub =
+    canConfigure && !demo
+      ? (name: string) => {
+          github.open(name);
+        }
+      : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
   const activeTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
   const setupState = useLensReadiness(canViewInvestigations);
@@ -220,6 +228,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-3">
+                {connectGitHub && agents.agent && activeTab !== "agents" && (
+                  <Button variant="outline" size="sm" onClick={() => connectGitHub(agents.agent!)}>
+                    <Github aria-hidden="true" className="size-4" /> Connect GitHub
+                  </Button>
+                )}
                 <DemoToggle demo={demo} onChange={toggleDemo} />
                 {embedded && (
                   <a
@@ -261,10 +274,16 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       onOpenAgent={agents.select}
                       onOpenAgents={() => navigate("agents")}
                       onSetup={canConfigure ? startSetup : undefined}
+                      onConnectGitHub={connectGitHub}
                     />
                   </TabsContent>
                   <TabsContent value="agents" className={PANEL}>
-                    <AgentsView agents={agents} onOpenAgent={agents.select} onConnectProject={connectProject} />
+                    <AgentsView
+                      agents={agents}
+                      onOpenAgent={agents.select}
+                      onConnectProject={connectProject}
+                      onConnectGitHub={connectGitHub}
+                    />
                   </TabsContent>
                   <TabsContent value="traces" keepMounted className={PANEL}>
                     <AgentTracesPage
@@ -324,6 +343,21 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           </div>
         </Tabs.Root>
       </main>
+      {github.agent && connectGitHub && (
+        <AgentGitHubDialog
+          key={github.agent}
+          agent={github.agent}
+          authorizationId={github.authorizationId}
+          onAuthorizationComplete={github.complete}
+          onOpenChange={(open) => {
+            if (!open) github.close();
+          }}
+          onOpenDatasets={() => {
+            github.close();
+            setTab("datasets");
+          }}
+        />
+      )}
     </OnboardingProvider>
   );
 }

@@ -50,6 +50,7 @@ const EVAL_PARSERS = {
 };
 
 const LEGACY_PARSERS = { dataset_tab: parseAsString };
+const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: parseAsString };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
@@ -92,6 +93,7 @@ const SESSION_PARSERS = {
   ...DATASET_PARSERS,
   ...EVAL_PARSERS,
   ...LEGACY_PARSERS,
+  ...GITHUB_PARSERS,
 };
 const nulls = <K extends string>(keys: readonly K[]) =>
   Object.fromEntries(keys.map((key) => [key, null])) as Record<K, null>;
@@ -106,6 +108,7 @@ const CLEARED_AGENT_VIEW = {
   ...nulls(Object.keys(LEGACY_PARSERS)),
   ...nulls(Object.keys(DIALOG_PARSERS)),
   ...nulls(Object.keys(INBOX_PARSERS)),
+  ...nulls(Object.keys(GITHUB_PARSERS)),
   lens: null,
   issue: null,
   setup: null,
@@ -173,6 +176,17 @@ export function useLensRoute(): LensRoute {
 export function useAgentSearchRoute(): [string, (search: string) => void] {
   const [{ agent_search }, setParams] = useQueryStates(AGENT_LIST_PARSERS);
   return [agent_search, useCallback((next: string) => void setParams({ agent_search: next }), [setParams])];
+}
+
+export function useGitHubRoute() {
+  const [{ github_agent, github_authorization }, setParams] = useQueryStates(GITHUB_PARSERS);
+  return {
+    agent: github_agent,
+    authorizationId: github_authorization,
+    open: useCallback((agent: string) => void setParams({ github_agent: agent, github_authorization: null }), [setParams]),
+    close: useCallback(() => void setParams({ github_agent: null, github_authorization: null }), [setParams]),
+    complete: useCallback(() => void setParams({ github_authorization: null }), [setParams]),
+  };
 }
 
 export function useConnectProjectRoute(): [ProjectConnection | null, (project: ProjectConnection | null) => void] {
@@ -343,7 +357,7 @@ export function useDatasetRoute() {
   return { datasetId: dataset, revision, caseId, openDataset, setRevision, setCaseId };
 }
 
-const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, ...EVAL_PARSERS };
+const EVAL_ROUTE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...EVAL_PARSERS };
 
 export function useEvalRunRoute() {
   const [{ eval: evalName, eval_run, eval_case }, setParams] = useQueryStates(EVAL_ROUTE_PARSERS, { history: "push" });
@@ -356,7 +370,12 @@ export function useEvalRunRoute() {
     [setParams],
   );
   const openCase = useCallback((next: string | null) => void setParams({ eval_case: next }), [setParams]);
-  return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase };
+  const openAgentRun = useCallback(
+    (agent: string, name: string, runId: string) =>
+      void setParams({ tab: "evals", agent, eval: name, eval_run: runId, eval_case: null }),
+    [setParams],
+  );
+  return { evalName, runId: eval_run, caseId: eval_case, openEval, openRun, openCase, openAgentRun };
 }
 
 const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...OPEN_TRACE_PARSERS };
