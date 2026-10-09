@@ -4,5 +4,6 @@ from .client import Lens
 from .evaluation import Eval
 from .models import Case, Report, Run
 from .scorers import judge
+from .session import Evaluation, TestCase
 
-__all__ = ["Case", "Eval", "Gate", "Lens", "Report", "Run", "judge", "scorers"]
+__all__ = ["Case", "Eval", "Evaluation", "Gate", "Lens", "Report", "Run", "TestCase", "judge", "scorers"]

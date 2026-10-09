@@ -4,7 +4,31 @@ Run your agent against a versioned Lens dataset, compare each case with main, an
 
 For optional help from your coding agent, copy the [eval setup prompt](../../docs/setup-with-agent.md#enable-investigations-signals-or-eval-judging). It inspects this project's agent and existing Lens connection before adding configuration
 
-Run a saved eval from your agent repository:
+Run a saved eval against your agent's Python code inside pytest:
+
+```python
+import os
+
+from lens import Lens
+from my_agent import agent
+
+
+def test_agent_regressions():
+    lens = Lens(base_url=os.environ["LENS_BASE_URL"], api_key=os.environ["LENS_API_KEY"])
+    with lens.evals.test("agent-regressions") as evaluation:
+        for case in evaluation.cases:
+            actual = agent.run(input=case.input)
+            evaluation.record(case, output=actual.output, trace_id=actual.trace_id)
+        report = evaluation.finish()
+        report.write_json("lens-results.json")
+        report.assert_passed()
+```
+
+Your Python test imports and runs your agent on the same machine as pytest, including a GitHub runner. Lens supplies the saved cases, scorers, and gates over HTTP. The SDK sends recorded outputs to Lens for scoring and baseline comparison. You do not need an agent deployment, HTTP connection profile, or server-provided Python import path
+
+The `my_agent` import above represents your repository's own entry point. Install its dependencies and provide its model and tool credentials in CI. Lens does not provision agent compute or sandboxes. The Python API is new source-only preview functionality; earlier SDK wheels do not expose `evals.test`
+
+For an existing HTTP agent, run a saved eval using its saved input/output mapping:
 
 ```python
 import os
@@ -60,6 +84,22 @@ uv add --dev 'lens-evals @ git+https://github.com/BerriAI/lens.git@bad22eb403ea4
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
 
 ## Run a saved eval
+
+### Python agent tests
+
+Save the eval name, agent name, dataset revision, scorers, and gates in Lens. The `agent_io` field is optional for Python tests. Pass the saved eval name to `lens.evals.test(...)`; its cases come from that definition's dataset revision
+
+Each immutable case has `id`, `input`, `followups`, `expected`, `meta`, and a zero-based `trial`. Iteration includes every saved trial; pass the case object to `record` so the SDK associates the output with the correct trial. `output` is a string. Serialize structured output with `json.dumps` before recording it
+
+Provide `trace_id` or `session_id` when recording an instrumented agent's output. The exported trace must carry the saved eval's `agent.name`, the same `agent.version` as the run, and `deployment.environment=eval`. Output-only judge evals can omit the trace reference; trace-based scorers require the agent's real completed trace
+
+The context finalizes the run and checks its gate on normal exit. `finish()` also returns a `Report` without asserting, which lets CI save `report.write_json("lens-results.json")` before an explicit `assert_passed()`. `lens report lens-results.json` publishes that run through the configured GitHub credentials. The report file contains run metadata and summaries, without raw outputs or API keys
+
+If an exception escapes the context, missing case trials are recorded as errors and the original exception is preserved. To continue through independent cases, catch the agent exception and call `evaluation.record_error(case, error)`. Closing a context without recording every case cannot silently pass. Duplicate results and changed dataset inputs are rejected
+
+Run pytest against the checked-out main code first, then against the PR code using the same saved eval revision. Set `LENS_VERSION` to each actual checkout SHA and `LENS_BRANCH=main` for the baseline. Trace instrumentation must use those same build identities. Lens selects the compatible main baseline and applies the saved gates; it does not accept a locally fabricated baseline score
+
+### HTTP agent tests
 
 This feature requires a Lens server that supports saved `agent_io` definitions and an SDK built from the same reviewed change. Earlier `0.1.0a3` wheels do not contain the named runner. For local development, install `src/sdk` from your checked-out Lens source with Rust 1.99.0 available
 
@@ -297,6 +337,26 @@ uv run lens eval --ci --json
 Each normal invocation creates a separate execution, even at the same commit. Safe HTTP retries reuse the run's idempotency key. Set `LENS_EXECUTION_ID` only when intentionally resuming the same execution
 
 ## GitHub Action
+
+### Report a Python test on a pull request
+
+Run your pytest test in the GitHub runner after installing the agent and SDK. Give the job `contents: read`, `checks: write`, and `pull-requests: write`; provide `LENS_BASE_URL`, `LENS_API_KEY`, and `GITHUB_TOKEN: ${{ github.token }}`. The SDK uses the Actions bot token to publish a Lens report
+
+```sh
+python -m lens.cli report-start --name agent-regressions
+python -m pytest evals/test_agent.py
+python -m lens.github lens-results.json
+```
+
+The test writes `report.write_json("lens-results.json")` before asserting its gate. Run the publishing step even when pytest fails, provided that file exists. If execution stops before a report is written, use `python -m lens.cli report-failed --name agent-regressions` so the comment does not stay at “running.” For `workflow_dispatch`, pass `--pr` with the target pull request number to both progress commands and set the test's `Execution.pr` to that number
+
+`report-start` creates a Lens-branded “I'm running here” comment. Publication fetches the completed candidate and its selected baseline from Lens and updates that same bot-owned comment. The check attaches to the candidate's recorded commit SHA. The comment shows both build SHAs, Lens run links, case pass counts, score changes, and costs
+
+Run the checked-out main code first with `Execution(branch="main", version=base_sha)`, then the PR code with its actual head SHA. Use the same saved eval revision, selected cases, and repeat count for both. A missing compatible main run is shown as unavailable, never as a zero-score baseline
+
+Confidence is reported as a 95% Wilson interval over case verdicts. The confidence score is that interval's lower endpoint, a conservative pass-rate estimate under the independent-case assumption. Repeated executions of one case are not counted as independent cases, and the score does not claim statistical proof of improvement
+
+### Use the composite Action
 
 Start from the agent’s **Connect GitHub** button in Lens to authorize the [GitHub App](../../docs/github-app.md) and save a repository connection. Then choose **Set up PR evals**. The [eval setup](../../docs/github-evals.md) selects an eval, prepares the workflow and adapter, and checks for the first PR eval received from that repository
 

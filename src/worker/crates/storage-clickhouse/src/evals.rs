@@ -2,7 +2,7 @@ mod definitions;
 mod records;
 mod scoring;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use lens_contract::eval::{CaseError, CaseResult, CreateEvalRun, EvalRun, RunStatus};
@@ -341,6 +341,17 @@ impl EvalStore {
                 if run.run.status == RunStatus::Done
                     && run.request.branch == "main"
                     && baseline_prefix(&run)? == prefix
+                    && run.request.trials == candidate.request.trials
+                    && run
+                        .cases
+                        .iter()
+                        .map(|case| &case.id)
+                        .collect::<BTreeSet<_>>()
+                        == candidate
+                            .cases
+                            .iter()
+                            .map(|case| &case.id)
+                            .collect::<BTreeSet<_>>()
                 {
                     return Ok(Some(run));
                 }

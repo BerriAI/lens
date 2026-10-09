@@ -141,12 +141,8 @@ def test_action_reporter_real_http_upserts_and_writes_outputs(endpoint, tmp_path
         baseline = cli(tmp_path, endpoint, "eval", "--json")
         assert baseline.returncode == 0
         write_eval(tmp_path, "raise RuntimeError('intentional regression')")
-        failed = cli(tmp_path, endpoint, "eval", "--json")
-        assert failed.returncode == 1
-        value = json.loads(failed.stdout)
-        value["runs"][0]["pr"] = 7
-        report = tmp_path / "report.json"
-        report.write_text(json.dumps(value))
+        event = tmp_path / "event.json"
+        event.write_text(json.dumps({"pull_request": {"number": 7}}))
         output = tmp_path / "output.txt"
         env = {
             **os.environ,
@@ -155,9 +151,28 @@ def test_action_reporter_real_http_upserts_and_writes_outputs(endpoint, tmp_path
             "GITHUB_TOKEN": "test-token",
             "GITHUB_REPOSITORY": "org/repo",
             "GITHUB_SHA": "sha",
+            "GITHUB_REF_NAME": "topic",
+            "GITHUB_HEAD_REF": "topic",
+            "GITHUB_RUN_ID": "99",
+            "GITHUB_EVENT_PATH": str(event),
             "GITHUB_API_URL": f"http://127.0.0.1:{server.server_port}",
             "GITHUB_OUTPUT": str(output),
         }
+        failed = subprocess.run(
+            [sys.executable, "-m", "lens.cli", "eval", "--ci", "--json"],
+            cwd=tmp_path,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=15,
+        )
+        assert failed.returncode == 1, failed.stderr
+        value = json.loads(failed.stdout)
+        assert value["runs"][0]["pr"] == 7
+        value["runs"][0]["pr"] = 8
+        value["runs"][0]["version"] = "untrusted-local-sha"
+        report = tmp_path / "report.json"
+        report.write_text(json.dumps(value))
         for _ in range(2):
             result = subprocess.run(
                 [sys.executable, "-m", "lens.github", str(report)],
@@ -173,6 +188,9 @@ def test_action_reporter_real_http_upserts_and_writes_outputs(endpoint, tmp_path
         checks = [body for method, path, body in calls if path.endswith("/check-runs")]
         assert len(checks) == 2
         assert all(check["conclusion"] == "failure" for check in checks)
+        assert all(check["head_sha"] == "sha" for check in checks)
+        assert any(path == "/repos/org/repo/issues/7/comments" for _, path, _ in calls)
+        assert not any(path == "/repos/org/repo/issues/8/comments" for _, path, _ in calls)
         assert "3 regressions" in comments[0]["body"]
         assert output.read_text().count("passed=false") == 2
         urls = next(line.split("=", 1)[1] for line in output.read_text().splitlines() if line.startswith("run-urls="))

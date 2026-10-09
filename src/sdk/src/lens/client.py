@@ -10,12 +10,16 @@ from . import _native
 from .config import Execution
 from .errors import ConfigurationError
 from .models import Report
+from .session import Evaluation
 
 
 @dataclass(frozen=True, slots=True)
 class NamedEvals:
     base_url: str
     key: str = field(repr=False)
+
+    def test(self, name: str, *, execution: Execution | None = None) -> Evaluation:
+        return Evaluation(name, self.base_url, self.key, execution or Execution.named())
 
     def run(self, name: str, *, execution: Execution | None = None) -> Report:
         try:

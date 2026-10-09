@@ -169,3 +169,79 @@ def test_named_cli_rejects_ambiguous_selection(arguments, tmp_path):
     )
     assert result.returncode == 2
     assert "cannot be used" in result.stderr
+
+
+def test_saved_python_evaluation_records_local_outputs_and_server_baseline(named_server, tmp_path):
+    endpoint, requests = named_server
+    client: Final = Lens(endpoint, "lens-dev")
+    with client.evals.test("named-python", execution=Execution("baseline-build", "main")) as evaluation:
+        assert len(evaluation.cases) == 3
+        assert evaluation.report is None
+        for case in evaluation.cases:
+            evaluation.record(case, output=f"Python answered: {case.input}", trace_id=f"pass-{case.id}")
+        baseline: Final = evaluation.finish()
+        baseline.assert_passed()
+    assert evaluation.report is not None
+    with client.evals.test("named-python", execution=Execution("candidate-build", "topic")) as candidate:
+        for case in candidate.cases:
+            candidate.record(case, output="Improved answer", session_id=f"pass-{case.id}")
+        report: Final = candidate.finish()
+        assert report.baseline_run_id == baseline.run.id
+        assert report.baseline is not None
+        assert report.baseline.version == "baseline-build"
+        target: Final = tmp_path / "report.json"
+        report.write_json(target)
+        assert json.loads(target.read_text())["runs"][0]["id"] == report.run.id
+    observed: Final = tuple(requests.get_nowait() for _ in range(requests.qsize()))
+    assert not any(call[1] in {"/invoke", "/fail"} for call in observed)
+    assert all(json.loads(call[3]).get("agent_io") is None for call in observed if call[1] == "/lens/evals/runs")
+
+
+def test_saved_python_context_records_execution_errors_without_hiding_original_exception(named_server):
+    endpoint, _ = named_server
+    client: Final = Lens(endpoint, "lens-dev")
+    with pytest.raises(RuntimeError, match="The agent failed"):
+        with client.evals.test("named-python-error", execution=Execution("build", "topic")) as evaluation:
+            first: Final = evaluation.cases[0]
+            evaluation.record(first, output="First case worked", trace_id="pass-first")
+            raise RuntimeError("The agent failed")
+    assert evaluation.report is not None
+    assert evaluation.report.errors == 2
+    assert evaluation.report.run.received_trials == 3
+    assert {trial.result.error.type for trial in evaluation.report.trials if trial.result.error} == {"RuntimeError"}
+
+
+def test_saved_python_context_rejects_missing_results_and_duplicate_recording(named_server):
+    endpoint, _ = named_server
+    with pytest.raises(GateFailed):
+        with Lens(endpoint, "lens-dev").evals.test(
+            "named-python-missing", execution=Execution("build", "topic")
+        ) as evaluation:
+            first: Final = evaluation.cases[0]
+            evaluation.record(first, output="First case worked", trace_id="pass-first")
+            with pytest.raises(ConfigurationError, match="already"):
+                evaluation.record(first, output="Duplicate", trace_id="pass-duplicate")
+            with pytest.raises(ConfigurationError, match="one trace"):
+                evaluation.record(first, output="Ambiguous", trace_id="trace", session_id="session")
+    assert evaluation.report is not None
+    assert evaluation.report.errors == 2
+    with pytest.raises(ConfigurationError, match="finishing"):
+        evaluation.record(first, output="Too late")
+    with pytest.raises(ConfigurationError, match="more than once"):
+        evaluation.__enter__()
+
+
+def test_saved_python_can_record_error_and_continue_other_cases(named_server):
+    endpoint, _ = named_server
+    with pytest.raises(GateFailed):
+        with Lens(endpoint, "lens-dev").evals.test(
+            "named-python-caught", execution=Execution("build", "topic")
+        ) as evaluation:
+            for case in evaluation.cases:
+                if case.id == "case-0":
+                    evaluation.record_error(case, ValueError("Bad agent input"))
+                else:
+                    evaluation.record(case, output="Completed", trace_id=f"pass-{case.id}")
+    assert evaluation.report is not None
+    assert evaluation.report.errors == 1
+    assert evaluation.report.passed == 2

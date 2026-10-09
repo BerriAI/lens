@@ -101,20 +101,7 @@ where
     F: Fn(Case, String) -> Fut + Send + Sync,
     Fut: Future<Output = CaseResult> + Send,
 {
-    let fingerprint = format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&body).map_err(Error::Response)?)
-    );
-    let key = format!(
-        "{}:{}:{}:{}",
-        spec.name, execution.version, execution.identity, fingerprint
-    );
-    let run = client.create(&body, &key).await?;
-    if run.eval != spec.name || run.version != execution.version || run.agent != body.agent {
-        return Err(Error::Infrastructure(
-            "Lens created a run for a different evaluation",
-        ));
-    }
+    let run = create_run(client, spec, execution, &body).await?;
     let trials = if matches!(run.status, RunStatus::Running) {
         let work = cases
             .iter()
@@ -128,6 +115,38 @@ where
     } else {
         Vec::new()
     };
+    complete_run(client, spec, run, trials).await
+}
+
+pub(crate) async fn create_run(
+    client: &Client,
+    spec: &EvalSpec,
+    execution: &Execution,
+    body: &CreateEvalRun,
+) -> Result<EvalRun> {
+    let fingerprint = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&body).map_err(Error::Response)?)
+    );
+    let key = format!(
+        "{}:{}:{}:{}",
+        spec.name, execution.version, execution.identity, fingerprint
+    );
+    let run = client.create(body, &key).await?;
+    if run.eval != spec.name || run.version != execution.version || run.agent != body.agent {
+        return Err(Error::Infrastructure(
+            "Lens created a run for a different evaluation",
+        ));
+    }
+    Ok(run)
+}
+
+pub(crate) async fn complete_run(
+    client: &Client,
+    spec: &EvalSpec,
+    run: EvalRun,
+    trials: Vec<TrialResult>,
+) -> Result<Report> {
     let finished = if matches!(run.status, RunStatus::Running) {
         client.finish(&run.id).await?
     } else {

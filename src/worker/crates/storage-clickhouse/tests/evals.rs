@@ -614,7 +614,7 @@ async fn baseline_uses_latest_completion_and_order_independent_scorers(
         &store,
         "team",
         candidate_request,
-        cases,
+        cases.into_iter().rev().collect(),
         now + Duration::seconds(4),
     )
     .await;
@@ -635,6 +635,8 @@ enum Mismatch {
     Scorers,
     AgentIo,
     Branch,
+    Trials,
+    Cases,
 }
 
 #[rstest]
@@ -734,6 +736,8 @@ async fn releasing_a_lease_makes_pending_traces_available_to_another_worker(
 #[case::scorers(Mismatch::Scorers)]
 #[case::agent_io(Mismatch::AgentIo)]
 #[case::branch(Mismatch::Branch)]
+#[case::trials(Mismatch::Trials)]
+#[case::cases(Mismatch::Cases)]
 #[tokio::test]
 async fn baseline_excludes_incompatible_runs(
     #[future(awt)] database: Database,
@@ -778,14 +782,23 @@ async fn baseline_excludes_incompatible_runs(
             branch: "feature".into(),
             ..request.clone()
         },
-        Mismatch::Team => request.clone(),
+        Mismatch::Trials => CreateEvalRun {
+            trials: request.trials + 1,
+            ..request.clone()
+        },
+        Mismatch::Team | Mismatch::Cases => request.clone(),
     };
     let team = if matches!(mismatch, Mismatch::Team) {
         "other"
     } else {
         "team"
     };
-    let baseline = create(&store, team, incompatible, cases.clone(), now).await;
+    let baseline_cases = if matches!(mismatch, Mismatch::Cases) {
+        cases.iter().take(1).cloned().collect()
+    } else {
+        cases.clone()
+    };
+    let baseline = create(&store, team, incompatible, baseline_cases, now).await;
     complete(&store, &baseline, now).await;
     let candidate = create(&store, "team", request, cases, now).await;
     assert_eq!(store.baseline(&candidate).await.unwrap(), None);

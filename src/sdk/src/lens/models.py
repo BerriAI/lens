@@ -1,6 +1,8 @@
+import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
 from typing import Final, Literal
 
@@ -153,6 +155,9 @@ class Report:
     def assert_passed(self) -> None:
         if not self.summary.gate.passed:
             raise GateFailed("; ".join(self.summary.gate.reasons) or "Lens gate failed")
+
+    def write_json(self, path: str | Path) -> None:
+        Path(path).write_text(json.dumps({"runs": [self.run.model_dump(mode="json")]}), encoding="utf-8")
 
 
 def validate_gate(gate: Gate) -> None:
