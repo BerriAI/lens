@@ -36,6 +36,7 @@ def configure(root: Path, endpoint: str, monkeypatch: pytest.MonkeyPatch) -> Non
         '[tool.lens.connections.agent]\nbase_url_env="NAMED_AGENT_URL"\nauth="bearer"\ntoken_env="NAMED_AGENT_KEY"\n'
     )
     monkeypatch.chdir(root)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.setenv("NAMED_AGENT_URL", endpoint)
     monkeypatch.setenv("NAMED_AGENT_KEY", "agent-test-credential")
     monkeypatch.setenv("LENS_VERSION", "deployed-build")
