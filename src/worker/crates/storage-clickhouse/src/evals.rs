@@ -116,6 +116,7 @@ impl EvalStore {
                 previous: Snapshot::empty(&key),
                 value: encode(&run)?,
             })
+            .chain(self.missing_definition(team, &run.request, now).await?)
             .chain(
                 mapping
                     .map(|previous| -> Result<Change, EvalError> {

@@ -36,6 +36,29 @@ async fn should_create_once_per_team_and_snapshot_included_cases(
     assert_eq!(stored.cases.len(), 2);
     assert!(stored.cases[0].critical);
     assert_eq!(stored.cases[0].title, "Run tests");
+    let definitions = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("GET", "/lens/evals", "team-a", None))
+        .await
+        .unwrap();
+    assert_eq!(definitions.status(), 200);
+    let definitions: Vec<EvalDefinition> = body(definitions).await;
+    assert_eq!(definitions.len(), 1);
+    assert_eq!(definitions[0].name, first.eval);
+    let definition = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/{}", first.eval),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(definition.status(), 200);
+    assert_eq!(body::<EvalDefinition>(definition).await, definitions[0]);
 }
 
 #[rstest]

@@ -1,5 +1,5 @@
 use chrono::{DateTime, SecondsFormat, Utc};
-use lens_contract::eval::{EvalDefinition, EvalSpec};
+use lens_contract::eval::{CreateEvalRun, EvalDefinition, EvalSpec};
 
 use super::{
     ATTEMPTS, EvalStore, PAGE_SIZE,
@@ -12,6 +12,39 @@ fn prefix(team: &str) -> String {
 }
 
 impl EvalStore {
+    pub(super) async fn missing_definition(
+        &self,
+        team: &str,
+        request: &CreateEvalRun,
+        now: DateTime<Utc>,
+    ) -> Result<Option<Change>, EvalError> {
+        let previous = self
+            .state
+            .read(&format!("{}{}", prefix(team), request.eval))
+            .await?;
+        if !previous.value.is_null() {
+            return Ok(None);
+        }
+        let definition = EvalDefinition {
+            name: request.eval.clone(),
+            spec: EvalSpec {
+                agent: request.agent.clone(),
+                dataset_id: request.dataset_id.clone(),
+                revision: Some(request.revision),
+                scorers: request.scorers.clone(),
+                trials: request.trials,
+                baseline: "main".into(),
+                gate: request.gate.clone(),
+                timeout_per_trial_ms: request.timeout_per_trial_ms,
+            },
+            updated_at: now.to_rfc3339_opts(SecondsFormat::Millis, true),
+        };
+        Ok(Some(Change {
+            previous,
+            value: encode(&definition)?,
+        }))
+    }
+
     pub async fn put_definition(
         &self,
         team: &str,

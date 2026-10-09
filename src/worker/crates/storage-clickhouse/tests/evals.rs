@@ -7,10 +7,10 @@ mod support;
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use lens_contract::eval::{
-    CalledBefore, CaseResult, CreateEvalRun, Gate, GateResult, RunStatus, Scorer, Summary,
-    TaskCompleted, TraceRef,
+    CalledBefore, CaseResult, CreateEvalRun, EvalDefinition, EvalSpec, Gate, GateResult, RunStatus,
+    Scorer, Summary, TaskCompleted, TraceRef,
 };
 use litellm_storage_clickhouse::{
     EvalError,
@@ -136,6 +136,91 @@ async fn complete(store: &EvalStore, run: &StoredRun, now: DateTime<Utc>) -> Sto
 
 #[rstest]
 #[tokio::test]
+async fn first_run_registers_definition_from_its_spec(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+) {
+    let store = EvalStore::new(database.store.clone());
+    let now = Utc::now();
+    assert!(store.definitions("team").await.unwrap().is_empty());
+    let run = create(&store, "team", request.clone(), cases, now).await;
+    let definition = store.definition("team", &run.run.eval).await.unwrap();
+    assert_eq!(
+        definition,
+        EvalDefinition {
+            name: request.eval,
+            spec: EvalSpec {
+                agent: request.agent,
+                dataset_id: request.dataset_id,
+                revision: Some(request.revision),
+                scorers: request.scorers,
+                trials: request.trials,
+                baseline: "main".into(),
+                gate: request.gate,
+                timeout_per_trial_ms: request.timeout_per_trial_ms,
+            },
+            updated_at: now.to_rfc3339_opts(SecondsFormat::Millis, true),
+        }
+    );
+    assert_eq!(store.definitions("team").await.unwrap(), vec![definition]);
+    assert!(store.definitions("other").await.unwrap().is_empty());
+}
+
+#[fixture]
+fn saved_spec() -> EvalSpec {
+    EvalSpec {
+        agent: "saved-agent".into(),
+        dataset_id: "saved-dataset".into(),
+        revision: None,
+        scorers: vec![Scorer::TaskCompleted(TaskCompleted {})],
+        trials: 7,
+        baseline: "main".into(),
+        gate: Gate::default(),
+        timeout_per_trial_ms: 3_000,
+    }
+}
+
+#[rstest]
+#[case::saved_before_run(false)]
+#[case::saved_concurrently(true)]
+#[tokio::test]
+async fn run_creation_preserves_user_saved_definition(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+    saved_spec: EvalSpec,
+    #[case] concurrent: bool,
+) {
+    let store = EvalStore::new(database.store.clone());
+    let peer = EvalStore::new(database.independent());
+    let now = Utc::now();
+    let save = peer.put_definition("team", &request.eval, saved_spec, now);
+    let run = store.create(
+        "team",
+        request.clone(),
+        cases,
+        None,
+        "http://localhost:4100",
+        now,
+    );
+    let (saved, created) = if concurrent {
+        tokio::join!(save, run)
+    } else {
+        (save.await, run.await)
+    };
+    let saved = saved.unwrap();
+    let created = created.unwrap();
+    assert_eq!(created.request, request);
+    assert_eq!(
+        store.definition("team", &request.eval).await.unwrap(),
+        saved
+    );
+    assert_eq!(store.definitions("team").await.unwrap(), vec![saved]);
+}
+
+#[rstest]
+#[tokio::test]
 async fn concurrent_create_retries_reuse_one_run_with_team_scoping(
     #[future(awt)] database: Database,
     request: CreateEvalRun,
@@ -168,10 +253,18 @@ async fn concurrent_create_retries_reuse_one_run_with_team_scoping(
         store.list("team", &RunFilter::default()).await.unwrap(),
         vec![first.clone()]
     );
+    let definition = store.definition("team", &request.eval).await.unwrap();
+    assert_eq!(
+        store.definitions("team").await.unwrap(),
+        vec![definition.clone()]
+    );
     let other = store
         .create(
             "other",
-            request.clone(),
+            CreateEvalRun {
+                agent: "other-agent".into(),
+                ..request.clone()
+            },
             cases.clone(),
             Some("ci-attempt"),
             "http://localhost:4100",
@@ -180,11 +273,25 @@ async fn concurrent_create_retries_reuse_one_run_with_team_scoping(
         .await
         .unwrap();
     assert_ne!(first.run.id, other.run.id);
+    assert_eq!(
+        store
+            .definition("other", &request.eval)
+            .await
+            .unwrap()
+            .spec
+            .agent,
+        "other-agent"
+    );
+    assert_eq!(
+        store.definition("team", &request.eval).await.unwrap(),
+        definition
+    );
     assert!(matches!(
         store.get("other", &first.run.id).await,
         Err(EvalError::RunNotFound)
     ));
     let changed = CreateEvalRun {
+        eval: "conflicting-eval".into(),
         version: "different".into(),
         ..request
     };
@@ -200,6 +307,10 @@ async fn concurrent_create_retries_reuse_one_run_with_team_scoping(
             )
             .await,
         Err(EvalError::IdempotencyConflict)
+    ));
+    assert!(matches!(
+        store.definition("team", "conflicting-eval").await,
+        Err(EvalError::EvalNotFound)
     ));
 }
 

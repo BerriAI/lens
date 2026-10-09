@@ -630,7 +630,14 @@ async fn standalone_default_scope_remains_isolated_from_named_teams(
         store.definition("", "default-eval").await.unwrap(),
         definition
     );
-    assert_eq!(store.definitions("").await.unwrap(), vec![definition]);
+    let generated = lens_contract::eval::EvalDefinition {
+        name: run.run.eval.clone(),
+        ..definition.clone()
+    };
+    assert_eq!(
+        store.definitions("").await.unwrap(),
+        vec![definition, generated]
+    );
     assert!(matches!(
         store.get("team-a", &run.run.id).await,
         Err(EvalError::RunNotFound)
