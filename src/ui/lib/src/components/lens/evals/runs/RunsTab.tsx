@@ -101,11 +101,11 @@ const COLUMNS: ColumnDef<EvalRun>[] = [
     size: 280,
     header: "Branch / commit",
     cell: ({ row: { original: run } }) => (
-      <span className="block truncate font-mono">
-        <span className="text-muted-foreground">{run.branch}@</span>
-        {shortSha(run.version)}
+      <span className="flex min-w-0 items-center gap-1 font-mono">
+        <span className="truncate text-muted-foreground" title={run.branch}>{run.branch}</span>
+        <span className="shrink-0">@{shortSha(run.version)}</span>
         {run.pr !== null && (
-          <span className="ml-2 text-muted-foreground">#{run.pr}</span>
+          <span className="ml-2 shrink-0 text-muted-foreground">#{run.pr}</span>
         )}
       </span>
     ),
@@ -140,8 +140,8 @@ const COLUMNS: ColumnDef<EvalRun>[] = [
     size: 130,
     header: "Run",
     cell: ({ row }) => (
-      <span className="font-mono text-muted-foreground">
-        {row.original.id.slice(0, 8)}
+      <span className="font-mono text-muted-foreground" title={row.original.id}>
+        {row.original.id.slice(-8)}
       </span>
     ),
   },
