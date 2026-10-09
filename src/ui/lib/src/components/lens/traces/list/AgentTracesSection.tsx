@@ -64,7 +64,9 @@ function useSignalSetup(enabled: boolean) {
 }
 
 function useTracingSetup(traces: AgentTracesResult, isActive: boolean, rangeChanged: boolean) {
-  const [setupResult, setSetupResult] = useState<{ detail: string | null } | null>(null);
+  const [setupResult, setSetupResult] = useState<{
+    detail: string | null;
+  } | null>(null);
   const waitingForFirstTrace = traces.traces.length === 0 && !rangeChanged;
   const settledResponse = isActive && !traces.isFetching && !traces.error;
   const rememberSetup = waitingForFirstTrace || setupResult !== null;
@@ -159,9 +161,6 @@ export function AgentTracesSection({
   if (!openTrace && setup.disabledDetail != null)
     return (
       <WaitingForTraces
-        accessToken={accessToken}
-        canMintTracingKey={canMintTracingKey}
-        readOnly={readOnly}
         detail={setup.disabledDetail}
         onConnect={onConnectAgent}
         onCheck={checkTraces}
@@ -172,9 +171,6 @@ export function AgentTracesSection({
   if (!openTrace && checkHistory && !history.error && history.data === false)
     return (
       <WaitingForTraces
-        accessToken={accessToken}
-        canMintTracingKey={canMintTracingKey}
-        readOnly={readOnly}
         onConnect={onConnectAgent}
         onCheck={checkTraces}
         checking={traces.isFetching || history.isFetching}
@@ -320,7 +316,7 @@ function TracingSetupAction({ available, live, onSetup }: { available: boolean; 
       disabled={!live}
       onClick={onSetup}
     >
-      Set up tracing
+      Connect project
     </Button>
   );
 }

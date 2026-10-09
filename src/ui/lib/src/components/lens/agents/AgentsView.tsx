@@ -17,11 +17,11 @@ import { AGENT_WINDOW_DAYS } from "./useAgents";
 export function AgentsView({
   agents,
   onOpenAgent,
-  onAddAgent,
+  onConnectProject,
 }: {
   agents: LensAgents;
   onOpenAgent: (agent: string) => void;
-  onAddAgent?: () => void;
+  onConnectProject?: () => void;
 }) {
   const [search, setSearch] = useAgentSearchRoute();
   const now = useNow(30_000);
@@ -44,10 +44,10 @@ export function AgentsView({
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
-          {onAddAgent && (
-            <Button size="sm" onClick={onAddAgent}>
+          {onConnectProject && (
+            <Button size="sm" onClick={onConnectProject}>
               <Plus aria-hidden className="size-4" />
-              Add agent
+              Connect project
             </Button>
           )}
         </div>

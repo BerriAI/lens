@@ -32,7 +32,6 @@ import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
 import { LensHome } from "./onboarding/LensHome";
-import { AgentConnectionDialog } from "./agents/AgentConnectionDialog";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -96,7 +95,6 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const embedded = useLensHost().surface === "embedded";
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
-  const [connectingAgent, setConnectingAgent] = useState(false);
   const { dialog, openDialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
@@ -117,7 +115,12 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     issueKey,
   };
   const showSetup = !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
-  const addAgent = !demo ? () => setConnectingAgent(true) : undefined;
+  const connectProject = !demo
+    ? () => {
+        setSetup(false);
+        setTab("home");
+      }
+    : undefined;
   const { activity, list } = useLensOverview(
     canViewInvestigations,
     (canConfigure && activeTab === "settings") || settingUp,
@@ -254,13 +257,14 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   <TabsContent value="home" className={PANEL}>
                     <LensHome
                       agents={agents}
-                      onAddAgent={addAgent}
+                      enabled={!demo}
+                      onOpenAgent={agents.select}
                       onOpenAgents={() => navigate("agents")}
                       onSetup={canConfigure ? startSetup : undefined}
                     />
                   </TabsContent>
                   <TabsContent value="agents" className={PANEL}>
-                    <AgentsView agents={agents} onOpenAgent={agents.select} onAddAgent={addAgent} />
+                    <AgentsView agents={agents} onOpenAgent={agents.select} onConnectProject={connectProject} />
                   </TabsContent>
                   <TabsContent value="traces" keepMounted className={PANEL}>
                     <AgentTracesPage
@@ -270,7 +274,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       canMintTracingKey={isAdmin}
                       canViewFindings={canViewInvestigations}
                       onSetUpSignals={canConfigure ? showSettings : undefined}
-                      onConnectAgent={addAgent}
+                      onConnectAgent={connectProject}
                     />
                   </TabsContent>
                   <TabsContent value="findings" className={PANEL}>
@@ -312,7 +316,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         </Button>
                       ) : undefined
                     }
-                    onOpenTraces={() => setTab("traces")}
+                    onConnectProject={connectProject}
                   />
                 </TabsContent>
               )}
@@ -320,16 +324,6 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           </div>
         </Tabs.Root>
       </main>
-      {connectingAgent && (
-        <AgentConnectionDialog
-          open
-          onOpenChange={setConnectingAgent}
-          onConnected={(name) => {
-            setConnectingAgent(false);
-            agents.select(name);
-          }}
-        />
-      )}
     </OnboardingProvider>
   );
 }

@@ -109,9 +109,10 @@ describe("Lens introduction", () => {
         name: "Get started with Lens",
       }),
     ).toBe(intro);
-    expect(within(intro).getByRole("heading", { name: "Connect your first agent" })).toBeVisible();
-    expect(within(intro).getByRole("button", { name: "Add agent" })).toBeVisible();
-    expect(within(intro).getByRole("button", { name: "Deployment setup" })).toBeVisible();
+    expect(within(intro).getByRole("heading", { name: "Get your first trace" })).toBeVisible();
+    expect(within(intro).getByRole("textbox", { name: "Agent name" })).toHaveValue("");
+    expect(within(intro).getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
+    expect(within(intro).getAllByRole("button", { name: "Deployment setup" })[0]).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Before you start" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Traces" }));
@@ -191,7 +192,7 @@ describe("Lens setup journey", () => {
     const onUrlUpdate = vi.fn();
     renderWorkspace({ onUrlUpdate });
     const home = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    await user.click(home.getByRole("button", { name: "Deployment setup" }));
+    await user.click(home.getAllByRole("button", { name: "Deployment setup" })[0]);
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBe("lens"));
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
     serve({ enabled: true });

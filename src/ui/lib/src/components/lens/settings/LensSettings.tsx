@@ -14,10 +14,10 @@ const TRACING_DOCS = "https://docs.litellm.ai/docs/proxy/lens";
 
 function TracingSection({
   enabled,
-  onOpenTraces,
+  onConnectProject,
 }: {
   enabled: boolean;
-  onOpenTraces: () => void;
+  onConnectProject?: () => void;
 }) {
   const standalone = useLensHost().surface === "standalone";
   return (
@@ -46,8 +46,8 @@ function TracingSection({
             Docs
             <ArrowUpRight aria-hidden="true" className="size-3" />
           </a>
-          <Button variant="outline" size="sm" onClick={onOpenTraces}>
-            {enabled ? "Connect an agent" : "Enable tracing"}
+          <Button variant="outline" size="sm" onClick={onConnectProject} disabled={!onConnectProject}>
+            Connect project
           </Button>
         </div>
       </SettingsCard>
@@ -58,11 +58,11 @@ function TracingSection({
 export function LensSettings({
   list,
   workerReadyAction,
-  onOpenTraces,
+  onConnectProject,
 }: {
   list: LensList;
   workerReadyAction?: ReactNode;
-  onOpenTraces: () => void;
+  onConnectProject?: () => void;
 }) {
   return (
     <div
@@ -72,7 +72,7 @@ export function LensSettings({
     >
       <TracingSection
         enabled={list.tracing_enabled}
-        onOpenTraces={onOpenTraces}
+        onConnectProject={onConnectProject}
       />
       <SignalSettings />
       <SettingsSection

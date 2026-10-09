@@ -183,6 +183,22 @@ describe("TracingSetupCard", () => {
     expect(card).toHaveTextContent(maskSecret(SECRET));
     await user.click(screen.getAllByRole("button", { name: "Copy" })[0]);
     expect(copyToClipboard).toHaveBeenLastCalledWith(SECRET);
+    expect(screen.getByRole("button", { name: "Copied to clipboard" })).toHaveFocus();
+  });
+
+  it("should announce a key creation failure and allow a successful retry", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.post).mockRejectedValueOnce(new Error("Tracing key service unavailable"));
+    await renderCard();
+
+    await user.click(screen.getByRole("button", { name: "Generate tracing key" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tracing key service unavailable");
+    expect(screen.getByRole("button", { name: "Generate tracing key" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Generate tracing key" }));
+    expect(await screen.findByText("Your tracing key")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(apiClient.post).toHaveBeenCalledTimes(2);
   });
 
   it("sends a test trace, waits for it to land, then opens it", async () => {
