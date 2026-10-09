@@ -1,5 +1,0 @@
-Found 64 mutants to test
-ok       Unmutated baseline in 12s build + 1s test
-MISSED   crates/auth/src/gateway.rs:36:9: replace || with && in identity in 0s build + 1s test
-MISSED   crates/auth/src/gateway.rs:68:9: delete match arm serde_json::Value::Bool(value) in numeric_date in 0s build + 1s test
-64 mutants tested in 3m: 2 missed, 57 caught, 5 unviable

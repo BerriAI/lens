@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/tmp/lens-final-removal-audit/storage-docs-cross-review.py", line 6, in <module>
-    assert len(files)==13 and all(f.endswith('.md') for f in files)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError

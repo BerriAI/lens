@@ -23,7 +23,7 @@ export function DeploymentAnalysis({
   const models = useQuery(lensQueries.modelDetails(api));
   const list = useQuery(lensQueries.list(api));
   const connected = useWorkerConnected(list.data?.workers ?? workers);
-  const configured = models.data?.data.filter((model) => model.mode !== "evaluation") ?? [];
+  const configured = models.data?.data.filter((model) => !model.mode || model.mode === "chat") ?? [];
   const refresh = () => {
     void models.refetch();
     void list.refetch();
@@ -50,7 +50,7 @@ export function DeploymentAnalysis({
       ) : (
         <div className="space-y-3">
           <p role="status" className="text-sm">
-            {connected ? "Analysis is configured" : "Models are configured; waiting for the investigation worker"}
+            {connected ? "Analysis is configured" : "Models are configured; waiting for the analysis worker"}
           </p>
           <ul aria-label="Analysis models" className="space-y-1.5 font-mono text-xs">
             {configured.map((model) => (
@@ -61,8 +61,8 @@ export function DeploymentAnalysis({
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
-            Investigations send selected trace content to these providers. Choose a model and monthly spending limit
-            when creating an investigation. Provider keys stay on the Lens server.
+            Automatic analysis sends selected trace content to these providers. Choose a model and monthly spending
+            limit in Findings. Provider keys stay on the Lens server.
           </p>
           {!connected && (
             <p className="text-sm text-muted-foreground">

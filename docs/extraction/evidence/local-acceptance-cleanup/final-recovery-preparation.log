@@ -1,2 +1,0 @@
-A visible process still has access to the owned gateway database
-Do not retry service mutation or restore retired credentials without reviewing the private attempt journal

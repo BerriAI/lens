@@ -96,9 +96,8 @@ impl<S: Settlement> Drop for Reservation<S> {
 impl LocalJob {
     pub(super) async fn analyze(&self, body: &ModelRequest) -> Result<ModelResult, Error> {
         let (_, job) = self.assigned().await?;
-        let prepared = self
-            .control
-            .models
+        let models = self.control.models.get();
+        let prepared = models
             .prepare(job.settings.model.as_str(), body)
             .await
             .map_err(provider_error)?;
@@ -170,7 +169,7 @@ impl LocalJob {
             }
         };
         let completion = tokio::select! {
-            result=self.control.models.complete(&prepared)=>result.map_err(provider_error),
+            result=models.complete(&prepared)=>result.map_err(provider_error),
             result=renew=>result,
         };
         let completion = match completion {

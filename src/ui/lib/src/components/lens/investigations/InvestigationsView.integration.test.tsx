@@ -469,11 +469,11 @@ it("guides a first-time administrator into worker connection and lens setup", as
       ],
     });
   });
-  await user.click(await guide.findByRole("button", { name: "Continue to investigation" }));
+  await user.click(await guide.findByRole("button", { name: "View automatic analysis" }));
   expect(create).toHaveBeenCalledOnce();
   expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-  await user.click(guide.getByRole("button", { name: /Run your first investigation/ }));
-  expect(guide.getByRole("button", { name: "New investigation" })).toBeEnabled();
+  await user.click(guide.getByRole("button", { name: /Review findings/ }));
+  expect(guide.getByRole("button", { name: "View automatic analysis" })).toBeEnabled();
 });
 
 it("opens the saved results of an older batch", async () => {
@@ -609,8 +609,8 @@ it.each([false, true])(
     expect(await guide.findByRole("button", { name: "Check for traces" })).toBeVisible();
     await user.click(guide.getByRole("button", { name: /Configure analysisChoose/ }));
     expect(guide.getByRole("button", { name: "Configure analysis" })).toBeDisabled();
-    await user.click(guide.getByRole("button", { name: /Run your first investigation/ }));
-    expect(guide.getByRole("button", { name: "New investigation" })).toBeDisabled();
+    await user.click(guide.getByRole("button", { name: /Review findings/ }));
+    expect(guide.getByRole("button", { name: "View automatic analysis" })).toBeDisabled();
   },
 );
 
@@ -725,8 +725,8 @@ it("allows request-only accounts to connect a worker without requiring agent tra
   renderWithProviders(<InvestigationsView />);
   expect(await screen.findByRole("button", { name: "Configure analysis" })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /Send your first trace/ })).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: /Run your first investigation/ }));
-  expect(screen.getByRole("button", { name: "New investigation" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: /Review findings/ }));
+  expect(screen.getByRole("button", { name: "View automatic analysis" })).toBeDisabled();
 });
 
 it("reopens the inline editor from a shared link and drops it from the URL on cancel", async () => {

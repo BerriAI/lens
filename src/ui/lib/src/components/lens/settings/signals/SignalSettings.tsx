@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
+import { useLensHost } from "../../../../host/LensHost";
 
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { StatusDot } from "../../../shared/StatusDot";
@@ -58,7 +59,7 @@ function SignalConfigLoader() {
 const FieldError = ({ children }: { children?: string }) =>
   children ? <p className="mt-1 text-xs text-destructive">{children}</p> : null;
 
-function SetupCallout({ hasModels }: { hasModels: boolean }) {
+function SetupCallout({ hasModels, gatewayConnected }: { hasModels: boolean; gatewayConnected: boolean }) {
   return (
     <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
       <Flag aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
@@ -68,7 +69,9 @@ function SetupCallout({ hasModels }: { hasModels: boolean }) {
           <p className="text-xs text-muted-foreground">Pick one of the evaluation models configured for Lens below.</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Add an evaluation provider to your Lens deployment, then refresh this page.{" "}
+            {gatewayConnected
+              ? "Your gateway has no evaluation models. Add a model that supports the Decisions API, then refresh models."
+              : "Add an evaluation provider to your Lens deployment, then refresh models."}{" "}
             <a
               href="https://github.com/BerriAI/lens/blob/main/docs/signals.md"
               target="_blank"
@@ -128,6 +131,7 @@ function SignalFields({
 
 export function SignalForm({ saved }: { saved: SignalConfig }) {
   const api = useLensApi();
+  const standalone = useLensHost().surface === "standalone";
   const queryClient = useQueryClient();
   const modelId = useId();
   const thresholdId = useId();
@@ -147,6 +151,12 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
     }
   }
   const details = useQuery(lensQueries.modelDetails(api));
+  const gateway = useQuery({ ...lensQueries.gateway(api), enabled: standalone });
+  const discoveryError =
+    details.error?.message ??
+    (gateway.data?.configured && !gateway.data.connected
+      ? gateway.data.error ?? "The model gateway is not connected"
+      : undefined);
   const models = systemOneModels(details.data?.data ?? []);
   const options = models.map((info) => ({
     value: info.model_group,
@@ -154,6 +164,10 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
     sublabel: info.providers.join(", "),
   }));
   const problems = draftProblems(draft);
+  const unavailable =
+    Boolean(draft.model) && details.isSuccess && !models.some((info) => info.model_group === draft.model);
+  const modelUnverified =
+    Boolean(draft.model) && draft.model !== saved.model && !models.some((info) => info.model_group === draft.model);
   const next = configFrom(draft);
   const dirty = JSON.stringify(next) !== JSON.stringify(configFrom(draftFrom(draftBase)));
   const save = useMutation({
@@ -205,7 +219,29 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
           <StatusDot state={active ? "ok" : "off"} />
           {active ? `Flagging traces with ${saved.model}` : "Signals are off"}
         </p>
-        {!saved.model && !details.isPending && <SetupCallout hasModels={models.length > 0} />}
+        {discoveryError ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
+            <p className="text-destructive">Could not load System 1 models: {discoveryError}</p>
+            {details.isError ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={details.isFetching || gateway.isFetching}
+                onClick={() => {
+                  void details.refetch();
+                }}
+              >
+                Retry model check
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Your selection is kept. Refresh gateway models above to try again.
+              </p>
+            )}
+          </div>
+        ) : !saved.model && !details.isPending ? (
+          <SetupCallout hasModels={models.length > 0} gatewayConnected={Boolean(gateway.data?.connected)} />
+        ) : null}
         {savedElsewhere && (
           <div role="alert" className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
             <span>Signals were changed elsewhere</span>
@@ -227,10 +263,15 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               onValueChange={(value) => setDraft((current) => ({ ...current, model: value ?? "" }))}
               placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
               disabled={details.isPending}
-              emptyText="No evaluation models configured for Lens"
+              emptyText={discoveryError ? "Model list unavailable" : "No evaluation models configured for Lens"}
               allowClear
             />
             <p className="text-xs text-muted-foreground">Evaluation models configured for Lens, such as TypeSafe JEV</p>
+            {unavailable && !discoveryError && (
+              <p className="text-xs text-muted-foreground">
+                {draft.model} is not in the current model list. Your selection is kept.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label htmlFor={thresholdId} className="font-mono text-xs font-medium">
@@ -292,7 +333,10 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
             </p>
           )}
           {save.isSuccess && !dirty && <p className="text-xs text-muted-foreground">Saved</p>}
-          <Button disabled={!dirty || problems.any || save.isPending} onClick={() => save.mutate(next)}>
+          <Button
+            disabled={!dirty || problems.any || modelUnverified || save.isPending}
+            onClick={() => save.mutate(next)}
+          >
             {save.isPending ? "Saving…" : "Save signals"}
           </Button>
         </div>

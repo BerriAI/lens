@@ -1,5 +1,0 @@
-......................................................................................................................................16:20:33 - LiteLLM Proxy:ERROR: signals.py:464 - Lens signal result could not be stored: store unavailable
-.16:20:33 - LiteLLM Proxy:ERROR: signals.py:618 - Lens signal tick failed: tick failed
-...................................................claim read: before=104394 bytes, 0.0884s; after=104394 bytes, 0.0739s
-.........
-195 passed in 60.01s (0:01:00)

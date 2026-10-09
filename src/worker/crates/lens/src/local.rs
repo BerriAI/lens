@@ -1,3 +1,4 @@
+mod automatic;
 mod inference;
 mod job;
 mod results;
@@ -5,6 +6,7 @@ mod results;
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
+#[cfg(test)]
 use lens_analysis::AnalysisModels;
 use lens_contract::{
     investigations::{Lens, Worker},
@@ -24,7 +26,7 @@ use job::LocalJob;
 pub struct LocalControl {
     pub repository: Investigations,
     pub sources: SourceReader,
-    pub models: Arc<AnalysisModels>,
+    pub models: crate::gateway::AnalysisSource,
     worker_hash: Arc<str>,
     slots: Arc<Semaphore>,
 }
@@ -33,24 +35,30 @@ impl LocalControl {
     pub fn new(
         repository: Investigations,
         sources: SourceReader,
-        models: Arc<AnalysisModels>,
+        models: impl Into<crate::gateway::AnalysisSource>,
         worker_hash: String,
     ) -> Self {
         Self {
             repository,
             sources,
-            models,
+            models: models.into(),
             worker_hash: worker_hash.into(),
             slots: Arc::new(Semaphore::new(16)),
         }
     }
 
     async fn worker(&self) -> Result<Worker, Error> {
-        self.repository
+        let mut worker = self
+            .repository
             .worker(&self.worker_hash)
             .await?
             .filter(|worker| !worker.revoked)
-            .ok_or_else(|| rejected(401, "Worker credential is invalid or revoked"))
+            .ok_or_else(|| rejected(401, "Worker credential is invalid or revoked"))?;
+        if self.models.refreshes() {
+            worker.analysis_key_id =
+                (!self.models.get().models().is_empty()).then(|| self.worker_hash.to_string());
+        }
+        Ok(worker)
     }
 
     async fn update(
@@ -74,7 +82,7 @@ impl LocalControl {
 
     async fn claim_at(&self, worker: &Worker, now: DateTime<Utc>) -> Result<Option<Claim>, Error> {
         self.repository.heartbeat(&worker.id, now).await?;
-        let models = self.models.models();
+        let models = self.models.get().models();
         let mut after = None;
         loop {
             let page = self
@@ -88,6 +96,9 @@ impl LocalControl {
                 if !can_access(&worker.scope, &lens.scope)
                     || !models.iter().any(|model| model == settings.model.as_str())
                 {
+                    continue;
+                }
+                if active.is_none() && !self.automatic_ready(lens, now).await? {
                     continue;
                 }
                 let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
@@ -167,7 +178,7 @@ impl LocalControl {
     }
 
     pub async fn serve(self) {
-        tokio::join!(self.slot(), self.slot(), self.slot());
+        tokio::join!(self.slot(), self.slot(), self.slot(), self.automatic_loop());
     }
 }
 
@@ -180,11 +191,22 @@ impl lens_server::investigations::InvestigationAccess for LocalControl {
         &self,
         scope: &lens_contract::investigations::Scope,
     ) -> Result<Vec<Worker>, RepositoryError> {
+        let own = self
+            .worker()
+            .await
+            .map_err(|error| RepositoryError::Unavailable(Box::new(error)))?;
         Ok(self
             .repository
             .workers()
             .await?
             .into_iter()
+            .map(|worker| {
+                if worker.id == own.id {
+                    own.clone()
+                } else {
+                    worker
+                }
+            })
             .filter(|worker| can_access(scope, &worker.scope))
             .collect())
     }
@@ -196,6 +218,7 @@ impl lens_server::investigations::InvestigationAccess for LocalControl {
     ) -> Result<(), lens_server::investigations::InvestigationAccessError> {
         if self
             .models
+            .get()
             .models()
             .iter()
             .any(|model| model == settings.model.as_str())
@@ -222,6 +245,7 @@ impl lens_server::investigations::InvestigationAccess for LocalControl {
             && worker.analysis_key_id.is_some()
             && self
                 .models
+                .get()
                 .models()
                 .iter()
                 .any(|model| model == settings.model.as_str())

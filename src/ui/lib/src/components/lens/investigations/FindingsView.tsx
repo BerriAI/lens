@@ -26,9 +26,12 @@ import type { Finding } from "../model/types";
 import { useEvidenceRoute, useInboxFilters, useIssueRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import { LensPageHeader } from "../ui/LensPageHeader";
+import { useWorkerConnected } from "../hooks/useWorkerConnected";
+import { AutomaticAnalysis } from "./AutomaticAnalysis";
 import { EvidenceView } from "./Evidence";
 import { FindingDetails } from "./FindingDetails";
-import { InvestigationError, InvestigationsLoading } from "./InvestigationStates";
+import { LoadingState } from "../../shared/LoadingState";
+import { InvestigationError } from "./InvestigationStates";
 import { PRIORITY_LABEL, PRIORITY_ORDER, PriorityDot } from "./PriorityMark";
 
 const PRIORITIES: { value: Priority | "all"; label: string }[] = [
@@ -200,7 +203,9 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
       { onSuccess: () => setIssueKey(null) },
     );
   };
-  if (list.isPending) return <InvestigationsLoading />;
+  const connected = useWorkerConnected(list.data?.workers);
+  if (list.isPending)
+    return <LoadingState title="Loading findings…" description="Fetching findings and analysis status." />;
   return (
     <Inspector.Root
       items={rows}
@@ -211,11 +216,8 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <div className="@container/findings flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <LensPageHeader
-          section="03 / SIGNAL IN THE NOISE"
-          title="Findings"
-          description="Follow the evidence. Find what needs fixing."
-        />
+        <LensPageHeader title="Findings" description="Review what your agents need to improve." />
+        <AutomaticAnalysis lenses={list.data?.lenses ?? []} readOnly={readOnly} ready={connected} />
         {(list.error || update.error) && (
           <InvestigationError
             message={(list.error ?? update.error)!.message}
@@ -244,7 +246,7 @@ export function FindingsView({ readOnly = false }: { readOnly?: boolean }) {
               <p className="lens-empty-state px-4 py-16 text-center text-xs leading-6 text-muted-foreground">
                 {all.length
                   ? "No findings match these filters."
-                  : "No open findings yet. New problems show up here as soon as an investigation spots them."}
+                  : "No findings yet. Automatic analysis checks your traces and reports problems here."}
               </p>
             )}
             <footer className="flex h-9 shrink-0 items-center border-t px-3 font-mono text-[10px] text-muted-foreground">

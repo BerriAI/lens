@@ -1,4 +1,0 @@
- INFO Iteration excludes 45 previously caught or unviable mutants
-Found 2 mutants to test
-ok       Unmutated baseline in 10s build + 3s test
-2 mutants tested in 36s: 2 caught

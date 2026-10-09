@@ -57,3 +57,13 @@ export interface AnalysisModelInfo {
   mode?: string | null;
   supported_openai_params?: string[] | null;
 }
+
+export interface GatewayStatus {
+  readonly configured: boolean;
+  readonly connected: boolean;
+  readonly api_base: string | null;
+  readonly analysis_models: number;
+  readonly evaluation_models: number;
+  readonly error: string | null;
+  readonly last_refreshed: string | null;
+}

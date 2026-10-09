@@ -4,7 +4,6 @@ use lens_server::eval_closer::RunScoreInput;
 use litellm_http::Client;
 use litellm_traces_clickhouse::evals::EvalSpan;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use url::Url;
 
 use crate::{Error, control::Control};
@@ -13,7 +12,7 @@ const INSTRUCTIONS: &str = "Evaluate the agent's output and recorded activity fo
 
 #[derive(Clone)]
 pub struct GatewayJudge {
-    models: Option<Arc<lens_analysis::AnalysisModels>>,
+    models: Option<crate::gateway::AnalysisSource>,
     control: Option<Control>,
     default_model: Option<String>,
 }
@@ -34,8 +33,8 @@ impl GatewayJudge {
         }
     }
 
-    pub fn with_models(mut self, models: Arc<lens_analysis::AnalysisModels>) -> Self {
-        self.models = Some(models);
+    pub fn with_models(mut self, models: impl Into<crate::gateway::AnalysisSource>) -> Self {
+        self.models = Some(models.into());
         self
     }
 
@@ -163,6 +162,7 @@ impl Judge for RunJudge<'_> {
         })?;
         let content = match &self.judge.models {
             Some(models) => {
+                let models = models.get();
                 let available = models.models();
                 let alias = if request.model.trim().is_empty() {
                     self.judge

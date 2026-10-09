@@ -54,7 +54,7 @@ it("restores inbox filters from a link and keeps filter changes in the URL", asy
   expect(await screen.findByRole("row", { name: issue.title })).toBeVisible();
   expect(screen.queryByRole("row", { name: data.lenses[1].findings[0].title })).not.toBeInTheDocument();
   await user.click(screen.getByRole("combobox", { name: "Filter by priority" }));
-  await user.click(screen.getByRole("option", { name: "Low", exact: true }));
+  await user.click(await screen.findByRole("option", { name: "Low", exact: true }));
   expect(await screen.findByText("No findings match these filters.")).toBeVisible();
   await waitFor(() =>
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("priority")).toBe("low"),

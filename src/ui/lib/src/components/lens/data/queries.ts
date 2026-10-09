@@ -22,6 +22,7 @@ export const lensKeys = {
     [...lensKeys.all, "evidence", { scope, lensId, evidenceId, offset }] as const,
   models: (scope: string) => [...lensKeys.all, "models", { scope }] as const,
   modelDetails: (scope: string) => [...lensKeys.all, "model-details", { scope }] as const,
+  gateway: (scope: string) => [...lensKeys.all, "gateway", { scope }] as const,
   activity: (scope: string) => [...lensKeys.all, "activity-available", { scope }] as const,
   signalConfig: (scope: string) => [...lensKeys.all, "signal-config", { scope }] as const,
   discoveries: () => [...lensKeys.all, "discovery"] as const,
@@ -41,6 +42,9 @@ export const lensQueries = {
   },
   modelDetails(api: LensApi) {
     return queryOptions({ queryKey: lensKeys.modelDetails(api.scope), queryFn: () => api.modelDetails() });
+  },
+  gateway(api: LensApi) {
+    return queryOptions({ queryKey: lensKeys.gateway(api.scope), queryFn: () => api.gateway(), staleTime: 30_000 });
   },
   signalConfig(api: LensApi) {
     return queryOptions({

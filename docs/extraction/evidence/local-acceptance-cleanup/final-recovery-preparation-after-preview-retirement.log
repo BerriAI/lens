@@ -1,2 +1,0 @@
-Reviewed Docker OOM default normalization differs
-Do not retry service mutation or restore retired credentials without reviewing the private attempt journal

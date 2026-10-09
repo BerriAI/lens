@@ -1,2 +1,0 @@
-78c66d034dafecab8a8d7efa41591cedd8a23c84:docs/proxy/lens/deployment/development.md:19:  -f deploy/lens/Dockerfile -t "$LENS_WORKER_IMAGE" .
-78c66d034dafecab8a8d7efa41591cedd8a23c84:docs/proxy/lens/deployment/development.md:30:make lens-dev

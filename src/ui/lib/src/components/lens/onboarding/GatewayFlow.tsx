@@ -35,7 +35,7 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
           <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">One place, your infrastructure</p>
         </div>
         <div className="text-right">
-          <p className="font-semibold">{standalone ? "Investigations" : "Lens"}</p>
+          <p className="font-semibold">{standalone ? "Findings" : "Lens"}</p>
           <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">Find what needs fixing</p>
         </div>
       </div>

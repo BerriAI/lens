@@ -70,7 +70,7 @@ The bundled database also generates a password. Use `clickhouseSecret.name` with
 
 ## Select versions independently
 
-`image.digest=sha256:<64 lowercase hex characters>` takes precedence over `image.tag`. Lens versions do not have to equal gateway versions. Changing the Lens image leaves gateway pod templates unchanged, and changing the gateway image leaves the Lens pod template unchanged
+`image.digest=sha256:<64 lowercase hex characters>` takes precedence over `image.tag`. Official paired releases use the same Lens and gateway version. Existing deployments can select Lens separately when their API contracts remain compatible. Changing the Lens image leaves gateway pod templates unchanged, and changing the gateway image leaves the Lens pod template unchanged
 
 Use one release owner per resource. Moving a bundled deployment into a separate Helm release or Argo application requires retaining its storage and credentials, stopping old writers, transferring ownership, and then starting the new runtime. Do not enable two controllers for the same deployment
 

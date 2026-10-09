@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
 import { BookOpen, ChevronRight, Github, Loader2 } from "lucide-react";
@@ -12,7 +12,6 @@ import { Switch } from "../ui/switch";
 import { TabsContent } from "../ui/tabs";
 import { LensServicesProvider, useLensAccessToken, useLensApi, useLiveLensServices } from "./data/LensServices";
 import { isProxyAdminRole, isProxyAdminTierRole } from "../../utils/roles";
-import { InvestigationsView } from "./investigations/InvestigationsView";
 import { DatasetsView } from "./datasets/DatasetsView";
 import { EvalsView } from "./evals/EvalsView";
 import { LensSettings } from "./settings/LensSettings";
@@ -105,7 +104,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
-  const { dialog, openDialog } = useDialogRoute();
+  const { dialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
@@ -119,7 +118,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
         }
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
-  const activeTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
+  const requestedTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
+  const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
+  useEffect(() => {
+    if (requestedTab === "investigations") setTab("findings");
+  }, [requestedTab, setTab]);
   const setupState = useLensReadiness(canViewInvestigations);
   const setupLocation = {
     tab: activeTab,
@@ -156,10 +159,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     leaveSetup();
     setTab("settings");
   };
-  const startFirstInvestigation = () => {
+  const showFindings = () => {
     leaveSetup();
-    setTab("investigations");
-    openDialog("new");
+    setTab("findings");
   };
   const showSentTrace = (trace: TraceSummary) => {
     leaveSetup();
@@ -176,7 +178,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     canInvestigate: isAdmin,
     canMintTracingKey: isAdmin,
     connect: showSettings,
-    create: startFirstInvestigation,
+    create: showFindings,
     openTrace: showSentTrace,
   };
   const navigate = (tab: LensTab) => {
@@ -322,15 +324,6 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       <p className="py-6 text-sm text-muted-foreground">Findings require proxy administrator access.</p>
                     )}
                   </TabsContent>
-                  <TabsContent value="investigations" className={PANEL}>
-                    {canViewInvestigations ? (
-                      <InvestigationsView readOnly={readOnly || !isAdmin} />
-                    ) : (
-                      <p className="py-6 text-sm text-muted-foreground">
-                        Investigations require proxy administrator access. You can still view your traces.
-                      </p>
-                    )}
-                  </TabsContent>
                   <TabsContent value="datasets" className={PANEL}>
                     <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
                   </TabsContent>
@@ -349,8 +342,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     list={list}
                     workerReadyAction={
                       list.lenses.length === 0 ? (
-                        <Button className="w-full" onClick={startFirstInvestigation}>
-                          New investigation
+                        <Button className="w-full" onClick={showFindings}>
+                          View automatic analysis
                         </Button>
                       ) : undefined
                     }
@@ -411,5 +404,5 @@ function needsSetup(
   const selected = location.tab === "traces" ? location.trace : location.lensId || location.dialog || location.issueKey;
   if (!state.missingTraces || selected) return false;
   if (location.tab === "traces") return true;
-  return location.canViewInvestigations && !state.hasInvestigations && !state.hasRecordedActivity;
+  return false;
 }

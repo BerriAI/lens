@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, atomic::Ordering},
-    time::Duration,
-};
+use std::{sync::atomic::Ordering, time::Duration};
 
 use chrono::Utc;
 use lens_contract::{
@@ -9,7 +6,6 @@ use lens_contract::{
     investigations::Scope,
     worker::{Execution, ExecutionContent, LensSettingsSource, Sample},
 };
-use lens_decisions::EvaluationModels;
 use lens_signals::{
     BACKLOG_SWEEP, LIVE_SWEEP, MAX_PER_TICK, SignalReader, SignalSweep, SourceError,
 };
@@ -21,7 +17,7 @@ use crate::{Error, SampleRequest, SourceReader};
 pub struct SignalsWorker {
     pub repository: Signals,
     pub sources: SourceReader,
-    pub models: Arc<EvaluationModels>,
+    pub models: crate::gateway::Models,
 }
 
 impl SignalReader for SourceReader {
@@ -72,11 +68,12 @@ impl SignalsWorker {
     async fn sweep(&self, sweep: SignalSweep) {
         let mut cursor = String::new();
         loop {
+            let models = self.models.evaluation();
             let ready = self.sources.0.schema_ready.load(Ordering::Acquire);
             let delay = match lens_signals::run_signal_tick(
                 &self.sources,
                 Some(&self.repository),
-                Some(self.models.as_ref()),
+                Some(models.as_ref()),
                 &Utc::now,
                 ready,
                 &cursor,

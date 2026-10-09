@@ -1,7 +1,0 @@
-
-> typecheck:ui
-> npm run typecheck --workspace @litellm/lens-ui
-
-
-> @litellm/lens-ui@0.1.0-dev.0 typecheck
-> tsc --noEmit

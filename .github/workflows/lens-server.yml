@@ -88,6 +88,9 @@ jobs:
           src/components/lens/onboarding
           src/components/lens/agents
           src/components/lens/evals
+          src/components/lens/settings
+          src/components/lens/investigations
+          src/components/lens/LensNavigation.integration.test.tsx
           src/components/lens/LensSetup.integration.test.tsx
           src/components/lens/LensWorkspace.integration.test.tsx
           --maxWorkers 2
