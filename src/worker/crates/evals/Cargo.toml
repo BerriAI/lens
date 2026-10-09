@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+lens-contract = { path = "../contract" }
 serde.workspace = true
 thiserror.workspace = true
 
