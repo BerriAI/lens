@@ -4,7 +4,7 @@ mod results;
 
 use std::{sync::Arc, time::Duration};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use lens_analysis::AnalysisModels;
 use lens_contract::{
     investigations::{Lens, Worker},
@@ -69,7 +69,10 @@ impl LocalControl {
         if worker.analysis_key_id.is_none() {
             return Ok(None);
         }
-        let now = Utc::now();
+        self.claim_at(&worker, Utc::now()).await
+    }
+
+    async fn claim_at(&self, worker: &Worker, now: DateTime<Utc>) -> Result<Option<Claim>, Error> {
         self.repository.heartbeat(&worker.id, now).await?;
         let models = self.models.models();
         let mut after = None;
@@ -97,7 +100,7 @@ impl LocalControl {
                 } else {
                     lens.clone()
                 };
-                let claimed = claim_job(&scheduled, &worker, now)?;
+                let claimed = claim_job(&scheduled, worker, now)?;
                 match self.repository.replace(lens, &claimed).await {
                     Ok(updated) => {
                         if let Some(job) = current_job(&updated)
@@ -432,6 +435,7 @@ mod fixtures {
 
 #[cfg(test)]
 mod tests {
+    use super::fixtures::{StoredJob, stored_job};
     use super::*;
     use crate::{control::JobBackend, wire};
     use futures_util::future::BoxFuture;
@@ -442,6 +446,61 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
     };
     use tokio::sync::Notify;
+
+    #[rstest]
+    #[case::schedule(false)]
+    #[case::running_lease(true)]
+    #[tokio::test]
+    async fn claims_wait_until_exact_due_time(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] running: bool,
+    ) {
+        let control = &stored_job.job.control;
+        let worker = control.worker().await.unwrap();
+        let original = control
+            .repository
+            .get(&stored_job.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let due: DateTime<Utc> = "2026-10-09T00:00:00.000000900Z".parse().unwrap();
+        let queued = Lens {
+            next_run_at: due,
+            jobs: if running {
+                vec![wire::Job {
+                    lease_until: Some(due),
+                    ..original.jobs[0].clone()
+                }]
+            } else {
+                Vec::new()
+            },
+            ..original.clone()
+        };
+        let saved = control
+            .repository
+            .replace(&original, &queued)
+            .await
+            .unwrap();
+        let before = due - chrono::TimeDelta::nanoseconds(800);
+
+        assert!(control.claim_at(&worker, before).await.unwrap().is_none());
+        let unchanged = control.repository.get(&original.id).await.unwrap().unwrap();
+        assert_eq!(
+            serde_json::to_value(&unchanged).unwrap(),
+            serde_json::to_value(&saved).unwrap()
+        );
+
+        let claim = control.claim_at(&worker, due).await.unwrap().unwrap();
+        assert_eq!(claim.lens_id, original.id);
+        assert_eq!(claim.job.status, wire::JobStatus::Running);
+        assert_eq!(claim.job.worker_id.as_deref(), Some(worker.id.as_str()));
+        assert_eq!(claim.job.attempts, if running { 2 } else { 1 });
+        if running {
+            assert_eq!(claim.job.id, original.jobs[0].id);
+        }
+        assert!(claim.job.lease_until.is_some_and(|lease| lease > due));
+        assert!(control.claim_at(&worker, due).await.unwrap().is_none());
+    }
 
     fn unavailable() -> Error {
         CheckpointError::Store(RepositoryError::Unavailable(Box::new(
