@@ -31,12 +31,6 @@ pub struct LocalControl {
     slots: Arc<Semaphore>,
 }
 
-#[derive(Clone, Copy)]
-enum ClaimPhase {
-    ExistingJobs,
-    ScheduledJobs,
-}
-
 impl LocalControl {
     pub fn new(
         repository: Investigations,
@@ -83,92 +77,150 @@ impl LocalControl {
         if worker.analysis_key_id.is_none() {
             return Ok(None);
         }
-        self.claim_at(&worker, Utc::now()).await
+        self.claim_with_clock(&worker, Utc::now).await
     }
 
+    #[cfg(test)]
     async fn claim_at(&self, worker: &Worker, now: DateTime<Utc>) -> Result<Option<Claim>, Error> {
-        self.repository.heartbeat(&worker.id, now).await?;
-        for phase in [ClaimPhase::ExistingJobs, ClaimPhase::ScheduledJobs] {
-            if let Some(claim) = self.claim_due(worker, now, phase).await? {
-                return Ok(Some(claim));
-            }
-        }
-        Ok(None)
+        self.claim_with_clock(worker, || now).await
     }
 
-    async fn claim_due(
+    async fn claim_with_clock(
         &self,
         worker: &Worker,
-        now: DateTime<Utc>,
-        phase: ClaimPhase,
+        now: impl Fn() -> DateTime<Utc>,
     ) -> Result<Option<Claim>, Error> {
-        let models = self.models.get().models();
+        self.repository.heartbeat(&worker.id, now()).await?;
+        if let Some(claim) = self.claim_existing_jobs(worker, &now).await? {
+            return Ok(Some(claim));
+        }
+        self.claim_scheduled_jobs(worker, &now).await
+    }
+
+    async fn claim_existing_jobs(
+        &self,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        let due_at = now();
         let mut after = None;
         loop {
             let page = self
                 .repository
-                .due(&worker.scope, &now, 20, after.as_ref())
+                .due(&worker.scope, &due_at, 20, after.as_ref())
                 .await?;
             for candidate in &page {
                 let lens = &candidate.lens;
-                let active = current_job(lens);
-                if matches!(phase, ClaimPhase::ExistingJobs) != active.is_some() {
+                if current_job(lens).is_none() {
                     continue;
                 }
-                let settings = active.map_or(&lens.settings, |job| &job.settings);
-                if !can_access(&worker.scope, &lens.scope)
-                    || !models.iter().any(|model| model == settings.model.as_str())
-                {
-                    continue;
+                if let Some(claim) = self.claim_candidate(lens, worker, now).await? {
+                    return Ok(Some(claim));
                 }
-                if active.is_none() {
-                    match self.automatic_ready(lens, now).await {
-                        Ok(true) => (),
-                        Ok(false) => continue,
-                        Err(error) => {
-                            tracing::warn!(lens_id = %lens.id, error = %error, "Lens could not check automatic analysis readiness; skipping this agent");
-                            continue;
-                        }
-                    }
-                }
-                let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
-                    queue_job(
-                        lens,
-                        now,
-                        &uuid::Uuid::new_v4().to_string(),
-                        Default::default(),
-                    )?
-                } else {
-                    lens.clone()
-                };
-                let claimed = claim_job(&scheduled, worker, now)?;
-                match self.repository.replace(lens, &claimed).await {
-                    Ok(updated) => {
-                        if let Some(job) = current_job(&updated)
-                            && job.worker_id.as_deref() == Some(&worker.id)
-                            && job.status == crate::wire::JobStatus::Running
-                            && active.is_none_or(|previous| {
-                                previous.attempts != job.attempts || previous.id != job.id
-                            })
-                        {
-                            return Ok(Some(Claim {
-                                lens_id: updated.id.clone(),
-                                job: job.clone(),
-                                findings: updated.findings,
-                                reviews: None,
-                            }));
-                        }
-                    }
-                    Err(RepositoryError::Conflict) => {}
-                    Err(error) => return Err(error.into()),
-                }
-                self.repository.sync_due(lens).await?;
             }
             if page.len() < 20 {
                 return Ok(None);
             }
             after = page.last().cloned();
         }
+    }
+
+    async fn claim_scheduled_jobs(
+        &self,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        let due_at = now();
+        let mut after = None;
+        loop {
+            let page = self
+                .repository
+                .due(&worker.scope, &due_at, 20, after.as_ref())
+                .await?;
+            for candidate in &page {
+                let lens = &candidate.lens;
+                if current_job(lens).is_some() || !self.can_claim(lens, worker) {
+                    continue;
+                }
+                let ready = match self.automatic_ready(lens, now()).await {
+                    Ok(ready) => ready,
+                    Err(error) => {
+                        tracing::warn!(lens_id = %lens.id, error = %error, "Lens could not check automatic analysis readiness; skipping this agent");
+                        false
+                    }
+                };
+                if let Some(claim) = self.claim_existing_jobs(worker, now).await? {
+                    return Ok(Some(claim));
+                }
+                if !ready {
+                    continue;
+                }
+                if let Some(claim) = self.claim_candidate(lens, worker, now).await? {
+                    return Ok(Some(claim));
+                }
+            }
+            if page.len() < 20 {
+                return Ok(None);
+            }
+            after = page.last().cloned();
+        }
+    }
+
+    fn can_claim(&self, lens: &Lens, worker: &Worker) -> bool {
+        let settings = current_job(lens).map_or(&lens.settings, |job| &job.settings);
+        can_access(&worker.scope, &lens.scope)
+            && self
+                .models
+                .get()
+                .models()
+                .iter()
+                .any(|model| model == settings.model.as_str())
+    }
+
+    async fn claim_candidate(
+        &self,
+        lens: &Lens,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        if !self.can_claim(lens, worker) {
+            return Ok(None);
+        }
+        let active = current_job(lens);
+        let now = now();
+        let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
+            queue_job(
+                lens,
+                now,
+                &uuid::Uuid::new_v4().to_string(),
+                Default::default(),
+            )?
+        } else {
+            lens.clone()
+        };
+        let claimed = claim_job(&scheduled, worker, now)?;
+        match self.repository.replace(lens, &claimed).await {
+            Ok(updated) => {
+                if let Some(job) = current_job(&updated)
+                    && job.worker_id.as_deref() == Some(&worker.id)
+                    && job.status == crate::wire::JobStatus::Running
+                    && active.is_none_or(|previous| {
+                        previous.attempts != job.attempts || previous.id != job.id
+                    })
+                {
+                    return Ok(Some(Claim {
+                        lens_id: updated.id.clone(),
+                        job: job.clone(),
+                        findings: updated.findings,
+                        reviews: None,
+                    }));
+                }
+            }
+            Err(RepositoryError::Conflict) => {}
+            Err(error) => return Err(error.into()),
+        }
+        self.repository.sync_due(lens).await?;
+        Ok(None)
     }
 
     pub async fn run_once(&self) -> Result<bool, Error> {
@@ -570,7 +622,7 @@ mod tests {
     use rstest::rstest;
     use std::sync::{
         Mutex,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicI64, AtomicUsize, Ordering},
     };
     use tokio::sync::Notify;
 
@@ -745,6 +797,114 @@ mod tests {
         assert_eq!(
             serde_json::to_value(control.repository.lenses(&worker.scope).await.unwrap()).unwrap(),
             serde_json::to_value(before).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn work_queued_during_a_readiness_probe_is_claimed_next_with_a_fresh_lease(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let original = control
+            .repository
+            .get(&fixture.stored.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        control
+            .repository
+            .replace(
+                &original,
+                &Lens {
+                    jobs: Vec::new(),
+                    settings: wire::LensSettings {
+                        enabled: false,
+                        ..original.settings.clone()
+                    },
+                    ..original.clone()
+                },
+            )
+            .await
+            .unwrap();
+        fixture.source.reset().await;
+        let entered = Arc::new(Notify::new());
+        let signal = entered.clone();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        let (release, wait) = std::sync::mpsc::channel();
+        let wait = Mutex::new(wait);
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(move |_: &wiremock::Request| {
+                if count.fetch_add(1, Ordering::SeqCst) == 0 {
+                    signal.notify_one();
+                    wait.lock()
+                        .unwrap()
+                        .recv_timeout(Duration::from_secs(20))
+                        .unwrap();
+                }
+                wiremock::ResponseTemplate::new(503)
+            })
+            .mount(&fixture.source)
+            .await;
+        let clock = Arc::new(AtomicI64::new(fixture.now.timestamp_millis()));
+        let task_clock = clock.clone();
+        let task_control = control.clone();
+        let task_worker = worker.clone();
+        let claim_task = tokio::spawn(async move {
+            task_control
+                .claim_with_clock(&task_worker, move || {
+                    DateTime::from_timestamp_millis(task_clock.load(Ordering::SeqCst)).unwrap()
+                })
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(10), entered.notified())
+            .await
+            .expect("The scheduled scan must enter its first readiness probe");
+        let queued_at = DateTime::from_timestamp_millis(clock.load(Ordering::SeqCst)).unwrap()
+            + chrono::TimeDelta::minutes(6);
+        let queued = lens_investigations::create_lens(
+            original.settings.clone(),
+            original.scope.clone(),
+            queued_at,
+            "queued-during-readiness",
+            "new-job",
+        )
+        .unwrap();
+        control.repository.create(&queued).await.unwrap();
+        clock.store(queued_at.timestamp_millis(), Ordering::SeqCst);
+        release.send(()).unwrap();
+
+        let claim = tokio::time::timeout(Duration::from_secs(10), claim_task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap()
+            .expect("New queued work must precede the remaining readiness probes");
+
+        assert_eq!(claim.lens_id, queued.id);
+        assert_eq!(claim.job.id, "new-job");
+        assert_eq!(claim.job.worker_id.as_deref(), Some(worker.id.as_str()));
+        assert_eq!(claim.job.attempts, 1);
+        assert_eq!(claim.job.status, wire::JobStatus::Running);
+        assert_eq!(
+            claim.job.lease_until,
+            Some(queued_at + chrono::TimeDelta::minutes(5))
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        let unchanged: Vec<_> = control
+            .repository
+            .lenses(&worker.scope)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|lens| lens.id.starts_with("auto-agent-"))
+            .collect();
+        assert_eq!(
+            serde_json::to_value(unchanged).unwrap(),
+            serde_json::to_value(fixture.initial).unwrap()
         );
     }
 
