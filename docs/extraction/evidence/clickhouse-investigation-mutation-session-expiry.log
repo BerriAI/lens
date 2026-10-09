@@ -1,9 +1,0 @@
-F                                                                        [100%]
-=================================== FAILURES ===================================
-_____ test_sessions_expire_at_the_boundary_and_stay_revoked_across_clients _____
-tests/integration/database/test_access_repository.py:127: in test_sessions_expire_at_the_boundary_and_stay_revoked_across_clients
-    assert not await repo.session_active(identity, expires)
-E   assert not True
-=========================== short test summary info ============================
-FAILED tests/integration/database/test_access_repository.py::test_sessions_expire_at_the_boundary_and_stay_revoked_across_clients
-1 failed in 1.23s

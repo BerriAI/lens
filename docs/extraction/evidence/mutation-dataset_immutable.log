@@ -1,9 +1,0 @@
-F                                                                        [100%]
-=================================== FAILURES ===================================
-_____ test_inserting_an_existing_revision_is_rejected_and_keeps_the_first ______
-tests/integration/database/test_lens_dataset_repository.py:77: in test_inserting_an_existing_revision_is_rejected_and_keeps_the_first
-    assert await repo.insert(overwrite, SAVED_AT + timedelta(days=1)) is False
-E   assert True is False
-=========================== short test summary info ============================
-FAILED tests/integration/database/test_lens_dataset_repository.py::test_inserting_an_existing_revision_is_rejected_and_keeps_the_first
-1 failed in 0.33s

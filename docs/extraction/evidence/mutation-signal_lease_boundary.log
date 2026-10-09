@@ -1,9 +1,0 @@
-F                                                                        [100%]
-=================================== FAILURES ===================================
-_________ test_signal_lease_must_be_strictly_expired_before_reclaiming _________
-tests/integration/database/test_lens_signal_repository.py:43: in test_signal_lease_must_be_strictly_expired_before_reclaiming
-    assert not await repository.claim(execution("trace"), changed, lease + timedelta(minutes=5), lease)
-E   assert not True
-=========================== short test summary info ============================
-FAILED tests/integration/database/test_lens_signal_repository.py::test_signal_lease_must_be_strictly_expired_before_reclaiming
-1 failed in 1.54s

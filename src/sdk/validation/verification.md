@@ -2,16 +2,6 @@
 
 The Python API is backed by `lens-evals-sdk` and `lens-evals-python` in `src/worker/crates/`. The package is under `src/sdk/`. The current follow-up is `lens-evals==0.1.0a3`
 
-## Current merged qualification
-
-The canonical eval contract now lives in `lens-contract`. The SDK imports those Rust types and generates its Python models from `schema/lens.v1.json`. The merged contract suite passed 37 tests, including saved eval definitions, run-case trajectories and schema fixtures. SDK model generation completed against that schema. The previous notes below describe the evidence available before this integration landed
-
-The standalone service has also completed a real provider-backed main, regression, fix and unchanged-version repeat through its production eval API. This exercises stored datasets, trace ingestion, scheduled closure, scoring and baseline comparison. See the [merged service proof](../../../docs/extraction/evidence/rust-live-eval-merged.json)
-
-The current native macOS arm64 wheel passed all 38 Python SDK tests and a real gateway-delegated eval against the merged service. The agent and judge each made a paid provider call; the case completed, the judge scored 1.0 and the gate passed. ClickHouse recorded the exact run, team, case and environment attribution while redacting the judge request and response. Viewer reads succeeded and writes were rejected; teamless access was rejected and an incompatible contract returned 409. See the [native SDK and gateway proof](../../../docs/extraction/evidence/rust-gateway-sdk.json). This is qualification of a locally built wheel, not an official release
-
-The merged eval URL and SDK case-link mutation suite caught all 13 viable mutants, with one unviable mutation. The final judge suite, including the gateway attribution changes, caught all 17 viable mutants, with five unviable mutations. See [eval URL qualification](../../../docs/extraction/evidence/rust-eval-url-mutations.json) and [judge qualification](../../../docs/extraction/evidence/rust-eval-judge-mutations.json). These are focused mutation scopes, not claims of exhaustive server coverage
-
 ## Earlier contract alignment, 0.1.0a3
 
 86 Rust behavior tests and 38 Python API/CLI tests pass locally. Python boundary coverage is 92%. Strict Clippy, formatting, Ruff, strict mypy, and generated-model drift checks pass

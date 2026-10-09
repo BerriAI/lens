@@ -1,8 +1,0 @@
-{
-  "removed_at": "2026-10-09T12:10:19.560Z",
-  "volume": "6a646c5ae85b47dfa0efa35a23d72ad37acfd8cd9e27d6332de8978eb8a7cdc8",
-  "created_at": "2026-10-09T12:01:28Z",
-  "ownership_basis": "Unique volume created with first audit container; read-only helper verified exact failed test database lens_rust_state_01c2e5a0925e4c3cb2d3a4f30b2131a7 metadata file; no container references remain",
-  "removed": true,
-  "shared_volumes_modified": false
-}

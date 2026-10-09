@@ -1,3 +1,0 @@
-Created /setup/.env
-Kept existing /setup/.env
-Standalone Lens serves the UI, enforces API access, ingests a trace, and retains it after restarting both services

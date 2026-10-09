@@ -1,8 +1,0 @@
-    Checking litellm-traces v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces)
-   Compiling litellm-traces-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces-clickhouse)
-    Checking litellm-storage-clickhouse v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/storage-clickhouse)
-    Checking lens-server v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/server)
-   Compiling litellm-lens v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/lens)
-    Checking lens-parity v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/parity)
-    Checking litellm-traces-cache v0.1.0 (/Users/mfkhalil/Code/litellm-lens/src/worker/crates/traces-cache)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.40s

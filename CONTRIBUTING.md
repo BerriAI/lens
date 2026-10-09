@@ -37,7 +37,6 @@ Use `npm run dev` again to resume. For a deployment without development tooling,
 | `deploy/lens/` | Compose installation, startup, backup, restore and deployment checks |
 | `helm/lens/` | Independently deployable Lens chart |
 | `migrations/legacy/` | Historical PostgreSQL source schemas for the one-time import |
-| `docs/extraction/` | Baseline provenance, completion contract and qualification evidence |
 
 All backend code is Rust. The Python eval SDK and confined analysis interpreter under `src/worker/crates/lens/sandbox/` are the only Python exceptions. PostgreSQL is an import source for `lens-migrate`; the Lens server uses ClickHouse only
 
@@ -92,6 +91,6 @@ docker build --target smoke --build-arg LENS_VERSION=local-test -f deploy/runtim
 docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --network none --pids-limit 128 --memory 2g --cpus 2 --tmpfs /tmp:rw,noexec,nosuid,size=1g lens:smoke
 ```
 
-Run these on the deployment's native Linux architecture. Startup and recovery checks exercise persisted records and credentials. The sandbox check verifies useful calculation and confinement. Real-provider, browser, import and connected-mode checks remain separate evidence in the [implementation ledger](docs/extraction/implementation-state.json)
+Run these on the deployment's native Linux architecture. Startup and recovery checks exercise persisted records and credentials. The sandbox check verifies useful calculation and confinement. Run provider, browser, import and connected-mode checks against the release candidate as well
 
-The [completion plan](docs/extraction/completion-plan.md) records the full standalone, embedded, release and operational boundary. Source qualification does not mean an official release has been published
+Source qualification does not mean an official release has been published
