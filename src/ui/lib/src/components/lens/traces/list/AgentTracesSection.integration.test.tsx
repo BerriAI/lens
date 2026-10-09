@@ -610,6 +610,41 @@ describe("AgentTracesSection", () => {
     expect(lastUrl(onUrlUpdate).has("from")).toBe(false);
   });
 
+  it("keeps zoomed rows when activity is hidden and lets the user clear the zoom before showing it again", async () => {
+    const user = userEvent.setup();
+    vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
+    const startMs = Date.parse(runs[0].start_time);
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<AgentTracesSection accessToken="sk-test" isActive range={PINNED_DAY} />, {
+      searchParams: `?from=${startMs - 1}&to=${startMs + 1}`,
+      onUrlUpdate,
+    });
+
+    expect(await screen.findByTestId("agent-trace-row")).toHaveTextContent(runs[0].trace_id);
+    const activity = screen.getByRole("region", { name: "Run activity" });
+    expect(activity).toBeVisible();
+    expect(screen.getByRole("button", { name: "Hide activity" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Hide activity" }));
+
+    expect(activity).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "Show activity" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(1);
+    expect(screen.getByTestId("agent-trace-row")).toHaveTextContent(runs[0].trace_id);
+    expect(onUrlUpdate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Clear time zoom" }));
+
+    await waitFor(() => expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(runs.length));
+    expect(lastUrl(onUrlUpdate).has("from")).toBe(false);
+    expect(lastUrl(onUrlUpdate).has("to")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Clear time zoom" })).not.toBeInTheDocument();
+    expect(activity).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Show activity" }));
+
+    expect(screen.getByRole("region", { name: "Run activity" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Hide activity" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(runs.length);
+  });
+
   it("opens the run named by ?trace= even when it is outside the loaded list, and clears it on close", async () => {
     vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
     const onUrlUpdate = vi.fn();
