@@ -5,9 +5,9 @@ import { chooseSelectOption, renderWithProviders, testQueryClient } from "../../
 import { copyToClipboard } from "../../../../utils/dataUtils";
 import { agentTraceCall, apiClient } from "../../../../lib/http/requests";
 import {
-  codingAgentCommand,
   codingAgentPrompt,
   maskSecret,
+  projectSetupPrompt,
   TRACING_KEY_REQUEST,
   tracingEnvSnippet,
   TracingSetupCard,
@@ -95,7 +95,7 @@ describe("TracingSetupCard", () => {
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
   });
 
-  it("builds the coding agent command for the selected framework and keeps both manual installers", async () => {
+  it("should copy shared instructions for the selected framework and keep both manual installers", async () => {
     const user = userEvent.setup();
     await renderCard();
     await chooseSelectOption(user, screen.getByRole("combobox", { name: "Your agent framework" }), "CrewAI");
@@ -105,15 +105,12 @@ describe("TracingSetupCard", () => {
       FRAMEWORKS.find((guide) => guide.id === "crewai")!,
       "openai/gpt-6.1-sol",
     );
-    expect(screen.getByText(/^claude /)).not.toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Copy setup command" }));
-    expect(copyToClipboard).toHaveBeenLastCalledWith(codingAgentCommand("Claude Code", prompt));
-    await user.click(screen.getByRole("tab", { name: "Codex" }));
-    await user.click(screen.getByRole("button", { name: "Copy setup command" }));
-    expect(copyToClipboard).toHaveBeenLastCalledWith(codingAgentCommand("Codex", prompt));
-    await user.click(screen.getByText("View command"));
-    expect(screen.getByText(/^codex /)).toBeVisible();
-    expect(screen.getByText(/^codex /)).toHaveTextContent(codingAgentCommand("Codex", prompt), {
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Copy setup instructions" }));
+    expect(copyToClipboard).toHaveBeenLastCalledWith(prompt);
+    await user.click(screen.getByText("View instructions"));
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).toBeVisible();
+    expect(screen.getByText(/^Send this CrewAI project's OpenTelemetry/)).toHaveTextContent(prompt, {
       normalizeWhitespace: false,
     });
 
@@ -150,7 +147,7 @@ describe("TracingSetupCard", () => {
     expect(card).toHaveTextContent("Keep your existing model settings");
     await user.click(screen.getByRole("button", { name: "Generate tracing key" }));
     await screen.findByText("Your tracing key");
-    expect(card).toHaveTextContent("gen_ai.agent.name: research_agent");
+    expect(card).toHaveTextContent('gen_ai.agent.name: "research_agent"');
     expect(card).toHaveTextContent("endpoint: https://traces.test/v1/traces");
     expect(card).toHaveTextContent('Authorization: "Bearer ${LITELLM_TRACING_KEY}"');
     expect(card).not.toHaveTextContent(SECRET);
@@ -324,6 +321,21 @@ describe("TracingSetupCard", () => {
 });
 
 describe("setup snippets", () => {
+  it("should preserve existing instrumentation and ask for a dedicated key in project setup", () => {
+    const prompt = projectSetupPrompt("https://traces.test/observe/");
+    expect(prompt).toContain("https://traces.test/observe/v1/traces");
+    expect(prompt).toContain("Authorization: Bearer <dedicated Lens tracing key>");
+    expect(prompt).toContain("Never use a model or Lens admin key for ingestion");
+    expect(prompt).toContain("Keep the existing model provider, model credentials");
+    expect(prompt).toContain("only configure its exporter and preserve its agent names");
+    expect(prompt).toContain("LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY");
+    expect(prompt).toContain("endpoint requires HTTPS");
+    expect(prompt).toContain("Do not add another tracing SDK");
+    expect(prompt).toContain("gen_ai.agent.name on the root agent span");
+    expect(prompt).toContain("verify its real trace arrives in Lens");
+    expect(prompt).toContain("Report configuration or credential gaps instead of claiming success");
+  });
+
   it("uses the instance trace endpoint and keeps tracing and inference keys separate", () => {
     const env = tracingEnvSnippet("https://traces.test");
     expect(env).toContain('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://traces.test/v1/traces"');
@@ -341,11 +353,6 @@ describe("setup snippets", () => {
     expect(prompt).toContain('AGENT_NAME = "research_agent"');
     expect(prompt).toContain("name=AGENT_NAME");
     expect(prompt).toContain("Lens > Traces");
-  });
-
-  it("builds a shell-safe command for each coding agent", () => {
-    expect(codingAgentCommand("Claude Code", "it's")).toBe("claude 'it'\\''s'");
-    expect(codingAgentCommand("Codex", "go")).toBe("codex 'go'");
   });
 
   it("masks secrets but keeps a recognisable prefix and suffix", () => {

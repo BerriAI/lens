@@ -25,8 +25,48 @@ beforeEach(() => {
     const path = requestPath(input);
     if (path === "/v1/traces") return Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
     if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: false });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
     return Response.json({ data: [], traces: false, requests: false });
   });
+});
+
+it.each(["home", "agents", "traces"])(
+  "should open agent connection from %s without deployment setup taking over",
+  async (tab) => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+      searchParams: `?tab=${tab}`,
+    });
+    await user.click(await screen.findByRole("button", { name: tab === "traces" ? "Set up manually" : "Add agent" }));
+    expect(await screen.findByRole("dialog", { name: "Add an agent" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Agent name" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "The gateway that helps your agents improve" }),
+    ).not.toBeInTheDocument();
+  },
+);
+
+it("should keep Home selected when connected agents load and offer their directory", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  window.localStorage.setItem("litellm.lens.agent", "moyai");
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/v1/traces/agents")
+      return Response.json({
+        agents: [{ name: "moyai", runs: 1, failed_runs: 0, frameworks: [], last_seen: new Date().toISOString() }],
+      });
+    if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    return Response.json({ data: [], traces: true, requests: false });
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { onUrlUpdate });
+  expect(await screen.findByRole("heading", { name: "Your workspace" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
+  expect(onUrlUpdate).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "View agents" }));
+  expect(await screen.findByRole("button", { name: "Open moyai" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("agents"));
 });
 
 it("keeps installation controls mounted while readiness retries and continues after Lens connects", async () => {
@@ -85,7 +125,7 @@ describe("Lens interactive demo", () => {
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />, {
       onUrlUpdate,
     });
-    expect(await screen.findByRole("heading", { name: "The gateway that helps your agents improve" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Get started with Lens" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
     expect(await screen.findByText("Where is order #1042?")).toBeVisible();
@@ -504,7 +544,7 @@ describe("Lens interactive demo", () => {
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly />, {
       searchParams: "?tab=settings",
     });
-    expect(await screen.findByRole("tab", { name: "Traces", selected: true })).toBeVisible();
+    expect(await screen.findByRole("tab", { name: "Home", selected: true })).toBeVisible();
   });
 
   it("turns the worker health dot off once heartbeats expire even when polling returns unchanged data", async () => {
@@ -824,8 +864,11 @@ it("should switch color themes from the sidebar and restore the saved preference
       searchParams: "?demo=true",
     });
     expect(document.documentElement).toHaveClass("light");
-    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Dark mode" }));
     expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "false");
     expect(window.localStorage.getItem(storageKey)).toBe("dark");
 
     first.unmount();
@@ -834,10 +877,20 @@ it("should switch color themes from the sidebar and restore the saved preference
       searchParams: "?demo=true",
     });
     expect(document.documentElement).toHaveClass("dark");
-    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Light mode" }));
     expect(document.documentElement).toHaveClass("light");
     expect(document.documentElement).not.toHaveClass("dark");
+    expect(screen.getByRole("button", { name: "Light mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "false");
     expect(window.localStorage.getItem(storageKey)).toBe("light");
+
+    await user.click(screen.getByRole("button", { name: "Collapse navigation" }));
+    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(document.documentElement).toHaveClass("dark");
+    expect(window.localStorage.getItem(storageKey)).toBe("dark");
+    await user.click(screen.getByRole("button", { name: "Expand navigation" }));
+    expect(screen.getByRole("button", { name: "Dark mode" })).toHaveAttribute("aria-pressed", "true");
     reopened.unmount();
   } finally {
     document.documentElement.className = initialClassName;

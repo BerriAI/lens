@@ -31,6 +31,8 @@ import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
+import { LensHome } from "./onboarding/LensHome";
+import { AgentConnectionDialog } from "./agents/AgentConnectionDialog";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -93,7 +95,8 @@ const PANEL =
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
   const embedded = useLensHost().surface === "embedded";
   const accessToken = useLensAccessToken();
-  const { tab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
+  const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
+  const [connectingAgent, setConnectingAgent] = useState(false);
   const { dialog, openDialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
@@ -101,7 +104,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const canViewInvestigations = isProxyAdminTierRole(userRole);
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
-  const defaultTab = lensId ? "investigations" : "traces";
+  const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
   const activeTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
   const setupState = useLensReadiness(canViewInvestigations);
   const setupLocation = {
@@ -113,7 +116,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     dialog,
     issueKey,
   };
-  const showSetup = !demo && needsSetup(setupState, setupLocation);
+  const showSetup = !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
+  const addAgent = !demo ? () => setConnectingAgent(true) : undefined;
   const { activity, list } = useLensOverview(
     canViewInvestigations,
     (canConfigure && activeTab === "settings") || settingUp,
@@ -247,8 +251,16 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 </TabsContent>
               ) : (
                 <>
+                  <TabsContent value="home" className={PANEL}>
+                    <LensHome
+                      agents={agents}
+                      onAddAgent={addAgent}
+                      onOpenAgents={() => navigate("agents")}
+                      onSetup={canConfigure ? startSetup : undefined}
+                    />
+                  </TabsContent>
                   <TabsContent value="agents" className={PANEL}>
-                    <AgentsView agents={agents} onOpenAgent={agents.select} />
+                    <AgentsView agents={agents} onOpenAgent={agents.select} onAddAgent={addAgent} />
                   </TabsContent>
                   <TabsContent value="traces" keepMounted className={PANEL}>
                     <AgentTracesPage
@@ -258,6 +270,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       canMintTracingKey={isAdmin}
                       canViewFindings={canViewInvestigations}
                       onSetUpSignals={canConfigure ? showSettings : undefined}
+                      onConnectAgent={addAgent}
                     />
                   </TabsContent>
                   <TabsContent value="findings" className={PANEL}>
@@ -307,6 +320,16 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           </div>
         </Tabs.Root>
       </main>
+      {connectingAgent && (
+        <AgentConnectionDialog
+          open
+          onOpenChange={setConnectingAgent}
+          onConnected={(name) => {
+            setConnectingAgent(false);
+            agents.select(name);
+          }}
+        />
+      )}
     </OnboardingProvider>
   );
 }
@@ -331,6 +354,7 @@ function needsSetup(
 ) {
   if (
     location.tab === "settings" ||
+    location.tab === "home" ||
     location.tab === "datasets" ||
     location.tab === "evals" ||
     location.tab === "agents"

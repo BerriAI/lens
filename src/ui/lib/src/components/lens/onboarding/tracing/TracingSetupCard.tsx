@@ -12,8 +12,8 @@ import { Button } from "../../../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 import { copyToClipboard } from "../../../../utils/dataUtils";
 
-import anthropicLogo from "../../../../../public/assets/logos/anthropic.svg";
-import openaiLogo from "../../../../../public/assets/logos/openai_small.svg";
+import claudeCodeLogo from "../../../../../public/assets/logos/claude-code.svg";
+import codexLogo from "../../../../../public/assets/logos/codex.svg";
 import otelLogo from "../../../../../public/assets/logos/opentelemetry.svg";
 import { agentTraceCall, apiClient, getProxyBaseUrl } from "../../../../lib/http/requests";
 import { ActiveDot } from "../../traces/ui/ActiveDot";
@@ -38,7 +38,6 @@ export const TRACING_KEY_REQUEST = { name: "Agent tracing" } as const;
 const SAMPLE_TRACE_POLL_ATTEMPTS = 15;
 
 type Installer = "pip" | "uv";
-type CodingAgent = "Claude Code" | "Codex";
 
 const PY_INSTALL: Record<Installer, (packages: string) => string> = {
   pip: (packages) => `pip install ${packages}`,
@@ -80,10 +79,15 @@ export const codingAgentPrompt = (
     .filter(Boolean)
     .join("\n\n");
 
-const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
-
-export const codingAgentCommand = (agent: CodingAgent, prompt: string): string =>
-  `${agent === "Claude Code" ? "claude" : "codex"} ${shellQuote(prompt)}`;
+export const projectSetupPrompt = (traceUrl: string): string =>
+  [
+    "Connect this project's agent traces to Lens. Inspect the project and its existing tracing configuration first.",
+    "Keep the existing model provider, model credentials, authentication, and application behavior. Never hardcode or commit secrets.",
+    `Send OTLP/HTTP traces to ${traceUrl.replace(/\/$/, "")}/v1/traces with Authorization: Bearer <dedicated Lens tracing key>. Get the tracing key from Lens > Traces > Connection details, then load it through this project's existing environment configuration. Never use a model or Lens admin key for ingestion.`,
+    "If tracing already exists, only configure its exporter and preserve its agent names. For Moyai, set LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY; its endpoint requires HTTPS. Do not add another tracing SDK.",
+    "Otherwise detect the framework, add its supported OpenTelemetry instrumentation, and include gen_ai.agent.name on the root agent span. Use OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, OTEL_EXPORTER_OTLP_TRACES_HEADERS, and http/protobuf where supported.",
+    "Restart the project if needed. Run one task and verify its real trace arrives in Lens. Report configuration or credential gaps instead of claiming success.",
+  ].join("\n\n");
 
 export const maskSecret = (secret: string): string =>
   secret.length > 10 ? `${secret.slice(0, 5)}${"•".repeat(16)}${secret.slice(-4)}` : "•".repeat(secret.length);
@@ -94,7 +98,7 @@ export const otlpEndpoints = (proxyUrl: string): readonly (readonly [string, str
   ["Protocol", "OTLP/HTTP (protobuf or JSON)", false],
 ];
 
-function CodeBlock({
+export function CodeBlock({
   code,
   display = code,
   tabs,
@@ -315,14 +319,16 @@ function TraceReceipt({
   );
 }
 
-function TracingKey({
+export function TracingKey({
   accessToken,
   tracingKey,
   onCreated,
+  name = TRACING_KEY_REQUEST.name,
 }: {
   accessToken: string;
   tracingKey: string | null;
   onCreated: (key: string) => void;
+  name?: string;
 }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -333,7 +339,7 @@ function TracingKey({
     try {
       const result = await apiClient.post<components["schemas"]["IngestionKeyCreated"]>("/lens/tracing/keys", {
         accessToken,
-        body: TRACING_KEY_REQUEST,
+        body: { name },
       });
       if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
@@ -398,7 +404,7 @@ function EndpointValue({ value }: { value: string }) {
   );
 }
 
-function Endpoints({ proxyUrl, children }: { proxyUrl: string; children?: React.ReactNode }) {
+export function Endpoints({ proxyUrl, children }: { proxyUrl: string; children?: React.ReactNode }) {
   return (
     <section className="mt-6" aria-labelledby="otel-endpoints">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -421,11 +427,6 @@ function Endpoints({ proxyUrl, children }: { proxyUrl: string; children?: React.
     </section>
   );
 }
-
-const CODING_AGENT_LOGOS: Record<CodingAgent, string> = {
-  "Claude Code": anthropicLogo.src,
-  Codex: openaiLogo.src,
-};
 
 function setupTitle(enabled: boolean, connected: boolean) {
   if (!enabled) return "Set up Lens";
@@ -503,8 +504,8 @@ function EnableTracing({
       <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       {!configured && (
         <p className="text-sm text-muted-foreground">
-          Use a Lens release supported by this LiteLLM integration.{" "}
-          The deployment connects the services and supplies trace storage.
+          Use a Lens release supported by this LiteLLM integration. The deployment connects the services and supplies
+          trace storage.
         </p>
       )}
       <div className="flex flex-wrap gap-3">
@@ -533,24 +534,25 @@ function EnableTracing({
   );
 }
 
-function CodingAgentSetup({
+export function CodingAgentSetup({
   proxyUrl,
   traceUrl,
   guide,
-  model,
+  model = EXAMPLE_MODEL,
 }: {
   proxyUrl: string;
   traceUrl: string;
-  guide: FrameworkGuide;
-  model: string;
+  guide?: FrameworkGuide;
+  model?: string;
 }) {
   const standalone = useLensHost().surface === "standalone";
-  const [codingAgent, setCodingAgent] = useState<CodingAgent>("Claude Code");
   const [copied, setCopied] = useState<string | null>(null);
-  const command = codingAgentCommand(codingAgent, codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone));
+  const instructions = guide
+    ? codingAgentPrompt(proxyUrl, traceUrl, guide, model, standalone)
+    : projectSetupPrompt(traceUrl);
   useTimeout(() => setCopied(null), copied === null ? null : COPIED_RESET_MS);
   const copy = async () => {
-    if (await copyToClipboard(command)) setCopied(command);
+    if (await copyToClipboard(instructions)) setCopied(instructions);
   };
   return (
     <section className="mt-6" aria-labelledby="connect-project">
@@ -558,34 +560,32 @@ function CodingAgentSetup({
         Connect your project
       </h3>
       <div className="mt-3 overflow-hidden rounded-md border">
-        <div className="border-b bg-muted/30 px-4">
-          <LineTabs
-            value={codingAgent}
-            options={["Claude Code", "Codex"]}
-            onChange={(value) => {
-              setCodingAgent(value);
-              setCopied(null);
-            }}
-            logos={CODING_AGENT_LOGOS}
-          />
+        <div className="flex flex-wrap items-center gap-5 border-b bg-muted/30 px-4 py-3">
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            <img src={claudeCodeLogo.src} alt="Claude Code logo" className="size-6 object-contain" />
+            Claude Code
+          </span>
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            <img src={codexLogo.src} alt="Codex logo" className="size-5 object-contain dark:invert" />
+            Codex
+          </span>
         </div>
         <div className="p-4">
           <p className="text-sm leading-6 text-muted-foreground">
-            Run the setup command in your agent’s project. It uses <code className="text-xs">LITELLM_TRACING_KEY</code>{" "}
-            for traces and keeps your model key separate.
+            Paste these instructions into Claude Code or Codex in your project to connect its traces to Lens.
           </p>
           <Button className="mt-3" onClick={() => void copy()}>
-            {copied === command ? (
+            {copied === instructions ? (
               <Check aria-hidden="true" className="size-4" />
             ) : (
               <Copy aria-hidden="true" className="size-4" />
             )}
-            {copied === command ? "Copied" : "Copy setup command"}
+            {copied === instructions ? "Copied" : "Copy setup instructions"}
           </Button>
           <details className="mt-3">
-            <summary className="w-fit cursor-pointer text-xs text-muted-foreground">View command</summary>
+            <summary className="w-fit cursor-pointer text-xs text-muted-foreground">View instructions</summary>
             <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-5">
-              <code>{command}</code>
+              <code>{instructions}</code>
             </pre>
           </details>
         </div>

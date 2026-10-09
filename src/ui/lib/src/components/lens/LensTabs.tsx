@@ -1,6 +1,16 @@
 "use client";
 
-import { Activity, Bot, Database, FlaskConical, ScanSearch, Settings, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  Database,
+  FlaskConical,
+  House,
+  ScanSearch,
+  Settings,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "../../lib/cva.config";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
@@ -17,6 +27,7 @@ interface LensTabsProps {
 }
 
 const NAVIGATION_ITEMS = [
+  { value: "home", label: "Home", icon: House },
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },
   { value: "findings", label: "Findings", icon: Sparkles },

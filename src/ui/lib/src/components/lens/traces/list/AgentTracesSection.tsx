@@ -29,6 +29,7 @@ import { TracesTimeline } from "./TracesTimeline";
 import { TracingSetupCard } from "../../onboarding/tracing/TracingSetupCard";
 import { useTracesLive } from "../api";
 import { type AgentTracesResult, useAgentTraces, useTraceAvailability } from "./useAgentTraces";
+import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
 
@@ -48,6 +49,7 @@ interface AgentTracesSectionProps {
   canMintTracingKey?: boolean;
   canViewFindings?: boolean;
   onSetUpSignals?: () => void;
+  onConnectAgent?: () => void;
 }
 
 function useSignalSetup(enabled: boolean) {
@@ -98,6 +100,7 @@ export function AgentTracesSection({
   canMintTracingKey = false,
   canViewFindings,
   onSetUpSignals,
+  onConnectAgent,
 }: AgentTracesSectionProps) {
   const live = useTracesLive();
   const { trace: openTrace, openTrace: openRun, selection, fullScreen, setFullScreen } = useOpenTraceRouting();
@@ -153,10 +156,30 @@ export function AgentTracesSection({
     checking: traces.isFetching,
   };
 
-  if (setup.disabledDetail != null) return <TracingSetupCard detail={setup.disabledDetail} {...setupProps} />;
+  if (!openTrace && setup.disabledDetail != null)
+    return (
+      <WaitingForTraces
+        accessToken={accessToken}
+        canMintTracingKey={canMintTracingKey}
+        readOnly={readOnly}
+        detail={setup.disabledDetail}
+        onConnect={onConnectAgent}
+        onCheck={checkTraces}
+        checking={traces.isFetching}
+      />
+    );
   // Onboarding only on the first, default view; an empty range the user picked keeps its controls.
-  if (checkHistory && !history.error && history.data === false)
-    return <TracingSetupCard detail={null} {...setupProps} />;
+  if (!openTrace && checkHistory && !history.error && history.data === false)
+    return (
+      <WaitingForTraces
+        accessToken={accessToken}
+        canMintTracingKey={canMintTracingKey}
+        readOnly={readOnly}
+        onConnect={onConnectAgent}
+        onCheck={checkTraces}
+        checking={traces.isFetching || history.isFetching}
+      />
+    );
   if (showSetup) {
     return (
       <div>
@@ -206,7 +229,11 @@ export function AgentTracesSection({
           range={zoom ?? window}
           busy={traces.isPlaceholder}
         >
-          <TracingSetupAction available={traces.traces.length > 0} live={live} onSetup={() => setShowSetup(true)} />
+          <TracingSetupAction
+            available={traces.traces.length > 0}
+            live={live}
+            onSetup={onConnectAgent ?? (() => setShowSetup(true))}
+          />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -247,7 +274,7 @@ export function AgentTracesSection({
           onRetry={traces.hasMore ? traces.loadMore : traces.refetch}
           onLoadMore={traces.loadMore}
           rangeEmpty={traces.traces.length === 0}
-          onSetUpTracing={() => setShowSetup(true)}
+          onSetUpTracing={onConnectAgent ?? (() => setShowSetup(true))}
         />
         <TraceFooter runs={runs} hasMore={traces.hasMore} />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bot, Search } from "lucide-react";
+import { ArrowRight, Bot, Plus, Search } from "lucide-react";
 
 import { useNow } from "../../../hooks/useNow";
 import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
@@ -14,7 +14,15 @@ import { AgentMark, matchesAgent } from "./AgentPicker";
 import type { LensAgents } from "./AgentScoped";
 import { AGENT_WINDOW_DAYS } from "./useAgents";
 
-export function AgentsView({ agents, onOpenAgent }: { agents: LensAgents; onOpenAgent: (agent: string) => void }) {
+export function AgentsView({
+  agents,
+  onOpenAgent,
+  onAddAgent,
+}: {
+  agents: LensAgents;
+  onOpenAgent: (agent: string) => void;
+  onAddAgent?: () => void;
+}) {
   const [search, setSearch] = useAgentSearchRoute();
   const now = useNow(30_000);
   const { agents: all, isLoading, error } = agents.list;
@@ -34,7 +42,15 @@ export function AgentsView({ agents, onOpenAgent }: { agents: LensAgents; onOpen
           </h2>
           <p className="text-sm text-muted-foreground">Choose an agent to explore its traces and activity</p>
         </div>
-        <span className="text-xs text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
+          {onAddAgent && (
+            <Button size="sm" onClick={onAddAgent}>
+              <Plus aria-hidden className="size-4" />
+              Add agent
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative w-full sm:max-w-80">

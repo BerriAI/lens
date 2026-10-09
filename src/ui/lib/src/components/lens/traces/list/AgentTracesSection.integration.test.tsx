@@ -12,6 +12,7 @@ import { filterRuns } from "./runSearch/runQuery";
 import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 
 import { AgentTracesSection } from "./AgentTracesSection";
+import { projectSetupPrompt } from "../../onboarding/tracing/TracingSetupCard";
 import type { TraceFeedbackSummary, TraceFindingCount, TracePage, TraceSummary } from "../types";
 
 vi.mock("../../../../lib/http/requests", () => ({
@@ -188,29 +189,59 @@ describe("AgentTracesSection", () => {
     expect(agentTraceListCall).toHaveBeenCalledOnce();
   });
 
-  it("links to installation when the proxy has no Lens configured", async () => {
+  it("should keep deployment setup out of the trace view when storage is not configured", async () => {
     serveService(false);
     vi.mocked(agentTraceListCall).mockRejectedValue(
       new ApiError("Agent tracing is not enabled", 501, { detail: "Agent tracing is not enabled" }),
     );
     renderSection();
 
-    expect(await screen.findByText("Install Lens")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Helm setup" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Docker setup" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Check setup" })).toBeEnabled();
+    const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+    expect(waiting.getByRole("status")).toHaveTextContent("Waiting for traces");
+    expect(waiting.getByRole("alert")).toHaveTextContent("Trace storage is not configured yet");
+    expect(waiting.getByRole("button", { name: "Check for traces" })).toBeEnabled();
+    expect(screen.queryByRole("link", { name: "Helm setup" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Docker setup" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate tracing key" })).not.toBeInTheDocument();
   });
 
-  it("shows the waiting guide when tracing is on but no runs have arrived", async () => {
+  it("should copy shared setup instructions while keeping connection details collapsed", async () => {
+    const user = userEvent.setup();
     vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
     renderSection();
 
-    const card = await screen.findByTestId("tracing-setup-card");
-    expect(await screen.findByRole("heading", { name: "Connect your agent" })).toBeVisible();
-    expect(await screen.findByText("Waiting for your first trace")).toBeInTheDocument();
+    const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+    expect(waiting.getByRole("status")).toHaveTextContent("Waiting for traces");
+    const copy = await waiting.findByRole("button", { name: "Copy setup instructions" });
+    expect(copy).toBeVisible();
+    expect(waiting.getByText("Claude Code")).toBeVisible();
+    expect(waiting.getByText("Codex")).toBeVisible();
+    expect(waiting.getByRole("img", { name: "Claude Code logo" })).toBeVisible();
+    expect(waiting.getByRole("img", { name: "Codex logo" })).toBeVisible();
+    expect(waiting.queryByRole("tab", { name: /Claude Code|Codex/ })).not.toBeInTheDocument();
+    expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
+    expect(waiting.getByText("Ask your Lens administrator for a dedicated tracing key.")).not.toBeVisible();
+    await user.click(copy);
+    const instructions = await navigator.clipboard.readText();
+    expect(instructions).toBe(projectSetupPrompt(readyService.url));
+    expect(instructions).not.toContain("sk-test");
+    expect(waiting.getByText("Traces endpoint")).not.toBeVisible();
+    expect(waiting.queryByRole("alert")).not.toBeInTheDocument();
+    expect(waiting.queryByRole("button", { name: "Set up manually" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-    expect(card).not.toHaveTextContent("store: clickhouse");
+    expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
+  });
+
+  it("should open the agent connection flow when requested from the waiting state", async () => {
+    const user = userEvent.setup();
+    const onConnectAgent = vi.fn();
+    vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
+    renderWithProviders(<AgentTracesPage accessToken="sk-test" isActive onConnectAgent={onConnectAgent} />);
+
+    const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+    await user.click(waiting.getByRole("button", { name: "Set up manually" }));
+    expect(onConnectAgent).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
   });
 
   it("keeps the trace list available when traces exist outside the current time window", async () => {
@@ -225,30 +256,33 @@ describe("AgentTracesSection", () => {
     expect(await screen.findByRole("heading", { name: "Connect another agent" })).toBeVisible();
   });
 
-  it("checks proxy readiness, waits for an agent, and confirms receipt using actual query results", async () => {
+  it("should recheck disabled tracing, wait for an agent, and confirm receipt using actual query results", async () => {
+    const user = userEvent.setup();
     serveService(false);
     vi.mocked(agentTraceListCall).mockRejectedValue(new ApiError("Tracing is not enabled", 501, {}));
     renderSection();
-    const checkSetup = await screen.findByRole("button", { name: "Check setup" });
+    const checkTraces = await screen.findByRole("button", { name: "Check for traces" });
     vi.mocked(agentTraceListCall).mockResolvedValue({ ...(traceList as TracePage), data: [] });
     serveService(true);
-    fireEvent.click(checkSetup);
-    expect(await screen.findByRole("heading", { name: "Connect your agent" })).toBeVisible();
-    expect(await screen.findByText("Waiting for your first trace")).toBeVisible();
+    await user.click(checkTraces);
+    const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+    expect(waiting.getByRole("status")).toHaveTextContent("Waiting for traces");
+    await waitFor(() => expect(waiting.queryByRole("alert")).not.toBeInTheDocument());
     vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
-    fireEvent.click(screen.getByRole("button", { name: "Check for traces" }));
+    await user.click(screen.getByRole("button", { name: "Check for traces" }));
     expect(await screen.findAllByTestId("agent-trace-row")).toHaveLength(runs.length);
     expect(screen.getByText("Traces received. Select a run to inspect it.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Waiting for traces" })).not.toBeInTheDocument();
   });
 
-  it("keeps setup visible while checking and explains when tracing is still disabled", async () => {
+  it("should keep the waiting state visible while checking and explain when tracing is still disabled", async () => {
+    const user = userEvent.setup();
     serveService(false);
     const failure = new ApiError("Tracing is not enabled", 501, {});
     vi.mocked(agentTraceListCall).mockRejectedValue(failure);
     renderSection();
-    const checkSetup = await screen.findByRole("button", { name: "Check setup" });
+    const checkTraces = await screen.findByRole("button", { name: "Check for traces" });
     let rejectCheck: (error: Error) => void = () => {};
     vi.mocked(agentTraceListCall).mockImplementationOnce(
       () =>
@@ -256,24 +290,25 @@ describe("AgentTracesSection", () => {
           rejectCheck = reject;
         }),
     );
-    fireEvent.click(checkSetup);
+    await user.click(checkTraces);
     expect(await screen.findByRole("button", { name: "Checking…" })).toBeDisabled();
-    expect(screen.getByRole("heading", { name: "Set up Lens" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Waiting for traces" })).toBeVisible();
     await act(async () => rejectCheck(failure));
-    expect(await screen.findByText("Install Lens")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Check setup" })).toBeEnabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Trace storage is not configured yet");
+    expect(screen.getByRole("button", { name: "Check for traces" })).toBeEnabled();
   });
 
-  it("keeps received traces and the open drawer visible during subsequent fetches", async () => {
+  it("should keep received traces and the open drawer visible during subsequent fetches", async () => {
+    const user = userEvent.setup();
     serveService(false);
     vi.mocked(agentTraceListCall).mockRejectedValue(new ApiError("Tracing is not enabled", 501, {}));
     renderSection();
-    const checkSetup = await screen.findByRole("button", { name: "Check setup" });
+    const checkTraces = await screen.findByRole("button", { name: "Check for traces" });
     vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
     serveService(true);
-    fireEvent.click(checkSetup);
+    await user.click(checkTraces);
     const rows = await screen.findAllByTestId("agent-trace-row");
-    fireEvent.click(rows[0]);
+    await user.click(rows[0]);
     const drawer = screen.getByRole("complementary", { name: "Trace details" });
 
     let finishRefresh: (page: TracePage) => void = () => {};
@@ -289,7 +324,7 @@ describe("AgentTracesSection", () => {
     await waitFor(() => expect(screen.getByRole("table", { name: "Agent runs" })).toHaveAttribute("aria-busy", "true"));
     expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(runs.length);
     expect(screen.getByRole("complementary", { name: "Trace details" })).toBe(drawer);
-    expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Waiting for traces" })).not.toBeInTheDocument();
     await act(async () => finishRefresh(traceList as TracePage));
   });
 
@@ -308,14 +343,14 @@ describe("AgentTracesSection", () => {
     expect(agentTraceListCall).toHaveBeenCalledTimes(1);
   });
 
-  it("treats a proxy without the trace routes (404) like tracing being off", async () => {
+  it("should treat a proxy without the trace routes (404) like tracing being off", async () => {
     serveService(false);
     vi.mocked(agentTraceListCall).mockRejectedValue(new ApiError("Not Found", 404, { detail: "Not Found" }));
     renderSection();
 
-    const card = await screen.findByTestId("tracing-setup-card");
-    expect(await screen.findByText("Install Lens")).toBeVisible();
-    expect(card).toHaveTextContent("Use Lens v1.2.3");
+    const waiting = within(await screen.findByRole("region", { name: "Waiting for traces" }));
+    expect(waiting.getByRole("alert")).toHaveTextContent("Trace storage is not configured yet");
+    expect(waiting.getByRole("button", { name: "Check for traces" })).toBeEnabled();
   });
 
   it("lists uninvestigated runs without presenting tool errors as failures", async () => {
