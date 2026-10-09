@@ -18,6 +18,7 @@ import {
 } from "./investigator-agent.js";
 import { escapeSlack, prose, words } from "./slack.js";
 import { prepareChart, type ChartSlack } from "./chart.js";
+import { postWithChart } from "./slack-transport.js";
 
 const provenance = z.object({
   model: z.string(),
@@ -236,7 +237,7 @@ export async function postCandidate(
         }
       : {}),
   });
-  const posted = await slack.chat.postMessage({
+  const posted = await postWithChart(slack, {
     channel: config.channel,
     text: "Lens found an improvement candidate",
     attachments: [

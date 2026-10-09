@@ -5,6 +5,7 @@ import { configFrom } from "./config.js";
 import { startInvestigator } from "./investigator.js";
 import { answerBlocks } from "./slack.js";
 import { prepareChart } from "./chart.js";
+import { postWithChart } from "./slack-transport.js";
 
 async function main() {
   const config = configFrom(process.env);
@@ -51,7 +52,7 @@ async function main() {
             unit: measured.frequency.unit,
           })
         : undefined;
-      await app.client.chat.postMessage({
+      await postWithChart(app.client, {
         channel,
         thread_ts: thread,
         text: "Lens replied in this thread",
