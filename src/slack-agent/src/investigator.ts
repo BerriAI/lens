@@ -256,7 +256,7 @@ export async function postCandidate(
             elements: [
               {
                 type: "mrkdwn",
-            text: `${icon} ${category} · Proposed change · Confidence ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment)`,
+                text: `${icon} ${category} · Proposed change · Confidence ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment)`,
                 verbatim: true,
               },
             ],
