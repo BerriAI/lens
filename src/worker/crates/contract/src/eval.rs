@@ -32,8 +32,11 @@ pub struct Judge {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Scorer {
+    #[schemars(title = "TaskCompleted")]
     TaskCompleted(TaskCompleted),
+    #[schemars(title = "CalledBefore")]
     CalledBefore(CalledBefore),
+    #[schemars(title = "Judge")]
     Judge(Judge),
 }
 

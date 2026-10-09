@@ -1,4 +1,4 @@
-use crate::worker;
+use crate::{eval, worker};
 use schemars::generate::SchemaSettings;
 use serde_json::{Map, Value, json};
 
@@ -58,6 +58,27 @@ pub fn worker_contract() -> Value {
         }),
         false,
     );
+    schema.sort_all_objects();
+    schema
+}
+
+pub fn eval_contract() -> Value {
+    let mut generator = SchemaSettings::draft2020_12().into_generator();
+    let _ = generator.subschema_for::<eval::ApiError>();
+    let _ = generator.subschema_for::<eval::CaseDiff>();
+    let _ = generator.subschema_for::<eval::CaseResult>();
+    let _ = generator.subschema_for::<eval::CreateEvalRun>();
+    let _ = generator.subschema_for::<eval::EvalRun>();
+    let _ = generator.subschema_for::<eval::GateResult>();
+    let _ = generator.subschema_for::<eval::ResolvedDataset>();
+    let _ = generator.subschema_for::<eval::RunCase>();
+    let _ = generator.subschema_for::<eval::Summary>();
+    let mut schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "LensEvalContract",
+        "type": "object",
+        "$defs": generator.take_definitions(false),
+    });
     schema.sort_all_objects();
     schema
 }
