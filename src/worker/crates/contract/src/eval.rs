@@ -3,6 +3,9 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub use crate::agent_io::AgentIo;
+pub use crate::error::InvalidCaseResult;
+
 pub const DEFAULT_TIMEOUT_PER_TRIAL_MS: u64 = 1_200_000;
 pub const MAX_ERROR_MESSAGE_CHARS: u64 = 2000;
 pub const FINDING_ID_META_KEY: &str = "finding_id";
@@ -100,6 +103,8 @@ pub struct CreateEvalRun {
     pub eval: String,
     #[schemars(length(min = 1))]
     pub agent: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_io: Option<AgentIo>,
     pub dataset_id: String,
     #[schemars(range(min = 1))]
     pub revision: u64,
@@ -130,6 +135,8 @@ pub struct CreateEvalRun {
 pub struct EvalSpec {
     #[schemars(length(min = 1))]
     pub agent: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_io: Option<AgentIo>,
     #[schemars(length(min = 1))]
     pub dataset_id: String,
     #[serde(default)]
@@ -202,6 +209,8 @@ pub struct CaseError {
 pub struct CaseResult {
     #[serde(default)]
     pub trace: Option<TraceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
     #[serde(default)]
     pub error: Option<CaseError>,
     #[serde(default)]
@@ -211,18 +220,10 @@ pub struct CaseResult {
     pub duration_ms: Option<u64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum InvalidCaseResult {
-    NeedsExactlyOneOfTraceOrError,
-    EmptyTraceValue,
-    ErrorMessageTooLong,
-    NegativeOrNonFiniteCost,
-}
-
 impl CaseResult {
     pub fn validate(&self) -> Result<(), InvalidCaseResult> {
-        if self.trace.is_some() == self.error.is_some() {
-            return Err(InvalidCaseResult::NeedsExactlyOneOfTraceOrError);
+        if (self.trace.is_some() || self.output.is_some()) == self.error.is_some() {
+            return Err(InvalidCaseResult::NeedsOutputOrTraceOrError);
         }
         if self
             .trace
@@ -297,6 +298,8 @@ pub struct RunCase {
 #[serde(deny_unknown_fields)]
 pub struct TrialSteps {
     pub trial: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
     pub error: Option<String>,
     pub checks: Vec<ScorerCheck>,
     pub steps: Vec<ToolStep>,

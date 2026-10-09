@@ -12,7 +12,7 @@ use axum::{
 use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    CONTRACT_HEADER, CONTRACT_VERSION,
+    AGENT_IO_CONTRACT_VERSION, CONTRACT_HEADER, CONTRACT_VERSION,
     auth::Role,
     eval::{
         CaseResult, CreateEvalRun, EvalDefinition, EvalRun, EvalSpec, ResolvedDataset, RunCase,
@@ -43,6 +43,37 @@ struct EvalState<R> {
 
 #[derive(Clone)]
 struct Team(String);
+
+#[derive(Clone, Copy)]
+enum EvalContract {
+    Trace,
+    AgentIo,
+}
+
+impl EvalContract {
+    fn require_agent_io(self, supplied: bool) -> Result<(), EvalApiError> {
+        if supplied && matches!(self, Self::Trace) {
+            return Err(ApiError::InvalidRequest(
+                "Agent I/O and output require X-Lens-Contract: 2",
+            )
+            .into());
+        }
+        Ok(())
+    }
+
+    fn definition(self, definition: EvalDefinition) -> EvalDefinition {
+        match self {
+            Self::Trace => EvalDefinition {
+                spec: EvalSpec {
+                    agent_io: None,
+                    ..definition.spec
+                },
+                ..definition
+            },
+            Self::AgentIo => definition,
+        }
+    }
+}
 
 pub fn router<R: SessionRepository + 'static>(
     authentication: Arc<Authentication<R>>,
@@ -163,11 +194,16 @@ async fn authorize<R: SessionRepository>(
         .headers()
         .get(CONTRACT_HEADER)
         .and_then(|value| value.to_str().ok());
-    if request.headers().get_all(CONTRACT_HEADER).iter().count() != 1
-        || version != Some(CONTRACT_VERSION.to_string().as_str())
-    {
+    if request.headers().get_all(CONTRACT_HEADER).iter().count() != 1 {
         return Err(EvalApiError::ContractVersion);
     }
+    let contract = if version == Some(CONTRACT_VERSION.to_string().as_str()) {
+        EvalContract::Trace
+    } else if version == Some(AGENT_IO_CONTRACT_VERSION.to_string().as_str()) {
+        EvalContract::AgentIo
+    } else {
+        return Err(EvalApiError::ContractVersion);
+    };
     let session = crate::auth::session_cookie(request.headers());
     let identity = state
         .authentication
@@ -198,6 +234,7 @@ async fn authorize<R: SessionRepository>(
         ));
     }
     request.extensions_mut().insert(Team(scope));
+    request.extensions_mut().insert(contract);
     Ok(next.run(request).await)
 }
 
@@ -216,6 +253,28 @@ pub(crate) fn valid_eval_name(name: &str) -> bool {
 }
 
 fn validate_create(request: &CreateEvalRun) -> Result<(), EvalApiError> {
+    if let Some(agent_io) = &request.agent_io {
+        agent_io
+            .validate()
+            .map_err(|_| ApiError::InvalidRequest("invalid agent I/O contract"))?;
+        if agent_io.trace.is_none()
+            && request
+                .scorers
+                .iter()
+                .any(|scorer| !matches!(scorer, Scorer::Judge(_)))
+        {
+            return Err(ApiError::InvalidRequest(
+                "Trace scorers require a trace mapping in the agent I/O contract",
+            )
+            .into());
+        }
+        if agent_io.trace.is_none() && request.gate.cost_per_case.is_some() {
+            return Err(ApiError::InvalidRequest(
+                "Cost gates require a trace mapping so Lens can resolve incurred spend",
+            )
+            .into());
+        }
+    }
     if !valid_eval_name(&request.eval)
         || request.agent.trim().is_empty()
         || request.version.trim().is_empty()
@@ -270,10 +329,12 @@ fn validate_create(request: &CreateEvalRun) -> Result<(), EvalApiError> {
 async fn create<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, EvalApiError> {
     let request: CreateEvalRun = parse_body(&body)?;
+    contract.require_agent_io(request.agent_io.is_some())?;
     validate_create(&request)?;
     let key = headers
         .get("idempotency-key")
@@ -298,21 +359,34 @@ fn without_ci(run: EvalRun) -> EvalRun {
 async fn definitions<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
 ) -> Result<Json<Vec<EvalDefinition>>, EvalApiError> {
-    Ok(Json(state.store.definitions(&team.0).await?))
+    Ok(Json(
+        state
+            .store
+            .definitions(&team.0)
+            .await?
+            .into_iter()
+            .map(|definition| contract.definition(definition))
+            .collect(),
+    ))
 }
 
 async fn definition<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
     Path(name): Path<String>,
 ) -> Result<Json<EvalDefinition>, EvalApiError> {
-    Ok(Json(state.store.definition(&team.0, &name).await?))
+    Ok(Json(
+        contract.definition(state.store.definition(&team.0, &name).await?),
+    ))
 }
 
 async fn put_definition<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
     Path(name): Path<String>,
     body: Bytes,
 ) -> Result<Json<EvalDefinition>, EvalApiError> {
@@ -320,6 +394,7 @@ async fn put_definition<R: SessionRepository>(
         return Err(ApiError::InvalidRequest("eval name must match ^[a-z0-9][a-z0-9_-]*$").into());
     }
     let spec: EvalSpec = parse_body(&body)?;
+    contract.require_agent_io(spec.agent_io.is_some())?;
     validate_create(&CreateEvalRun {
         eval: name.clone(),
         agent: spec.agent.clone(),
@@ -334,18 +409,29 @@ async fn put_definition<R: SessionRepository>(
         scorers: spec.scorers.clone(),
         gate: spec.gate.clone(),
         timeout_per_trial_ms: spec.timeout_per_trial_ms,
+        agent_io: spec.agent_io.clone(),
     })?;
-    Ok(Json(
-        state
-            .store
-            .put_definition(&team.0, &name, spec, Utc::now())
-            .await?,
-    ))
+    let definition = match contract {
+        EvalContract::Trace => {
+            state
+                .store
+                .put_legacy_definition(&team.0, &name, spec, Utc::now())
+                .await?
+        }
+        EvalContract::AgentIo => {
+            state
+                .store
+                .put_definition(&team.0, &name, spec, Utc::now())
+                .await?
+        }
+    };
+    Ok(Json(definition))
 }
 
 async fn result<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
     Path((run, case_id, trial)): Path<(String, String, String)>,
     body: Bytes,
 ) -> Result<StatusCode, EvalApiError> {
@@ -353,8 +439,9 @@ async fn result<R: SessionRepository>(
         .parse::<u32>()
         .map_err(|_| ApiError::InvalidRequest("trial must be a nonnegative integer"))?;
     let result: CaseResult = parse_body(&body)?;
+    contract.require_agent_io(result.output.is_some())?;
     result.validate().map_err(|_| {
-        ApiError::InvalidRequest("result must contain exactly one valid trace or error")
+        ApiError::InvalidRequest("result must contain output and/or a trace, or an exclusive error")
     })?;
     state
         .store
@@ -476,6 +563,7 @@ async fn resolve<R: SessionRepository>(
 async fn run_case<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
+    Extension(contract): Extension<EvalContract>,
     Path((run, case_id)): Path<(String, String)>,
 ) -> Result<Json<RunCase>, EvalApiError> {
     let stored = state.store.get(&team.0, &run).await?;
@@ -508,6 +596,10 @@ async fn run_case<R: SessionRepository>(
         let steps = tool_steps(spans);
         trials.push(TrialSteps {
             trial: trial.trial,
+            output: match contract {
+                EvalContract::Trace => None,
+                EvalContract::AgentIo => trial.result.output.clone(),
+            },
             error: trial
                 .result
                 .error

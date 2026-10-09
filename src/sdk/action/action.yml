@@ -10,6 +10,9 @@ inputs:
   path:
     description: Eval file or directory, defaults to tool.lens.evals
     required: false
+  eval-name:
+    description: Saved Lens eval name, mutually exclusive with path
+    required: false
   python:
     description: Python executable in the agent environment
     default: python
@@ -35,6 +38,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate eval selection
+      shell: bash
+      env:
+        LENS_EVAL_PATH: ${{ inputs.path }}
+        LENS_EVAL_NAME: ${{ inputs.eval-name }}
+      run: |
+        if [[ -n "$LENS_EVAL_PATH" && -n "$LENS_EVAL_NAME" ]]; then
+          echo '::error::Choose eval-name or path, not both'
+          exit 2
+        fi
     - name: Install SDK
       shell: bash
       env:
@@ -50,9 +63,15 @@ runs:
         LENS_API_KEY: ${{ inputs.api-key }}
         LENS_BASE_URL: ${{ inputs.base-url }}
         LENS_EVAL_PATH: ${{ inputs.path }}
+        LENS_EVAL_NAME: ${{ inputs.eval-name }}
       run: |
         set +e
+        if [[ -n "$LENS_EVAL_NAME" ]] && ! "$LENS_PYTHON" -c 'from lens import Lens, _native; assert callable(getattr(_native, "run_named", None))' 2>/dev/null; then
+          echo '::error::This SDK wheel does not support saved evals. Install the updated SDK from a pinned checkout, or use install-from-source with this Action checkout'
+          exit 2
+        fi
         args=(--ci --json)
+        if [[ -n "$LENS_EVAL_NAME" ]]; then args+=(--name "$LENS_EVAL_NAME"); fi
         if [[ -n "$LENS_EVAL_PATH" ]]; then args+=("$LENS_EVAL_PATH"); fi
         "$LENS_PYTHON" -m lens.cli eval "${args[@]}" > "$RUNNER_TEMP/lens-runs.json"
         code=$?

@@ -13,6 +13,10 @@ pub struct StoredCase {
     pub id: String,
     pub title: String,
     pub critical: bool,
+    #[serde(default)]
+    pub input: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub followups: Vec<String>,
     pub expected: String,
 }
 
@@ -133,6 +137,12 @@ pub(super) fn baseline_prefix(run: &StoredRun) -> Result<String, EvalError> {
         scorers,
     ))
     .map_err(|_| Error::InvalidState)?;
+    let identity = match &run.request.agent_io {
+        Some(agent_io) => {
+            serde_json::to_vec(&(identity, agent_io)).map_err(|_| Error::InvalidState)?
+        }
+        None => identity,
+    };
     Ok(format!(
         "eval-done/{}/{}/",
         digest(run.team.as_bytes()),

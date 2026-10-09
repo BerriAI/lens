@@ -122,7 +122,7 @@ pub async fn eval_fixture() -> EvalFixture {
     seed(&state, "dataset", json!(["dataset-1",7]), json!({
         "team_id":"team-a","id":"dataset-1","name":"regressions","revision":7,
         "cases":[
-            {"id":"case-1","messages":[{"role":"user","content":"first"}],"expected":"works","source":{"lens_id":"lens-1","finding_id":"finding-1"},"meta":{"repo_url":"https://example.test/repo","secret":"private"}},
+            {"id":"case-1","messages":[{"role":"system","content":"system context"},{"role":"user","content":"first"},{"role":"assistant","content":"old response"},{"role":"user","content":"Translate the answer to Spanish"},{"role":"tool","content":"tool output"},{"role":"user","content":"Include the test names"}],"expected":"works","source":{"lens_id":"lens-1","finding_id":"finding-1"},"meta":{"repo_url":"https://example.test/repo","secret":"private"}},
             {"id":"case-2","messages":[],"source":{}},
             {"id":"excluded","messages":[],"included":false,"source":{}}
         ]

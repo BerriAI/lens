@@ -1,6 +1,7 @@
 mod support;
 
-use lens_evals::{Error, EvalSpan, SpanStatus, scorer};
+use lens_contract::eval::{CalledBefore, Scorer, TaskCompleted};
+use lens_evals::{Error, EvalSpan, Judge, JudgeError, JudgeRequest, SpanStatus, scorer};
 use rstest::rstest;
 use support::{FakeJudge, judge_scorer, root, span, tool};
 
@@ -101,4 +102,60 @@ async fn judge_failure_propagates() {
 #[case::clickhouse("\"STATUS_CODE_OK\"", SpanStatus::Ok)]
 fn span_status_accepts_clickhouse_alias(#[case] json: &str, #[case] expected: SpanStatus) {
     assert_eq!(serde_json::from_str::<SpanStatus>(json).unwrap(), expected);
+}
+
+struct OutputJudge;
+
+impl Judge for OutputJudge {
+    async fn score(&self, request: JudgeRequest<'_>) -> Result<f64, JudgeError> {
+        assert_eq!(request.case_id, "output-case");
+        assert_eq!(request.prompt, "Check the answer");
+        assert!(request.spans.is_empty());
+        assert_eq!(request.output, Some("The answer is 42"));
+        Ok(0.75)
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_judge_receives_the_answer_without_synthetic_spans() {
+    let passed = scorer::passes_output(
+        &judge_scorer("Check the answer"),
+        "output-case",
+        "The answer is 42",
+        &OutputJudge,
+    )
+    .await
+    .unwrap();
+    assert!(passed);
+}
+
+#[rstest]
+#[case::completion(Scorer::TaskCompleted(TaskCompleted {}))]
+#[case::tool_order(Scorer::CalledBefore(CalledBefore { first: "read".into(), then: "write".into() }))]
+#[tokio::test]
+async fn trace_scorers_cannot_pass_without_trace_evidence(#[case] scorer: Scorer) {
+    let judge = FakeJudge(Default::default());
+    assert!(
+        !scorer::passes_output(&scorer, "c", "I completed every tool call", &judge)
+            .await
+            .unwrap()
+    );
+    assert!(!scorer::passes(&scorer, "c", &[], &judge).await.unwrap());
+}
+
+#[rstest]
+#[case::below(0.49, false)]
+#[case::threshold(0.5, true)]
+#[tokio::test]
+async fn output_judge_uses_the_same_threshold(#[case] score: f64, #[case] expected: bool) {
+    let passed = scorer::passes_output(
+        &judge_scorer("p"),
+        "c",
+        "answer",
+        &FakeJudge::constant(score),
+    )
+    .await
+    .unwrap();
+    assert_eq!(passed, expected);
 }

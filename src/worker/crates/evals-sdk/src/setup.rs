@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     env, fs,
     io::{self, IsTerminal, Write},
     path::{Path, PathBuf},
@@ -21,6 +22,8 @@ pub struct Settings {
     #[serde(default = "eval_path")]
     pub evals: String,
     pub base_url: String,
+    #[serde(skip_serializing)]
+    pub connections: BTreeMap<String, crate::agent::Connection>,
 }
 fn eval_path() -> String {
     "evals/".to_owned()
@@ -129,9 +132,12 @@ pub struct Cli {
 #[serde(tag = "command", rename_all = "kebab-case")]
 pub enum Operation {
     Eval {
+        #[arg(conflicts_with = "eval_name")]
         path: Option<PathBuf>,
-        #[arg(long = "eval")]
+        #[arg(long = "eval", conflicts_with = "eval_name")]
         name: Option<String>,
+        #[arg(long = "name")]
+        eval_name: Option<String>,
         #[arg(long)]
         ci: bool,
         #[arg(long)]

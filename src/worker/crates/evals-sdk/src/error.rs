@@ -19,6 +19,14 @@ pub enum Error {
     Response(#[source] serde_json::Error),
     #[error("{0}")]
     Infrastructure(&'static str),
+    #[error("Agent HTTP {status}")]
+    AgentHttp { status: u16 },
+    #[error("Agent request failed or exceeded its deadline")]
+    AgentTransport(#[source] reqwest::Error),
+    #[error("{0}")]
+    AgentResponse(&'static str),
+    #[error("Agent execution failed: {detail}")]
+    AgentFailure { detail: String },
     #[error("Could not access the setup file")]
     Io(#[from] std::io::Error),
     #[error("Invalid TOML configuration")]

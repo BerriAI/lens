@@ -43,9 +43,30 @@ pub async fn passes<J: Judge>(
     spans: &[EvalSpan],
     judge: &J,
 ) -> Result<bool> {
+    passes_with_evidence(scorer, case_id, spans, None, judge).await
+}
+
+pub async fn passes_output<J: Judge>(
+    scorer: &Scorer,
+    case_id: &str,
+    output: &str,
+    judge: &J,
+) -> Result<bool> {
+    passes_with_evidence(scorer, case_id, &[], Some(output), judge).await
+}
+
+pub(crate) async fn passes_with_evidence<J: Judge>(
+    scorer: &Scorer,
+    case_id: &str,
+    spans: &[EvalSpan],
+    output: Option<&str>,
+    judge: &J,
+) -> Result<bool> {
     match scorer {
         Scorer::TaskCompleted(_) => Ok(task_completed(spans)),
-        Scorer::CalledBefore(CalledBefore { first, then }) => Ok(called_before(spans, first, then)),
+        Scorer::CalledBefore(CalledBefore { first, then }) => {
+            Ok(!spans.is_empty() && called_before(spans, first, then))
+        }
         Scorer::Judge(JudgeScorer { prompt, model }) => {
             judge::passes(
                 judge,
@@ -54,6 +75,7 @@ pub async fn passes<J: Judge>(
                     prompt,
                     model,
                     spans,
+                    output,
                 },
             )
             .await

@@ -41,6 +41,7 @@ fn request() -> CreateEvalRun {
         ],
         gate: Gate::default(),
         timeout_per_trial_ms: 1_000,
+        agent_io: None,
     }
 }
 
@@ -51,15 +52,37 @@ fn cases() -> Vec<StoredCase> {
             id: "first".into(),
             title: "First case".into(),
             critical: true,
+            input: String::new(),
+            followups: Vec::new(),
             expected: "done".into(),
         },
         StoredCase {
             id: "second".into(),
             title: "Second case".into(),
             critical: false,
+            input: String::new(),
+            followups: Vec::new(),
             expected: String::new(),
         },
     ]
+}
+
+#[rstest]
+fn saved_cases_without_followups_keep_their_original_input() {
+    let case: StoredCase = serde_json::from_value(serde_json::json!({
+        "id": "legacy", "title": "Legacy case", "critical": false,
+        "input": "Original question", "expected": "Expected answer"
+    }))
+    .unwrap();
+    assert_eq!(case.input, "Original question");
+    assert_eq!(case.expected, "Expected answer");
+    assert!(case.followups.is_empty());
+    assert!(
+        serde_json::to_value(&case)
+            .unwrap()
+            .get("followups")
+            .is_none()
+    );
 }
 
 #[fixture]
@@ -159,6 +182,7 @@ async fn first_run_registers_definition_from_its_spec(
                 baseline: "main".into(),
                 gate: request.gate,
                 timeout_per_trial_ms: request.timeout_per_trial_ms,
+                agent_io: None,
             },
             updated_at: now.to_rfc3339_opts(SecondsFormat::Millis, true),
         }
@@ -178,6 +202,7 @@ fn saved_spec() -> EvalSpec {
         baseline: "main".into(),
         gate: Gate::default(),
         timeout_per_trial_ms: 3_000,
+        agent_io: None,
     }
 }
 
@@ -608,6 +633,7 @@ enum Mismatch {
     Dataset,
     Revision,
     Scorers,
+    AgentIo,
     Branch,
 }
 
@@ -706,6 +732,7 @@ async fn releasing_a_lease_makes_pending_traces_available_to_another_worker(
 #[case::dataset(Mismatch::Dataset)]
 #[case::revision(Mismatch::Revision)]
 #[case::scorers(Mismatch::Scorers)]
+#[case::agent_io(Mismatch::AgentIo)]
 #[case::branch(Mismatch::Branch)]
 #[tokio::test]
 async fn baseline_excludes_incompatible_runs(
@@ -735,6 +762,16 @@ async fn baseline_excludes_incompatible_runs(
         },
         Mismatch::Scorers => CreateEvalRun {
             scorers: vec![Scorer::TaskCompleted(TaskCompleted {})],
+            ..request.clone()
+        },
+        Mismatch::AgentIo => CreateEvalRun {
+            agent_io: Some(serde_json::from_value(serde_json::json!({
+                "version": 1, "connection": "agent",
+                "submit": {"method":"POST", "path":"/complete", "accepted_status":200, "json":{"input":""}},
+                "input":[{"source":"case.input", "target":"/input"}],
+                "completion":{"kind":"immediate"},
+                "output":{"pointer":"/answer", "require_nonempty":true}
+            })).unwrap()),
             ..request.clone()
         },
         Mismatch::Branch => CreateEvalRun {

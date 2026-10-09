@@ -84,7 +84,23 @@ where
         timeout_per_trial_ms: spec.timeout_millis()?,
         scorers: spec.scores.clone(),
         gate: spec.gate.clone(),
+        agent_io: None,
     };
+    evaluate_resolved(client, spec, execution, body, cases, |case, _| task(case)).await
+}
+
+pub(crate) async fn evaluate_resolved<F, Fut>(
+    client: &Client,
+    spec: &EvalSpec,
+    execution: &Execution,
+    body: CreateEvalRun,
+    cases: Vec<Case>,
+    task: F,
+) -> Result<Report>
+where
+    F: Fn(Case, String) -> Fut + Send + Sync,
+    Fut: Future<Output = CaseResult> + Send,
+{
     let fingerprint = format!(
         "{:x}",
         Sha256::digest(serde_json::to_vec(&body).map_err(Error::Response)?)
@@ -94,7 +110,7 @@ where
         spec.name, execution.version, execution.identity, fingerprint
     );
     let run = client.create(&body, &key).await?;
-    if run.eval != spec.name || run.version != execution.version || run.agent != project {
+    if run.eval != spec.name || run.version != execution.version || run.agent != body.agent {
         return Err(Error::Infrastructure(
             "Lens created a run for a different evaluation",
         ));
@@ -148,11 +164,15 @@ async fn trial_result<F, Fut>(
     task: &F,
 ) -> Result<TrialResult>
 where
-    F: Fn(Case) -> Fut + Send + Sync,
+    F: Fn(Case, String) -> Fut + Send + Sync,
     Fut: Future<Output = CaseResult> + Send,
 {
     let started = Instant::now();
-    let result = task(case.clone()).await;
+    let request_id = format!(
+        "lens-{:x}",
+        Sha256::digest(serde_json::to_vec(&(run_id, &case.id, trial)).map_err(Error::Response)?)
+    );
+    let result = task(case.clone(), request_id).await;
     let result = if result.validate().is_ok() {
         result
     } else {

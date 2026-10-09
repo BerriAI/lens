@@ -9,6 +9,11 @@ use crate::{
 pub enum TrialOutcome {
     Error,
     Trace(Vec<EvalSpan>),
+    TraceWithOutput {
+        spans: Vec<EvalSpan>,
+        output: String,
+    },
+    Output(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,8 +27,10 @@ impl Trial {
     pub fn cost(&self) -> f64 {
         match (self.cost_usd, &self.outcome) {
             (Some(cost), _) => cost,
-            (None, TrialOutcome::Trace(_)) => self.trace_spend_usd.unwrap_or(0.0),
-            (None, TrialOutcome::Error) => 0.0,
+            (None, TrialOutcome::Trace(_) | TrialOutcome::TraceWithOutput { .. }) => {
+                self.trace_spend_usd.unwrap_or(0.0)
+            }
+            (None, TrialOutcome::Error | TrialOutcome::Output(_)) => 0.0,
         }
     }
 }
@@ -38,12 +45,17 @@ pub(crate) async fn score_trial<J: Judge>(
     trial: Option<&Trial>,
     judge: &J,
 ) -> Result<Option<Vec<bool>>> {
-    let Some(TrialOutcome::Trace(spans)) = trial.map(|trial| &trial.outcome) else {
-        return Ok(None);
+    let (spans, output) = match trial.map(|trial| &trial.outcome) {
+        Some(TrialOutcome::Trace(spans)) => (spans.as_slice(), None),
+        Some(TrialOutcome::TraceWithOutput { spans, output }) => {
+            (spans.as_slice(), Some(output.as_str()))
+        }
+        Some(TrialOutcome::Output(output)) => (&[][..], Some(output.as_str())),
+        Some(TrialOutcome::Error) | None => return Ok(None),
     };
     let mut passes = Vec::with_capacity(scorers.len());
     for scorer in scorers {
-        passes.push(scorer::passes(scorer, case_id, spans, judge).await?);
+        passes.push(scorer::passes_with_evidence(scorer, case_id, spans, output, judge).await?);
     }
     Ok(Some(passes))
 }

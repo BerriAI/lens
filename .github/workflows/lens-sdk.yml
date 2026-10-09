@@ -49,6 +49,38 @@ jobs:
           fi
           uv run --project src/sdk python src/sdk/scripts/generate_contract.py --schema "$schema" --check
       - run: uv run --project src/sdk pytest src/sdk/tests --cov=lens --cov-config=src/sdk/pyproject.toml
+      - name: Start named-eval transport fixtures
+        shell: bash
+        run: |
+          uv run --project src/sdk lens dev-server > /tmp/lens-named-dev-server.log 2>&1 &
+          uv run --project src/sdk python src/sdk/tests/named_agent.py --endpoint http://127.0.0.1:8765 > /tmp/lens-named-agent.log 2>&1 &
+          printf '\n[tool.lens.connections.agent]\nbase_url_env="NAMED_AGENT_URL"\nauth="none"\n' >> pyproject.toml
+          echo "LENS_TEST_PYTHON=$(uv run --project src/sdk python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+          for attempt in {1..30}; do
+            if curl --fail --silent -H 'Authorization: Bearer lens-dev' 'http://127.0.0.1:8766/lens/evals/named-pass' > /dev/null && curl --fail --silent -H 'Authorization: Bearer lens-dev' -H 'X-Lens-Contract: 1' 'http://127.0.0.1:8765/lens/datasets/resolve?name=demo' > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent -H 'Authorization: Bearer lens-dev' 'http://127.0.0.1:8766/lens/evals/named-pass' > /dev/null
+      - name: Run the saved eval through the local Action
+        uses: ./src/sdk/action
+        id: named
+        env:
+          NAMED_AGENT_URL: http://127.0.0.1:8766
+          LENS_VERSION: fixture-build
+        with:
+          api-key: lens-dev
+          base-url: http://127.0.0.1:8766
+          eval-name: named-pass
+          python: ${{ env.LENS_TEST_PYTHON }}
+          report-via-app: 'true'
+      - name: Verify saved-eval Action outputs
+        shell: bash
+        env:
+          PASSED: ${{ steps.named.outputs.passed }}
+          URLS: ${{ steps.named.outputs.run-urls }}
+        run: |
+          test "$PASSED" = true
+          python -c 'import json, os; assert len(json.loads(os.environ["URLS"])) == 1'
       - run: bash src/sdk/tests/install_action.sh
       - run: uv build --project src/sdk --out-dir src/sdk/dist
       - name: Check wheel in a fresh environment
@@ -145,7 +177,7 @@ jobs:
           python -m pip install --only-binary=:all: src/sdk/dist/*.whl
           python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0 httpx==0.28.1
           python -m lens.cli --help
-          python -m pytest src/sdk/tests/test_sdk.py -q
+          python -m pytest src/sdk/tests/test_sdk.py src/sdk/tests/test_client.py -q
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: lens-evals-${{ matrix.target }}

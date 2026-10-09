@@ -314,12 +314,19 @@ impl Datasets {
             .map(|case| {
                 let finding =
                     findings.get(&(case.source.lens_id.clone(), case.source.finding_id.clone()));
+                let mut prompts = case
+                    .messages
+                    .iter()
+                    .filter(|message| message.role == "user")
+                    .map(|message| message.content.clone());
                 StoredCase {
                     id: case.id.clone(),
                     title: finding
                         .map(|finding| finding.title.clone())
                         .unwrap_or_else(|| case.id.clone()),
                     critical: finding.is_some_and(|finding| finding.priority == "high"),
+                    input: prompts.next().unwrap_or_default(),
+                    followups: prompts.collect(),
                     expected: case.expected.clone(),
                 }
             })
