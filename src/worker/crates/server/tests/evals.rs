@@ -6,7 +6,10 @@ use chrono::Utc;
 use lens_contract::eval::{ApiError, ApiErrorCode, EvalDefinition, EvalRun, RunStatus};
 use rstest::rstest;
 use serde_json::{Value, json};
-use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_app, request};
+use support::{
+    EvalFixture, body, create, create_payload, eval_fixture, guarded_app, request,
+    traced_eval_fixture,
+};
 use tower::ServiceExt;
 
 fn output_agent_io() -> Value {
@@ -490,6 +493,8 @@ async fn should_reject_cases_outside_the_run(
 
 #[rstest]
 #[case::get("GET", "", None)]
+#[case::case_list("GET", "/cases", None)]
+#[case::case_detail("GET", "/cases/case-1", None)]
 #[case::finish("POST", "/finish", None)]
 #[case::put("PUT", "/results/case-1/0", Some(json!({"error":{"type":"Error","message":"failed"}})))]
 #[tokio::test]
@@ -828,6 +833,22 @@ async fn should_persist_missing_traces_as_errors_before_publishing_summary(
     let saved = eval_fixture.store.get("team-a", &run.id).await.unwrap();
     assert!(saved.trials[0].result.error.is_some());
     assert!(saved.trials[0].result.trace.is_none());
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs/{}/cases", run.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let cases: Vec<lens_contract::eval::RunCaseSummary> = body(response).await;
+    assert_eq!(cases.len(), 2);
+    assert_eq!(cases[0].passed, Some(false));
+    assert_eq!(cases[1].passed, Some(false));
 }
 
 #[rstest]
@@ -913,6 +934,7 @@ impl lens_server::eval_closer::TraceSource for TransientTraces {
             )));
         }
         Ok(Some(litellm_traces_clickhouse::evals::EvalTrace {
+            traces: Vec::new(),
             spans: vec![litellm_traces_clickhouse::evals::EvalSpan {
                 span_id: "root".into(),
                 parent_span_id: String::new(),
@@ -1254,5 +1276,86 @@ async fn scoring_validation_prevents_unusable_durable_runs(
             .await
             .unwrap()
             .is_empty()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn should_list_every_pinned_run_case_without_a_verdict_change(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let run = create(&eval_fixture).await;
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs/{}/cases", run.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let cases: Vec<lens_contract::eval::RunCaseSummary> = body(response).await;
+    assert_eq!(cases.len(), 2);
+    assert_eq!(cases[0].case_id, "case-1");
+    assert_eq!(cases[0].title, "Run tests");
+    assert!(cases[0].critical);
+    assert_eq!(cases[0].passed, None);
+    assert_eq!(cases[1].case_id, "case-2");
+}
+
+#[rstest]
+#[case::trace("trace_id", "trace-a", vec!["trace-a"])]
+#[case::session("session.id", "session-a", vec!["trace-a", "trace-b"])]
+#[case::foreign_trace("trace_id", "private-trace", vec![])]
+#[tokio::test]
+async fn should_link_only_traces_resolved_for_the_runs_owner(
+    #[future(awt)] traced_eval_fixture: EvalFixture,
+    #[case] attribute: &str,
+    #[case] value: &str,
+    #[case] expected: Vec<&str>,
+) {
+    let run = create(&traced_eval_fixture).await;
+    let response = traced_eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "PUT",
+            &format!("/lens/evals/runs/{}/results/case-1/0", run.id),
+            "team-a",
+            Some(json!({"trace": {"attribute": attribute, "value": value}})),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 204);
+    let response = traced_eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "GET",
+            &format!("/lens/evals/runs/{}/cases/case-1", run.id),
+            "team-a",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let case: lens_contract::eval::RunCase = body(response).await;
+    let traces = &case.trials[0].traces;
+    assert_eq!(
+        traces
+            .iter()
+            .map(|trace| trace.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(
+        traces
+            .iter()
+            .map(|trace| trace.trace_ref.len())
+            .collect::<Vec<_>>(),
+        vec![64; expected.len()]
     );
 }

@@ -259,3 +259,31 @@ evaluation = Eval(
 )
 `;
 }
+
+export function savedEvalTestSnippet(definition: EvalDefinition): string {
+  const client = `Lens(base_url=os.environ["LENS_BASE_URL"], api_key=os.environ["LENS_API_KEY"])`;
+  if (definition.spec.agent_io)
+    return `import os
+
+from lens import Lens
+
+
+def test_agent_eval():
+    lens = ${client}
+    lens.evals.run(${pyString(definition.name)}).assert_passed()
+`;
+  return `import os
+
+from lens import Lens
+from my_agent import agent
+
+
+def test_agent_eval():
+    lens = ${client}
+    with lens.evals.test(${pyString(definition.name)}) as evaluation:
+        for case in evaluation.cases:
+            actual = agent.run(input=case.input)
+            evaluation.record(case, output=actual.output, trace_id=actual.trace_id)
+        evaluation.finish().assert_passed()
+`;
+}

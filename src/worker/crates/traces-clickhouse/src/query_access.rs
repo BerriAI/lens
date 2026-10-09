@@ -124,7 +124,13 @@ impl QueryReaders {
         .await?;
         let policies = TraceTable::iter()
             .map(|table| (<&str>::from(table), predicate(scope, table)))
-            .chain([(EVAL_TRACES, eval_predicate(scope))]);
+            .chain([
+                (EVAL_TRACES, eval_predicate(scope)),
+                (
+                    crate::cost_rows::TABLE,
+                    predicate(scope, TraceTable::SpendLogs),
+                ),
+            ]);
         for (table, predicate) in policies {
             self.execute(
                 client,
@@ -148,8 +154,13 @@ impl QueryReaders {
             )
             .await?;
         }
-        for table in TraceTable::iter() {
-            let exclusion = eval_exclusion(database, table);
+        let exclusions = TraceTable::iter()
+            .map(|table| (<&str>::from(table), eval_exclusion(database, table)))
+            .chain([(
+                crate::cost_rows::TABLE,
+                eval_exclusion(database, TraceTable::SpendLogs),
+            )]);
+        for (table, exclusion) in exclusions {
             self.execute(
                 client,
                 format!(

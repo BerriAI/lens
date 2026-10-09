@@ -2,14 +2,18 @@
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
+  gap: 4px 16px;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 .counts > div {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .counts dd {
@@ -26,16 +30,11 @@
 
 .timeline {
   flex-shrink: 0;
-  margin: 0 12px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-image: radial-gradient(var(--border) 0.6px, transparent 0.6px);
-  background-size: 12px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .timeline > div:last-child {
   border-bottom: 0;
-  border-radius: inherit;
   background-color: transparent;
 }
 
@@ -43,7 +42,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px 0;
+  padding: 4px 12px 0;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted-foreground);

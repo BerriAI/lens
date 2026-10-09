@@ -27,13 +27,9 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children 
     { value: "error", label: "With errors" },
   ];
   return (
-    <div className="lens-toolbar flex shrink-0 flex-col bg-card">
-      <div className="flex min-h-10 flex-wrap items-stretch border-b border-border">
-        <RunSearch value={query} onChange={onQueryChange} runs={runs} range={range} busy={busy} />
-        {children && <div className="ml-auto flex h-10 max-w-full items-stretch">{children}</div>}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-        <span className="lens-section-label mr-1">Filter</span>
+    <div className="lens-toolbar flex min-w-0 shrink-0 flex-wrap items-stretch border-b border-border bg-card">
+      <RunSearch value={query} onChange={onQueryChange} runs={runs} range={range} busy={busy} />
+      <div className="flex h-10 shrink-0 items-center border-l border-border px-2">
         <Select
           items={statuses}
           value={status}
@@ -55,6 +51,7 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children 
           </SelectContent>
         </Select>
       </div>
+      {children && <div className="contents [&>*]:h-10">{children}</div>}
     </div>
   );
 }

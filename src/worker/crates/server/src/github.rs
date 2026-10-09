@@ -2,7 +2,9 @@ mod client;
 mod credentials;
 mod remote;
 mod report;
+mod rerun;
 mod service;
+mod workflow;
 
 use std::{sync::Arc, time::Duration};
 
@@ -95,6 +97,7 @@ pub fn router<R: SessionRepository + 'static>(
             "/lens/github/report",
             post(report::publish::<R>).layer(DefaultBodyLimit::disable()),
         )
+        .public_route("/lens/github/rerun", post(rerun::start::<R>))
         .public_route("/lens/github/service/authorize", post(service::start::<R>))
         .public_route(
             "/lens/github/service/connect/{id}",
@@ -108,6 +111,10 @@ pub fn router<R: SessionRepository + 'static>(
         .public_route(
             "/lens/github/service/connections/{id}/report",
             post(service::report::<R>).layer(DefaultBodyLimit::disable()),
+        )
+        .public_route(
+            "/lens/github/service/connections/{id}/rerun",
+            post(service::rerun::<R>),
         )
         .public_route(remote::CALLBACK_PATH, get(remote::callback::<R>))
         .layer(axum::middleware::map_response(
@@ -831,6 +838,78 @@ mod tests {
             .await;
     }
 
+    async fn rerun_provider(provider: &MockServer) {
+        Mock::given(method("GET")).and(path("/repos/org/renamed/actions/runs/50"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":50,"status":"completed","event":"pull_request","head_sha":"a".repeat(40),"repository":{"id":10},"pull_requests":[{"number":7}]}))).expect(1).mount(provider).await;
+        Mock::given(method("GET")).and(path("/repos/org/renamed/pulls/7"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"number":7,"head":{"sha":"a".repeat(40),"repo":{"id":10}},"base":{"sha":"b".repeat(40),"repo":{"id":10}},"merge_commit_sha":"c".repeat(40)}))).expect(1).mount(provider).await;
+        Mock::given(method("POST"))
+            .and(path("/repos/org/renamed/actions/runs/50/rerun"))
+            .and(match_header(
+                "authorization",
+                "Bearer scoped-installation-token",
+            ))
+            .respond_with(ResponseTemplate::new(201))
+            .expect(1)
+            .mount(provider)
+            .await;
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn rerun_loads_saved_run_only_in_the_callers_scope(#[future(awt)] fixture: Fixture) {
+        let run = completed_run(&fixture).await;
+        let credential = remote::RemoteCredentials {
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            capability: "a".repeat(64),
+        };
+        save_remote(&fixture, &credential).await;
+        mock_installation(&fixture.provider, 10, 200).await;
+        rerun_provider(&fixture.provider).await;
+        let denied = fixture
+            .app
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/rerun",
+                Some(&token("team-b", "bob", "team")),
+                None,
+                Some(json!({"run_id":run.id})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), 400);
+        assert!(
+            fixture
+                .provider
+                .received_requests()
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let accepted = fixture
+            .app
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/rerun",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(json!({"run_id":run.id})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(accepted.status(), 202);
+        let result = body(accepted).await;
+        assert_eq!(
+            result["ci_url"],
+            "https://github.com/org/renamed/actions/runs/50"
+        );
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(result["requested_at"].as_str().unwrap()).is_ok()
+        );
+    }
+
     async fn save_remote(fixture: &Fixture, credential: &remote::RemoteCredentials) -> Connection {
         let auth = Authorization {
             id: uuid::Uuid::new_v4().to_string(),
@@ -1299,6 +1378,23 @@ mod tests {
             .unwrap();
         assert_eq!(repeated.status(), 200);
         assert_eq!(body(repeated).await["reports"][0]["run_id"], run.id);
+        fixture.provider.verify().await;
+        fixture.provider.reset().await;
+        mock_installation(&fixture.provider, 10, 200).await;
+        rerun_provider(&fixture.provider).await;
+        let rerun = broker
+            .local
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/lens/github/rerun",
+                Some(&token("team-a", "alice", "team")),
+                None,
+                Some(json!({"run_id":run.id})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(rerun.status(), 202, "{}", body(rerun).await);
         let foreign_team = broker
             .local
             .clone()
@@ -1316,6 +1412,14 @@ mod tests {
         foreign_run.agent = "another-agent".into();
         let foreign_report = broker.app.clone().oneshot(request("POST", &format!("/lens/github/service/connections/{}/report",credential.connection_id), Some(&credential.capability), None, Some(json!({"run":foreign_run,"baseline":null,"ci_url":"https://github.com/org/renamed/actions/runs/50"})))).await.unwrap();
         assert_eq!(foreign_report.status(), 403);
+        let mut foreign_rerun = run.clone();
+        foreign_rerun.agent = "another-agent".into();
+        let denied = broker.app.clone().oneshot(request(
+            "POST", &format!("/lens/github/service/connections/{}/rerun", credential.connection_id),
+            Some(&credential.capability), None,
+            Some(json!({"run":foreign_rerun,"ci_url":"https://github.com/org/renamed/actions/runs/50"})),
+        )).await.unwrap();
+        assert_eq!(denied.status(), 403);
         let replay = broker.app.clone().oneshot(request("POST", "/lens/github/service/redeem", None, None, Some(json!({"code":code,"code_verifier":cipher.verifier(started["authorization_id"].as_str().unwrap())})))).await.unwrap();
         assert_eq!(replay.status(), 410);
         let foreign = broker
@@ -1394,6 +1498,22 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(revoked.status(), 403);
+        let revoked_rerun = broker
+            .app
+            .clone()
+            .oneshot(request(
+                "POST",
+                &format!(
+                    "/lens/github/service/connections/{}/rerun",
+                    credential.connection_id
+                ),
+                Some(&credential.capability),
+                None,
+                Some(json!({"run":run,"ci_url":"https://github.com/org/renamed/actions/runs/50"})),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(revoked_rerun.status(), 403);
         fixture.provider.verify().await;
     }
 
@@ -2195,39 +2315,34 @@ mod tests {
     }
 
     #[rstest]
-    #[case("POST", "/lens/github/authorize", json!({"agent":"agent"}))]
-    #[case("PUT", "/lens/github/connections/agent", json!({"authorization_id":"x","repository_id":1}))]
-    #[case("DELETE", "/lens/github/connections/agent", Value::Null)]
-    #[case("POST", "/lens/github/report", json!({"run_ids":["run"]}))]
+    #[case::authorize("POST", "/lens/github/authorize", json!({"agent":"agent"}))]
+    #[case::connect("PUT", "/lens/github/connections/agent", json!({"authorization_id":"x","repository_id":1}))]
+    #[case::disconnect("DELETE", "/lens/github/connections/agent", Value::Null)]
+    #[case::report("POST", "/lens/github/report", json!({"run_ids":["run"]}))]
+    #[case::rerun("POST", "/lens/github/rerun", json!({"run_id":"run"}))]
     #[tokio::test]
     async fn writes_require_authenticated_non_viewer_identity(
         #[case] method: &str,
         #[case] path: &str,
         #[case] payload: Value,
+        #[values("internal_user_viewer", "proxy_admin_viewer", "customer", "")] role: &str,
     ) {
         let state = ClickHouseState::new(
             Client::no_redirect_for_test(),
             DatabaseConnection::reader("http://127.0.0.1:9", "unreachable").unwrap(),
         );
         let app = router(authentication(state.clone()), GitHubStore(state), None);
-        for role in ["internal_user_viewer", "proxy_admin_viewer", "customer"] {
-            let response = app
-                .clone()
-                .oneshot(request(
-                    method,
-                    path,
-                    Some(&token("team-a", "user", role)),
-                    None,
-                    Some(payload.clone()),
-                ))
-                .await
-                .unwrap();
-            assert_eq!(response.status(), 403);
-        }
+        let credential = (!role.is_empty()).then(|| token("team-a", "user", role));
         let response = app
-            .oneshot(request(method, path, None, None, Some(payload)))
+            .oneshot(request(
+                method,
+                path,
+                credential.as_deref(),
+                None,
+                Some(payload),
+            ))
             .await
             .unwrap();
-        assert_eq!(response.status(), 401);
+        assert_eq!(response.status(), if role.is_empty() { 401 } else { 403 });
     }
 }

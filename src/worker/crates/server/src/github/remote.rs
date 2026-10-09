@@ -204,6 +204,29 @@ impl Remote {
         )
         .await
     }
+
+    pub(super) async fn rerun(
+        &self,
+        credentials: &RemoteCredentials,
+        input: super::rerun::Input,
+    ) -> Result<super::rerun::Requested, GitHubError> {
+        self.request(
+            Method::POST,
+            &format!(
+                "/lens/github/service/connections/{}/rerun",
+                credentials.connection_id
+            ),
+            Some(credentials),
+            Some(serde_json::to_value(input).map_err(|_| GitHubError::Credentials)?),
+        )
+        .await
+        .map_err(|error| match error {
+            GitHubError::Upstream { status: 400 } => GitHubError::Invalid(
+                "The GitHub service could not rerun this workflow. Check that it has finished and that the Lens App has Actions write permission, or open the workflow in GitHub",
+            ),
+            error => error,
+        })
+    }
 }
 
 pub(super) async fn credentials<R>(

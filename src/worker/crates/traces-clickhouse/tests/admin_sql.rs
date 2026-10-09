@@ -32,6 +32,8 @@ async fn database() -> Result<Database, Box<dyn std::error::Error>> {
         "CREATE TABLE litellm.spend_logs (n UInt8, team_id String DEFAULT '', \
          api_key String DEFAULT '', response_id String DEFAULT '') ENGINE = Memory",
         "INSERT INTO litellm.spend_logs (n) VALUES (3)",
+        "CREATE TABLE litellm.lens_call_costs (team_id String DEFAULT '', user String DEFAULT '', \
+         api_key String DEFAULT '', response_id String DEFAULT '') ENGINE = Memory",
         "CREATE TABLE litellm.lens_eval_traces (TeamId String, ApiKeyHash String, TraceId String, \
          UserIds Array(String), RequestIds Array(String)) ENGINE = Memory",
         "CREATE TABLE litellm.private_traces (n UInt8) ENGINE = Memory",

@@ -1,15 +1,8 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  renderWithProviders,
-  testQueryClient,
-} from "../../../../tests/test-utils";
-import {
-  renderWithLens,
-  stubGateway,
-  type GatewayRequest,
-} from "../../../../tests/lens-test-utils";
+import { renderWithProviders, testQueryClient } from "../../../../tests/test-utils";
+import { renderWithLens, stubGateway, type GatewayRequest } from "../../../../tests/lens-test-utils";
 import { LensServicesProvider } from "../data/LensServices";
 import { createLensDemo } from "../data/demo/createLensDemo";
 import type { Dataset, DatasetSummary } from "../datasets/types";
@@ -101,17 +94,9 @@ const erroredRun = evalRun("run-error", {
 const failedCheck = { scorer: "called_before", passed: false };
 const cases: Record<string, RunCase> = {
   "run-main": runCase(true, [
-    trial(
-      1,
-      [
-        step("lookup_order", 0),
-        step("check_refund_policy", 10_000_000),
-        step("issue_refund", 20_000_000),
-      ],
-      {
-        checks: [{ ...failedCheck, passed: true }],
-      },
-    ),
+    trial(1, [step("lookup_order", 0), step("check_refund_policy", 10_000_000), step("issue_refund", 20_000_000)], {
+      checks: [{ ...failedCheck, passed: true }],
+    }),
   ]),
   "run-red": runCase(false, [
     trial(1, [step("lookup_order", 0), step("issue_refund", 20_000_000)], {
@@ -127,15 +112,19 @@ const serve = (path: string, request: GatewayRequest) => {
   if (path === `/lens/datasets/${dataset.id}`) return dataset;
   if (path === "/lens/evals") return [definition];
   if (path === `/lens/evals/${definition.name}`) return definition;
-  if (path === "/lens/evals/runs" && request.query.eval === definition.name)
-    return [redRun, erroredRun, mainRun];
-  const run = [mainRun, redRun, erroredRun].find(
-    (item) => path === `/lens/evals/runs/${item.id}`,
-  );
+  if (path === "/lens/evals/runs" && request.query.eval === definition.name) return [redRun, erroredRun, mainRun];
+  const run = [mainRun, redRun, erroredRun].find((item) => path === `/lens/evals/runs/${item.id}`);
   if (run) return run;
-  const runId = path.match(
-    /^\/lens\/evals\/runs\/([^/]+)\/cases\/case-refund$/,
-  )?.[1];
+  const listedRunId = path.match(/^\/lens\/evals\/runs\/([^/]+)\/cases$/)?.[1];
+  if (listedRunId)
+    return cases[listedRunId]
+      ? [
+          { ...cases[listedRunId], case_id: regression.case_id, title: regression.title },
+          { case_id: "unchanged-pass", title: "Keeps existing files", critical: false, passed: true },
+        ]
+      : [];
+  if (path === "/lens/github/status") return { configured: false, app_slug: null, connection: null };
+  const runId = path.match(/^\/lens\/evals\/runs\/([^/]+)\/cases\/case-refund$/)?.[1];
   if (runId && cases[runId]) return cases[runId];
   throw new Error(`unexpected GET ${path} ${JSON.stringify(request.query)}`);
 };
@@ -146,60 +135,33 @@ beforeEach(() => {
   proxy.get.mockImplementation(serve);
 });
 
-const toolNames = (trace: string) =>
-  within(
-    within(screen.getByRole("region", { name: `${trace} trace` })).getByRole(
-      "list",
-      { name: "Tool calls" },
-    ),
-  )
-    .getAllByRole("listitem")
-    .map((item) => item.getAttribute("aria-label"));
-
-async function expectComparison() {
-  await waitFor(() =>
-    expect(screen.getByLabelText("Diagnosis")).toHaveTextContent(
-      "regressed: never called check_refund_policy, which main called · called_before failed 1/1 trials",
-    ),
-  );
-  expect(
-    await screen.findAllByRole("list", { name: "Tool calls" }),
-  ).toHaveLength(2);
-  expect(toolNames("main")).toEqual([
-    "lookup_order",
-    "check_refund_policy (missing in candidate)",
-    "issue_refund",
-  ]);
-  expect(toolNames("candidate")).toEqual(["lookup_order", "issue_refund"]);
-  expect(
-    screen.getByRole("region", { name: "Case comparison" }),
-  ).toHaveTextContent(regression.title);
+async function expectCaseResult() {
+  const result = await screen.findByRole("region", { name: "Case result" });
+  expect(result).toHaveTextContent(regression.title);
+  expect(await within(result).findByText("Trace unavailable")).toBeInTheDocument();
+  expect(within(result).getByRole("list", { name: "Checks" })).toHaveTextContent("Failedcalled_before");
+  expect(screen.queryByRole("region", { name: "Case comparison" })).not.toBeInTheDocument();
 }
 
 const evalPage = `?tab=evals&eval=${definition.name}`;
 
 describe("Evals", () => {
-  it("lists evals, opens one onto its runs, and lands a red run on its first regression", async () => {
+  it("should list evals and all cases, then open a case result", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     const first = renderWithLens(<EvalsView />, { searchParams: "?tab=evals", onUrlUpdate });
 
     const row = await screen.findByRole("row", { name: definition.name });
     expect(row).toHaveTextContent("Refund agent regressions@2");
-    expect(row).toHaveTextContent("check_refund_policy before issue_refund");
-    expect(row).toHaveTextContent("regressions ≤ 0 · critical ≤ 0");
+    expect(row).toHaveTextContent("Code");
 
     await user.click(row);
     await user.click(await screen.findByRole("row", { name: "drop-policy-check@2222222" }));
-    expect(await screen.findByRole("list", { name: "Gate reasons" })).toHaveTextContent(
-      "1 critical case regressed against main",
-    );
-    expect(
-      within(screen.getByRole("navigation", { name: "Changed cases" })).getByRole("button", { current: true }),
-    ).toHaveTextContent(regression.title);
-    await expectComparison();
-
-    await user.click(screen.getByRole("button", { name: /Can I get a refund/ }));
+    const caseList = await screen.findByRole("navigation", { name: "Test cases" });
+    expect(within(caseList).getByRole("button", { name: /Keeps existing files/ })).toHaveTextContent("Passed");
+    expect(screen.getByLabelText("Case totals")).toHaveTextContent("3 passed1 failed4 cases");
+    await user.click(within(caseList).getByRole("button", { name: /Can I get a refund/ }));
+    await expectCaseResult();
     const url = onUrlUpdate.mock.lastCall?.[0].queryString as string;
     expect(Object.fromEntries(new URLSearchParams(url))).toMatchObject({
       tab: "evals",
@@ -211,31 +173,31 @@ describe("Evals", () => {
     testQueryClient.clear();
 
     renderWithLens(<EvalsView />, { searchParams: url });
-    await expectComparison();
+    await expectCaseResult();
   });
 
-  it("lands on the regressed case from a PR comment link without listing runs", async () => {
+  it("should open a case from a PR comment link without listing runs", async () => {
     renderWithLens(<EvalsView />, {
       searchParams: `${evalPage}&eval_run=${redRun.id}&eval_case=${regression.case_id}`,
     });
 
-    await expectComparison();
+    await expectCaseResult();
     expect(proxy.get).not.toHaveBeenCalledWith("/lens/evals/runs", expect.anything());
   });
 
-  it("shows why an errored run failed instead of saying it is still scoring", async () => {
+  it("should show why an errored run failed", async () => {
     const user = userEvent.setup();
     renderWithLens(<EvalsView />, { searchParams: evalPage });
 
     const row = await screen.findByRole("row", { name: "flaky-ci@3333333" });
-    expect(within(row).getByText("gate errored")).toBeInTheDocument();
+    expect(within(row).getByText("Error")).toBeInTheDocument();
 
     await user.click(row);
-    expect(await screen.findByRole("alert")).toHaveTextContent("error: dataset revision 9 not found");
+    expect(await screen.findByRole("alert")).toHaveTextContent("dataset revision 9 not found");
     expect(screen.queryByText(/scoring/)).not.toBeInTheDocument();
   });
 
-  it("says so when a PR link names a case that did not change, and clears it on dismiss", async () => {
+  it("should show a missing case honestly and return to all cases", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     renderWithLens(<EvalsView />, {
@@ -243,11 +205,11 @@ describe("Evals", () => {
       onUrlUpdate,
     });
 
-    const missing = await screen.findByRole("alert");
-    expect(missing).toHaveTextContent("Case case-gone did not regress or get fixed in this run.");
+    const missing = await screen.findByRole("alert", { name: "Case unavailable" });
+    expect(missing).toHaveTextContent("Case case-gone was not found in this run");
 
-    await user.click(within(missing).getByRole("button", { name: "Dismiss" }));
-    await expectComparison();
+    await user.click(within(missing).getByRole("button", { name: "All cases" }));
+    expect(await screen.findByRole("button", { name: /Keeps existing files/ })).toBeInTheDocument();
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("eval_case")).toBe(false);
   });
 
@@ -263,15 +225,21 @@ describe("Evals", () => {
 
     await user.click(await screen.findByRole("button", { name: "New eval" }));
     const form = screen.getByRole("form", { name: "New eval" });
-    fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), { target: { value: "refund-order" } });
+    act(() =>
+      fireEvent.change(within(form).getByRole("textbox", { name: "Name" }), { target: { value: "refund-order" } }),
+    );
     await user.click(within(form).getByRole("combobox", { name: "Dataset" }));
     await user.click(await screen.findByRole("option", { name: "Refund agent regressions@2" }));
     expect(within(form).getByRole("textbox", { name: "Agent" })).toHaveValue("refund-agent");
     await user.click(within(form).getByRole("checkbox", { name: "Tool order" }));
-    fireEvent.change(within(form).getByRole("textbox", { name: "First tool" }), {
-      target: { value: "check_refund_policy" },
-    });
-    fireEvent.change(within(form).getByRole("textbox", { name: "Then tool" }), { target: { value: "issue_refund" } });
+    act(() =>
+      fireEvent.change(within(form).getByRole("textbox", { name: "First tool" }), {
+        target: { value: "check_refund_policy" },
+      }),
+    );
+    act(() =>
+      fireEvent.change(within(form).getByRole("textbox", { name: "Then tool" }), { target: { value: "issue_refund" } }),
+    );
     await user.click(within(form).getByRole("button", { name: "Create eval" }));
 
     await waitFor(() => expect(proxy.put).toHaveBeenCalledOnce());
@@ -279,7 +247,10 @@ describe("Evals", () => {
     expect(proxy.put.mock.lastCall?.[1].body).toEqual({
       agent: "refund-agent",
       dataset_id: dataset.id,
-      scorers: [{ kind: "task_completed" }, { kind: "called_before", first: "check_refund_policy", then: "issue_refund" }],
+      scorers: [
+        { kind: "task_completed" },
+        { kind: "called_before", first: "check_refund_policy", then: "issue_refund" },
+      ],
       trials: 3,
       baseline: "main",
       gate: { regressions: 0, critical: 0, pass_rate: null, cost_per_case: null, min: {} },
@@ -315,7 +286,7 @@ describe("Evals", () => {
     runs = [redRun];
     await testQueryClient.invalidateQueries();
 
-    await expectComparison();
+    expect(await screen.findByRole("button", { name: /Keeps existing files/ })).toBeInTheDocument();
     expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("eval_run")).toBe(redRun.id);
   });
 

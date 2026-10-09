@@ -287,8 +287,26 @@ pub struct RunCase {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct RunCaseSummary {
+    pub case_id: String,
+    pub title: String,
+    pub critical: bool,
+    pub passed: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrialTrace {
+    pub trace_id: String,
+    pub trace_ref: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TrialSteps {
     pub trial: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub traces: Vec<TrialTrace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
     pub error: Option<String>,

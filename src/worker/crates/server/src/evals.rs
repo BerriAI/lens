@@ -16,11 +16,11 @@ use lens_contract::{
     auth::Role,
     eval::{
         CaseResult, CreateEvalRun, EvalDefinition, EvalRun, EvalSpec, ResolvedDataset, RunCase,
-        RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
+        RunCaseSummary, RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
     },
 };
 use litellm_storage_clickhouse::{
-    evals::{EvalStore, RunFilter},
+    evals::{EvalStore, RunFilter, StoredCase},
     state::ClickHouseState,
 };
 use litellm_traces_clickhouse::evals::EvalTraces;
@@ -177,6 +177,7 @@ fn routers<R: SessionRepository + 'static>(
             put(result::<R>),
         )
         .public_route("/lens/evals/runs/{run}/finish", post(finish::<R>))
+        .public_route("/lens/evals/runs/{run}/cases", get(run_cases::<R>))
         .public_route("/lens/evals/runs/{run}/cases/{case_id}", get(run_case::<R>))
         .public_route("/lens/datasets/resolve", get(resolve::<R>));
     let cases = Router::new().public_route(
@@ -561,6 +562,26 @@ async fn resolve<R: SessionRepository>(
     ))
 }
 
+async fn run_cases<R: SessionRepository>(
+    State(state): State<Arc<EvalState<R>>>,
+    Extension(team): Extension<Team>,
+    Path(run): Path<String>,
+) -> Result<Json<Vec<RunCaseSummary>>, EvalApiError> {
+    let stored = state.store.get(&team.0, &run).await?;
+    Ok(Json(
+        stored
+            .cases
+            .iter()
+            .map(|case| RunCaseSummary {
+                case_id: case.id.clone(),
+                title: case_title(case),
+                critical: case.critical,
+                passed: stored.verdicts.get(&case.id).copied(),
+            })
+            .collect(),
+    ))
+}
+
 async fn run_case<R: SessionRepository>(
     State(state): State<Arc<EvalState<R>>>,
     Extension(team): Extension<Team>,
@@ -580,14 +601,14 @@ async fn run_case<R: SessionRepository>(
         .iter()
         .filter(|trial| trial.case_id == case_id)
     {
-        let spans = match (&state.traces, &trial.result.trace) {
+        let (spans, traces) = match (&state.traces, &trial.result.trace) {
             (Some(traces), Some(reference)) => traces
                 .read(&team.0, reference, now)
                 .await
                 .map_err(|error| ApiError::Internal(Box::new(error)))?
-                .map(|trace| trace.spans)
+                .map(|trace| (trace.spans, trace.traces))
                 .unwrap_or_default(),
-            _ => Vec::new(),
+            _ => (Vec::new(), Vec::new()),
         };
         let checks = if spans.is_empty() {
             Vec::new()
@@ -597,6 +618,7 @@ async fn run_case<R: SessionRepository>(
         let steps = tool_steps(spans);
         trials.push(TrialSteps {
             trial: trial.trial,
+            traces,
             output: match contract {
                 EvalContract::Trace => None,
                 EvalContract::AgentIo => trial.result.output.clone(),
@@ -613,11 +635,27 @@ async fn run_case<R: SessionRepository>(
     trials.sort_by_key(|trial| trial.trial);
     Ok(Json(RunCase {
         case_id: case.id.clone(),
-        title: case.title.clone(),
+        title: case_title(case),
         critical: case.critical,
         passed: stored.verdicts.get(&case.id).copied(),
         trials,
     }))
+}
+
+fn case_title(case: &StoredCase) -> String {
+    if !case.title.trim().is_empty() && case.title != case.id {
+        return case.title.clone();
+    }
+    let input = case.input.split_whitespace().collect::<Vec<_>>().join(" ");
+    if input.is_empty() {
+        return case.id.clone();
+    }
+    let title: String = input.chars().take(120).collect();
+    if input.chars().count() > 120 {
+        format!("{title}…")
+    } else {
+        title
+    }
 }
 
 fn scorer_checks(
@@ -688,4 +726,32 @@ async fn cases<R: SessionRepository>(
         .parse::<u64>()
         .map_err(|_| ApiError::InvalidRequest("revision must be a positive integer"))?;
     Ok(Json(state.datasets.cases(&team.0, &id, revision).await?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::case_title;
+    use litellm_storage_clickhouse::evals::StoredCase;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::named("Run tests", "Fix the bug", "Run tests")]
+    #[case::hash("case-id", "Fix\n the  bug", "Fix the bug")]
+    #[case::blank("", "Fix the bug", "Fix the bug")]
+    #[case::no_input("case-id", "  ", "case-id")]
+    fn should_use_the_input_when_a_case_has_no_readable_title(
+        #[case] title: &str,
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        let case = StoredCase {
+            id: "case-id".into(),
+            title: title.into(),
+            critical: false,
+            input: input.into(),
+            followups: Vec::new(),
+            expected: String::new(),
+        };
+        assert_eq!(case_title(&case), expected);
+    }
 }

@@ -7,6 +7,7 @@ import {
   parseGitHubRepository,
   parseTaskImport,
   pyprojectSnippet,
+  savedEvalTestSnippet,
   workflowSnippet,
   type ConnectTarget,
 } from "./connectSnippets";
@@ -320,5 +321,34 @@ describe("GitHub run provenance", () => {
     "https://github.com/BerriAI/lens/actions/runs/123?redirect=evil",
   ])("does not infer an observed GitHub repository from %s", (ciUrl) => {
     expect(githubRunRepository(ciUrl)).toBeNull();
+  });
+});
+
+describe("saved eval test snippets", () => {
+  it("runs the exact saved name through the Python SDK and records real outputs", () => {
+    const code = savedEvalTestSnippet({
+      ...target.definition,
+      name: 'eval "quoted"\nname',
+    });
+    expect(code).toContain(
+      String.raw`with lens.evals.test("eval \"quoted\"\nname") as evaluation:`,
+    );
+    expect(code).toContain("actual = agent.run(input=case.input)");
+    expect(code).toContain(
+      "evaluation.record(case, output=actual.output, trace_id=actual.trace_id)",
+    );
+    expect(code).toContain("evaluation.finish().assert_passed()");
+  });
+
+  it("uses the saved HTTP mapping when an agent contract exists", () => {
+    const code = savedEvalTestSnippet({
+      ...target.definition,
+      spec: {
+        ...target.definition.spec,
+        agent_io: { version: 1, connection: "agent-service" },
+      },
+    });
+    expect(code).toContain('lens.evals.run("refund-gate").assert_passed()');
+    expect(code).not.toContain("from my_agent import agent");
   });
 });

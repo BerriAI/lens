@@ -57,18 +57,28 @@ export interface ScorerCheck {
   readonly passed: boolean;
 }
 
+export interface TrialTrace {
+  readonly trace_id: string;
+  readonly trace_ref: string;
+}
+
 export interface TrialSteps {
+  readonly traces?: readonly TrialTrace[];
+  readonly output?: string | null;
   readonly trial: number;
   readonly error: string | null;
   readonly checks: readonly ScorerCheck[];
   readonly steps: readonly ToolStep[];
 }
 
-export interface RunCase {
+export interface RunCaseSummary {
   readonly case_id: string;
   readonly title: string;
   readonly critical: boolean;
   readonly passed: boolean | null;
+}
+
+export interface RunCase extends RunCaseSummary {
   readonly trials: readonly TrialSteps[];
 }
 
@@ -98,7 +108,10 @@ export interface EvalSpec {
 
 export interface EvalDefinition {
   readonly name: string;
-  readonly spec: Required<Omit<EvalSpec, "revision">> & { readonly revision: number | null };
+  readonly spec: Required<Omit<EvalSpec, "revision">> & {
+    readonly revision: number | null;
+    readonly agent_io?: { readonly version: number; readonly connection: string } | null;
+  };
   readonly updated_at: string;
 }
 
