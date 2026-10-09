@@ -25,6 +25,8 @@ Other self-hosted Lens instances can connect through this service by setting `LE
 
 Validate configuration changes with `render blueprints validate render.yaml`. The Blueprint waits for passing repository checks before automatically deploying new commits. Keep one Lens instance until the [shared-service rate limit and authorization retention requirements](github-app.md#operate-the-official-lens-app-service) are handled for your deployment
 
+Tracing and GitHub connections do not require a model provider. Configure [analysis models](analysis.md) for investigations and an [evaluation provider](signals.md) for signals. Before relying on investigation calculations, qualify the [calculation sandbox](sandbox.md) on the deployed Render host; a passing `/health/ready` check does not verify its Landlock and seccomp support
+
 Use ClickHouse-native backups and test restores; Render disk snapshots are not a database backup strategy. Database redeploys interrupt access while the disk moves to the replacement instance. Increase compute or disk capacity as trace volume grows
 
 If you add a custom domain, update `LENS_PUBLIC_URL` in the Blueprint and change both GitHub App return URLs to that origin. Existing self-hosted clients also need the new service origin. Never put App credentials or admin tokens in this file or source control
