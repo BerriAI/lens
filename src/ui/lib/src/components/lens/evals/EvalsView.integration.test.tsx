@@ -205,7 +205,7 @@ describe("Evals", () => {
       onUrlUpdate,
     });
 
-    const missing = await screen.findByRole("alert");
+    const missing = await screen.findByRole("alert", { name: "Case unavailable" });
     expect(missing).toHaveTextContent("Case case-gone was not found in this run");
 
     await user.click(within(missing).getByRole("button", { name: "All cases" }));
