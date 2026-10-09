@@ -20,6 +20,7 @@ SELECT * FROM (
       AND Timestamp >= parseDateTime64BestEffortOrZero({start_time:String}, 9) - INTERVAL 7 DAY
       AND ({trace_ref:String}='' OR hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId)))={trace_ref:String})
       AND TraceId={id:String} AND TeamId={record_team:String} AND SpanId > {cursor:String}
+      AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces)
     ORDER BY SpanId LIMIT 1 BY SpanId LIMIT 40
 )
 UNION ALL
