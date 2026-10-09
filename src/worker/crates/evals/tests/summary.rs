@@ -214,6 +214,37 @@ async fn empty_runs_are_rejected(#[case] input: RunInput) {
 }
 
 #[tokio::test]
+async fn judge_failure_aborts_evaluate() {
+    let input = RunInput {
+        scorers: vec![Scorer::Judge {
+            prompt: "p".into(),
+            model: String::new(),
+        }],
+        ..run(1, vec![case("c", false, vec![pass()])], None)
+    };
+    assert!(matches!(
+        evaluate(&input, &FakeJudge(BTreeMap::new())).await,
+        Err(Error::Judge(_))
+    ));
+}
+
+#[tokio::test]
+async fn duplicate_case_ids_are_rejected() {
+    let input = run(
+        1,
+        vec![
+            case("a", false, vec![pass()]),
+            case("a", false, vec![fail()]),
+        ],
+        None,
+    );
+    assert!(matches!(
+        evaluate(&input, &judge()).await,
+        Err(Error::DuplicateCase { case_id }) if case_id == "a"
+    ));
+}
+
+#[tokio::test]
 async fn extra_trials_are_rejected() {
     let input = run(1, vec![case("a", false, vec![pass(), pass()])], None);
     assert!(matches!(
