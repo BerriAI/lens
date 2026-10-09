@@ -2120,6 +2120,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lens-evals"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "lens-evals-sdk",
+ "rstest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
+ "tokio",
+]
+
+[[package]]
 name = "lens-evals-python"
 version = "0.1.0"
 dependencies = [
