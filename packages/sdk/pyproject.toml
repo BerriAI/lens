@@ -1,27 +1,31 @@
 [build-system]
-requires = ["hatchling==1.27.0"]
-build-backend = "hatchling.build"
+requires = ["maturin==1.15.0"]
+build-backend = "maturin"
 
 [project]
 name = "lens-evals"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Run agent evaluations against Lens from Python and CI"
 requires-python = ">=3.11"
 readme = "README.md"
 license = "MIT"
-dependencies = ["httpx>=0.28,<0.29", "pydantic>=2.11,<3"]
+dependencies = ["pydantic>=2.11,<3"]
 
 [project.optional-dependencies]
-dev-server = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+dev-server = []
+examples = ["httpx>=0.28,<0.29"]
 
 [project.scripts]
 lens = "lens.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "pytest-cov>=6,<8", "ruff>=0.12,<1", "mypy>=1.15,<2", "datamodel-code-generator==0.81.0", "fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "pytest-cov>=6,<8", "ruff>=0.12,<1", "mypy>=1.15,<2", "datamodel-code-generator==0.81.0", "httpx>=0.28,<0.29"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/lens"]
+[tool.maturin]
+manifest-path = "../../runtime/crates/evals-python/Cargo.toml"
+python-source = "src"
+module-name = "lens._native"
+features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
