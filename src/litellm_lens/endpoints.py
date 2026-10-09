@@ -124,6 +124,9 @@ def source_reader(storage: Storage | None) -> SourceReader:
     return SourceReader(storage)
 
 
+SYSTEM_ONE_MODES: Final = frozenset(("decisions", "evaluation"))
+
+
 def user_scope(auth: UserAPIKeyAuth, write: bool = False) -> Scope:
     if write and auth.user_role != LitellmUserRoles.PROXY_ADMIN:
         raise HTTPException(403, "Only proxy admins can configure or run Lens")
@@ -135,14 +138,14 @@ def user_scope(auth: UserAPIKeyAuth, write: bool = False) -> Scope:
 def validate_signal_model(config: SignalConfig, llm_router: Router | None) -> None:
     if not config.model:
         return
-    message: Final = "Choose a System 1 model (evaluation mode) configured on this proxy"
+    message: Final = "Choose a System 1 model (decisions mode) configured on this proxy"
     if llm_router is None:
         raise HTTPException(400, message)
     try:
         model_group: Final = llm_router.get_model_group_info(model_group=config.model)
     except Exception as error:
         raise HTTPException(400, message) from error
-    if model_group is None or model_group.mode != "evaluation":
+    if model_group is None or model_group.mode not in SYSTEM_ONE_MODES:
         raise HTTPException(400, message)
 
 
