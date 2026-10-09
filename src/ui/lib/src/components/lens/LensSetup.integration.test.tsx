@@ -348,11 +348,11 @@ describe("Lens setup journey", () => {
     expect(screen.getByRole("region", { name: "Automatic analysis" })).toBeVisible();
   });
 
-  it("keeps administrator-only setup unavailable to trace viewers", async () => {
+  it("should keep administrator-only setup unavailable to trace viewers", async () => {
     serve({ enabled: true, traces: true });
     renderWorkspace({ searchParams: "?setup=lens" }, "Internal User");
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    expect(await intro.findByText(/An administrator can configure analysis/)).toBeVisible();
+    expect(await intro.findByText("An administrator can configure automatic analysis.")).toBeVisible();
     expect(intro.getByRole("button", { name: "Configure analysis" })).toBeDisabled();
     expect(network.mock.calls.some(([input]) => requestPath(input) === "/lens")).toBe(false);
   });
