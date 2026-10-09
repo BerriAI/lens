@@ -47,19 +47,30 @@ describe("Lens navigation", () => {
     expect(await screen.findByText("Trace polling active")).toBeVisible();
     expect(screen.queryByRole("tab", { name: "Investigations" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Findings" }));
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(screen.getByText("Trace polling paused")).not.toBeVisible();
     expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("tab")).toBe("findings");
     await user.click(screen.getByRole("tab", { name: "Traces" }));
     expect(await screen.findByText("Trace polling active")).toBeVisible();
   });
 
-  it("opens existing lens links on investigations", async () => {
+  it("should open existing lens links on Findings", async () => {
     renderWithProviders(<LensWorkspace {...admin} />, {
       searchParams: "?lens=saved-lens",
     });
     expect(screen.queryByRole("tab", { name: "Investigations" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
+  });
+
+  it("should connect a model from global Findings without selecting an agent", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace {...admin} />, {
+      searchParams: "?tab=findings",
+    });
+    expect(await screen.findByText("Connect an analysis model to start receiving findings.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Connect model" }));
+    expect(await screen.findByRole("region", { name: "Settings" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("honors an explicit traces tab even when a saved investigation is in the URL", async () => {
@@ -87,12 +98,13 @@ describe("Lens navigation", () => {
   it.each([
     { userRole: "Admin Viewer", readOnly: false },
     { userRole: "Admin", readOnly: true },
-  ])("preserves read-only investigation access for $userRole with readOnly=$readOnly", async (session) => {
+  ])("should preserve read-only Findings access for $userRole with readOnly=$readOnly", async (session) => {
     renderWithProviders(<LensWorkspace {...admin} {...session} />, {
       searchParams: "?tab=investigations",
     });
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Configure analysis for/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect model" })).not.toBeInTheDocument();
     expect(screen.queryByText("Manage investigations")).not.toBeInTheDocument();
   });
 });

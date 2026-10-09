@@ -153,3 +153,112 @@ it("ranks findings under high, medium and low priority headings with the highest
   expect(groups[0]).toHaveTextContent(/High priority\s*2/);
   expect(titles(groups[2])).toEqual(["low newest-low"]);
 });
+
+it("should use the selected agent instead of a stale inbox filter", async () => {
+  renderWithLens(<FindingsView agent="support_agent" readOnly />, {
+    searchParams: "?tab=findings&agent=support_agent&inbox_agent=research_agent",
+  });
+  expect(await screen.findByRole("row", { name: issue.title })).toBeVisible();
+  expect(screen.queryByRole("row", { name: data.lenses[1].findings[0].title })).not.toBeInTheDocument();
+  expect(screen.queryByRole("combobox", { name: "Filter by agent" })).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "Filter by priority" })).toBeVisible();
+  expect(screen.getByText("1 finding")).toBeVisible();
+});
+
+it("should not open another agent's finding or evidence from a deep link", async () => {
+  const otherLens = data.lenses[1];
+  const otherFinding = otherLens.findings[0];
+  const evidence = otherFinding.evidence[0];
+  const query = new URLSearchParams({
+    tab: "findings",
+    agent: "support_agent",
+    issue: findingKey(otherLens, otherFinding),
+    evidence: evidence.execution_id,
+    evidence_span: evidence.span_id,
+  });
+  renderWithLens(<FindingsView agent="support_agent" readOnly />, {
+    searchParams: query,
+  });
+  expect(await screen.findByRole("row", { name: issue.title })).toBeVisible();
+  expect(screen.queryByRole("complementary", { name: "Finding details" })).not.toBeInTheDocument();
+  expect(screen.queryByText(otherFinding.description)).not.toBeInTheDocument();
+  expect(screen.queryByTestId("evidence-view")).not.toBeInTheDocument();
+  expect(proxy.get.mock.calls.some(([path]) => path.startsWith("/v1/traces/"))).toBe(false);
+});
+
+it("should hide the open report when the selected agent changes", async () => {
+  const view = renderWithLens(<FindingsView agent="support_agent" readOnly />, {
+    searchParams: `?tab=findings&issue=${encodeURIComponent(findingKey(support, issue))}`,
+  });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  expect(within(panel).getByRole("heading", { name: issue.title })).toBeVisible();
+  view.rerender(<FindingsView agent="research_agent" readOnly />);
+  expect(await screen.findByRole("row", { name: data.lenses[1].findings[0].title })).toBeVisible();
+  expect(screen.queryByRole("complementary", { name: "Finding details" })).not.toBeInTheDocument();
+  expect(screen.queryByText(issue.description)).not.toBeInTheDocument();
+  expect(screen.queryByRole("row", { name: issue.title })).not.toBeInTheDocument();
+  expect(screen.queryByRole("combobox", { name: "Filter by agent" })).not.toBeInTheDocument();
+});
+
+it("should ignore evidence that does not belong to the selected finding", async () => {
+  const unrelated = data.lenses[1].findings[0].evidence[0];
+  const query = new URLSearchParams({
+    tab: "findings",
+    agent: "support_agent",
+    issue: findingKey(support, issue),
+    evidence: unrelated.execution_id,
+    evidence_span: unrelated.span_id,
+  });
+  renderWithLens(<FindingsView agent="support_agent" readOnly />, {
+    searchParams: query,
+  });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  expect(within(panel).getByRole("heading", { name: issue.title })).toBeVisible();
+  expect(within(panel).getByText(issue.description)).toBeVisible();
+  expect(screen.queryByTestId("evidence-view")).not.toBeInTheDocument();
+  expect(proxy.get.mock.calls.some(([path]) => path.startsWith("/v1/traces/"))).toBe(false);
+});
+
+it("should open evidence owned by the selected finding and return to its report", async () => {
+  const user = userEvent.setup();
+  const executionId = btoa(JSON.stringify(["requests", "", "support-request"]));
+  const finding = {
+    ...issue,
+    occurrences: [executionId],
+    evidence: [{ ...issue.evidence[0], execution_id: executionId }],
+  };
+  proxy.get.mockImplementation(async (path) => {
+    if (path === "/lens")
+      return {
+        lenses: [{ ...support, findings: [finding] }],
+        workers: [],
+        tracing_enabled: true,
+      };
+    if (path.startsWith(`/lens/${support.id}/executions/`))
+      return {
+        parts: [
+          {
+            span_id: "support-request",
+            content: "The original support response",
+            truncated: false,
+          },
+        ],
+      };
+    return { data: [] };
+  });
+  renderWithLens(<FindingsView agent="support_agent" readOnly />, {
+    searchParams: `?tab=findings&issue=${encodeURIComponent(findingKey(support, finding))}`,
+  });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  await user.click(within(panel).getByRole("button", { name: "View request" }));
+  expect(await within(panel).findByText("The original support response")).toBeVisible();
+  await user.click(within(panel).getByRole("button", { name: "Back to finding" }));
+  expect(within(panel).getByRole("heading", { name: finding.title })).toBeVisible();
+  expect(screen.queryByTestId("evidence-view")).not.toBeInTheDocument();
+});
