@@ -79,6 +79,18 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
           {run.received_trials}/{run.expected_trials} trials received
         </span>
       </p>
+      {run.summary && !run.summary.gate.passed && (
+        <div role="alert" className="space-y-1 text-xs text-destructive">
+          <p>Run checks failed</p>
+          {run.summary.gate.reasons.length > 0 && (
+            <ul aria-label="Failed run checks" className="space-y-1">
+              {run.summary.gate.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </header>
   );
 }

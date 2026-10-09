@@ -14,6 +14,7 @@ export function caseStatus(item: Pick<RunCaseSummary, "passed">, active: boolean
 const BADGES = {
   Passed: { icon: CheckCircle2, tone: "text-success" },
   Failed: { icon: XCircle, tone: "text-destructive" },
+  "Checks failed": { icon: XCircle, tone: "text-destructive" },
   Error: { icon: OctagonAlert, tone: "text-destructive" },
   Running: { icon: Loader2, tone: "text-blue-600 dark:text-blue-400" },
   Scoring: { icon: Loader2, tone: "text-blue-600 dark:text-blue-400" },
@@ -48,9 +49,11 @@ export function RunStatusBadge({ run, className }: { run: EvalRun; className?: s
           ? "Scoring"
           : !run.summary || run.summary.total === 0
             ? "No results"
-            : run.summary.passed === run.summary.total
-              ? "Passed"
-              : "Failed";
+            : run.summary.passed < run.summary.total
+              ? "Failed"
+              : !run.summary.gate.passed
+                ? "Checks failed"
+                : "Passed";
   return <StatusBadge status={status} className={className} />;
 }
 

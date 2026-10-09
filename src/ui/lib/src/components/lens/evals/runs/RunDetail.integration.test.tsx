@@ -38,6 +38,25 @@ function serveRun(run: EvalRun, cases: readonly RunCase[]) {
 }
 
 describe("Eval case results", () => {
+  it("should show failed run checks even when every case passes", async () => {
+    const run = evalRun("policy-failed", {
+      summary: summary({
+        passed: 1,
+        total: 1,
+        gate: { passed: false, reasons: ["Cost per case exceeded the configured limit"] },
+      }),
+    });
+    serveRun(run, [passed]);
+    renderWithLens(<RunDetail runId={run.id} caseId={null} onBack={vi.fn()} onOpenCase={vi.fn()} />);
+
+    const header = await screen.findByRole("banner", { name: "Run" });
+    expect(within(header).getByText("Checks failed")).toBeVisible();
+    expect(screen.getByLabelText("Case totals")).toHaveTextContent("1 passed0 failed1 cases");
+    expect(within(header).getByRole("alert")).toHaveTextContent("Cost per case exceeded the configured limit");
+    const list = await screen.findByRole("navigation", { name: "Test cases" });
+    expect(within(list).getByRole("button", { name: /Preserves existing files/ })).toHaveTextContent("Passed");
+  });
+
   it("should show every case and real verdicts even when the regression policy passes", async () => {
     const onOpenCase = vi.fn();
     const user = userEvent.setup();
