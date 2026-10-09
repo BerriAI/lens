@@ -23,7 +23,15 @@ import { LensTabs } from "./LensTabs";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
-import { LENS_TABS, useDialogRoute, useGitHubRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
+import {
+  LENS_TABS,
+  useDialogRoute,
+  useGitHubRoute,
+  useIssueRoute,
+  useLensRoute,
+  type LensDialog,
+  type LensTab,
+} from "./route";
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
@@ -177,7 +185,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   };
   return (
     <OnboardingProvider value={onboarding}>
-      <main className="relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background">
+      <main
+        className={cn("relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background", !embedded && "lens-shell")}
+      >
         <Tabs.Root
           value={activeTab}
           orientation={embedded ? "horizontal" : "vertical"}
@@ -185,11 +195,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
         >
           {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
             <header
               className={cn(
                 "flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card px-4 md:px-6",
-                !embedded && "pl-14",
+                !embedded && "lens-workspace-header pl-14 md:pl-6",
               )}
             >
               <div className="flex min-w-0 items-center gap-2 text-sm">
@@ -205,6 +215,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </>
                 ) : (
                   <>
+                    <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
                     {activeTab === "traces" && agents.agent && (
                       <>
                         <Button
@@ -253,7 +264,12 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                 <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
               </div>
             )}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card px-3 md:px-5">
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card px-3 md:px-5",
+                !embedded && "m-2 rounded-xl border md:m-4",
+              )}
+            >
               {showSetup ? (
                 <TabsContent value={activeTab} keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
                   {setupState.loading ? (

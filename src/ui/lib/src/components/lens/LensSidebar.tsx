@@ -53,7 +53,11 @@ export function LensSidebar(props: LensSidebarProps) {
         >
           <PanelLeftOpen aria-hidden="true" className="size-4" />
         </SheetTrigger>
-        <SheetContent side="left" className="w-72! gap-0 overflow-y-auto bg-sidebar p-3" aria-describedby={undefined}>
+        <SheetContent
+          side="left"
+          className="lens-shell-overlay lens-sidebar w-72! gap-0 overflow-y-auto bg-sidebar p-3"
+          aria-describedby={undefined}
+        >
           <SheetTitle className="sr-only">Lens navigation</SheetTitle>
           <SheetDescription className="sr-only">Browse agents and your Lens workspace</SheetDescription>
           <Button
@@ -72,7 +76,7 @@ export function LensSidebar(props: LensSidebarProps) {
     <aside
       aria-label="Lens navigation"
       className={cn(
-        "flex shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground transition-[width] duration-200 motion-reduce:transition-none",
+        "lens-sidebar flex shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground transition-[width] duration-200 motion-reduce:transition-none",
         collapsed ? "w-16 px-2" : "w-60",
       )}
     >
@@ -121,6 +125,11 @@ function SidebarNavigation({
         <div className="mb-4 min-w-0 [&>button]:h-10 [&>button]:w-full [&>button]:max-w-none [&>button]:justify-start [&>button]:border-0 [&>button]:bg-muted/50 [&>button]:px-2.5 [&>button]:text-[13px] [&>button>svg:last-child]:ml-auto">
           <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
         </div>
+      )}
+      {!collapsed && (
+        <p className="mb-3 px-2.5 font-mono text-[10px] font-medium tracking-[0.16em] text-muted-foreground uppercase">
+          Workspace
+        </p>
       )}
       <LensTabs
         orientation="vertical"

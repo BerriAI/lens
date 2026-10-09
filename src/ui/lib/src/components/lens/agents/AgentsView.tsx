@@ -32,12 +32,13 @@ export function AgentsView({
 
   return (
     <section aria-label="Agents directory" className="flex flex-col gap-5 p-4 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground">YOUR AGENT FLEET</p>
+          <h2 className="flex items-center gap-2.5 text-2xl font-medium tracking-tight">
             Agents
             {!isLoading && !error && (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+              <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-xs font-medium text-indigo-700 tabular-nums dark:border-indigo-400/25 dark:bg-indigo-400/10 dark:text-indigo-300">
                 {all.length.toLocaleString()}
               </span>
             )}
@@ -45,7 +46,7 @@ export function AgentsView({
           <p className="text-sm text-muted-foreground">Choose an agent to explore its traces and activity</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-xs text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
+          <span className="font-mono text-[11px] text-muted-foreground">Last {AGENT_WINDOW_DAYS} days</span>
           {onConnectProject && (
             <Button size="sm" onClick={onConnectProject}>
               <Plus aria-hidden className="size-4" />
@@ -122,7 +123,7 @@ export function AgentsView({
                           <AgentMark agent={agent} />
                         </span>
                         <span className="flex min-w-0 flex-col gap-0.5">
-                          <span className="max-w-64 truncate text-sm font-medium">{agent.name}</span>
+                          <span className="max-w-64 truncate font-mono text-[13px] font-medium">{agent.name}</span>
                           <span className="text-xs font-normal text-muted-foreground">
                             {framework?.label ?? "Agent"}
                           </span>

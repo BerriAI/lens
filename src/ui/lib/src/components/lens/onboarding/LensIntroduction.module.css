@@ -1,9 +1,13 @@
 .swarmRow {
-  animation: swarm-flow 5.2s linear infinite;
+  animation: swarm-flow 9.2s linear infinite;
 }
 
 .organizedDots {
-  animation: organized-flow 1.6s linear infinite;
+  animation: organized-flow 2.8s linear infinite;
+}
+
+.insightLoop {
+  animation: insight-flow 3s linear infinite;
 }
 
 .gatewayGlow {
@@ -92,13 +96,20 @@
     transform: translateX(0);
   }
   to {
-    transform: translateX(80px);
+    transform: translateX(100px);
+  }
+}
+
+@keyframes insight-flow {
+  to {
+    stroke-dashoffset: -32;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .swarmRow,
-  .organizedDots {
+  .organizedDots,
+  .insightLoop {
     animation: none;
     opacity: 0.75;
   }

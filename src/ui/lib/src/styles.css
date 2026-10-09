@@ -477,6 +477,63 @@
   border: 1px solid var(--neutral-border);
 }
 
+.lens-shell,
+.lens-shell-overlay {
+  --lens-brand: #0017b7;
+  --lens-paper: #fafbff;
+  --lens-grid: #d6daec;
+  --lens-nav-active: #eef0ff;
+  --primary: var(--lens-brand);
+  --primary-foreground: #ffffff;
+  --ring: var(--lens-brand);
+}
+
+.dark .lens-shell,
+.dark .lens-shell-overlay {
+  --lens-brand: #8b9bff;
+  --lens-paper: #202128;
+  --lens-grid: #393c50;
+  --lens-nav-active: #2d3147;
+  --primary-foreground: #12142b;
+}
+
+.lens-workspace-paper {
+  background-color: var(--lens-paper);
+  background-image: radial-gradient(var(--lens-grid) 0.7px, transparent 0.7px);
+  background-size: 14px 14px;
+}
+
+.lens-workspace-header {
+  border-bottom-color: color-mix(in oklab, var(--lens-brand) 12%, var(--border));
+}
+
+.lens-sidebar {
+  background-color: var(--lens-paper);
+}
+
+:is(.lens-shell, .lens-shell-overlay)
+  .lens-nav-tab:is([data-state="active"], [data-active]:not([data-active="false"])) {
+  border-color: color-mix(in oklab, var(--lens-brand) 13%, transparent);
+  background-color: var(--lens-nav-active);
+  color: var(--lens-brand);
+  box-shadow: inset 2px 0 0 var(--lens-brand);
+}
+
+.lens-breadcrumb-dot {
+  background-color: var(--lens-brand);
+}
+
+.lens-brand-name {
+  color: var(--lens-brand, #0017b7);
+}
+
+.lens-brand-monogram {
+  background-color: var(--lens-brand, #0017b7);
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
 /* A dialog opened from inside another dialog reads as a drill-down, not a stack: base-ui stamps
    this attribute on the parent while a child is open, so the parent steps aside instead of
    showing its own edges around a differently sized child. */

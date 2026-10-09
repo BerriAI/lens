@@ -11,6 +11,9 @@ import { useLensAccessToken } from "../data/LensServices";
 import { useConnectProjectRoute, useProjectSetupRoute, type ProjectConnection } from "../route";
 import { useOnboarding } from "./OnboardingContext";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
+import { GatewayFlow } from "./GatewayFlow";
+import { useLensHost } from "../../../host/LensHost";
+import styles from "./LensHome.module.css";
 import {
   CodeBlock,
   CodingAgentSetup,
@@ -35,6 +38,7 @@ export function LensHome({
   readonly onSetup?: () => void;
   readonly onConnectGitHub?: (name: string) => void;
 }) {
+  const standalone = useLensHost().surface === "standalone";
   const [project, setProject] = useConnectProjectRoute();
   const setup = useProjectSetupRoute();
   const [name, setName] = useState(project?.name ?? "");
@@ -66,8 +70,26 @@ export function LensHome({
     setup.setVerifying(false);
   };
   return (
-    <section aria-label="Get started with Lens" className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+    <section aria-label="Get started with Lens" className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      {!project && (
+        <div className={styles.hero}>
+          <div className={styles.eyebrow}>
+            <span className={styles.spectrum} aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <i />
+            </span>
+            THE AGENT WORKSPACE
+          </div>
+          <h2 className={styles.headline}>
+            Your agents, <span>in focus.</span>
+          </h2>
+          <p className={styles.description}>Follow every trace. Find what matters. Build better agents.</p>
+          <GatewayFlow standalone={standalone} />
+        </div>
+      )}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <h2 className="text-xl font-medium tracking-tight">Get your first trace</h2>
           <p className="text-[13px] text-muted-foreground">
@@ -75,14 +97,14 @@ export function LensHome({
           </p>
         </div>
         {agents.list.agents.length > 0 && (
-          <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={onOpenAgents}>
+          <Button variant="outline" size="sm" onClick={onOpenAgents}>
             View agents
             <ArrowRight aria-hidden className="size-3.5" />
           </Button>
         )}
       </div>
       {!enabled ? (
-        <p className="text-sm text-muted-foreground">Turn off demo data to connect your project.</p>
+        <p className={styles.demoNote}>Turn off demo data to connect your project.</p>
       ) : (
         <>
           <nav aria-label="Setup progress" className="mb-6">
@@ -102,9 +124,7 @@ export function LensHome({
                       }}
                       className={cn(
                         "-mb-px flex min-h-12 w-full items-center gap-2 border-b-2 px-0.5 py-3 text-left text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring sm:gap-2.5 sm:text-[13px]",
-                        step === number
-                          ? "border-foreground text-foreground"
-                          : "border-transparent text-muted-foreground",
+                        step === number ? "border-primary text-primary" : "border-transparent text-muted-foreground",
                         number < step && "hover:text-foreground",
                         number > step && "opacity-50",
                       )}
@@ -112,7 +132,7 @@ export function LensHome({
                       <span
                         className={cn(
                           "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px]",
-                          step === number && "border-foreground bg-foreground text-background",
+                          step === number && "border-primary bg-primary text-primary-foreground",
                           number < step && "border-border text-foreground",
                         )}
                       >
