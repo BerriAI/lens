@@ -13,7 +13,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use super::{Connection, Error, TraceTable};
 
 const MIB: u64 = 1024 * 1024;
-const EVAL_TRACES_VIEW: &str = "lens_eval_traces";
+const EVAL_TRACES: &str = "lens_eval_traces";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ReaderLimits {
@@ -126,8 +126,10 @@ impl QueryReaders {
             format!("ALTER USER {user} IDENTIFIED WITH sha256_hash BY '{password_hash}'"),
         )
         .await?;
-        for table in TraceTable::iter() {
-            let predicate = predicate(scope, table);
+        let policies = TraceTable::iter()
+            .map(|table| (<&str>::from(table), predicate(scope, table)))
+            .chain([(EVAL_TRACES, eval_predicate(scope))]);
+        for (table, predicate) in policies {
             self.execute(
                 client,
                 format!(
@@ -144,14 +146,20 @@ impl QueryReaders {
                 ),
             )
             .await?;
-        }
-        for table in TraceTable::iter()
-            .map(<&str>::from)
-            .chain([EVAL_TRACES_VIEW])
-        {
             self.execute(
                 client,
                 format!("GRANT SELECT ON `{database}`.{table} TO {user}"),
+            )
+            .await?;
+        }
+        for table in TraceTable::iter() {
+            let exclusion = eval_exclusion(database, table);
+            self.execute(
+                client,
+                format!(
+                    "CREATE ROW POLICY IF NOT EXISTS {user}_eval ON `{database}`.{table} \
+                 AS RESTRICTIVE USING {exclusion} TO {user}"
+                ),
             )
             .await?;
         }
@@ -184,15 +192,23 @@ fn predicate(scope: &QueryScope, table: TraceTable) -> String {
         TraceTable::OtelTraces | TraceTable::AgentTracesByKey => "TeamId",
         TraceTable::SpendLogs => "team_id",
     };
+    scoped(scope, team, |owner| match table {
+        TraceTable::OtelTraces => format!("UserId = {owner}"),
+        TraceTable::AgentTracesByKey => format!("UserIds = [{owner}]"),
+        TraceTable::SpendLogs => format!("user = {owner}"),
+    })
+}
+
+fn eval_predicate(scope: &QueryScope) -> String {
+    scoped(scope, "TeamId", |owner| format!("has(UserIds, {owner})"))
+}
+
+fn scoped(scope: &QueryScope, team: &str, user_clause: impl Fn(&str) -> String) -> String {
     match scope {
         QueryScope::All => "1".to_owned(),
         QueryScope::Owned { user_id, team_ids } => {
             let owner = literal(user_id);
-            let user_clause = match table {
-                TraceTable::OtelTraces => format!("UserId = {owner}"),
-                TraceTable::AgentTracesByKey => format!("UserIds = [{owner}]"),
-                TraceTable::SpendLogs => format!("user = {owner}"),
-            };
+            let user_clause = user_clause(&owner);
             let teams = team_ids
                 .iter()
                 .map(|value| literal(value))
@@ -205,6 +221,19 @@ fn predicate(scope: &QueryScope, table: TraceTable) -> String {
             };
             format!("({owner} != '' AND {user_clause}) OR ({team_clause})")
         }
+    }
+}
+
+fn eval_exclusion(database: &str, table: TraceTable) -> String {
+    let source = format!("`{database}`.{EVAL_TRACES}");
+    match table {
+        TraceTable::OtelTraces | TraceTable::AgentTracesByKey => format!(
+            "(TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM {source})"
+        ),
+        TraceTable::SpendLogs => format!(
+            "(team_id, api_key, response_id) NOT IN \
+             (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds) FROM {source})"
+        ),
     }
 }
 
