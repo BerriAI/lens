@@ -1,9 +1,4 @@
-import json
-
-import httpx
-
 from lens._contract import EvalRun, GateResult, Summary
-from lens.github import GitHub
 from lens.models import Report
 from lens.reporting import markdown
 
@@ -37,41 +32,6 @@ def report():
             summary=summary,
         )
     )
-
-
-async def test_report_updates_owned_comment_and_uses_server_verdict():
-    requests = []
-
-    async def handle(request):
-        requests.append(request)
-        if request.method == "GET":
-            return httpx.Response(
-                200, json=[{"id": 4, "body": "<!-- lens:demo --> old", "user": {"login": "github-actions[bot]"}}]
-            )
-        return httpx.Response(201, json={})
-
-    async with httpx.AsyncClient(base_url="https://api.github.com", transport=httpx.MockTransport(handle)) as http:
-        await GitHub(http, "org/repo").publish(report(), "sha")
-        await GitHub(http, "org/repo").publish(report(), "sha")
-    assert sum(request.method == "PATCH" for request in requests) == 2
-    assert not any(request.method == "POST" and "/comments" in request.url.path for request in requests)
-    checks = [json.loads(request.content) for request in requests if request.url.path.endswith("check-runs")]
-    assert all(check["conclusion"] == "neutral" and check["head_sha"] == "sha" for check in checks)
-
-
-async def test_comment_marker_in_human_comment_is_not_overwritten():
-    requests = []
-
-    async def handle(request):
-        requests.append(request)
-        if request.method == "GET":
-            return httpx.Response(200, json=[{"id": 4, "body": "<!-- lens:demo -->", "user": {"login": "person"}}])
-        return httpx.Response(201, json={})
-
-    async with httpx.AsyncClient(base_url="https://api.github.com", transport=httpx.MockTransport(handle)) as http:
-        await GitHub(http, "org/repo").publish(report(), "sha")
-    assert not any(request.method == "PATCH" for request in requests)
-    assert any(request.method == "POST" and "/comments" in request.url.path for request in requests)
 
 
 def test_markdown_escapes_remote_mentions_and_markup():

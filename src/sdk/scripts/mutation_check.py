@@ -2,83 +2,93 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Final
 
-SDK: Final = Path(__file__).resolve().parents[1]
+REPO: Final = Path(__file__).resolve().parents[3]
 MUTATIONS: Final = (
-    ("client.py", "and can_retry:", "and False:", "retry HTTP errors"),
-    ("client.py", 'error.status == 409 and error.code == "run_closed"', "False", "recover finish acknowledgement"),
-    ("evaluation.py", "asyncio.Semaphore(self.concurrency)", "asyncio.Semaphore(1)", "configured concurrency"),
-    ("evaluation.py", "product(cases, range(self.trials))", "product(cases, range(1))", "all trials executed"),
-    ("evaluation.py", "gate=self.threshold,", "gate=Gate(),", "configured server gate"),
+    ("engine.rs", "buffer_unordered(spec.concurrency)", "buffer_unordered(1)", "configured concurrency"),
+    ("engine.rs", "0..spec.trials", "0..1", "all trials executed"),
+    ("engine.rs", "gate: spec.gate.clone()", "gate: Gate::default()", "configured gate forwarded"),
+    ("engine.rs", "execution.identity, fingerprint", '"constant", fingerprint', "distinct executions at one SHA"),
+    ("model.rs", "ids.contains(&case.id)", "ids.is_empty()", "case subset selection"),
+    ("client.rs", "if retry { self.attempts } else { 1 }", "if retry { 1 } else { self.attempts }", "bounded retries"),
+    ("client.rs", 'code == "run_closed"', 'code == "never"', "lost finish acknowledgement"),
     (
-        "evaluation.py",
-        'key: Final = f"{self.name}:{execution.version}:{execution.identity}:{fingerprint}"',
-        'key: Final = f"{self.name}:{execution.version}:{fingerprint}"',
-        "distinct CI executions",
+        "client.rs",
+        "data.dataset_id != dataset.id || data.revision != dataset.revision",
+        "false",
+        "dataset identity checked",
     ),
-    ("evaluation.py", "self.case_ids is None or case.id in self.case_ids", "True", "subset selection"),
-    ("evaluation.py", "cost_usd=value.cost_usd,", "cost_usd=0,", "cost forwarded"),
-    ("evaluation.py", 'if current.status == "failed":', "if False:", "server failure classification"),
-    ("models.py", "if not self.summary.gate.passed:", "if self.summary.gate.passed:", "assert gate verdict"),
+    ("devserver.rs", "> spec.trials,", ">= spec.trials,", "majority ties fail"),
     (
-        "models.py",
-        'if len(self.trace) != 1 or next(iter(self.trace)) not in {"session.id", "trace_id"}:',
-        "if len(self.trace) == 0:",
-        "valid trace references",
+        "devserver.rs",
+        "Some(&true) && !verdicts[&case.id]",
+        "Some(&false) && !verdicts[&case.id]",
+        "individual regressions detected",
     ),
-    ("devserver.py", "> spec.trials / 2", ">= spec.trials / 2", "ties fail"),
-    ("devserver.py", "prior.get(case.id) is True and not verdicts[case.id]", "False", "regressions detected"),
-    ("devserver.py", "passed=not failures", "passed=bool(failures)", "server gate conjunction"),
-    ("devserver.py", 'if run.status != "running":', "if False:", "closed result rejection"),
+    ("devserver.rs", "passed: failures.is_empty()", "passed: !failures.is_empty()", "server gate conjunction"),
     (
-        "reporting.py",
-        "report.summary.baseline_run_id is None",
-        "report.summary.baseline_run_id is not None",
-        "missing baseline neutral",
+        "reporting.rs",
+        "summary.baseline_run_id.is_none()",
+        "summary.baseline_run_id.is_some()",
+        "missing baseline check is neutral",
     ),
-    ("cli.py", "return 2 if errors else", "return 0 if errors else", "infrastructure exit code"),
-    ("cli.py", "for report in reports) else 1", "for report in reports) else 0", "gate failure exit code"),
     (
-        "github.py",
-        'comment.user.get("login") == "github-actions[bot]"',
-        'comment.user.get("login") != "github-actions[bot]"',
-        "only edit owned comment",
+        "github.rs",
+        'comment.user.login == "github-actions[bot]"',
+        'comment.user.login != "github-actions[bot]"',
+        "only bot comments edited",
     ),
-    ("discovery.py", "if len(set(names)) != len(names):", "if False:", "duplicate evaluation rejection"),
+    ("setup.rs", "if file.exists()", "if false", "existing setup files protected"),
 )
 
 
-def check(mutation: tuple[str, str, str, str]) -> dict[str, str | bool]:
+def check(root: Path, mutation: tuple[str, str, str, str]) -> dict[str, str | bool]:
     file, before, after, name = mutation
-    with tempfile.TemporaryDirectory(prefix="lens-mutation-") as directory:
-        root: Final = Path(directory)
-        shutil.copytree(SDK / "src", root / "src")
-        shutil.copytree(SDK / "tests", root / "tests", ignore=shutil.ignore_patterns("__pycache__"))
-        shutil.copyfile(SDK / "pyproject.toml", root / "pyproject.toml")
-        target: Final = root / "src/lens" / file
-        original: Final = target.read_text()
-        if before not in original:
-            return {"name": name, "killed": False, "error": "Mutation anchor missing"}
-        target.write_text(original.replace(before, after, 1))
+    target: Final = root / "src/worker/crates/evals-sdk/src" / file
+    original: Final = target.read_text()
+    if before not in original:
+        return {"name": name, "killed": False, "error": "Mutation anchor missing"}
+    target.write_text(original.replace(before, after, 1))
+    try:
         result: Final = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests", "-q", "--tb=no"],
+            ["cargo", "test", "--manifest-path", "src/worker/Cargo.toml", "-p", "lens-evals-sdk", "--tests", "--quiet"],
             cwd=root,
-            env={**os.environ, "PYTHONPATH": str(root / "src")},
+            env={**os.environ, "CARGO_TARGET_DIR": str(REPO / "src/worker/target/mutations")},
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
-        return {"name": name, "killed": result.returncode == 1 and "failed" in result.stdout}
+        return {"name": name, "killed": result.returncode == 101 and "test result: FAILED" in result.stdout}
+    finally:
+        target.write_text(original)
 
 
 def main() -> int:
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        results: Final = tuple(executor.map(check, MUTATIONS))
+    with tempfile.TemporaryDirectory(prefix="lens-native-mutations-") as directory:
+        root: Final = Path(directory)
+        (root / "src/worker").mkdir(parents=True)
+        shutil.copytree(REPO / "src/worker/crates/evals-sdk", root / "src/worker/crates/evals-sdk")
+        shutil.copytree(REPO / "src/sdk/tests/fixtures", root / "src/sdk/tests/fixtures")
+        manifest: Final = (
+            (REPO / "src/worker/Cargo.toml")
+            .read_text()
+            .replace('members = ["crates/*"]', 'members = ["crates/evals-sdk"]')
+        )
+        (root / "src/worker/Cargo.toml").write_text(manifest)
+        shutil.copyfile(REPO / "src/worker/Cargo.lock", root / "src/worker/Cargo.lock")
+        baseline: Final = subprocess.run(
+            ["cargo", "test", "--manifest-path", "src/worker/Cargo.toml", "-p", "lens-evals-sdk", "--tests", "--quiet"],
+            cwd=root,
+            env={**os.environ, "CARGO_TARGET_DIR": str(REPO / "src/worker/target/mutations")},
+            capture_output=True,
+            text=True,
+        )
+        if baseline.returncode:
+            raise RuntimeError(baseline.stderr + baseline.stdout)
+        results: Final = tuple(check(root, mutation) for mutation in MUTATIONS)
     print(
         json.dumps(
             {

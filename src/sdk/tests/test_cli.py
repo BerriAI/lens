@@ -1,39 +1,7 @@
 import json
 import os
-import socket
 import subprocess
 import sys
-import time
-
-import httpx
-import pytest
-
-
-@pytest.fixture(scope="module")
-def endpoint():
-    with socket.socket() as candidate:
-        candidate.bind(("127.0.0.1", 0))
-        port = candidate.getsockname()[1]
-    command = (
-        "import uvicorn; from lens.devserver import create_app,sample_cases; "
-        f"uvicorn.run(create_app(sample_cases(3)),host='127.0.0.1',port={port},log_level='error')"
-    )
-    process = subprocess.Popen([sys.executable, "-c", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    address = f"http://127.0.0.1:{port}"
-    try:
-        for _ in range(100):
-            try:
-                response = httpx.get(address + "/lens/datasets/resolve?name=demo", timeout=0.2)
-                if response.status_code == 401:
-                    break
-            except httpx.TransportError:
-                time.sleep(0.05)
-        else:
-            raise AssertionError("Development server did not start")
-        yield address
-    finally:
-        process.terminate()
-        process.communicate(timeout=5)
 
 
 def cli(root, endpoint, *arguments, key="lens-dev"):
@@ -213,3 +181,31 @@ def test_action_reporter_real_http_upserts_and_writes_outputs(endpoint, tmp_path
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_doctor_does_not_call_task(endpoint, tmp_path):
+    write_eval(tmp_path, "raise AssertionError('doctor called task')")
+    checked = cli(tmp_path, endpoint, "doctor", "--json")
+    assert checked.returncode == 0, checked.stderr
+    assert json.loads(checked.stdout)["ok"]
+    assert "task module imported" in checked.stderr
+    forbidden = cli(tmp_path, endpoint, "doctor", "--json", key="wrong")
+    assert forbidden.returncode == 2
+    assert not json.loads(forbidden.stdout)["ok"]
+
+
+def test_same_size_edits_and_reverts_run_current_source(endpoint, tmp_path):
+    write_eval(tmp_path, "return Run(trace={'session.id':'pass'})")
+    source = tmp_path / "evals/run.py"
+    original = source.read_text()
+    timestamp = source.stat().st_mtime
+    baseline = cli(tmp_path, endpoint, "eval", "--json")
+    assert baseline.returncode == 0, baseline.stderr
+    source.write_text(original.replace("'pass'", "'fail'"))
+    os.utime(source, (timestamp, timestamp))
+    broken = cli(tmp_path, endpoint, "eval", "--json")
+    assert broken.returncode == 1, broken.stderr
+    source.write_text(original)
+    os.utime(source, (timestamp, timestamp))
+    restored = cli(tmp_path, endpoint, "eval", "--json")
+    assert restored.returncode == 0, restored.stderr

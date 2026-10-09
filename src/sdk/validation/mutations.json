@@ -1,15 +1,7 @@
 {
-  "killed": 20,
-  "total": 20,
+  "killed": 14,
+  "total": 14,
   "mutations": [
-    {
-      "name": "retry HTTP errors",
-      "killed": true
-    },
-    {
-      "name": "recover finish acknowledgement",
-      "killed": true
-    },
     {
       "name": "configured concurrency",
       "killed": true
@@ -19,39 +11,35 @@
       "killed": true
     },
     {
-      "name": "configured server gate",
+      "name": "configured gate forwarded",
       "killed": true
     },
     {
-      "name": "distinct CI executions",
+      "name": "distinct executions at one SHA",
       "killed": true
     },
     {
-      "name": "subset selection",
+      "name": "case subset selection",
       "killed": true
     },
     {
-      "name": "cost forwarded",
+      "name": "bounded retries",
       "killed": true
     },
     {
-      "name": "server failure classification",
+      "name": "lost finish acknowledgement",
       "killed": true
     },
     {
-      "name": "assert gate verdict",
+      "name": "dataset identity checked",
       "killed": true
     },
     {
-      "name": "valid trace references",
+      "name": "majority ties fail",
       "killed": true
     },
     {
-      "name": "ties fail",
-      "killed": true
-    },
-    {
-      "name": "regressions detected",
+      "name": "individual regressions detected",
       "killed": true
     },
     {
@@ -59,27 +47,15 @@
       "killed": true
     },
     {
-      "name": "closed result rejection",
+      "name": "missing baseline check is neutral",
       "killed": true
     },
     {
-      "name": "missing baseline neutral",
+      "name": "only bot comments edited",
       "killed": true
     },
     {
-      "name": "infrastructure exit code",
-      "killed": true
-    },
-    {
-      "name": "gate failure exit code",
-      "killed": true
-    },
-    {
-      "name": "only edit owned comment",
-      "killed": true
-    },
-    {
-      "name": "duplicate evaluation rejection",
+      "name": "existing setup files protected",
       "killed": true
     }
   ]

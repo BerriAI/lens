@@ -1,0 +1,65 @@
+{
+  "wheel": "lens_evals-0.1.0a2-cp311-abi3-macosx_11_0_arm64.whl",
+  "cargo_available": false,
+  "elapsed_seconds": 1.7,
+  "doctor": {
+    "ok": true,
+    "checks": [
+      {
+        "name": "version",
+        "ok": true,
+        "detail": "wheel-rehearsal on main"
+      },
+      {
+        "name": "agent",
+        "ok": true,
+        "detail": "demo"
+      },
+      {
+        "name": "demo",
+        "ok": true,
+        "detail": "demo@1: 36 included cases, 108 trials"
+      },
+      {
+        "name": "eval API",
+        "ok": true,
+        "detail": "Contract v1 run lookup is available"
+      }
+    ]
+  },
+  "scope": "Cached wheel install and synthetic demo, excluding download time and real agent adaptation",
+  "runs": {
+    "baseline": {
+      "status": "done",
+      "received_trials": 108,
+      "passed": 36,
+      "total": 36,
+      "regressions": 0,
+      "gate_passed": true
+    },
+    "broken": {
+      "status": "done",
+      "received_trials": 108,
+      "passed": 0,
+      "total": 36,
+      "regressions": 36,
+      "gate_passed": false
+    },
+    "restored": {
+      "status": "done",
+      "received_trials": 108,
+      "passed": 36,
+      "total": 36,
+      "regressions": 0,
+      "gate_passed": true
+    },
+    "repeat": {
+      "status": "done",
+      "received_trials": 108,
+      "passed": 36,
+      "total": 36,
+      "regressions": 0,
+      "gate_passed": true
+    }
+  }
+}

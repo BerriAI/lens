@@ -11,10 +11,10 @@ class InfrastructureError(LensError):
 
 
 class ApiFailure(InfrastructureError):
-    def __init__(self, status: int, code: str) -> None:
+    def __init__(self, status: int, code: str, hint: str = "") -> None:
         self.status = status
         self.code = code
-        super().__init__(f"Lens HTTP {status}: {code}")
+        super().__init__(f"Lens HTTP {status}: {code}" + (f". {hint}" if hint else ""))
 
 
 class GateFailed(AssertionError):

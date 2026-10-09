@@ -1,33 +1,51 @@
-# Verification, 2026-10-08
+# SDK verification, 2026-10-08
 
-The SDK was exercised against `https://gateway-dev.litellm-sandbox.ai` using a temporary Lens-scoped key. `Client.resolve("model-release-bench@1")` and `Client.cases(...)` downloaded revision 1 of dataset `9154d122-1f48-48d5-ac9c-5d622031b6e8`, containing one real production-derived case. Raw case content and credentials are excluded from this repository
+The Python API is now backed by `lens-evals-sdk` and `lens-evals-python` in `src/worker/crates/`. The package is `lens-evals==0.1.0a2`, under `src/sdk/`
 
-The deployed gateway does not yet advertise `/lens/evals/` routes. The following evidence therefore separates live transport from local synthetic scoring
+## Native SDK
 
-The actual `lens eval` CLI ran `examples/live_gateway.py` against a local contract server seeded with that downloaded revision. All three tasks called the deployed gateway using `openai/gpt-6.1-sol` and exported completed OTLP traces to its existing Lens ingest endpoint. Every inference and ingest request returned HTTP 200. The gateway reported total cost $0.004346. The CLI exited 0 with three uploaded trials, one completed case, and no trial errors
+57 Rust behavior tests and 36 Python API/CLI tests pass locally. Python statement coverage is 92%; that percentage covers the Python boundary, not the Rust core. Strict Clippy, Rust formatting, Ruff, strict mypy, and provisional schema drift checks pass
 
-The same evaluation version was run again using the built wheel installed into a fresh virtual environment. It created a distinct run, used the first run as baseline, completed all three trials and reported zero regressions. This repeat can use gateway response caching. Its gate and baseline result came from the synthetic contract server, not the pending production scorer
+The tests cover the 36-case, three-trial lifecycle; main baseline, individual regressions, revert and repeat; majority ties and missing trials; compatible baselines; server-authoritative gates; bounded concurrency; coroutine cancellation and cleanup; retries and lost acknowledgements; dataset identity; subsets; malformed responses; setup preservation; read-only diagnostics; GitHub comment ownership and verdicts; and CLI exit codes
 
-[Open the persisted trace](https://gateway-dev.litellm-sandbox.ai/ui/lens?tab=traces&agent=lens-sdk-smoke&trace=53f57c88f2834c228e32b8493d44f5b3&span_tab=attributes&fullscreen=true). The signed-in dashboard showed all three traces and verified the root attributes `session.id`, `agent.name`, `agent.version`, and `deployment.environment=lens-eval`
+Two regressions found during rehearsal have dedicated tests. Python cancellation must finish before a Rust execution slot is reused, including when coroutine cleanup itself awaits. Discovery must execute the current eval source after a same-size edit or revert, even with an unchanged timestamp
 
-![Recorded trace and required attributes](live-trace.jpg)
+The focused mutation suite catches 14 of 14 deliberate faults in Rust execution, transport, setup, and reporting. [mutations.json](mutations.json) records the cases. This is targeted regression evidence, not exhaustive mutation coverage
 
-`live.json` records sanitized request results and CLI run payloads. Local run URLs are ephemeral development-server URLs
+```sh
+cargo test --manifest-path src/worker/Cargo.toml -p lens-evals-sdk
+uv run --project src/sdk pytest src/sdk/tests
+uv run --project src/sdk python src/sdk/scripts/mutation_check.py
+```
 
-The local verification suite passes 50 behavioral tests with 92% statement coverage, including subprocess tests over real local HTTP. It checks the 36-by-3 golden lifecycle, majority ties, missing trials, baseline compatibility, regression/fix cycles, distinct executions at one SHA, bounded concurrency, task timeout/error conversion, retry/idempotency recovery, immutable subset/gate operations, dataset identity checks, JSON isolation, exit codes, partial multi-eval failure, protected initialization, GitHub comment ownership/upserts and authoritative check verdicts
+## Install and setup rehearsal
 
-The targeted mutation run killed 20 of 20 deliberate behavioral faults. `mutations.json` names each one; this is a focused regression check, not a claim of exhaustive mutation coverage. Run it with `uv run --project src/sdk python src/sdk/scripts/mutation_check.py`
+The source distribution built a native macOS arm64 wheel. In a fresh virtualenv and a fresh project, with Cargo removed from PATH, that wheel installed and ran `lens init --demo`, `lens doctor --json`, and the real `lens eval --json` CLI
 
-Ruff checks, formatting, strict mypy, and provisional schema drift checks pass. The wheel and source distribution build. A clean environment imports both `lens` from `lens-evals==0.1.0a1` and `litellm_lens` from `litellm-lens==0.1.0`; the latter was installed without its server dependencies for this namespace-conflict check
+The baseline completed 36 cases and 108 trials. Changing the demo trace prefix from `pass-` to `fail-` produced exit 1 and 36 regressions. Reverting produced exit 0, and a repeat of the same commit produced zero regressions. [onboarding.json](onboarding.json) records the results
 
-The GitHub workflow runs SDK tests on Python 3.11 and 3.13 and exercises the actual composite Action against the development server, including a real GitHub check and Action outputs. [Hosted run 37857752356](https://github.com/BerriAI/lens/actions/runs/37857752356) passed both Python jobs, the composite Action job, output validation, and the real `Lens / demo` GitHub check
+Cached wheel installation plus that synthetic rehearsal took 1.70 seconds. It excludes downloading the wheel, connecting an actual agent, service authentication, and implementing the agent's eval mode. It does not establish the under-ten-minute promise for a new real agent
 
-Still pending: the Rust-exported eval schema and shared Rust fixture validation, production eval lifecycle/scoring/baseline integration, and the agent's service-token/sandbox adapter plus real regression PR ship test. The live smoke task generates a support response and traces it; it does not launch the deployed agent or establish the quality of its responses
+The SDK workflow builds Linux x86_64, macOS arm64/x86_64, and Windows x86_64 wheels, installs each with `--only-binary`, and exercises the public Python API. The Action job selects a separate virtualenv with an agent dependency and no pip, runs the actual composite Action, publishes a real GitHub check, and validates its outputs. See [PR #16 checks](https://github.com/BerriAI/lens/pull/16/checks) for the current commit's hosted results
 
-To reproduce the real-data smoke test, download an accessible `EvalCases` response through `Client.resolve` and `Client.cases`, save it outside the repository, and start `lens dev-server --dataset-file /absolute/path/cases.json`. In another terminal configure `[tool.lens].project="lens-sdk-smoke"`, set `LENS_API_KEY=lens-dev`, `LENS_BASE_URL=http://127.0.0.1:8765`, and the live gateway/trace environment variables described in the README. Run `lens eval src/sdk/examples/live_gateway.py --json` from the configured project. This deliberately sends the selected dataset input to that gateway and trace store
+The package has not been published to PyPI. Wheels are private CI artifacts. Source installs require Rust and access to this repository
 
-The temporary validation key was blocked after testing (HTTP 200). A subsequent dataset request using that key returned HTTP 401. Temporary credential snapshots and the downloaded case payload were removed locally
+## Earlier live deployment evidence
 
-The SDK guide was checked in a fresh project with the package installed from GitHub. Its local quickstart completed 36 cases and 108 trials, then the failing variant exited 1 with 36 regressions against the main baseline. The synchronous and asynchronous report examples, case and finding subsets, stricter gate, multi-scorer configuration, and CLI selection/discovery also passed against the local server. All seven Python snippets parse, and the complete live example matches `examples/live_gateway.py`
+The previous Python implementation, `0.1.0a1`, was tested against `https://gateway-dev.litellm-sandbox.ai`. A temporary Lens-scoped key downloaded `model-release-bench@1`, dataset `9154d122-1f48-48d5-ac9c-5d622031b6e8`, containing one production-derived case
 
-After integrating current main, the 50-test suite, 92% coverage, Ruff, strict mypy, provisional schema check, and wheel/source builds passed again. No production eval scoring was added or verified by this integration
+The live-gateway example called `openai/gpt-6.1-sol` three times and exported three completed OTLP traces. All inference and ingest requests returned HTTP 200, with total reported cost $0.004346. A wheel repeat at the same evaluation version reported zero regressions against a local synthetic contract server
+
+[Open the persisted trace](https://gateway-dev.litellm-sandbox.ai/ui/lens?tab=traces&agent=lens-sdk-smoke&trace=53f57c88f2834c228e32b8493d44f5b3&span_tab=attributes&fullscreen=true)
+
+![Recorded trace attributes](live-trace.jpg)
+
+[live.json](live.json) preserves sanitized evidence from that earlier implementation. It is not a live validation of the new Rust transport. The temporary key was blocked and verified unusable, and downloaded case content was removed
+
+## Remaining integration work
+
+The deployed eval lifecycle/scorers, canonical Rust schema, and real-agent regression PR ship test remain unverified. The production API was absent at the earlier live check. Local server gates in these tests are synthetic
+
+Ishaan owns the real lifecycle routes, trace scoring, baseline selection, comparison UI, and `lens-contract` schema. Once the schema lands, regenerate Pydantic models, replace the SDK's provisional Rust wire structs with the canonical types, and validate the shared fixtures under `src/worker/crates/contract/fixtures/lens_eval/`
+
+The agent integration must await completed traces, run the PR's actual version, and implement its service-token/sandbox eval mode. Then run the actual regression PR, revert it, and repeat an unchanged commit. No SDK-only test can establish that server-and-agent result in advance

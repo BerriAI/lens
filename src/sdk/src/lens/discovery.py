@@ -21,7 +21,7 @@ def load_file(file: Path, name: str | None) -> tuple[Eval, ...]:
     sys.modules[module_name] = module
     try:
         sys.path[:0] = [str(file.parent.resolve()), str(Path.cwd())]
-        spec.loader.exec_module(module)
+        exec(compile(file.read_bytes(), str(file), "exec"), module.__dict__)
     except Exception as error:
         raise ConfigurationError(f"Failed to load {file.name}: {type(error).__name__}") from error
     finally:

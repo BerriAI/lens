@@ -1,0 +1,27 @@
+[package]
+name = "lens-evals-sdk"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+axum = { workspace = true, features = ["json", "query"] }
+clap = { version = "4.5", features = ["derive"] }
+futures-util.workspace = true
+http.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "signal"] }
+toml = "0.9"
+toml_edit = "0.23"
+url.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tempfile.workspace = true
+wiremock.workspace = true
