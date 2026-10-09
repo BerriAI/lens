@@ -67,6 +67,7 @@ class CreateEvalRun(Record):
     pr: int | None = None
     ci_url: str = ""
     trials: int = Field(default=1, ge=1, le=10)
+    timeout_per_trial_ms: int = Field(default=1_200_000, gt=0, le=18_446_744_073_709_551_615)
     scorers: tuple[Scorer, ...] = Field(min_length=1)
     gate: Gate = Gate()
 

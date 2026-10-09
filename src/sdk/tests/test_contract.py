@@ -38,7 +38,17 @@ def test_golden_wire_payloads_match_appendix(name, model):
     assert model.model_validate_json(generated.model_dump_json()) == generated
 
 
-@pytest.mark.parametrize("value", [{"trials": 0}, {"revision": 0}, {"scorers": []}, {"unknown": True}])
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"trials": 0},
+        {"revision": 0},
+        {"scorers": []},
+        {"unknown": True},
+        {"timeout_per_trial_ms": 0},
+        {"timeout_per_trial_ms": 2**64},
+    ],
+)
 def test_generated_models_reject_invalid_requests(value):
     payload = json.loads((FIXTURES / "create_run.json").read_text())
     for model in (CreateEvalRun, appendix().CreateEvalRun):

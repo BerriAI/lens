@@ -125,6 +125,7 @@ async fn baseline_requires_matching_scorers(
 
 #[rstest]
 #[case::neutral(false, true, "neutral")]
+#[case::no_baseline_absolute_failure(false, false, "failure")]
 #[case::fail(true, false, "failure")]
 #[case::pass(true, true, "success")]
 fn github_uses_authoritative_gate(
@@ -146,6 +147,9 @@ fn github_uses_authoritative_gate(
 
 #[rstest]
 #[case::huge_timeout(f64::MAX)]
+#[case::millisecond_overflow(u64::MAX as f64 / 1000.0)]
+#[case::negative_timeout(-1.0)]
+#[case::nan_timeout(f64::NAN)]
 #[case::zero_timeout(0.0)]
 fn rejects_unrepresentable_timeout(spec: EvalSpec, #[case] timeout: f64) {
     assert!(
@@ -156,4 +160,31 @@ fn rejects_unrepresentable_timeout(spec: EvalSpec, #[case] timeout: f64) {
         .validate()
         .is_err()
     );
+}
+
+#[rstest]
+#[case::whole_second(1.0, 1000)]
+#[case::fractional_millisecond(0.0011, 2)]
+#[case::one_microsecond(0.000001, 1)]
+fn trial_timeout_rounds_up_to_milliseconds(
+    spec: EvalSpec,
+    #[case] seconds: f64,
+    #[case] millis: u64,
+) {
+    let spec = EvalSpec {
+        timeout_seconds: seconds,
+        ..spec
+    };
+    assert_eq!(spec.timeout_millis().unwrap(), millis);
+}
+
+#[rstest]
+fn old_create_requests_receive_default_trial_timeout() {
+    let mut input = fixture("create_run");
+    input
+        .as_object_mut()
+        .unwrap()
+        .remove("timeout_per_trial_ms");
+    let request: CreateEvalRun = serde_json::from_value(input).unwrap();
+    assert_eq!(request.timeout_per_trial_ms, 1_200_000);
 }

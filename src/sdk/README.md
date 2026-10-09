@@ -25,10 +25,10 @@ The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported.
 
 ## Install
 
-This is a private preview. Version `0.1.0a2` is not published to PyPI. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Download the wheel for your platform from a successful [Lens SDK workflow run](https://github.com/BerriAI/lens/actions/workflows/lens-sdk.yml), then install it in your agent project:
+This is a private preview. Version `0.1.0a3` is not published to PyPI. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
 
 ```sh
-uv add --dev /absolute/path/to/lens_evals-0.1.0a2-cp311-abi3-PLATFORM.whl
+uv add --dev /absolute/path/to/lens_evals-0.1.0a3-cp311-abi3-PLATFORM.whl
 ```
 
 Use the actual downloaded filename. Wheels include the Rust implementation, so this install does not need Cargo. A local wheel path must be made available in CI too; do not commit a lockfile pointing only to your laptop's Downloads directory
@@ -83,7 +83,7 @@ uv run lens eval
 
 ## Complete HTTP agent example
 
-This example assumes your agent accepts `POST AGENT_RUN_URL`, waits for its work and trace export to finish, and replies with `{"session_id": "...", "cost_usd": 0.12}`. That URL is your agent's endpoint, not a Lens route. Adapt the request fields and response model to your API
+This example assumes your agent accepts `POST AGENT_RUN_URL` and immediately replies with `{"session_id": "..."}` while the agent continues running. That URL is your agent's endpoint, not a Lens route. Adapt the request fields and response model to your API
 
 Install `httpx` in your agent project, then save this as `evals/regressions.py`:
 
@@ -97,18 +97,15 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from lens import Case, Eval, Gate, Run, judge, scorers
-from lens.config import Execution
 
 
-class CompletedRun(BaseModel):
+class AcceptedRun(BaseModel):
     model_config = ConfigDict(frozen=True)
     session_id: str = Field(min_length=1)
-    cost_usd: float | None = Field(default=None, ge=0)
 
 
 async def task(case: Case) -> Run:
-    context: Final = Execution.github() if os.environ.get("GITHUB_ACTIONS") == "true" else Execution.local()
-    async with httpx.AsyncClient(timeout=600) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         response: Final = await client.post(
             os.environ["AGENT_RUN_URL"],
             headers={"Authorization": f"Bearer {os.environ['AGENT_API_KEY']}"},
@@ -117,16 +114,11 @@ async def task(case: Case) -> Run:
                 "followups": list(case.followups),
                 "session_id": uuid4().hex,
                 "eval_mode": True,
-                "trace_attributes": {
-                    "agent.name": "my-agent",
-                    "agent.version": context.version,
-                    "deployment.environment": "lens-eval",
-                },
             },
         )
         response.raise_for_status()
-        completed: Final = CompletedRun.model_validate_json(response.content)
-    return Run(trace={"session.id": completed.session_id}, cost_usd=completed.cost_usd)
+        accepted: Final = AcceptedRun.model_validate_json(response.content)
+    return Run(trace={"session.id": accepted.session_id})
 
 
 evaluation: Final = Eval(
@@ -155,11 +147,11 @@ evals = "evals/"
 base_url = "https://your-lens-host.example"
 ```
 
-Your agent must implement `eval_mode`, run in its sandbox, and export `session.id`, `agent.name`, and the candidate `agent.version` on its trace. Passing a flag does not disable side effects by itself. The API must execute the version being evaluated; a remote service running yesterday's build cannot test the PR's changes
+Your agent must implement `eval_mode`, run in its sandbox, and export `session.id` and `agent.name` on its trace. It must stamp `agent.version` from its own build SHA, never from a version supplied by the eval request. Lens I1 must record a trial error if that build SHA differs from the eval run's `version`. Passing `eval_mode` does not disable side effects by itself
 
-Return only after the agent completes and its trace is exported. If your API returns immediately with a job ID, waiting for that job belongs in your task function. Contract v1 has no universal agent-completion endpoint. The SDK handles Lens run polling, but cannot remove your agent's completion protocol
+Return as soon as the agent accepts the run and supplies its trace reference. The task does not poll for completion. Contract A assigns waiting to Lens I1: the trace closes when its root span ends or it has been idle for 120 seconds, capped by `timeout_per_trial`. The SDK submits the reference and waits for Lens's result. Production waiting and build-SHA validation are part of Ishaan's I1 implementation
 
-You can return `Run(trace={"trace_id": completed_trace_id})` instead. Supply exactly one trace reference. `cost_usd=None` asks Lens to derive cost from the trace. Tasks return trace references, never scores
+You can return `Run(trace={"trace_id": accepted_trace_id})` instead. Supply exactly one trace reference. `cost_usd=None` asks Lens to derive cost from the trace. Tasks return trace references, never scores
 
 ## Cases, scorers, and gates
 
@@ -176,10 +168,12 @@ Every configured gate condition must pass. `None` disables a condition. Scorer m
 ```python
 strict = evaluation.gate(Gate(regressions=0, min={"task_completed": 0.95}))
 small = evaluation.subset(case_ids=["case-a", "case-b"])
-finding = evaluation.subset(finding="finding-id-from-lens")
+finding = evaluation.subset(finding=123)
 ```
 
 These return new evals. Subsets get a separate eval name, so a partial run does not replace the full eval's baseline
+
+Finding IDs may be integers or strings. The SDK matches their string form against `DatasetCase.meta["finding_id"]`, with `source.finding_id` accepted for older dataset responses. The dataset endpoint supplies the mapping; there is no separate finding lookup route
 
 ## Read a result
 
@@ -214,7 +208,7 @@ Each normal invocation creates a separate execution, even at the same commit. Sa
 
 ## GitHub Action
 
-Setup generates a workflow for main pushes and same-repository PRs. Add `LENS_API_KEY` as a repository secret and `LENS_BASE_URL` as a repository variable. Add your agent's dependencies, sandbox startup, and service credentials to that workflow
+Setup generates a workflow for main pushes and same-repository PRs. Add `LENS_API_KEY` and `LENS_SDK_TOKEN` as repository secrets and `LENS_BASE_URL` as a repository variable. `LENS_SDK_TOKEN` needs contents-read access to `BerriAI/lens` to download its internal release; the consuming repo’s `GITHUB_TOKEN` is used separately for checks and comments. Add your agent's dependencies, sandbox startup, and service credentials to that workflow
 
 For a project using uv, the relevant steps are:
 
@@ -234,15 +228,16 @@ steps:
   - uses: BerriAI/lens/src/sdk/action@59e316adfdda30f866f40475336de87d5461965e
     with:
       python: .venv/bin/python
+      sdk-token: ${{ secrets.LENS_SDK_TOKEN }}
       api-key: ${{ secrets.LENS_API_KEY }}
       base-url: ${{ vars.LENS_BASE_URL }}
 ```
 
-The `python` input selects the agent's environment for execution and reporting. The Action uses an installed `0.1.0a2` native package or builds its bundled SDK into that environment, using Rust 1.99.0 on a runner with rustup. Hosted Ubuntu runners support that fallback. Private Action access must be enabled for consuming repositories
+The `python` input selects the agent's environment for execution and reporting. The Action uses an installed `0.1.0a3` native package or downloads the matching wheel from the versioned GitHub release, verifies its SHA-256 checksum, and installs it. It never compiles Rust on the consuming runner. A missing wheel or missing release access produces an actionable error. Private Action access must be enabled for consuming repositories
 
 The Action updates its own PR comment, creates `Lens / <eval-name>`, and exposes `passed` and `run-urls`. The comment includes baseline/candidate pass counts, costs, scores, broken cases, and Lens-provided trace links
 
-With no comparable main baseline, the PR check is **neutral**, as specified in contract D. An absolute gate can still fail and make the CLI and Action job red. Run the eval on main to establish a comparable baseline
+On a PR, the check is **neutral** only when there is no comparable main baseline and the server gate passes every configured absolute condition (`pass_rate`, `cost_per_case`, and scorer `min`). A failed absolute condition produces a **failure** check and a red job. With a baseline, the server gate determines success or failure. The SDK does not recompute the gate
 
 ## Try it without an agent
 
@@ -258,7 +253,19 @@ LENS_API_KEY=lens-dev LENS_VERSION=demo LENS_BRANCH=main uv run lens doctor
 LENS_API_KEY=lens-dev LENS_VERSION=demo LENS_BRANCH=main uv run lens eval
 ```
 
-The demo runs 36 synthetic cases with three trials each. Its development server treats trace references containing `pass` as successful. Change `pass-` to `fail-` in the generated task to see the gate fail, then restore it to see green again. No model or real agent is called. Demo setup deliberately creates no CI workflow
+The demo runs 36 synthetic cases with three trials each. References starting with `pass` or `fail` are reserved synthetic traces that are already closed; those containing `pass` score successfully. Change `pass-` to `fail-` in the generated task to see the gate fail, then restore it to see green again. No model or real agent is called. Demo setup deliberately creates no CI workflow
+
+For an asynchronous local agent, return an ordinary accepted reference, such as `accepted-pass-123`. The dev server keeps the run in `scoring` until it receives trace activity at its test-only route:
+
+```sh
+curl -X POST http://127.0.0.1:8765/_dev/traces \
+  -H 'Authorization: Bearer lens-dev' \
+  -H 'X-Lens-Contract: 1' \
+  -H 'Content-Type: application/json' \
+  -d '{"trace":{"attribute":"session.id","value":"accepted-pass-123"},"agent_version":"demo","root_ended":true}'
+```
+
+Send this from the fake agent or a second terminal; the eval task only submits the run. With `root_ended: false`, each update counts as activity and the stub waits for 120 seconds of inactivity. A mismatching build version or an unclosed trace at the deadline becomes a trial error. The cap comes from the run's `timeout_per_trial_ms`, which the SDK sends from `Eval(timeout_per_trial=...)`; it defaults to 1,200 seconds when omitted. Registered trace state takes precedence over synthetic prefix shortcuts
 
 The development server is loopback-only and keeps state in memory. `--dataset-file /path/to/cases.json` accepts a downloaded `EvalCases` response for integration testing. Its verdicts remain synthetic
 
@@ -268,6 +275,8 @@ The native core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk
 
 Ishaan owns the production lifecycle routes, trace scoring, baseline selection, canonical `lens-contract` schema, and Lens comparison UI. Moe owns this SDK, CLI, setup, Action, and development server. No production server routes are added by this package
 
-Contract B routes, bodies, status codes, error codes, `X-Lens-Contract: 1`, and Summary semantics stay unchanged. Until Ishaan lands `schema/lens.v1.json`, generation uses the appendix schema. CI validates the shared golden fixtures at `src/worker/crates/contract/fixtures/lens_eval/` when present, and the provisional fixture copy otherwise. Once available, the canonical Rust types should replace the SDK's provisional wire structs
+Contract B routes, status codes, error codes, `X-Lens-Contract: 1`, and Summary semantics stay unchanged. The create-run body now includes `timeout_per_trial_ms`. Until Ishaan lands `schema/lens.v1.json`, generation uses the appendix schema. CI validates the shared golden fixtures at `src/worker/crates/contract/fixtures/lens_eval/` when present, and the provisional fixture copy otherwise. Once available, the canonical Rust types should replace the SDK's provisional wire structs
 
-See [verification](validation/verification.md) for exact evidence and remaining integration work. The full real-gateway transport example is [`examples/live_gateway.py`](examples/live_gateway.py); it makes a model call and exports a trace, but does not exercise a deployed custom agent
+Version `0.1.0a3` sends a positive integer `timeout_per_trial_ms` on every create-run request. The server default for clients that omit it is 1,200,000 ms. I1 must enforce this cap while waiting for the trace, including time already spent accepting the agent run. This preview assumes Ishaan's timeout field and `meta.finding_id` mapping land before production integration
+
+See [verification](validation/verification.md) for exact evidence and remaining integration work. The full real-gateway transport example is [`examples/live_gateway.py`](examples/live_gateway.py); it makes a model call and exports a trace using its own `AGENT_BUILD_SHA`, but does not exercise a deployed custom agent

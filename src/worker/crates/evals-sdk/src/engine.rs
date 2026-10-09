@@ -81,6 +81,7 @@ where
         pr: execution.pr,
         ci_url: execution.ci_url.clone(),
         trials: spec.trials,
+        timeout_per_trial_ms: spec.timeout_millis()?,
         scorers: spec.scores.clone(),
         gate: spec.gate.clone(),
     };

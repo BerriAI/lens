@@ -1,8 +1,16 @@
 # SDK verification, 2026-10-08
 
-The Python API is now backed by `lens-evals-sdk` and `lens-evals-python` in `src/worker/crates/`. The package is `lens-evals==0.1.0a2`, under `src/sdk/`
+The Python API is backed by `lens-evals-sdk` and `lens-evals-python` in `src/worker/crates/`. The package is under `src/sdk/`. The current follow-up is `lens-evals==0.1.0a3`
 
-## Native SDK
+## Contract alignment, 0.1.0a3
+
+86 Rust behavior tests and 38 Python API/CLI tests pass locally. Python boundary coverage is 92%. Strict Clippy, formatting, Ruff, strict mypy, and generated-model drift checks pass
+
+The added tests exercise returning an accepted trace before completion, root-span closure, 120-second idle closure, custom per-trial deadlines sent over HTTP, late or missing traces, independently stamped build versions, metadata finding selection, and failed absolute gates without a baseline. The installer tests reject a tampered wheel before installation and reuse an already installed native package
+
+This version sends `timeout_per_trial_ms` and consumes `DatasetCase.meta["finding_id"]`. It requires those additions in the production contract. The canonical eval schema and deployed lifecycle remain pending; local scoring is synthetic
+
+## Previous native SDK, 0.1.0a2
 
 57 Rust behavior tests and 36 Python API/CLI tests pass locally. Python statement coverage is 92%; that percentage covers the Python boundary, not the Rust core. Strict Clippy, Rust formatting, Ruff, strict mypy, and provisional schema drift checks pass
 
@@ -28,9 +36,19 @@ Cached wheel installation plus that synthetic rehearsal took 1.70 seconds. It ex
 
 The SDK workflow builds Linux x86_64, macOS arm64/x86_64, and Windows x86_64 wheels, installs each with `--only-binary`, and exercises the public Python API. The Action job selects a separate virtualenv with an agent dependency and no pip, runs the actual composite Action, publishes a real GitHub check, and validates its outputs. See [PR #16 checks](https://github.com/BerriAI/lens/pull/16/checks) for the current commit's hosted results
 
-The package has not been published to PyPI. Wheels are private CI artifacts. Source installs require Rust and access to this repository
+The a2 package was not published to PyPI. Its wheels were private CI artifacts. Source installs require Rust and access to this repository
 
-## Earlier live deployment evidence
+## Native live deployment evidence, 0.1.0a2
+
+The a2 Rust client resolved and downloaded the real `model-release-bench@1` dataset from gateway-dev. The installed native wheel made three real `openai/gpt-6.1-sol` calls and uploaded completed traces, all HTTP 200. Reported cost for the successful run was $0.005726. A repeat at the same version executed three new trials, with zero errors and zero synthetic regressions
+
+[Open the persisted native trace](https://gateway-dev.litellm-sandbox.ai/ui/lens?tab=traces&agent=lens-sdk-smoke&trace=beb1e8681576420787c0da412ac68509&span_tab=attributes&fullscreen=true)
+
+[native-live.json](native-live.json) records sanitized evidence. Dataset access, inference, and trace ingestion were real. Eval lifecycle and gates used a local synthetic server because the deployed eval API returned 404. Both temporary credentials were revoked or blocked and verified unusable
+
+This is a2 evidence, not a live production validation of a3's contract additions
+
+## Earlier live deployment evidence, 0.1.0a1
 
 The previous Python implementation, `0.1.0a1`, was tested against `https://gateway-dev.litellm-sandbox.ai`. A temporary Lens-scoped key downloaded `model-release-bench@1`, dataset `9154d122-1f48-48d5-ac9c-5d622031b6e8`, containing one production-derived case
 
@@ -48,4 +66,4 @@ The deployed eval lifecycle/scorers, canonical Rust schema, and real-agent regre
 
 Ishaan owns the real lifecycle routes, trace scoring, baseline selection, comparison UI, and `lens-contract` schema. Once the schema lands, regenerate Pydantic models, replace the SDK's provisional Rust wire structs with the canonical types, and validate the shared fixtures under `src/worker/crates/contract/fixtures/lens_eval/`
 
-The agent integration must await completed traces, run the PR's actual version, and implement its service-token/sandbox eval mode. Then run the actual regression PR, revert it, and repeat an unchanged commit. No SDK-only test can establish that server-and-agent result in advance
+The agent integration must return the accepted trace reference, stamp its own build SHA, and implement its service-token/sandbox eval mode. Lens I1 must wait for trace closure and reject a build SHA that differs from the requested eval version. Then run the actual regression PR, revert it, and repeat an unchanged commit. No SDK-only test can establish that server-and-agent result in advance

@@ -51,7 +51,7 @@ async def task(case: Case) -> Run:
         attributes: Final = {
             "session.id": session,
             "agent.name": "lens-sdk-smoke",
-            "agent.version": os.environ["LENS_VERSION"],
+            "agent.version": os.environ["AGENT_BUILD_SHA"],
             "deployment.environment": "lens-eval",
             "gen_ai.request.model": model,
             "gen_ai.response.id": completion.id,

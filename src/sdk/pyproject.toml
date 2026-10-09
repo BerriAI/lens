@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "lens-evals"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "Run agent evaluations against Lens from Python and CI"
 requires-python = ">=3.11"
 readme = "README.md"

@@ -1,11 +1,16 @@
 name: Lens SDK
 on:
   push:
-    branches: [main, litellm_sdk_setup]
+    branches: [main, litellm_sdk_setup, litellm_sdk_contract_alignment]
     paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
   pull_request:
     paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
   workflow_dispatch:
+    inputs:
+      release_install:
+        description: Test downloading the published release wheel in the Action
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -15,7 +20,7 @@ env:
   RUSTUP_TOOLCHAIN: 1.99.0
 jobs:
   sdk:
-    if: github.event_name != 'push' || github.ref_name == 'main'
+    if: inputs.release_install != true && (github.event_name != 'push' || github.ref_name == 'main')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -44,6 +49,7 @@ jobs:
           fi
           uv run --project src/sdk python src/sdk/scripts/generate_contract.py --schema "$schema" --check
       - run: uv run --project src/sdk pytest src/sdk/tests --cov=lens --cov-config=src/sdk/pyproject.toml
+      - run: bash src/sdk/tests/install_action.sh
       - run: uv build --project src/sdk --out-dir src/sdk/dist
       - name: Check wheel in a fresh environment
         shell: bash
@@ -64,11 +70,24 @@ jobs:
           python-version: '3.11'
       - name: Start the contract stub
         shell: bash
+        env:
+          RELEASE_INSTALL: ${{ inputs.release_install }}
+          GH_TOKEN: ${{ github.token }}
+          LENS_PYTHON: python
         run: |
-          rustup toolchain install 1.99.0 --profile minimal
-          python -m pip install uv==0.10.9 './src/sdk'
+          python -m pip install uv==0.10.9
+          if [[ "$RELEASE_INSTALL" == true ]]; then
+            bash src/sdk/action/install.sh
+          else
+            rustup toolchain install 1.99.0 --profile minimal
+            python -m pip install './src/sdk'
+          fi
           uv venv /tmp/lens-agent-env
           uv pip install --python /tmp/lens-agent-env/bin/python httpx==0.28.1
+          if [[ "$RELEASE_INSTALL" != true ]]; then
+            python -m pip wheel --no-deps './src/sdk' --wheel-dir /tmp/sdk-wheel
+            uv pip install --python /tmp/lens-agent-env/bin/python /tmp/sdk-wheel/*.whl
+          fi
           cp src/sdk/examples/demo.py /tmp/lens-action-demo.py
           sed -i '1i import httpx' /tmp/lens-action-demo.py
           lens dev-server > /tmp/lens-dev-server.log 2>&1 &
@@ -92,7 +111,7 @@ jobs:
           test "$PASSED" = true
           python -c 'import json, os; assert len(json.loads(os.environ["URLS"])) == 1'
   wheels:
-    if: github.event_name != 'push' || github.ref_name == 'main'
+    if: inputs.release_install != true && (github.event_name != 'push' || github.ref_name == 'main')
     strategy:
       fail-fast: false
       matrix:
@@ -126,7 +145,7 @@ jobs:
       - name: Install and exercise the wheel
         shell: bash
         run: |
-          python -m pip install --only-binary=:all: --find-links src/sdk/dist lens-evals==0.1.0a2
+          python -m pip install --only-binary=:all: --find-links src/sdk/dist lens-evals==0.1.0a3
           python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0 httpx==0.28.1
           python -m lens.cli --help
           python -m pytest src/sdk/tests/test_sdk.py -q

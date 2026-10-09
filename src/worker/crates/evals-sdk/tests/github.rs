@@ -28,7 +28,7 @@ async fn only_updates_owned_comments(#[case] owner: &str, #[case] verb: &str, #[
     Mock::given(method("POST"))
         .and(path("/repos/org/repo/check-runs"))
         .and(body_partial_json(
-            json!({"conclusion":"neutral","head_sha":"sha"}),
+            json!({"conclusion":"failure","head_sha":"sha"}),
         ))
         .respond_with(ResponseTemplate::new(201).set_body_json(json!({})))
         .expect(1)

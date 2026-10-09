@@ -16,6 +16,9 @@ inputs:
   github-token:
     description: Token with checks and pull requests write permissions
     default: ${{ github.token }}
+  sdk-token:
+    description: Token with contents read access to BerriAI/lens for downloading release wheels
+    default: ${{ github.token }}
 outputs:
   passed:
     description: Whether every server gate passed
@@ -30,11 +33,8 @@ runs:
       shell: bash
       env:
         LENS_PYTHON: ${{ inputs.python }}
-      run: |
-        if ! "$LENS_PYTHON" -c 'from lens import _native; from importlib.metadata import version; assert version("lens-evals") == "0.1.0a2"'; then
-          rustup toolchain install 1.99.0 --profile minimal
-          RUSTUP_TOOLCHAIN=1.99.0 python -m pip --python "$LENS_PYTHON" install "${GITHUB_ACTION_PATH}/.."
-        fi
+        GH_TOKEN: ${{ inputs.sdk-token }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"
     - name: Run evals
       id: eval
       shell: bash

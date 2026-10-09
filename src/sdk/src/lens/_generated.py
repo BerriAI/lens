@@ -178,6 +178,7 @@ class CreateEvalRun(BaseModel):
         },
         validate_default=True,
     )
+    timeout_per_trial_ms: int = Field(default=1200000, gt=0, le=18446744073709551615, title="Timeout Per Trial Ms")
 
 
 class EvalRun(BaseModel):
