@@ -1,4 +1,8 @@
-import type { ChatPostMessageArguments, WebClient } from "@slack/web-api";
+import type {
+  ChatPostMessageArguments,
+  ChatUpdateArguments,
+  WebClient,
+} from "@slack/web-api";
 import { z } from "zod";
 
 const rejectedImage = z.object({
@@ -18,10 +22,26 @@ export async function postWithChart(
   wait: (ms: number) => Promise<void> = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms)),
 ) {
+  return retryChart(() => slack.chat.postMessage(message), wait);
+}
+
+export async function updateWithChart(
+  slack: Pick<WebClient, "chat">,
+  message: ChatUpdateArguments,
+  wait: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
+) {
+  return retryChart(() => slack.chat.update(message), wait);
+}
+
+async function retryChart<T>(
+  operation: () => Promise<T>,
+  wait: (ms: number) => Promise<void>,
+): Promise<T> {
   const delays = [1000, 2000, 4000, 8000];
   for (let attempt = 0; ; attempt++) {
     try {
-      return await slack.chat.postMessage(message);
+      return await operation();
     } catch (error) {
       const parsed = rejectedImage.safeParse(error);
       if (
