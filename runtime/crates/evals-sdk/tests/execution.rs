@@ -214,3 +214,44 @@ async fn upload_failure_is_infrastructure(#[future] server: Server, spec: EvalSp
     .unwrap_err();
     assert!(matches!(error, Error::Api { status: 401, .. }));
 }
+
+#[rstest]
+#[case::failed("failed", false)]
+#[case::missing_summary("done", false)]
+#[case::unknown_status("unknown", false)]
+#[tokio::test]
+async fn backend_failure_is_not_a_gate_failure(
+    spec: EvalSpec,
+    #[case] status: &str,
+    #[case] task_called: bool,
+) {
+    use serde_json::json;
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+    let server = MockServer::start().await;
+    Mock::given(path("/lens/datasets/resolve"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"id":"demo","name":"demo","revision":1})),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(path("/lens/datasets/demo/revisions/1/cases"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(devserver::sample_cases(1)))
+        .mount(&server)
+        .await;
+    Mock::given(path("/lens/evals/runs")).respond_with(ResponseTemplate::new(201).set_body_json(json!({"id":"test","status":status,"eval":"demo","agent":"demo","version":"sha","branch":"main","pr":null,"url":"http://localhost/run","expected_trials":3,"received_trials":0,"summary":null,"failure":"backend unavailable"}))).mount(&server).await;
+    let called = AtomicUsize::new(0);
+    let result = engine::evaluate(
+        &lens_evals_sdk::client::Client::new(&server.uri(), "key").unwrap(),
+        &spec,
+        "demo",
+        &context("main", "failure"),
+        |_| async {
+            called.fetch_add(1, Ordering::SeqCst);
+            good()
+        },
+    )
+    .await;
+    assert!(result.is_err());
+    assert_eq!(called.load(Ordering::SeqCst) > 0, task_called);
+}

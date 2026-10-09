@@ -36,6 +36,33 @@ where
     Fut: Future<Output = CaseResult> + Send,
 {
     spec.validate()?;
+    evaluate_managed(client, spec, project, execution, |case| {
+        let future = task(case);
+        async move {
+            match tokio::time::timeout(Duration::from_secs_f64(spec.timeout_seconds), future).await
+            {
+                Ok(result) => result,
+                Err(_) => failure("TimeoutError", "Task exceeded timeout_per_trial"),
+            }
+        }
+    })
+    .await
+}
+
+/// The callback must enforce its deadline and finish cancellation before resolving.
+/// Python coroutine cleanup cannot be completed by dropping its Rust future.
+pub async fn evaluate_managed<F, Fut>(
+    client: &Client,
+    spec: &EvalSpec,
+    project: &str,
+    execution: &Execution,
+    task: F,
+) -> Result<Report>
+where
+    F: Fn(Case) -> Fut + Send + Sync,
+    Fut: Future<Output = CaseResult> + Send,
+{
+    spec.validate()?;
     if project.trim().is_empty() {
         return Err(Error::Configuration(
             "Set [tool.lens].project to the agent.name on your traces",
@@ -77,9 +104,7 @@ where
             .flat_map(|case| (0..spec.trials).map(move |trial| (case.clone(), trial)))
             .collect::<Vec<_>>();
         stream::iter(work)
-            .map(|(case, trial)| {
-                trial_result(client, &run.id, case, trial, spec.timeout_seconds, &task)
-            })
+            .map(|(case, trial)| trial_result(client, &run.id, case, trial, &task))
             .buffer_unordered(spec.concurrency)
             .try_collect::<Vec<_>>()
             .await?
@@ -119,7 +144,6 @@ async fn trial_result<F, Fut>(
     run_id: &str,
     case: Case,
     trial: usize,
-    timeout: f64,
     task: &F,
 ) -> Result<TrialResult>
 where
@@ -127,11 +151,7 @@ where
     Fut: Future<Output = CaseResult> + Send,
 {
     let started = Instant::now();
-    let result =
-        match tokio::time::timeout(Duration::from_secs_f64(timeout), task(case.clone())).await {
-            Ok(result) => result,
-            Err(_) => failure("TimeoutError", "Task exceeded timeout_per_trial"),
-        };
+    let result = task(case.clone()).await;
     let result = if result.validate().is_ok() {
         result
     } else {

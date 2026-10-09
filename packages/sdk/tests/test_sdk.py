@@ -135,6 +135,7 @@ async def test_native_callbacks_timeout_and_cancel_do_not_leak(native_endpoint, 
             await asyncio.sleep(30)
             return await good(case)
         finally:
+            await asyncio.sleep(0.02)
             active.remove(current)
 
     configured = evaluation(slow, concurrency=3, timeout_per_trial=timedelta(milliseconds=30), gate=Gate(pass_rate=1))

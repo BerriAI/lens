@@ -192,3 +192,20 @@ def test_doctor_does_not_call_task(endpoint, tmp_path):
     forbidden = cli(tmp_path, endpoint, "doctor", "--json", key="wrong")
     assert forbidden.returncode == 2
     assert not json.loads(forbidden.stdout)["ok"]
+
+
+def test_same_size_edits_and_reverts_run_current_source(endpoint, tmp_path):
+    write_eval(tmp_path, "return Run(trace={'session.id':'pass'})")
+    source = tmp_path / "evals/run.py"
+    original = source.read_text()
+    timestamp = source.stat().st_mtime
+    baseline = cli(tmp_path, endpoint, "eval", "--json")
+    assert baseline.returncode == 0, baseline.stderr
+    source.write_text(original.replace("'pass'", "'fail'"))
+    os.utime(source, (timestamp, timestamp))
+    broken = cli(tmp_path, endpoint, "eval", "--json")
+    assert broken.returncode == 1, broken.stderr
+    source.write_text(original)
+    os.utime(source, (timestamp, timestamp))
+    restored = cli(tmp_path, endpoint, "eval", "--json")
+    assert restored.returncode == 0, restored.stderr

@@ -220,7 +220,7 @@ fn evaluate<'py>(
             }
         };
         encode(
-            &engine::evaluate(&client, &spec, &project, &context, task)
+            &engine::evaluate_managed(&client, &spec, &project, &context, task)
                 .await
                 .map_err(error)?,
         )
