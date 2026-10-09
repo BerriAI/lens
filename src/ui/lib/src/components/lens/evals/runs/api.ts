@@ -37,12 +37,11 @@ export function useSaveEval() {
 
 const evalRunKeys = {
   all: () => [...datasetKeys.all(), "evalRuns"] as const,
-  list: (scope: string, filter: EvalRunFilter) =>
-    [...evalRunKeys.all(), "list", { scope, ...filter }] as const,
-  detail: (scope: string, runId: string) =>
-    [...evalRunKeys.all(), "detail", { scope, runId }] as const,
-  runCase: (scope: string, runId: string, caseId: string) =>
-    [...evalRunKeys.all(), "case", { scope, runId, caseId }] as const,
+  list: (scope: string, filter: EvalRunFilter) => [...evalRunKeys.all(), "list", { scope, ...filter }] as const,
+  detail: (scope: string, runId: string) => [...evalRunKeys.all(), "detail", { scope, runId }] as const,
+  cases: (scope: string, runId: string) => [...evalRunKeys.all(), "cases", { scope, runId }] as const,
+  runCase: (scope: string, runId: string, caseId: string, active: boolean) =>
+    [...evalRunKeys.all(), "case", { scope, runId, caseId, active }] as const,
 };
 
 const evalRunQueries = {
@@ -58,14 +57,9 @@ const evalRunQueries = {
       queryFn: () => api.get(runId),
     });
   },
-  runCase(
-    api: EvalRunsApi,
-    scope: string,
-    runId: string | null,
-    caseId: string,
-  ) {
+  runCase(api: EvalRunsApi, scope: string, runId: string | null, caseId: string, active: boolean) {
     return queryOptions({
-      queryKey: evalRunKeys.runCase(scope, runId ?? "", caseId),
+      queryKey: evalRunKeys.runCase(scope, runId ?? "", caseId, active),
       queryFn: () => api.runCase(runId ?? "", caseId),
       enabled: runId !== null,
       staleTime: Infinity,
@@ -80,18 +74,35 @@ export function useEvalRuns(filter: EvalRunFilter) {
   return useQuery({
     ...evalRunQueries.list(api.evalRuns, api.scope, filter),
     refetchInterval: (query) =>
-      query.state.data?.length === 0 ? EMPTY_RUNS_POLL_MS : false,
+      query.state.data?.length === 0 ||
+      query.state.data?.some((run) => run.status === "running" || run.status === "scoring")
+        ? EMPTY_RUNS_POLL_MS
+        : false,
   });
 }
 
 export function useEvalRun(runId: string) {
   const api = useLensApi();
-  return useQuery(evalRunQueries.detail(api.evalRuns, api.scope, runId));
+  return useQuery({
+    ...evalRunQueries.detail(api.evalRuns, api.scope, runId),
+    refetchInterval: (query) =>
+      query.state.data?.status === "running" || query.state.data?.status === "scoring" ? EMPTY_RUNS_POLL_MS : false,
+  });
 }
 
-export function useRunCase(runId: string | null, caseId: string) {
+export function useRunCase(runId: string | null, caseId: string, active = false) {
   const api = useLensApi();
-  return useQuery(
-    evalRunQueries.runCase(api.evalRuns, api.scope, runId, caseId),
-  );
+  return useQuery({
+    ...evalRunQueries.runCase(api.evalRuns, api.scope, runId, caseId, active),
+    refetchInterval: active ? EMPTY_RUNS_POLL_MS : false,
+  });
+}
+
+export function useRunCases(runId: string, active = false) {
+  const api = useLensApi();
+  return useQuery({
+    queryKey: [...evalRunKeys.cases(api.scope, runId), { active }],
+    queryFn: () => api.evalRuns.cases(runId),
+    refetchInterval: active ? EMPTY_RUNS_POLL_MS : false,
+  });
 }
