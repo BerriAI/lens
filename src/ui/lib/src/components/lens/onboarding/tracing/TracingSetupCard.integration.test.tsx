@@ -8,6 +8,7 @@ import {
   codingAgentCommand,
   codingAgentPrompt,
   maskSecret,
+  projectSetupPrompt,
   TRACING_KEY_REQUEST,
   tracingEnvSnippet,
   TracingSetupCard,
@@ -150,7 +151,7 @@ describe("TracingSetupCard", () => {
     expect(card).toHaveTextContent("Keep your existing model settings");
     await user.click(screen.getByRole("button", { name: "Generate tracing key" }));
     await screen.findByText("Your tracing key");
-    expect(card).toHaveTextContent("gen_ai.agent.name: research_agent");
+    expect(card).toHaveTextContent('gen_ai.agent.name: "research_agent"');
     expect(card).toHaveTextContent("endpoint: https://traces.test/v1/traces");
     expect(card).toHaveTextContent('Authorization: "Bearer ${LITELLM_TRACING_KEY}"');
     expect(card).not.toHaveTextContent(SECRET);
@@ -324,6 +325,30 @@ describe("TracingSetupCard", () => {
 });
 
 describe("setup snippets", () => {
+  it("should preserve existing instrumentation and ask for a dedicated key in project setup", () => {
+    const prompt = projectSetupPrompt("https://traces.test/observe/");
+    expect(prompt).toContain("https://traces.test/observe/v1/traces");
+    expect(prompt).toContain("Authorization: Bearer <dedicated Lens tracing key>");
+    expect(prompt).toContain("Never use a model or Lens admin key for ingestion");
+    expect(prompt).toContain("Keep the existing model provider, model credentials");
+    expect(prompt).toContain("only configure its exporter and preserve its agent names");
+    expect(prompt).toContain("LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY");
+    expect(prompt).toContain("endpoint requires HTTPS");
+    expect(prompt).toContain("Do not add another tracing SDK");
+    expect(prompt).toContain("gen_ai.agent.name on the root agent span");
+    expect(prompt).toContain("verify its real trace arrives in Lens");
+    expect(prompt).toContain("Report configuration or credential gaps instead of claiming success");
+  });
+
+  it.each(["Claude Code", "Codex"] as const)("should quote the complete project prompt for %s", (agent) => {
+    const prompt = projectSetupPrompt("https://traces.test/team's/$(literal)");
+    const command = codingAgentCommand(agent, prompt);
+    expect(command.startsWith(`${agent === "Claude Code" ? "claude" : "codex"} '`)).toBe(true);
+    expect(command).toContain("Connect this project'\\''s agent traces");
+    expect(command).toContain("team'\\''s/$(literal)/v1/traces");
+    expect(command.endsWith("'")).toBe(true);
+  });
+
   it("uses the instance trace endpoint and keeps tracing and inference keys separate", () => {
     const env = tracingEnvSnippet("https://traces.test");
     expect(env).toContain('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://traces.test/v1/traces"');

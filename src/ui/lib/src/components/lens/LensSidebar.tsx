@@ -59,8 +59,8 @@ export function LensSidebar(props: LensSidebarProps) {
           <Button
             variant="ghost"
             className="mb-5 h-12 w-fit px-2 hover:bg-transparent dark:hover:bg-transparent"
-            aria-label="Lens agents"
-            onClick={() => navigate("agents")}
+            aria-label="Lens home"
+            onClick={() => navigate("home")}
           >
             <LensBrand />
           </Button>
@@ -81,8 +81,8 @@ export function LensSidebar(props: LensSidebarProps) {
           <Button
             variant="ghost"
             className="h-auto min-w-0 p-0 hover:bg-transparent dark:hover:bg-transparent"
-            aria-label="Lens agents"
-            onClick={() => navigate("agents")}
+            aria-label="Lens home"
+            onClick={() => navigate("home")}
           >
             <LensBrand />
           </Button>

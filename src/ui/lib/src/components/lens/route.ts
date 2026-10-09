@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
 
 export const LENS_TABS = {
+  home: "Home",
   agents: "Agents",
   traces: "Traces",
   findings: "Findings",
@@ -103,6 +104,7 @@ const CLEARED_AGENT_VIEW = {
 
 export interface LensRoute {
   readonly tab: LensTab | null;
+  readonly defaultTab: LensTab;
   readonly lensId: string | null;
   readonly demo: boolean;
   readonly settingUp: boolean;
@@ -115,7 +117,19 @@ export interface LensRoute {
 
 /** Lens navigation lives in the URL, sample session included, so any view is a shareable link. */
 export function useLensRoute(): LensRoute {
-  const [{ tab, lens, demo, setup }, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
+  const [{ tab, lens, demo, setup, trace, agent, issue, dataset, eval: evaluation, eval_run }, setParams] =
+    useQueryStates(SESSION_PARSERS, { history: "push" });
+  const defaultTab: LensTab = lens
+    ? "investigations"
+    : issue
+      ? "findings"
+      : evaluation || eval_run
+        ? "evals"
+        : dataset
+          ? "datasets"
+          : trace || agent || demo
+            ? "traces"
+            : "home";
   const setTab = useCallback((next: LensTab) => void setParams({ tab: next }), [setParams]);
   const openAgent = useCallback(
     (agent: string) => void setParams({ ...CLEARED_AGENT_VIEW, agent, tab: "traces" }),
@@ -132,6 +146,7 @@ export function useLensRoute(): LensRoute {
   const setSetup = useCallback((next: boolean) => void setParams({ setup: next ? "lens" : null }), [setParams]);
   return {
     tab,
+    defaultTab,
     lensId: lens,
     demo,
     settingUp: setup === "lens",

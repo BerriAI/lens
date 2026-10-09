@@ -4,6 +4,7 @@ import { parseAsString, useQueryStates } from "nuqs";
 import { useCallback, useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useLensRoute } from "../route";
+import { useLensHost } from "../../../host/LensHost";
 
 const SELECTED_AGENT_KEY = "litellm.lens.agent";
 export const selectedAgentKey = (demo: boolean): string => (demo ? `${SELECTED_AGENT_KEY}.demo` : SELECTED_AGENT_KEY);
@@ -28,13 +29,15 @@ export interface AgentSelection {
 /** In the URL for sharing, and remembered per browser (separately for the sample session) across refresh and login. */
 export function useAgentSelection(demo: boolean, available: readonly string[]): AgentSelection {
   const [{ agent: fromUrl }, setParams] = useQueryStates(AGENT_PARSERS, { history: "push" });
-  const { tab, openAgent } = useLensRoute();
+  const { tab, defaultTab, openAgent } = useLensRoute();
+  const embedded = useLensHost().surface === "embedded";
   const [remembered, setRemembered] = useLocalStorage(selectedAgentKey(demo), "", {
     serializer: (value) => value,
     deserializer: (raw) => raw,
   });
   const agent = resolveAgent(fromUrl, remembered, available);
-  const implied = !fromUrl && tab !== "agents" ? agent : null;
+  const effectiveTab = tab ?? (embedded && defaultTab === "home" ? "traces" : defaultTab);
+  const implied = !fromUrl && effectiveTab === "traces" ? agent : null;
   useEffect(() => {
     if (implied) void setParams({ agent: implied }, { history: "replace" });
   }, [implied, setParams]);

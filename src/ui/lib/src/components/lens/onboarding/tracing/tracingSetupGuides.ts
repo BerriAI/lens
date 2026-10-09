@@ -36,7 +36,7 @@ export const FRAMEWORKS: readonly FrameworkGuide[] = [
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -66,7 +66,7 @@ print(result["messages"][-1].content)`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -98,7 +98,7 @@ print(result["messages"][-1].content)`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -128,7 +128,7 @@ print(result["messages"][-1].content)`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -157,7 +157,7 @@ print(result.final_output)`,
     quickstart: `import asyncio
 import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 os.environ["OTEL_RESOURCE_ATTRIBUTES"] = f"gen_ai.agent.name={AGENT_NAME}"
 
@@ -192,7 +192,7 @@ asyncio.run(main())`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -226,7 +226,7 @@ print(Crew(agents=[agent], tasks=[task]).kickoff())`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -257,7 +257,7 @@ print(agent.run_sync("What is an agent trace?").output)`,
     quickstart: `import asyncio
 import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 
 os.environ["OTEL_RESOURCE_ATTRIBUTES"] = f"gen_ai.agent.name={AGENT_NAME}"
@@ -299,7 +299,7 @@ asyncio.run(main())`,
     quickstart: `import asyncio
 import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "SPAN_ONLY"
 
@@ -331,7 +331,7 @@ asyncio.run(InMemoryRunner(agent=agent).run_debug("What is an agent trace?"))`,
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 
 os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental,gen_ai_span_attributes_only"
@@ -371,7 +371,7 @@ const sdk = new NodeSDK({ traceExporter: new OTLPTraceExporter() });
 sdk.start();
 registerTelemetry(new OpenTelemetry());
 
-const AGENT_NAME = "research_agent";
+const AGENT_NAME = {AGENT_NAME_LITERAL};
 const litellm = createOpenAICompatible({
   name: "litellm",
   baseURL: {BASE_URL},
@@ -398,7 +398,7 @@ try {
     language: "json",
     quickstart: `{
   "agents": {
-    "list": [{ "id": "research_agent" }]
+    "list": [{ "id": {AGENT_NAME_LITERAL} }]
   },
   "plugins": {
     "entries": { "diagnostics-otel": { "enabled": true } }
@@ -433,7 +433,7 @@ try {
     logo: hermesLogo.src,
     language: "yaml",
     quickstart: `resource_attributes:
-  gen_ai.agent.name: research_agent
+  gen_ai.agent.name: {AGENT_NAME_LITERAL}
 content_capture: full
 backends:
   - type: otlp
@@ -459,7 +459,7 @@ backends:
     language: "python",
     quickstart: `import os
 
-AGENT_NAME = "research_agent"
+AGENT_NAME = {AGENT_NAME_LITERAL}
 
 from opentelemetry.instrumentation.auto_instrumentation import initialize
 
@@ -485,19 +485,28 @@ with trace.get_tracer(__name__).start_as_current_span(AGENT_NAME) as span:
   },
 ];
 
-export function frameworkSnippet(guide: FrameworkGuide, proxyUrl: string, model: string, traceUrl: string): string {
+export function frameworkSnippet(
+  guide: FrameworkGuide,
+  proxyUrl: string,
+  model: string,
+  traceUrl: string,
+  agentName = "research_agent",
+): string {
   const values: Record<string, string> = {
+    AGENT_NAME_LITERAL: JSON.stringify(agentName),
     MODEL: JSON.stringify(model),
     OPENAI_MODEL: JSON.stringify(`openai/${model}`),
     BASE_URL: JSON.stringify(`${proxyUrl}/v1`),
     PROXY_URL: JSON.stringify(proxyUrl),
     TRACE_URL: `${traceUrl}/v1/traces`,
   };
-  const code = guide.quickstart.replace(
-    /\{(MODEL|OPENAI_MODEL|BASE_URL|PROXY_URL|TRACE_URL)\}/g,
+  const template = guide.existingModel
+    ? guide.quickstart.replaceAll("${LITELLM_API_KEY}", "${LITELLM_TRACING_KEY}")
+    : guide.quickstart;
+  return template.replace(
+    /\{(AGENT_NAME_LITERAL|MODEL|OPENAI_MODEL|BASE_URL|PROXY_URL|TRACE_URL)\}/g,
     (_, name: string) => values[name],
   );
-  return guide.existingModel ? code.replaceAll("${LITELLM_API_KEY}", "${LITELLM_TRACING_KEY}") : code;
 }
 
 export function directModelConnection(guide: FrameworkGuide) {
@@ -514,7 +523,20 @@ export function directModelConnection(guide: FrameworkGuide) {
       };
 }
 
-export function standaloneFrameworkSnippet(guide: FrameworkGuide, traceUrl: string): string {
+export function standaloneFrameworkSnippet(
+  guide: FrameworkGuide,
+  traceUrl: string,
+  agentName = "research_agent",
+): string {
   const provider = directModelConnection(guide);
-  return frameworkSnippet(guide, provider.url, provider.model, traceUrl).replaceAll("LITELLM_API_KEY", provider.key);
+  return frameworkSnippet(
+    {
+      ...guide,
+      quickstart: guide.existingModel ? guide.quickstart : guide.quickstart.replaceAll("LITELLM_API_KEY", provider.key),
+    },
+    provider.url,
+    provider.model,
+    traceUrl,
+    agentName,
+  );
 }

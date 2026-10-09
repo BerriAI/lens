@@ -98,29 +98,29 @@ async function configureAnalysisFromSettings(user: ReturnType<typeof userEvent.s
 }
 
 describe("Lens introduction", () => {
-  it("replaces both empty tabs with the introduction inside the page, including after a reload", async () => {
+  it("should open Home on a first visit and leave deployment setup separate from empty traces", async () => {
     window.localStorage.setItem("lens.intro.dismissed", "true");
     window.sessionStorage.setItem("lens.intro.seen", "true");
     const user = userEvent.setup();
     const first = renderWorkspace();
     const intro = await screen.findByRole("region", { name: "Get started with Lens" });
     expect(
-      within(screen.getByRole("tabpanel", { name: "Traces" })).getByRole("region", {
+      within(screen.getByRole("tabpanel", { name: "Home" })).getByRole("region", {
         name: "Get started with Lens",
       }),
     ).toBe(intro);
-    expect(within(intro).getByRole("heading", { name: "Before you start" })).toBeVisible();
+    expect(within(intro).getByRole("heading", { name: "Connect your first agent" })).toBeVisible();
+    expect(within(intro).getByRole("button", { name: "Add agent" })).toBeVisible();
+    expect(within(intro).getByRole("button", { name: "Deployment setup" })).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Enable tracing" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Investigations" }));
-    expect(
-      within(screen.getByRole("tabpanel", { name: "Investigations" })).getByRole("region", {
-        name: "Get started with Lens",
-      }),
-    ).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Before you start" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Traces" }));
+    expect(await screen.findByRole("region", { name: "Waiting for traces" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Get started with Lens" })).not.toBeInTheDocument();
     first.unmount();
     renderWorkspace();
     expect(await screen.findByRole("region", { name: "Get started with Lens" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -146,10 +146,10 @@ describe("Lens introduction", () => {
 });
 
 describe("Lens setup journey", () => {
-  it("waits for storage readiness before completing installation", async () => {
+  it("should wait for storage readiness before completing explicit deployment setup", async () => {
     serve({ enabled: true, storageReady: false });
     const user = userEvent.setup();
-    renderWorkspace();
+    renderWorkspace({ searchParams: "?setup=lens" });
     const installation = await screen.findByRole("region", { name: /Install Lens/ });
     expect(await within(installation).findByText(/trace storage is unavailable/)).toBeVisible();
     expect(screen.queryByText("Trace storage is connected")).not.toBeInTheDocument();
@@ -167,7 +167,7 @@ describe("Lens setup journey", () => {
       network.mockImplementation((input, init) =>
         requestPath(input) === pendingPath ? new Promise<Response>(() => {}) : normal(input, init),
       );
-      renderWorkspace();
+      renderWorkspace({ searchParams: "?tab=traces" });
       expect(await screen.findByRole("table", { name: "Agent runs" })).toBeVisible();
     },
   );
@@ -186,13 +186,14 @@ describe("Lens setup journey", () => {
     },
   );
 
-  it("walks a first visit from the introduction through tracing into the Settings tab and the first investigation", async () => {
+  it("should open deployment setup from Home and continue through tracing into the first investigation", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     renderWorkspace({ onUrlUpdate });
-    const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    await user.click(await intro.findByRole("button", { name: "Set up Lens" }));
+    const home = within(await screen.findByRole("region", { name: "Get started with Lens" }));
+    await user.click(home.getByRole("button", { name: "Deployment setup" }));
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBe("lens"));
+    const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
     serve({ enabled: true });
     await user.click(intro.getByRole("button", { name: "Check setup" }));
     expect(await intro.findByText("Trace storage is connected")).toBeVisible();

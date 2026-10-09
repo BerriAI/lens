@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { FRAMEWORKS, standaloneFrameworkSnippet } from "./tracingSetupGuides";
 
 describe("Standalone agent configuration", () => {
+  it.each(FRAMEWORKS)("should safely include the chosen agent name in $label configuration", (guide) => {
+    const name = 'Moyai "support"\n${LITELLM_API_KEY} LITELLM_API_KEY';
+    const snippet = standaloneFrameworkSnippet(guide, "https://lens.example", name);
+    expect(snippet).toContain(JSON.stringify(name));
+    expect(snippet).not.toContain("{AGENT_NAME_LITERAL}");
+    expect(snippet).not.toContain("research_agent");
+    if (guide.quickstart.includes('f"gen_ai.agent.name={AGENT_NAME}"')) {
+      expect(snippet).toContain('f"gen_ai.agent.name={AGENT_NAME}"');
+    }
+  });
+
   it.each(FRAMEWORKS.filter((guide) => !guide.existingModel))(
     "sends $label model calls to a provider and trace exports to Lens",
     (guide) => {

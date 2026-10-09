@@ -4,11 +4,54 @@ import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useLensRoute } from "../route";
+import { LensHostProvider } from "../../../host/LensHost";
 import { useAgentSelection } from "./useAgentSelection";
 
 beforeEach(() => window.localStorage.clear());
 
 describe("agent navigation", () => {
+  it("should apply the remembered agent filter on the embedded default Traces view", async () => {
+    window.localStorage.setItem("litellm.lens.agent", "research_agent");
+    const onUrlUpdate = vi.fn();
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <LensHostProvider host={{ surface: "embedded" }}>
+        <NuqsTestingAdapter searchParams="?page=lens" onUrlUpdate={onUrlUpdate} hasMemory>
+          {children}
+        </NuqsTestingAdapter>
+      </LensHostProvider>
+    );
+    const { result, rerender } = renderHook(({ available }) => useAgentSelection(false, available), {
+      wrapper,
+      initialProps: { available: [] as string[] },
+    });
+    act(() => rerender({ available: ["support_agent", "research_agent"] }));
+
+    await waitFor(() => expect(onUrlUpdate).toHaveBeenCalledOnce());
+    expect(result.current.agent).toBe("research_agent");
+    expect(Object.fromEntries(onUrlUpdate.mock.lastCall![0].searchParams)).toEqual({
+      page: "lens",
+      agent: "research_agent",
+    });
+    expect(onUrlUpdate.mock.lastCall![0].options.history).toBe("replace");
+  });
+
+  it.each([
+    ["", "home"],
+    ["?trace=existing-trace", "traces"],
+    ["?agent=moyai", "traces"],
+    ["?lens=investigation", "investigations"],
+    ["?issue=finding", "findings"],
+    ["?dataset=data", "datasets"],
+    ["?eval=evaluation", "evals"],
+    ["?demo=true", "traces"],
+  ])("should resolve %s to %s without losing deep links", (searchParams, defaultTab) => {
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <NuqsTestingAdapter searchParams={searchParams}>{children}</NuqsTestingAdapter>
+    );
+    const { result } = renderHook(useLensRoute, { wrapper });
+    expect(result.current.defaultTab).toBe(defaultTab);
+  });
+
   it("should keep the agents directory open without inserting a remembered agent into its URL", () => {
     window.localStorage.setItem("litellm.lens.agent.demo", "research_agent");
     const onUrlUpdate = vi.fn();

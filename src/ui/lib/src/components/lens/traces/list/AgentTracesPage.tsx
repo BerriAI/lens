@@ -12,6 +12,7 @@ export default function AgentTracesPage({
   canMintTracingKey = false,
   canViewFindings = true,
   onSetUpSignals,
+  onConnectAgent,
 }: {
   accessToken: string;
   isActive?: boolean;
@@ -19,6 +20,7 @@ export default function AgentTracesPage({
   canMintTracingKey?: boolean;
   canViewFindings?: boolean;
   onSetUpSignals?: () => void;
+  onConnectAgent?: () => void;
 }) {
   const time = useRelativeRange(useTracesLive());
   return (
@@ -31,6 +33,7 @@ export default function AgentTracesPage({
         canMintTracingKey={canMintTracingKey}
         canViewFindings={canViewFindings}
         onSetUpSignals={onSetUpSignals}
+        onConnectAgent={onConnectAgent}
         timeControls={time}
       />
     </div>
