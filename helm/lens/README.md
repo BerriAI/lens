@@ -31,6 +31,13 @@ Create a Kubernetes Secret containing the authenticated ClickHouse URL and set `
 
 Startup initializes the schema and writes initial application state before opening the HTTP listener. Missing Keeper configuration or insufficient database permissions causes startup to fail. Check `kubectl --namespace lens logs deployment/lens` and the ClickHouse server logs, correct the configuration or grants, then repeat the installation check. Startup does not detect whether an endpoint distributes requests across servers; the operator must establish the topology above
 
+The external-storage qualification on ClickHouse 26.9.6.6 observed these startup failures:
+
+| Lens startup diagnostic | Configuration to check |
+| --- | --- |
+| `StateStorage(StateFailed { status: 400, code: Some(36) })` with an unconfigured KeeperMap server | Configure Keeper, the ClickHouse `zookeeper` connection and `keeper_map_path_prefix`, following the linked single-server example. Code 36 can also describe other invalid arguments, so use the ClickHouse logs to confirm the cause |
+| `Storage(Storage(SchemaFailed(403)))` with a SELECT-only database user | Have the database administrator grant the Lens user the database creation, schema and write permissions listed above. Use a database dedicated to Lens |
+
 Payloads and Keeper metadata must be backed up and restored together. An external database is never deleted by this chart. Existing installations need the documented writer handoff and data migration before changing their runtime, not just a Helm image update
 
 ## Connect a gateway
