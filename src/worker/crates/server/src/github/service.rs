@@ -584,6 +584,18 @@ pub(super) async fn report<R: SessionRepository>(
     Ok(Json(published))
 }
 
+pub(super) async fn rerun<R: SessionRepository>(
+    State(app): State<Arc<App<R>>>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<super::rerun::Input>,
+) -> Result<Json<super::rerun::Requested>, GitHubError> {
+    let stored = authenticated(&app, &headers, &id, false).await?;
+    Ok(Json(
+        super::rerun::request_rerun(enabled(&app)?, &stored.connection.connection, input).await?,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
