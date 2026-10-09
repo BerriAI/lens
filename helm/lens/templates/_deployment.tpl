@@ -53,8 +53,8 @@ spec:
             - name: LENS_GATEWAY_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lens.serviceTokenSecretName" . | quote }}
-                  key: {{ .Values.serviceTokenSecret.key | quote }}
+                  name: {{ .Values.gateway.secretName | default (include "lens.serviceTokenSecretName" .) | quote }}
+                  key: {{ if .Values.gateway.secretName }}{{ .Values.gateway.secretKey | quote }}{{ else }}{{ .Values.serviceTokenSecret.key | quote }}{{ end }}
             - name: LITELLM_LENS_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:

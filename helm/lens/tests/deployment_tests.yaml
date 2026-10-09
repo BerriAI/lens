@@ -109,3 +109,23 @@ tests:
       library: true
     asserts:
       - hasDocuments: {count: 0}
+  - it: uses a separately managed gateway signing secret
+    set:
+      gateway.enabled: true
+      gateway.secretName: delegated-identity
+      gateway.secretKey: signature
+      serviceTokenSecret: {name: worker-service, key: token}
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LENS_GATEWAY_SECRET
+            valueFrom:
+              secretKeyRef: {name: delegated-identity, key: signature}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LITELLM_LENS_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef: {name: worker-service, key: token}
