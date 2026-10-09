@@ -8,10 +8,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: lens-sdk-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   RUSTUP_TOOLCHAIN: 1.99.0
 jobs:
   sdk:
+    if: github.event_name != 'push' || github.ref_name == 'main'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -88,6 +92,7 @@ jobs:
           test "$PASSED" = true
           python -c 'import json, os; assert len(json.loads(os.environ["URLS"])) == 1'
   wheels:
+    if: github.event_name != 'push' || github.ref_name == 'main'
     strategy:
       fail-fast: false
       matrix:
