@@ -43,7 +43,7 @@ jobs:
             --publish 127.0.0.1::8123 \
             --env CLICKHOUSE_SKIP_USER_SETUP=1 \
             --mount "type=bind,source=$GITHUB_WORKSPACE/src/worker/crates/storage-clickhouse/tests/state/fixtures/keeper.xml,target=/etc/clickhouse-server/config.d/lens-keeper.xml,readonly" \
-            clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
+            mirror.gcr.io/clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
           ready=false
           for attempt in {1..60}; do
             if docker exec lens-rust-state clickhouse-client \
