@@ -1,19 +1,24 @@
 "use client";
 
-import { getCoreRowModel, useReactTable, type ColumnDef, type TableOptions } from "@tanstack/react-table";
+import {
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type TableOptions,
+} from "@tanstack/react-table";
 import { useEffect, useRef } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 
 import { Inspector } from "../../../shared/Inspector";
 import { InspectorTable } from "../../../shared/InspectorTable";
 import { StateMessage } from "../../../shared/StateMessage";
-import { cn } from "../../../../lib/cva.config";
 import { FINDING_PANEL_WIDTH_KEY } from "../../storage";
 
 import { useEvalRuns } from "./api";
 import { ConnectAgent } from "./ConnectAgent";
-import { costPerCase, groupRuns, passedLabel, shortSha } from "./format";
-import { GateStatus } from "./RunBadges";
+import { shortSha } from "./format";
+import { RunStatusBadge } from "./RunBadges";
+import { RunEval } from "./RunEval";
 import type { EvalDefinition, EvalRun } from "./types";
 
 export interface RunsTabProps {
@@ -23,8 +28,13 @@ export interface RunsTabProps {
   readonly onOpen: (runId: string) => void;
 }
 
-export function RunsTab({ definition, datasetName, revision, onOpen }: RunsTabProps) {
-  const runs = useEvalRuns({ eval: definition.name });
+export function RunsTab({
+  definition,
+  datasetName,
+  revision,
+  onOpen,
+}: RunsTabProps) {
+  const runs = useEvalRuns({ eval: definition.name, include_ci: true });
   const waited = useRef(false);
   const first = runs.data?.[0]?.id;
   useEffect(() => {
@@ -38,7 +48,9 @@ export function RunsTab({ definition, datasetName, revision, onOpen }: RunsTabPr
     return (
       <StateMessage
         role="status"
-        icon={<Loader2 className="size-5 animate-spin motion-reduce:animate-none" />}
+        icon={
+          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+        }
         title="Loading runs…"
         description="Fetching eval runs for this eval set."
       />
@@ -53,94 +65,95 @@ export function RunsTab({ definition, datasetName, revision, onOpen }: RunsTabPr
         description={runs.error.message}
       />
     );
-  const { main, pulls } = groupRuns(runs.data);
-  if (main.length + pulls.length === 0)
+  if (runs.data.length === 0)
     return (
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ConnectAgent definition={definition} dataset={datasetName} revision={revision} />
+        <ConnectAgent
+          definition={definition}
+          dataset={datasetName}
+          revision={revision}
+        />
       </div>
     );
-  return <RunTable runs={[...pulls, ...main]} onOpen={onOpen} />;
+  return (
+    <>
+      <RunEval
+        definition={definition}
+        runs={runs.data}
+        onRefresh={runs.refetch}
+      />
+      <RunTable runs={runs.data} onOpen={onOpen} />
+    </>
+  );
 }
 
-const ROW_HEIGHT = 36;
-
-const regressionCount = (run: EvalRun) =>
-  run.summary ? (run.summary.baseline_run_id === null ? "n/a" : run.summary.regressions.length) : "–";
-const fixedCount = (run: EvalRun) =>
-  run.summary ? (run.summary.baseline_run_id === null ? "n/a" : run.summary.fixed.length) : "–";
+const ROW_HEIGHT = 48;
 
 const COLUMNS: ColumnDef<EvalRun>[] = [
-  { id: "gate", size: 120, header: "Gate", cell: ({ row }) => <GateStatus run={row.original} /> },
+  {
+    id: "status",
+    size: 140,
+    header: "Status",
+    cell: ({ row }) => <RunStatusBadge run={row.original} />,
+  },
   {
     id: "commit",
-    size: 220,
-    header: "Commit",
+    size: 280,
+    header: "Branch / commit",
     cell: ({ row: { original: run } }) => (
-      <span className="font-mono">
+      <span className="block truncate font-mono">
         <span className="text-muted-foreground">{run.branch}@</span>
         {shortSha(run.version)}
-        {run.pr !== null && <span className="ml-2 text-muted-foreground">#{run.pr}</span>}
+        {run.pr !== null && (
+          <span className="ml-2 text-muted-foreground">#{run.pr}</span>
+        )}
       </span>
     ),
   },
   {
-    id: "agent",
-    header: "Agent",
-    cell: ({ row }) => <span className="truncate text-muted-foreground">{row.original.agent}</span>,
-  },
-  {
-    id: "pass",
-    size: 90,
-    header: "Pass",
-    meta: { numeric: true },
-    cell: ({ row }) => (row.original.summary ? passedLabel(row.original.summary) : "–"),
-  },
-  {
-    id: "regressed",
-    size: 100,
-    header: "Regressed",
-    meta: { numeric: true },
-    cell: ({ row }) => (
-      <span className={cn(row.original.summary?.regressions.length ? "text-destructive" : "text-muted-foreground")}>
-        {regressionCount(row.original)}
-      </span>
-    ),
-  },
-  {
-    id: "fixed",
-    size: 80,
-    header: "Fixed",
-    meta: { numeric: true },
-    cell: ({ row }) => (
-      <span className={cn(row.original.summary?.fixed.length ? "text-success" : "text-muted-foreground")}>
-        {fixedCount(row.original)}
-      </span>
-    ),
-  },
-  {
-    id: "cost",
-    size: 100,
-    header: "Cost/case",
-    meta: { numeric: true },
-    cell: ({ row }) => (row.original.summary ? costPerCase(row.original.summary) : "–"),
-  },
-  {
-    id: "trials",
-    size: 80,
-    header: "Trials",
-    meta: { numeric: true },
-    cell: ({ row }) => `${row.original.received_trials}/${row.original.expected_trials}`,
+    id: "results",
+    header: "Cases",
+    cell: ({ row: { original: run } }) =>
+      run.summary ? (
+        <span className="inline-flex items-center gap-3 tabular-nums">
+          <span className="text-success">{run.summary.passed} passed</span>
+          <span
+            className={
+              run.summary.total > run.summary.passed
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }
+          >
+            {run.summary.total - run.summary.passed} failed
+          </span>
+        </span>
+      ) : (
+        <span className="text-muted-foreground">
+          {run.status === "failed"
+            ? "No results"
+            : `${run.received_trials}/${run.expected_trials} trials received`}
+        </span>
+      ),
   },
   {
     id: "run",
-    size: 100,
+    size: 130,
     header: "Run",
-    cell: ({ row }) => <span className="font-mono text-muted-foreground">{row.original.id.slice(0, 8)}</span>,
+    cell: ({ row }) => (
+      <span className="font-mono text-muted-foreground">
+        {row.original.id.slice(0, 8)}
+      </span>
+    ),
   },
 ];
 
-function RunTable({ runs, onOpen }: { runs: readonly EvalRun[]; onOpen: (id: string) => void }) {
+function RunTable({
+  runs,
+  onOpen,
+}: {
+  runs: readonly EvalRun[];
+  onOpen: (id: string) => void;
+}) {
   const tableOptions: TableOptions<EvalRun> = {
     data: [...runs],
     columns: COLUMNS,
@@ -160,8 +173,15 @@ function RunTable({ runs, onOpen }: { runs: readonly EvalRun[]; onOpen: (id: str
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-11 shrink-0 items-center border-b px-6 text-sm font-medium">
+          Run history
+        </div>
         <InspectorTable.Root table={table}>
-          <InspectorTable.Grid aria-label="Eval runs" className="lens-table text-xs" style={{ minWidth: 960 }}>
+          <InspectorTable.Grid
+            aria-label="Eval runs"
+            className="table-fixed text-sm"
+            style={{ minWidth: 700 }}
+          >
             <InspectorTable.Header />
             <InspectorTable.Body<EvalRun> rowHeight={() => ROW_HEIGHT}>
               {(row) => (
@@ -170,7 +190,7 @@ function RunTable({ runs, onOpen }: { runs: readonly EvalRun[]; onOpen: (id: str
                   item={row.original}
                   tabIndex={0}
                   aria-label={`${row.original.branch}@${shortSha(row.original.version)}`}
-                  className="h-9"
+                  className="h-12"
                 />
               )}
             </InspectorTable.Body>

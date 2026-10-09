@@ -1,8 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { getCoreRowModel, useReactTable, type ColumnDef, type TableOptions } from "@tanstack/react-table";
-import { ChevronLeft, FlaskConical, Loader2, Plus, TriangleAlert } from "lucide-react";
+import {
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type TableOptions,
+} from "@tanstack/react-table";
+import {
+  ChevronLeft,
+  Code2,
+  FlaskConical,
+  Loader2,
+  Plus,
+  TriangleAlert,
+} from "lucide-react";
 
 import { Inspector } from "../../shared/Inspector";
 import { InspectorTable } from "../../shared/InspectorTable";
@@ -12,7 +24,6 @@ import { useDatasets } from "../datasets/api";
 import type { DatasetSummary } from "../datasets/types";
 import { useEvalRunRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
-import { LensPageHeader } from "../ui/LensPageHeader";
 import { NewEval } from "./NewEval";
 import { useEvalDefinition, useEvals } from "./runs/api";
 import { RunDetail } from "./runs/RunDetail";
@@ -21,12 +32,19 @@ import type { EvalDefinition } from "./runs/types";
 import { gateLabel, scorerLabel } from "./labels";
 
 export function EvalsView() {
-  const { evalName, runId, caseId, openEval, openRun, openCase } = useEvalRunRoute();
+  const { evalName, runId, caseId, openEval, openRun, openCase } =
+    useEvalRunRoute();
   const [creating, setCreating] = useState(false);
   if (runId)
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-card">
-        <RunDetail key={runId} runId={runId} caseId={caseId} onBack={() => openRun(null)} onOpenCase={openCase} />
+        <RunDetail
+          key={runId}
+          runId={runId}
+          caseId={caseId}
+          onBack={() => openRun(null)}
+          onOpenCase={openCase}
+        />
       </div>
     );
   if (creating)
@@ -39,19 +57,29 @@ export function EvalsView() {
         }}
       />
     );
-  if (evalName) return <EvalPage key={evalName} name={evalName} onBack={() => openEval(null)} onOpenRun={openRun} />;
+  if (evalName)
+    return (
+      <EvalPage
+        key={evalName}
+        name={evalName}
+        onBack={() => openEval(null)}
+        onOpenRun={openRun}
+      />
+    );
   return (
     <>
-      <LensPageHeader
-        section="06 / REGRESSION LAB"
-        title="Evals"
-        description="Replay production. Catch regressions before they ship."
-        actions={
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus /> New eval
-          </Button>
-        }
-      />
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-card px-6 py-5">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Evals</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Run your agent against saved test cases. Inspect every result and
+            trace
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreating(true)}>
+          <Plus /> New eval
+        </Button>
+      </header>
       <EvalList onOpen={openEval} />
     </>
   );
@@ -60,7 +88,9 @@ export function EvalsView() {
 const loading = (title: string) => (
   <StateMessage
     role="status"
-    icon={<Loader2 className="size-5 animate-spin motion-reduce:animate-none" />}
+    icon={
+      <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+    }
     title={title}
     description="This takes a moment."
   />
@@ -76,8 +106,13 @@ const failed = (title: string, error: Error) => (
   />
 );
 
-const datasetLabel = (definition: EvalDefinition, datasets: readonly DatasetSummary[]) => {
-  const dataset = datasets.find((item) => item.id === definition.spec.dataset_id);
+const datasetLabel = (
+  definition: EvalDefinition,
+  datasets: readonly DatasetSummary[],
+) => {
+  const dataset = datasets.find(
+    (item) => item.id === definition.spec.dataset_id,
+  );
   const name = dataset?.name ?? definition.spec.dataset_id;
   return `${name}@${definition.spec.revision ?? dataset?.revision ?? "latest"}`;
 };
@@ -94,11 +129,17 @@ function EvalList({ onOpen }: { onOpen: (name: string) => void }) {
           role="status"
           icon={<FlaskConical className="size-5" />}
           title="No evals yet"
-          description="An eval replays a dataset of production cases against every PR and fails the check on regressions."
+          description="Create an eval to choose test cases and scoring rules, then connect your agent code to run it."
         />
       </div>
     );
-  return <EvalTable evals={evals.data} datasets={datasets.data ?? []} onOpen={onOpen} />;
+  return (
+    <EvalTable
+      evals={evals.data}
+      datasets={datasets.data ?? []}
+      onOpen={onOpen}
+    />
+  );
 }
 
 function EvalTable({
@@ -113,14 +154,28 @@ function EvalTable({
   const columns: ColumnDef<EvalDefinition>[] = [
     {
       id: "name",
-      size: 220,
+      size: 280,
       header: "Eval",
       cell: ({ row }) => (
         <span className="flex min-w-0 items-center gap-2.5 font-mono">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-[var(--lens-violet)]/20 bg-[var(--lens-violet)]/10 text-[var(--lens-violet)]">
-            <FlaskConical aria-hidden="true" className="size-3.5" />
+          <FlaskConical
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+          <span className="truncate font-medium" title={row.original.name}>
+            {row.original.name}
           </span>
-          <span className="truncate">{row.original.name}</span>
+        </span>
+      ),
+    },
+    {
+      id: "execution",
+      size: 150,
+      header: "Execution",
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-muted-foreground">
+          <Code2 aria-hidden="true" className="size-3.5" />
+          {row.original.spec.agent_io ? "HTTP contract" : "Code / SDK"}
         </span>
       ),
     },
@@ -128,37 +183,24 @@ function EvalTable({
       id: "agent",
       size: 160,
       header: "Agent",
-      cell: ({ row }) => <span className="font-mono">{row.original.spec.agent}</span>,
-    },
-    {
-      id: "dataset",
-      size: 200,
-      header: "Dataset",
       cell: ({ row }) => (
-        <span className="font-mono text-muted-foreground">{datasetLabel(row.original, datasets)}</span>
-      ),
-    },
-    {
-      id: "scorers",
-      header: "Scorers",
-      cell: ({ row }) => (
-        <span className="truncate font-mono text-muted-foreground">
-          {row.original.spec.scorers.map(scorerLabel).join(", ")}
+        <span className="block truncate" title={row.original.spec.agent}>
+          {row.original.spec.agent}
         </span>
       ),
     },
     {
-      id: "trials",
-      size: 70,
-      header: "Trials",
-      meta: { numeric: true },
-      cell: ({ row }) => row.original.spec.trials,
-    },
-    {
-      id: "gate",
-      size: 200,
-      header: "Gate",
-      cell: ({ row }) => <span className="font-mono text-muted-foreground">{gateLabel(row.original.spec.gate)}</span>,
+      id: "dataset",
+      size: 280,
+      header: "Dataset",
+      cell: ({ row }) => (
+        <span
+          className="block truncate text-muted-foreground"
+          title={datasetLabel(row.original, datasets)}
+        >
+          {datasetLabel(row.original, datasets)}
+        </span>
+      ),
     },
   ];
   const tableOptions: TableOptions<EvalDefinition> = {
@@ -181,22 +223,25 @@ function EvalTable({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
         <div className="lens-toolbar flex h-9 shrink-0 items-center gap-2 border-b px-3">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--lens-violet)]" />
           <span className="font-mono text-[11px] text-muted-foreground">
             {evals.length} {evals.length === 1 ? "eval" : "evals"}
           </span>
         </div>
         <InspectorTable.Root table={table}>
-          <InspectorTable.Grid aria-label="Evals" className="lens-table text-xs" style={{ minWidth: 960 }}>
+          <InspectorTable.Grid
+            aria-label="Evals"
+            className="table-fixed text-sm"
+            style={{ minWidth: 720 }}
+          >
             <InspectorTable.Header />
-            <InspectorTable.Body<EvalDefinition> rowHeight={() => 36}>
+            <InspectorTable.Body<EvalDefinition> rowHeight={() => 52}>
               {(row) => (
                 <InspectorTable.Row
                   row={row}
                   item={row.original}
                   tabIndex={0}
                   aria-label={row.original.name}
-                  className="h-9"
+                  className="h-[52px]"
                 />
               )}
             </InspectorTable.Body>
@@ -224,27 +269,48 @@ function EvalPage({
   const dataset = datasets.data?.find((item) => item.id === spec.dataset_id);
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-      <div className="lens-toolbar flex min-h-12 shrink-0 flex-wrap items-center gap-3 border-b px-3 py-2 text-xs">
-        <Button variant="ghost" size="xs" onClick={onBack}>
+      <header className="shrink-0 border-b px-6 py-4">
+        <Button
+          variant="ghost"
+          size="xs"
+          className="-ml-2 mb-2 text-muted-foreground"
+          onClick={onBack}
+        >
           <ChevronLeft /> Evals
         </Button>
-        <h2 className="flex shrink-0 items-center gap-2 whitespace-nowrap font-mono font-medium">
-          <FlaskConical aria-hidden="true" className="size-4 text-[var(--lens-violet)]" />
+        <h1 className="break-words text-lg font-semibold tracking-tight">
           {name}
-        </h2>
-        <dl className="flex min-w-0 items-center gap-3 truncate font-mono text-muted-foreground">
-          <dt className="sr-only">Agent</dt>
-          <dd>{spec.agent}</dd>
-          <dt className="sr-only">Dataset</dt>
-          <dd>{datasetLabel(definition.data, datasets.data ?? [])}</dd>
-          <dt className="sr-only">Scorers</dt>
-          <dd className="truncate">{spec.scorers.map(scorerLabel).join(", ")}</dd>
-          <dt className="sr-only">Trials</dt>
-          <dd>{spec.trials}× trials</dd>
-          <dt className="sr-only">Gate</dt>
-          <dd>{gateLabel(spec.gate)}</dd>
-        </dl>
-      </div>
+        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Code2 aria-hidden="true" className="size-3.5" />
+            {spec.agent_io ? "Saved HTTP contract" : "Runs in your code"}
+          </span>
+          <span>
+            Agent{" "}
+            <span className="font-medium text-foreground">{spec.agent}</span>
+          </span>
+          <span>
+            Dataset{" "}
+            <span className="font-medium text-foreground">
+              {datasetLabel(definition.data, datasets.data ?? [])}
+            </span>
+          </span>
+        </div>
+        <details className="mt-3 text-xs text-muted-foreground">
+          <summary className="w-fit cursor-pointer hover:text-foreground">
+            Scoring configuration
+          </summary>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+            <dt>Scorers</dt>
+            <dd>{spec.scorers.map(scorerLabel).join(", ")}</dd>
+            <dt>Trials per case</dt>
+            <dd>{spec.trials}</dd>
+            <dt>Pass criteria</dt>
+            <dd>{gateLabel(spec.gate)}</dd>
+          </dl>
+        </details>
+      </header>
       <RunsTab
         definition={definition.data}
         datasetName={dataset?.name ?? spec.dataset_id}
