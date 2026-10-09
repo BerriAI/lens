@@ -136,6 +136,8 @@ const cases: Record<string, RunCase> = {
 let proxy = stubGateway();
 
 const serve = (path: string, request: GatewayRequest) => {
+  if (path.startsWith("/v1/traces/") && path.endsWith("/conversation"))
+    return { turns: [], next_cursor: null };
   if (path.startsWith("/v1/traces/"))
     return {
       ...researchTrace,
