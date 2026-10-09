@@ -43,7 +43,7 @@ pub fn router<R: SessionRepository + 'static>(
     state: ClickHouseState,
     public_url: String,
 ) -> Router {
-    configured_router(authentication, state, public_url, None)
+    configured_router(authentication, state, public_url, None, true)
 }
 
 pub fn router_with_traces<R: SessionRepository + 'static>(
@@ -52,7 +52,16 @@ pub fn router_with_traces<R: SessionRepository + 'static>(
     public_url: String,
     traces: EvalTraces,
 ) -> Router {
-    configured_router(authentication, state, public_url, Some(traces))
+    configured_router(authentication, state, public_url, Some(traces), true)
+}
+
+pub fn router_without_cases<R: SessionRepository + 'static>(
+    authentication: Arc<Authentication<R>>,
+    state: ClickHouseState,
+    public_url: String,
+    traces: Option<EvalTraces>,
+) -> Router {
+    configured_router(authentication, state, public_url, traces, false)
 }
 
 fn configured_router<R: SessionRepository + 'static>(
@@ -60,6 +69,7 @@ fn configured_router<R: SessionRepository + 'static>(
     state: ClickHouseState,
     public_url: String,
     traces: Option<EvalTraces>,
+    include_cases: bool,
 ) -> Router {
     let state = Arc::new(EvalState {
         authentication,
@@ -67,7 +77,7 @@ fn configured_router<R: SessionRepository + 'static>(
         datasets: Datasets::new(state, traces),
         public_url,
     });
-    Router::new()
+    let router = Router::new()
         .route("/lens/evals/runs", post(create::<R>).get(list::<R>))
         .route("/lens/evals/runs/{run}", get(read::<R>))
         .route(
@@ -75,11 +85,16 @@ fn configured_router<R: SessionRepository + 'static>(
             put(result::<R>),
         )
         .route("/lens/evals/runs/{run}/finish", post(finish::<R>))
-        .route("/lens/datasets/resolve", get(resolve::<R>))
-        .route(
-            "/lens/datasets/{id}/revisions/{revision}/cases",
+        .route("/lens/datasets/resolve", get(resolve::<R>));
+    let router = if include_cases {
+        router.route(
+            "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
             get(cases::<R>),
         )
+    } else {
+        router
+    };
+    router
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             authorize::<R>,
@@ -92,21 +107,9 @@ async fn authorize<R: SessionRepository>(
     mut request: Request,
     next: Next,
 ) -> Result<Response, EvalApiError> {
-    let version = request
-        .headers()
-        .get(CONTRACT_HEADER)
-        .and_then(|value| value.to_str().ok());
-    if version != Some(CONTRACT_VERSION.to_string().as_str()) {
-        return Err(EvalApiError::ContractVersion);
-    }
-    let session = crate::sessions::session_cookie(request.headers());
-    let identity = state
-        .authentication
-        .authenticate(
-            crate::sessions::credentials(request.headers(), request.method(), session.as_deref())?,
-            Utc::now(),
-        )
-        .await?;
+    validate_contract(request.headers())?;
+    let identity =
+        crate::auth::identity(&state.authentication, request.headers(), request.method()).await?;
     let scope = identity
         .team_id
         .filter(|team| !team.is_empty())
@@ -123,6 +126,16 @@ async fn authorize<R: SessionRepository>(
     }
     request.extensions_mut().insert(Team(scope));
     Ok(next.run(request).await)
+}
+
+pub(crate) fn validate_contract(headers: &HeaderMap) -> Result<(), EvalApiError> {
+    let version = headers
+        .get(CONTRACT_HEADER)
+        .and_then(|value| value.to_str().ok());
+    if version != Some(CONTRACT_VERSION.to_string().as_str()) {
+        return Err(EvalApiError::ContractVersion);
+    }
+    Ok(())
 }
 
 fn parse_body<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, EvalApiError> {

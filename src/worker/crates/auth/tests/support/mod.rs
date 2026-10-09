@@ -7,7 +7,7 @@ use std::{
 };
 
 pub const ADMIN: &str = "parity-admin-token-32-characters-long";
-pub const SECRET: &str = "test-gateway-secret";
+pub const SECRET: &str = "test-gateway-secret-32-characters-long";
 pub const ORIGIN: &str = "https://lens.test";
 
 #[derive(Clone, Default)]

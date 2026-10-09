@@ -2,10 +2,16 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use axum::Router;
 use chrono::Utc;
-use lens_contract::eval::{CreateEvalRun, EvalRun, RunStatus, Summary};
+use lens_contract::{
+    datasets::{Dataset, DatasetCase, DatasetSummary},
+    eval::{CreateEvalRun, EvalRun, RunStatus, Summary},
+};
 use lens_evals_sdk::devserver;
 use lens_server::eval_closer::EvalCloser;
-use litellm_lens::{eval_judge::GatewayJudge, eval_runtime::TraceReader, eval_scoring::EvalScorer};
+use litellm_lens::{
+    State, Storage, api, eval_judge::GatewayJudge, eval_runtime::TraceReader,
+    eval_scoring::EvalScorer,
+};
 use litellm_storage_clickhouse::{
     Connection,
     evals::EvalStore,
@@ -23,7 +29,7 @@ use testcontainers_modules::{
     testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
 };
 
-const SECRET: &str = "golden-eval-gateway-secret";
+const SECRET: &str = "golden-eval-gateway-secret-at-least-32";
 const TEAM: &str = "golden-team";
 const CASES: usize = 36;
 const TRIALS: u32 = 3;
@@ -146,24 +152,44 @@ pub async fn fixture() -> Fixture {
         .await
         .unwrap();
     let dataset = devserver::sample_cases(CASES);
-    let cases: Vec<_> = dataset
+    let cases: Vec<DatasetCase> = dataset
         .cases
         .iter()
         .enumerate()
         .map(|(index, case)| {
             let mut value = serde_json::to_value(case).unwrap();
+            value.as_object_mut().unwrap().remove("meta");
             value["source"] = json!({"lens_id":"findings","finding_id":index.to_string()});
-            value
+            serde_json::from_value(value).unwrap()
         })
         .collect();
+    let saved_at = Utc::now();
+    let stored_dataset = Dataset {
+        id: "demo".into(),
+        name: "demo".into(),
+        agent_name: "demo".into(),
+        team_id: TEAM.into(),
+        created_at: saved_at,
+        revision: 1,
+        created_by: "golden-user".into(),
+        cases,
+    };
+    let summary = DatasetSummary {
+        id: stored_dataset.id.clone(),
+        name: stored_dataset.name.clone(),
+        agent_name: stored_dataset.agent_name.clone(),
+        revision: stored_dataset.revision,
+        case_count: stored_dataset.cases.len(),
+        updated_at: saved_at,
+    };
     let changes = [
         (
             key("dataset-latest", json!(["demo"])),
-            json!({"team_id":TEAM,"summary":{"id":"demo","name":"demo","revision":1}}),
+            json!({"team_id":TEAM,"summary":summary}),
         ),
         (
             key("dataset", json!(["demo", 1])),
-            json!({"id":"demo","name":"demo","team_id":TEAM,"revision":1,"cases":cases}),
+            serde_json::to_value(stored_dataset).unwrap(),
         ),
         (
             key("lens", json!(["findings"])),
@@ -182,9 +208,20 @@ pub async fn fixture() -> Fixture {
         )
         .await
         .unwrap();
+    let service_token = "golden-service-token-at-least-32-characters";
+    let application = State::new(
+        Storage::new(
+            litellm_traces_clickhouse::Config::new(database.clone(), &url, 7, 65_536).unwrap(),
+            http.clone(),
+            service_token.into(),
+        ),
+        service_token.into(),
+    );
+    let traces = EvalTraces::new(http.clone(), reader);
     let actual = serve(
         |url| {
-            lens_server::evals::router(
+            api::router_with_evals(
+                &application,
                 Arc::new(lens_auth::Authentication {
                     settings: lens_auth::Settings::new(
                         "golden-admin-token-at-least-32-characters",
@@ -194,8 +231,9 @@ pub async fn fixture() -> Fixture {
                     .unwrap(),
                     sessions: Sessions(state.clone()),
                 }),
-                state.clone(),
+                lens_server::datasets::DatasetConfig::default(),
                 url.into(),
+                traces.clone(),
             )
         },
         None,
@@ -210,7 +248,7 @@ pub async fn fixture() -> Fixture {
         actual,
         dev,
         store: EvalStore::new(state),
-        traces: EvalTraces::new(http.clone(), reader),
+        traces,
         http,
         writer,
         database,
@@ -319,6 +357,28 @@ async fn submit(
     broken: bool,
     explicit_cost: bool,
 ) -> EvalRun {
+    let resolved = call(
+        server,
+        Method::GET,
+        "/lens/datasets/resolve?name=demo",
+        None,
+        None,
+        200,
+    )
+    .await
+    .unwrap();
+    assert_eq!(resolved["id"], "demo");
+    let cases = call(
+        server,
+        Method::GET,
+        "/lens/datasets/demo/revisions/1/cases",
+        None,
+        None,
+        200,
+    )
+    .await
+    .unwrap();
+    assert_eq!(cases["cases"].as_array().unwrap().len(), CASES);
     let mut request: CreateEvalRun = serde_json::from_str(include_str!(
         "../../../contract/fixtures/lens_eval/create_run.json"
     ))

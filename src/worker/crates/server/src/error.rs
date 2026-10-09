@@ -5,6 +5,55 @@ use axum::{
 };
 use serde::Serialize;
 
+#[derive(Debug)]
+pub struct ValidationError {
+    pub(crate) value: serde_json::Value,
+    pub(crate) input: Option<Box<serde_json::value::RawValue>>,
+}
+
+impl From<serde_json::Value> for ValidationError {
+    fn from(value: serde_json::Value) -> Self {
+        Self { value, input: None }
+    }
+}
+
+impl Serialize for ValidationError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{Error, SerializeMap};
+        let fields = self
+            .value
+            .as_object()
+            .ok_or_else(|| S::Error::custom("validation error must be an object"))?;
+        let mut map = serializer.serialize_map(Some(fields.len()))?;
+        for (key, value) in fields {
+            if key == "input"
+                && let Some(input) = &self.input
+            {
+                map.serialize_entry(key, input)?;
+            } else {
+                map.serialize_entry(key, value)?;
+            }
+        }
+        map.end()
+    }
+}
+
+#[cfg(test)]
+impl std::ops::Deref for ValidationError {
+    type Target = serde_json::Value;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+#[cfg(test)]
+impl PartialEq<serde_json::Value> for ValidationError {
+    fn eq(&self, other: &serde_json::Value) -> bool {
+        &self.value == other
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("Not Found")]
@@ -25,6 +74,112 @@ pub enum SessionError {
     Validation(Vec<serde_json::Value>),
     #[error("session could not be generated")]
     Entropy(#[source] rand::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum DatasetError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error(transparent)]
+    Storage(#[from] lens_datasets::StoreError),
+    #[error("invalid dataset request")]
+    Validation(Vec<ValidationError>),
+    #[error("Lens requires proxy administrator access")]
+    ForbiddenRead,
+    #[error("Only proxy admins can configure or run Lens")]
+    ForbiddenWrite,
+    #[error("Dataset not found")]
+    NotFound,
+    #[error("Dataset already exists")]
+    AlreadyExists,
+    #[error("Dataset changed, reload")]
+    Changed,
+    #[error(transparent)]
+    Revision(#[from] lens_datasets::RevisionProblem),
+    #[error("{source}")]
+    Read {
+        source: lens_datasets::ReadError,
+        retry_after_seconds: i64,
+    },
+    #[error("Lens is temporarily unavailable")]
+    Decode(#[source] serde_json::Error),
+}
+
+impl IntoResponse for DatasetError {
+    fn into_response(self) -> Response {
+        use lens_datasets::{ReadError, StoreError};
+        let (status, detail) = match self {
+            Self::Authentication(error) => return SessionError::from(error).into_response(),
+            Self::Storage(error) => (
+                match error {
+                    StoreError::Conflict => StatusCode::CONFLICT,
+                    StoreError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+                },
+                serde_json::json!(error.to_string()),
+            ),
+            Self::Validation(errors) => {
+                #[derive(Serialize)]
+                struct ValidationBody {
+                    detail: Vec<ValidationError>,
+                }
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(ValidationBody { detail: errors }),
+                )
+                    .into_response();
+            }
+            Self::Read {
+                source: error,
+                retry_after_seconds,
+            } => {
+                let (status, code) = match error {
+                    ReadError::LensNotFound => {
+                        return (
+                            StatusCode::NOT_FOUND,
+                            Json(serde_json::json!({"detail": error.to_string()})),
+                        )
+                            .into_response();
+                    }
+                    ReadError::TraceChanged(_) => (StatusCode::CONFLICT, "trace_changed"),
+                    ReadError::InvalidRequest(_) => (StatusCode::BAD_REQUEST, "invalid_request"),
+                    ReadError::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "too_large"),
+                    ReadError::Unavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "unavailable"),
+                    ReadError::Storage(error) => return Self::Storage(error).into_response(),
+                };
+                let mut response = (
+                    status,
+                    Json(
+                        serde_json::json!({"detail": {"code": code, "message": error.to_string()}}),
+                    ),
+                )
+                    .into_response();
+                if matches!(error, ReadError::Unavailable(_))
+                    && let Ok(value) = retry_after_seconds.to_string().parse()
+                {
+                    response
+                        .headers_mut()
+                        .insert(axum::http::header::RETRY_AFTER, value);
+                }
+                return response;
+            }
+            error @ (Self::ForbiddenRead | Self::ForbiddenWrite) => {
+                (StatusCode::FORBIDDEN, serde_json::json!(error.to_string()))
+            }
+            error @ Self::NotFound => (StatusCode::NOT_FOUND, serde_json::json!(error.to_string())),
+            error @ (Self::AlreadyExists | Self::Changed) => {
+                (StatusCode::CONFLICT, serde_json::json!(error.to_string()))
+            }
+            error @ Self::Revision(_) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                serde_json::json!(error.to_string()),
+            ),
+            error @ Self::Decode(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                serde_json::json!(error.to_string()),
+            ),
+        };
+        (status, Json(serde_json::json!({"detail": detail}))).into_response()
+    }
 }
 
 impl IntoResponse for SessionError {

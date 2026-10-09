@@ -1,9 +1,55 @@
 use axum::{
     extract::FromRequestParts,
-    http::{header::AUTHORIZATION, request::Parts},
+    http::{
+        HeaderMap, Method,
+        header::{self, AUTHORIZATION},
+        request::Parts,
+    },
 };
 
 use crate::ApiError;
+
+pub(crate) async fn identity<R: lens_auth::SessionRepository>(
+    auth: &lens_auth::Authentication<R>,
+    headers: &HeaderMap,
+    method: &Method,
+) -> Result<lens_contract::auth::Identity, lens_auth::Error> {
+    let session = session_cookie(headers);
+    auth.authenticate(
+        credentials(headers, method, session.as_deref())?,
+        chrono::Utc::now(),
+    )
+    .await
+}
+
+pub(crate) fn credentials<'a>(
+    headers: &'a HeaderMap,
+    method: &'a Method,
+    session: Option<&'a str>,
+) -> Result<lens_auth::Credentials<'a>, lens_auth::Error> {
+    let authorization = headers
+        .get(header::AUTHORIZATION)
+        .map(|header| header.to_str())
+        .transpose()
+        .map_err(|_| lens_auth::Error::Unauthorized("Use a Lens bearer credential"))?;
+    Ok(lens_auth::Credentials {
+        authorization,
+        session,
+        method: method.as_str(),
+        origin: headers
+            .get(header::ORIGIN)
+            .and_then(|value| value.to_str().ok()),
+    })
+}
+
+pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
+    let cookies = headers.get(header::COOKIE)?.to_str().ok()?;
+    cookie::Cookie::split_parse(cookies)
+        .filter_map(Result::ok)
+        .filter(|cookie| cookie.name() == "lens_session")
+        .map(|cookie| cookie.value_trimmed().to_owned())
+        .last()
+}
 
 pub struct BearerToken(String);
 

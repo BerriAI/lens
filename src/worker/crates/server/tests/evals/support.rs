@@ -27,7 +27,8 @@ use testcontainers_modules::{
 };
 use tower::ServiceExt;
 
-const SECRET: &str = "eval-route-test-signing-secret";
+const SECRET: &str = "eval-route-test-signing-secret-32-characters";
+pub const ADMIN: &str = "eval-route-test-admin-token-32-characters";
 
 #[fixture]
 pub fn guarded_app() -> Router {
@@ -53,6 +54,60 @@ pub struct EvalFixture {
     _container: Option<ContainerAsync<ClickHouse>>,
     connection: Connection,
     name: String,
+}
+
+impl EvalFixture {
+    pub fn combined_app(&self) -> Router {
+        let state = self.store.state().clone();
+        let auth = Arc::new(Authentication {
+            settings: Settings::new(ADMIN, Some(SECRET.into()), "http://lens.test").unwrap(),
+            sessions: Sessions(state.clone()),
+        });
+        lens_server::datasets::router_with_evals(
+            auth.clone(),
+            litellm_storage_clickhouse::datasets::Datasets(state.clone()),
+            NoDatasetSource,
+            lens_server::datasets::DatasetConfig::default(),
+            state.clone(),
+            None,
+        )
+        .merge(lens_server::evals::router_without_cases(
+            auth,
+            state,
+            "http://lens.test".into(),
+            None,
+        ))
+    }
+}
+
+struct NoDatasetSource;
+
+impl lens_datasets::DatasetReader for NoDatasetSource {
+    async fn trace(
+        &self,
+        _: &str,
+        _: &str,
+    ) -> Result<Option<litellm_traces::Trace>, lens_datasets::ReadError> {
+        Ok(None)
+    }
+
+    async fn span(
+        &self,
+        _: &str,
+        _: &str,
+        _: &str,
+    ) -> Result<Option<litellm_traces::SpanDetail>, lens_datasets::ReadError> {
+        Ok(None)
+    }
+
+    async fn findings(
+        &self,
+        _: &str,
+        _: &[String],
+        _: &lens_datasets::Scope,
+    ) -> Result<Vec<lens_datasets::Finding>, lens_datasets::ReadError> {
+        Ok(Vec::new())
+    }
 }
 
 impl Drop for EvalFixture {

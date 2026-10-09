@@ -10,6 +10,71 @@ use support::{EvalFixture, body, create, create_payload, eval_fixture, guarded_a
 use tower::ServiceExt;
 
 #[rstest]
+#[case::admin(None, None, 200, None)]
+#[case::team(Some("team-a"), Some("1"), 200, None)]
+#[case::missing_contract(Some("team-a"), None, 409, Some("contract_version"))]
+#[case::unknown_contract(Some("team-a"), Some("2"), 409, Some("contract_version"))]
+#[case::other_team(Some("team-b"), Some("1"), 404, Some("dataset_not_found"))]
+#[tokio::test]
+async fn should_compose_legacy_admin_and_versioned_team_dataset_cases(
+    #[future(awt)] eval_fixture: EvalFixture,
+    #[case] team: Option<&str>,
+    #[case] contract: Option<&str>,
+    #[case] status: u16,
+    #[case] error: Option<&str>,
+) {
+    let app = eval_fixture.combined_app();
+    let path = if team.is_none() {
+        let created = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("POST")
+                    .uri("/lens/datasets")
+                    .header("authorization", format!("Bearer {}", support::ADMIN))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"name":"admin dataset"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(created.status(), 200);
+        let dataset: lens_contract::datasets::Dataset = body(created).await;
+        format!(
+            "/lens/datasets/{}/revisions/{}/cases",
+            dataset.id, dataset.revision
+        )
+    } else {
+        "/lens/datasets/dataset-1/revisions/7/cases".into()
+    };
+    let mut call = request("GET", &path, team.unwrap_or("team-a"), None);
+    if team.is_none() {
+        call.headers_mut().insert(
+            "authorization",
+            format!("Bearer {}", support::ADMIN).parse().unwrap(),
+        );
+    }
+    call.headers_mut().remove("X-Lens-Contract");
+    if let Some(contract) = contract {
+        call.headers_mut()
+            .insert("X-Lens-Contract", contract.parse().unwrap());
+    }
+    let response = app.oneshot(call).await.unwrap();
+    assert_eq!(response.status(), status);
+    let value: Value = body(response).await;
+    if let Some(error) = error {
+        assert_eq!(value["code"], error);
+    } else {
+        assert_eq!(
+            value["cases"].as_array().unwrap().len(),
+            if team.is_none() { 0 } else { 2 }
+        );
+    }
+}
+
+#[rstest]
 #[tokio::test]
 async fn should_create_once_per_team_and_snapshot_included_cases(
     #[future(awt)] eval_fixture: EvalFixture,

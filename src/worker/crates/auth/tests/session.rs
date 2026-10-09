@@ -47,6 +47,29 @@ fn minimum_secret_is_measured_in_characters(#[case] token: String) {
 }
 
 #[rstest]
+#[case::disabled(None, true)]
+#[case::empty(Some(String::new()), false)]
+#[case::short(Some("a".repeat(31)), false)]
+#[case::minimum(Some("a".repeat(32)), true)]
+#[case::multibyte_short(Some("λ".repeat(31)), false)]
+#[case::multibyte_minimum(Some("λ".repeat(32)), true)]
+fn gateway_delegation_requires_a_strong_configured_secret(
+    #[case] secret: Option<String>,
+    #[case] valid: bool,
+) {
+    let settings = Settings::new(ADMIN, secret, ORIGIN);
+    assert_eq!(settings.is_ok(), valid);
+    if !valid {
+        assert!(matches!(
+            settings,
+            Err(Error::Configuration(
+                "gateway secret must contain at least 32 characters"
+            ))
+        ));
+    }
+}
+
+#[rstest]
 #[tokio::test]
 async fn sign_in_stores_a_hash_with_eight_hour_expiry(
     authentication: Authentication<Memory>,
