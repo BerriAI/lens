@@ -44,14 +44,6 @@ pub trait ScoreRun: Send + Sync {
     ) -> impl Future<Output = Result<ScoredRun, EvalCloserError>> + Send;
 }
 
-pub struct UnavailableScorer;
-
-impl ScoreRun for UnavailableScorer {
-    async fn score(&self, _input: &RunScoreInput) -> Result<ScoredRun, EvalCloserError> {
-        Err(EvalCloserError::ScoringUnavailable)
-    }
-}
-
 pub struct EvalCloser<T, S> {
     store: EvalStore,
     traces: T,
@@ -639,20 +631,6 @@ mod tests {
         assert!(matches!(
             resolve_trials(&MissingTrace, &run, run.created_at).await,
             Err(EvalCloserError::InvalidRun)
-        ));
-    }
-
-    #[rstest]
-    #[tokio::test]
-    async fn unavailable_upstream_scorer_cannot_invent_a_pass(run: StoredRun) {
-        let input = RunScoreInput {
-            run,
-            trials: Vec::new(),
-            baseline: None,
-        };
-        assert!(matches!(
-            UnavailableScorer.score(&input).await,
-            Err(EvalCloserError::ScoringUnavailable)
         ));
     }
 }

@@ -240,8 +240,6 @@ pub enum EvalCloserError {
     TransientTraces(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("Eval scoring failed")]
     Scoring(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("Eval scoring is not configured on this Lens instance")]
-    ScoringUnavailable,
     #[error("Stored eval run is incomplete")]
     InvalidRun,
 }

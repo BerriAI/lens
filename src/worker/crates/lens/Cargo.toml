@@ -15,6 +15,7 @@ http.workspace = true
 jsonschema = { version = "0.55.1", default-features = false }
 libc = "0.2"
 lens-contract = { path = "../contract" }
+lens-evals = { path = "../evals" }
 lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
 litellm-http.workspace = true
@@ -38,7 +39,12 @@ url.workspace = true
 unicode-casefold = "0.2"
 
 [dev-dependencies]
+jsonwebtoken.workspace = true
+lens-evals-sdk = { path = "../evals-sdk" }
+litellm-http = { workspace = true, features = ["test-support"] }
+percent-encoding.workspace = true
 rstest.workspace = true
+testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 tokio = { workspace = true, features = ["test-util"] }
 wiremock.workspace = true
 uuid.workspace = true

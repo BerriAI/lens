@@ -47,7 +47,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let client = http_client()?;
     let control = Control::new(
         client.clone(),
-        config.proxy_url,
+        config.proxy_url.clone(),
         config.worker_token.clone(),
     );
     let storage = Storage::new(config.storage, client.clone(), config.service_token.clone());
@@ -74,6 +74,12 @@ async fn run() -> Result<(), litellm_lens::Error> {
             let eval_task = litellm_lens::eval_runtime::start(
                 litellm_storage_clickhouse::evals::EvalStore::new(store.clone()),
                 traces.clone(),
+                litellm_lens::eval_judge::GatewayJudge::new(
+                    client.clone(),
+                    config.proxy_url.clone(),
+                    config.eval_judge_api_key.clone(),
+                    config.eval_judge_model.clone(),
+                ),
             );
             (
                 lens_server::sessions::shared_router(authentication.clone()).merge(

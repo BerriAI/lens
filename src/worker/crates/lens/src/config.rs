@@ -14,6 +14,8 @@ pub struct Config {
     pub storage: StorageConfig,
     pub authentication: Option<lens_auth::Settings>,
     pub public_url: String,
+    pub eval_judge_api_key: Option<String>,
+    pub eval_judge_model: Option<String>,
 }
 
 fn required(name: &'static str) -> Result<String, Error> {
@@ -46,6 +48,8 @@ impl Config {
             ));
         }
         Ok(Self {
+            eval_judge_api_key: std::env::var("LITELLM_API_KEY").ok(),
+            eval_judge_model: std::env::var("LENS_EVAL_JUDGE_MODEL").ok(),
             public_url: std::env::var("LENS_PUBLIC_URL")
                 .unwrap_or_else(|_| "http://localhost:4000".into()),
             authentication: std::env::var("LENS_ADMIN_TOKEN")

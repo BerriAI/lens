@@ -1,8 +1,10 @@
 use chrono::Utc;
 use lens_contract::eval::TraceRef;
-use lens_server::eval_closer::{EvalCloser, EvalCloserError, TraceSource, UnavailableScorer};
+use lens_server::eval_closer::{EvalCloser, EvalCloserError, TraceSource};
 use litellm_storage_clickhouse::evals::EvalStore;
 use litellm_traces_clickhouse::evals::{EvalTrace, EvalTraces};
+
+use crate::{eval_judge::GatewayJudge, eval_scoring::EvalScorer};
 
 pub struct TraceReader(EvalTraces);
 
@@ -46,9 +48,13 @@ fn retryable_trace_error(error: &litellm_traces_clickhouse::Error) -> bool {
     }
 }
 
-pub fn start(store: EvalStore, traces: EvalTraces) -> tokio::task::JoinHandle<()> {
+pub fn start(
+    store: EvalStore,
+    traces: EvalTraces,
+    judge: GatewayJudge,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let closer = EvalCloser::new(store, TraceReader::new(traces), UnavailableScorer);
+        let closer = EvalCloser::new(store, TraceReader::new(traces), EvalScorer::new(judge));
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
