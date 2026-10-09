@@ -59,6 +59,8 @@ Open **Findings** to see received trace counts, waiting or running status, the l
 
 Defaults are one analysis every 60 minutes, up to 10 traces per run, and a $10 monthly budget per agent. After the first run, the existing scheduler reviews new activity in the saved lookback window. The interval begins after a run finishes. Existing agent configurations, including paused configurations, are preserved; a configuration covering all agents also prevents automatic duplicates
 
+New automatic analyses use the first explicit `LENS_ANALYSIS_MODELS` deployment when configured, otherwise the first available discovered analysis model. Gateway discovery does not replace an agent's saved model selection
+
 Open a finding and follow an evidence citation to the original trace. Existing analysis records and history are preserved. Saved investigation links open Findings
 
 The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while analysis is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
