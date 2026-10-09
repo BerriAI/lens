@@ -1,7 +1,27 @@
 {
-  "killed": 14,
-  "total": 14,
+  "killed": 19,
+  "total": 19,
   "mutations": [
+    {
+      "name": "custom trial timeout reaches server",
+      "killed": true
+    },
+    {
+      "name": "stale builds are trial errors",
+      "killed": true
+    },
+    {
+      "name": "idle closure at 120 seconds",
+      "killed": true
+    },
+    {
+      "name": "late trace closure times out",
+      "killed": true
+    },
+    {
+      "name": "failed absolute gate makes check red",
+      "killed": true
+    },
     {
       "name": "configured concurrency",
       "killed": true

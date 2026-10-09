@@ -3,6 +3,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     path::Path,
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use axum::{
@@ -19,6 +20,9 @@ use uuid::Uuid;
 
 use crate::{Error, Result, model::*};
 
+mod traces;
+use traces::{Submission, Trace, Wait};
+
 #[derive(Clone)]
 pub struct Stub {
     store: Arc<Mutex<Store>>,
@@ -29,7 +33,8 @@ struct Store {
     dataset: EvalCases,
     runs: BTreeMap<String, EvalRun>,
     specs: BTreeMap<String, CreateEvalRun>,
-    results: BTreeMap<String, BTreeMap<(String, usize), CaseResult>>,
+    results: BTreeMap<String, BTreeMap<(String, usize), Submission>>,
+    traces: BTreeMap<(String, String), Trace>,
     keys: BTreeMap<String, (String, String)>,
     verdicts: BTreeMap<String, BTreeMap<String, bool>>,
     completed: Vec<String>,
@@ -57,10 +62,13 @@ pub fn sample_cases(count: usize) -> EvalCases {
                 source: Source {
                     finding_id: "1".into(),
                 },
-                meta: BTreeMap::from([(
-                    "priority".into(),
-                    if index < 2 { "high" } else { "low" }.into(),
-                )]),
+                meta: BTreeMap::from([
+                    ("finding_id".into(), "1".into()),
+                    (
+                        "priority".into(),
+                        if index < 2 { "high" } else { "low" }.into(),
+                    ),
+                ]),
             })
             .collect(),
     }
@@ -74,6 +82,7 @@ pub fn router(dataset: EvalCases, key: String) -> Router {
             runs: BTreeMap::new(),
             specs: BTreeMap::new(),
             results: BTreeMap::new(),
+            traces: BTreeMap::new(),
             keys: BTreeMap::new(),
             verdicts: BTreeMap::new(),
             completed: Vec::new(),
@@ -89,6 +98,7 @@ pub fn router(dataset: EvalCases, key: String) -> Router {
         .route("/lens/evals/runs/{run}", get(lookup))
         .route("/lens/evals/runs/{run}/results/{case}/{trial}", put(result))
         .route("/lens/evals/runs/{run}/finish", post(finish))
+        .route("/_dev/traces", post(trace))
         .layer(middleware::from_fn_with_state(stub.clone(), authorize))
         .with_state(stub)
 }
@@ -214,6 +224,10 @@ async fn create(
         case_ids: None,
     };
     if check.validate().is_err()
+        || spec.timeout_per_trial_ms == 0
+        || Instant::now()
+            .checked_add(Duration::from_millis(spec.timeout_per_trial_ms))
+            .is_none()
         || spec.agent.is_empty()
         || spec.version.is_empty()
         || spec.branch.is_empty()
@@ -250,9 +264,9 @@ async fn lookup(
     State(stub): State<Stub>,
     RoutePath(run): RoutePath<String>,
 ) -> Reply<Json<EvalRun>> {
-    stub.store
-        .lock()
-        .expect("stub lock")
+    let mut store = stub.store.lock().expect("stub lock");
+    advance(&mut store, &run);
+    store
         .runs
         .get(&run)
         .cloned()
@@ -302,7 +316,11 @@ async fn result(
         return Err(fault(StatusCode::UNPROCESSABLE_ENTITY, "invalid_result"));
     }
     let results = store.results.get_mut(&run_id).expect("run results");
-    results.insert((case_id, trial), result);
+    let key = (case_id, trial);
+    let received = results
+        .get(&key)
+        .map_or_else(Instant::now, |previous| previous.received);
+    results.insert(key, Submission { result, received });
     let count = results.len();
     store
         .runs
@@ -320,7 +338,11 @@ fn passes(result: &CaseResult) -> bool {
             .is_some_and(|trace| trace.value.contains("pass"))
 }
 
-fn summary(store: &Store, id: &str) -> (Summary, BTreeMap<String, bool>) {
+fn summary(
+    store: &Store,
+    id: &str,
+    results: &BTreeMap<(String, usize), CaseResult>,
+) -> (Summary, BTreeMap<String, bool>) {
     let spec = &store.specs[id];
     let cases = store
         .dataset
@@ -334,7 +356,6 @@ fn summary(store: &Store, id: &str) -> (Summary, BTreeMap<String, bool>) {
                     .is_none_or(|ids| ids.contains(&case.id))
         })
         .collect::<Vec<_>>();
-    let results = &store.results[id];
     let baseline = store.completed.iter().rev().find(|prior| {
         let previous = &store.specs[*prior];
         previous.branch == "main"
@@ -497,18 +518,83 @@ async fn finish(
         status: RunStatus::Scoring,
         ..run.clone()
     };
-    let (summary, verdicts) = summary(&store, &id);
+    store.runs.insert(id.clone(), pending.clone());
+    advance(&mut store, &id);
+    Ok((StatusCode::ACCEPTED, Json(pending)))
+}
+
+fn advance(store: &mut Store, id: &str) {
+    if !store
+        .runs
+        .get(id)
+        .is_some_and(|run| matches!(run.status, RunStatus::Scoring))
+    {
+        return;
+    }
+    let now = Instant::now();
+    let wait = Wait {
+        timeout: Duration::from_millis(store.specs[id].timeout_per_trial_ms),
+        ..Wait::default()
+    };
+    let results: Option<BTreeMap<_, _>> = store.results[id]
+        .iter()
+        .map(|(key, value)| {
+            wait.resolve(value, &store.traces, &store.specs[id].version, now)
+                .map(|result| (key.clone(), result))
+        })
+        .collect();
+    let Some(results) = results else {
+        return;
+    };
+    let (summary, verdicts) = summary(store, id, &results);
     store.runs.insert(
-        id.clone(),
+        id.to_owned(),
         EvalRun {
             status: RunStatus::Done,
             summary: Some(summary),
-            ..pending.clone()
+            ..store.runs[id].clone()
         },
     );
-    store.verdicts.insert(id.clone(), verdicts);
-    store.completed.push(id);
-    Ok((StatusCode::ACCEPTED, Json(pending)))
+    store.verdicts.insert(id.to_owned(), verdicts);
+    store.completed.push(id.to_owned());
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TraceUpdate {
+    trace: TraceRef,
+    agent_version: String,
+    #[serde(default)]
+    root_ended: bool,
+}
+
+async fn trace(State(stub): State<Stub>, Json(update): Json<TraceUpdate>) -> Reply<StatusCode> {
+    let result = CaseResult {
+        trace: Some(update.trace.clone()),
+        ..CaseResult::default()
+    };
+    if result.validate().is_err() || update.agent_version.is_empty() {
+        return Err(fault(StatusCode::UNPROCESSABLE_ENTITY, "invalid_trace"));
+    }
+    let mut store = stub.store.lock().expect("stub lock");
+    let key = (update.trace.attribute, update.trace.value);
+    if let Some(previous) = store.traces.get(&key) {
+        if previous.version != update.agent_version {
+            return Err(fault(StatusCode::CONFLICT, "trace_version_conflict"));
+        }
+        if previous.ended {
+            return Ok(StatusCode::NO_CONTENT);
+        }
+    }
+    store.traces.insert(
+        key,
+        Trace {
+            version: update.agent_version,
+            ended: update.root_ended,
+            updated: Instant::now(),
+        },
+    );
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn serve(host: &str, port: u16, dataset: Option<&Path>) -> Result<()> {

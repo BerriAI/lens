@@ -36,15 +36,13 @@ pub fn link(label: &str, value: &str) -> String {
 
 pub fn conclusion(report: &Report) -> Result<&'static str> {
     let summary = report.summary()?;
-    Ok(
-        if report.run.pr.is_some() && summary.baseline_run_id.is_none() {
-            "neutral"
-        } else if summary.gate.passed {
-            "success"
-        } else {
-            "failure"
-        },
-    )
+    Ok(if !summary.gate.passed {
+        "failure"
+    } else if report.run.pr.is_some() && summary.baseline_run_id.is_none() {
+        "neutral"
+    } else {
+        "success"
+    })
 }
 
 pub fn markdown(report: &Report) -> Result<String> {

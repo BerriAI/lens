@@ -228,6 +228,8 @@ pub struct CreateEvalRun {
     pub ci_url: String,
     #[serde(default = "one_trial")]
     pub trials: usize,
+    #[serde(default = "default_trial_timeout")]
+    pub timeout_per_trial_ms: u64,
     pub scorers: Vec<Scorer>,
     #[serde(default)]
     pub gate: Gate,
@@ -235,6 +237,10 @@ pub struct CreateEvalRun {
 
 fn one_trial() -> usize {
     1
+}
+
+fn default_trial_timeout() -> u64 {
+    1_200_000
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -340,7 +346,21 @@ pub struct EvalSpec {
 }
 
 impl EvalSpec {
+    pub fn timeout_millis(&self) -> Result<u64> {
+        let duration =
+            std::time::Duration::try_from_secs_f64(self.timeout_seconds).map_err(|_| {
+                Error::Configuration("timeout_per_trial must be a finite positive duration")
+            })?;
+        u64::try_from(duration.as_nanos().div_ceil(1_000_000))
+            .ok()
+            .filter(|milliseconds| *milliseconds > 0)
+            .ok_or(Error::Configuration(
+                "timeout_per_trial must fit a positive millisecond count",
+            ))
+    }
+
     pub fn validate(&self) -> Result<()> {
+        self.timeout_millis()?;
         if self.name.is_empty()
             || !self.name.bytes().all(|byte| {
                 byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"_-".contains(&byte)
@@ -429,10 +449,12 @@ impl EvalSpec {
                 self.case_ids
                     .as_ref()
                     .is_none_or(|ids| ids.contains(&case.id))
-                    && self
-                        .finding
-                        .as_ref()
-                        .is_none_or(|finding| &case.source.finding_id == finding)
+                    && self.finding.as_ref().is_none_or(|finding| {
+                        case.meta
+                            .get("finding_id")
+                            .unwrap_or(&case.source.finding_id)
+                            == finding
+                    })
             })
             .collect::<Vec<_>>();
         if self.case_ids.as_ref().is_some_and(|ids| {

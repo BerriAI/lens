@@ -8,6 +8,16 @@ from typing import Final
 
 REPO: Final = Path(__file__).resolve().parents[3]
 MUTATIONS: Final = (
+    (
+        "engine.rs",
+        "timeout_per_trial_ms: spec.timeout_millis()?",
+        "timeout_per_trial_ms: 1_200_000",
+        "custom trial timeout reaches server",
+    ),
+    ("devserver/traces.rs", "trace.version != version", "false", "stale builds are trial errors"),
+    ("devserver/traces.rs", "Duration::from_secs(120)", "Duration::from_secs(121)", "idle closure at 120 seconds"),
+    ("devserver/traces.rs", "closed <= now && closed <= deadline", "closed <= now", "late trace closure times out"),
+    ("reporting.rs", "!summary.gate.passed", "summary.gate.passed", "failed absolute gate makes check red"),
     ("engine.rs", "buffer_unordered(spec.concurrency)", "buffer_unordered(1)", "configured concurrency"),
     ("engine.rs", "0..spec.trials", "0..1", "all trials executed"),
     ("engine.rs", "gate: spec.gate.clone()", "gate: Gate::default()", "configured gate forwarded"),

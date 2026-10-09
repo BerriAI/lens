@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-08",
+  "sdk": "lens-evals==0.1.0a2",
+  "implementation": "Rust core with PyO3 Python API",
+  "tested_commit": "c4fe5da0e86ebcfcd47e2188d04065e1221687da",
+  "wheel": "lens_evals-0.1.0a2-cp311-abi3-macosx_11_0_arm64.whl",
+  "gateway": "https://gateway-dev.litellm-sandbox.ai",
+  "dataset": {
+    "name": "model-release-bench",
+    "revision": 1,
+    "id": "9154d122-1f48-48d5-ac9c-5d622031b6e8",
+    "cases": 1
+  },
+  "dataset_transport": "actual Rust Client::resolve and Client::cases",
+  "doctor": {
+    "ok": false,
+    "checks": [
+      {
+        "name": "version",
+        "ok": true,
+        "detail": "native-validation-20261008 on main"
+      },
+      {
+        "name": "agent",
+        "ok": true,
+        "detail": "lens-sdk-smoke"
+      },
+      {
+        "name": "sdk-live-smoke",
+        "ok": true,
+        "detail": "model-release-bench@1: 1 included cases, 3 trials"
+      },
+      {
+        "name": "eval API",
+        "ok": false,
+        "detail": "Lens HTTP 404: request_failed Check LENS_BASE_URL and whether the eval API is deployed"
+      }
+    ]
+  },
+  "trials": [
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "beb1e8681576420787c0da412ac68509",
+      "session_id": "pass-sdk-smoke-45e2c9d3a2834e52bb496b92b49f253d",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.002002,
+      "response_characters": 155
+    },
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "80e071f15d5e4386bc1612065aee95c1",
+      "session_id": "pass-sdk-smoke-1c86e493d3fe486598d4a2f29b022b1e",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.002002,
+      "response_characters": 155
+    },
+    {
+      "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+      "trace_id": "cc3e704c7efe44008e3eedd15e7b6aa9",
+      "session_id": "pass-sdk-smoke-3227c15f7d1a42a3ac9a25daf79cc4b4",
+      "model": "openai/gpt-6.1-sol",
+      "inference_status": 200,
+      "ingest_status": 200,
+      "cost_usd": 0.0017220000000000002,
+      "response_characters": 165
+    }
+  ],
+  "report": {
+    "runs": [
+      {
+        "id": "56c8fdbe99f84105bde8af6c144e9609",
+        "status": "done",
+        "eval": "sdk-live-smoke",
+        "agent": "lens-sdk-smoke",
+        "version": "native-validation-20261008",
+        "branch": "main",
+        "pr": null,
+        "url": "http://127.0.0.1:58765/lens/evals/runs/56c8fdbe99f84105bde8af6c144e9609",
+        "expected_trials": 3,
+        "received_trials": 3,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1.0,
+          "cost_per_case": 0.005726,
+          "scores": {
+            "task_completed": 1.0
+          },
+          "errors": 0,
+          "baseline_run_id": "88c1e668c28a4b37a6e499164ae1726f",
+          "baseline_version": "native-validation-20261008",
+          "regressions": [],
+          "fixed": [
+            {
+              "case_id": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+              "title": "d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+              "critical": false,
+              "baseline_url": "http://127.0.0.1:58765/lens/evals/runs/88c1e668c28a4b37a6e499164ae1726f?case=d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f",
+              "candidate_url": "http://127.0.0.1:58765/lens/evals/runs/56c8fdbe99f84105bde8af6c144e9609?case=d33b31f825150ac3ae0cd786bbe8fe14a9b65c900ffa81d01f16f2d76aa0b08f"
+            }
+          ],
+          "gate": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        "failure": ""
+      }
+    ]
+  },
+  "repeat_report": {
+    "runs": [
+      {
+        "id": "415a0942f2b74d0b8aa0c954622608e4",
+        "status": "done",
+        "eval": "sdk-live-smoke",
+        "agent": "lens-sdk-smoke",
+        "version": "native-validation-20261008",
+        "branch": "main",
+        "pr": null,
+        "url": "http://127.0.0.1:58765/lens/evals/runs/415a0942f2b74d0b8aa0c954622608e4",
+        "expected_trials": 3,
+        "received_trials": 3,
+        "summary": {
+          "passed": 1,
+          "total": 1,
+          "pass_rate": 1.0,
+          "cost_per_case": 0.005726,
+          "scores": {
+            "task_completed": 1.0
+          },
+          "errors": 0,
+          "baseline_run_id": "56c8fdbe99f84105bde8af6c144e9609",
+          "baseline_version": "native-validation-20261008",
+          "regressions": [],
+          "fixed": [],
+          "gate": {
+            "passed": true,
+            "reasons": []
+          }
+        },
+        "failure": ""
+      }
+    ]
+  },
+  "scoring": "local synthetic contract server, not production scoring",
+  "trace_endpoint": "https://gateway-dev.litellm-sandbox.ai/lens-ingest/v1/traces",
+  "trace_url": "https://gateway-dev.litellm-sandbox.ai/ui/lens?tab=traces&agent=lens-sdk-smoke&trace=beb1e8681576420787c0da412ac68509&span_tab=attributes&fullscreen=true",
+  "cleanup": {
+    "trace_key_revoke_status": 200,
+    "lens_key_block_status": 200,
+    "blocked_key_access_status": 401,
+    "revoked_trace_key_access_status": 401
+  }
+}

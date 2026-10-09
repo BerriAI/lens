@@ -272,6 +272,13 @@
             "cost_per_case": null,
             "min": {}
           }
+        },
+        "timeout_per_trial_ms": {
+          "default": 1200000,
+          "exclusiveMinimum": 0,
+          "maximum": 18446744073709551615,
+          "title": "Timeout Per Trial Ms",
+          "type": "integer"
         }
       },
       "required": [
