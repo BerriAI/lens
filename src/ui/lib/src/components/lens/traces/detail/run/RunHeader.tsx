@@ -153,6 +153,7 @@ interface RunHeaderProps {
   canLive: boolean;
   onLiveChange: () => void;
   signals?: readonly SignalFlag[];
+  onSelectSignal?: (signal: SignalFlag) => void;
 }
 
 /** Row one says which agent ran, for whom and from where; row two says how it went. */
@@ -167,6 +168,7 @@ export function RunHeader({
   canLive,
   onLiveChange,
   signals = [],
+  onSelectSignal,
 }: RunHeaderProps) {
   const { summary } = trace;
   return (
@@ -217,7 +219,9 @@ export function RunHeader({
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
         <StatusPill summary={summary} />
-        {signals.length > 0 && <SignalPills flags={signals} showScore className="flex-wrap" />}
+        {signals.length > 0 && (
+          <SignalPills flags={signals} showScore className="flex-wrap" onSelect={onSelectSignal} />
+        )}
         <Totals summary={summary} />
         <TabsList
           aria-label="Trace view"

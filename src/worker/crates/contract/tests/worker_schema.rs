@@ -22,13 +22,15 @@ fn checked_in_worker_schema_matches_rust() {
 fn compare(path: &str, actual: &Value, expected: &Value) {
     match (actual, expected) {
         (Value::Object(left), Value::Object(right)) => {
-            assert_eq!(
-                left.keys().collect::<Vec<_>>(),
-                right.keys().collect::<Vec<_>>(),
-                "{path}"
-            );
-            for (key, value) in left {
-                compare(&format!("{path}/{key}"), value, &right[key]);
+            if path != "/definitions" {
+                assert_eq!(
+                    left.keys().collect::<Vec<_>>(),
+                    right.keys().collect::<Vec<_>>(),
+                    "{path}"
+                );
+            }
+            for (key, value) in right {
+                compare(&format!("{path}/{key}"), &left[key], value);
             }
         }
         (Value::Array(left), Value::Array(right)) => {

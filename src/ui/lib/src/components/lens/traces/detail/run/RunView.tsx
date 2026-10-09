@@ -18,7 +18,8 @@ import { PagingBanner } from "./PagingBanner";
 import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
-import { useTraceSignalFlags } from "../../list/useTraceSignals";
+import { flaggedSignals, useTraceSignalState } from "../../list/useTraceSignals";
+import { SignalEvidence } from "../../ui/SignalEvidence";
 import { EarlierConversationNotice, useEarlierConversation } from "../conversation/EarlierConversation";
 
 interface RunViewProps {
@@ -113,7 +114,12 @@ function LoadedRun({
     retryDelay: traceReadRetryDelay,
   };
   const traceQuery = useSuspenseInfiniteQuery(traceQueryOptions);
-  const signals = useTraceSignalFlags(accessToken, { trace_id: traceId, trace_ref: traceRef }, showSignals);
+  const signalState = useTraceSignalState(accessToken, { trace_id: traceId, trace_ref: traceRef }, showSignals);
+  const signals = flaggedSignals(signalState?.status === "ready" ? signalState.signals : undefined);
+  const selectedSignal = signals.find((signal) => signal.signal_id === selection.signalId);
+  const focusedSelection = selection.signalId
+    ? { ...selection, spanId: selectedSignal?.evidence?.span_id ?? null }
+    : selection;
   const refreshTrace = () => queryClient.resetQueries({ queryKey, exact: true });
   const failure = traceQuery.isFetchNextPageError ? classifyTraceReadFailure(traceQuery.error) : null;
   const readManually = (read: () => Promise<unknown>) => {
@@ -149,12 +155,28 @@ function LoadedRun({
     };
   }, [traceQuery.data]);
   const earlierConversation = useEarlierConversation(trace, accessToken);
-  const seekingSpan = !switching && selectedSpanMissing(trace, selection.spanId);
+  const seekingSpan = !switching && selectedSpanMissing(trace, focusedSelection.spanId);
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } = traceQuery;
   const canSeek = seekingSpan && hasNextPage;
   useEffect(() => {
     if (canSeek && !isFetching && !isFetchNextPageError) void fetchNextPage();
   }, [canSeek, isFetching, isFetchNextPageError, fetchNextPage]);
+  const evidenceMissing = selection.signalId && (!selectedSignal?.evidence || seekingSpan);
+  const evidenceMessage =
+    signalState?.status === "pending" || (canSeek && !isFetchNextPageError)
+      ? "Loading signal evidence…"
+      : signalState?.status === "error"
+        ? "Could not load signal evidence. Try again shortly."
+        : canSeek && isFetchNextPageError
+          ? "Could not load the flagged step. Retry loading more steps."
+          : selectedSignal?.evidence
+            ? "The flagged step is no longer available in this trace."
+            : selectedSignal
+              ? "No excerpt was recorded for this detection. New detections include evidence when available."
+              : "This signal is no longer available for this trace.";
+  const signalFocusKey = selection.signalId
+    ? `${selection.signalId}:${selection.signalFocus}:${focusedSelection.spanId ?? ""}`
+    : "";
 
   return (
     <Tabs
@@ -180,8 +202,16 @@ function LoadedRun({
         canLive={traces.live}
         onLiveChange={toggleLive}
         signals={signals}
+        onSelectSignal={selection.selectSignal}
       />
       <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
+      {evidenceMissing && (
+        <SignalEvidence
+          name={selectedSignal?.name ?? "Signal evidence"}
+          message={evidenceMessage}
+          onDismiss={() => selection.selectSignal(null)}
+        />
+      )}
       {selection.view === "steps" && (
         <EarlierConversationNotice history={earlierConversation} onOpen={() => selection.setView("thread")} />
       )}
@@ -204,10 +234,11 @@ function LoadedRun({
         />
       )}
       <RunBody
-        key={seekingSpan ? "seeking" : "loaded"}
+        key={`${seekingSpan ? "seeking" : "loaded"}:${signalFocusKey}`}
         trace={trace}
         accessToken={accessToken}
-        selection={selection}
+        selection={focusedSelection}
+        signal={!seekingSpan ? selectedSignal : undefined}
         embedded={embedded}
         stale={switching}
         earlierConversation={earlierConversation}

@@ -71,11 +71,11 @@ export function useTraceSignals(accessToken: string, runs: TraceSummary[], enabl
   );
 }
 
-export function useTraceSignalFlags(
+export function useTraceSignalState(
   accessToken: string,
   trace: { trace_id: string; trace_ref?: string | null },
   enabled: boolean,
-): SignalFlag[] {
+): TraceSignalState | undefined {
   const api = useTracesApi(accessToken);
   const traces = [identity(trace)];
   const queryOptions = {
@@ -87,5 +87,7 @@ export function useTraceSignalFlags(
     retry: false,
   };
   const query = useQuery<TraceSignals[]>(queryOptions);
-  return enabled ? flaggedSignals(query.data?.[0]) : [];
+  if (!enabled) return undefined;
+  if (query.data?.[0]) return { status: "ready", signals: query.data[0] };
+  return { status: query.isPending ? "pending" : "error" };
 }
