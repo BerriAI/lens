@@ -1,0 +1,265 @@
+name: Lens candidate compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      lens_baseline_sha:
+        description: BerriAI/lens baseline commit, full immutable SHA
+        required: true
+        type: string
+      lens_current_sha:
+        description: BerriAI/lens candidate commit, full immutable SHA
+        required: true
+        type: string
+      gateway_baseline_sha:
+        description: BerriAI/litellm baseline commit, full immutable SHA
+        required: true
+        type: string
+      gateway_current_sha:
+        description: BerriAI/litellm candidate commit, full immutable SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+env:
+  LENS_BASELINE_SHA: ${{ inputs.lens_baseline_sha }}
+  LENS_CURRENT_SHA: ${{ inputs.lens_current_sha }}
+  GATEWAY_BASELINE_SHA: ${{ inputs.gateway_baseline_sha }}
+  GATEWAY_CURRENT_SHA: ${{ inputs.gateway_current_sha }}
+  SMOKE_SOURCE_SHA: 99a4705a3093e0ecef3d8f05c656657af313d439
+
+jobs:
+  build-images:
+    name: Build ${{ matrix.component }} (${{ matrix.variant }})
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {product: litellm, component: gateway, variant: current, dockerfile: gateway/Dockerfile}
+          - {product: litellm, component: backend, variant: current, dockerfile: backend/Dockerfile}
+          - {product: litellm, component: ui, variant: current, dockerfile: ui/Dockerfile}
+          - {product: litellm, component: migrations, variant: current, dockerfile: migrations/Dockerfile}
+          - {product: litellm, component: monolith, variant: current, dockerfile: Dockerfile}
+          - {product: litellm, component: gateway, variant: baseline, dockerfile: gateway/Dockerfile}
+          - {product: litellm, component: backend, variant: baseline, dockerfile: backend/Dockerfile}
+          - {product: litellm, component: monolith, variant: baseline, dockerfile: Dockerfile}
+          - {product: lens, component: worker, variant: baseline, dockerfile: deploy/runtime/Dockerfile}
+          - {product: lens, component: worker, variant: current, dockerfile: deploy/runtime/Dockerfile}
+    env:
+      PRODUCT: ${{ matrix.product }}
+      COMPONENT: ${{ matrix.component }}
+      VARIANT: ${{ matrix.variant }}
+      DOCKERFILE: ${{ matrix.dockerfile }}
+      SOURCE_REF: ${{ matrix.product == 'lens' && (matrix.variant == 'baseline' && inputs.lens_baseline_sha || inputs.lens_current_sha) || (matrix.variant == 'baseline' && inputs.gateway_baseline_sha || inputs.gateway_current_sha) }}
+      SOURCE_REPOSITORY: ${{ matrix.product == 'lens' && 'BerriAI/lens' || 'BerriAI/litellm' }}
+      IMAGE_TAG: ${{ matrix.product == 'lens' && (matrix.variant == 'baseline' && 'baseline' || 'upgrade') || (matrix.variant == 'baseline' && 'v0.0.0-lens-ci-baseline' || 'v0.0.0-lens-ci') }}
+    steps:
+      - name: Require immutable sources and a native amd64 runner
+        run: |
+          for ref in "$LENS_BASELINE_SHA" "$LENS_CURRENT_SHA" "$GATEWAY_BASELINE_SHA" "$GATEWAY_CURRENT_SHA"; do
+            [[ "$ref" =~ ^[0-9a-f]{40}$ ]]
+          done
+          test "$LENS_BASELINE_SHA" != "$LENS_CURRENT_SHA"
+          test "$GATEWAY_BASELINE_SHA" != "$GATEWAY_CURRENT_SHA"
+          test "$(uname -m)" = x86_64
+          mkdir -p "$RUNNER_TEMP/candidate-image" "$RUNNER_TEMP/candidate-diagnostics"
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        if: matrix.product == 'lens'
+        with:
+          repository: BerriAI/lens
+          ref: ${{ env.SOURCE_REF }}
+          persist-credentials: false
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        if: matrix.product == 'litellm'
+        with:
+          repository: BerriAI/litellm
+          ref: ${{ env.SOURCE_REF }}
+          persist-credentials: false
+      - name: Record the exact production source and build arguments
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_REF"
+          test -z "$(git status --porcelain)"
+          build_argument="LITELLM_RELEASE_TAG=$IMAGE_TAG"
+          if [[ "$PRODUCT" == lens ]]; then build_argument="LENS_VERSION=ci-$SOURCE_REF"; fi
+          jq -n --arg repository "$SOURCE_REPOSITORY" --arg commit "$SOURCE_REF" \
+            --arg tree "$(git rev-parse 'HEAD^{tree}')" --arg dockerfile "$DOCKERFILE" \
+            --arg dockerfile_sha256 "$(sha256sum "$DOCKERFILE" | cut -d ' ' -f 1)" \
+            --arg component "$COMPONENT" --arg variant "$VARIANT" \
+            --arg image "lens-ci-$COMPONENT:$IMAGE_TAG" --arg build_argument "$build_argument" \
+            --arg run_id "$GITHUB_RUN_ID" --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{repository:$repository, commit:$commit, tree:$tree, dockerfile:$dockerfile,
+              dockerfile_sha256:$dockerfile_sha256, component:$component, variant:$variant,
+              image:$image, platform:"linux/amd64", build_argument:$build_argument,
+              run_id:$run_id, run_attempt:$run_attempt}' > "$RUNNER_TEMP/candidate-image/source.json"
+          cp "$RUNNER_TEMP/candidate-image/source.json" "$RUNNER_TEMP/candidate-diagnostics/source.json"
+      - name: Build the production Dockerfile with its unchanged release profile
+        run: |
+          build_argument=$(jq -r .build_argument "$RUNNER_TEMP/candidate-image/source.json")
+          docker build --platform linux/amd64 --progress plain --build-arg "$build_argument" \
+            --label "org.opencontainers.image.source=https://github.com/$SOURCE_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_REF" \
+            --label "org.opencontainers.image.version=$IMAGE_TAG" \
+            -f "$DOCKERFILE" -t "lens-ci-$COMPONENT:$IMAGE_TAG" . \
+            2>&1 | tee "$RUNNER_TEMP/candidate-diagnostics/build.log"
+          test -z "$(git status --porcelain)"
+      - name: Export the candidate image and its receipt
+        run: |
+          docker image inspect "lens-ci-$COMPONENT:$IMAGE_TAG" --format \
+            '{"id":{{json .Id}},"os":{{json .Os}},"architecture":{{json .Architecture}},"source":{{json (index .Config.Labels "org.opencontainers.image.source")}},"revision":{{json (index .Config.Labels "org.opencontainers.image.revision")}},"version":{{json (index .Config.Labels "org.opencontainers.image.version")}}}' \
+            > "$RUNNER_TEMP/candidate-image/image.json"
+          jq -e --arg source "https://github.com/$SOURCE_REPOSITORY" --arg revision "$SOURCE_REF" \
+            --arg version "$IMAGE_TAG" '.os == "linux" and .architecture == "amd64"
+              and .source == $source and .revision == $revision and .version == $version' \
+            "$RUNNER_TEMP/candidate-image/image.json"
+          docker save "lens-ci-$COMPONENT:$IMAGE_TAG" | gzip -1 > "$RUNNER_TEMP/candidate-image/image.tar.gz"
+          cd "$RUNNER_TEMP/candidate-image"
+          sha256sum image.tar.gz > archive.sha256
+          cp image.json archive.sha256 "$RUNNER_TEMP/candidate-diagnostics/"
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        with:
+          name: lens-candidate-image-${{ matrix.component }}-${{ matrix.variant }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate-image/
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+          overwrite: true
+      - name: Capture build resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/candidate-diagnostics"
+          { docker version; docker system df; df -h; free -h; } \
+            > "$RUNNER_TEMP/candidate-diagnostics/runner.txt" 2>&1
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        if: always()
+        with:
+          name: lens-candidate-build-${{ matrix.component }}-${{ matrix.variant }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate-diagnostics/
+          retention-days: 3
+          if-no-files-found: error
+          overwrite: true
+
+  helm-compatibility:
+    needs: build-images
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          repository: BerriAI/litellm
+          ref: ${{ env.SMOKE_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Record the fixed compatibility harness
+        run: |
+          test "$(uname -m)" = x86_64
+          test "$(git rev-parse HEAD)" = "$SMOKE_SOURCE_SHA"
+          mkdir -p "$RUNNER_TEMP/candidate-qualification"
+          jq -n --arg source "$SMOKE_SOURCE_SHA" \
+            --arg harness_sha256 "$(sha256sum tests/e2e/migrations/lens_helm_smoke.sh | cut -d ' ' -f 1)" \
+            --arg lens_baseline "$LENS_BASELINE_SHA" --arg lens_current "$LENS_CURRENT_SHA" \
+            --arg gateway_baseline "$GATEWAY_BASELINE_SHA" --arg gateway_current "$GATEWAY_CURRENT_SHA" \
+            '{qualification:"candidate source compatibility", signed_release_qualification:false,
+              harness_repository:"BerriAI/litellm", harness_commit:$source, harness_sha256:$harness_sha256,
+              lens_baseline:$lens_baseline, lens_current:$lens_current,
+              gateway_baseline:$gateway_baseline, gateway_current:$gateway_current,
+              platform:"linux/amd64", registry_push:false, production_deployment:false}' \
+            > "$RUNNER_TEMP/candidate-qualification/sources.json"
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          pattern: lens-candidate-image-*-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate-images
+      - name: Verify and load all ten source-matched images
+        run: |
+          for variant in baseline current; do
+            components=(gateway backend monolith worker)
+            if [[ "$variant" == current ]]; then components+=(ui migrations); fi
+            for component in "${components[@]}"; do
+              repository=BerriAI/litellm
+              source_ref=$GATEWAY_CURRENT_SHA
+              image_tag=v0.0.0-lens-ci
+              if [[ "$variant" == baseline ]]; then
+                source_ref=$GATEWAY_BASELINE_SHA
+                image_tag=v0.0.0-lens-ci-baseline
+              fi
+              if [[ "$component" == worker ]]; then
+                repository=BerriAI/lens
+                source_ref=$LENS_CURRENT_SHA
+                image_tag=upgrade
+                if [[ "$variant" == baseline ]]; then source_ref=$LENS_BASELINE_SHA; image_tag=baseline; fi
+              fi
+              image="lens-ci-$component:$image_tag"
+              archive_dir="$RUNNER_TEMP/candidate-images/lens-candidate-image-$component-$variant-$GITHUB_RUN_ID"
+              jq -e --arg repository "$repository" --arg commit "$source_ref" --arg image "$image" \
+                --arg component "$component" --arg variant "$variant" --arg run_id "$GITHUB_RUN_ID" \
+                '.repository == $repository and .commit == $commit and .image == $image
+                  and .component == $component and .variant == $variant
+                  and .run_id == $run_id and .platform == "linux/amd64"' "$archive_dir/source.json"
+              (cd "$archive_dir" && sha256sum --check archive.sha256)
+              gzip -dc "$archive_dir/image.tar.gz" | docker load
+              test "$(docker image inspect "$image" --format '{{.Id}}')" = "$(jq -r .id "$archive_dir/image.json")"
+              test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+              test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$source_ref"
+              test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')" = "https://github.com/$repository"
+              test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')" = "$image_tag"
+              jq -n --slurpfile source "$archive_dir/source.json" --slurpfile image "$archive_dir/image.json" \
+                --arg archive_sha256 "$(cut -d ' ' -f 1 "$archive_dir/archive.sha256")" \
+                '{source:$source[0], image:$image[0], archive_sha256:$archive_sha256}' \
+                > "$RUNNER_TEMP/candidate-qualification/$component-$variant.json"
+              rm "$archive_dir/image.tar.gz"
+            done
+          done
+      - name: Install pinned Kubernetes test tools
+        run: |
+          curl --fail --location --output "$RUNNER_TEMP/kind" \
+            https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          echo "a6875aaea358acf0ac07786b1a6755d08fd640f4c79b7a2e46681cc13f49a04b  $RUNNER_TEMP/kind" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/kind"
+          curl --fail --location --output "$RUNNER_TEMP/kubectl" \
+            https://dl.k8s.io/release/v1.32.2/bin/linux/amd64/kubectl
+          echo "4f6a959dcc5b702135f8354cc7109b542a2933c46b808b248a214c1f69f817ea  $RUNNER_TEMP/kubectl" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/kubectl"
+          curl --fail --location --output "$RUNNER_TEMP/helm.tar.gz" \
+            https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz
+          echo "a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496  $RUNNER_TEMP/helm.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/helm.tar.gz" -C "$RUNNER_TEMP" linux-amd64/helm
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+      - name: Exercise installation, independent upgrades, rollback, restart, external and disabled modes
+        run: |
+          started_at=$(date -u +%FT%TZ)
+          status=0
+          bash tests/e2e/migrations/lens_helm_smoke.sh 2>&1 \
+            | sed -E 's/sk-[0-9a-f]{48}/[redacted-test-token]/g; s/lens-trace-[0-9]+-[A-Za-z0-9_-]+/[redacted-tracing-key]/g; s/[0-9a-f]{64}/[redacted-hex-value]/g' \
+            | tee "$RUNNER_TEMP/candidate-qualification/smoke.log" || status=$?
+          jq -n --arg started_at "$started_at" --arg completed_at "$(date -u +%FT%TZ)" \
+            --argjson exit_code "$status" \
+            '{started_at:$started_at, completed_at:$completed_at, exit_code:$exit_code,
+              passed:($exit_code == 0), qualification:"candidate source compatibility",
+              signed_release_qualification:false}' > "$RUNNER_TEMP/candidate-qualification/result.json"
+          {
+            printf 'Candidate source compatibility exit code: %s\n\n' "$status"
+            printf 'This run qualifies source compatibility using ephemeral native amd64 images\n\n'
+            printf 'Official image signatures, attestations and release publication require the separate signed release lane\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - name: Capture compatibility resource diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/candidate-qualification"
+          { docker version; docker system df; docker ps -a --format '{{.ID}} {{.Image}} {{.Status}} {{.Names}}'; df -h; free -h; } \
+            > "$RUNNER_TEMP/candidate-qualification/runner.txt" 2>&1
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        if: always()
+        with:
+          name: lens-candidate-qualification-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate-qualification/
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true
