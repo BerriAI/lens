@@ -1,0 +1,73 @@
+{
+  "name": "@litellm/lens-ui",
+  "version": "0.1.0-dev.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BerriAI/litellm-lens.git",
+    "directory": "src/ui/lib"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./http": "./src/lib/http/client.ts"
+  },
+  "files": [
+    "src",
+    "public",
+    "!src/**/*.test.*",
+    "!src/**/*.test-d.ts",
+    "!src/**/*.integration.test.*",
+    "!src/**/AGENTS.md",
+    "!src/**/Design.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@handlewithcare/react-prosemirror": "3.2.9",
+    "@headlessui/tailwindcss": "0.2.2",
+    "@hookform/resolvers": "5.4.0",
+    "@tailwindcss/forms": "0.5.11",
+    "@tanstack/react-pacer": "0.22.1",
+    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-virtual": "3.14.13",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "es-toolkit": "1.49.0",
+    "lucide-react": "0.513.0",
+    "moment": "2.31.0",
+    "openapi-fetch": "0.17.0",
+    "openapi-react-query": "0.5.4",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.42.3",
+    "react-error-boundary": "6.1.6",
+    "react-hook-form": "7.82.0",
+    "react-intersection-observer": "11.0.1",
+    "react-markdown": "9.1.0",
+    "react-resizable-panels": "4.14.1",
+    "recharts": "3.9.2",
+    "remark-gfm": "4.0.1",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.4.0",
+    "tailwindcss": "4.3.2",
+    "tw-animate-css": "1.4.0",
+    "usehooks-ts": "3.1.1",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "5.100.7",
+    "next": "16.3.8",
+    "next-themes": "0.4.6",
+    "nuqs": "2.9.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hotkeys-hook": "5.3.3"
+  }
+}

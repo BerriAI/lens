@@ -2,7 +2,7 @@
 
 The implementation candidate is `b1635a5ee7c8b88a6f829503882794e64a2a8f06`
 
-The UI now builds independently as `@litellm/lens-ui`, with `apps/web` providing the standalone shell. Production output is static; the target Python API will serve it at `/ui/`. No Node service is needed to serve the exported UI
+The UI now builds independently as `@litellm/lens-ui`, with `src/ui/app` providing the standalone shell. Production output is static; the target Python API will serve it at `/ui/`. No Node service is needed to serve the exported UI
 
 The source baseline remains LiteLLM main commit `0721cffab2ecbde51cdef9aeca0ce1c16b3e0aa9`. The import closure contains 193 Lens production modules, including imported fixture modules. After excluding imports and comments and normalizing formatting with the TypeScript printer, 189 retain identical bodies. The four adapted modules support same-origin cookie requests and injected spend-log lookup/drawer components. See [source reuse](evidence/ui/source-reuse.json) and the expanded [source manifest](source-manifest.json)
 

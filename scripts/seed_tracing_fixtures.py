@@ -36,8 +36,8 @@ if TYPE_CHECKING:
     from prisma.types import LiteLLM_SpendLogsCreateWithoutRelationsInput
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
-TRACE_FIXTURES: Final = REPO_ROOT / "runtime/crates/traces/tests/fixtures"
-SPEND_FIXTURES: Final = REPO_ROOT / "runtime/crates/traces-clickhouse/tests/fixtures"
+TRACE_FIXTURES: Final = REPO_ROOT / "src/worker/crates/traces/tests/fixtures"
+SPEND_FIXTURES: Final = REPO_ROOT / "src/worker/crates/traces-clickhouse/tests/fixtures"
 JSON: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)
 JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 SPEND_ROWS: Final = TypeAdapter(tuple[SpendLogRecord, ...])

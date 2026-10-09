@@ -2,8 +2,8 @@
   "name": "litellm-lens-workspace",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "src/ui/lib",
+    "src/ui/app"
   ],
   "scripts": {
     "dev:ui": "npm run dev --workspace @litellm/lens-web",

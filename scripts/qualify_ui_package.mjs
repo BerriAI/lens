@@ -24,7 +24,7 @@ const workspace = JSON.parse(
   await readFile(join(root, "package.json"), "utf8"),
 );
 const web = JSON.parse(
-  await readFile(join(root, "apps/web/package.json"), "utf8"),
+  await readFile(join(root, "src/ui/app/package.json"), "utf8"),
 );
 const manifest = {
   ...web,
@@ -47,7 +47,7 @@ for (const name of [
   "tsconfig.json",
   "next-env.d.ts",
 ]) {
-  await cp(join(root, "apps/web", name), join(destination, name), {
+  await cp(join(root, "src/ui/app", name), join(destination, name), {
     recursive: true,
   });
 }
