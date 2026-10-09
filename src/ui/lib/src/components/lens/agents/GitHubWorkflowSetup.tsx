@@ -100,8 +100,10 @@ export function WorkflowSetup({ target }: { target: ConnectTarget }) {
             <span className="break-all">{target.baseUrl}</span>
           </p>
           <p className="mt-2 text-muted-foreground">
-            Map your agent’s model and service secrets under env on the Lens Action step and any agent startup step. The
-            workflow uses GitHub’s built-in token for comments and checks
+            Map your agent’s model and service secrets under env on the Lens Action step and any agent startup step.{" "}
+            {target.reportViaApp
+              ? "Lens publishes comments and checks through the GitHub App you connected"
+              : "The workflow uses GitHub’s built-in token for comments and checks"}
           </p>
         </div>
         <CodeBlock
@@ -209,8 +211,10 @@ export function VerifyGitHub({
       <div className="space-y-2 rounded-lg border p-4 text-xs leading-5 text-muted-foreground">
         <p className="font-medium text-foreground">What appears on your PR</p>
         <p>
-          Lens posts the eval result, pass counts, regressions and a link to the full run. New commits update the same
-          comment
+          Lens posts the eval result, pass counts, regressions and a link to the full run.{" "}
+          {target.reportViaApp
+            ? "The connected GitHub App posts a report for each eval run. Retrying publication updates that run’s report"
+            : "New commits update the same comment"}
         </p>
         <p>
           After a result arrives here, check the workflow’s Publish report step and the PR for its comment. Lens

@@ -45,6 +45,13 @@ const target = {
 } satisfies ConnectTarget;
 
 describe("connect snippets", () => {
+  it("publishes through the connected App without requesting workflow write permissions", () => {
+    const workflow = workflowSnippet({ ...target, reportViaApp: true });
+    expect(workflow).toContain("report-via-app: true");
+    expect(workflow).toContain("permissions:\n  contents: read\njobs:");
+    expect(workflow).not.toContain("checks: write");
+    expect(workflow).not.toContain("pull-requests: write");
+  });
   it("points the workflow at this Lens and keeps credentials in repo secrets", () => {
     const workflow = workflowSnippet(target);
     expect(workflow).toContain("base-url: ${{ vars.LENS_BASE_URL }}");

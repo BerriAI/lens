@@ -69,6 +69,59 @@ it("should keep Home selected when connected agents load and offer their directo
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("agents"));
 });
 
+it("returns from GitHub to the callback agent’s repository picker and clears the authorization after saving", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  const connect = vi.fn();
+  const statusAgent = vi.fn();
+  const connection = {
+    agent: "qa-agent",
+    repository_id: 101,
+    repository: "lens-test/agent",
+    installation_id: 17,
+    default_branch: "main",
+    connected_at: "2026-10-09T19:00:00Z",
+    available: true,
+  };
+  let connected = false;
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/lens/github/status") {
+      statusAgent(request.query.get("agent"));
+      return Response.json({ configured: true, app_slug: "lens-qa", connection: connected ? connection : null });
+    }
+    if (request.path === "/lens/github/authorizations/qa-callback")
+      return Response.json({ status: "ready", repositories: [{ id: 101, full_name: "lens-test/agent", installation_id: 17, default_branch: "main" }] });
+    if (request.path === "/lens/github/connections/qa-agent" && request.method === "PUT") {
+      connect(request.body);
+      connected = true;
+      return Response.json(connection);
+    }
+    if (request.path === "/v1/traces/agents")
+      return Response.json({ agents: ["other-agent", "qa-agent"].map((name) => ({ name, runs: 1, failed_runs: 0, frameworks: [], last_seen: new Date().toISOString() })) });
+    if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    return Response.json({ data: [], traces: true, requests: false });
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: "?tab=agents&agent=other-agent&github_agent=qa-agent&github_authorization=qa-callback",
+    onUrlUpdate,
+  });
+
+  const dialog = await screen.findByRole("dialog", { name: "Connect GitHub" });
+  expect(dialog).toHaveTextContent("Connect qa-agent to a repository through the Lens GitHub App");
+  expect(await within(dialog).findByRole("combobox", { name: "GitHub repository" })).toHaveTextContent("lens-test/agent");
+  await user.click(within(dialog).getByRole("button", { name: "Connect repository" }));
+  expect(await within(dialog).findByRole("heading", { name: "GitHub connected" })).toBeVisible();
+  expect(connect).toHaveBeenCalledExactlyOnceWith({ authorization_id: "qa-callback", repository_id: 101 });
+  expect(statusAgent).toHaveBeenCalledWith("qa-agent");
+  expect(statusAgent).not.toHaveBeenCalledWith("other-agent");
+  await expectUrl(onUrlUpdate, (url) => expect(url.has("github_authorization")).toBe(false));
+  expect(lastUrl(onUrlUpdate).get("github_agent")).toBe("qa-agent");
+  expect(lastUrl(onUrlUpdate).get("agent")).toBe("other-agent");
+  await user.keyboard("{Escape}");
+  await expectUrl(onUrlUpdate, (url) => expect(url.has("github_agent")).toBe(false));
+});
+
 it("keeps installation controls mounted while readiness retries and continues after Lens connects", async () => {
   const user = userEvent.setup();
   const unavailable = () => Response.json({ detail: "Configure Lens" }, { status: 503 });

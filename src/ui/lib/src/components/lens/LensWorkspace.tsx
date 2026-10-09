@@ -23,7 +23,7 @@ import { LensTabs } from "./LensTabs";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
-import { LENS_TABS, useDialogRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
+import { LENS_TABS, useDialogRoute, useGitHubRoute, useIssueRoute, useLensRoute, type LensDialog, type LensTab } from "./route";
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
@@ -98,7 +98,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const [connectingAgent, setConnectingAgent] = useState(false);
-  const [githubAgent, setGithubAgent] = useState<string | null>(null);
+  const github = useGitHubRoute();
   const { dialog, openDialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
@@ -110,7 +110,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     canConfigure && !demo
       ? (name: string) => {
           setConnectingAgent(false);
-          setGithubAgent(name);
+          github.open(name);
         }
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
@@ -350,15 +350,17 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           }}
         />
       )}
-      {githubAgent && connectGitHub && (
+      {github.agent && connectGitHub && (
         <AgentGitHubDialog
-          key={githubAgent}
-          agent={githubAgent}
+          key={github.agent}
+          agent={github.agent}
+          authorizationId={github.authorizationId}
+          onAuthorizationComplete={github.complete}
           onOpenChange={(open) => {
-            if (!open) setGithubAgent(null);
+            if (!open) github.close();
           }}
           onOpenDatasets={() => {
-            setGithubAgent(null);
+            github.close();
             setTab("datasets");
           }}
         />

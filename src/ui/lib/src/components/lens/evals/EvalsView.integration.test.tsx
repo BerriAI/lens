@@ -292,9 +292,11 @@ describe("Evals", () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     let runs: EvalRun[] = [];
-    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
-      path === "/lens/evals/runs" ? runs : serve(path, request),
-    );
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) => {
+      if (path === "/lens/evals/runs") return runs;
+      if (path === "/lens/github/status") return { configured: false, app_slug: null, connection: null };
+      return serve(path, request);
+    });
     renderWithLens(<EvalsView />, { searchParams: evalPage, onUrlUpdate });
 
     const connect = await screen.findByRole("region", {
@@ -306,8 +308,8 @@ describe("Evals", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Connect GitHub",
     });
-    expect(within(dialog).getByRole("textbox", { name: "GitHub repository" })).toBeVisible();
-    expect(await within(dialog).findByRole("combobox", { name: "Eval to run" })).toHaveTextContent("agent-regressions");
+    expect(await within(dialog).findByRole("heading", { name: "GitHub App setup required" })).toBeVisible();
+    expect(within(dialog).queryByRole("textbox", { name: "GitHub repository" })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
 
     runs = [redRun];

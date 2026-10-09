@@ -25,6 +25,7 @@ export interface ConnectTarget {
   readonly repository?: GitHubRepository;
   readonly taskImport?: TaskImport;
   readonly installCommand?: string;
+  readonly reportViaApp?: boolean;
 }
 
 const pyString = (value: string) => JSON.stringify(value);
@@ -158,7 +159,7 @@ function gateCall(definition: EvalDefinition): string {
 }
 
 const ACTION =
-  "BerriAI/lens/src/sdk/action@bec4df25741e5a88563c36dbe240af18fad41f07";
+  "BerriAI/lens/src/sdk/action@51651cc61bc3863b524683a34f02732e2717b7b7";
 
 export function evalModule(agent: string): string {
   const name =
@@ -196,9 +197,7 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
-jobs:
+${target.reportViaApp ? "" : "  checks: write\n  pull-requests: write\n"}jobs:
   lens:
     if: \${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
@@ -215,7 +214,7 @@ ${installStep}      - uses: ${ACTION}
           base-url: \${{ vars.LENS_BASE_URL }}
           path: ${yamlString(evalFilePath(target))}
           install-from-source: true
-`;
+${target.reportViaApp ? "          report-via-app: true\n" : ""}`;
 }
 
 export function pyprojectSnippet(target: ConnectTarget): string {

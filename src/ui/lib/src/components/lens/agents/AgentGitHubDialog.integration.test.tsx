@@ -7,345 +7,619 @@ import {
   chooseSelectOption,
   testQueryClient,
 } from "../../../../tests/test-utils";
-import type { DatasetSummary } from "../datasets/types";
-import { evalRun, summary } from "../evals/runs/testRuns";
-import type { EvalDefinition, EvalRun } from "../evals/runs/types";
 import { AgentGitHubDialog } from "./AgentGitHubDialog";
+import type {
+  GitHubAuthorization,
+  GitHubConnectionStatus,
+  GitHubRepositoryOption,
+} from "./githubConnection";
 
 const agent = "qa-agent";
-const repository = "lens-test/agent";
-const repositoryUrl = `https://github.com/${repository}`;
-const dataset: DatasetSummary = {
-  id: "qa-dataset",
-  name: "Regression cases",
-  agent_name: agent,
-  revision: 2,
-  case_count: 4,
-  updated_at: "2026-10-01T00:00:00Z",
+const authorizationId = "qa-authorization";
+const authorizationPath = `/lens/github/authorizations/${authorizationId}`;
+const connectionPath = `/lens/github/connections/${agent}`;
+const authorizationUrl =
+  "https://github.com/login/oauth/authorize?client_id=qa-client&state=qa-state";
+const installationUrl =
+  "https://github.com/apps/lens-qa/installations/new?state=qa-state";
+const authorizationStart = {
+  authorization_url: authorizationUrl,
+  authorization_id: authorizationId,
+  expires_at: "2026-10-09T20:00:00Z",
 };
-const definition: EvalDefinition = {
-  name: "agent-regressions",
-  spec: {
-    agent,
-    dataset_id: dataset.id,
-    revision: null,
-    scorers: [{ kind: "task_completed" }],
-    trials: 3,
-    baseline: "main",
-    gate: {
-      regressions: 0,
-      critical: 0,
-      pass_rate: null,
-      cost_per_case: null,
-      min: {},
-    },
-    timeout_per_trial_ms: 1_200_000,
-  },
-  updated_at: "2026-10-01T00:00:00Z",
+const repository: GitHubRepositoryOption = {
+  id: 101,
+  full_name: "lens-test/agent",
+  installation_id: 17,
+  default_branch: "main",
 };
-const otherEval: EvalDefinition = { ...definition, name: "agent-smoke" };
-const otherAgent: EvalDefinition = {
-  ...definition,
-  name: "unrelated-agent-eval",
-  spec: { ...definition.spec, agent: "another-agent" },
+const anotherRepository: GitHubRepositoryOption = {
+  ...repository,
+  id: 102,
+  full_name: "lens-test/another-agent",
 };
-const run = (id: string, overrides: Partial<EvalRun> = {}) =>
-  evalRun(id, {
-    agent,
-    eval: definition.name,
-    ci_url: `${repositoryUrl}/actions/runs/123`,
-    ...overrides,
-  });
+const connection: GitHubConnectionStatus = {
+  agent,
+  repository_id: repository.id,
+  repository: repository.full_name,
+  installation_id: repository.installation_id,
+  default_branch: repository.default_branch,
+  connected_at: "2026-10-09T19:00:00Z",
+  available: true,
+};
+const disconnected = {
+  configured: true,
+  app_slug: "lens-qa",
+  connection: null,
+};
+const ready: GitHubAuthorization = {
+  status: "ready",
+  repositories: [repository, anotherRepository],
+};
 
 let gateway = stubGateway();
-const serve =
-  (runs: readonly EvalRun[] = []) =>
-  (path: string) => {
-    if (path === "/lens/evals") return [definition, otherEval, otherAgent];
-    if (path === "/lens/datasets") return [dataset];
-    if (path === "/lens/evals/runs") return runs;
-    throw new Error(`Unexpected GET ${path}`);
-  };
-const change = (name: string, value: string) =>
-  fireEvent.change(screen.getByRole("textbox", { name }), {
-    target: { value },
-  });
-const prepare = async (user: ReturnType<typeof userEvent.setup>) => {
-  await screen.findByRole("combobox", { name: "Eval to run" });
-  change("GitHub repository", repository);
-  change("Lens URL", "https://lens.example.test");
-  await user.click(screen.getByRole("button", { name: "Continue" }));
-};
-const verify = async (user: ReturnType<typeof userEvent.setup>) => {
-  await prepare(user);
-  await user.click(
-    screen.getByRole("button", { name: "I’ve added the workflow" }),
-  );
-  await waitFor(() =>
-    expect(
-      screen.getByRole("button", { name: "Check for PR eval" }),
-    ).toBeEnabled(),
-  );
-};
 
 beforeEach(() => {
   testQueryClient.clear();
   gateway = stubGateway();
-  gateway.get.mockImplementation(serve());
+  gateway.get.mockImplementation((path) => {
+    if (path === "/lens/github/status") return disconnected;
+    if (path === authorizationPath) return ready;
+    throw new Error(`Unexpected GET ${path}`);
+  });
+  gateway.post.mockImplementation((_path, options) => ({
+    ...authorizationStart,
+    authorization_url:
+      typeof options.body === "object" &&
+      options.body !== null &&
+      "install" in options.body &&
+      options.body.install === true
+        ? installationUrl
+        : authorizationUrl,
+  }));
 });
 
-describe("Agent GitHub connection", () => {
-  it("chooses this agent’s eval and carries repository, runtime and dataset into reviewable setup files", async () => {
+describe("GitHub App connection", () => {
+  it("explains missing deployment configuration and authorizes only once configuration becomes available", async () => {
     const user = userEvent.setup();
-    renderWithLens(<AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} />);
-    const selector = await screen.findByRole("combobox", {
-      name: "Eval to run",
+    const onAuthorize = vi.fn();
+    gateway.get.mockReturnValue({
+      ...disconnected,
+      configured: false,
+      app_slug: null,
     });
-    await user.click(selector);
-    expect(
-      screen.queryByRole("option", { name: otherAgent.name }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: otherEval.name }));
-    change("GitHub repository", `${repositoryUrl}.git`);
-    change("Lens URL", "https://lens.example.test/");
-    await user.click(screen.getByText("Agent runtime"));
-    change("Existing eval task (optional)", "my_agent.evals:task");
-    change("Install and start your agent (optional)", "npm ci");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    const workflow = screen.getByRole("tabpanel", {
-      name: ".github/workflows/lens.yml",
-    });
-    expect(workflow).toHaveTextContent("npm ci");
-    expect(workflow).toHaveTextContent("evals/agent_smoke.py");
-    expect(workflow).toHaveTextContent(
-      "github.event.pull_request.head.repo.full_name == github.repository",
-    );
-    expect(workflow).toHaveTextContent("${{ secrets.LENS_API_KEY }}");
-    expect(workflow).toHaveTextContent("${{ vars.LENS_BASE_URL }}");
-    expect(
-      screen.getByRole("link", { name: "Open repository secrets" }),
-    ).toHaveAttribute("href", `${repositoryUrl}/settings/secrets/actions`);
-    expect(
-      screen.getByRole("link", { name: "Open repository variables" }),
-    ).toHaveAttribute("href", `${repositoryUrl}/settings/variables/actions`);
-    expect(screen.getByText(/A tracing key cannot run evals/)).toBeVisible();
-    await user.click(screen.getByRole("tab", { name: "evals/agent_smoke.py" }));
-    expect(screen.getByRole("tabpanel")).toHaveTextContent(
-      "from my_agent.evals import task as agent_task",
-    );
-    expect(screen.getByRole("tabpanel")).toHaveTextContent(
-      'data="Regression cases@2"',
-    );
-    await user.click(screen.getByRole("tab", { name: "pyproject.toml" }));
-    expect(screen.getByRole("tabpanel")).toHaveTextContent(
-      `project = "${agent}"`,
-    );
-    expect(gateway.post).not.toHaveBeenCalled();
-    expect(gateway.put).not.toHaveBeenCalled();
-  });
-
-  it("rejects a localhost Lens URL and explains that an unconfigured adapter must be implemented", async () => {
-    const user = userEvent.setup();
-    renderWithLens(<AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} />);
-    await screen.findByRole("combobox", { name: "Eval to run" });
-    change("GitHub repository", repository);
-    change("Lens URL", "https://localhost:3100");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "GitHub-hosted runners cannot reach localhost",
-    );
-    expect(screen.queryByRole("tabpanel")).not.toBeInTheDocument();
-    change("Lens URL", "https://lens.example.test");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      screen.getByText(/The template will fail until you connect your agent/),
-    ).toBeVisible();
-    await user.click(
-      screen.getByRole("tab", { name: "evals/agent_regressions.py" }),
-    );
-    expect(screen.getByRole("tabpanel")).toHaveTextContent(
-      "raise NotImplementedError",
-    );
-  });
-
-  it("does not verify unrelated repositories, agents, evals, or local runs", async () => {
-    const user = userEvent.setup();
-    gateway.get.mockImplementation(
-      serve([
-        run("wrong-repo", {
-          pr: 11,
-          ci_url: "https://github.com/lens-test/other/actions/runs/123",
-        }),
-        run("wrong-agent", { pr: 12, agent: "another-agent" }),
-        run("wrong-eval", { pr: 13, eval: otherEval.name }),
-        run("local", { pr: 14, ci_url: null }),
-      ]),
-    );
-    renderWithLens(<AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} />);
-    await verify(user);
-    expect(
-      screen.getByRole("heading", { name: "Waiting for your first PR eval" }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "View eval result" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /Open PR/ }),
-    ).not.toBeInTheDocument();
-    expect(gateway.get).toHaveBeenCalledWith(
-      "/lens/evals/runs",
-      expect.objectContaining({
-        query: {
-          agent,
-          eval: definition.name,
-          include_ci: "true",
-          limit: "100",
-        },
-      }),
-    );
-  });
-
-  it("distinguishes a running PR, a failure, and a completed result without claiming its comment was published", async () => {
-    const user = userEvent.setup();
-    const onOpenChange = vi.fn();
-    const onUrlUpdate = vi.fn();
-    const baseline = run("baseline");
-    const pull = run("candidate", {
-      pr: 17,
-      branch: "feature",
-      status: "scoring",
-      summary: null,
-    });
-    gateway.get.mockImplementation(serve([pull, baseline]));
-    renderWithLens(
-      <AgentGitHubDialog agent={agent} onOpenChange={onOpenChange} />,
-      { onUrlUpdate },
-    );
-    await verify(user);
-    expect(
-      screen.getByText(
-        "PR #17 is scoring. Check again when the workflow finishes",
-      ),
-    ).toBeVisible();
-    expect(screen.getByText("Baseline received from main")).toBeVisible();
-
-    gateway.get.mockImplementation(
-      serve([
-        { ...pull, status: "failed", failure: "Agent could not start" },
-        baseline,
-      ]),
-    );
-    await user.click(screen.getByRole("button", { name: "Check for PR eval" }));
-    expect(
-      await screen.findByRole("heading", { name: "PR eval needs attention" }),
-    ).toBeVisible();
-    expect(screen.getByText("Agent could not start")).toBeVisible();
-
-    gateway.get.mockImplementation(
-      serve([
-        {
-          ...pull,
-          status: "done",
-          summary: summary({
-            gate: { passed: false, reasons: ["regression"] },
-          }),
-        },
-        baseline,
-      ]),
-    );
-    await user.click(screen.getByRole("button", { name: "Check for PR eval" }));
-    expect(
-      await screen.findByRole("heading", { name: "PR eval received" }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/Gate failed, review the result before merging/),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/Lens receives the eval before GitHub publishes it/),
-    ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Open PR #17" })).toHaveAttribute(
-      "href",
-      `${repositoryUrl}/pull/17`,
-    );
-    await user.click(screen.getByRole("button", { name: "View eval result" }));
-    await waitFor(() =>
-      expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("eval_run")).toBe(
-        pull.id,
-      ),
-    );
-    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("agent")).toBe(agent);
-    expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("eval")).toBe(definition.name);
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it("recovers when checking PR runs fails", async () => {
-    const user = userEvent.setup();
-    renderWithLens(<AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} />);
-    await prepare(user);
-    gateway.get.mockImplementation((path) => {
-      if (path === "/lens/evals/runs") throw new Error("Unavailable");
-      return serve()(path);
-    });
-    await user.click(
-      screen.getByRole("button", { name: "I’ve added the workflow" }),
-    );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not check eval runs",
-    );
-    gateway.get.mockImplementation(serve([run("received", { pr: 19 })]));
-    await user.click(screen.getByRole("button", { name: "Check for PR eval" }));
-    expect(
-      await screen.findByRole("heading", { name: "PR eval received" }),
-    ).toBeVisible();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("routes an agent without datasets to the prerequisite instead of promising a connected workflow", async () => {
-    const user = userEvent.setup();
-    const onOpenDatasets = vi.fn();
-    gateway.get.mockReturnValue([]);
     renderWithLens(
       <AgentGitHubDialog
         agent={agent}
         onOpenChange={vi.fn()}
-        onOpenDatasets={onOpenDatasets}
+        onAuthorize={onAuthorize}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "GitHub App setup required" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "GitHub App setup guide" }),
+    ).toHaveAttribute("href", expect.stringContaining("/docs/github-app.md"));
+    expect(
+      screen.queryByRole("textbox", { name: "GitHub repository" }),
+    ).not.toBeInTheDocument();
+    expect(gateway.post).not.toHaveBeenCalled();
+    expect(onAuthorize).not.toHaveBeenCalled();
+
+    gateway.get.mockReturnValue(disconnected);
+    await user.click(
+      screen.getByRole("button", { name: "Check configuration" }),
+    );
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
+    );
+    expect(gateway.post).toHaveBeenCalledExactlyOnceWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+  });
+
+  it("opens GitHub App installation for this agent once before authorization without requiring workflow fields", async () => {
+    const onAuthorize = vi.fn();
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
+    );
+    expect(gateway.post).toHaveBeenCalledExactlyOnceWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+    expect(gateway.get).toHaveBeenCalledWith(
+      "/lens/github/status",
+      expect.objectContaining({ query: { agent } }),
+    );
+    expect(
+      screen.getByText(
+        /Choose your GitHub account or organization and install/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("textbox", { name: "Lens URL" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Set up PR evals" }),
+    ).not.toBeInTheDocument();
+    await testQueryClient.invalidateQueries();
+    expect(gateway.post).toHaveBeenCalledOnce();
+    expect(onAuthorize).toHaveBeenCalledOnce();
+  });
+
+  it("retries the installation picker when the initial connection request fails", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.post.mockImplementationOnce(() => {
+      throw new Error("Could not start GitHub installation");
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not start GitHub installation",
+    );
+    expect(onAuthorize).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Continue to GitHub" }),
+    );
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledExactlyOnceWith(installationUrl),
+    );
+    expect(gateway.post).toHaveBeenNthCalledWith(
+      2,
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await testQueryClient.invalidateQueries();
+    expect(gateway.post).toHaveBeenCalledTimes(2);
+  });
+
+  it("links only the selected authorized repository and remembers it when reopened", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    const onAuthorizationComplete = vi.fn();
+    const chosen: GitHubConnectionStatus = {
+      ...connection,
+      repository_id: anotherRepository.id,
+      repository: anotherRepository.full_name,
+    };
+    gateway.put.mockImplementation(() => {
+      gateway.get.mockImplementation((path) =>
+        path === "/lens/github/status"
+          ? { ...disconnected, connection: chosen }
+          : ready,
+      );
+      return chosen;
+    });
+    const view = renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+        onAuthorizationComplete={onAuthorizationComplete}
+      />,
+    );
+    const picker = await screen.findByRole("combobox", {
+      name: "GitHub repository",
+    });
+    await chooseSelectOption(user, picker, anotherRepository.full_name);
+    await user.click(
+      screen.getByRole("button", { name: "Connect repository" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "GitHub connected" }),
+    ).toBeVisible();
+    expect(gateway.put).toHaveBeenCalledExactlyOnceWith(
+      connectionPath,
+      expect.objectContaining({
+        body: {
+          authorization_id: authorizationId,
+          repository_id: anotherRepository.id,
+        },
+      }),
+    );
+    expect(
+      screen.getByRole("link", { name: anotherRepository.full_name }),
+    ).toHaveAttribute(
+      "href",
+      `https://github.com/${anotherRepository.full_name}`,
+    );
+    expect(
+      screen.getByText(/Connecting GitHub does not run an eval by itself/),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Set up PR evals" }),
+    ).toBeEnabled();
+    expect(onAuthorize).not.toHaveBeenCalled();
+    expect(onAuthorizationComplete).toHaveBeenCalledOnce();
+
+    view.unmount();
+    testQueryClient.clear();
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(
+      await screen.findByRole("heading", { name: "GitHub connected" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: anotherRepository.full_name }),
+    ).toBeVisible();
+    expect(onAuthorize).not.toHaveBeenCalled();
+  });
+
+  it("waits for the callback before offering repository selection", async () => {
+    const onAuthorize = vi.fn();
+    gateway.get.mockImplementation((path) =>
+      path === authorizationPath
+        ? { status: "pending", repositories: [] }
+        : disconnected,
+    );
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(
+      await screen.findByText("Completing GitHub authorization"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Connect repository" }),
+    ).not.toBeInTheDocument();
+    expect(onAuthorize).not.toHaveBeenCalled();
+    gateway.get.mockImplementation((path) =>
+      path === authorizationPath ? ready : disconnected,
+    );
+    await testQueryClient.invalidateQueries();
+    expect(
+      await screen.findByRole("combobox", { name: "GitHub repository" }),
+    ).toBeVisible();
+    expect(gateway.post).not.toHaveBeenCalled();
+  });
+
+  it("restarts cancelled or expired authorization without claiming the agent is connected", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.get.mockImplementation((path) =>
+      path === authorizationPath
+        ? { status: "failed", repositories: [], error: "Authorization expired" }
+        : disconnected,
+    );
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your agent is not connected",
+    );
+    expect(
+      screen.queryByRole("heading", { name: "GitHub connected" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try GitHub again" }));
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledWith(authorizationUrl),
+    );
+    expect(gateway.post).toHaveBeenCalledWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: false } }),
+    );
+  });
+
+  it("requests App installation when authorization has no accessible repositories", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.get.mockImplementation((path) =>
+      path === authorizationPath
+        ? { status: "ready", repositories: [] }
+        : disconnected,
+    );
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "Create a dataset first" }),
+      await screen.findByRole("button", { name: "Install GitHub App" }),
     );
-    expect(onOpenDatasets).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledWith(installationUrl),
+    );
+    expect(gateway.post).toHaveBeenCalledWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+    expect(gateway.put).not.toHaveBeenCalled();
   });
 
-  it("prefills the current agent while creating its first eval and returns it to GitHub setup", async () => {
+  it("offers access recovery and blocks eval setup when the App loses repository access", async () => {
     const user = userEvent.setup();
-    gateway.get.mockImplementation((path) =>
-      path === "/lens/evals" ? [] : serve()(path),
+    const onAuthorize = vi.fn();
+    gateway.get.mockReturnValue({
+      ...disconnected,
+      connection: {
+        ...connection,
+        available: false,
+        availability_error: "Installation unavailable",
+      },
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
     );
-    gateway.put.mockReturnValue(definition);
-    renderWithLens(<AgentGitHubDialog agent={agent} onOpenChange={vi.fn()} />);
-    await user.click(
-      await screen.findByRole("button", { name: "Create eval" }),
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "GitHub access needs attention",
     );
-    expect(screen.getByRole("textbox", { name: "Agent" })).toHaveValue(agent);
-    change("Name", definition.name);
-    await chooseSelectOption(
-      user,
-      screen.getByRole("combobox", { name: "Dataset" }),
-      /Regression cases/,
-    );
-    gateway.get.mockImplementation(serve());
-    await user.click(screen.getByRole("button", { name: "Create eval" }));
     expect(
-      await screen.findByRole("combobox", { name: "Eval to run" }),
-    ).toHaveTextContent(definition.name);
-    expect(gateway.put).toHaveBeenCalledWith(
-      `/lens/evals/${definition.name}`,
-      expect.objectContaining({
-        body: expect.objectContaining({ agent, dataset_id: dataset.id }),
-      }),
+      screen.queryByRole("button", { name: "Set up PR evals" }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Restore GitHub access" }),
     );
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledWith(installationUrl),
+    );
+    expect(gateway.post).toHaveBeenCalledWith(
+      "/lens/github/authorize",
+      expect.objectContaining({ body: { agent, install: true } }),
+    );
+  });
+
+  it("disconnects the persisted repository without automatically starting a new authorization", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.get.mockReturnValue({ ...disconnected, connection });
+    gateway.delete.mockImplementation(() => {
+      gateway.get.mockReturnValue(disconnected);
+      return null;
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Disconnect" }));
+    expect(
+      await screen.findByRole("button", { name: "Continue to GitHub" }),
+    ).toBeVisible();
+    expect(gateway.delete).toHaveBeenCalledWith(
+      connectionPath,
+      expect.anything(),
+    );
+    expect(
+      screen.queryByRole("heading", { name: "GitHub connected" }),
+    ).not.toBeInTheDocument();
+    expect(onAuthorize).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed status request before opening GitHub", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    gateway.get.mockImplementation(() => {
+      throw new Error("Network unavailable");
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not check the GitHub connection",
+    );
+    expect(gateway.post).not.toHaveBeenCalled();
+    gateway.get.mockReturnValue(disconnected);
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() =>
+      expect(onAuthorize).toHaveBeenCalledWith(installationUrl),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps repository selection available when saving the connection is rejected", async () => {
+    const user = userEvent.setup();
+    gateway.put.mockImplementation(() => {
+      throw new Error("Repository access changed. Authorize again");
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={vi.fn()}
+      />,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Connect repository" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Repository access changed",
+    );
+    expect(
+      screen.getByRole("combobox", { name: "GitHub repository" }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole("heading", { name: "GitHub connected" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not start GitHub authorization when the Lens session is unauthorized", async () => {
+    const onAuthorize = vi.fn();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(
+        Response.json({ detail: "Not authenticated" }, { status: 401 }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+      { accessToken: "" },
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not check the GitHub connection",
+    );
+    expect(
+      screen.queryByRole("combobox", { name: "GitHub repository" }),
+    ).not.toBeInTheDocument();
+    expect(onAuthorize).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("shows the callback repository picker when updating an existing connection", async () => {
+    gateway.get.mockImplementation((path) =>
+      path === authorizationPath ? ready : { ...disconnected, connection },
+    );
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        authorizationId={authorizationId}
+        onOpenChange={vi.fn()}
+        onAuthorize={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: "GitHub repository" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "GitHub connected" }),
+    ).not.toBeInTheDocument();
+    expect(gateway.post).not.toHaveBeenCalled();
+  });
+
+  it("rechecks a cached disconnected agent before reopening authorization", async () => {
+    const onAuthorize = vi.fn();
+    const view = renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    await waitFor(() => expect(onAuthorize).toHaveBeenCalledOnce());
+    view.unmount();
+    gateway.get.mockReturnValue({ ...disconnected, connection });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={onAuthorize}
+      />,
+    );
+    expect(
+      await screen.findByRole("heading", { name: "GitHub connected" }),
+    ).toBeVisible();
+    expect(onAuthorize).toHaveBeenCalledOnce();
+  });
+
+  it("carries the connected repository into eval setup and publishes through the App", async () => {
+    const user = userEvent.setup();
+    gateway.get.mockImplementation((path) => {
+      if (path === "/lens/github/status")
+        return { ...disconnected, connection };
+      if (path === "/lens/datasets")
+        return [
+          {
+            id: "qa-cases",
+            name: "QA cases",
+            agent_name: agent,
+            revision: 1,
+            case_count: 1,
+            updated_at: "2026-10-09T19:00:00Z",
+          },
+        ];
+      if (path === "/lens/evals")
+        return [
+          {
+            name: "qa-eval",
+            spec: {
+              agent,
+              dataset_id: "qa-cases",
+              revision: 1,
+              scorers: [{ kind: "task_completed" }],
+              trials: 1,
+              baseline: "main",
+              gate: {
+                regressions: 0,
+                critical: 0,
+                pass_rate: null,
+                cost_per_case: null,
+                min: {},
+              },
+              timeout_per_trial_ms: 1200000,
+            },
+            updated_at: "2026-10-09T19:00:00Z",
+          },
+        ];
+      if (path === "/lens/evals/runs") return [];
+      throw new Error(`Unexpected GET ${path}`);
+    });
+    renderWithLens(
+      <AgentGitHubDialog
+        agent={agent}
+        onOpenChange={vi.fn()}
+        onAuthorize={vi.fn()}
+      />,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Set up PR evals" }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "GitHub repository" }),
+    ).toHaveValue(repository.full_name);
+    expect(
+      screen.getByRole("textbox", { name: "GitHub repository" }),
+    ).toHaveAttribute("readonly");
+    await screen.findByRole("combobox", { name: "Eval to run" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Lens URL" }), {
+      target: { value: "https://lens.example.test" },
+    });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("tabpanel", { name: ".github/workflows/lens.yml" }),
+    ).toHaveTextContent("report-via-app: true");
+    expect(screen.getByRole("tabpanel")).not.toHaveTextContent(
+      "pull-requests: write",
+    );
+    expect(screen.getByRole("tabpanel")).not.toHaveTextContent("checks: write");
   });
 });

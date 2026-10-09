@@ -1,307 +1,281 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Github } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, Github, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { useDatasets } from "../datasets/api";
-import { NewEval } from "../evals/NewEval";
-import { useEvals, useEvalRuns } from "../evals/runs/api";
-import {
-  githubRunRepository,
-  parseGitHubRepository,
-  parseTaskImport,
-  type ConnectTarget,
-} from "../evals/runs/connectSnippets";
 import type { EvalDefinition } from "../evals/runs/types";
-import { getRequestBaseUrl } from "../../../lib/http/runtime";
-import { VerifyGitHub, WorkflowSetup } from "./GitHubWorkflowSetup";
+import { GitHubEvalSetupDialog } from "./GitHubEvalSetupDialog";
+import { openGitHubAuthorization, useGitHubConnection } from "./githubConnection";
 
 interface AgentGitHubDialogProps {
   readonly agent: string;
+  readonly authorizationId?: string | null;
   readonly definition?: EvalDefinition;
   readonly onOpenChange: (open: boolean) => void;
   readonly onOpenDatasets?: () => void;
+  readonly onAuthorize?: (url: string) => void;
+  readonly onAuthorizationComplete?: () => void;
 }
 
-export function AgentGitHubDialog(props: AgentGitHubDialogProps) {
+export function AgentGitHubDialog({
+  agent,
+  authorizationId,
+  definition,
+  onOpenChange,
+  onOpenDatasets,
+  onAuthorize = openGitHubAuthorization,
+  onAuthorizationComplete,
+}: AgentGitHubDialogProps) {
+  const github = useGitHubConnection(agent, authorizationId);
+  const [repositoryId, setRepositoryId] = useState<string | null>(null);
+  const [settingUpEvals, setSettingUpEvals] = useState(false);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
+  const started = useRef(false);
+  const connection = github.status.data?.connection;
+  const authorized = github.authorization.data;
+  const repositories = authorized?.repositories ?? [];
+  const selected = repositories.find((repo) => String(repo.id) === repositoryId) ?? repositories[0];
+  const startAuthorization = github.start.mutate;
+  const begin = useCallback(
+    (install: boolean) => {
+      setRedirectError(null);
+      startAuthorization(install, {
+        onSuccess: ({ authorization_url }) => {
+          try {
+            onAuthorize(authorization_url);
+          } catch {
+            setRedirectError("Could not open GitHub. Try again");
+          }
+        },
+      });
+    },
+    [startAuthorization, onAuthorize],
+  );
+
+  useEffect(() => {
+    if (
+      started.current ||
+      authorizationId ||
+      !github.status.isFetchedAfterMount ||
+      github.status.isFetching ||
+      github.status.isError ||
+      !github.status.data?.configured ||
+      connection
+    )
+      return;
+    started.current = true;
+    begin(true);
+  }, [
+    authorizationId,
+    github.status.data,
+    github.status.isFetchedAfterMount,
+    github.status.isFetching,
+    github.status.isError,
+    connection,
+    begin,
+  ]);
+
+  useEffect(() => {
+    if (authorizationId && (github.connect.isSuccess || (connection && authorized?.status === "connected")))
+      onAuthorizationComplete?.();
+  }, [authorizationId, github.connect.isSuccess, connection, authorized?.status, onAuthorizationComplete]);
+
+  if (settingUpEvals && connection)
+    return (
+      <GitHubEvalSetupDialog
+        agent={agent}
+        repository={connection.repository}
+        definition={definition}
+        onOpenChange={onOpenChange}
+        onOpenDatasets={onOpenDatasets}
+      />
+    );
+
+  const error =
+    redirectError || github.start.error?.message || github.connect.error?.message || github.disconnect.error?.message;
   return (
-    <Dialog open onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader className="pr-6">
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Github aria-hidden="true" className="size-5" /> Connect GitHub
           </DialogTitle>
           <DialogDescription>
-            Run evals for <span className="font-medium text-foreground">{props.agent}</span> on pull requests and get a
-            Lens report in GitHub
+            Connect <span className="font-medium text-foreground">{agent}</span> to a repository through the Lens GitHub
+            App
           </DialogDescription>
         </DialogHeader>
-        <GitHubSetup {...props} />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
-function GitHubSetup({ agent, definition, onOpenChange, onOpenDatasets }: AgentGitHubDialogProps) {
-  const evals = useEvals();
-  const datasets = useDatasets();
-  const [step, setStep] = useState<"repository" | "workflow" | "verify">("repository");
-  const [creating, setCreating] = useState(false);
-  const [repoInput, setRepoInput] = useState<string | null>(null);
-  const [evalName, setEvalName] = useState(definition?.name ?? "");
-  const [baseUrl, setBaseUrl] = useState(
-    () => getRequestBaseUrl() || (typeof window === "undefined" ? "" : window.location.origin),
-  );
-  const [task, setTask] = useState("");
-  const [installCommand, setInstallCommand] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [target, setTarget] = useState<ConnectTarget | null>(null);
-  const available = (evals.data ?? []).filter((item) => item.spec.agent === agent);
-  const selected = available.find((item) => item.name === evalName) ?? definition ?? available[0];
-  const runs = useEvalRuns({ agent, eval: selected?.name, include_ci: true, limit: 100 });
-  const observed = runs.data?.map((run) => githubRunRepository(run.ci_url)).find((repo) => repo !== null);
-  const repository = repoInput ?? observed?.fullName ?? "";
-  const prepare = () => {
-    const repo = parseGitHubRepository(repository);
-    if (!repo.ok) return setError(repo.error);
-    if (!selected) return setError("Choose or create an eval for this agent");
-    const dataset = datasets.data?.find((item) => item.id === selected.spec.dataset_id);
-    if (!dataset) return setError("The eval’s dataset is unavailable. Check dataset access and try again");
-    const parsedTask = task.trim() ? parseTaskImport(task) : null;
-    if (parsedTask && !parsedTask.ok) return setError(parsedTask.error);
-    try {
-      const url = new URL(baseUrl);
-      if (
-        url.protocol !== "https:" ||
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
-        ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
-      ) {
-        return setError(
-          "Enter a reachable HTTPS Lens URL without credentials or query parameters. GitHub-hosted runners cannot reach localhost",
-        );
-      }
-      setTarget({
-        definition: selected,
-        dataset: dataset.name,
-        revision: selected.spec.revision ?? dataset.revision,
-        baseUrl: url.href.replace(/\/+$/, ""),
-        repository: repo.value,
-        taskImport: parsedTask?.ok ? parsedTask.value : undefined,
-        installCommand,
-      });
-      setError(null);
-      setStep("workflow");
-    } catch {
-      setError("Enter the HTTPS address of your Lens deployment");
-    }
-  };
-  if (creating)
-    return (
-      <NewEval
-        initialAgent={agent}
-        onCancel={() => setCreating(false)}
-        onSaved={(name) => {
-          setEvalName(name);
-          setCreating(false);
-        }}
-      />
-    );
-  return (
-    <div className="min-w-0 space-y-5">
-      <ol aria-label="GitHub setup progress" className="flex items-center gap-3 border-b pb-4 text-xs">
-        {(["repository", "workflow", "verify"] as const).map((item, index) => (
-          <li
-            key={item}
-            aria-current={step === item ? "step" : undefined}
-            className={`flex items-center gap-2 ${step === item ? "font-medium text-foreground" : "text-muted-foreground"}`}
-          >
-            <span
-              className={`flex size-6 items-center justify-center rounded-full border ${step === item ? "border-foreground bg-foreground text-background" : ""}`}
-            >
-              {index + 1}
-            </span>
-            {
-              {
-                repository: "Choose repository",
-                workflow: "Set up workflow",
-                verify: "Verify PR eval",
-              }[item]
-            }
-          </li>
-        ))}
-      </ol>
-      {step === "repository" ? (
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            prepare();
-          }}
-        >
-          <Field label="GitHub repository" id="github-repository">
-            <Input
-              id="github-repository"
-              autoFocus
-              placeholder="owner/repository or GitHub URL"
-              value={repository}
-              onChange={(event) => setRepoInput(event.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Eval to run" id="github-eval">
-            {evals.isPending ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                Loading evals…
-              </p>
-            ) : evals.error ? (
-              <p role="alert" className="text-sm text-destructive">
-                Could not load evals{" "}
-                <Button type="button" variant="link" onClick={() => void evals.refetch()}>
-                  Try again
-                </Button>
-              </p>
-            ) : selected ? (
-              <Select value={selected.name} onValueChange={(name) => name && setEvalName(name)}>
-                <SelectTrigger id="github-eval" className="w-full">
-                  <SelectValue>{selected.name}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {available.map((item) => (
-                    <SelectItem key={item.name} value={item.name}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <div className="rounded-lg border border-dashed p-4 text-sm">
-                <p className="font-medium">Add an eval for {agent}</p>
-                <p className="mt-1 text-muted-foreground">Choose saved cases and the checks this agent should pass</p>
-                {datasets.data?.length ? (
-                  <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setCreating(true)}>
-                    Create eval
-                  </Button>
-                ) : onOpenDatasets ? (
-                  <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onOpenDatasets}>
-                    Create a dataset first
-                  </Button>
-                ) : (
-                  <p className="mt-2 text-muted-foreground">Create a dataset in Datasets, then return here</p>
-                )}
-              </div>
-            )}
-          </Field>
-          <Field label="Lens URL" id="github-lens-url">
-            <Input
-              id="github-lens-url"
-              type="url"
-              placeholder="https://lens.example.com"
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Use the Lens API address your GitHub runner can reach, without /ui
-            </p>
-          </Field>
-          <details className="rounded-lg border p-3 text-sm">
-            <summary className="cursor-pointer font-medium">Agent runtime</summary>
-            <div className="mt-3 space-y-3">
-              <Field label="Existing eval task (optional)" id="github-task">
-                <Input
-                  id="github-task"
-                  placeholder="my_agent.evals:task"
-                  value={task}
-                  onChange={(event) => setTask(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  An async Python function that accepts a Lens case and returns its trace. Leave blank to get an adapter
-                  template
-                </p>
-              </Field>
-              <Field label="Install and start your agent (optional)" id="github-install">
-                <Input
-                  id="github-install"
-                  placeholder="e.g. npm ci"
-                  value={installCommand}
-                  onChange={(event) => setInstallCommand(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Runs before the eval in GitHub Actions. Add runtime credentials as GitHub secrets
-                </p>
-              </Field>
-            </div>
-          </details>
-          {datasets.error && (
+        {github.status.isPending ? (
+          <p role="status" className="flex items-center gap-2 py-8 text-sm">
+            <Loader2 aria-hidden="true" className="size-4 animate-spin" /> Checking GitHub connection
+          </p>
+        ) : github.status.error ? (
+          <div className="space-y-3">
             <p role="alert" className="text-sm text-destructive">
-              Could not load datasets{" "}
-              <Button type="button" variant="link" onClick={() => void datasets.refetch()}>
-                Try again
-              </Button>
+              Could not check the GitHub connection
             </p>
-          )}
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <div className="flex items-center justify-between gap-4 border-t pt-4">
-            <p className="max-w-xs text-xs text-muted-foreground">
-              Runs in your repository’s GitHub Actions. You review and commit the setup files
-            </p>
-            <Button type="submit" disabled={!selected || datasets.isPending || Boolean(evals.error || datasets.error)}>
-              Continue <ArrowRight aria-hidden="true" className="size-4" />
+            <Button variant="outline" onClick={() => void github.status.refetch()}>
+              Try again
             </Button>
           </div>
-        </form>
-      ) : (
-        target && (
-          <>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Github aria-hidden="true" className="size-4" />
-              <span className="font-medium">{target.repository?.fullName}</span>
-              <span className="text-muted-foreground">/ {target.definition.name}</span>
+        ) : !github.status.data?.configured ? (
+          <div className="space-y-4 rounded-lg border p-4 text-sm">
+            <h3 className="font-medium">GitHub App setup required</h3>
+            <p className="text-muted-foreground">
+              Your Lens administrator needs to configure the GitHub App once. Then this button will take you to GitHub
+              to choose your account or organization, install the App, and authorize access
+            </p>
+            <a
+              className="inline-flex items-center gap-1 underline underline-offset-4"
+              href="https://github.com/BerriAI/lens/blob/main/docs/github-app.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub App setup guide <ExternalLink aria-hidden="true" className="size-3" />
+            </a>
+            <Button variant="outline" onClick={() => void github.status.refetch()}>
+              Check configuration
+            </Button>
+          </div>
+        ) : connection && (!authorizationId || github.connect.isSuccess || authorized?.status === "connected") ? (
+          <div className="space-y-4">
+            <div className="space-y-2 rounded-lg border p-4">
+              <h3 className="flex items-center gap-2 font-medium">
+                <Check aria-hidden="true" className="size-4" /> GitHub connected
+              </h3>
+              <a
+                className="inline-flex items-center gap-1 break-all text-sm underline underline-offset-4"
+                href={`https://github.com/${connection.repository}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {connection.repository} <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
+              </a>
+              <p className="text-xs text-muted-foreground">
+                Connected through the GitHub App. Repository access is limited to the installation you authorized
+              </p>
             </div>
-            {step === "workflow" ? (
-              <WorkflowSetup target={target} />
+            {connection.available ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Next, configure the eval that should run on pull requests. Connecting GitHub does not run an eval by
+                  itself
+                </p>
+                <Button onClick={() => setSettingUpEvals(true)}>Set up PR evals</Button>
+              </div>
             ) : (
-              <VerifyGitHub target={target} runs={runs} onOpenChange={onOpenChange} />
-            )}
-            <div className="flex justify-between border-t pt-4">
-              <Button variant="ghost" onClick={() => setStep(step === "verify" ? "workflow" : "repository")}>
-                <ArrowLeft aria-hidden="true" className="size-4" /> Back
-              </Button>
-              {step === "workflow" && (
-                <Button
-                  onClick={() => {
-                    setStep("verify");
-                    void runs.refetch();
-                  }}
-                >
-                  I’ve added the workflow <ArrowRight aria-hidden="true" className="size-4" />
+              <div className="space-y-3">
+                <p role="alert" className="text-sm text-destructive">
+                  GitHub access needs attention. The App may have been removed, suspended, or lost access to this
+                  repository
+                </p>
+                <Button disabled={github.start.isPending} onClick={() => begin(true)}>
+                  Restore GitHub access
                 </Button>
-              )}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 border-t pt-4">
+              <Button variant="outline" disabled={github.start.isPending} onClick={() => begin(true)}>
+                Manage repository access
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={github.disconnect.isPending}
+                onClick={() => {
+                  started.current = true;
+                  github.disconnect.mutate();
+                }}
+              >
+                Disconnect
+              </Button>
             </div>
-          </>
-        )
-      )}
-    </div>
-  );
-}
-
-function Field({ label, id, children }: { label: string; id: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-    </div>
+          </div>
+        ) : authorizationId ? (
+          <div className="space-y-4">
+            {github.authorization.isPending || authorized?.status === "pending" ? (
+              <p role="status" className="flex items-center gap-2 py-8 text-sm">
+                <Loader2 aria-hidden="true" className="size-4 animate-spin" /> Completing GitHub authorization
+              </p>
+            ) : github.authorization.error || authorized?.status === "failed" ? (
+              <>
+                <p role="alert" className="text-sm text-destructive">
+                  GitHub authorization was cancelled, expired, or could not be completed. Your agent is not connected
+                </p>
+                <Button disabled={github.start.isPending} onClick={() => begin(false)}>
+                  Try GitHub again
+                </Button>
+              </>
+            ) : repositories.length === 0 ? (
+              <>
+                <h3 className="font-medium">Give Lens access to a repository</h3>
+                <p className="text-sm text-muted-foreground">
+                  Install the Lens GitHub App and choose the repositories it can access. You’ll return here to link one
+                  to {agent}
+                </p>
+                <Button disabled={github.start.isPending} onClick={() => begin(true)}>
+                  <Github aria-hidden="true" className="size-4" /> Install GitHub App
+                </Button>
+                <Button variant="ghost" disabled={github.start.isPending} onClick={() => begin(false)}>
+                  I already installed it
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <h3 className="font-medium">Choose a repository</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Only repositories available to you through the GitHub App are shown
+                  </p>
+                </div>
+                <label htmlFor="github-repository" className="text-sm font-medium">
+                  GitHub repository
+                </label>
+                <Select value={selected ? String(selected.id) : null} onValueChange={setRepositoryId}>
+                  <SelectTrigger id="github-repository" className="w-full">
+                    <SelectValue>{selected?.full_name}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {repositories.map((repo) => (
+                      <SelectItem key={repo.id} value={String(repo.id)}>
+                        {repo.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  disabled={!selected || github.connect.isPending}
+                  onClick={() => selected && github.connect.mutate(selected.id)}
+                >
+                  {github.connect.isPending && <Loader2 aria-hidden="true" className="size-4 animate-spin" />} Connect
+                  repository
+                </Button>
+                <Button variant="ghost" disabled={github.start.isPending} onClick={() => begin(true)}>
+                  Missing a repository? Manage App access
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            <p role="status" className="text-sm text-muted-foreground">
+              Choose your GitHub account or organization and install the Lens App. Then authorize access and return
+              here to select your repository
+            </p>
+            <Button disabled={github.start.isPending} onClick={() => begin(true)}>
+              {github.start.isPending && <Loader2 aria-hidden="true" className="size-4 animate-spin" />} Continue to
+              GitHub
+            </Button>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
