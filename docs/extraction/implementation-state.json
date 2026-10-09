@@ -804,5 +804,20 @@
       "version": "0.23.45",
       "verification": "Frozen dataset candidate workspace tests and Clippy pass"
     }
-  ]
+  ],
+  "required_workflows": [
+    {
+      "skill": "design-product-onboarding",
+      "path": "/Users/mfkhalil/.codex/skills/design-product-onboarding/SKILL.md",
+      "use_when": "Designing, auditing or implementing onboarding and setup flows, including defaults, automation and effort to first useful result",
+      "status": "required_at_applicable_work"
+    },
+    {
+      "skill": "write-product-docs",
+      "path": "/Users/mfkhalil/.codex/skills/write-product-docs/SKILL.md",
+      "use_when": "Creating, revising or auditing product documentation, including setup, maintenance and upgrade guides",
+      "status": "required_at_applicable_work"
+    }
+  ],
+  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign"
 }
