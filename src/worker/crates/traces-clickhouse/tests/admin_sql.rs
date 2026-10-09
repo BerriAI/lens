@@ -23,12 +23,17 @@ async fn database() -> Result<Database, Box<dyn std::error::Error>> {
     let client = instance.client.clone();
     for sql in [
         "CREATE DATABASE litellm",
-        "CREATE TABLE litellm.otel_traces (n UInt8) ENGINE = Memory",
-        "INSERT INTO litellm.otel_traces VALUES (1)",
-        "CREATE TABLE litellm.agent_traces_by_key (n UInt8) ENGINE = Memory",
-        "INSERT INTO litellm.agent_traces_by_key VALUES (4)",
-        "CREATE TABLE litellm.spend_logs (n UInt8) ENGINE = Memory",
-        "INSERT INTO litellm.spend_logs VALUES (3)",
+        "CREATE TABLE litellm.otel_traces (n UInt8, TeamId String DEFAULT '', \
+         ApiKeyHash String DEFAULT '', TraceId String DEFAULT '') ENGINE = Memory",
+        "INSERT INTO litellm.otel_traces (n) VALUES (1)",
+        "CREATE TABLE litellm.agent_traces_by_key (n UInt8, TeamId String DEFAULT '', \
+         ApiKeyHash String DEFAULT '', TraceId String DEFAULT '') ENGINE = Memory",
+        "INSERT INTO litellm.agent_traces_by_key (n) VALUES (4)",
+        "CREATE TABLE litellm.spend_logs (n UInt8, team_id String DEFAULT '', \
+         api_key String DEFAULT '', response_id String DEFAULT '') ENGINE = Memory",
+        "INSERT INTO litellm.spend_logs (n) VALUES (3)",
+        "CREATE TABLE litellm.lens_eval_traces (TeamId String, ApiKeyHash String, TraceId String, \
+         UserIds Array(String), RequestIds Array(String)) ENGINE = Memory",
         "CREATE TABLE litellm.private_traces (n UInt8) ENGINE = Memory",
         "CREATE TABLE private_traces (n UInt8) ENGINE = Memory",
     ] {
