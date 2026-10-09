@@ -235,6 +235,15 @@ impl AnalysisSource {
             Self::Connected(models) => models.analysis(),
         }
     }
+
+    pub(crate) fn default_model(&self) -> Option<String> {
+        if let Self::Connected(models) = self
+            && let Some(deployment) = models.0.analysis.first()
+        {
+            return Some(deployment.name.clone());
+        }
+        self.get().models().into_iter().next()
+    }
 }
 
 impl From<Arc<AnalysisModels>> for AnalysisSource {
