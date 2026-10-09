@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { readRequest, requestPath } from "../../../tests/lens-test-utils";
@@ -664,4 +665,42 @@ describe("Lens agent selector", () => {
     expect(lastUrl(onUrlUpdate).has("trace")).toBe(false);
     expect(lastUrl(onUrlUpdate).get("tab")).toBe("traces");
   });
+});
+
+it("should switch color themes from the sidebar and restore the saved preference after reopening", async () => {
+  const user = userEvent.setup();
+  const initialClassName = document.documentElement.className;
+  const initialColorScheme = document.documentElement.style.colorScheme;
+  const storageKey = "lens-theme-test";
+  const workspace = (
+    <ThemeProvider attribute="class" defaultTheme="light" storageKey={storageKey}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </ThemeProvider>
+  );
+
+  try {
+    const first = renderWithProviders(workspace, {
+      searchParams: "?demo=true",
+    });
+    expect(document.documentElement).toHaveClass("light");
+    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(document.documentElement).toHaveClass("dark");
+    expect(window.localStorage.getItem(storageKey)).toBe("dark");
+
+    first.unmount();
+    document.documentElement.classList.remove("dark");
+    const reopened = renderWithProviders(workspace, {
+      searchParams: "?demo=true",
+    });
+    expect(document.documentElement).toHaveClass("dark");
+    await user.click(screen.getByRole("button", { name: "Toggle color theme" }));
+    expect(document.documentElement).toHaveClass("light");
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(window.localStorage.getItem(storageKey)).toBe("light");
+    reopened.unmount();
+  } finally {
+    document.documentElement.className = initialClassName;
+    document.documentElement.style.colorScheme = initialColorScheme;
+    window.localStorage.removeItem(storageKey);
+  }
 });

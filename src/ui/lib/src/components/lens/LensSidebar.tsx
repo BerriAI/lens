@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import { useMediaQuery } from "usehooks-ts";
 import {
   Activity,
@@ -8,11 +9,13 @@ import {
   BookOpen,
   Bot,
   Database,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   ScanSearch,
   Settings,
   Sparkles,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -34,7 +37,9 @@ interface LensSidebarProps {
   readonly onNavigate: (tab: LensTab) => void;
 }
 
-const WORKSPACE_ITEMS = [
+const NAVIGATION_ITEMS = [
+  { value: "agents", label: "Agents", icon: Bot },
+  { value: "traces", label: "Traces", icon: Activity },
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "investigations", label: "Investigations", icon: ScanSearch },
   { value: "datasets", label: "Datasets", icon: Database },
@@ -169,36 +174,24 @@ function SidebarNavigation({
   );
   return (
     <>
+      {!collapsed && agents.agent && (
+        <div className="mb-4 min-w-0 [&>button]:h-10 [&>button]:w-full [&>button]:max-w-none [&>button]:justify-start [&>button]:border-0 [&>button]:bg-muted/50 [&>button]:px-2.5 [&>button]:text-[13px] [&>button>svg:last-child]:ml-auto">
+          <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
+        </div>
+      )}
       <TabsList
         aria-label="Lens"
         activateOnFocus={false}
         className="flex h-auto! min-h-fit w-full flex-1 flex-col items-stretch justify-start gap-1 rounded-none bg-transparent p-0"
       >
-        {item("agents", "Agents", Bot)}
-        <div className="mt-5 mb-2 min-w-0 border-t border-sidebar-border pt-5">
-          {!collapsed && (
-            <p className="mb-2 px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground">AGENT</p>
-          )}
-          {!collapsed && agents.agent && (
-            <div
-              onKeyDown={(event) => event.stopPropagation()}
-              className="mb-2 px-1 [&>button]:h-10 [&>button]:w-full [&>button]:max-w-none [&>button]:justify-start [&>button]:border-0 [&>button]:bg-muted/50 [&>button]:px-2 [&>button]:text-[13px] [&>button>svg:last-child]:ml-auto"
-            >
-              <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
-            </div>
-          )}
-          {item("traces", "Traces", Activity)}
-        </div>
-        {!collapsed && (
-          <p className="mt-5 mb-1 px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground">WORKSPACE</p>
-        )}
-        {WORKSPACE_ITEMS.map(({ value, label, icon: Icon }) => (
+        {NAVIGATION_ITEMS.map(({ value, label, icon: Icon }) => (
           <div key={value}>{item(value, label, Icon)}</div>
         ))}
-        <div className="mt-auto border-t border-sidebar-border pt-3">
-          {workers && item("settings", "Settings", Settings, connected ? "Worker connected" : "Connect worker")}
-        </div>
+        {workers && item("settings", "Settings", Settings, connected ? "Worker connected" : "Connect worker")}
       </TabsList>
+      <div className="mt-4 border-t border-sidebar-border pt-3">
+        <ThemeToggle collapsed={collapsed} />
+      </div>
       <a
         href="https://docs.litellm.ai/docs/proxy/lens"
         target="_blank"
@@ -214,5 +207,26 @@ function SidebarNavigation({
         {!collapsed && <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />}
       </a>
     </>
+  );
+}
+
+function ThemeToggle({ collapsed }: { readonly collapsed: boolean }) {
+  const { resolvedTheme, setTheme } = useTheme();
+  return (
+    <Button
+      variant="ghost"
+      aria-label="Toggle color theme"
+      title="Toggle color theme"
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      className={cn(
+        "h-9 w-full justify-start gap-2.5 px-2.5 text-[13px] font-normal text-muted-foreground hover:bg-sidebar-accent",
+        collapsed && "justify-center px-0",
+      )}
+    >
+      <Moon aria-hidden="true" className="size-4 dark:hidden" />
+      <Sun aria-hidden="true" className="hidden size-4 dark:block" />
+      <span className={cn("dark:hidden", collapsed && "sr-only")}>Dark mode</span>
+      <span className={cn("hidden dark:inline", collapsed && "sr-only")}>Light mode</span>
+    </Button>
   );
 }

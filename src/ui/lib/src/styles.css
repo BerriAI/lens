@@ -279,7 +279,7 @@
   --sidebar-primary-foreground: oklch(0.964 0 0);
   --sidebar-accent: oklch(0.309 0 0);
   --sidebar-accent-foreground: oklch(0.964 0 0);
-  --sidebar-border: oklch(0.187 0 0);
+  --sidebar-border: var(--border);
   --sidebar-ring: oklch(0.569 0 0);
   --neutral-border: var(--border);
   --trace-text: oklch(0.96 0.005 220);
