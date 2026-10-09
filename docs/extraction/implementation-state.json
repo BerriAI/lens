@@ -22,12 +22,13 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "7ae28fbea3ba8a897457d18a5d430db54938ee9c",
+    "candidate_commit": "b0f3d5b447eae749b2665c7fbbaf19c71d4d3e38",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
       "https://github.com/BerriAI/litellm-lens/pull/4"
-    ]
+    ],
+    "last_published_commit": "b0f3d5b447eae749b2665c7fbbaf19c71d4d3e38"
   },
   "completed_actions": [
     "Fetched latest LiteLLM main",
@@ -78,7 +79,7 @@
     "Qualified the frozen Rust standalone bootstrap with 2,500 regular workspace tests, Clippy, formatting, real binary login/ingestion/trace/dataset flows and restart persistence; full milestone 1 remains open",
     "Reconciled main through 5c02728f; removed retired Python backend and tests; consolidated final production Rust workspace passed 3,915 tests with zero failures, plus separately executed opt-in ClickHouse cases and final development benchmark tests"
   ],
-  "current_work": "Publish qualified Rust-only Lens source and optional setup prompts directly to main. Final immutable image, native sandbox, paired pre-extraction performance comparison, mutation follow-up and Argo/companion image qualification remain active; official release and managed cutover are not complete",
+  "current_work": "Immutable source image08b1f141 is building; UI follow-up makes the selected model and spending limit visible. Final shared package adoption, migration/recovery/cluster/paired benchmark checks and the dedicated60-minute removal audit remain open",
   "acceptance": {
     "B1": {
       "status": "verified_local",
@@ -288,12 +289,14 @@
     },
     "F7": {
       "status": "partial",
-      "observed": "Real finding, citation-to-trace navigation, saved case creation and persisted results have browser evidence",
+      "observed": "Live browser resolved, refreshed, reopened and dismissed the same finding with persisted review notes; citation-to-trace Steps/Thread navigation and390px layout were inspected",
       "evidence": [
         "docs/extraction/rust-standalone-investigation.md",
         "docs/extraction/evidence/ui/standalone-investigation/real-finding.png",
         "docs/extraction/evidence/ui/standalone-investigation/stored-evidence.png",
-        "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/ui/connected/finding-resolved-note-refresh.png",
+        "docs/extraction/evidence/ui/connected/finding-evidence-trace-narrow-390.png"
       ],
       "remaining": [
         "Complete recurring-evidence/alias, resolve/dismiss/reopen and saved-explanation baseline browser comparisons"
@@ -301,14 +304,16 @@
     },
     "F8": {
       "status": "partial",
-      "observed": "Rust review/checkpoint/reuse behavior is covered by merged tests and stored worker contract fixtures",
+      "observed": "Unchanged rerun reused its checkpoint with zero added model calls/spend. UI-edited criteria triggered two candidate investigations from the same trace, increased spend, revised the same finding and settled all reservations",
       "evidence": [
         "docs/extraction/evidence/rust-merged-validation.json",
         "docs/extraction/rust-worker-contract.md",
-        "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)"
+        "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
+        "docs/extraction/evidence/investigation-criteria-change.json",
+        "docs/extraction/evidence/ui/connected/unchanged-rerun-zero-calls.png"
       ],
       "remaining": [
-        "Explicit unchanged-versus-changed criteria/content rerun with provider-call and cost evidence on the final image"
+        "Repeat relevant current candidate integration on final immutable image; recorded browser/provider receipt identifies earlierb0f3d5 source"
       ]
     },
     "F9": {
@@ -480,7 +485,8 @@
       ],
       "remaining": [
         "Run unchanged supported old exporters before and after the combined PostgreSQL metadata cutover"
-      ]
+      ],
+      "scope": "Legacy-specific exporter compatibility is optional under the clean-cutover clarification; currently supported OTLP exporters remain covered by F1/S3/D5"
     },
     "M3": {
       "status": "partial",
@@ -858,8 +864,8 @@
       ]
     },
     "C2": {
-      "status": "verified_local",
-      "observed": "Real ClickHouse suites preserve one-winner claims, revision conflicts, stale-write fences and budget reservation/settlement behavior",
+      "status": "partial",
+      "observed": "ClickHouse writer lease serializes progress, reservations, renewals and settlement without starvation; atomic publication fences stale owners and cleanup.139 investigation cases and9 seeded mutations passed, including storage restarts",
       "evidence": [
         "docs/extraction/evidence/rust-merged-validation.json",
         "docs/extraction/rust-state.md",
@@ -869,10 +875,11 @@
         "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/evidence/clickhouse-datasets-signals.log (partial repository evidence only; full acceptance remains open)",
         "Historical Python-era evidence; not current Rust runtime qualification: docs/extraction/clickhouse-investigations.md (partial repository/API evidence only; full acceptance remains open)",
         "docs/extraction/rust-state.md (partial Rust storage evidence only; full requirement remains open)",
-        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)"
+        "docs/extraction/rust-auth.md (partial Rust auth/session evidence; full requirement remains open)",
+        "docs/extraction/evidence/investigation-writer-lease.json"
       ],
       "remaining": [
-        "External/multi-node consistency remains under C5; this is local pinned-stack qualification"
+        "Final candidate local-control mutation results and container integration; an expired lease permits recovery but does not cancel an already-submitted ClickHouse transaction"
       ]
     },
     "C3": {
@@ -908,15 +915,16 @@
       ]
     },
     "C5": {
-      "status": "partial",
-      "observed": "Pinned bundled ClickHouse/Keeper initializes, supports local Helm adoption and retains state across multi-replica Lens upgrades/restarts",
+      "status": "verified_local",
+      "observed": "Pinned ClickHouse26.9.6.6 supports multiple Lens processes sharing one stable endpoint/database. Missing Keeper and insufficient privileges fail before HTTP binds; two live processes share sessions/datasets/logout and retain them through restart",
       "evidence": [
         "docs/extraction/evidence/helm/adoption.json",
         "helm/lens/README.md",
-        "docs/extraction/evidence/rust-merged-validation.json"
+        "docs/extraction/evidence/rust-merged-validation.json",
+        "docs/extraction/evidence/external-clickhouse-boundary.json"
       ],
       "remaining": [
-        "Explicit external/multi-node ClickHouse compatibility matrix, capability failure preflight and supported cross-replica consistency tests"
+        "Final chart installation/upgrade with exact images. Arbitrary multi-node ClickHouse endpoints, load balancing and automatic storage failover are outside the documented initial supported topology"
       ]
     },
     "C6": {
@@ -932,7 +940,7 @@
       ]
     }
   },
-  "updated_at_utc": "2026-10-09T06:10:23.975Z",
+  "updated_at_utc": "2026-10-09T07:43:03.666Z",
   "storage_decision": {
     "requirement": "All Lens-owned state in ClickHouse stack; no PostgreSQL runtime dependency",
     "authorized_by": "User steering on 2026-10-08",
@@ -1357,12 +1365,12 @@
   "runtime_decision": {
     "requirement": "All Lens backend feature code in Rust, using the collaborator layout",
     "authorized_by": "Later user instruction supersedes the earlier Rust/Python split",
-    "status": "migration_in_progress",
+    "status": "rust_only_runtime_implemented_qualification_in_progress",
     "exceptions": [
       "Python eval SDK",
       "Sandboxed analysis interpreter"
     ],
-    "retirement": "Retain existing application modules only until the replacement passes integration and parity qualification"
+    "retirement": "Legacy Python application and remote gateway-worker mode are removed. The Python eval SDK and confined calculation interpreter remain"
   },
   "research_copy": "The former /Users/mfkhalil/Code/research/litellm-lens-extraction-2026-10-08 directory disappeared during startup work; this repository retains the canonical plan, manifest and evidence ledger",
   "rust_migration": {
@@ -1669,5 +1677,32 @@
     ],
     "evidence": "docs/extraction/evidence/setup-agent-prompts.json",
     "publication": "Pending integrated source push and companion PR"
+  },
+  "scope_clarification": {
+    "recorded_at": "2026-10-09T07:03:16.924Z",
+    "request": "Finish a clean cut; beta/internal Lens backward compatibility is optional, data transfer is acceptable; spend a dedicated final hour auditing removal boundaries after implementation is ready",
+    "retired_requirements": [
+      "Legacy Lens API aliases and old worker modes solely for backward compatibility",
+      "Mixed old/new Lens coexistence or arbitrary merge-order compatibility",
+      "Zero-downtime Lens data migration as a prerequisite"
+    ],
+    "retained_requirements": [
+      "Standalone Lens plus ClickHouse and native shared Lens UI inside LiteLLM",
+      "Working current feature flows, data transfer, persistence and recovery",
+      "Unrelated gateway APIs, authentication, model traffic, data and release behavior",
+      "Independent Lens releases with a tested current UI/service contract",
+      "Source publication to Lens main; companion PRs; production cutover stays separate"
+    ],
+    "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised"
+  },
+  "final_removal_audit": {
+    "status": "not_started",
+    "minimum_wall_clock_minutes": 60,
+    "start_at": null,
+    "end_at": null,
+    "candidate_shas": {},
+    "reason": "Implementation and current-candidate integration checks remain open; the final audit begins only afterward",
+    "checks": [],
+    "findings": []
   }
 }
