@@ -2428,7 +2428,9 @@
       "Source publication to Lens main; companion PRs; production cutover stays separate"
     ],
     "supported_storage": "One ClickHouse server with KeeperMap, bundled or external, shared by one or more Lens instances; distributed payload replication and storage failover are not implemented or advertised",
-    "follow_up_policy": "Only Lens extraction and necessary integration fixes are authorized. Report pre-existing defects and upgrade requirements separately; do not change unrelated dependency/tool versions or general CI policy."
+    "follow_up_policy": "All implementation changes must be directly Lens-related and restricted to code added on or after September 30, 2026. Do not fix pre-existing bugs or upgrade unrelated versions.",
+    "september30_audit": "docs/extraction/evidence/scope-september30.json",
+    "generated_metadata_exception": "Awaiting user answer to the explicit generated-metadata question; no exception assumed"
   },
   "final_removal_audit": {
     "schema": 1,
@@ -2639,5 +2641,14 @@
     "provider_credential_owner_rotation_required": true
   },
   "latest_follow_up_evidence": "docs/extraction/evidence/review-follow-up-qualification.json",
-  "latest_boundary_review_evidence": "docs/extraction/evidence/fable-boundary-review.json"
+  "latest_boundary_review_evidence": "docs/extraction/evidence/fable-boundary-review.json",
+  "latest_follow_up": {
+    "recorded_at_utc": "2026-10-09T19:45:49.868616+00:00",
+    "publisher": "b474a9a7635b61ae8a2951e3a04e7a5aba11299e",
+    "host": "54fc98775be55ba0b09ae550200b5dd671ce975c",
+    "examples": "a2294277609202247b71c08d7b491f5212809988",
+    "docs": "624de144357a20219430327bd87e6e0b0c3a8542",
+    "selected_ui_builder": "Implemented and tested; full combined source/artifact orchestration remains open",
+    "scope_audit": "docs/extraction/evidence/scope-september30.json"
+  }
 }
