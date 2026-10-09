@@ -1,9 +1,10 @@
-import { serverRootPath } from "./serverRootPath";
+import { getServerRootPath } from "./serverRootPath";
 import { normalizeRootPath } from "./http/resolveApiBase";
 
 const EXTERNAL_SRC = /^(https?:|data:|blob:|\/\/)/i;
 
-export const isExternalAssetSrc = (value: string): boolean => EXTERNAL_SRC.test(value);
+export const isExternalAssetSrc = (value: string): boolean =>
+  EXTERNAL_SRC.test(value);
 
 /**
  * Prefix a root-relative asset path (e.g. "/ui/assets/logos/openai.svg") with the
@@ -22,11 +23,15 @@ export const withServerRoot = (path: string, root: string): string => {
  * the live server root path. `root` is read at call time so it reflects the value
  * `getUiConfig()` resolves asynchronously after load.
  */
-export const resolveLogoSrc = (value: string | null | undefined, root: string = serverRootPath): string | undefined => {
+export const resolveLogoSrc = (
+  value: string | null | undefined,
+  root: string = getServerRootPath(),
+): string | undefined => {
   if (!value) return undefined;
   if (isExternalAssetSrc(value)) return value;
   if (value.includes("/_next/static/")) return value;
   const prefix = normalizeRootPath(root);
-  if (prefix && (value === prefix || value.startsWith(`${prefix}/`))) return value;
+  if (prefix && (value === prefix || value.startsWith(`${prefix}/`)))
+    return value;
   return withServerRoot(value, root);
 };

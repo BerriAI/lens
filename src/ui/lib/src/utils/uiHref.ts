@@ -1,4 +1,4 @@
-import { serverRootPath } from "../lib/serverRootPath";
+import { getServerRootPath } from "../lib/serverRootPath";
 
 function uiBase(): string {
   // next dev serves the app at the root; only the proxy mounts the static export under /ui
@@ -6,7 +6,11 @@ function uiBase(): string {
   if (process.env.NODE_ENV === "development") {
     return "";
   }
-  const root = serverRootPath && serverRootPath !== "/" ? `/${serverRootPath.replace(/^\/+|\/+$/g, "")}` : "";
+  const serverRootPath = getServerRootPath();
+  const root =
+    serverRootPath && serverRootPath !== "/"
+      ? `/${serverRootPath.replace(/^\/+|\/+$/g, "")}`
+      : "";
   return `${root}/ui`;
 }
 
@@ -18,6 +22,8 @@ export function uiHref(routeSegment: string): string {
 /** First route segment under the UI base, e.g. "/ui/api-reference/" -> "api-reference" and "/ui/" -> "". */
 export function routeSegmentForPathname(pathname: string): string {
   const base = uiBase();
-  const relative = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+  const relative = pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : pathname;
   return relative.replace(/^\/+/, "").split("/")[0];
 }
