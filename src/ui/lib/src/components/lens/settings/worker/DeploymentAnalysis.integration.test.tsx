@@ -119,7 +119,7 @@ describe("Deployment analysis setup", () => {
       path === "/lens" ? { workers: [{ ...workers[0], last_seen: "1970-01-01T00:00:00Z" }] } : { data: [model] },
     );
     renderWithLens(<DeploymentAnalysis workers={[]} readyAction={<button>New investigation</button>} />);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("waiting for the investigation worker"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("waiting for the analysis worker"));
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
   });
 

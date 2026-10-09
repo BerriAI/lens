@@ -89,7 +89,7 @@ export function LensSettings({
         <SettingsSection
           heading="Analysis"
           icon={<Cpu aria-hidden="true" className="size-4" />}
-          description="Lens runs investigations using your configured models."
+          description="Lens analyzes traces and surfaces issues in Findings."
         >
           <DeploymentAnalysis
             workers={list.workers}

@@ -167,9 +167,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
   const unavailable =
     Boolean(draft.model) && details.isSuccess && !models.some((info) => info.model_group === draft.model);
   const modelUnverified =
-    Boolean(draft.model) &&
-    draft.model !== saved.model &&
-    (details.isPending || Boolean(discoveryError) || unavailable);
+    Boolean(draft.model) && draft.model !== saved.model && !models.some((info) => info.model_group === draft.model);
   const next = configFrom(draft);
   const dirty = JSON.stringify(next) !== JSON.stringify(configFrom(draftFrom(draftBase)));
   const save = useMutation({

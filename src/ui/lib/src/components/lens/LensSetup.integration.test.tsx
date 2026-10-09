@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within, waitFor } from "@testing-library/react";
+import { act, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chooseSelectOption, renderWithProviders, testQueryClient } from "../../../tests/test-utils";
@@ -92,8 +92,9 @@ async function configureAnalysisFromSettings(user: ReturnType<typeof userEvent.s
   });
   await user.click(await settings.findByRole("button", { name: "Check configuration" }));
   expect(await settings.findByText("Analysis is configured")).toBeVisible();
-  await user.click(settings.getByRole("button", { name: "New investigation" }));
-  expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
+  await user.click(settings.getByRole("button", { name: "View automatic analysis" }));
+  expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 }
 
@@ -197,7 +198,7 @@ describe("Lens setup journey", () => {
   );
 
   it.each(["/v1/traces", "/lens/activity/available"])(
-    "opens a saved investigation while %s is pending",
+    "should open Findings from a saved link while %s is pending",
     async (pendingPath) => {
       serve();
       list.mockResolvedValue({ lenses: data.lenses, workers: [worker()], tracing_enabled: false });
@@ -206,11 +207,13 @@ describe("Lens setup journey", () => {
         requestPath(input) === pendingPath ? new Promise<Response>(() => {}) : normal(input, init),
       );
       renderWorkspace({ searchParams: `?lens=${data.lenses[0].id}` });
-      expect(await screen.findByRole("heading", { name: data.lenses[0].settings.name })).toBeVisible();
+      expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+      expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+      expect(await screen.findByRole("row", { name: data.lenses[0].findings[0].title })).toBeVisible();
     },
   );
 
-  it("should open deployment setup from Home and continue through tracing into the first investigation", async () => {
+  it("should open deployment setup from Home and continue through tracing into Findings", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     renderWorkspace({ onUrlUpdate });
@@ -280,18 +283,18 @@ describe("Lens setup journey", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(await screen.findByRole("table", { name: "Agent runs" })).toBeVisible();
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBeNull());
-    await user.click(screen.getByRole("tab", { name: "Investigations" }));
-    const guide = within(await screen.findByRole("region", { name: "Get Lens running" }));
-    expect(guide.getByRole("button", { name: /Configure analysisChoose/ })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("tab", { name: "Findings" }));
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("allows request-only investigations without forcing agent instrumentation", async () => {
+  it("should keep Findings available to request-only users without forcing agent instrumentation", async () => {
     serve({ requests: true });
     const user = userEvent.setup();
     const welcome = renderWorkspace({ searchParams: "?tab=investigations" });
-    expect(await screen.findByRole("region", { name: "Get Lens running" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Configure analysis" })).toBeEnabled();
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     welcome.unmount();
     renderWorkspace({ searchParams: "?tab=investigations&setup=lens" });
@@ -326,11 +329,10 @@ describe("Lens setup journey", () => {
     expect(intro.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("keeps request-only users in investigations when an activity refresh fails", async () => {
+  it("should keep Findings available when an activity refresh fails", async () => {
     serve({ requests: true, connected: true });
-    const user = userEvent.setup();
     renderWorkspace({ searchParams: "?tab=investigations" });
-    expect(await screen.findByRole("button", { name: "New investigation" })).toBeEnabled();
+    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
     const normal = network.getMockImplementation()!;
     network.mockImplementation((input, init) =>
       requestPath(input) === "/lens/activity/available"
@@ -338,13 +340,12 @@ describe("Lens setup journey", () => {
         : normal(input, init),
     );
     await act(() => testQueryClient.refetchQueries());
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not check setup. Activity unavailable");
+    expect(screen.getByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New investigation" })).toBeDisabled();
     network.mockImplementation(normal);
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "New investigation" })).toBeEnabled());
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await act(() => testQueryClient.refetchQueries());
+    expect(screen.getByRole("region", { name: "Automatic analysis" })).toBeVisible();
   });
 
   it("keeps administrator-only setup unavailable to trace viewers", async () => {
@@ -357,7 +358,7 @@ describe("Lens setup journey", () => {
   });
 
   it.each(["traces", "requests with trace errors", "requests with pending traces", "traces with activity errors"])(
-    "finishes guided setup with %s and opens the saved investigation",
+    "should finish guided setup with %s and open Findings without manual analysis setup",
     async (scenario) => {
       const source = scenario.startsWith("requests") ? "requests" : "traces";
       const activity = { enabled: true, traces: source === "traces", requests: source === "requests", connected: true };
@@ -376,27 +377,18 @@ describe("Lens setup journey", () => {
       const onUrlUpdate = vi.fn();
       renderWorkspace({ searchParams: "?setup=lens", onUrlUpdate });
       const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-      await user.click(await intro.findByRole("button", { name: "New investigation" }));
-      const editor = within(await screen.findByRole("region", { name: "New investigation" }));
+      await user.click(await intro.findByRole("button", { name: "View automatic analysis" }));
+      expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      fireEvent.change(editor.getByRole("textbox", { name: "Investigation name" }), {
-        target: { value: "My first review" },
-      });
-      await user.click(editor.getByRole("button", { name: "Continue" }));
-      await user.click(editor.getByRole("button", { name: "Continue" }));
-      await waitFor(() => expect(editor.getByRole("button", { name: "Run and monitor" })).toBeEnabled());
-      await user.click(editor.getByRole("button", { name: "Run and monitor" }));
-      expect(await screen.findByRole("heading", { name: "My first review" })).toBeVisible();
+      expect(screen.queryByRole("region", { name: "New investigation" })).not.toBeInTheDocument();
       expect(
-        within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Investigations" }),
+        within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Findings" }),
       ).toHaveAttribute("aria-selected", "true");
       await waitFor(() => expect(setupParam(onUrlUpdate)).toBeNull());
       const creates = network.mock.calls.filter(
         ([input, init]) => requestPath(input) === "/lens" && (init?.method ?? (input as Request).method) === "POST",
       );
-      const [create] = await Promise.all(creates.map(([input, init]) => readRequest(input, init)));
-      expect(create).toBeDefined();
-      expect(create?.body).toEqual(expect.objectContaining({ name: "My first review", source }));
+      expect(creates).toHaveLength(0);
     },
   );
 });

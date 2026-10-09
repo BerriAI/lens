@@ -25,14 +25,15 @@ export function GatewayConnection() {
     },
   });
   const status = gateway.data;
-  const error = refresh.error?.message ?? gateway.error?.message ?? status?.error;
+  const error = refresh.error?.message ?? gateway.error?.message ?? (status?.connected ? null : status?.error);
+  const warning = status?.connected ? status.error : null;
   const busy = gateway.isFetching || refresh.isPending;
 
   return (
     <SettingsSection
       heading="Model gateway"
       icon={<Network aria-hidden="true" className="size-4" />}
-      description="Use models from your LiteLLM gateway for signals and investigations."
+      description="Use models from your LiteLLM gateway for signals and findings."
     >
       <SettingsCard className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,6 +65,11 @@ export function GatewayConnection() {
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
+          </p>
+        )}
+        {!error && warning && (
+          <p role="status" className="text-xs text-amber-700 dark:text-amber-300">
+            {warning}
           </p>
         )}
         {status?.configured ? (

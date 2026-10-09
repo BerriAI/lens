@@ -103,6 +103,20 @@ describe("Gateway connection", () => {
     );
   });
 
+  it("should keep a partially discovered gateway connected and show the metadata warning separately", async () => {
+    const gateway = stubGateway();
+    const warning = "1 model was skipped because its metadata is missing";
+    gateway.get.mockReturnValue({ ...connected, error: warning });
+    renderWithLens(<GatewayConnection />);
+
+    expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
+    expect(screen.getByText(warning)).toBeVisible();
+    expect(screen.getByText("2 analysis models · 0 evaluation models")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Refresh models" })).toBeEnabled();
+    expect(screen.queryByText("Gateway connection unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("should retain the saved model and dirty form when gateway refresh fails", async () => {
     const user = userEvent.setup();
     const gateway = stubGateway();
@@ -155,6 +169,31 @@ describe("Gateway connection", () => {
     expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(gateway.post).not.toHaveBeenCalled();
+  });
+
+  it("should allow choosing a known evaluation model while gateway discovery is unavailable", async () => {
+    const user = userEvent.setup();
+    const gateway = stubGateway();
+    gateway.get.mockImplementation((path) =>
+      path === "/lens/gateway"
+        ? { ...connected, connected: false, error: "The gateway could not be reached" }
+        : { data: [evaluationModel] },
+    );
+    gateway.put.mockImplementation((_path, request) => request.body);
+    renderWithLens(<ConnectionWithSignals />);
+
+    expect(await screen.findByText(/Could not load System 1 models/)).toBeVisible();
+    await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
+    await user.click(await screen.findByRole("option", { name: /gateway-jev/ }));
+    expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Save signals" }));
+    expect(await screen.findByText("Saved")).toBeVisible();
+    expect(gateway.put).toHaveBeenCalledWith(
+      "/lens/signals",
+      expect.objectContaining({
+        body: { ...saved, model: evaluationModel.model_group },
+      }),
+    );
   });
 
   it.each([{ readOnly: true }, { canInvestigate: false }])(
