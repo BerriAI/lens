@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: litellm-lens
+    runtime: docker
+    plan: 1c-2g
+    region: oregon
+    dockerfilePath: deploy/runtime/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health/ready
+    numInstances: 1
+    envVars:
+      - key: PORT
+        value: "4318"
+      - key: LENS_MODE
+        value: standalone
+      - key: LENS_ADMIN_TOKEN
+        generateValue: true
+      - key: LENS_PUBLIC_URL
+        fromService:
+          type: web
+          name: litellm-lens
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CLICKHOUSE_HOST
+        fromService:
+          type: pserv
+          name: litellm-lens-clickhouse
+          property: host
+      - key: CLICKHOUSE_USER
+        value: lens
+      - key: CLICKHOUSE_PASSWORD
+        fromService:
+          type: pserv
+          name: litellm-lens-clickhouse
+          envVarKey: CLICKHOUSE_PASSWORD
+      - key: CLICKHOUSE_DATABASE
+        value: lens
+      - key: AGENT_TRACING_RETENTION_DAYS
+        value: "14"
+      - key: LENS_GITHUB_SERVICE_ENABLED
+        value: "true"
+      - key: LENS_GITHUB_APP_SLUG
+        sync: false
+      - key: LENS_GITHUB_CLIENT_ID
+        sync: false
+      - key: LENS_GITHUB_CLIENT_SECRET
+        sync: false
+      - key: LENS_GITHUB_PRIVATE_KEY
+        sync: false
+
+  - type: pserv
+    name: litellm-lens-clickhouse
+    runtime: docker
+    plan: 1c-2g
+    region: oregon
+    dockerfilePath: deploy/render/clickhouse.Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    disk:
+      name: lens-clickhouse-data
+      mountPath: /var/lib/clickhouse
+      sizeGB: 10
+    envVars:
+      - key: CLICKHOUSE_USER
+        value: lens
+      - key: CLICKHOUSE_PASSWORD
+        generateValue: true
+      - key: CLICKHOUSE_DB
+        value: lens
+      - key: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
+        value: "1"
