@@ -20,7 +20,7 @@ use lens_contract::{
     },
 };
 use litellm_storage_clickhouse::{
-    evals::{EvalStore, RunFilter},
+    evals::{EvalStore, RunFilter, StoredCase},
     state::ClickHouseState,
 };
 use litellm_traces_clickhouse::evals::EvalTraces;
@@ -573,7 +573,7 @@ async fn run_cases<R: SessionRepository>(
             .iter()
             .map(|case| RunCaseSummary {
                 case_id: case.id.clone(),
-                title: case.title.clone(),
+                title: case_title(case),
                 critical: case.critical,
                 passed: stored.verdicts.get(&case.id).copied(),
             })
@@ -634,11 +634,27 @@ async fn run_case<R: SessionRepository>(
     trials.sort_by_key(|trial| trial.trial);
     Ok(Json(RunCase {
         case_id: case.id.clone(),
-        title: case.title.clone(),
+        title: case_title(case),
         critical: case.critical,
         passed: stored.verdicts.get(&case.id).copied(),
         trials,
     }))
+}
+
+fn case_title(case: &StoredCase) -> String {
+    if !case.title.trim().is_empty() && case.title != case.id {
+        return case.title.clone();
+    }
+    let input = case.input.split_whitespace().collect::<Vec<_>>().join(" ");
+    if input.is_empty() {
+        return case.id.clone();
+    }
+    let title: String = input.chars().take(120).collect();
+    if input.chars().count() > 120 {
+        format!("{title}…")
+    } else {
+        title
+    }
 }
 
 fn scorer_checks(
@@ -709,4 +725,32 @@ async fn cases<R: SessionRepository>(
         .parse::<u64>()
         .map_err(|_| ApiError::InvalidRequest("revision must be a positive integer"))?;
     Ok(Json(state.datasets.cases(&team.0, &id, revision).await?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::case_title;
+    use litellm_storage_clickhouse::evals::StoredCase;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::named("Run tests", "Fix the bug", "Run tests")]
+    #[case::hash("case-id", "Fix\n the  bug", "Fix the bug")]
+    #[case::blank("", "Fix the bug", "Fix the bug")]
+    #[case::no_input("case-id", "  ", "case-id")]
+    fn should_use_the_input_when_a_case_has_no_readable_title(
+        #[case] title: &str,
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        let case = StoredCase {
+            id: "case-id".into(),
+            title: title.into(),
+            critical: false,
+            input: input.into(),
+            followups: Vec::new(),
+            expected: String::new(),
+        };
+        assert_eq!(case_title(&case), expected);
+    }
 }
