@@ -25,7 +25,7 @@ The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported.
 
 ## Install
 
-This is a private preview. Version `0.1.0a3` is not published to PyPI. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
+This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI; the Action download path requires that release before use. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:
 
 ```sh
 uv add --dev /absolute/path/to/lens_evals-0.1.0a3-cp311-abi3-PLATFORM.whl
@@ -36,7 +36,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@lens-evals-v0.1.0a3#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@e420dbd248edec641833fbb743a5c8c9b49a1056#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
