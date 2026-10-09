@@ -20,6 +20,8 @@ Replacing or disconnecting a connection queues old credentials for revocation. L
 
 Reports are read from completed runs in your Lens instance, then the service verifies the GitHub workflow, PR and commit before publishing
 
+For an eval with a previous GitHub Actions run, **Run again** starts another attempt of the same workflow and commit. Lens verifies the repository, PR and commit before requesting it. The workflow controls which dataset revision it loads, and the SDK uploads fresh results and traces to Lens. A new eval without a previous CI run must first be connected to code using **Set up PR evals**
+
 The eval runner must be able to reach your Lens instance. For a private deployment, use a runner with access to its network. This integration does not need inbound GitHub webhooks; the hosted service never fetches customer Lens URLs
 
 ## Operate the official Lens App service
@@ -28,7 +30,7 @@ This setup is for the operator of the shared service and happens once. Register 
 
 For a service at `https://github-service.example.com`, set the user authorization callback URL to `https://github-service.example.com/lens/github/callback` and the setup URL to `https://github-service.example.com/lens/github/setup`. The App homepage can link to the Lens repository. Enable **Redirect on update**. Leave **Request user authorization (OAuth) during installation** disabled because the service starts OAuth after verifying the installation return
 
-The App needs repository metadata read access, contents read access, Actions read access, pull requests write access, and checks write access. These allow it to discover repositories, verify workflow runs, and publish eval comments and checks. Disable webhooks for this flow because GitHub Actions executes the eval
+The App needs repository metadata read access, contents read access, Actions read access, pull requests write access, and checks write access. These allow it to discover repositories, verify workflow runs, and publish eval comments and checks. To enable **Run again** from Lens, grant Actions write access and approve the updated permission on existing installations. Disable webhooks for this flow because GitHub Actions executes the eval
 
 Set these values only on the hosted service:
 

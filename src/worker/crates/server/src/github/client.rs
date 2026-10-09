@@ -178,13 +178,13 @@ impl GitHubApp {
         url.into()
     }
 
-    pub(super) async fn request<T: DeserializeOwned>(
+    async fn send(
         &self,
         method: Method,
         path: &str,
         token: &str,
         body: Option<Value>,
-    ) -> Result<T, GitHubError> {
+    ) -> Result<reqwest::Response, GitHubError> {
         let url = self
             .api
             .join(path.trim_start_matches('/'))
@@ -208,7 +208,26 @@ impl GitHubApp {
                 status: response.status().as_u16(),
             });
         }
-        response.json().await.map_err(GitHubError::Decode)
+        Ok(response)
+    }
+
+    pub(super) async fn request<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        token: &str,
+        body: Option<Value>,
+    ) -> Result<T, GitHubError> {
+        self.send(method, path, token, body)
+            .await?
+            .json()
+            .await
+            .map_err(GitHubError::Decode)
+    }
+
+    pub(super) async fn post_empty(&self, path: &str, token: &str) -> Result<(), GitHubError> {
+        self.send(Method::POST, path, token, None).await?;
+        Ok(())
     }
 
     pub(super) async fn repositories(

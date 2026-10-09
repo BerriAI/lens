@@ -203,3 +203,53 @@ pub async fn create(fixture: &EvalFixture) -> EvalRun {
 pub async fn body<T: DeserializeOwned>(response: Response<Body>) -> T {
     serde_json::from_slice(&to_bytes(response.into_body(), usize::MAX).await.unwrap()).unwrap()
 }
+
+#[fixture]
+pub async fn traced_eval_fixture(#[future(awt)] eval_fixture: EvalFixture) -> EvalFixture {
+    let mut fixture = eval_fixture;
+    let client = Client::no_redirect_for_test();
+    let writer = Connection::writer(fixture.connection.url().as_str()).unwrap();
+    litellm_traces_clickhouse::ensure_schema(&client, &writer, &fixture.name, 7)
+        .await
+        .unwrap();
+    let span = |team: &str, trace: &str| {
+        serde_json::from_value(json!({
+            "Timestamp": Utc::now().timestamp_nanos_opt().unwrap(),
+            "TraceId": trace, "SpanId": "root", "SpanName": "agent.run", "Duration": 1_000_000,
+            "TeamId": team, "ApiKeyHash": "key-a", "StatusCode": "STATUS_CODE_OK",
+            "ResourceAttributes": {"deployment.environment": "lens-eval", "agent.name": "agent"},
+            "SpanAttributes": {"session.id": "session-a"}
+        }))
+        .unwrap()
+    };
+    litellm_traces_clickhouse::insert_rows(
+        &client,
+        &writer,
+        &fixture.name,
+        litellm_traces_clickhouse::InsertTable::OtelTraces,
+        vec![
+            span("team-a", "trace-a"),
+            span("team-a", "trace-b"),
+            span("team-b", "private-trace"),
+        ],
+    )
+    .await
+    .unwrap();
+    let state = ClickHouseState::new(client.clone(), fixture.connection.clone());
+    let auth = Arc::new(Authentication {
+        settings: Settings::new(
+            "eval-route-test-admin-token-32-characters",
+            Some(SECRET.to_owned()),
+            "http://lens.test",
+        )
+        .unwrap(),
+        sessions: Sessions(state.clone()),
+    });
+    fixture.app = lens_server::evals::router_with_traces(
+        auth,
+        state,
+        "http://lens.test".into(),
+        litellm_traces_clickhouse::evals::EvalTraces::new(client, fixture.connection.clone()),
+    );
+    fixture
+}

@@ -100,6 +100,17 @@ class ResolvedDataset(BaseModel):
     revision: int = Field(..., ge=0, le=18446744073709551615)
 
 
+class RunCaseSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    case_id: str
+    critical: bool
+    passed: bool | None = None
+    title: str
+
+
 class TaskCompleted(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -176,16 +187,13 @@ class TraceRef(BaseModel):
     value: str = Field(..., min_length=1)
 
 
-class TrialSteps(BaseModel):
+class TrialTrace(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         frozen=True,
     )
-    checks: Sequence[ScorerCheck]
-    error: str | None = None
-    output: str | None = None
-    steps: Sequence[ToolStep]
-    trial: int = Field(..., ge=0, le=4294967295)
+    trace_id: str
+    trace_ref: str
 
 
 class AgentRequest(BaseModel):
@@ -276,18 +284,6 @@ class InputBinding(BaseModel):
     target: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
 
 
-class RunCase(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        frozen=True,
-    )
-    case_id: str
-    critical: bool
-    passed: bool | None = None
-    title: str
-    trials: Sequence[TrialSteps]
-
-
 class TraceMapping(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -296,6 +292,19 @@ class TraceMapping(BaseModel):
     attribute: Literal["session.id", "trace_id"]
     pointer: str = Field(..., pattern="^(?:/(?:[^~/]|~[01])*)*$")
     source: Literal["accepted", "completed"]
+
+
+class TrialSteps(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    checks: Sequence[ScorerCheck]
+    error: str | None = None
+    output: str | None = None
+    steps: Sequence[ToolStep]
+    traces: Sequence[TrialTrace] | None = None
+    trial: int = Field(..., ge=0, le=4294967295)
 
 
 class AgentIo(BaseModel):
@@ -365,6 +374,18 @@ class EvalSpec(BaseModel):
     scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
     timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
     trials: int = Field(default=1, ge=1, le=10)
+
+
+class RunCase(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+    )
+    case_id: str
+    critical: bool
+    passed: bool | None = None
+    title: str
+    trials: Sequence[TrialSteps]
 
 
 class EvalDefinition(BaseModel):

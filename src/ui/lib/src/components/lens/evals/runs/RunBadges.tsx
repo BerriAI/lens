@@ -1,44 +1,64 @@
+import { CheckCircle2, Circle, Loader2, OctagonAlert, XCircle } from "lucide-react";
+
 import { cn } from "../../../../lib/cva.config";
+import type { EvalRun, RunCaseSummary } from "./types";
 
-import { gateTone, type GateTone } from "./format";
-import type { EvalRun } from "./types";
+export type CaseStatus = "Passed" | "Failed" | "Pending" | "Not scored" | "Error";
 
-const GATE: Record<
-  GateTone,
-  { readonly label: string; readonly className: string }
-> = {
-  passed: { label: "passed", className: "text-success" },
-  failed: { label: "failed", className: "text-destructive" },
-  pending: { label: "scoring", className: "text-muted-foreground" },
-  errored: { label: "errored", className: "text-warning" },
-};
+export function caseStatus(item: Pick<RunCaseSummary, "passed">, active: boolean): CaseStatus {
+  if (item.passed === true) return "Passed";
+  if (item.passed === false) return "Failed";
+  return active ? "Pending" : "Not scored";
+}
 
-export function GateStatus({
-  run,
-  className,
-}: {
-  run: EvalRun;
-  className?: string;
-}) {
-  const { label, className: tone } = GATE[gateTone(run)];
+const BADGES = {
+  Passed: { icon: CheckCircle2, tone: "text-success" },
+  Failed: { icon: XCircle, tone: "text-destructive" },
+  "Checks failed": { icon: XCircle, tone: "text-destructive" },
+  Error: { icon: OctagonAlert, tone: "text-destructive" },
+  Running: { icon: Loader2, tone: "text-blue-600 dark:text-blue-400" },
+  Scoring: { icon: Loader2, tone: "text-blue-600 dark:text-blue-400" },
+  Pending: { icon: Circle, tone: "text-muted-foreground" },
+  "Not scored": { icon: Circle, tone: "text-muted-foreground" },
+  "No results": { icon: Circle, tone: "text-muted-foreground" },
+} as const;
+
+export function StatusBadge({ status, className }: { status: keyof typeof BADGES; className?: string }) {
+  const { icon: Icon, tone } = BADGES[status];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap",
-        tone,
-        className,
-      )}
-    >
-      <span aria-hidden="true" className="size-2 rounded-[2px] bg-current" />
-      gate {label}
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium", tone, className)}>
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-3.5 shrink-0",
+          (status === "Running" || status === "Scoring") && "animate-spin motion-reduce:animate-none",
+        )}
+      />
+      {status}
     </span>
   );
 }
 
+export function RunStatusBadge({ run, className }: { run: EvalRun; className?: string }) {
+  const status =
+    run.status === "failed"
+      ? "Error"
+      : run.status === "running"
+        ? "Running"
+        : run.status === "scoring"
+          ? "Scoring"
+          : !run.summary || run.summary.total === 0
+            ? "No results"
+            : run.summary.passed < run.summary.total
+              ? "Failed"
+              : !run.summary.gate.passed
+                ? "Checks failed"
+                : "Passed";
+  return <StatusBadge status={status} className={className} />;
+}
+
+export const GateStatus = RunStatusBadge;
+
 export function CriticalTag() {
-  return (
-    <span className="rounded-[3px] border border-destructive/40 px-1 font-mono text-[10px] leading-4 text-destructive uppercase">
-      crit
-    </span>
-  );
+  return <span className="rounded border px-1 text-[10px] leading-4 text-muted-foreground">Critical</span>;
 }

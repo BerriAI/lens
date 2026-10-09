@@ -74,6 +74,7 @@ pub fn eval_contract() -> Value {
     let _ = generator.subschema_for::<eval::GateResult>();
     let _ = generator.subschema_for::<eval::ResolvedDataset>();
     let _ = generator.subschema_for::<eval::RunCase>();
+    let _ = generator.subschema_for::<eval::RunCaseSummary>();
     let _ = generator.subschema_for::<eval::Summary>();
     let mut schema = json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",

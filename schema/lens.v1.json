@@ -776,6 +776,32 @@
       ],
       "type": "object"
     },
+    "RunCaseSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "type": "string"
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "passed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "title",
+        "critical"
+      ],
+      "type": "object"
+    },
     "RunStatus": {
       "enum": [
         "running",
@@ -1055,6 +1081,12 @@
           },
           "type": "array"
         },
+        "traces": {
+          "items": {
+            "$ref": "#/$defs/TrialTrace"
+          },
+          "type": "array"
+        },
         "trial": {
           "format": "uint32",
           "minimum": 0,
@@ -1065,6 +1097,22 @@
         "trial",
         "checks",
         "steps"
+      ],
+      "type": "object"
+    },
+    "TrialTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "trace_ref"
       ],
       "type": "object"
     }
