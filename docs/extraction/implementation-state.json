@@ -22,7 +22,7 @@
     "merged_extraction_commit": "9c95efabf5efad522cafef5b9777e43c5260acda",
     "publication_mode": "direct_to_main",
     "publication_authorization": "User explicitly requested direct pushes to main on 2026-10-08",
-    "candidate_commit": "ec4f9acd3d9c5a8e248f3ae109d7f0e3a79f067d",
+    "candidate_commit": "4ce7194c0c7d9f5ce19d22b330efa55ac936823b",
     "historical_pull_requests": [
       "https://github.com/BerriAI/litellm-lens/pull/2",
       "https://github.com/BerriAI/litellm-lens/pull/3",
@@ -63,7 +63,9 @@
     "Fixed standalone login remaining on the sign-in screen after a successful response; browser now enters Lens without reload",
     "Fast-forwarded concurrent Lens SDK changes from main through a7e137b5 without changing their source",
     "Removed unfinished Python analysis additions after the user changed the backend target to Rust",
-    "Ported generic ClickHouse/Keeper application state to the existing Rust storage crate, with Python storage fixtures, concurrency checks, corruption and size bounds, and a forced container restart"
+    "Ported generic ClickHouse/Keeper application state to the existing Rust storage crate, with Python storage fixtures, concurrency checks, corruption and size bounds, and a forced container restart",
+    "Rebased the Rust state port onto the merged src/worker, src/ui and src/sdk layout at 514e1b9d",
+    "Validated the moved Rust workspace with 1,270 regular tests, four normally ignored HTTP/ClickHouse cases, workspace Clippy and formatting; new storage mutation testing caught 70 of 76 viable mutations"
   ],
   "current_work": "Port control-plane contracts, authentication, sessions and repositories to Rust following the layout move, then complete provider-backed analysis, migrations, release artifacts and LiteLLM/ops/publisher integration",
   "acceptance": {
@@ -570,6 +572,22 @@
     "state_port": "Implemented in storage-clickhouse; not yet substituted into the application",
     "api_routes_still_owned_by_python": 58,
     "parity_and_completion_scope": "All completion-plan.md requirements retained, including embedded Lens and companion repositories",
-    "evidence": "docs/extraction/rust-state.md"
+    "evidence": "docs/extraction/rust-state.md",
+    "layout_commit": "514e1b9dab7c3c12ef0c56eee45139cdff80722a",
+    "workspace": "src/worker",
+    "validation": {
+      "workspace_tests": {
+        "passed": 1270,
+        "failed": 0,
+        "ignored": 4
+      },
+      "explicit_live_http_tests_passed": 4,
+      "new_storage_cases": 48,
+      "mutation_viable": 76,
+      "mutation_caught": 70,
+      "mutation_survived": 6,
+      "mutation_unviable": 14,
+      "full_product_acceptance": "incomplete"
+    }
   }
 }
