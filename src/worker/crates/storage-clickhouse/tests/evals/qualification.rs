@@ -24,7 +24,8 @@ async fn stored_request_preserves_ci_provenance_for_existing_runs(
         .get("team", &live_run.run.run.id)
         .await
         .unwrap();
-    assert_eq!(restored.run.ci_url, ci_url);
+    assert_eq!(restored.request.ci_url, ci_url);
+    assert!(restored.run.ci_url.is_empty());
     assert_eq!(
         live_run
             .store
@@ -33,6 +34,33 @@ async fn stored_request_preserves_ci_provenance_for_existing_runs(
             .unwrap(),
         vec![restored]
     );
+}
+
+#[rstest]
+#[tokio::test]
+async fn ci_metadata_keeps_the_stored_run_compatible_with_older_readers(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+) {
+    let ci_url = "https://github.com/example/agent/actions/runs/42";
+    let store = EvalStore::new(database.store.clone());
+    let run = create(
+        &store,
+        "team",
+        CreateEvalRun {
+            ci_url: ci_url.into(),
+            ..request
+        },
+        cases,
+        Utc::now(),
+    )
+    .await;
+    let key = database.store.keys("eval-run/", "", 100).await.unwrap();
+    let snapshot = database.store.read(&key[0]).await.unwrap();
+    assert_eq!(snapshot.value["request"]["ci_url"], ci_url);
+    assert!(snapshot.value["run"].get("ci_url").is_none());
+    assert!(run.run.ci_url.is_empty());
 }
 
 #[rstest]

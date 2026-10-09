@@ -158,7 +158,7 @@ pub(super) fn stored_run(snapshot: &Snapshot, team: &str) -> Result<StoredRun, E
     }
     Ok(StoredRun {
         run: EvalRun {
-            ci_url: run.request.ci_url.clone(),
+            ci_url: String::new(),
             ..run.run
         },
         ..run

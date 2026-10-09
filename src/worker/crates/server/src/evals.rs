@@ -439,7 +439,10 @@ async fn list<R: SessionRepository>(
             .into_iter()
             .map(|stored| {
                 if query.include_ci {
-                    stored.run
+                    EvalRun {
+                        ci_url: stored.request.ci_url,
+                        ..stored.run
+                    }
                 } else {
                     without_ci(stored.run)
                 }

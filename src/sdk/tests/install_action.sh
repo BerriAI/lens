@@ -10,6 +10,10 @@ if [[ "$1" == -c ]]; then
   [[ "${INSTALLED:-false}" == true ]]
 else
   [[ "${BUILD_FAIL:-false}" != true ]] || exit 1
+  if [[ "$3" == --python && ! -x "$4" ]]; then
+    echo 'pip requires an interpreter path'
+    exit 1
+  fi
   printf '%s\n' "${RUSTUP_TOOLCHAIN:-}:${MATURIN_NO_INSTALL_RUST:-}" >> "$RUNNER_TEMP/build-environment"
   printf '%s\n' "$*" >> "$RUNNER_TEMP/installed"
 fi
@@ -54,7 +58,7 @@ test ! -e "$fixture/downloaded"
 grep -Fx 'toolchain install 1.99.0 --profile minimal' "$fixture/rustup"
 grep -Fx '1.99.0:1' "$fixture/build-environment"
 sdk=$(cd "$(dirname "$installer")/.." && pwd)
-grep -Fx -- "-m pip --python python install --config-settings build-args=--locked $sdk" "$fixture/installed"
+grep -Fx -- "-m pip --python $fixture/bin/python install --config-settings build-args=--locked $sdk" "$fixture/installed"
 rm "$fixture/installed" "$fixture/rustup"
 
 if LENS_INSTALL_FROM_SOURCE=true RUSTUP_FAIL=true bash "$installer" > "$fixture/output" 2>&1; then
@@ -70,4 +74,10 @@ if LENS_INSTALL_FROM_SOURCE=true BUILD_FAIL=true bash "$installer" > "$fixture/o
 fi
 test ! -e "$fixture/installed"
 grep -F 'Lens SDK source installation failed' "$fixture/output"
+
+if LENS_PYTHON=missing-lens-python bash "$installer" > "$fixture/output" 2>&1; then
+  echo 'Missing interpreter was accepted'
+  exit 1
+fi
+grep -F 'Cannot find the selected Python executable' "$fixture/output"
 echo 'Verified release installation, checksum rejection, source installation, and build failures'
