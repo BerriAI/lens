@@ -7,7 +7,7 @@ use datasets::support::{Database, INGEST, database};
 use lens_contract::{
     feedback::TraceIdentity,
     investigations::Scope,
-    signals::{SignalConfig, TraceSignalStatus},
+    signals::{SignalConfig, SignalData, SignalEvidence, TraceSignalStatus},
 };
 use lens_decisions::{Deployment, EvaluationModels, Provider, Secret, TransportLimits};
 use lens_signals::{LIVE_SWEEP, SignalReader, SignalRepository, run_signal_tick, trace_signals};
@@ -48,8 +48,10 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
     Mock::given(method("POST"))
         .and(path("/v1/systemone"))
         .respond_with(
-            ResponseTemplate::new(status)
-                .set_body_json(json!({"answers":{"frustration":{"type":"noul","noul":0.9}}})),
+            ResponseTemplate::new(status).set_body_json(json!({"answers":{
+                "frustration":{"type":"noul","noul":0.9},
+                "__evidence_0":{"type":"choice","choice":"L000","confidence":0.95}
+            }})),
         )
         .expect(1)
         .mount(&provider)
@@ -97,12 +99,13 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
     .await
     .unwrap();
     assert_eq!(tick.claimed, 1);
+    let scope = Scope {
+        all_teams: true,
+        ..Default::default()
+    };
     let sample = SignalReader::sample(
         &server.sources,
-        &Scope {
-            all_teams: true,
-            ..Default::default()
-        },
+        &scope,
         (now - chrono::TimeDelta::minutes(15)).timestamp_millis(),
         now.timestamp_millis(),
         100,
@@ -111,6 +114,20 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
     .await
     .unwrap();
     let execution = &sample.executions[0];
+    let content = SignalReader::content(&server.sources, &scope, execution, "")
+        .await
+        .unwrap();
+    assert_eq!(content.parts.len(), 1);
+    let evidence = SignalEvidence {
+        span_id: "1111222233334444".into(),
+        quote: content.parts[0].content.trim().into(),
+    };
+    assert_eq!(content.parts[0].span_id, evidence.span_id);
+    assert!(
+        evidence
+            .quote
+            .contains("I am frustrated that you ignored the request")
+    );
     let identity = TraceIdentity {
         trace_id: execution.trace_id.clone(),
         trace_ref: execution.trace_ref.clone(),
@@ -127,13 +144,40 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
     assert_eq!(projected.status, expected);
     assert_eq!(projected.model, "signals");
     assert_eq!(projected.flags.len(), usize::from(status == 200));
+    let stored: SignalData = serde_json::from_value(rows[0].data.clone()).unwrap();
+    if status == 200 {
+        assert_eq!(stored.scores["frustration"], 0.9);
+        assert_eq!(stored.evidence.get("frustration"), Some(&evidence));
+        assert_eq!(projected.flags[0].signal_id, "frustration");
+        assert_eq!(projected.flags[0].score, 0.9);
+        assert_eq!(projected.flags[0].evidence.as_ref(), Some(&evidence));
+    } else {
+        assert!(stored.scores.is_empty());
+        assert!(stored.evidence.is_empty());
+    }
     let requests = provider.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
     let sent: Value = requests[0].body_json().unwrap();
     assert_eq!(sent["model"], "jev-latest");
-    assert!(sent["state"]["steps"].to_string().contains("frustrated"));
     assert_eq!(
-        sent["questions"],
-        json!({"frustration":{"type":"noul","instructions":"Is the user frustrated?"}})
+        sent["state"]["steps"][0]["content"],
+        format!("[L000] {}", evidence.quote)
+    );
+    assert_eq!(sent["questions"].as_object().unwrap().len(), 2);
+    assert_eq!(
+        sent["questions"]["frustration"],
+        json!({"type":"noul","instructions":"Is the user frustrated?"})
+    );
+    assert_eq!(sent["questions"]["__evidence_0"]["type"], "choice");
+    assert!(
+        sent["questions"]["__evidence_0"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("Is the user frustrated?")
+    );
+    assert_eq!(
+        sent["questions"]["__evidence_0"]["criteria"],
+        json!({"L000":null,"none":"No excerpt directly supports a yes answer"})
     );
     assert_eq!(
         run_signal_tick(
@@ -150,4 +194,5 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
         .claimed,
         0
     );
+    assert_eq!(provider.received_requests().await.unwrap().len(), 1);
 }
