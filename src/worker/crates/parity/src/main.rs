@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use lens_parity::scenarios::{auth_scenarios, dataset_scenarios};
+use lens_parity::scenarios::{auth_boundary_scenarios, auth_scenarios, dataset_scenarios};
 use lens_parity::{Tokens, record_scenarios, replay_fixtures};
 use url::Url;
 
@@ -20,6 +20,8 @@ enum Command {
 #[derive(clap::Args)]
 struct Options {
     #[arg(long)]
+    group: Option<Group>,
+    #[arg(long)]
     base_url: Url,
     #[arg(long, default_value_os_t = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures"))]
     fixtures: PathBuf,
@@ -29,12 +31,39 @@ struct Options {
     gateway_secret: String,
 }
 
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum Group {
+    Auth,
+    AuthBoundaries,
+    Datasets,
+}
+
+impl Group {
+    fn directory(self) -> &'static str {
+        match self {
+            Self::Auth => "auth",
+            Self::AuthBoundaries => "auth-boundaries",
+            Self::Datasets => "datasets",
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments = Arguments::parse();
     match arguments.command {
         Command::Record(options) => {
-            let scenarios = [auth_scenarios(), dataset_scenarios()].concat();
+            let scenarios = match options.group {
+                Some(Group::Auth) => auth_scenarios(),
+                Some(Group::AuthBoundaries) => auth_boundary_scenarios(),
+                Some(Group::Datasets) => dataset_scenarios(),
+                None => [
+                    auth_scenarios(),
+                    auth_boundary_scenarios(),
+                    dataset_scenarios(),
+                ]
+                .concat(),
+            };
             let count = record_scenarios(
                 &options.base_url,
                 &options.fixtures,
@@ -48,9 +77,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         Command::Replay(options) => {
+            let fixtures = options
+                .group
+                .map(|group| options.fixtures.join(group.directory()))
+                .unwrap_or(options.fixtures);
             let report = replay_fixtures(
                 &options.base_url,
-                &options.fixtures,
+                &fixtures,
                 &Tokens::new(options.admin_token, options.gateway_secret),
             )
             .await?;

@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {},
+    "body": {
+      "token": []
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": [],
+          "loc": [
+            "body",
+            "token"
+          ],
+          "msg": "Input should be a valid string",
+          "type": "string_type"
+        }
+      ]
+    }
+  }
+}

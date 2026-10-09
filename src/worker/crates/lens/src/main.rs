@@ -52,6 +52,24 @@ async fn run() -> Result<(), litellm_lens::Error> {
     );
     let storage = Storage::new(config.storage, client.clone(), config.service_token.clone());
     let state = Arc::new(State::new(storage, config.service_token.clone()));
+    let api = match config.authentication {
+        Some(settings) => {
+            state.storage.ensure_schema().await?;
+            let connection = state.storage.config.storage();
+            let store = litellm_storage_clickhouse::state::ClickHouseState::new(
+                client.clone(),
+                connection.reader().clone(),
+            );
+            store
+                .initialize(&format!("/lens/{}", connection.database()))
+                .await?;
+            lens_server::sessions::router(lens_auth::Authentication {
+                settings,
+                sessions: litellm_storage_clickhouse::sessions::Sessions(store),
+            })
+        }
+        None => lens_server::router(),
+    };
     let listener = tokio::net::TcpListener::bind(config.address).await?;
     let auth_task = tokio::spawn(auth::refresh_loop(
         state.credentials.clone(),
@@ -63,7 +81,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let mut worker = tokio::spawn(Worker::new(control, config.release).serve());
     let (shutdown, stopping) = tokio::sync::oneshot::channel::<()>();
     let mut server = tokio::spawn(async move {
-        axum::serve(listener, router(state))
+        axum::serve(listener, router(state).merge(api))
             .with_graceful_shutdown(async {
                 let _ = stopping.await;
             })

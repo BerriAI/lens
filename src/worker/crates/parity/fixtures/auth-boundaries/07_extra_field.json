@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {},
+    "body": {
+      "extra": 1,
+      "token": "{{admin_token}}"
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": 1,
+          "loc": [
+            "body",
+            "extra"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "type": "extra_forbidden"
+        }
+      ]
+    }
+  }
+}

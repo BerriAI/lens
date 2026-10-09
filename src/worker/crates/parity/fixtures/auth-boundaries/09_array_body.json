@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {},
+    "body": []
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": [],
+          "loc": [
+            "body"
+          ],
+          "msg": "Input should be a valid dictionary or object to extract fields from",
+          "type": "model_attributes_type"
+        }
+      ]
+    }
+  }
+}

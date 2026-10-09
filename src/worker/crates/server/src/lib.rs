@@ -3,6 +3,7 @@
 pub mod auth;
 mod error;
 pub mod python_routes;
+pub mod sessions;
 
 pub use error::ApiError;
 

@@ -108,6 +108,11 @@ pub async fn replay_fixtures(
     tokens: &Tokens,
 ) -> Result<ReplayReport> {
     let directories = sorted_directories(fixtures_dir).await?;
+    let directories = if directories.is_empty() {
+        vec![fixtures_dir.to_owned()]
+    } else {
+        directories
+    };
     let mut report = ReplayReport::default();
     for directory in directories {
         let paths = sorted_fixtures(&directory).await?;
@@ -335,7 +340,13 @@ fn mint_jwt(case: &str, secret: &str) -> Result<String> {
         user_id: "gateway-admin",
         team_id: Some("alpha"),
     };
-    let (identity, subject, issued_at, expires_at, audience, issuer) = match case {
+    let base_case = match case {
+        "integer_strings" | "integral_floats" | "fractional_iat" | "unknown_identity"
+        | "unknown_claim" | "wrong_signature" | "wrong_algorithm" | "token_subject" | "future"
+        | "maximum_lifetime" => "valid",
+        case => case,
+    };
+    let (identity, subject, issued_at, expires_at, audience, issuer) = match base_case {
         "valid" => (
             admin,
             admin.user_id,
@@ -442,8 +453,49 @@ fn mint_jwt(case: &str, secret: &str) -> Result<String> {
             team_id: identity.team_id,
         },
     };
+    let mut claims = serde_json::to_value(claims).expect("gateway fixture serializes");
+    match case {
+        "integer_strings" => {
+            claims["iat"] = Value::from(now.to_string());
+            claims["exp"] = Value::from((now + 30).to_string());
+        }
+        "integral_floats" => {
+            claims["iat"] = Value::from(now as f64);
+            claims["exp"] = Value::from((now + 30) as f64);
+        }
+        "fractional_iat" => {
+            claims["iat"] = Value::from(now as f64 - 0.5);
+        }
+        "unknown_identity" => {
+            claims["identity"]["extra"] = Value::from(true);
+        }
+        "unknown_claim" => {
+            claims["nbf"] = Value::from(now - 1);
+        }
+        "token_subject" => {
+            claims["identity"] = serde_json::json!({"token": "gateway-key", "user_role": "team"});
+            claims["sub"] = Value::from("gateway-key");
+        }
+        "future" => {
+            claims["iat"] = Value::from(now + 30);
+        }
+        "maximum_lifetime" => {
+            claims["exp"] = Value::from(now + 60);
+        }
+        _ => {}
+    }
+    let algorithm = if case == "wrong_algorithm" {
+        Algorithm::HS384
+    } else {
+        Algorithm::HS256
+    };
+    let secret = if case == "wrong_signature" {
+        "invalid-signature-secret"
+    } else {
+        secret
+    };
     Ok(jsonwebtoken::encode(
-        &Header::new(Algorithm::HS256),
+        &Header::new(algorithm),
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
     )?)

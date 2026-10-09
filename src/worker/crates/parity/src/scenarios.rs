@@ -506,3 +506,79 @@ pub fn dataset_scenarios() -> Vec<Scenario> {
         ),
     ]
 }
+
+pub fn auth_boundary_scenarios() -> Vec<Scenario> {
+    let validation = [
+        ("00_missing_body", Value::Null),
+        ("01_missing_token", json!({})),
+        ("02_null_token", json!({"token":null})),
+        ("03_numeric_token", json!({"token":1})),
+        ("04_boolean_token", json!({"token":true})),
+        ("05_array_token", json!({"token":[]})),
+        ("06_object_token", json!({"token":{}})),
+        (
+            "07_extra_field",
+            json!({"token":"{{admin_token}}", "extra":1}),
+        ),
+        ("08_multiple_errors", json!({"token":3, "extra":1})),
+        ("09_array_body", json!([])),
+        ("10_scalar_body", json!("token")),
+        ("11_empty_token", json!({"token":""})),
+    ]
+    .into_iter()
+    .map(|(name, body)| {
+        step(
+            "auth-boundaries",
+            name,
+            "POST",
+            "/auth/session",
+            BTreeMap::new(),
+            body,
+            vec![],
+        )
+    });
+    let gateway = [
+        ("12_integer_strings", "integer_strings"),
+        ("13_integral_floats", "integral_floats"),
+        ("14_fractional_iat", "fractional_iat"),
+        ("15_unknown_identity", "unknown_identity"),
+        ("16_unknown_claim", "unknown_claim"),
+        ("17_wrong_signature", "wrong_signature"),
+        ("18_wrong_algorithm", "wrong_algorithm"),
+        ("19_token_subject", "token_subject"),
+        ("20_future", "future"),
+        ("21_maximum_lifetime", "maximum_lifetime"),
+    ]
+    .into_iter()
+    .map(|(name, jwt)| {
+        step(
+            "auth-boundaries",
+            name,
+            "GET",
+            "/auth/session",
+            bearer(&format!("{{{{jwt.{jwt}}}}}")),
+            Value::Null,
+            vec![],
+        )
+    });
+    let content_types = [
+        ("22_plain_text", "text/plain"),
+        ("23_form", "application/x-www-form-urlencoded"),
+        ("24_json_charset", "Application/Json; charset=utf-8"),
+        ("25_vendor_json", "application/lens+json"),
+        ("26_non_application_json", "text/test+json"),
+    ]
+    .into_iter()
+    .map(|(name, content_type)| {
+        step(
+            "auth-boundaries",
+            name,
+            "POST",
+            "/auth/session",
+            BTreeMap::from([("content-type".into(), content_type.into())]),
+            json!({"token":"plain-text-token"}),
+            vec![],
+        )
+    });
+    validation.chain(gateway).chain(content_types).collect()
+}

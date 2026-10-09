@@ -394,3 +394,128 @@ async fn isolated_container_restart_preserves_commits_and_fencing(
         json!("pending")
     );
 }
+
+#[rstest]
+#[tokio::test]
+async fn sessions_preserve_python_keys_conflicts_and_tombstones(#[future(awt)] database: Database) {
+    use lens_auth::{SessionId, SessionRepository, StoreError};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let id = SessionId::for_token("cookie-session");
+    let expires = chrono::DateTime::parse_from_rfc3339("2026-10-08T12:00:00.123456Z")
+        .unwrap()
+        .to_utc();
+    let sessions = Sessions(database.store.clone());
+    assert!(sessions.expires_at(&id).await.unwrap().is_none());
+    sessions.create(&id, expires).await.unwrap();
+    assert!(matches!(
+        sessions
+            .create(&id, expires + chrono::Duration::days(1))
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    let key = format!("session/%5B%22{}%22%5D", id.as_str());
+    let record = database.store.read(&key).await.unwrap();
+    assert_eq!(
+        record.value,
+        json!({"expires_at":"2026-10-08T12:00:00.123456Z"})
+    );
+    assert_eq!(
+        Sessions(database.independent())
+            .expires_at(&id)
+            .await
+            .unwrap(),
+        Some(expires)
+    );
+    sessions.revoke(&id).await.unwrap();
+    assert!(
+        Sessions(database.independent())
+            .expires_at(&id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let revoked = database.store.read(&key).await.unwrap();
+    assert_eq!(revoked.head.revision, record.head.revision + 1);
+    assert!(revoked.value.is_null());
+    sessions.revoke(&id).await.unwrap();
+    assert_eq!(database.store.read(&key).await.unwrap(), revoked);
+}
+
+#[rstest]
+#[case::python_timestamp(json!({"expires_at":"2026-10-08T12:00:00.000000+00:00"}), true)]
+#[case::offset_timestamp(json!({"expires_at":"2026-10-08T14:00:00+02:00"}), true)]
+#[case::no_timezone(json!({"expires_at":"2026-10-08T12:00:00"}), false)]
+#[case::missing_field(json!({}), false)]
+#[case::unknown_field(json!({"expires_at":"2026-10-08T12:00:00Z", "extra":true}), false)]
+#[tokio::test]
+async fn stored_session_validation(
+    #[future(awt)] database: Database,
+    #[case] value: Value,
+    #[case] valid: bool,
+) {
+    use lens_auth::{SessionId, SessionRepository, StoreError};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let id = SessionId::for_token("python-session");
+    let key = format!("session/%5B%22{}%22%5D", id.as_str());
+    database
+        .store
+        .commit(vec![initial(&key, value)])
+        .await
+        .unwrap();
+    let result = Sessions(database.independent()).expires_at(&id).await;
+    if valid {
+        assert_eq!(
+            result.unwrap().unwrap().to_rfc3339(),
+            "2026-10-08T12:00:00+00:00"
+        );
+    } else {
+        assert!(matches!(result, Err(StoreError::Unavailable(_))));
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn session_authentication_survives_forced_clickhouse_restart(
+    #[future(awt)] isolated_database: Database,
+) {
+    use lens_auth::{SessionId, SessionRepository};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let id = SessionId::for_token("persisted-session");
+    let expires = chrono::Utc::now() + chrono::Duration::hours(8);
+    Sessions(isolated_database.store.clone())
+        .create(&id, expires)
+        .await
+        .unwrap();
+    let restarted = Sessions(isolated_database.restart().await);
+    assert_eq!(restarted.expires_at(&id).await.unwrap(), Some(expires));
+    restarted.revoke(&id).await.unwrap();
+    let restarted = Sessions(isolated_database.restart().await);
+    assert!(restarted.expires_at(&id).await.unwrap().is_none());
+}
+
+#[rstest]
+#[tokio::test]
+async fn session_storage_failure_does_not_look_like_missing_session(
+    #[future(awt)] database: Database,
+) {
+    use lens_auth::{SessionId, SessionRepository, StoreError};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let id = SessionId::for_token("session");
+    let sessions = Sessions(database.store.clone());
+    sessions.create(&id, chrono::Utc::now()).await.unwrap();
+    database.sql("DROP TABLE lens_state_blobs SYNC").await;
+    assert!(matches!(
+        sessions.expires_at(&id).await,
+        Err(StoreError::Unavailable(_))
+    ));
+    assert!(matches!(
+        sessions.revoke(&id).await,
+        Err(StoreError::Unavailable(_))
+    ));
+    assert!(matches!(
+        sessions
+            .create(&SessionId::for_token("new"), chrono::Utc::now())
+            .await,
+        Err(StoreError::Unavailable(_))
+    ));
+}

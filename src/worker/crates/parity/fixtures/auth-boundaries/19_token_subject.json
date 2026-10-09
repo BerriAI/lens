@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/auth/session",
+    "headers": {
+      "authorization": "Bearer {{jwt.token_subject}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "user_id": "",
+      "user_role": "team"
+    }
+  }
+}

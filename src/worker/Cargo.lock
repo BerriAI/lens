@@ -671,6 +671,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "cookie"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a373e3602691c3cdea496d2f0ee5935151e6168fe87739483c463db1b2f2f87"
+dependencies = [
+ "time",
+ "version_check",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2081,6 +2091,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "lens-auth"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "jsonwebtoken",
+ "lens-contract",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "subtle",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "lens-contract"
+version = "0.1.0"
+dependencies = [
+ "rstest",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lens-evals-python"
 version = "0.1.0"
 dependencies = [
@@ -2142,12 +2179,25 @@ name = "lens-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "chrono",
+ "cookie",
  "http",
+ "lens-auth",
+ "lens-contract",
+ "lens-parity",
+ "litellm-http",
+ "litellm-storage-clickhouse",
+ "rand 0.8.7",
+ "reqwest 0.12.28",
  "rstest",
  "serde",
+ "serde_json",
+ "testcontainers-modules",
  "thiserror 2.0.19",
  "tokio",
  "tower",
+ "uuid",
 ]
 
 [[package]]
@@ -2226,6 +2276,7 @@ dependencies = [
  "futures-util",
  "http",
  "jsonschema",
+ "lens-auth",
  "lens-server",
  "libc",
  "litellm-http",
@@ -2272,7 +2323,9 @@ dependencies = [
 name = "litellm-storage-clickhouse"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "flate2",
+ "lens-auth",
  "litellm-http",
  "rand 0.8.7",
  "rstest",

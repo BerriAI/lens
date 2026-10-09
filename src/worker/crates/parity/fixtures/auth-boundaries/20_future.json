@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/auth/session",
+    "headers": {
+      "authorization": "Bearer {{jwt.future}}",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Invalid or expired gateway identity"
+    }
+  }
+}

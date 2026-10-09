@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {},
+    "body": {}
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": {},
+          "loc": [
+            "body",
+            "token"
+          ],
+          "msg": "Field required",
+          "type": "missing"
+        }
+      ]
+    }
+  }
+}

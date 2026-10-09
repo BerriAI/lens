@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {
+      "content-type": "Application/Json; charset=utf-8"
+    },
+    "body": {
+      "token": "plain-text-token"
+    }
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": "Invalid Lens setup token"
+    }
+  }
+}

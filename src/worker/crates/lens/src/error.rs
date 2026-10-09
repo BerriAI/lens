@@ -8,6 +8,10 @@ use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error("Lens application state storage failed")]
+    StateStorage(#[from] litellm_storage_clickhouse::Error),
     #[error("{schema} response invalid after two attempts: {detail}")]
     ModelValidation {
         schema: &'static str,

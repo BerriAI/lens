@@ -4,6 +4,7 @@ mod error;
 mod insert;
 mod migrate;
 mod read;
+pub mod sessions;
 pub mod state;
 
 pub use error::Error;

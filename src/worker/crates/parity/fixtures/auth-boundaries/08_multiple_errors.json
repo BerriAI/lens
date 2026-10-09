@@ -1,0 +1,39 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/auth/session",
+    "headers": {},
+    "body": {
+      "extra": 1,
+      "token": 3
+    }
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "detail": [
+        {
+          "input": 3,
+          "loc": [
+            "body",
+            "token"
+          ],
+          "msg": "Input should be a valid string",
+          "type": "string_type"
+        },
+        {
+          "input": 1,
+          "loc": [
+            "body",
+            "extra"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "type": "extra_forbidden"
+        }
+      ]
+    }
+  }
+}

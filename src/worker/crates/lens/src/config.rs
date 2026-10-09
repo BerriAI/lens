@@ -12,6 +12,7 @@ pub struct Config {
     pub service_token: String,
     pub release: String,
     pub storage: StorageConfig,
+    pub authentication: Option<lens_auth::Settings>,
 }
 
 fn required(name: &'static str) -> Result<String, Error> {
@@ -44,6 +45,19 @@ impl Config {
             ));
         }
         Ok(Self {
+            authentication: std::env::var("LENS_ADMIN_TOKEN")
+                .ok()
+                .map(|token| {
+                    lens_auth::Settings::new(
+                        &token,
+                        std::env::var("LENS_GATEWAY_SECRET")
+                            .ok()
+                            .filter(|value| !value.is_empty()),
+                        &std::env::var("LENS_PUBLIC_URL")
+                            .unwrap_or_else(|_| "http://localhost:4000".into()),
+                    )
+                })
+                .transpose()?,
             address: std::env::var("LITELLM_LENS_LISTEN")
                 .unwrap_or_else(|_| "0.0.0.0:4318".into())
                 .parse()
