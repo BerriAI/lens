@@ -44,9 +44,15 @@ const evalRunQueries = {
   },
 };
 
+export const EMPTY_RUNS_POLL_MS = 5000;
+
 export function useEvalRuns(filter: EvalRunFilter) {
   const api = useLensApi();
-  return useQuery(evalRunQueries.list(api.evalRuns, api.scope, filter));
+  return useQuery({
+    ...evalRunQueries.list(api.evalRuns, api.scope, filter),
+    refetchInterval: (query) =>
+      query.state.data?.length === 0 ? EMPTY_RUNS_POLL_MS : false,
+  });
 }
 
 export function useEvalRun(runId: string) {

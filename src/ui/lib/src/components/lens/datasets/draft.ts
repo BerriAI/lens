@@ -26,10 +26,16 @@ export const setExpected = (draft: Draft, id: string, text: string): Draft => ({
   expected: new Map(draft.expected).set(id, text),
 });
 
-export const pickedCases = (built: readonly DatasetCase[], draft: Draft): DatasetCase[] =>
+export const pickedCases = (
+  built: readonly DatasetCase[],
+  draft: Draft,
+): DatasetCase[] =>
   built
     .filter((item) => !draft.excluded.has(item.id))
-    .map((item) => ({ ...item, expected: draft.expected.get(item.id) ?? item.expected }));
+    .map((item) => ({
+      ...item,
+      expected: draft.expected.get(item.id) ?? item.expected,
+    }));
 
 /** A save replaces the whole list, so the dataset's current cases go first and the ticked new ones follow. */
 export const revisionCases = (
@@ -43,7 +49,8 @@ export const casePrompt = (item: DatasetCase): string => {
   return (users.at(-1) ?? item.messages.at(-1))?.content ?? "";
 };
 
-const callText = (call: DatasetToolCall): string => `${call.name}(${call.arguments})`;
+const callText = (call: DatasetToolCall): string =>
+  `${call.name}(${call.arguments})`;
 
 export const caseReplySummary = (item: DatasetCase): string => {
   const calls = item.tool_calls.map(callText).join(", ");

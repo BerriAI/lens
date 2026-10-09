@@ -1,7 +1,13 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, DatabaseZap, Loader2, RotateCw, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  DatabaseZap,
+  Loader2,
+  RotateCw,
+  TriangleAlert,
+} from "lucide-react";
 import { useId, useState } from "react";
 
 import { Button } from "../../ui/button";
@@ -15,7 +21,13 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Input } from "../../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { extractProxyErrorMessage } from "../../../lib/http/client";
 import { cn } from "../../../lib/cva.config";
@@ -44,18 +56,27 @@ import {
   toggleCase,
   type Draft,
 } from "./draft";
-import type { BuildSource, Dataset, DatasetCase, DatasetMessage, DatasetSummary, SkippedCase } from "./types";
+import type {
+  BuildSource,
+  Dataset,
+  DatasetCase,
+  DatasetMessage,
+  DatasetSummary,
+  SkippedCase,
+} from "./types";
 
 const NEW_DATASET = "__new__";
 
-const cases = (count: number): string => `${count} ${count === 1 ? "case" : "cases"}`;
+const cases = (count: number): string =>
+  `${count} ${count === 1 ? "case" : "cases"}`;
 
 /** Admins can save cases; the sample session keeps its datasets in memory so anyone can try it. */
 export function useCanAddToDataset(): boolean {
   const api = useOptionalLensApi();
   const onboarding = useOptionalOnboarding();
   const live = useTracesLive();
-  const canWrite = !!onboarding && onboarding.canInvestigate && !onboarding.readOnly;
+  const canWrite =
+    !!onboarding && onboarding.canInvestigate && !onboarding.readOnly;
   return !!api && (!live || canWrite);
 }
 
@@ -78,16 +99,27 @@ function useOpenSavedDataset() {
 function useDatasetTarget(agentName: string) {
   const datasets = useDatasets();
   const [picked, setPicked] = useState<string | null>(null);
-  const forAgent = datasets.data?.find((item) => agentName && item.agent_name === agentName)?.id;
-  const target = picked ?? forAgent ?? (datasets.isPending ? null : NEW_DATASET);
+  const forAgent = datasets.data?.find(
+    (item) => agentName && item.agent_name === agentName,
+  )?.id;
+  const target =
+    picked ?? forAgent ?? (datasets.isPending ? null : NEW_DATASET);
   const existingId = target === NEW_DATASET ? null : target;
   return { datasets: datasets.data ?? [], target, existingId, setPicked };
 }
 
-export function AddToDatasetDialog({ sources, agentName = "", onClose }: AddToDatasetDialogProps) {
-  const { datasets, target, existingId, setPicked } = useDatasetTarget(agentName);
+export function AddToDatasetDialog({
+  sources,
+  agentName = "",
+  onClose,
+}: AddToDatasetDialogProps) {
+  const { datasets, target, existingId, setPicked } =
+    useDatasetTarget(agentName);
   const dataset = useDataset(existingId);
-  const build = useBuildCases({ sources: [...sources], dataset_id: existingId ?? "" }, target !== null);
+  const build = useBuildCases(
+    { sources: [...sources], dataset_id: existingId ?? "" },
+    target !== null,
+  );
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [name, setName] = useState(agentName ? `${agentName} cases` : "");
   const [conflict, setConflict] = useState(false);
@@ -116,10 +148,12 @@ export function AddToDatasetDialog({ sources, agentName = "", onClose }: AddToDa
 
   const baseDataset = async (): Promise<Dataset | undefined> => {
     if (existingId) return dataset.data;
-    return create.mutateAsync({ name: name.trim(), agent_name: agentName }).catch((error: unknown) => {
-      toast.fromError(error);
-      return undefined;
-    });
+    return create
+      .mutateAsync({ name: name.trim(), agent_name: agentName })
+      .catch((error: unknown) => {
+        toast.fromError(error);
+        return undefined;
+      });
   };
 
   const submit = async () => {
@@ -128,11 +162,18 @@ export function AddToDatasetDialog({ sources, agentName = "", onClose }: AddToDa
     try {
       const saved = await save.mutateAsync({
         datasetId: base.id,
-        body: { base_revision: base.revision, cases: revisionCases(base.cases, built, draft) },
+        body: {
+          base_revision: base.revision,
+          cases: revisionCases(base.cases, built, draft),
+        },
       });
       toast.success(`Added ${cases(chosen)} to ${saved.name}`, {
         description: (
-          <button type="button" className="underline underline-offset-2" onClick={() => openSaved(saved.id)}>
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => openSaved(saved.id)}
+          >
             Open dataset
           </button>
         ),
@@ -149,24 +190,44 @@ export function AddToDatasetDialog({ sources, agentName = "", onClose }: AddToDa
       <DialogContent className="max-h-[90vh] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-4 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add to dataset</DialogTitle>
-          <DialogDescription>Saves a copy of each conversation, so it stays after the trace expires.</DialogDescription>
+          <DialogDescription>
+            Saves a copy of each conversation, so it stays after the trace
+            expires.
+          </DialogDescription>
         </DialogHeader>
-        <TargetFields datasets={datasets} target={target} name={name} onTarget={pickTarget} onName={setName} />
+        <TargetFields
+          datasets={datasets}
+          target={target}
+          name={name}
+          onTarget={pickTarget}
+          onName={setName}
+        />
         <CasePreview
           build={build}
           draft={draft}
           chosen={chosen}
           onToggle={(id) => setDraft((current) => toggleCase(current, id))}
-          onExpected={(id, text) => setDraft((current) => setExpected(current, id, text))}
+          onExpected={(id, text) =>
+            setDraft((current) => setExpected(current, id, text))
+          }
         />
         <DialogFooter className="items-center sm:justify-between">
-          {conflict ? <ConflictNotice onReload={() => void reload()} /> : <span />}
+          {conflict ? (
+            <ConflictNotice onReload={() => void reload()} />
+          ) : (
+            <span />
+          )}
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
             <Button disabled={!canSave} onClick={() => void submit()}>
-              {busy && <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" />}
+              {busy && (
+                <Loader2
+                  aria-hidden="true"
+                  className="animate-spin motion-reduce:animate-none"
+                />
+              )}
               {chosen > 0 ? `Save ${cases(chosen)}` : "Save"}
             </Button>
           </div>
@@ -184,7 +245,13 @@ interface TargetFieldsProps {
   readonly onName: (name: string) => void;
 }
 
-function TargetFields({ datasets, target, name, onTarget, onName }: TargetFieldsProps) {
+function TargetFields({
+  datasets,
+  target,
+  name,
+  onTarget,
+  onName,
+}: TargetFieldsProps) {
   const nameId = useId();
   const items = [
     { value: NEW_DATASET, label: "New dataset" },
@@ -194,8 +261,18 @@ function TargetFields({ datasets, target, name, onTarget, onName }: TargetFields
     <div className="grid gap-2 sm:grid-cols-2">
       <label className="grid gap-1.5 text-xs text-muted-foreground">
         Dataset
-        <Select value={target} items={items} onValueChange={(next: string | null) => next !== null && onTarget(next)}>
-          <SelectTrigger aria-label="Dataset" size="sm" className="w-full text-sm">
+        <Select
+          value={target}
+          items={items}
+          onValueChange={(next: string | null) =>
+            next !== null && onTarget(next)
+          }
+        >
+          <SelectTrigger
+            aria-label="Dataset"
+            size="sm"
+            className="w-full text-sm"
+          >
             <SelectValue placeholder="Loading datasets…" />
           </SelectTrigger>
           <SelectContent>
@@ -203,14 +280,19 @@ function TargetFields({ datasets, target, name, onTarget, onName }: TargetFields
             {datasets.map((item) => (
               <SelectItem key={item.id} value={item.id}>
                 {item.name}
-                <span className="text-xs text-muted-foreground">{cases(item.case_count)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {cases(item.case_count)}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </label>
       {target === NEW_DATASET && (
-        <label htmlFor={nameId} className="grid gap-1.5 text-xs text-muted-foreground">
+        <label
+          htmlFor={nameId}
+          className="grid gap-1.5 text-xs text-muted-foreground"
+        >
           Name
           <Input
             id={nameId}
@@ -228,9 +310,13 @@ function TargetFields({ datasets, target, name, onTarget, onName }: TargetFields
 
 function ConflictNotice({ onReload }: { onReload: () => void }) {
   return (
-    <p role="alert" className="flex items-center gap-2 text-xs text-destructive">
+    <p
+      role="alert"
+      className="flex items-center gap-2 text-xs text-destructive"
+    >
       <TriangleAlert aria-hidden="true" className="size-3.5" />
-      Someone saved this dataset since you opened it. Reload to add to the latest version.
+      Someone saved this dataset since you opened it. Reload to add to the
+      latest version.
       <Button variant="outline" size="xs" onClick={onReload}>
         <RotateCw aria-hidden="true" />
         Reload
@@ -247,17 +333,32 @@ interface CasePreviewProps {
   readonly onExpected: (id: string, text: string) => void;
 }
 
-function CasePreview({ build, draft, chosen, onToggle, onExpected }: CasePreviewProps) {
+function CasePreview({
+  build,
+  draft,
+  chosen,
+  onToggle,
+  onExpected,
+}: CasePreviewProps) {
   if (build.isPending)
     return (
-      <p role="status" className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-        <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+      <p
+        role="status"
+        className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+      >
+        <Loader2
+          aria-hidden="true"
+          className="size-4 animate-spin motion-reduce:animate-none"
+        />
         Reading the conversation…
       </p>
     );
   if (build.isError)
     return (
-      <p role="alert" className="flex items-center gap-2 py-6 text-sm text-destructive">
+      <p
+        role="alert"
+        className="flex items-center gap-2 py-6 text-sm text-destructive"
+      >
         <TriangleAlert aria-hidden="true" className="size-4" />
         {extractProxyErrorMessage(build.error)}
       </p>
@@ -272,7 +373,9 @@ function CasePreview({ build, draft, chosen, onToggle, onExpected }: CasePreview
         </p>
       </div>
       {cases.length === 0 ? (
-        <p className="rounded-xl bg-muted/60 px-3 py-4 text-sm text-muted-foreground">Nothing new to add.</p>
+        <p className="rounded-xl bg-muted/60 px-3 py-4 text-sm text-muted-foreground">
+          Nothing new to add.
+        </p>
       ) : (
         <ul aria-label="Cases to add" className="grid gap-2.5">
           {cases.map((item, index) => (
@@ -325,16 +428,26 @@ function CaseTile({
         />
       )}
       <div className="flex min-w-0 items-start gap-2.5 pr-6">
-        <Checkbox checked={selected} onCheckedChange={onToggle} aria-label={`Include ${label}`} className="mt-0.5" />
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggle}
+          aria-label={`Include ${label}`}
+          className="mt-0.5"
+        />
         <span className="grid min-w-0 gap-0.5">
-          <span className="line-clamp-2 text-sm font-medium text-foreground">{casePrompt(item) || label}</span>
-          <span className="line-clamp-2 text-xs text-muted-foreground">{caseReplySummary(item)}</span>
+          <span className="line-clamp-2 text-sm font-medium text-foreground">
+            {casePrompt(item) || label}
+          </span>
+          <span className="line-clamp-2 text-xs text-muted-foreground">
+            {caseReplySummary(item)}
+          </span>
         </span>
       </div>
       {item.messages.length > 0 && (
         <details className="pl-6.5 text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Conversation · {item.messages.length} {item.messages.length === 1 ? "message" : "messages"}
+            Conversation · {item.messages.length}{" "}
+            {item.messages.length === 1 ? "message" : "messages"}
           </summary>
           <CaseConversation messages={item.messages} />
         </details>
@@ -356,15 +469,31 @@ function CaseTile({
   );
 }
 
-export function CaseConversation({ messages }: { messages: readonly DatasetMessage[] }) {
+export function CaseConversation({
+  messages,
+}: {
+  messages: readonly DatasetMessage[];
+}) {
   return (
     <ol className="mt-2 grid gap-1.5">
       {messages.map((message, index) => (
-        <li key={index} className="grid gap-0.5 rounded-md bg-muted/50 px-2.5 py-1.5">
-          <span className="font-medium text-foreground capitalize">{message.name || message.role}</span>
-          {message.content && <span className="line-clamp-4 whitespace-pre-wrap">{message.content}</span>}
+        <li
+          key={index}
+          className="grid gap-0.5 rounded-md bg-muted/50 px-2.5 py-1.5"
+        >
+          <span className="font-medium text-foreground capitalize">
+            {message.name || message.role}
+          </span>
+          {message.content && (
+            <span className="line-clamp-4 whitespace-pre-wrap">
+              {message.content}
+            </span>
+          )}
           {message.tool_calls.map((call, callIndex) => (
-            <code key={callIndex} className="line-clamp-2 font-mono break-all text-muted-foreground">
+            <code
+              key={callIndex}
+              className="line-clamp-2 font-mono break-all text-muted-foreground"
+            >
               {call.name}({call.arguments})
             </code>
           ))}
@@ -378,11 +507,23 @@ function SkippedList({ skipped }: { skipped: readonly SkippedCase[] }) {
   return (
     <div className="grid gap-1.5">
       <p className="text-sm font-medium">Skipped</p>
-      <ul aria-label="Skipped" className="grid gap-1 text-xs text-muted-foreground">
+      <ul
+        aria-label="Skipped"
+        className="grid gap-1 text-xs text-muted-foreground"
+      >
         {skipped.map((item, index) => (
-          <li key={`${item.source.trace_id}-${item.source.span_id}-${index}`} className="flex gap-2">
-            <span className="text-foreground">{SKIP_REASON_TEXT[item.reason]}</span>
-            {item.source.trace_id && <span className="truncate">trace {item.source.trace_id.slice(0, 12)}</span>}
+          <li
+            key={`${item.source.trace_id}-${item.source.span_id}-${index}`}
+            className="flex gap-2"
+          >
+            <span className="text-foreground">
+              {SKIP_REASON_TEXT[item.reason]}
+            </span>
+            {item.source.trace_id && (
+              <span className="truncate">
+                trace {item.source.trace_id.slice(0, 12)}
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -412,13 +553,22 @@ export function AddToDatasetButton({
       <Button
         variant="outline"
         size="xs"
-        className={cn("h-7 shrink-0 gap-1.5 text-xs shadow-none active:scale-[0.97]", className)}
+        className={cn(
+          "h-7 shrink-0 gap-1.5 text-xs shadow-none active:scale-[0.97]",
+          className,
+        )}
         onClick={() => setOpen(true)}
       >
         <DatabaseZap aria-hidden="true" className="size-3" />
         {label}
       </Button>
-      {open && <AddToDatasetDialog sources={sources} agentName={agentName} onClose={() => setOpen(false)} />}
+      {open && (
+        <AddToDatasetDialog
+          sources={sources}
+          agentName={agentName}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   );
 }

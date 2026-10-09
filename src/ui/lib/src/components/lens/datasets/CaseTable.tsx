@@ -34,7 +34,8 @@ const CaseTableContext = createContext<CaseTableContextValue | null>(null);
 
 function useCaseTable(): CaseTableContextValue {
   const value = useContext(CaseTableContext);
-  if (value === null) throw new Error("Case cells must be rendered inside CaseTable");
+  if (value === null)
+    throw new Error("Case cells must be rendered inside CaseTable");
   return value;
 }
 
@@ -69,7 +70,11 @@ function InputText({ item }: { item: DatasetCase }) {
 
 function ReplyText({ item }: { item: DatasetCase }) {
   const reply = caseReplyText(item);
-  return reply ? <span>{reply}</span> : <span className={MUTED_ITALIC}>No reply</span>;
+  return reply ? (
+    <span>{reply}</span>
+  ) : (
+    <span className={MUTED_ITALIC}>No reply</span>
+  );
 }
 
 function InputCell({ row: { original: item } }: Cell) {
@@ -103,7 +108,11 @@ function ExpectedCell({ row: { original: item } }: Cell) {
 
 function SourceCell({ row: { original: item } }: Cell) {
   const openSourceTrace = useOpenSourceTrace();
-  const { trace_id: traceId, trace_ref: traceRef, span_id: spanId } = item.source;
+  const {
+    trace_id: traceId,
+    trace_ref: traceRef,
+    span_id: spanId,
+  } = item.source;
   if (!traceId) return null;
   return (
     <button
@@ -146,7 +155,13 @@ const COLUMNS: ColumnDef<DatasetCase>[] = [
   { id: "reply", header: "Reply", cell: ReplyCell },
   { id: "expected", size: 220, header: "Expected", cell: ExpectedCell },
   { id: "source", size: 72, header: "Source", cell: SourceCell },
-  { id: "tools", size: 104, header: "Tool calls", cell: ToolCallsCell, meta: { numeric: true } },
+  {
+    id: "tools",
+    size: 104,
+    header: "Tool calls",
+    cell: ToolCallsCell,
+    meta: { numeric: true },
+  },
 ];
 
 export interface CaseTableProps {
@@ -158,13 +173,22 @@ export interface CaseTableProps {
   readonly children: (item: DatasetCase) => ReactNode;
 }
 
-export function CaseTable({ cases, editable, selectedId, onSelect, onToggle, children }: CaseTableProps) {
+export function CaseTable({
+  cases,
+  editable,
+  selectedId,
+  onSelect,
+  onToggle,
+  children,
+}: CaseTableProps) {
   const desktop = useMediaQuery("(min-width: 768px)");
   const tableOptions: TableOptions<DatasetCase> = {
     data: [...cases],
     columns: COLUMNS,
     defaultColumn: { size: undefined },
-    state: { columnVisibility: { reply: desktop, expected: desktop, source: desktop } },
+    state: {
+      columnVisibility: { reply: desktop, expected: desktop, source: desktop },
+    },
     getRowId: (item) => item.id,
     autoResetAll: false,
     getCoreRowModel: getCoreRowModel(),
@@ -184,23 +208,33 @@ export function CaseTable({ cases, editable, selectedId, onSelect, onToggle, chi
       <CaseTableContext.Provider value={{ editable, onToggle }}>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
           <InspectorTable.Root table={table}>
-            <InspectorTable.Grid aria-label="Cases" className="text-xs md:min-w-[860px]">
+            <InspectorTable.Grid
+              aria-label="Cases"
+              className="text-xs md:min-w-[860px]"
+            >
               <InspectorTable.Header />
-              <InspectorTable.Body<DatasetCase> rowHeight={() => (desktop ? CASE_HEIGHT : MOBILE_CASE_HEIGHT)}>
+              <InspectorTable.Body<DatasetCase>
+                rowHeight={() => (desktop ? CASE_HEIGHT : MOBILE_CASE_HEIGHT)}
+              >
                 {(row) => (
                   <InspectorTable.Row
                     row={row}
                     item={row.original}
                     tabIndex={0}
                     aria-label={caseLabel(row.index)}
-                    className={cn("group h-13 md:h-9", !row.original.included && "[&>td:not(:first-child)]:opacity-50")}
+                    className={cn(
+                      "group h-13 md:h-9",
+                      !row.original.included &&
+                        "[&>td:not(:first-child)]:opacity-50",
+                    )}
                   />
                 )}
               </InspectorTable.Body>
             </InspectorTable.Grid>
           </InspectorTable.Root>
           <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 text-xs text-muted-foreground">
-            {cases.length} {cases.length === 1 ? "case" : "cases"} · {included} included
+            {cases.length} {cases.length === 1 ? "case" : "cases"} · {included}{" "}
+            included
           </footer>
         </div>
       </CaseTableContext.Provider>

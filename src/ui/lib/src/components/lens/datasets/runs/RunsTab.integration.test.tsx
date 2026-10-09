@@ -16,7 +16,7 @@ import { DatasetsView } from "../DatasetsView";
 import type { Dataset, DatasetSummary } from "../types";
 import { RunsTab } from "./RunsTab";
 import { diff, evalRun, runCase, step, summary, trial } from "./testRuns";
-import type { RunCase } from "./types";
+import type { EvalRun, RunCase } from "./types";
 
 vi.mock("../../../../lib/http/requests", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../lib/http/requests")>()),
@@ -295,14 +295,65 @@ describe("Dataset runs", () => {
     ).toEqual([]);
   });
 
+  it("walks a dataset with no runs through connecting CI, then opens the first run once it arrives", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    let runs: EvalRun[] = [];
+    proxy.get.mockImplementation((path: string, request: GatewayRequest) =>
+      path === "/lens/evals/runs" ? runs : serve(path, request),
+    );
+    renderWithLens(<DatasetsView />, {
+      searchParams: `?tab=datasets&dataset=${dataset.id}&dataset_tab=runs`,
+      onUrlUpdate,
+    });
+
+    const connect = await screen.findByRole("region", {
+      name: "Connect agent",
+    });
+    expect(connect).toHaveTextContent(
+      `CI replays ${dataset.name}@${dataset.revision}`,
+    );
+    expect(
+      within(connect).getByRole("tabpanel", {
+        name: ".github/workflows/lens.yml",
+      }),
+    ).toHaveTextContent("api-key: ${{ secrets.LENS_API_KEY }}");
+    await user.click(
+      within(connect).getByRole("tab", { name: "pyproject.toml" }),
+    );
+    expect(
+      within(connect).getByRole("tabpanel", { name: "pyproject.toml" }),
+    ).toHaveTextContent(`project = "${dataset.agent_name}"`);
+    expect(within(connect).getByRole("status")).toHaveTextContent(
+      `listening for runs from ${dataset.agent_name}`,
+    );
+
+    runs = [redRun];
+    await testQueryClient.invalidateQueries();
+
+    await expectComparison();
+    expect(
+      new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get(
+        "eval_run",
+      ),
+    ).toBe(redRun.id);
+  });
+
   it("serves an empty run list in sample mode without calling the proxy", async () => {
     renderWithProviders(
       <LensServicesProvider services={createLensDemo()}>
-        <RunsTab datasetId={dataset.id} agentName={dataset.agent_name} />
+        <RunsTab
+          datasetId={dataset.id}
+          datasetName={dataset.name}
+          revision={dataset.revision}
+          agentName={dataset.agent_name}
+        />
       </LensServicesProvider>,
     );
 
-    expect(await screen.findByText("No eval runs yet")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Connect agent" }),
+    ).toBeInTheDocument();
     expect(proxy.get).not.toHaveBeenCalled();
   });
 });

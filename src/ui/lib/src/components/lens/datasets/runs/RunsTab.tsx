@@ -1,12 +1,14 @@
 "use client";
 
-import { FlaskConical, Loader2, TriangleAlert } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Loader2, TriangleAlert } from "lucide-react";
 
 import { StateMessage } from "../../../shared/StateMessage";
 import { cn } from "../../../../lib/cva.config";
 
 import { useEvalRunRoute } from "../../route";
 import { useEvalRuns } from "./api";
+import { ConnectAgent } from "./ConnectAgent";
 import { costPerCase, groupRuns, passedLabel, shortSha } from "./format";
 import { GateStatus } from "./RunBadges";
 import { RunDetail } from "./RunDetail";
@@ -14,10 +16,17 @@ import type { EvalRun } from "./types";
 
 export interface RunsTabProps {
   readonly datasetId: string;
+  readonly datasetName: string;
+  readonly revision: number;
   readonly agentName: string;
 }
 
-export function RunsTab({ datasetId, agentName }: RunsTabProps) {
+export function RunsTab({
+  datasetId,
+  datasetName,
+  revision,
+  agentName,
+}: RunsTabProps) {
   const { runId, caseId, openRun, openCase } = useEvalRunRoute();
   if (runId)
     return (
@@ -31,18 +40,37 @@ export function RunsTab({ datasetId, agentName }: RunsTabProps) {
       />
     );
   return (
-    <RunList datasetId={datasetId} agentName={agentName} onOpen={openRun} />
+    <RunList
+      datasetId={datasetId}
+      datasetName={datasetName}
+      revision={revision}
+      agentName={agentName}
+      onOpen={openRun}
+    />
   );
 }
 
-interface RunListProps {
-  readonly datasetId: string;
-  readonly agentName: string;
+interface RunListProps extends RunsTabProps {
   readonly onOpen: (runId: string) => void;
 }
 
-function RunList({ datasetId, agentName, onOpen }: RunListProps) {
+function RunList({
+  datasetId,
+  datasetName,
+  revision,
+  agentName,
+  onOpen,
+}: RunListProps) {
   const runs = useEvalRuns({ agent: agentName, dataset: datasetId });
+  const waited = useRef(false);
+  const first = runs.data?.[0]?.id;
+  useEffect(() => {
+    if (runs.data?.length === 0) waited.current = true;
+    else if (first && waited.current) {
+      waited.current = false;
+      onOpen(first);
+    }
+  }, [runs.data, first, onOpen]);
   if (runs.isPending)
     return (
       <StateMessage
@@ -67,11 +95,10 @@ function RunList({ datasetId, agentName, onOpen }: RunListProps) {
   const { main, pulls } = groupRuns(runs.data);
   if (main.length + pulls.length === 0)
     return (
-      <StateMessage
-        role="status"
-        icon={<FlaskConical className="size-5" />}
-        title="No eval runs yet"
-        description="Runs show up here once CI evaluates an agent against this dataset."
+      <ConnectAgent
+        agent={agentName}
+        dataset={datasetName}
+        revision={revision}
       />
     );
   return (
