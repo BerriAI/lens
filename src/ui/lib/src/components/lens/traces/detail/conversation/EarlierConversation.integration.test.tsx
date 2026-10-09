@@ -118,23 +118,25 @@ function serve() {
 
 beforeEach(() => testQueryClient.clear());
 
-describe("Earlier conversation", () => {
-  it("opens the original request and reply before the current run from the Steps notice", async () => {
+describe("Full conversation", () => {
+  it("opens one continuous thread from the Steps notice with the original request and reply first", async () => {
     const user = userEvent.setup();
     const { gateway, history } = serve();
     history.mockReturnValue({ turns: [original], next_cursor: null });
     renderWithProviders(<RoutedRun />);
 
     expect(await screen.findByRole("tree", { name: "Spans in time order" })).toBeVisible();
-    await user.click(await screen.findByRole("button", { name: "View earlier turns" }));
+    await user.click(await screen.findByRole("button", { name: "View full conversation" }));
     const thread = await screen.findByRole("region", { name: "Trace thread" });
     expect(screen.getByRole("tab", { name: "Thread", selected: true })).toBeVisible();
     expect(await within(thread).findByText(original.input)).toBeVisible();
     expect(within(thread).getByText(original.output)).toBeVisible();
     expect(await within(thread).findByText(currentDetail.output)).toBeVisible();
     expect(thread).toHaveTextContent(
-      /Find the failing release check.*The package check failed.*Current run.*Verify the updated release.*The updated release passes/,
+      /Find the failing release check.*The package check failed.*Verify the updated release.*The updated release passes/,
     );
+    expect(within(thread).queryByRole("heading", { name: "Earlier in this conversation" })).not.toBeInTheDocument();
+    expect(within(thread).queryByRole("heading", { name: "Current run" })).not.toBeInTheDocument();
     expect(gateway.get).toHaveBeenCalledWith(`/v1/traces/${currentId}/conversation`, {
       query: { trace_ref: currentRef },
       body: undefined,
@@ -153,7 +155,7 @@ describe("Earlier conversation", () => {
     const thread = await screen.findByRole("region", { name: "Trace thread" });
     expect(await within(thread).findByText(original.input)).toBeVisible();
     expect(await within(thread).findByText(currentDetail.output)).toBeVisible();
-    await user.click(within(thread).getByRole("button", { name: "Load more earlier turns" }));
+    await user.click(within(thread).getByRole("button", { name: "Load more messages" }));
 
     expect(await within(thread).findByRole("alert")).toHaveTextContent("This run is still available");
     expect(within(thread).getByText(original.input)).toBeVisible();
@@ -163,13 +165,15 @@ describe("Earlier conversation", () => {
 
     expect(await within(thread).findByText("The fix is ready to review")).toBeVisible();
     expect(within(thread).getAllByText(original.input)).toHaveLength(1);
-    expect(within(thread).getAllByRole("article", { name: "Earlier turn" })).toHaveLength(2);
+    expect(within(thread).getAllByRole("link", { name: "Inspect run" })).toHaveLength(2);
     expect(thread).toHaveTextContent(
-      /Find the failing release check.*The package check failed.*Fix that package check.*The fix is ready to review.*Current run.*Verify the updated release/,
+      /Find the failing release check.*The package check failed.*Fix that package check.*The fix is ready to review.*Verify the updated release/,
     );
+    expect(within(thread).queryByRole("heading", { name: "Earlier in this conversation" })).not.toBeInTheDocument();
+    expect(within(thread).queryByRole("heading", { name: "Current run" })).not.toBeInTheDocument();
     expect(history.mock.calls.map(([cursor]) => cursor)).toEqual([undefined, "next-context-page", "next-context-page"]);
     expect(within(thread).queryByRole("alert")).not.toBeInTheDocument();
-    expect(within(thread).queryByRole("button", { name: "Load more earlier turns" })).not.toBeInTheDocument();
+    expect(within(thread).queryByRole("button", { name: "Load more messages" })).not.toBeInTheDocument();
   });
 
   it("keeps the current trace usable when initial context fails and recovers on request", async () => {
@@ -180,7 +184,7 @@ describe("Earlier conversation", () => {
     });
     renderWithProviders(<RoutedRun />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load earlier conversation");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load conversation history");
     expect(screen.getByRole("tree", { name: "Spans in time order" })).toBeVisible();
     await user.click(screen.getByRole("tab", { name: "Thread" }));
     const thread = await screen.findByRole("region", { name: "Trace thread" });
@@ -215,7 +219,7 @@ describe("Earlier conversation", () => {
       );
       renderWithProviders(<RoutedRun />, { searchParams: "?view=thread" });
       const thread = await screen.findByRole("region", { name: "Trace thread" });
-      await user.click(await within(thread).findByRole("button", { name: "Load more earlier turns" }));
+      await user.click(await within(thread).findByRole("button", { name: "Load more messages" }));
       expect(await within(thread).findByRole("alert")).toHaveTextContent("This run is still available");
       expect(within(thread).getByText(original.input)).toBeVisible();
       expect(await within(thread).findByText(currentDetail.output)).toBeVisible();
@@ -248,8 +252,8 @@ describe("Earlier conversation", () => {
         },
       );
       await user.click(await screen.findByRole("tab", { name: "Thread" }));
-      const context = await screen.findByRole("region", { name: "Earlier conversation" });
-      const link = within(context).getByRole("link", { name: "Open earlier run" });
+      const thread = await screen.findByRole("region", { name: "Trace thread" });
+      const link = await within(thread).findByRole("link", { name: "Inspect run" });
       const href = link.getAttribute("href");
       expect(href).toBeTruthy();
       expect(Object.fromEntries(new URL(href!, "http://localhost/ui/lens").searchParams)).toEqual({

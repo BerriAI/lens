@@ -1,6 +1,6 @@
-# Earlier conversation context
+# Continuous conversation context
 
-The selected run previously started at its current request even when earlier turns were already recorded under the same session. The Thread view now shows those earlier requests and replies first, with a separate current-run section and links to the original runs
+The selected run previously started at its current request even when earlier turns were already recorded under the same session. The Thread view now shows the recorded requests and replies as one continuous conversation, with links to inspect their original runs
 
 The screenshots use built-in demo data. They contain no production conversation data
 
@@ -8,9 +8,9 @@ The screenshots use built-in demo data. They contain no production conversation 
 
 1. Start the UI with `npm run dev:ui` and open `http://localhost:3100/ui/?tab=traces&demo=true`
 2. Select `support_agent` and open the run whose input is `Where is order #1042?`
-3. Click **View earlier turns**, then **Enter full screen**
-4. Confirm that `Can you help me track my order?` and the earlier assistant reply appear above **Current run**
-5. Open the earlier run using its link and confirm that its trace is shown separately
+3. Click **View full conversation**, then **Enter full screen**
+4. Confirm that `Can you help me track my order?`, the assistant reply and `Where is order #1042?` appear in chronological order without section dividers
+5. Click **Inspect run** and confirm that the source trace opens separately
 
 ## Before
 
@@ -18,6 +18,6 @@ The screenshots use built-in demo data. They contain no production conversation 
 
 ## After
 
-![Earlier recorded conversation appears before the selected run](after.jpg)
+![Recorded messages form one continuous conversation](after.jpg)
 
 Earlier context includes stored root turns from the same session and trace owner that the caller can read. It excludes the selected run and later turns, and does not include a previous run's output if that run finished after the selected run started. It does not fetch Slack messages or reconstruct content omitted before ingestion
