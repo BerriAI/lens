@@ -603,12 +603,6 @@
       "status": "requires reviewed generator update and schema parity check"
     },
     {
-      "package": "rustls",
-      "patched": "0.23.45",
-      "scope": "runtime TLS",
-      "status": "requires lockfile update and verification"
-    },
-    {
       "package": "serde_with",
       "patched": "3.21.0",
       "scope": "Rust serialization",
@@ -694,6 +688,49 @@
         "ignored": 4,
         "evidence": "docs/extraction/evidence/rust-auth-rebased-workspace.log"
       }
+    },
+    "datasets_port": {
+      "based_on_main": "3ca154b698b268baf610e74e2f57086184a410be",
+      "status": "Seven dataset routes integrated and qualified; retained Python application awaits complete Rust replacement",
+      "evidence": "docs/extraction/rust-datasets.md",
+      "workspace": {
+        "passed": 2344,
+        "failed": 0,
+        "ignored": 4,
+        "clippy": "passed",
+        "format": "passed"
+      },
+      "golden_dataset_http_cases": 25,
+      "golden_auth_http_cases": 45,
+      "mutation_qualification": {
+        "domain": {
+          "inventory": 131,
+          "counts": {
+            "CaughtMutant": 108,
+            "Unviable": 23
+          },
+          "source_hashes": {
+            "build.rs": "8064dd21d54275a1b9fe68ddbfadafaf77bd14dd8ccd82b0e3f7289b21af38f1",
+            "cases.rs": "0e1cafe6a5e805ce79752051ce953f312a225c41e5c231fb08854e793d700824",
+            "lib.rs": "915550a28dcbdc2cde49f55b48e6dda3596b2ea4dc8ec26454be00823e9a69cc"
+          },
+          "qualification": "Initial full run reconciled with final parser rerun; every final viable mutation caught"
+        },
+        "storage": {
+          "total": 26,
+          "caught": 21,
+          "unviable": 5,
+          "missed": 0,
+          "timeout": 0
+        },
+        "http": {
+          "qualification": "Incomplete historical run on superseded parser. Excluded from final mutation qualification; corrected code qualified by golden replays, exact input regression cases and full workspace tests"
+        },
+        "wiring": {
+          "qualification": "Initial15 mutations found3 configuration gaps, all corrected and caught by4 focused reruns. Existing unrelated HTTP connect-timeout mutation remains outside this dataset qualification"
+        }
+      },
+      "full_product_acceptance": "incomplete"
     }
   },
   "local_embedding": {
@@ -734,7 +771,7 @@
     "identity": "Service/signing credentials stay server-side; delegate authenticated gateway identity with short lifetime and scope enforced by Lens",
     "qualification": "Viewer write denial, cross-tenant isolation, session lifecycle, secret exposure and package source/integrity checks remain explicit gates",
     "auth_fix": "Configured Rust delegation secret now requires at least 32 characters, matching the existing setup-token convention; focused tests and Clippy passed",
-    "runtime_advisories": "rustls and serde_with patched lockfile updates in progress; npm audit reported no UI advisories for the audited locks; this is not a comprehensive security certification"
+    "runtime_advisories": "rustls updated to 0.23.45 and validated; serde_with update remains coupled to the canonical upstream pin. npm audit reported no UI advisories for the audited locks; this is not a comprehensive security certification"
   },
   "delivery_milestones": [
     {
@@ -754,6 +791,18 @@
       "goal": "Every remaining requirement in the full completion plan",
       "status": "pending",
       "contract": "completion-plan.md, milestone 3 completion boundary"
+    }
+  ],
+  "publication_policy": {
+    "lens": "Push reviewed, qualified increments directly to main",
+    "companions": "Pull requests for LiteLLM, project-releaser, litellm-ops and other affected repositories",
+    "deployment": "Production release and cutover remain distinct from code publication"
+  },
+  "resolved_dependency_advisories": [
+    {
+      "package": "rustls",
+      "version": "0.23.45",
+      "verification": "Frozen dataset candidate workspace tests and Clippy pass"
     }
   ]
 }

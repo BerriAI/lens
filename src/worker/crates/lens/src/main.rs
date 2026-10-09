@@ -1,5 +1,5 @@
 use litellm_lens::{
-    State, Storage, auth,
+    State, Storage, api, auth,
     config::{Config, http_client},
     control::Control,
     provision, router,
@@ -53,21 +53,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let storage = Storage::new(config.storage, client.clone(), config.service_token.clone());
     let state = Arc::new(State::new(storage, config.service_token.clone()));
     let api = match config.authentication {
-        Some(settings) => {
-            state.storage.ensure_schema().await?;
-            let connection = state.storage.config.storage();
-            let store = litellm_storage_clickhouse::state::ClickHouseState::new(
-                client.clone(),
-                connection.reader().clone(),
-            );
-            store
-                .initialize(&format!("/lens/{}", connection.database()))
-                .await?;
-            lens_server::sessions::router(lens_auth::Authentication {
-                settings,
-                sessions: litellm_storage_clickhouse::sessions::Sessions(store),
-            })
-        }
+        Some(settings) => api::router(&state, settings, config.datasets).await?,
         None => lens_server::router(),
     };
     let listener = tokio::net::TcpListener::bind(config.address).await?;

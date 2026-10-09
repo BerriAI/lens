@@ -16,6 +16,7 @@ flate2.workspace = true
 futures-util.workspace = true
 hmac = "0.12.1"
 litellm-http.workspace = true
+lens-datasets = { path = "../datasets" }
 litellm-storage-clickhouse.workspace = true
 litellm-traces.workspace = true
 litellm-traces-cache.workspace = true

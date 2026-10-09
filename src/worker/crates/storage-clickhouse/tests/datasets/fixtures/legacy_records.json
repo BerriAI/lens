@@ -1,0 +1,47 @@
+{
+  "dataset/%5B%22legacy%20%CE%BB%22%2C3%5D": {
+    "id": "legacy λ",
+    "name": "Existing dataset",
+    "agent_name": "support-agent",
+    "team_id": "team-a",
+    "created_at": "2026-03-01T12:00:00.123000Z",
+    "revision": 3,
+    "created_by": "user-1",
+    "cases": [
+      {
+        "id": "existing-case",
+        "messages": [
+          {
+            "role": "user",
+            "content": "A saved conversation λ",
+            "name": "",
+            "tool_calls": []
+          }
+        ],
+        "reply": "A saved answer",
+        "tool_calls": [],
+        "expected": "Expected response",
+        "included": false,
+        "source": {
+          "trace_id": "trace-1",
+          "trace_ref": "ref-1",
+          "span_id": "span-1",
+          "finding_id": "finding-1",
+          "lens_id": "lens-1"
+        },
+        "agent_version": "v1"
+      }
+    ]
+  },
+  "dataset-latest/%5B%22legacy%20%CE%BB%22%5D": {
+    "team_id": "team-a",
+    "summary": {
+      "id": "legacy λ",
+      "name": "Existing dataset",
+      "agent_name": "support-agent",
+      "revision": 3,
+      "case_count": 1,
+      "updated_at": "2026-03-01T07:00:00.123000-05:00"
+    }
+  }
+}

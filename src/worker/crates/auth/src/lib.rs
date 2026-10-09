@@ -57,6 +57,14 @@ impl Settings {
                 "setup token must contain at least 32 characters",
             ));
         }
+        if gateway_secret
+            .as_deref()
+            .is_some_and(|secret| secret.chars().count() < 32)
+        {
+            return Err(Error::Configuration(
+                "gateway secret must contain at least 32 characters",
+            ));
+        }
         let url = url::Url::parse(public_url).map_err(|_| Error::Configuration("public URL"))?;
         if !matches!(url.scheme(), "http" | "https")
             || url.host_str().is_none()

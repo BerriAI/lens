@@ -11,6 +11,7 @@ macro_rules_attribute::attribute_alias! {
 }
 
 mod config;
+pub mod datasets;
 mod error;
 mod insert;
 pub mod query;

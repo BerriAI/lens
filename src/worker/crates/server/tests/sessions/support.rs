@@ -5,6 +5,7 @@ use litellm_storage_clickhouse::{
     Connection, execute_statement, sessions::Sessions, state::ClickHouseState,
 };
 use rstest::fixture;
+use std::sync::Arc;
 use std::time::Duration;
 use testcontainers_modules::{
     clickhouse::ClickHouse,
@@ -12,7 +13,7 @@ use testcontainers_modules::{
 };
 
 pub const ADMIN: &str = "parity-admin-token-32-characters-long";
-pub const SECRET: &str = "parity-gateway-secret";
+pub const SECRET: &str = "parity-gateway-secret-32-characters-long";
 
 pub struct Database {
     _container: Option<ContainerAsync<ClickHouse>>,
@@ -104,6 +105,15 @@ impl Drop for Server {
 
 impl Database {
     pub async fn serve(&self, secure: bool) -> Server {
+        self.serve_router(secure, lens_server::sessions::router_with_auth)
+            .await
+    }
+
+    pub async fn serve_router(
+        &self,
+        secure: bool,
+        router: impl FnOnce(Arc<Authentication<Sessions>>) -> axum::Router,
+    ) -> Server {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url: reqwest::Url = format!("http://{}", listener.local_addr().unwrap())
             .parse()
@@ -120,10 +130,9 @@ impl Database {
                 self.connection.clone(),
             )),
         };
+        let router = router(Arc::new(auth));
         let task = tokio::spawn(async move {
-            axum::serve(listener, lens_server::sessions::router(auth))
-                .await
-                .unwrap();
+            axum::serve(listener, router).await.unwrap();
         });
         Server {
             url,

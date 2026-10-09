@@ -63,6 +63,17 @@ fn encode(value: impl serde::Serialize) -> Result<Value, Error> {
 }
 
 impl Storage {
+    pub fn dataset_reader(
+        &self,
+        state: litellm_storage_clickhouse::state::ClickHouseState,
+    ) -> litellm_traces_clickhouse::datasets::Reader {
+        litellm_traces_clickhouse::datasets::Reader::new(
+            ClickHouseTraces::new(self.client.clone(), self.config.storage().reader().clone()),
+            self.reader.clone(),
+            litellm_storage_clickhouse::datasets::Findings(state),
+        )
+    }
+
     pub async fn ping(&self) -> Result<(), Error> {
         litellm_storage_clickhouse::execute_read(
             &self.client,
