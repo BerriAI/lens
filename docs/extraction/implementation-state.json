@@ -819,5 +819,39 @@
       "status": "required_at_applicable_work"
     }
   ],
-  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign"
+  "required_workflow_policy": "Apply proactively, use both when product flow and documentation overlap, and scale to the change without expanding small edits into a redesign",
+  "onboarding_journeys": [
+    {
+      "starting_point": "Admin using the existing LiteLLM dashboard",
+      "milestone": 2,
+      "success": "Existing login -> verified Lens capability -> agent-specific instrumentation -> real trace -> authorized investigation",
+      "requirements": [
+        "Reuse configured service, endpoint and authorized model",
+        "No simulated infrastructure provisioning",
+        "Concrete operator handoff when service is absent",
+        "Resume partial setup and distinguish connectivity, compatibility and permission failures"
+      ]
+    },
+    {
+      "starting_point": "Developer self-hosting Lens",
+      "milestone": 1,
+      "success": "Complete supported installation -> Lens login -> real agent trace -> direct-provider investigation -> retained data after restart",
+      "requirements": [
+        "Lens and supported ClickHouse stack only",
+        "Generated private credentials and supported defaults",
+        "Analysis-provider setup deferred until needed",
+        "Complete local instructions and separate persistent deployment concerns"
+      ]
+    }
+  ],
+  "release_independence": {
+    "publisher": "project-releaser",
+    "lens": "Own repository, source SHA, product version, trigger and immutable release manifest; no LiteLLM release required",
+    "first_release": "Standalone Lens may be published before LiteLLM integration is ready",
+    "gateway_ui": "Exact shared UI package pin with integrity/provenance for reproducible bundled frontend builds",
+    "lens_backend": "Selected independently in deployment configuration, bounded by supported API/protocol compatibility",
+    "bundled_default": "Optional tested Lens deployment default, never a requirement for equal product versions",
+    "qualification": "Standalone every release; existing published host/UI combinations for integrations claimed by that release",
+    "policy": "Never resolve executable UI code at runtime from mutable remote sources"
+  }
 }
