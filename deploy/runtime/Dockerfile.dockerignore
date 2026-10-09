@@ -8,6 +8,8 @@
 !src/worker/**
 !src/ui/
 !src/ui/**
+!src/slack-agent/
+!src/slack-agent/**
 **/node_modules/
 **/target/
 **/.next/

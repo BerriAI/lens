@@ -1,0 +1,26 @@
+name: lens-slack
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  slack-agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/slack-agent
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.1
+          cache: npm
+          cache-dependency-path: src/slack-agent/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
