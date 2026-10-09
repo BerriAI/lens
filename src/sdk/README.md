@@ -36,7 +36,7 @@ Use the actual downloaded filename. Wheels include the Rust implementation, so t
 For contributors, a source install requires Rust 1.99.0 and GitHub access:
 
 ```sh
-uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@ba921dfbf3cd10a71b43bf1d756ef56ffc0fe69b#subdirectory=src/sdk'
+uv add --dev 'lens-evals @ git+ssh://git@github.com/BerriAI/lens.git@lens-evals-v0.1.0a3#subdirectory=src/sdk'
 ```
 
 After registry publication, the intended install is `uv add --dev lens-evals`. The package name avoids a collision with the existing `litellm-lens` server package
