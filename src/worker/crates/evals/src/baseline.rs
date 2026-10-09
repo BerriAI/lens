@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use lens_contract::eval::CaseDiff;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Baseline {
@@ -8,16 +8,6 @@ pub struct Baseline {
     pub version: String,
     pub url: String,
     pub verdicts: BTreeMap<String, bool>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CaseDiff {
-    pub case_id: String,
-    pub title: String,
-    pub critical: bool,
-    pub baseline_url: String,
-    pub candidate_url: String,
 }
 
 pub(crate) struct CaseVerdict<'a> {

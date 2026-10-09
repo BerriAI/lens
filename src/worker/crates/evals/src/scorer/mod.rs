@@ -6,6 +6,7 @@ pub use called_before::called_before;
 pub use judge::{JUDGE_PASS_THRESHOLD, Judge, JudgeRequest};
 pub use task_completed::{root, task_completed};
 
+use lens_contract::eval::{CalledBefore, Judge as JudgeScorer, Scorer};
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
@@ -32,69 +33,26 @@ pub struct EvalSpan {
     pub tool_name: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Scorer {
-    TaskCompleted,
-    CalledBefore {
-        first: String,
-        then: String,
-    },
-    Judge {
-        prompt: String,
-        #[serde(default)]
-        model: String,
-    },
-}
-
-impl Scorer {
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Self::TaskCompleted => "task_completed",
-            Self::CalledBefore { .. } => "called_before",
-            Self::Judge { .. } => "judge",
+pub async fn passes<J: Judge>(
+    scorer: &Scorer,
+    case_id: &str,
+    spans: &[EvalSpan],
+    judge: &J,
+) -> Result<bool> {
+    match scorer {
+        Scorer::TaskCompleted(_) => Ok(task_completed(spans)),
+        Scorer::CalledBefore(CalledBefore { first, then }) => Ok(called_before(spans, first, then)),
+        Scorer::Judge(JudgeScorer { prompt, model }) => {
+            judge::passes(
+                judge,
+                JudgeRequest {
+                    case_id,
+                    prompt,
+                    model,
+                    spans,
+                },
+            )
+            .await
         }
     }
-
-    pub async fn passes<J: Judge>(
-        &self,
-        case_id: &str,
-        spans: &[EvalSpan],
-        judge: &J,
-    ) -> Result<bool> {
-        match self {
-            Self::TaskCompleted => Ok(task_completed(spans)),
-            Self::CalledBefore { first, then } => Ok(called_before(spans, first, then)),
-            Self::Judge { prompt, model } => {
-                judge::passes(
-                    judge,
-                    JudgeRequest {
-                        case_id,
-                        prompt,
-                        model,
-                        spans,
-                    },
-                )
-                .await
-            }
-        }
-    }
-}
-
-pub fn scorer_keys(scorers: &[Scorer]) -> Vec<String> {
-    scorers
-        .iter()
-        .enumerate()
-        .map(|(index, scorer)| {
-            let kind = scorer.kind();
-            let same = |other: &&Scorer| other.kind() == kind;
-            match scorers.iter().filter(same).count() {
-                1 => kind.to_owned(),
-                _ => format!(
-                    "{kind}_{}",
-                    scorers[..index].iter().filter(same).count() + 1
-                ),
-            }
-        })
-        .collect()
 }

@@ -1,6 +1,7 @@
 mod support;
 
-use lens_evals::{Baseline, CaseInput, RunInput, Summary, evaluate};
+use lens_contract::eval::{Gate, Summary};
+use lens_evals::{Baseline, CaseInput, RunInput, evaluate};
 use lens_evals_sdk::{client::Client, devserver, engine, model as sdk};
 use rstest::rstest;
 use serde_json::Value;
@@ -157,9 +158,9 @@ async fn dev_run(
 fn input(report: &sdk::Report, baseline: Option<Baseline>, failing: Option<&str>) -> RunInput {
     RunInput {
         url: report.run.url.clone(),
-        gate: lens_evals::Gate {
+        gate: Gate {
             pass_rate: Some(1.0),
-            ..lens_evals::Gate::default()
+            ..Gate::default()
         },
         ..run(TRIALS, cases(failing), baseline)
     }

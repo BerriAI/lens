@@ -1,36 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Gate {
-    pub regressions: Option<u64>,
-    pub critical: Option<u64>,
-    pub pass_rate: Option<f64>,
-    pub cost_per_case: Option<f64>,
-    pub min: BTreeMap<String, f64>,
-}
-
-impl Default for Gate {
-    fn default() -> Self {
-        Self {
-            regressions: Some(0),
-            critical: Some(0),
-            pass_rate: None,
-            cost_per_case: None,
-            min: BTreeMap::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GateResult {
-    pub passed: bool,
-    #[serde(default)]
-    pub reasons: Vec<String>,
-}
+use lens_contract::eval::{Gate, GateResult};
 
 #[derive(Clone, Copy, Debug)]
 pub struct GateFacts<'a> {

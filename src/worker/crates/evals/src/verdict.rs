@@ -1,6 +1,8 @@
+use lens_contract::eval::Scorer;
+
 use crate::{
     Result,
-    scorer::{EvalSpan, Judge, Scorer},
+    scorer::{self, EvalSpan, Judge},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,7 +39,7 @@ pub(crate) async fn score_trial<J: Judge>(
     };
     let mut passes = Vec::with_capacity(scorers.len());
     for scorer in scorers {
-        passes.push(scorer.passes(case_id, spans, judge).await?);
+        passes.push(scorer::passes(scorer, case_id, spans, judge).await?);
     }
     Ok(Some(passes))
 }
