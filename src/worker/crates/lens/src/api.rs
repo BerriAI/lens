@@ -34,18 +34,22 @@ pub async fn router(
     });
     let traces = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
     let task = eval_runtime::start(EvalStore::new(store.clone()), traces.clone(), evals.judge);
+    let (eval_api, eval_cases) = lens_server::evals::split_router_with_traces(
+        authentication.clone(),
+        store.clone(),
+        evals.public_url,
+        traces,
+    );
     let api = lens_server::sessions::router_with_auth(authentication.clone())
         .merge(lens_server::datasets::router(
-            authentication.clone(),
+            authentication,
             Datasets(store.clone()),
-            state.storage.dataset_reader(store.clone()),
+            state.storage.dataset_reader(store),
             datasets,
         ))
-        .merge(lens_server::evals::router_with_traces(
-            authentication,
-            store,
-            evals.public_url,
-            traces,
-        ));
-    Ok((api, task))
+        .merge(eval_api);
+    Ok((
+        lens_server::evals::with_contract_cases(api, eval_cases),
+        task,
+    ))
 }

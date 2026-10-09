@@ -8,19 +8,23 @@ export const gateTone = (run: EvalRun): GateTone => {
   return run.summary.gate.passed ? "passed" : "failed";
 };
 
-export const passedLabel = (summary: Summary): string => `${summary.passed}/${summary.total}`;
+export const passedLabel = (summary: Summary): string =>
+  `${summary.passed}/${summary.total}`;
 
 export const deltaLabel = (summary: Summary): string => {
   if (summary.baseline_run_id === null) return "No baseline";
-  if (summary.regressions.length === 0 && summary.fixed.length === 0) return "No change";
+  if (summary.regressions.length === 0 && summary.fixed.length === 0)
+    return "No change";
   const parts = [];
-  if (summary.regressions.length) parts.push(`${summary.regressions.length} regressed`);
+  if (summary.regressions.length)
+    parts.push(`${summary.regressions.length} regressed`);
   if (summary.fixed.length) parts.push(`${summary.fixed.length} fixed`);
   return parts.join(" · ");
 };
 
 export const deltaTone = (summary: Summary | null): string => {
-  if (!summary || summary.baseline_run_id === null) return "text-muted-foreground";
+  if (!summary || summary.baseline_run_id === null)
+    return "text-muted-foreground";
   if (summary.regressions.length) return "text-destructive";
   return summary.fixed.length ? "text-success" : "text-muted-foreground";
 };

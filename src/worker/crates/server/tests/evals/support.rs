@@ -27,7 +27,7 @@ use testcontainers_modules::{
 };
 use tower::ServiceExt;
 
-const SECRET: &str = "eval-route-test-signing-secret";
+const SECRET: &str = "eval-route-test-signing-secret-32-characters";
 
 #[fixture]
 pub fn guarded_app() -> Router {

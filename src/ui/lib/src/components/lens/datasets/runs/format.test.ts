@@ -1,108 +1,109 @@
 import { describe, expect, it } from "vitest";
 
-import { costPerCase, deltaLabel, deltaTone, gateTone, groupRuns, passedLabel, safeLinkUrl } from "./format";
-import type { EvalRun, Summary } from "./types";
-
-const summary: Summary = {
-  total: 4,
-  passed: 3,
-  failed: 1,
-  errored: 0,
-  pass_rate: 0.75,
-  cost_usd: 0.2,
-  baseline_run_id: "run-main",
-  baseline_reason: null,
-  pass_rate_delta: -0.25,
-  regressions: [],
-  fixed: [],
-};
-
-const run = (id: string, overrides: Partial<EvalRun> = {}): EvalRun => ({
-  id,
-  eval: "refunds",
-  agent: "refund-agent",
-  dataset_id: "ds-1",
-  dataset_revision: 2,
-  branch: "main",
-  commit_sha: "abcdef1234",
-  pr_url: null,
-  status: "finished",
-  created_at: "2026-10-01T10:00:00Z",
-  finished_at: "2026-10-01T10:05:00Z",
-  summary,
-  gate: { passed: true, reasons: [] },
-  ...overrides,
-});
+import {
+  costPerCase,
+  deltaLabel,
+  deltaTone,
+  gateTone,
+  groupRuns,
+  passedLabel,
+  shortSha,
+} from "./format";
+import { diff, evalRun, summary } from "./testRuns";
 
 describe("run formatting", () => {
   it.each([
-    { delta: -0.25, expected: "−25.0 pts" },
-    { delta: 0.125, expected: "+12.5 pts" },
-    { delta: 0, expected: "No change" },
-    { delta: null, expected: "No baseline" },
-  ])("labels a delta of $delta as $expected", ({ delta, expected }) => {
-    expect(deltaLabel({ ...summary, pass_rate_delta: delta })).toBe(expected);
+    {
+      name: "no baseline",
+      value: summary({ baseline_run_id: null }),
+      expected: "No baseline",
+    },
+    { name: "no change", value: summary(), expected: "No change" },
+    {
+      name: "regressed",
+      value: summary({ regressions: [diff("a"), diff("b")] }),
+      expected: "2 regressed",
+    },
+    {
+      name: "both",
+      value: summary({ regressions: [diff("a")], fixed: [diff("b")] }),
+      expected: "1 regressed · 1 fixed",
+    },
+  ])("labels $name as $expected", ({ value, expected }) => {
+    expect(deltaLabel(value)).toBe(expected);
   });
 
   it.each([
-    { cost: 0.2, total: 4, expected: "$0.05" },
-    { cost: 0.02, total: 4, expected: "$0.0050" },
-    { cost: null, total: 4, expected: "–" },
-    { cost: 1, total: 0, expected: "–" },
-  ])("divides $cost over $total cases as $expected", ({ cost, total, expected }) => {
-    expect(costPerCase({ ...summary, cost_usd: cost, total })).toBe(expected);
-  });
-
-  it("shows passed over total", () => {
-    expect(passedLabel(summary)).toBe("3/4");
-  });
-
-  it.each([
-    { gate: { passed: true, reasons: [] }, expected: "passed" },
-    { gate: { passed: false, reasons: ["1 critical regression"] }, expected: "failed" },
-    { gate: null, expected: "pending" },
-  ])("reads the gate as $expected", ({ gate, expected }) => {
-    expect(gateTone(run("r", { gate }))).toBe(expected);
-  });
-
-  it("reads an errored run as errored even though it has no gate yet", () => {
-    expect(gateTone(run("r", { status: "error", gate: null, summary: null }))).toBe("errored");
+    {
+      name: "regressions",
+      value: summary({ regressions: [diff("a")], fixed: [diff("b")] }),
+      expected: "text-destructive",
+    },
+    {
+      name: "only fixes",
+      value: summary({ fixed: [diff("b")] }),
+      expected: "text-success",
+    },
+    {
+      name: "no baseline",
+      value: summary({ baseline_run_id: null, regressions: [diff("a")] }),
+      expected: "text-muted-foreground",
+    },
+    { name: "no summary", value: null, expected: "text-muted-foreground" },
+  ])("tones $name as $expected", ({ value, expected }) => {
+    expect(deltaTone(value)).toBe(expected);
   });
 
   it.each([
-    { delta: -0.25, expected: "text-destructive" },
-    { delta: 0.1, expected: "text-success" },
-    { delta: 0, expected: "text-muted-foreground" },
-    { delta: null, expected: "text-muted-foreground" },
-  ])("tones a delta of $delta as $expected", ({ delta, expected }) => {
-    expect(deltaTone(delta)).toBe(expected);
+    { each: 0.05, total: 4, expected: "$0.05" },
+    { each: 0.005, total: 4, expected: "$0.0050" },
+    { each: 0, total: 4, expected: "$0.00" },
+    { each: 1, total: 0, expected: "–" },
+  ])(
+    "shows $each per case over $total cases as $expected",
+    ({ each, total, expected }) => {
+      expect(costPerCase(summary({ cost_per_case: each, total }))).toBe(
+        expected,
+      );
+    },
+  );
+
+  it("shows passed over total and a 7 character sha", () => {
+    expect(passedLabel(summary())).toBe("3/4");
+    expect(shortSha("abcdef1234")).toBe("abcdef1");
   });
 
   it.each([
-    { url: "https://github.com/example/agent/pull/7", expected: "https://github.com/example/agent/pull/7" },
-    { url: "HTTP://ci.example.com/pr/7", expected: "HTTP://ci.example.com/pr/7" },
-    { url: "javascript:alert(1)", expected: null },
-    { url: "data:text/html,hi", expected: null },
-    { url: "//evil.example.com", expected: null },
-    { url: "https://", expected: null },
-    { url: null, expected: null },
-  ])("only links $url when it is http(s)", ({ url, expected }) => {
-    expect(safeLinkUrl(url)).toBe(expected);
+    { name: "passed", value: evalRun("r"), expected: "passed" },
+    {
+      name: "failed",
+      value: evalRun("r", {
+        summary: summary({ gate: { passed: false, reasons: ["x"] } }),
+      }),
+      expected: "failed",
+    },
+    {
+      name: "pending",
+      value: evalRun("r", { status: "scoring", summary: null }),
+      expected: "pending",
+    },
+    {
+      name: "errored",
+      value: evalRun("r", { status: "failed", summary: null }),
+      expected: "errored",
+    },
+  ])("reads the gate as $expected for a $name run", ({ value, expected }) => {
+    expect(gateTone(value)).toBe(expected);
   });
 
-  it("splits this dataset's runs into main and pull requests, newest first", () => {
+  it("splits runs into main and pull requests keeping server order", () => {
     const runs = [
-      run("main-old", { created_at: "2026-10-01T00:00:00Z" }),
-      run("pr", { branch: "fix-refunds", pr_url: "https://github.com/x/y/pull/1", created_at: "2026-10-03T00:00:00Z" }),
-      run("main-new", { branch: "master", created_at: "2026-10-02T00:00:00Z" }),
-      run("other-dataset", { dataset_id: "ds-2" }),
+      evalRun("pr-2", { pr: 2 }),
+      evalRun("main-1"),
+      evalRun("pr-1", { pr: 1 }),
     ];
-
-    const groups = groupRuns(runs, "ds-1");
-
-    expect({ main: groups.main.map((r) => r.id), pulls: groups.pulls.map((r) => r.id) }).toEqual({
-      main: ["main-new", "main-old"],
-      pulls: ["pr"],
-    });
+    const { main, pulls } = groupRuns(runs);
+    expect(main.map((run) => run.id)).toEqual(["main-1"]);
+    expect(pulls.map((run) => run.id)).toEqual(["pr-2", "pr-1"]);
   });
 });

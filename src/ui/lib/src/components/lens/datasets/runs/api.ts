@@ -8,20 +8,33 @@ import type { EvalRunFilter } from "./types";
 
 const evalRunKeys = {
   all: () => [...datasetKeys.all(), "evalRuns"] as const,
-  list: (scope: string, filter: EvalRunFilter) => [...evalRunKeys.all(), "list", { scope, ...filter }] as const,
-  detail: (scope: string, runId: string) => [...evalRunKeys.all(), "detail", { scope, runId }] as const,
+  list: (scope: string, filter: EvalRunFilter) =>
+    [...evalRunKeys.all(), "list", { scope, ...filter }] as const,
+  detail: (scope: string, runId: string) =>
+    [...evalRunKeys.all(), "detail", { scope, runId }] as const,
   runCase: (scope: string, runId: string, caseId: string) =>
     [...evalRunKeys.all(), "case", { scope, runId, caseId }] as const,
 };
 
 const evalRunQueries = {
   list(api: EvalRunsApi, scope: string, filter: EvalRunFilter) {
-    return queryOptions({ queryKey: evalRunKeys.list(scope, filter), queryFn: () => api.list(filter) });
+    return queryOptions({
+      queryKey: evalRunKeys.list(scope, filter),
+      queryFn: () => api.list(filter),
+    });
   },
   detail(api: EvalRunsApi, scope: string, runId: string) {
-    return queryOptions({ queryKey: evalRunKeys.detail(scope, runId), queryFn: () => api.get(runId) });
+    return queryOptions({
+      queryKey: evalRunKeys.detail(scope, runId),
+      queryFn: () => api.get(runId),
+    });
   },
-  runCase(api: EvalRunsApi, scope: string, runId: string | null, caseId: string) {
+  runCase(
+    api: EvalRunsApi,
+    scope: string,
+    runId: string | null,
+    caseId: string,
+  ) {
     return queryOptions({
       queryKey: evalRunKeys.runCase(scope, runId ?? "", caseId),
       queryFn: () => api.runCase(runId ?? "", caseId),
@@ -43,5 +56,7 @@ export function useEvalRun(runId: string) {
 
 export function useRunCase(runId: string | null, caseId: string) {
   const api = useLensApi();
-  return useQuery(evalRunQueries.runCase(api.evalRuns, api.scope, runId, caseId));
+  return useQuery(
+    evalRunQueries.runCase(api.evalRuns, api.scope, runId, caseId),
+  );
 }

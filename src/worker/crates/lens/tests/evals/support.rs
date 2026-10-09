@@ -23,7 +23,7 @@ use testcontainers_modules::{
     testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
 };
 
-const SECRET: &str = "golden-eval-gateway-secret";
+const SECRET: &str = "golden-eval-gateway-secret-32-characters";
 const TEAM: &str = "golden-team";
 const CASES: usize = 36;
 const TRIALS: u32 = 3;
@@ -410,6 +410,11 @@ async fn read(server: &Server, id: &str) -> EvalRun {
     run
 }
 
+fn case_url(run: &EvalRun, case_id: &str) -> String {
+    let separator = if run.url.contains('?') { '&' } else { '?' };
+    format!("{}{separator}eval_case={case_id}", run.url)
+}
+
 pub fn normalized(run: &EvalRun, baseline: Option<&EvalRun>) -> Summary {
     let mut summary = run.summary.clone().unwrap();
     assert_eq!(summary.baseline_run_id, baseline.map(|run| run.id.clone()));
@@ -419,13 +424,10 @@ pub fn normalized(run: &EvalRun, baseline: Option<&EvalRun>) -> Summary {
         .iter_mut()
         .chain(summary.fixed.iter_mut())
     {
-        assert_eq!(
-            diff.candidate_url,
-            format!("{}&eval_case={}", run.url, diff.case_id)
-        );
+        assert_eq!(diff.candidate_url, case_url(run, &diff.case_id));
         assert_eq!(
             diff.baseline_url,
-            format!("{}&eval_case={}", baseline.unwrap().url, diff.case_id)
+            case_url(baseline.unwrap(), &diff.case_id)
         );
         diff.candidate_url = format!("candidate?case={}", diff.case_id);
         diff.baseline_url = format!("baseline?case={}", diff.case_id);

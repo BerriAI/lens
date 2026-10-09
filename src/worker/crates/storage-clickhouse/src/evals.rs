@@ -5,7 +5,13 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use lens_contract::eval::{CaseError, CaseResult, CreateEvalRun, EvalRun, RunStatus};
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+
+const QUERY_VALUE: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
 
 use crate::{
     Error, EvalError,
@@ -68,7 +74,7 @@ impl EvalStore {
                 url: format!(
                     "{}/ui/?tab=datasets&dataset={}&dataset_tab=runs&eval_run={id}",
                     public_url.trim_end_matches('/'),
-                    utf8_percent_encode(&request.dataset_id, NON_ALPHANUMERIC),
+                    utf8_percent_encode(&request.dataset_id, QUERY_VALUE),
                 ),
                 expected_trials: cases.len() as u64 * u64::from(request.trials),
                 received_trials: 0,

@@ -16,11 +16,13 @@ use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     auth::{Identity, Role},
-    datasets::{BuildRequest, BuildResult, Dataset, DatasetCreate, DatasetSummary, RevisionSave},
+    datasets::{
+        BuildRequest, BuildResult, Dataset, DatasetCreate, DatasetSummary, EvalCases, RevisionSave,
+    },
 };
 use lens_datasets::{
     DatasetReader, DatasetRepository, Limits, Scope, build_cases, can_access, export_jsonl,
-    revision_cases, revision_problem,
+    included_cases, revision_cases, revision_problem,
 };
 
 use crate::{auth, error::DatasetError};
@@ -70,6 +72,10 @@ where
             post(save::<R, D, B>),
         )
         .route("/lens/datasets/{dataset_id}/export", get(export::<R, D, B>))
+        .route(
+            "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
+            get(cases::<R, D, B>),
+        )
         .layer(DefaultBodyLimit::disable())
         .layer(middleware::from_fn(redirect_trailing_slash))
         .with_state(Arc::new(App {
@@ -313,4 +319,22 @@ async fn export<R: SessionRepository, D: DatasetRepository, B: DatasetReader>(
         export_jsonl(&dataset.cases),
     )
         .into_response())
+}
+
+async fn cases<R: SessionRepository, D: DatasetRepository, B: DatasetReader>(
+    State(app): State<Arc<App<R, D, B>>>,
+    Path((id, revision)): Path<(String, String)>,
+    headers: HeaderMap,
+    method: Method,
+) -> Result<Json<EvalCases>, DatasetError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let revision = validation::revision_path(&revision)?;
+    let scope = user_scope(&identity, false)?;
+    let revision = revision.exact().ok_or(DatasetError::NotFound)?;
+    let dataset = get_dataset(&app.datasets, &id, &scope, Some(revision)).await?;
+    Ok(Json(EvalCases {
+        dataset_id: dataset.id,
+        revision: dataset.revision,
+        cases: included_cases(&dataset.cases),
+    }))
 }

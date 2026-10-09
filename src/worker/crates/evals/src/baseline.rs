@@ -1,7 +1,13 @@
 use std::collections::BTreeMap;
 
 use lens_contract::eval::CaseDiff;
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+
+const QUERY_VALUE: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Baseline {
@@ -56,6 +62,6 @@ fn case_link(run_url: &str, case_id: &str) -> String {
     let separator = if run_url.contains('?') { '&' } else { '?' };
     format!(
         "{run_url}{separator}eval_case={}",
-        utf8_percent_encode(case_id, NON_ALPHANUMERIC)
+        utf8_percent_encode(case_id, QUERY_VALUE)
     )
 }

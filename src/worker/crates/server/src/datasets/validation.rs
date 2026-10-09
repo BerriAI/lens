@@ -691,6 +691,11 @@ pub(super) fn revision_query(query: Option<&str>) -> Result<Option<Revision>, Da
         .map_err(|error| DatasetError::Validation(vec![error]))
 }
 
+pub(super) fn revision_path(revision: &str) -> Result<Revision, DatasetError> {
+    integer(&json!(revision), &[json!("path"), json!("revision")], false)
+        .map_err(|error| DatasetError::Validation(vec![error]))
+}
+
 pub(super) fn revision_request(
     parsed: ParsedBody,
 ) -> Result<(lens_contract::datasets::RevisionSave, Revision), DatasetError> {
@@ -708,7 +713,7 @@ pub(super) fn revision_request(
 
 #[cfg(test)]
 mod tests {
-    use super::{Model, body, revision_query};
+    use super::{Model, body, revision_path, revision_query};
     use crate::error::DatasetError;
     use axum::http::HeaderMap;
     use lens_contract::datasets::{DatasetCreate, RevisionSave};
@@ -911,6 +916,7 @@ mod tests {
 
     #[rstest]
     fn negative_revision_is_rejected_only_for_query() {
+        assert_eq!(revision_path("-1").unwrap().exact(), Some(-1));
         let error = revision_query(Some("revision=-1")).unwrap_err();
         let DatasetError::Validation(errors) = error else {
             panic!("unexpected error: {error:?}")

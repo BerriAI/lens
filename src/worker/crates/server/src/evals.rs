@@ -15,8 +15,8 @@ use lens_contract::{
     CONTRACT_HEADER, CONTRACT_VERSION,
     auth::Role,
     eval::{
-        CaseResult, CreateEvalRun, EvalRun, ResolvedDataset, RunCase, RunStatus, Scorer, ToolStep,
-        TrialSteps,
+        CaseResult, CreateEvalRun, EvalRun, ResolvedDataset, RunCase, RunStatus, Scorer,
+        ScorerCheck, ToolStep, TrialSteps,
     },
 };
 use litellm_storage_clickhouse::{
@@ -25,6 +25,7 @@ use litellm_storage_clickhouse::{
 };
 use litellm_traces_clickhouse::evals::EvalTraces;
 use serde::Deserialize;
+use tower::ServiceExt;
 
 use crate::{
     ApiError, EvalApiError,
@@ -47,7 +48,8 @@ pub fn router<R: SessionRepository + 'static>(
     state: ClickHouseState,
     public_url: String,
 ) -> Router {
-    configured_router(authentication, state, public_url, None)
+    let (api, cases) = routers(authentication, state, public_url, None);
+    api.merge(cases)
 }
 
 pub fn router_with_traces<R: SessionRepository + 'static>(
@@ -56,15 +58,53 @@ pub fn router_with_traces<R: SessionRepository + 'static>(
     public_url: String,
     traces: EvalTraces,
 ) -> Router {
-    configured_router(authentication, state, public_url, Some(traces))
+    let (api, cases) = split_router_with_traces(authentication, state, public_url, traces);
+    api.merge(cases)
 }
 
-fn configured_router<R: SessionRepository + 'static>(
+/// The eval API and its dataset cases route as separate routers, for hosts that also serve the admin dataset API on the same path
+pub fn split_router_with_traces<R: SessionRepository + 'static>(
+    authentication: Arc<Authentication<R>>,
+    state: ClickHouseState,
+    public_url: String,
+    traces: EvalTraces,
+) -> (Router, Router) {
+    routers(authentication, state, public_url, Some(traces))
+}
+
+/// Sends dataset case reads that carry the contract header to `cases`, leaving every other request on `router`
+pub fn with_contract_cases(router: Router, cases: Router) -> Router {
+    router.layer(middleware::from_fn(move |request: Request, next: Next| {
+        let cases = cases.clone();
+        async move {
+            if request.headers().contains_key(CONTRACT_HEADER)
+                && is_dataset_cases_path(request.uri().path())
+            {
+                match cases.oneshot(request).await {
+                    Ok(response) => response,
+                    Err(never) => match never {},
+                }
+            } else {
+                next.run(request).await
+            }
+        }
+    }))
+}
+
+fn is_dataset_cases_path(path: &str) -> bool {
+    matches!(
+        path.split('/').collect::<Vec<_>>().as_slice(),
+        ["", "lens", "datasets", id, "revisions", revision, "cases"]
+            if !id.is_empty() && !revision.is_empty()
+    )
+}
+
+fn routers<R: SessionRepository + 'static>(
     authentication: Arc<Authentication<R>>,
     state: ClickHouseState,
     public_url: String,
     traces: Option<EvalTraces>,
-) -> Router {
+) -> (Router, Router) {
     let state = Arc::new(EvalState {
         authentication,
         store: EvalStore::new(state.clone()),
@@ -72,7 +112,15 @@ fn configured_router<R: SessionRepository + 'static>(
         traces,
         public_url,
     });
-    Router::new()
+    let authorized = |router: Router<Arc<EvalState<R>>>| {
+        router
+            .route_layer(middleware::from_fn_with_state(
+                state.clone(),
+                authorize::<R>,
+            ))
+            .with_state(state.clone())
+    };
+    let api = Router::new()
         .route("/lens/evals/runs", post(create::<R>).get(list::<R>))
         .route("/lens/evals/runs/{run}", get(read::<R>))
         .route(
@@ -81,16 +129,12 @@ fn configured_router<R: SessionRepository + 'static>(
         )
         .route("/lens/evals/runs/{run}/finish", post(finish::<R>))
         .route("/lens/evals/runs/{run}/cases/{case_id}", get(run_case::<R>))
-        .route("/lens/datasets/resolve", get(resolve::<R>))
-        .route(
-            "/lens/datasets/{id}/revisions/{revision}/cases",
-            get(cases::<R>),
-        )
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            authorize::<R>,
-        ))
-        .with_state(state)
+        .route("/lens/datasets/resolve", get(resolve::<R>));
+    let cases = Router::new().route(
+        "/lens/datasets/{id}/revisions/{revision}/cases",
+        get(cases::<R>),
+    );
+    (authorized(api), authorized(cases))
 }
 
 async fn authorize<R: SessionRepository>(
@@ -340,15 +384,21 @@ async fn run_case<R: SessionRepository>(
         .iter()
         .filter(|trial| trial.case_id == case_id)
     {
-        let steps = match (&state.traces, &trial.result.trace) {
+        let spans = match (&state.traces, &trial.result.trace) {
             (Some(traces), Some(reference)) => traces
                 .read(&team.0, reference, now)
                 .await
                 .map_err(|error| ApiError::Internal(Box::new(error)))?
-                .map(|trace| tool_steps(trace.spans))
+                .map(|trace| trace.spans)
                 .unwrap_or_default(),
             _ => Vec::new(),
         };
+        let checks = if spans.is_empty() {
+            Vec::new()
+        } else {
+            scorer_checks(&stored.request.scorers, &spans)
+        };
+        let steps = tool_steps(spans);
         trials.push(TrialSteps {
             trial: trial.trial,
             error: trial
@@ -356,6 +406,7 @@ async fn run_case<R: SessionRepository>(
                 .error
                 .as_ref()
                 .map(|error| error.message.clone()),
+            checks,
             steps,
         });
     }
@@ -369,6 +420,45 @@ async fn run_case<R: SessionRepository>(
     }))
 }
 
+fn scorer_checks(
+    scorers: &[Scorer],
+    spans: &[litellm_traces_clickhouse::evals::EvalSpan],
+) -> Vec<ScorerCheck> {
+    let spans: Vec<lens_evals::EvalSpan> = spans.iter().map(scoring_span).collect();
+    lens_contract::eval::scorer_names(scorers)
+        .into_iter()
+        .zip(scorers)
+        .filter_map(|(name, scorer)| {
+            let passed = match scorer {
+                Scorer::TaskCompleted(_) => lens_evals::scorer::task_completed(&spans),
+                Scorer::CalledBefore(rule) => {
+                    lens_evals::scorer::called_before(&spans, &rule.first, &rule.then)
+                }
+                Scorer::Judge(_) => return None,
+            };
+            Some(ScorerCheck {
+                scorer: name,
+                passed,
+            })
+        })
+        .collect()
+}
+
+fn scoring_span(span: &litellm_traces_clickhouse::evals::EvalSpan) -> lens_evals::EvalSpan {
+    lens_evals::EvalSpan {
+        span_id: span.span_id.clone(),
+        parent_span_id: span.parent_span_id.clone(),
+        name: span.name.clone(),
+        start_ns: span.start_ns,
+        status: match span.status {
+            litellm_traces::SpanStatus::Ok => lens_evals::SpanStatus::Ok,
+            litellm_traces::SpanStatus::Error => lens_evals::SpanStatus::Error,
+            litellm_traces::SpanStatus::Unset => lens_evals::SpanStatus::Unset,
+        },
+        tool_name: span.attributes.get("gen_ai.tool.name").cloned(),
+    }
+}
+
 fn tool_steps(spans: Vec<litellm_traces_clickhouse::evals::EvalSpan>) -> Vec<ToolStep> {
     let mut steps: Vec<ToolStep> = spans
         .into_iter()
@@ -379,6 +469,7 @@ fn tool_steps(spans: Vec<litellm_traces_clickhouse::evals::EvalSpan>) -> Vec<Too
                 name: span.name,
                 tool_name,
                 start_ns: span.start_ns,
+                end_ns: span.end_ns,
             })
         })
         .collect();

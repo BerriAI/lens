@@ -352,7 +352,7 @@ async fn should_resolve_dataset_names_and_return_only_included_cases(
     assert_eq!(cases["cases"].as_array().unwrap().len(), 2);
     assert_eq!(
         cases["cases"][0]["meta"],
-        json!({"repo_url":"https://example.test/repo"})
+        json!({"finding_id":"finding-1","repo_url":"https://example.test/repo"})
     );
 }
 

@@ -257,7 +257,16 @@ pub struct RunCase {
 pub struct TrialSteps {
     pub trial: u32,
     pub error: Option<String>,
+    pub checks: Vec<ScorerCheck>,
     pub steps: Vec<ToolStep>,
+}
+
+/// A deterministic scorer re-run against one trial's trace, so the UI can say which rule failed
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ScorerCheck {
+    pub scorer: String,
+    pub passed: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -267,6 +276,7 @@ pub struct ToolStep {
     pub tool_name: String,
     pub ok: bool,
     pub start_ns: i64,
+    pub end_ns: i64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

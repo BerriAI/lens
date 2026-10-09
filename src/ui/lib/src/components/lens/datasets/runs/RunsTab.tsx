@@ -7,8 +7,8 @@ import { cn } from "../../../../lib/cva.config";
 
 import { useEvalRunRoute } from "../../route";
 import { useEvalRuns } from "./api";
-import { costPerCase, deltaLabel, deltaTone, groupRuns, passedLabel, shortSha } from "./format";
-import { GatePill, PullRequestPill } from "./RunBadges";
+import { costPerCase, groupRuns, passedLabel, shortSha } from "./format";
+import { GateStatus } from "./RunBadges";
 import { RunDetail } from "./RunDetail";
 import type { EvalRun } from "./types";
 
@@ -30,7 +30,9 @@ export function RunsTab({ datasetId, agentName }: RunsTabProps) {
         onOpenCase={openCase}
       />
     );
-  return <RunList datasetId={datasetId} agentName={agentName} onOpen={openRun} />;
+  return (
+    <RunList datasetId={datasetId} agentName={agentName} onOpen={openRun} />
+  );
 }
 
 interface RunListProps {
@@ -45,7 +47,9 @@ function RunList({ datasetId, agentName, onOpen }: RunListProps) {
     return (
       <StateMessage
         role="status"
-        icon={<Loader2 className="size-5 animate-spin motion-reduce:animate-none" />}
+        icon={
+          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+        }
         title="Loading runs…"
         description="Fetching eval runs for this dataset."
       />
@@ -71,70 +75,123 @@ function RunList({ datasetId, agentName, onOpen }: RunListProps) {
       />
     );
   return (
-    <div className="flex flex-col gap-3 px-3 pt-3 pb-8 sm:px-4">
-      <RunTable title="Main" runs={main} onOpen={onOpen} />
-      <RunTable title="Pull requests" runs={pulls} onOpen={onOpen} />
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[860px] font-mono text-xs">
+        <thead className="border-b bg-muted/30 text-[11px] text-muted-foreground">
+          <tr>
+            <th className={HEAD}>Gate</th>
+            <th className={HEAD}>Commit</th>
+            <th className={HEAD}>Eval</th>
+            <th className={NUMERIC_HEAD}>Pass</th>
+            <th className={NUMERIC_HEAD}>Regressed</th>
+            <th className={NUMERIC_HEAD}>Fixed</th>
+            <th className={NUMERIC_HEAD}>Cost/case</th>
+            <th className={NUMERIC_HEAD}>Trials</th>
+            <th className={HEAD}>Run</th>
+          </tr>
+        </thead>
+        <RunGroup title="Pull requests" runs={pulls} onOpen={onOpen} />
+        <RunGroup title="main" runs={main} onOpen={onOpen} />
+      </table>
     </div>
   );
 }
 
-const HEAD = "px-4 py-2 text-left text-xs font-normal text-muted-foreground";
+const HEAD = "px-3 py-1.5 text-left font-normal whitespace-nowrap";
 const NUMERIC_HEAD = cn(HEAD, "text-right");
-const CELL = "px-4 py-2.5 align-middle";
+const CELL = "px-3 py-1.5 align-middle whitespace-nowrap";
 const NUMERIC = cn(CELL, "text-right tabular-nums");
 
-function RunTable({ title, runs, onOpen }: { title: string; runs: readonly EvalRun[]; onOpen: (id: string) => void }) {
+function RunGroup({
+  title,
+  runs,
+  onOpen,
+}: {
+  title: string;
+  runs: readonly EvalRun[];
+  onOpen: (id: string) => void;
+}) {
   if (runs.length === 0) return null;
   return (
-    <section aria-label={title} className="overflow-hidden rounded-xl border bg-card">
-      <h3 className="px-4 pt-3 pb-1 text-sm font-medium text-foreground">{title}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr>
-              <th className={HEAD}>Run</th>
-              <th className={NUMERIC_HEAD}>Passed</th>
-              <th className={NUMERIC_HEAD}>vs baseline</th>
-              <th className={NUMERIC_HEAD}>Cost per case</th>
-              <th className={HEAD}>Gate</th>
-              <th className={HEAD}>
-                <span className="sr-only">Pull request</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {runs.map((run) => (
-              <tr key={run.id} className="hover:bg-muted/40">
-                <td className={CELL}>
-                  <button
-                    type="button"
-                    onClick={() => onOpen(run.id)}
-                    className="flex min-w-0 flex-col items-start rounded text-left focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <span className="font-medium text-foreground hover:underline">
-                      Run <span className="font-mono">{shortSha(run.version)}</span> on {run.branch}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {run.eval} · {run.received_trials}/{run.expected_trials} trials
-                    </span>
-                  </button>
-                </td>
-                <td className={NUMERIC}>{run.summary ? passedLabel(run.summary) : "–"}</td>
-                <td className={cn(NUMERIC, deltaTone(run.summary))}>
-                  {run.summary ? deltaLabel(run.summary) : "–"}
-                </td>
-                <td className={NUMERIC}>{run.summary ? costPerCase(run.summary) : "–"}</td>
-                <td className={CELL}>
-                  <GatePill run={run} />
-                </td>
-                <td className={cn(CELL, "text-right")}>
-                  <PullRequestPill pr={run.pr} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <tbody aria-label={title}>
+      <tr className="border-b bg-muted/20">
+        <th
+          colSpan={9}
+          scope="rowgroup"
+          className="px-3 py-1 text-left text-[11px] font-normal text-muted-foreground uppercase"
+        >
+          {title}{" "}
+          <span className="text-muted-foreground/70">{runs.length}</span>
+        </th>
+      </tr>
+      {runs.map((run) => (
+        <tr
+          key={run.id}
+          onClick={() => onOpen(run.id)}
+          className="cursor-pointer border-b border-border/60 hover:bg-muted/40"
+        >
+          <td className={CELL}>
+            <GateStatus run={run} />
+          </td>
+          <td className={CELL}>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen(run.id);
+              }}
+              className="rounded text-left text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <span className="text-muted-foreground">{run.branch}@</span>
+              {shortSha(run.version)}
+              {run.pr !== null && (
+                <span className="ml-2 text-muted-foreground">#{run.pr}</span>
+              )}
+            </button>
+          </td>
+          <td className={cn(CELL, "text-muted-foreground")}>{run.eval}</td>
+          <td className={NUMERIC}>
+            {run.summary ? passedLabel(run.summary) : "–"}
+          </td>
+          <td
+            className={cn(
+              NUMERIC,
+              run.summary?.regressions.length
+                ? "text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            {run.summary
+              ? run.summary.baseline_run_id === null
+                ? "n/a"
+                : run.summary.regressions.length
+              : "–"}
+          </td>
+          <td
+            className={cn(
+              NUMERIC,
+              run.summary?.fixed.length
+                ? "text-success"
+                : "text-muted-foreground",
+            )}
+          >
+            {run.summary
+              ? run.summary.baseline_run_id === null
+                ? "n/a"
+                : run.summary.fixed.length
+              : "–"}
+          </td>
+          <td className={NUMERIC}>
+            {run.summary ? costPerCase(run.summary) : "–"}
+          </td>
+          <td className={cn(NUMERIC, "text-muted-foreground")}>
+            {run.received_trials}/{run.expected_trials}
+          </td>
+          <td className={cn(CELL, "text-muted-foreground")}>
+            {run.id.slice(0, 8)}
+          </td>
+        </tr>
+      ))}
+    </tbody>
   );
 }

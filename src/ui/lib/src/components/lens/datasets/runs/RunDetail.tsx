@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Loader2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 
 import { StateMessage } from "../../../shared/StateMessage";
 import { Button } from "../../../ui/button";
@@ -9,8 +9,8 @@ import { cn } from "../../../../lib/cva.config";
 import { IdChip } from "../../traces/ui/IdChip";
 import { useEvalRun } from "./api";
 import { CaseCompare } from "./CaseCompare";
-import { costPerCase, deltaLabel, deltaTone, passedLabel, shortSha } from "./format";
-import { CriticalPill, GatePill, PullRequestPill } from "./RunBadges";
+import { costPerCase, passedLabel, shortSha } from "./format";
+import { CriticalTag, GateStatus } from "./RunBadges";
 import type { CaseDiff, EvalRun, Summary } from "./types";
 
 export interface RunDetailProps {
@@ -21,13 +21,20 @@ export interface RunDetailProps {
   readonly onOpenCase: (caseId: string | null) => void;
 }
 
-export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps) {
+export function RunDetail({
+  runId,
+  caseId,
+  onBack,
+  onOpenCase,
+}: RunDetailProps) {
   const run = useEvalRun(runId);
   if (run.isPending)
     return (
       <StateMessage
         role="status"
-        icon={<Loader2 className="size-5 animate-spin motion-reduce:animate-none" />}
+        icon={
+          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" />
+        }
         title="Loading run…"
         description="Fetching its summary and gate."
       />
@@ -47,10 +54,90 @@ export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps)
       </StateMessage>
     );
   return (
-    <div className="flex flex-col gap-3 px-3 pt-3 pb-8 sm:px-4">
-      <RunHeader run={run.data} onBack={onBack} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <RunStrip run={run.data} onBack={onBack} />
       <RunBody run={run.data} caseId={caseId} onOpenCase={onOpenCase} />
     </div>
+  );
+}
+
+const STRIP_ITEM =
+  "flex items-center gap-1.5 border-l px-3 whitespace-nowrap first:border-l-0";
+const KEY = "text-muted-foreground";
+
+function RunStrip({ run, onBack }: { run: EvalRun; onBack: () => void }) {
+  const summary = run.summary;
+  return (
+    <header
+      aria-label="Run"
+      className="flex h-9 shrink-0 items-center overflow-x-auto border-b bg-muted/30 font-mono text-xs"
+    >
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="All runs"
+        className="flex h-full items-center gap-1 border-r px-3 text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" />
+        runs
+      </button>
+      <span className={STRIP_ITEM}>
+        <GateStatus run={run} />
+      </span>
+      <span className={STRIP_ITEM}>{run.eval}</span>
+      <span className={STRIP_ITEM}>
+        <span className={KEY}>{run.branch}@</span>
+        {shortSha(run.version)}
+      </span>
+      {run.pr !== null && (
+        <span className={STRIP_ITEM}>
+          <span className={KEY}>pr</span>#{run.pr}
+        </span>
+      )}
+      <span className={STRIP_ITEM}>
+        <span className={KEY}>vs</span>
+        {summary?.baseline_version
+          ? `main@${shortSha(summary.baseline_version)}`
+          : "no baseline"}
+      </span>
+      {summary && (
+        <>
+          <span className={STRIP_ITEM}>
+            <span className={KEY}>pass</span>
+            {passedLabel(summary)}
+          </span>
+          <span
+            className={cn(
+              STRIP_ITEM,
+              summary.regressions.length > 0 && "text-destructive",
+            )}
+          >
+            <span className={KEY}>regressed</span>
+            {summary.regressions.length}
+          </span>
+          <span
+            className={cn(
+              STRIP_ITEM,
+              summary.fixed.length > 0 && "text-success",
+            )}
+          >
+            <span className={KEY}>fixed</span>
+            {summary.fixed.length}
+          </span>
+          <span className={STRIP_ITEM}>
+            <span className={KEY}>cost</span>
+            {costPerCase(summary)}/case
+          </span>
+        </>
+      )}
+      <span className={STRIP_ITEM}>
+        <span className={KEY}>trials</span>
+        {run.received_trials}/{run.expected_trials}
+      </span>
+      <span className={cn(STRIP_ITEM, "ml-auto")}>
+        <IdChip value={run.id} label="Copy run ID" />
+      </span>
+    </header>
   );
 }
 
@@ -65,47 +152,196 @@ function RunBody({
 }) {
   if (run.status === "failed")
     return (
-      <p role="alert" className="py-10 text-center text-sm text-muted-foreground">
-        {run.failure || "This run ended with an error before it could be scored."}
+      <p
+        role="alert"
+        className="border-b border-warning/40 bg-warning/5 px-3 py-2 font-mono text-xs text-warning"
+      >
+        error:{" "}
+        {run.failure ||
+          "This run ended with an error before it could be scored."}
       </p>
     );
   if (!run.summary)
     return (
-      <p role="status" className="py-10 text-center text-sm text-muted-foreground">
-        This run is still being scored.
+      <p
+        role="status"
+        className="px-3 py-2 font-mono text-xs text-muted-foreground"
+      >
+        scoring… {run.received_trials}/{run.expected_trials} trials received
       </p>
     );
-  const diff = findDiff(run.summary, caseId);
+  const summary = run.summary;
+  const requested = caseId === null ? null : findDiff(summary, caseId);
+  const selected =
+    requested ??
+    (caseId === null
+      ? summary.regressions[0] ?? summary.fixed[0] ?? null
+      : null);
   return (
     <>
-      <SummaryStrip summary={run.summary} />
-      <GateReasons run={run} />
-      {diff ? (
-        <CaseCompare
-          key={diff.case_id}
-          diff={diff}
-          runId={run.id}
-          baselineRunId={run.summary.baseline_run_id}
-          regressed={run.summary.regressions.includes(diff)}
-          onClose={() => onOpenCase(null)}
+      <GateReasons summary={summary} />
+      <div className="flex min-h-0 flex-1">
+        <CaseList
+          summary={summary}
+          selected={selected?.case_id ?? null}
+          onOpen={onOpenCase}
         />
-      ) : (
-        <>
-          {caseId && <MissingCase caseId={caseId} onDismiss={() => onOpenCase(null)} />}
-          <DiffList title="Regressions" diffs={run.summary.regressions} onOpen={onOpenCase} />
-          <DiffList title="Fixed" diffs={run.summary.fixed} onOpen={onOpenCase} />
-        </>
-      )}
+        <div className="min-w-0 flex-1">
+          {caseId !== null && requested === null ? (
+            <MissingCase caseId={caseId} onDismiss={() => onOpenCase(null)} />
+          ) : selected ? (
+            <CaseCompare
+              key={selected.case_id}
+              diff={selected}
+              runId={run.id}
+              baselineRunId={summary.baseline_run_id}
+              baselineVersion={summary.baseline_version}
+              candidateVersion={run.version}
+              regressed={summary.regressions.includes(selected)}
+            />
+          ) : (
+            <p className="px-3 py-6 font-mono text-xs text-muted-foreground">
+              {summary.baseline_run_id === null
+                ? "No main baseline yet, so nothing to compare against."
+                : "No case changed verdict against main."}
+            </p>
+          )}
+        </div>
+      </div>
     </>
   );
 }
 
-function MissingCase({ caseId, onDismiss }: { caseId: string; onDismiss: () => void }) {
+function GateReasons({ summary }: { summary: Summary }) {
+  if (summary.gate.reasons.length === 0) return null;
   return (
-    <div role="alert" className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm">
-      <TriangleAlert aria-hidden="true" className="size-4 shrink-0 text-warning" />
+    <ul
+      aria-label="Gate reasons"
+      className={cn(
+        "flex shrink-0 flex-wrap gap-x-4 border-b px-3 py-1.5 font-mono text-xs",
+        summary.gate.passed
+          ? "text-muted-foreground"
+          : "bg-destructive/5 text-destructive",
+      )}
+    >
+      {summary.gate.reasons.map((reason) => (
+        <li key={reason}>✕ {reason}</li>
+      ))}
+    </ul>
+  );
+}
+
+function CaseList({
+  summary,
+  selected,
+  onOpen,
+}: {
+  summary: Summary;
+  selected: string | null;
+  onOpen: (caseId: string) => void;
+}) {
+  return (
+    <nav
+      aria-label="Changed cases"
+      className="w-72 shrink-0 overflow-y-auto border-r"
+    >
+      <CaseGroup
+        title="Regressed"
+        tone="text-destructive"
+        diffs={summary.regressions}
+        selected={selected}
+        onOpen={onOpen}
+      />
+      <CaseGroup
+        title="Fixed"
+        tone="text-success"
+        diffs={summary.fixed}
+        selected={selected}
+        onOpen={onOpen}
+      />
+      <p className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
+        {summary.total - summary.regressions.length - summary.fixed.length}{" "}
+        unchanged
+      </p>
+    </nav>
+  );
+}
+
+function CaseGroup({
+  title,
+  tone,
+  diffs,
+  selected,
+  onOpen,
+}: {
+  title: string;
+  tone: string;
+  diffs: readonly CaseDiff[];
+  selected: string | null;
+  onOpen: (caseId: string) => void;
+}) {
+  if (diffs.length === 0) return null;
+  return (
+    <section aria-label={title}>
+      <h4 className="flex items-center justify-between border-b bg-muted/30 px-3 py-1 font-mono text-[11px] text-muted-foreground uppercase">
+        {title}
+        <span className={tone}>{diffs.length}</span>
+      </h4>
+      <ul>
+        {diffs.map((diff) => (
+          <li key={diff.case_id}>
+            <button
+              type="button"
+              aria-current={diff.case_id === selected ? "true" : undefined}
+              onClick={() => onOpen(diff.case_id)}
+              className={cn(
+                "flex w-full items-start gap-2 border-b border-l-2 border-l-transparent px-3 py-1.5 text-left hover:bg-muted/50",
+                diff.case_id === selected && "border-l-foreground bg-muted",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mt-1.5 size-1.5 shrink-0 rounded-full bg-current",
+                  tone,
+                )}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="line-clamp-2 text-xs text-foreground">
+                  {diff.title || diff.case_id}
+                </span>
+                <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+                  {diff.case_id.slice(0, 12)}
+                  {diff.critical && <CriticalTag />}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function MissingCase({
+  caseId,
+  onDismiss,
+}: {
+  caseId: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-3 border-b px-3 py-2 font-mono text-xs"
+    >
+      <TriangleAlert
+        aria-hidden="true"
+        className="size-3.5 shrink-0 text-warning"
+      />
       <p className="min-w-0 flex-1 text-muted-foreground">
-        Case <span className="font-mono text-foreground">{caseId}</span> did not regress or get fixed in this run.
+        Case <span className="text-foreground">{caseId}</span> did not regress
+        or get fixed in this run.
       </p>
       <Button size="sm" variant="outline" onClick={onDismiss}>
         Dismiss
@@ -114,125 +350,7 @@ function MissingCase({ caseId, onDismiss }: { caseId: string; onDismiss: () => v
   );
 }
 
-const findDiff = (summary: Summary, caseId: string | null): CaseDiff | null =>
-  caseId === null ? null : [...summary.regressions, ...summary.fixed].find((diff) => diff.case_id === caseId) ?? null;
-
-function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
-  return (
-    <header className="flex flex-col gap-1">
-      <nav aria-label="Run breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground">
-        <button type="button" onClick={onBack} className="rounded hover:text-foreground hover:underline">
-          Runs
-        </button>
-        <ChevronRight aria-hidden="true" className="size-3" />
-        <span className="truncate">{run.eval}</span>
-      </nav>
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-foreground">
-          Run <span className="font-mono">{shortSha(run.version)}</span> on {run.branch}
-        </h3>
-        <IdChip value={run.id} label="Copy run ID" />
-        <GatePill run={run} />
-        <span className="text-xs text-muted-foreground">
-          {run.agent}
-        </span>
-        <span className="ml-auto">
-          <PullRequestPill pr={run.pr} />
-        </span>
-      </div>
-    </header>
-  );
-}
-
-function Stat({ label, value, note, tone }: { label: string; value: string; note: string; tone?: string }) {
-  return (
-    <div className="px-4 pt-3.5 pb-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn("mt-1 text-xl font-semibold tracking-tight tabular-nums", tone)}>{value}</dd>
-      <dd className="text-xs text-muted-foreground">{note}</dd>
-    </div>
-  );
-}
-
-function SummaryStrip({ summary }: { summary: Summary }) {
-  return (
-    <dl
-      aria-label="Run summary"
-      className="grid grid-cols-2 divide-border rounded-xl border bg-card lg:grid-cols-4 lg:divide-x"
-    >
-      <Stat
-        label="Passed"
-        value={passedLabel(summary)}
-        note={`${summary.total - summary.passed} failed · ${summary.errors} trial errors`}
-      />
-      <Stat
-        label="vs baseline"
-        value={deltaLabel(summary)}
-        note={summary.baseline_version ? `main at ${shortSha(summary.baseline_version)}` : "No main run to compare"}
-        tone={deltaTone(summary)}
-      />
-      <Stat
-        label="Regressions"
-        value={String(summary.regressions.length)}
-        note={`${summary.fixed.length} fixed`}
-        tone={summary.regressions.length ? "text-destructive" : undefined}
-      />
-      <Stat label="Cost per case" value={costPerCase(summary)} note="Average across all cases" />
-    </dl>
-  );
-}
-
-function GateReasons({ run }: { run: EvalRun }) {
-  const gate = run.summary?.gate;
-  if (!gate || gate.reasons.length === 0) return null;
-  return (
-    <section aria-label="Gate reasons" className="rounded-xl border bg-card px-4 pt-3 pb-3">
-      <h4 className="text-sm font-medium text-foreground">Why the gate {gate.passed ? "passed" : "failed"}</h4>
-      <ul className="mt-1.5 flex flex-col gap-1 text-sm text-muted-foreground">
-        {gate.reasons.map((reason, index) => (
-          <li key={index}>{reason}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function DiffList({
-  title,
-  diffs,
-  onOpen,
-}: {
-  title: string;
-  diffs: readonly CaseDiff[];
-  onOpen: (caseId: string) => void;
-}) {
-  return (
-    <section aria-label={title} className="rounded-xl border bg-card">
-      <h4 className="flex items-center gap-2 px-4 pt-3 pb-1 text-sm font-medium text-foreground">
-        {title}
-        <span className="inline-flex min-w-5 justify-center rounded-full bg-muted px-1.5 text-xs tabular-nums text-foreground">
-          {diffs.length}
-        </span>
-      </h4>
-      {diffs.length === 0 ? (
-        <p className="px-4 pt-1 pb-3 text-sm text-muted-foreground">None</p>
-      ) : (
-        <ul className="divide-y divide-border/60">
-          {diffs.map((diff) => (
-            <li key={diff.case_id}>
-              <button
-                type="button"
-                onClick={() => onOpen(diff.case_id)}
-                className="flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                <span className="min-w-0 flex-1 truncate text-foreground">{diff.title || diff.case_id}</span>
-                {diff.critical && <CriticalPill />}
-                <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
+const findDiff = (summary: Summary, caseId: string): CaseDiff | null =>
+  [...summary.regressions, ...summary.fixed].find(
+    (diff) => diff.case_id === caseId,
+  ) ?? null;

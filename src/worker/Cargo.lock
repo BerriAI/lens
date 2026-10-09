@@ -2256,6 +2256,7 @@ dependencies = [
  "lens-auth",
  "lens-contract",
  "lens-datasets",
+ "lens-evals",
  "lens-parity",
  "litellm-http",
  "litellm-storage-clickhouse",

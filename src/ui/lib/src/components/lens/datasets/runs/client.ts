@@ -10,17 +10,32 @@ export interface EvalRunsApi {
 
 const CONTRACT = { "X-Lens-Contract": "1" };
 
-const evalRunPath = (runId: string): string => `/lens/evals/runs/${encodeURIComponent(runId)}`;
+const evalRunPath = (runId: string): string =>
+  `/lens/evals/runs/${encodeURIComponent(runId)}`;
 
-export function liveEvalRunsApi(apiClient: ApiClient, accessToken: string): EvalRunsApi {
+export function liveEvalRunsApi(
+  apiClient: ApiClient,
+  accessToken: string,
+): EvalRunsApi {
   return {
     list: (filter) =>
-      apiClient.get<EvalRun[]>("/lens/evals/runs", { accessToken, headers: CONTRACT, query: { ...filter } }),
-    get: (runId) => apiClient.get<EvalRun>(evalRunPath(runId), { accessToken, headers: CONTRACT }),
-    runCase: (runId, caseId) =>
-      apiClient.get<RunCase>(`${evalRunPath(runId)}/cases/${encodeURIComponent(caseId)}`, {
+      apiClient.get<EvalRun[]>("/lens/evals/runs", {
+        accessToken,
+        headers: CONTRACT,
+        query: { ...filter },
+      }),
+    get: (runId) =>
+      apiClient.get<EvalRun>(evalRunPath(runId), {
         accessToken,
         headers: CONTRACT,
       }),
+    runCase: (runId, caseId) =>
+      apiClient.get<RunCase>(
+        `${evalRunPath(runId)}/cases/${encodeURIComponent(caseId)}`,
+        {
+          accessToken,
+          headers: CONTRACT,
+        },
+      ),
   };
 }

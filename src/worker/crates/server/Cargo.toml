@@ -12,6 +12,7 @@ cookie = "0.18.1"
 jiter = "=0.17.0"
 lens-auth = { path = "../auth" }
 lens-contract = { path = "../contract" }
+lens-evals = { path = "../evals" }
 litellm-storage-clickhouse.workspace = true
 litellm-traces-clickhouse.workspace = true
 litellm-traces.workspace = true
@@ -27,6 +28,7 @@ thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
 uuid.workspace = true
+tower = { version = "=0.5.3", features = ["util"] }
 
 [dev-dependencies]
 wiremock.workspace = true
@@ -38,4 +40,3 @@ testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 rstest.workspace = true
 jsonwebtoken = { workspace = true, features = ["rust_crypto"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tower = { version = "=0.5.3", features = ["util"] }

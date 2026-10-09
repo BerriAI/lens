@@ -48,11 +48,18 @@ export interface ToolStep {
   readonly tool_name: string;
   readonly ok: boolean;
   readonly start_ns: number;
+  readonly end_ns: number;
+}
+
+export interface ScorerCheck {
+  readonly scorer: string;
+  readonly passed: boolean;
 }
 
 export interface TrialSteps {
   readonly trial: number;
   readonly error: string | null;
+  readonly checks: readonly ScorerCheck[];
   readonly steps: readonly ToolStep[];
 }
 
