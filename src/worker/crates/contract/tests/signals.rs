@@ -1,5 +1,6 @@
 use lens_contract::signals::{
-    NoulAnswer, Signal, SignalAttempt, SignalConfig, SignalData, StoredTraceSignal,
+    NoulAnswer, Signal, SignalAttempt, SignalConfig, SignalData, SignalEvidence, SignalFlag,
+    StoredTraceSignal,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -134,4 +135,43 @@ fn stored_timestamps_normalize_legacy_naive_values(#[case] timestamp: &str) {
 #[case::unknown_field(json!({"status":"classified","model":"m","extra":true}))]
 fn attempts_require_completed_status_and_model(#[case] value: Value) {
     assert!(serde_json::from_value::<SignalAttempt>(value).is_err());
+}
+
+#[rstest]
+fn previously_stored_signals_remain_readable_without_evidence() {
+    let value = json!({"status":"classified","model":"m","scores":{"a":0.9}});
+    let attempt: SignalAttempt = serde_json::from_value(value.clone()).unwrap();
+    let data: SignalData = serde_json::from_value(value).unwrap();
+    let flag: SignalFlag =
+        serde_json::from_value(json!({"signal_id":"a","name":"A","score":0.9})).unwrap();
+    assert!(attempt.evidence.is_empty());
+    assert!(data.evidence.is_empty());
+    assert!(flag.evidence.is_none());
+    assert_eq!(
+        serde_json::to_value(flag).unwrap(),
+        json!({"signal_id":"a","name":"A","score":0.9})
+    );
+}
+
+#[rstest]
+fn signal_evidence_survives_the_storage_and_public_contract() {
+    let evidence = SignalEvidence {
+        span_id: "problem".into(),
+        quote: "Please stop repeating this 🗿".into(),
+    };
+    let value =
+        json!({"status":"classified","model":"m","scores":{"a":0.9},"evidence":{"a":evidence}});
+    let attempt: SignalAttempt = serde_json::from_value(value).unwrap();
+    let data: SignalData = serde_json::from_value(serde_json::to_value(attempt).unwrap()).unwrap();
+    let flag = SignalFlag {
+        signal_id: "a".into(),
+        name: "A".into(),
+        score: data.scores["a"],
+        evidence: data.evidence.get("a").cloned(),
+    };
+    assert_eq!(flag.evidence, Some(evidence));
+    assert_eq!(
+        serde_json::to_value(flag).unwrap()["evidence"]["span_id"],
+        "problem"
+    );
 }

@@ -106,7 +106,14 @@ export function AgentTracesSection({
   onConnectAgent,
 }: AgentTracesSectionProps) {
   const live = useTracesLive();
-  const { trace: openTrace, openTrace: openRun, selection, fullScreen, setFullScreen } = useOpenTraceRouting();
+  const {
+    trace: openTrace,
+    openTrace: openRun,
+    openSignal,
+    selection,
+    fullScreen,
+    setFullScreen,
+  } = useOpenTraceRouting();
   const { query, setQuery, agent, status } = useRunFilterRouting();
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
@@ -294,6 +301,7 @@ export function AgentTracesSection({
           showSignals={signalSetup.on}
           signalsColumn={signalSetup.on || signalSetup.missing}
           onSetUpSignals={onSetUpSignals}
+          onOpenSignal={(run, flag) => openSignal(traceRefOf(run), flag)}
           isLoading={traces.isLoading || (checkHistory && history.isLoading)}
           error={traces.error}
           hasMore={traces.hasMore}

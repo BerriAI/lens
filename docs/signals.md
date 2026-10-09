@@ -50,6 +50,12 @@ Open **Settings > Signals**, choose `signals`, select the questions to evaluate 
 
 The UI's threshold controls which scores appear as flags. Configure questions that produce a useful yes/no signal and check the original trace before acting on a result
 
+Click a signal in the trace list or run header to open the step containing its supporting text. Lens highlights the exact captured passage as a **Flagged excerpt**, so you can inspect what the classifier used to locate the issue
+
+Evidence selection runs alongside classification in the same Decisions request. Each signal keeps its yes/no score and adds a Choice question over identified passages, including a no-evidence option. This adds questions to the existing request rather than making a second model call. Lens accepts only passages from the trace content supplied to that request
+
+Signals inspect bounded excerpts, so a highlighted passage is a location to investigate rather than proof of a root cause. Captured text can differ from rendered Markdown or JSON; Lens shows the original excerpt without inventing line numbers for the formatted output. Older classifications and results without a usable passage show an evidence-unavailable message
+
 ## Use a compatible connection
 
 Lens also accepts `perplexity`, `openrouter`, `cloudflare`, `strands_decider`, and `decisions_compatible` provider configurations. Use a model that supports the provider's Decisions API. Cloudflare and Strands require `api_base`; compatible connections need the base URL reachable from Lens

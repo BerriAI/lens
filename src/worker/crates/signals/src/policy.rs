@@ -128,6 +128,7 @@ pub fn trace_signals(
                     signal_id: signal.id.clone(),
                     name: signal.name.clone(),
                     score: *score,
+                    evidence: data.evidence.get(&signal.id).cloned(),
                 })
         })
         .collect();
