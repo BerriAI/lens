@@ -11,6 +11,7 @@ import { TabsContent } from "../../../../ui/tabs";
 import type { RunSelection } from "../../routing";
 import type { Trace } from "../../types";
 import { TraceThread, type ConversationTracePaging } from "../conversation/TraceThread";
+import type { useEarlierConversation } from "../conversation/EarlierConversation";
 import { DetailPane } from "../span/DetailPane";
 import { SpanTree } from "../tree/SpanTree";
 import type { TreeLayout } from "../tree/TreeRows";
@@ -26,10 +27,19 @@ interface RunBodyProps {
   embedded: boolean;
   stale: boolean;
   conversationPaging: ConversationTracePaging;
+  earlierConversation: ReturnType<typeof useEarlierConversation>;
 }
 
 /** Tree + detail pane for one loaded run. Arrows move and fold steps; J/K also move unless the drawer owns them. */
-export function RunBody({ trace, accessToken, selection, embedded, stale, conversationPaging }: RunBodyProps) {
+export function RunBody({
+  trace,
+  accessToken,
+  selection,
+  embedded,
+  stale,
+  conversationPaging,
+  earlierConversation,
+}: RunBodyProps) {
   const { view, setView, stepQuery, setStepQuery, errorsOnly, setErrorsOnly } = selection;
   const tree = useRunTree(trace, selection);
   const [detailOpen, setDetailOpen] = useState(true);
@@ -61,7 +71,13 @@ export function RunBody({ trace, accessToken, selection, embedded, stale, conver
   if (view === "thread")
     return (
       <TabsContent value="thread" className="flex min-h-0 flex-1">
-        <TraceThread trace={trace} accessToken={accessToken} paging={conversationPaging} onOpenStep={openStep} />
+        <TraceThread
+          trace={trace}
+          accessToken={accessToken}
+          paging={conversationPaging}
+          onOpenStep={openStep}
+          earlierConversation={earlierConversation}
+        />
       </TabsContent>
     );
 

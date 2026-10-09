@@ -19,6 +19,7 @@ import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
 import { useTraceSignalFlags } from "../../list/useTraceSignals";
+import { EarlierConversationNotice, useEarlierConversation } from "../conversation/EarlierConversation";
 
 interface RunViewProps {
   traceId: string;
@@ -125,10 +126,13 @@ function LoadedRun({
       const refreshed = await traceQuery.refetch();
       if (refreshed.isError) return;
       const contentRef = refreshed.data?.pages[0].summary.trace_ref ?? traceRef;
-      await queryClient.invalidateQueries({
-        queryKey: ["agentTraceSpan", traceId, contentRef],
-        predicate: (query) => query.queryKey.at(-1) === accessToken,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["agentTraceSpan", traceId, contentRef],
+          predicate: (query) => query.queryKey.at(-1) === accessToken,
+        }),
+        queryClient.invalidateQueries({ queryKey: ["traceConversation", traceId, contentRef, accessToken] }),
+      ]);
     });
   const toggleLive = () => {
     if (live && !manualRead && !traceQuery.isFetchingNextPage) {
@@ -144,6 +148,7 @@ function LoadedRun({
       next_cursor: pages[pages.length - 1].next_cursor,
     };
   }, [traceQuery.data]);
+  const earlierConversation = useEarlierConversation(trace, accessToken);
   const seekingSpan = !switching && selectedSpanMissing(trace, selection.spanId);
   const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } = traceQuery;
   const canSeek = seekingSpan && hasNextPage;
@@ -177,6 +182,9 @@ function LoadedRun({
         signals={signals}
       />
       <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
+      {selection.view === "steps" && (
+        <EarlierConversationNotice history={earlierConversation} onOpen={() => selection.setView("thread")} />
+      )}
       {traceQuery.isRefetchError && (
         <div role="alert" className="flex items-center gap-3 border-b p-3 text-xs text-muted-foreground">
           Could not refresh this run. Previously received steps are still shown.
@@ -202,6 +210,7 @@ function LoadedRun({
         selection={selection}
         embedded={embedded}
         stale={switching}
+        earlierConversation={earlierConversation}
         conversationPaging={{
           loading: manualRead || traceQuery.isFetching,
           failed: isFetchNextPageError,
