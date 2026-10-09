@@ -19,6 +19,11 @@ on:
         description: BerriAI/litellm candidate commit, full immutable SHA
         required: true
         type: string
+      gateway_harness_sha:
+        description: Optional immutable BerriAI/litellm harness commit; defaults to the candidate source
+        required: false
+        default: ''
+        type: string
 
       image_run_id:
         description: Optional completed run of this workflow whose ten successful image builds should be reused
@@ -38,7 +43,7 @@ env:
   LENS_CURRENT_SHA: ${{ inputs.lens_current_sha }}
   GATEWAY_BASELINE_SHA: ${{ inputs.gateway_baseline_sha }}
   GATEWAY_CURRENT_SHA: ${{ inputs.gateway_current_sha }}
-  SMOKE_SOURCE_SHA: ${{ inputs.gateway_current_sha }}
+  SMOKE_SOURCE_SHA: ${{ inputs.gateway_harness_sha || inputs.gateway_current_sha }}
   IMAGE_RUN_ID: ${{ inputs.image_run_id || github.run_id }}
 
 jobs:

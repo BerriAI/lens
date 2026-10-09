@@ -10,7 +10,7 @@ await withFixture("migration", process.argv[2], async (fixture) => {
   await fs.writeFile(postgresEnvironment, `POSTGRES_PASSWORD=${privateValue()}\n`, { mode: 0o600 });
   const postgres = await fixture.create("postgres", ["--memory", "512m", "--cpus", "1", "--env-file", postgresEnvironment, postgresImage]);
   await docker(["start", postgres]);
-  await waitFor(async () => { await docker(["exec", postgres, "pg_isready", "-U", "postgres"]); return true; }, "PostgreSQL fixture");
+  await waitFor(async () => { await docker(["exec", postgres, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]); return true; }, "PostgreSQL fixture");
   const sql = (input) => docker(["exec", "-i", postgres, "psql", "-U", "postgres", "--no-psqlrc", "--tuples-only", "--no-align", "--set=ON_ERROR_STOP=on"], { input });
   await sql(await fs.readFile(path.join(root, "src/worker/crates/migrate/tests/support/postgres.sql"), "utf8"));
   const publicFixture = JSON.parse(await fs.readFile(path.join(root, "src/worker/crates/contract/tests/fixtures/investigations_public.json"), "utf8"));
