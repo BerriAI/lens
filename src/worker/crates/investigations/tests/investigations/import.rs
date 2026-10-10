@@ -110,3 +110,34 @@ fn unverified_evidence_cannot_be_imported(
         Err(Error::InvalidImport)
     ));
 }
+
+#[rstest]
+#[case::title_boundary("/title", "界".repeat(160), true)]
+#[case::title_overflow("/title", "界".repeat(161), false)]
+#[case::quote_boundary("/evidence/0/quote", "界".repeat(240), true)]
+#[case::quote_overflow("/evidence/0/quote", "界".repeat(241), false)]
+#[case::short_quote("/evidence/0/quote", "界".repeat(7), false)]
+#[case::description_boundary("/description", "界".repeat(4000), true)]
+#[case::description_overflow("/description", "界".repeat(4001), false)]
+#[case::suggestion_boundary("/suggestion", "界".repeat(4000), true)]
+#[case::suggestion_overflow("/suggestion", "界".repeat(4001), false)]
+#[case::limitation_boundary("/limitation", "界".repeat(2000), true)]
+#[case::limitation_overflow("/limitation", "界".repeat(2001), false)]
+#[case::emoji_title_boundary("/title", "🔎".repeat(80), true)]
+#[case::emoji_title_overflow("/title", "🔎".repeat(81), false)]
+#[case::emoji_quote_boundary("/evidence/0/quote", "🔎".repeat(120), true)]
+#[case::emoji_quote_overflow("/evidence/0/quote", "🔎".repeat(121), false)]
+#[case::emoji_quote_minimum("/evidence/0/quote", "🔎".repeat(4), true)]
+#[case::emoji_quote_too_short("/evidence/0/quote", "🔎".repeat(3), false)]
+fn imported_text_limits_match_javascript_strings(
+    target: Lens,
+    request: FindingImport,
+    #[case] path: &str,
+    #[case] text: String,
+    #[case] valid: bool,
+) {
+    let mut body = json!(request);
+    *body.pointer_mut(path).unwrap() = json!(text);
+    let request: FindingImport = decode(body);
+    assert_eq!(validate_import(&target, &request).is_ok(), valid);
+}
