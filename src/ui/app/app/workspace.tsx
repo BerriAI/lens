@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
@@ -17,6 +17,7 @@ const api = createApiClient({
   getAuthHeaderName: () => "Authorization",
 });
 const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
+const ssoConfigSchema = z.object({ enabled: z.boolean() });
 const sessionKey = ["lens-session"];
 
 configureLensHttp({ getBaseUrl: baseUrl, getAuthToken: () => null });
@@ -86,6 +87,29 @@ function Surface({
 function SignIn() {
   const client = useQueryClient();
   const [token, setToken] = useState("");
+  const [returnTo, setReturnTo] = useState("");
+  const [ssoFailed, setSsoFailed] = useState(false);
+  const ssoConfig = useQuery({
+    queryKey: ["lens-sso-config"],
+    queryFn: async () =>
+      ssoConfigSchema.parse(
+        await api.get("/auth/google/config", { cache: "no-store" }),
+      ),
+    retry: false,
+  });
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("sso_error")) {
+      setSsoFailed(true);
+      url.searchParams.delete("sso_error");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }
+    setReturnTo(`${url.pathname}${url.search}${url.hash}`);
+  }, []);
   const login = useMutation({
     mutationFn: async (value: string) =>
       sessionSchema.parse(
@@ -106,6 +130,19 @@ function SignIn() {
   return (
     <main className="mx-auto flex max-w-md flex-col gap-5 p-8">
       <h1 className="text-xl font-semibold">Sign in to Lens</h1>
+      {ssoFailed && (
+        <p role="alert" className="text-sm text-destructive">
+          SSO sign-in failed. Please try again or use your setup token.
+        </p>
+      )}
+      {ssoConfig.data?.enabled && returnTo && (
+        <a
+          href={`${baseUrl()}/auth/google/start?${new URLSearchParams({ return_to: returnTo })}`}
+          className="rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground"
+        >
+          Sign in with SSO
+        </a>
+      )}
       <form onSubmit={submit} className="flex flex-col gap-3">
         <label htmlFor="setup-token" className="text-sm font-medium">
           Setup token

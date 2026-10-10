@@ -28,6 +28,16 @@ impl SessionId {
 }
 
 pub trait SessionRepository: Send + Sync {
+    fn create_identity(
+        &self,
+        id: &SessionId,
+        expires_at: DateTime<Utc>,
+        identity: &Identity,
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn identity(
+        &self,
+        id: &SessionId,
+    ) -> impl Future<Output = Result<Option<Identity>, StoreError>> + Send;
     fn create(
         &self,
         id: &SessionId,
@@ -175,7 +185,10 @@ impl<R: SessionRepository> Authentication<R> {
         {
             return Err(Error::Unauthorized("Lens session has expired"));
         }
-        Ok(local_admin())
+        self.sessions
+            .identity(&SessionId::for_token(session))
+            .await?
+            .ok_or(Error::Unauthorized("Lens session has expired"))
     }
 
     pub async fn sign_out(

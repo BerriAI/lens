@@ -33,6 +33,17 @@ pub struct Application {
 }
 
 impl Application {
+    pub fn with_google(
+        mut self,
+        config: Option<lens_server::google::GoogleConfig>,
+    ) -> Result<Self, Error> {
+        self.router = self.router.merge(
+            lens_server::google::router(self.authentication.clone(), config)
+                .map_err(|_| Error::Configuration("Google SSO HTTP client"))?,
+        );
+        Ok(self)
+    }
+
     pub fn with_github(
         mut self,
         github: Option<lens_server::github::GitHubApp>,

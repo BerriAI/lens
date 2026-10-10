@@ -8,6 +8,7 @@ mod eval_datasets;
 pub mod evals;
 pub mod feedback;
 pub mod github;
+pub mod google;
 pub mod ingestion;
 pub mod investigations;
 pub mod routing;
@@ -17,7 +18,7 @@ pub mod signals;
 pub mod tracing;
 pub mod ui;
 
-pub use error::{ApiError, EvalApiError, EvalCloserError};
+pub use error::{ApiError, EvalApiError, EvalCloserError, SignInError};
 
 pub fn router() -> axum::Router {
     axum::Router::new()

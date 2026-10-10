@@ -20,6 +20,8 @@ The first start builds Lens, generates private credentials in `deploy/lens/.env`
 
 Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The starter binds Lens to localhost and leaves ClickHouse off the host network
 
+For Google Workspace sign-in, configure `LENS_GOOGLE_CLIENT_ID`, `LENS_GOOGLE_CLIENT_SECRET`, and `LENS_GOOGLE_ALLOWED_DOMAINS` in the same `.env` file. See [Google SSO](../../docs/google-sso.md) for the HTTPS callback, backend endpoint contract, and restricted user permissions
+
 Rerunning the start command preserves the environment file, credentials and ClickHouse volume. The initial image build takes longer than subsequent starts
 
 ## Record your first trace

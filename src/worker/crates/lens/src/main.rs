@@ -117,6 +117,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         evals,
     )
     .await?
+    .with_google(config.google)?
     .with_github(
         config.github,
         config.public_url.clone(),

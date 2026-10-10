@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3100",
     "build": "next build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@litellm/lens-ui": "0.1.0-dev.0",

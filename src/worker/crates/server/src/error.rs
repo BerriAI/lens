@@ -783,3 +783,7 @@ pub enum EvalCloserError {
     #[error("Stored eval run is incomplete")]
     InvalidRun,
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid sign-in configuration or response")]
+pub struct SignInError;

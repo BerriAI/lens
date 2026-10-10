@@ -150,3 +150,48 @@ async fn browser_session_survives_server_restart_and_cannot_be_replayed_after_lo
     assert!(record.value.is_null());
     assert_eq!(record.head.revision, 2);
 }
+
+#[rstest]
+#[tokio::test]
+async fn restricted_identity_survives_server_restart(#[future(awt)] database: Database) {
+    let identity = lens_contract::auth::Identity {
+        user_id: Some("google:subject-1".into()),
+        user_role: lens_contract::auth::Role::InternalUserViewer,
+        ..Default::default()
+    };
+    Sessions(database.store.clone())
+        .create_identity(
+            &SessionId::for_token("google-session"),
+            chrono::Utc::now() + chrono::Duration::hours(1),
+            &identity,
+        )
+        .await
+        .unwrap();
+    let server = database.serve(true).await;
+    let response = server
+        .client
+        .get(server.endpoint())
+        .header("cookie", "lens_session=google-session")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"user_id":"google:subject-1", "user_role":"internal_user_viewer"})
+    );
+    drop(server);
+    let restarted = database.serve(true).await;
+    let response = restarted
+        .client
+        .get(restarted.endpoint())
+        .header("cookie", "lens_session=google-session")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"user_id":"google:subject-1", "user_role":"internal_user_viewer"})
+    );
+}

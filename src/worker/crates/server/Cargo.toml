@@ -35,6 +35,7 @@ reqwest.workspace = true
 ring = "=0.17.14"
 serde.workspace = true
 sha2.workspace = true
+subtle.workspace = true
 speedate = "=0.17.0"
 strum = "=0.27.2"
 thiserror.workspace = true

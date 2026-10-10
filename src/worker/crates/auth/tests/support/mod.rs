@@ -14,6 +14,7 @@ pub const ORIGIN: &str = "https://lens.test";
 pub struct Memory {
     pub values: Arc<Mutex<BTreeMap<String, DateTime<Utc>>>>,
     pub unavailable: bool,
+    pub identities: Arc<Mutex<BTreeMap<String, lens_contract::auth::Identity>>>,
 }
 
 impl Memory {
@@ -29,6 +30,38 @@ impl Memory {
 }
 
 impl SessionRepository for Memory {
+    async fn create_identity(
+        &self,
+        id: &SessionId,
+        expires: DateTime<Utc>,
+        identity: &lens_contract::auth::Identity,
+    ) -> Result<(), StoreError> {
+        self.create(id, expires).await?;
+        self.identities
+            .lock()
+            .unwrap()
+            .insert(id.as_str().into(), identity.clone());
+        Ok(())
+    }
+    async fn identity(
+        &self,
+        id: &SessionId,
+    ) -> Result<Option<lens_contract::auth::Identity>, StoreError> {
+        self.ready()?;
+        Ok(self
+            .values
+            .lock()
+            .unwrap()
+            .contains_key(id.as_str())
+            .then(|| {
+                self.identities
+                    .lock()
+                    .unwrap()
+                    .get(id.as_str())
+                    .cloned()
+                    .unwrap_or_else(lens_auth::local_admin)
+            }))
+    }
     async fn create(&self, id: &SessionId, expires: DateTime<Utc>) -> Result<(), StoreError> {
         self.ready()?;
         let mut values = self.values.lock().unwrap();
@@ -45,6 +78,7 @@ impl SessionRepository for Memory {
     async fn revoke(&self, id: &SessionId) -> Result<(), StoreError> {
         self.ready()?;
         self.values.lock().unwrap().remove(id.as_str());
+        self.identities.lock().unwrap().remove(id.as_str());
         Ok(())
     }
 }

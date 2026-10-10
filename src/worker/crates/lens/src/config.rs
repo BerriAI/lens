@@ -9,6 +9,7 @@ mod analysis;
 mod evaluation;
 
 pub struct Config {
+    pub google: Option<lens_server::google::GoogleConfig>,
     pub address: SocketAddr,
     pub storage: StorageConfig,
     pub authentication: lens_auth::Settings,
@@ -79,6 +80,8 @@ impl Config {
             ));
         }
         Ok(Self {
+            google: lens_server::google::GoogleConfig::read(&read, &public_url)
+                .map_err(|_| Error::Configuration("Google SSO settings"))?,
             slack: crate::slack::SlackConfig::read(&read, &public_url)?,
             github_service_url: read("LENS_GITHUB_SERVICE_URL")
                 .filter(|value| !value.is_empty())

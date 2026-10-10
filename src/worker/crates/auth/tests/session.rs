@@ -2,8 +2,8 @@ mod support;
 
 use chrono::{DateTime, Duration, Utc};
 use lens_auth::{
-    Authentication, Error, ReadScope, SessionId, Settings, StoreError, local_admin, session_view,
-    trace_read_scope,
+    Authentication, Error, ReadScope, SessionId, SessionRepository, Settings, StoreError,
+    local_admin, session_view, trace_read_scope,
 };
 use lens_contract::auth::{Identity, Role};
 use rstest::rstest;
@@ -610,5 +610,51 @@ async fn gateway_requires_expected_signature(
             .unwrap_err()
             .to_string(),
         "Invalid or expired gateway identity"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn persisted_identity_keeps_restricted_scope_and_expiry(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let identity = lens_contract::auth::Identity {
+        user_id: Some("google:subject".into()),
+        user_role: lens_contract::auth::Role::InternalUserViewer,
+        ..Default::default()
+    };
+    authentication
+        .sessions
+        .create_identity(
+            &lens_auth::SessionId::for_token("sso-session"),
+            now + chrono::Duration::minutes(1),
+            &identity,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        authentication
+            .authenticate(cookie("sso-session"), now)
+            .await
+            .unwrap(),
+        identity
+    );
+    assert!(
+        authentication
+            .authenticate(cookie("sso-session"), now + chrono::Duration::minutes(1))
+            .await
+            .is_err()
+    );
+    authentication
+        .sessions
+        .revoke(&lens_auth::SessionId::for_token("sso-session"))
+        .await
+        .unwrap();
+    assert!(
+        authentication
+            .authenticate(cookie("sso-session"), now)
+            .await
+            .is_err()
     );
 }
