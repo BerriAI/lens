@@ -12,7 +12,7 @@ use lens_contract::{
     worker::{Job, JobStatus, Progress},
 };
 use lens_inference::{BUDGET_LEASE, renew_reservation, reserve_attempt, settle_amount};
-use lens_investigations::{LensRepository, RepositoryError};
+use lens_investigations::{CheckpointError, LensRepository, RepositoryError};
 use litellm_storage_clickhouse::investigations::Investigations;
 use rstest::{fixture, rstest};
 use tokio::{sync::Notify, task::JoinHandle};
@@ -188,8 +188,10 @@ async fn unchanged_or_rejected_updates_release_the_writer_without_changing_data(
     }
     let key = super::support::record_key("lens", &[&lens.id]);
     let before = database.store.read(&key).await.unwrap();
+    let transforms = AtomicUsize::new(0);
     let result = repository
         .update_locked(&lens.id, |current| {
+            transforms.fetch_add(1, Ordering::SeqCst);
             if rejected {
                 Err(RepositoryError::Conflict)
             } else {
@@ -199,6 +201,7 @@ async fn unchanged_or_rejected_updates_release_the_writer_without_changing_data(
         .await;
     if rejected {
         assert!(matches!(result, Err(RepositoryError::Conflict)));
+        assert_eq!(transforms.load(Ordering::SeqCst), 1);
     } else {
         assert_eq!(result.unwrap().is_none(), missing);
     }
@@ -244,9 +247,12 @@ async fn abandoned_writers_expire_but_live_writers_time_out_without_publishing(
         })
         .await;
     if live {
-        assert!(matches!(result, Err(RepositoryError::Conflict)));
-        assert!(started.elapsed() >= Duration::from_secs(14));
-        assert!(started.elapsed() < Duration::from_secs(18));
+        assert!(
+            matches!(result, Err(RepositoryError::Conflict)),
+            "{result:?}"
+        );
+        assert!(started.elapsed() >= Duration::from_secs(29));
+        assert!(started.elapsed() < Duration::from_secs(34));
         assert_eq!(database.store.read(&lease_key()).await.unwrap(), held);
         assert_eq!(
             value(repository.get(&lens.id).await.unwrap().unwrap()),
@@ -266,8 +272,87 @@ async fn abandoned_writers_expire_but_live_writers_time_out_without_publishing(
     }
 }
 
+#[rstest]
+#[case::budget(false, false)]
+#[case::progress(true, false)]
+#[case::reassigned_progress(true, true)]
+#[tokio::test]
+async fn writer_acquisition_retries_recover_without_bypassing_job_ownership(
+    #[future(awt)] database: Database,
+    active: Lens,
+    #[case] progress: bool,
+    #[case] reassigned: bool,
+) {
+    let assigned = active.jobs[0].clone();
+    let initial = if reassigned {
+        Lens {
+            jobs: vec![Job {
+                worker_id: Some("replacement-worker".into()),
+                ..assigned.clone()
+            }],
+            ..active
+        }
+    } else {
+        active
+    };
+    let repository = database.repository();
+    repository.create(&initial).await.unwrap();
+    let previous = database.store.read(&lease_key()).await.unwrap();
+    database
+        .store
+        .commit(vec![litellm_storage_clickhouse::state::Change {
+            previous,
+            value: serde_json::json!({
+                "token": "busy-writer",
+                "expires_at": Utc::now() + chrono::Duration::seconds(16),
+            }),
+        }])
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    if progress {
+        let result = repository
+            .progress(
+                &initial.id,
+                &assigned,
+                &Progress {
+                    stage: Some("Reviewing after contention".into()),
+                    ..Default::default()
+                },
+                Utc::now(),
+            )
+            .await;
+        if reassigned {
+            assert!(matches!(result, Err(CheckpointError::Ownership)));
+        } else {
+            assert_eq!(
+                result.unwrap().unwrap().jobs[0].stage,
+                "Reviewing after contention"
+            );
+        }
+    } else {
+        let result = repository
+            .update_locked(&initial.id, |current| {
+                Ok::<_, RepositoryError>(Lens {
+                    spent: current.spent + 1.0,
+                    ..current.clone()
+                })
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.spent, initial.spent + 1.0);
+    }
+    assert!(started.elapsed() >= Duration::from_secs(15));
+    assert!(started.elapsed() < Duration::from_secs(30));
+    let saved = repository.get(&initial.id).await.unwrap().unwrap();
+    assert_eq!(saved.version, initial.version + i64::from(!reassigned));
+    assert_eq!(saved.jobs[0].worker_id, initial.jobs[0].worker_id);
+}
+
 struct PausedWrite {
     started: Arc<Notify>,
+    calls: Arc<AtomicUsize>,
     release: std::sync::mpsc::Sender<()>,
     task: JoinHandle<Result<Option<Lens>, RepositoryError>>,
 }
@@ -275,14 +360,18 @@ struct PausedWrite {
 fn paused_write(repository: Investigations, spent: f64) -> PausedWrite {
     let started = Arc::new(Notify::new());
     let signal = started.clone();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let invocations = calls.clone();
     let (release, wait) = std::sync::mpsc::channel();
     let task = tokio::spawn(async move {
         repository
             .update_locked("lens", move |lens| {
-                signal.notify_one();
-                wait.recv_timeout(Duration::from_secs(20)).unwrap();
+                if invocations.fetch_add(1, Ordering::SeqCst) == 0 {
+                    signal.notify_one();
+                    wait.recv_timeout(Duration::from_secs(20)).unwrap();
+                }
                 Ok(Lens {
-                    spent,
+                    spent: lens.spent + spent,
                     ..lens.clone()
                 })
             })
@@ -290,6 +379,7 @@ fn paused_write(repository: Investigations, spent: f64) -> PausedWrite {
     });
     PausedWrite {
         started,
+        calls,
         release,
         task,
     }
@@ -297,7 +387,7 @@ fn paused_write(repository: Investigations, spent: f64) -> PausedWrite {
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn replaced_writer_cannot_publish_or_release_the_successor_lease(
+async fn replaced_writer_retries_from_fresh_state_without_releasing_the_successor_lease(
     #[future(awt)] database: Database,
     lens: Lens,
 ) {
@@ -319,11 +409,8 @@ async fn replaced_writer_cannot_publish_or_release_the_successor_lease(
     successor.started.notified().await;
     let successor_lease = database.store.read(&lease_key()).await.unwrap();
     first.release.send(()).unwrap();
-    assert!(matches!(
-        first.task.await.unwrap(),
-        Err(RepositoryError::Conflict)
-    ));
     tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(!first.task.is_finished());
     assert_eq!(
         database.store.read(&lease_key()).await.unwrap(),
         successor_lease
@@ -334,6 +421,8 @@ async fn replaced_writer_cannot_publish_or_release_the_successor_lease(
     );
     successor.release.send(()).unwrap();
     assert_eq!(successor.task.await.unwrap().unwrap().unwrap().spent, 5.0);
+    assert_eq!(first.task.await.unwrap().unwrap().unwrap().spent, 8.0);
+    assert_eq!(first.calls.load(Ordering::SeqCst), 2);
     assert_eq!(
         database
             .repository()
@@ -342,7 +431,7 @@ async fn replaced_writer_cannot_publish_or_release_the_successor_lease(
             .unwrap()
             .unwrap()
             .spent,
-        5.0
+        8.0
     );
     assert!(
         database
@@ -452,6 +541,77 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
         .unwrap();
     assert_eq!(saved.spent, 1.0);
     assert_eq!(saved.version, lens.version + 1);
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Database, lens: Lens) {
+    use litellm_http::Client;
+    use litellm_storage_clickhouse::{Connection, state::ClickHouseState};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    database.repository().create(&lens).await.unwrap();
+    let server = MockServer::start().await;
+    let destination = database.url();
+    let publications = Arc::new(AtomicUsize::new(0));
+    let count = publications.clone();
+    Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(move |request: &Request| {
+            let mut target = destination.clone();
+            target
+                .query_pairs_mut()
+                .extend_pairs(request.url.query_pairs());
+            let body = request.body.clone();
+            let response = std::thread::spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        let response = Client::no_redirect_for_test()
+                            .post(target)
+                            .header("Content-Length", body.len().to_string())
+                            .body(body)
+                            .send()
+                            .await
+                            .unwrap();
+                        let status = response.status().as_u16();
+                        (status, response.text().await.unwrap())
+                    })
+            })
+            .join()
+            .unwrap();
+            let publication = request.url.query_pairs().any(|(name, query)| {
+                name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
+            }) && request
+                .url
+                .query_pairs()
+                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            let template = ResponseTemplate::new(response.0).set_body_string(response.1);
+            if publication && count.fetch_add(1, Ordering::SeqCst) == 0 {
+                return template.set_delay(Duration::from_secs(15));
+            }
+            template
+        })
+        .mount(&server)
+        .await;
+    let repository = Investigations(ClickHouseState::new(
+        Client::no_redirect_for_test(),
+        Connection::parse(&server.uri()).unwrap(),
+    ));
+    let result = repository
+        .update_locked(&lens.id, |current| {
+            Ok::<_, RepositoryError>(Lens {
+                spent: current.spent + 1.0,
+                ..current.clone()
+            })
+        })
+        .await;
+    assert!(matches!(result, Err(RepositoryError::WriteUnconfirmed)));
+    assert_eq!(publications.load(Ordering::SeqCst), 1);
+    let saved = database.repository().get(&lens.id).await.unwrap().unwrap();
+    assert_eq!(saved.spent, lens.spent + 1.0);
+    assert_eq!(saved.version, lens.version + 1);
+    wait_released(&database).await;
 }
 
 #[rstest]
@@ -614,7 +774,7 @@ async fn delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence
 
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn expired_owner_cannot_begin_publication_even_without_a_successor(
+async fn expired_owner_reacquires_before_recomputing_and_publishing(
     #[future(awt)] database: Database,
     lens: Lens,
 ) {
@@ -629,14 +789,14 @@ async fn expired_owner_cannot_begin_publication_even_without_a_successor(
     )
     .await;
     writer.release.send(()).unwrap();
-    assert!(matches!(
-        writer.task.await.unwrap(),
-        Err(RepositoryError::Conflict)
-    ));
+    let result = writer.task.await.unwrap().unwrap().unwrap();
+    assert_eq!(result.spent, lens.spent + 3.0);
+    assert_eq!(result.version, lens.version + 1);
+    assert_eq!(writer.calls.load(Ordering::SeqCst), 2);
     wait_released(&database).await;
     assert_eq!(
         value(database.repository().get(&lens.id).await.unwrap().unwrap()),
-        value(&lens)
+        value(&result)
     );
 }
 

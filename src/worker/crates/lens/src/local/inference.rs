@@ -209,7 +209,7 @@ fn context_exceeded() -> ModelResult {
 fn policy_error(error: lens_inference::Error) -> Error {
     let status = match error {
         lens_inference::Error::MonthlyBudget | lens_inference::Error::RequestBudget { .. } => 402,
-        lens_inference::Error::JobReassigned => 409,
+        lens_inference::Error::JobReassigned => return Error::JobOwnershipLost,
         lens_inference::Error::ReservationExpired => 503,
         _ => 400,
     };
@@ -221,11 +221,20 @@ fn provider_error(error: lens_analysis::Error) -> Error {
         lens_analysis::Error::Provider {
             status,
             retry_after,
-        } => Error::Control {
-            status,
-            retry_after,
-            diagnostic: Some("Analysis provider rejected the request".into()),
-        },
+            diagnostic,
+        } => {
+            tracing::warn!(
+                upstream_status = status,
+                classification = %diagnostic.classification,
+                request_id = diagnostic.request_id.as_deref(),
+                "Analysis provider rejected the request"
+            );
+            Error::Control {
+                status,
+                retry_after,
+                diagnostic: Some(diagnostic.to_string()),
+            }
+        }
         lens_analysis::Error::Timeout => {
             rejected(504, "Analysis request timed out waiting for model output")
         }
@@ -416,7 +425,6 @@ mod tests {
     #[rstest]
     #[case::monthly_budget(lens_inference::Error::MonthlyBudget, 402, false)]
     #[case::request_budget(lens_inference::Error::RequestBudget { amount: 2.0, available: 1.0 }, 402, false)]
-    #[case::reassigned(lens_inference::Error::JobReassigned, 409, false)]
     #[case::expired(lens_inference::Error::ReservationExpired, 503, true)]
     #[case::invalid_prompt(lens_inference::Error::MalformedPrompt, 400, false)]
     fn inference_policy_preserves_status_and_diagnostic(
@@ -435,6 +443,47 @@ mod tests {
         };
         assert_eq!(status, expected_status);
         assert_eq!(diagnostic.as_deref(), Some(expected_diagnostic.as_str()));
+    }
+
+    #[rstest]
+    fn reassigned_inference_is_confirmed_ownership_loss() {
+        let error = policy_error(lens_inference::Error::JobReassigned);
+        assert!(matches!(error, Error::JobOwnershipLost));
+        assert!(error.is_control_failure());
+        assert!(!error.retryable());
+    }
+
+    #[rstest]
+    #[case::unavailable(503, true)]
+    #[case::rate_limit(429, true)]
+    #[case::authentication(401, false)]
+    fn provider_failure_preserves_safe_diagnostics_and_retry_policy(
+        #[case] upstream_status: u16,
+        #[case] retryable: bool,
+    ) {
+        let provider_diagnostic = lens_analysis::ProviderDiagnostic {
+            classification: lens_analysis::ProviderFailureKind::Unavailable,
+            request_id: Some("req_diagnostic12345".into()),
+        };
+        let expected = provider_diagnostic.to_string();
+        let error = provider_error(lens_analysis::Error::Provider {
+            status: upstream_status,
+            retry_after: Some(17),
+            diagnostic: provider_diagnostic,
+        });
+
+        assert_eq!(error.retryable(), retryable);
+        let Error::Control {
+            status,
+            retry_after,
+            diagnostic,
+        } = error
+        else {
+            panic!("Provider failures must retain their control status");
+        };
+        assert_eq!(status, upstream_status);
+        assert_eq!(retry_after, Some(17));
+        assert_eq!(diagnostic.as_deref(), Some(expected.as_str()));
     }
 
     #[rstest]

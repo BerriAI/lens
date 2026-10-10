@@ -71,6 +71,8 @@ pub enum Error {
         retry_after: Option<u64>,
         diagnostic: Option<String>,
     },
+    #[error("This worker no longer owns the job")]
+    JobOwnershipLost,
     #[error(
         "The worker received an invalid response. Check that the gateway and worker versions match."
     )]
@@ -145,7 +147,10 @@ pub enum Error {
 
 impl Error {
     pub fn is_control_failure(&self) -> bool {
-        matches!(self, Self::Control { .. } | Self::Request(_))
+        matches!(
+            self,
+            Self::Control { .. } | Self::Request(_) | Self::JobOwnershipLost
+        )
     }
     pub fn retryable(&self) -> bool {
         matches!(
@@ -164,7 +169,7 @@ impl Error {
             Self::CredentialsPending => StatusCode::TOO_MANY_REQUESTS,
             Self::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::InvalidRequest => StatusCode::BAD_REQUEST,
-            Self::TraceChanged => StatusCode::CONFLICT,
+            Self::TraceChanged | Self::JobOwnershipLost => StatusCode::CONFLICT,
             Self::Storage(error) => storage_status(error),
             _ => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -205,12 +210,13 @@ impl From<ReadError<StoreError>> for Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = self.status();
-        let code = match status {
-            StatusCode::BAD_REQUEST => "invalid_request",
-            StatusCode::CONFLICT => "trace_changed",
-            StatusCode::PAYLOAD_TOO_LARGE => "too_large",
-            StatusCode::UNAUTHORIZED => "unauthorized",
-            StatusCode::TOO_MANY_REQUESTS => "pending_credentials",
+        let code = match (&self, status) {
+            (Self::JobOwnershipLost, _) => "job_ownership_lost",
+            (_, StatusCode::BAD_REQUEST) => "invalid_request",
+            (_, StatusCode::CONFLICT) => "trace_changed",
+            (_, StatusCode::PAYLOAD_TOO_LARGE) => "too_large",
+            (_, StatusCode::UNAUTHORIZED) => "unauthorized",
+            (_, StatusCode::TOO_MANY_REQUESTS) => "pending_credentials",
             _ => "unavailable",
         };
         let mut response = (status, Json(serde_json::json!({"code": code}))).into_response();

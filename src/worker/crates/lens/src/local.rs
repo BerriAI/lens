@@ -77,68 +77,154 @@ impl LocalControl {
         if worker.analysis_key_id.is_none() {
             return Ok(None);
         }
-        self.claim_at(&worker, Utc::now()).await
+        self.claim_with_clock(&worker, Utc::now).await
     }
 
+    #[cfg(test)]
     async fn claim_at(&self, worker: &Worker, now: DateTime<Utc>) -> Result<Option<Claim>, Error> {
-        self.repository.heartbeat(&worker.id, now).await?;
-        let models = self.models.get().models();
+        self.claim_with_clock(worker, || now).await
+    }
+
+    async fn claim_with_clock(
+        &self,
+        worker: &Worker,
+        now: impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        self.repository.heartbeat(&worker.id, now()).await?;
+        if let Some(claim) = self.claim_existing_jobs(worker, &now).await? {
+            return Ok(Some(claim));
+        }
+        self.claim_scheduled_jobs(worker, &now).await
+    }
+
+    async fn claim_existing_jobs(
+        &self,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        let due_at = now();
         let mut after = None;
         loop {
             let page = self
                 .repository
-                .due(&worker.scope, &now, 20, after.as_ref())
+                .due(&worker.scope, &due_at, 20, after.as_ref())
                 .await?;
             for candidate in &page {
                 let lens = &candidate.lens;
-                let active = current_job(lens);
-                let settings = active.map_or(&lens.settings, |job| &job.settings);
-                if !can_access(&worker.scope, &lens.scope)
-                    || !models.iter().any(|model| model == settings.model.as_str())
-                {
+                if current_job(lens).is_none() {
                     continue;
                 }
-                if active.is_none() && !self.automatic_ready(lens, now).await? {
-                    continue;
+                if let Some(claim) = self.claim_candidate(lens, worker, now).await? {
+                    return Ok(Some(claim));
                 }
-                let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
-                    queue_job(
-                        lens,
-                        now,
-                        &uuid::Uuid::new_v4().to_string(),
-                        Default::default(),
-                    )?
-                } else {
-                    lens.clone()
-                };
-                let claimed = claim_job(&scheduled, worker, now)?;
-                match self.repository.replace(lens, &claimed).await {
-                    Ok(updated) => {
-                        if let Some(job) = current_job(&updated)
-                            && job.worker_id.as_deref() == Some(&worker.id)
-                            && job.status == crate::wire::JobStatus::Running
-                            && active.is_none_or(|previous| {
-                                previous.attempts != job.attempts || previous.id != job.id
-                            })
-                        {
-                            return Ok(Some(Claim {
-                                lens_id: updated.id.clone(),
-                                job: job.clone(),
-                                findings: updated.findings,
-                                reviews: None,
-                            }));
-                        }
-                    }
-                    Err(RepositoryError::Conflict) => {}
-                    Err(error) => return Err(error.into()),
-                }
-                self.repository.sync_due(lens).await?;
             }
             if page.len() < 20 {
                 return Ok(None);
             }
             after = page.last().cloned();
         }
+    }
+
+    async fn claim_scheduled_jobs(
+        &self,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        let due_at = now();
+        let mut after = None;
+        loop {
+            let page = self
+                .repository
+                .due(&worker.scope, &due_at, 20, after.as_ref())
+                .await?;
+            for candidate in &page {
+                let lens = &candidate.lens;
+                if current_job(lens).is_some() || !self.can_claim(lens, worker) {
+                    continue;
+                }
+                let ready = match self.automatic_ready(lens, now()).await {
+                    Ok(ready) => ready,
+                    Err(error) => {
+                        let storage_error = match &error {
+                            Error::StateStorage(source) => Some(source.to_string()),
+                            _ => None,
+                        };
+                        tracing::warn!(lens_id = %lens.id, error = %error, storage_error = storage_error.as_deref(), "Lens could not check automatic analysis readiness; skipping this agent");
+                        false
+                    }
+                };
+                if let Some(claim) = self.claim_existing_jobs(worker, now).await? {
+                    return Ok(Some(claim));
+                }
+                if !ready {
+                    continue;
+                }
+                if let Some(claim) = self.claim_candidate(lens, worker, now).await? {
+                    return Ok(Some(claim));
+                }
+            }
+            if page.len() < 20 {
+                return Ok(None);
+            }
+            after = page.last().cloned();
+        }
+    }
+
+    fn can_claim(&self, lens: &Lens, worker: &Worker) -> bool {
+        let settings = current_job(lens).map_or(&lens.settings, |job| &job.settings);
+        can_access(&worker.scope, &lens.scope)
+            && self
+                .models
+                .get()
+                .models()
+                .iter()
+                .any(|model| model == settings.model.as_str())
+    }
+
+    async fn claim_candidate(
+        &self,
+        lens: &Lens,
+        worker: &Worker,
+        now: &impl Fn() -> DateTime<Utc>,
+    ) -> Result<Option<Claim>, Error> {
+        if !self.can_claim(lens, worker) {
+            return Ok(None);
+        }
+        let active = current_job(lens);
+        let now = now();
+        let scheduled = if lens.settings.enabled && lens.next_run_at <= now {
+            queue_job(
+                lens,
+                now,
+                &uuid::Uuid::new_v4().to_string(),
+                Default::default(),
+            )?
+        } else {
+            lens.clone()
+        };
+        let claimed = claim_job(&scheduled, worker, now)?;
+        match self.repository.replace(lens, &claimed).await {
+            Ok(updated) => {
+                if let Some(job) = current_job(&updated)
+                    && job.worker_id.as_deref() == Some(&worker.id)
+                    && job.status == crate::wire::JobStatus::Running
+                    && active.is_none_or(|previous| {
+                        previous.attempts != job.attempts || previous.id != job.id
+                    })
+                {
+                    return Ok(Some(Claim {
+                        lens_id: updated.id.clone(),
+                        job: job.clone(),
+                        findings: updated.findings,
+                        reviews: None,
+                    }));
+                }
+            }
+            Err(RepositoryError::Conflict) => {}
+            Err(error) => return Err(error.into()),
+        }
+        self.repository.sync_due(lens).await?;
+        Ok(None)
     }
 
     pub async fn run_once(&self) -> Result<bool, Error> {
@@ -286,17 +372,34 @@ fn rejected(status: u16, message: &str) -> Error {
     }
 }
 
+fn heartbeat_error(error: Error) -> Error {
+    use lens_investigations::{CheckpointError, RepositoryError};
+    match error {
+        Error::InvestigationStorage(
+            error @ (RepositoryError::Conflict | RepositoryError::WriteUnconfirmed),
+        )
+        | Error::Checkpoint(CheckpointError::Store(
+            error @ (RepositoryError::Conflict | RepositoryError::WriteUnconfirmed),
+        )) => rejected(503, &error.to_string()),
+        error => backend_error(error),
+    }
+}
+
 fn backend_error(error: Error) -> Error {
     use lens_investigations::{CheckpointError, RepositoryError};
     match error {
-        error @ Error::Control { .. } | error @ Error::Request(_) => error,
+        error @ Error::Control { .. }
+        | error @ Error::Request(_)
+        | error @ Error::JobOwnershipLost => error,
         Error::InvestigationStorage(RepositoryError::Conflict)
         | Error::Checkpoint(CheckpointError::Store(RepositoryError::Conflict)) => {
             rejected(409, "Lens changed concurrently; retry the operation")
         }
-        Error::Checkpoint(CheckpointError::Ownership) => {
-            rejected(409, "This worker no longer owns the job")
+        Error::InvestigationStorage(error @ RepositoryError::WriteUnconfirmed)
+        | Error::Checkpoint(CheckpointError::Store(error @ RepositoryError::WriteUnconfirmed)) => {
+            rejected(409, &error.to_string())
         }
+        Error::Checkpoint(CheckpointError::Ownership) => Error::JobOwnershipLost,
         Error::Investigation(error) | Error::Checkpoint(CheckpointError::Invalid(error)) => {
             rejected(422, &error.to_string())
         }
@@ -470,19 +573,84 @@ mod fixtures {
             database,
         }
     }
+
+    pub(super) struct ReadinessQueue {
+        pub stored: StoredJob,
+        pub control: LocalControl,
+        pub source: wiremock::MockServer,
+        pub initial: Vec<Lens>,
+        pub now: DateTime<Utc>,
+    }
+
+    #[fixture]
+    pub(super) async fn readiness_queue(#[future(awt)] stored_job: StoredJob) -> ReadinessQueue {
+        let source = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(wiremock::ResponseTemplate::new(503))
+            .mount(&source)
+            .await;
+        let config =
+            litellm_traces_clickhouse::Config::new("unavailable_traces".into(), &source.uri(), 14)
+                .unwrap();
+        let state = State::standalone(Storage::new(
+            config,
+            http_client().unwrap(),
+            "fixture-service-secret".into(),
+        ));
+        state
+            .schema_ready
+            .store(true, std::sync::atomic::Ordering::Release);
+        let control = LocalControl {
+            sources: SourceReader(Arc::new(state)),
+            ..stored_job.job.control.clone()
+        };
+        let original = control
+            .repository
+            .get(&stored_job.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let now = Utc::now();
+        let mut initial = Vec::new();
+        for index in 0..21 {
+            let lens = Lens {
+                jobs: Vec::new(),
+                ..lens_investigations::create_lens(
+                    LensSettings {
+                        enabled: true,
+                        agent_name: format!("waiting-agent-{index}"),
+                        ..original.settings.clone()
+                    },
+                    original.scope.clone(),
+                    now - chrono::TimeDelta::minutes(10),
+                    &format!("auto-agent-{index:02}"),
+                    "initial",
+                )
+                .unwrap()
+            };
+            initial.push(control.repository.create(&lens).await.unwrap());
+        }
+        ReadinessQueue {
+            stored: stored_job,
+            control,
+            source,
+            initial,
+            now,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::fixtures::{StoredJob, stored_job};
+    use super::fixtures::{ReadinessQueue, StoredJob, readiness_queue, stored_job};
     use super::*;
     use crate::{control::JobBackend, wire};
     use futures_util::future::BoxFuture;
     use lens_investigations::CheckpointError;
-    use rstest::rstest;
+    use rstest::{fixture, rstest};
     use std::sync::{
         Mutex,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicI64, AtomicUsize, Ordering},
     };
     use tokio::sync::Notify;
 
@@ -541,6 +709,233 @@ mod tests {
         assert!(control.claim_at(&worker, due).await.unwrap().is_none());
     }
 
+    #[rstest]
+    #[case::queued(false)]
+    #[case::reclaimable(true)]
+    #[tokio::test]
+    async fn queued_jobs_on_later_pages_do_not_wait_for_failing_readiness_queries(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+        #[case] reclaimable: bool,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let original = control
+            .repository
+            .get(&fixture.stored.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let waiting = Lens {
+            jobs: vec![wire::Job {
+                status: if reclaimable {
+                    wire::JobStatus::Running
+                } else {
+                    wire::JobStatus::Queued
+                },
+                attempts: i64::from(reclaimable),
+                worker_id: reclaimable.then(|| "previous-worker".into()),
+                lease_until: reclaimable.then_some(fixture.now - chrono::TimeDelta::minutes(1)),
+                created_at: fixture.now - chrono::TimeDelta::minutes(1),
+                ..original.jobs[0].clone()
+            }],
+            ..original.clone()
+        };
+        control
+            .repository
+            .replace(&original, &waiting)
+            .await
+            .unwrap();
+        let page = control
+            .repository
+            .due(&worker.scope, &fixture.now, 20, None)
+            .await
+            .unwrap();
+        assert_eq!(page.len(), 20);
+        assert!(!page.iter().any(|entry| entry.lens.id == original.id));
+        assert!(
+            control
+                .automatic_ready(&fixture.initial[0], fixture.now)
+                .await
+                .is_err()
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+
+        let claim = control
+            .claim_at(&worker, fixture.now)
+            .await
+            .unwrap()
+            .expect("Queued work must not depend on another agent's trace source");
+
+        assert_eq!(claim.lens_id, original.id);
+        assert_eq!(claim.job.id, original.jobs[0].id);
+        assert_eq!(claim.job.status, wire::JobStatus::Running);
+        assert_eq!(claim.job.worker_id.as_deref(), Some(worker.id.as_str()));
+        assert_eq!(claim.job.attempts, i64::from(reclaimable) + 1);
+        assert!(
+            claim
+                .job
+                .lease_until
+                .is_some_and(|lease| lease > fixture.now)
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+        let unchanged: Vec<_> = control
+            .repository
+            .lenses(&worker.scope)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|lens| lens.id.starts_with("auto-agent-"))
+            .collect();
+        assert_eq!(
+            serde_json::to_value(unchanged).unwrap(),
+            serde_json::to_value(fixture.initial).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn failing_readiness_queries_leave_every_candidate_unchanged_and_return_no_claim(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let before = control.repository.lenses(&worker.scope).await.unwrap();
+        assert!(
+            control
+                .automatic_ready(&fixture.initial[0], fixture.now)
+                .await
+                .is_err()
+        );
+        assert_eq!(fixture.source.received_requests().await.unwrap().len(), 1);
+
+        assert!(
+            control
+                .claim_at(&worker, fixture.now)
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        assert_eq!(
+            fixture.source.received_requests().await.unwrap().len(),
+            fixture.initial.len() + 1
+        );
+        assert_eq!(
+            serde_json::to_value(control.repository.lenses(&worker.scope).await.unwrap()).unwrap(),
+            serde_json::to_value(before).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn work_queued_during_a_readiness_probe_is_claimed_next_with_a_fresh_lease(
+        #[future(awt)] readiness_queue: ReadinessQueue,
+    ) {
+        let fixture = readiness_queue;
+        let control = &fixture.control;
+        let worker = control.worker().await.unwrap();
+        let original = control
+            .repository
+            .get(&fixture.stored.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        control
+            .repository
+            .replace(
+                &original,
+                &Lens {
+                    jobs: Vec::new(),
+                    settings: wire::LensSettings {
+                        enabled: false,
+                        ..original.settings.clone()
+                    },
+                    ..original.clone()
+                },
+            )
+            .await
+            .unwrap();
+        fixture.source.reset().await;
+        let entered = Arc::new(Notify::new());
+        let signal = entered.clone();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        let (release, wait) = std::sync::mpsc::channel();
+        let wait = Mutex::new(wait);
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(move |_: &wiremock::Request| {
+                if count.fetch_add(1, Ordering::SeqCst) == 0 {
+                    signal.notify_one();
+                    wait.lock()
+                        .unwrap()
+                        .recv_timeout(Duration::from_secs(20))
+                        .unwrap();
+                }
+                wiremock::ResponseTemplate::new(503)
+            })
+            .mount(&fixture.source)
+            .await;
+        let clock = Arc::new(AtomicI64::new(fixture.now.timestamp_millis()));
+        let task_clock = clock.clone();
+        let task_control = control.clone();
+        let task_worker = worker.clone();
+        let claim_task = tokio::spawn(async move {
+            task_control
+                .claim_with_clock(&task_worker, move || {
+                    DateTime::from_timestamp_millis(task_clock.load(Ordering::SeqCst)).unwrap()
+                })
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(10), entered.notified())
+            .await
+            .expect("The scheduled scan must enter its first readiness probe");
+        let queued_at = DateTime::from_timestamp_millis(clock.load(Ordering::SeqCst)).unwrap()
+            + chrono::TimeDelta::minutes(6);
+        let queued = lens_investigations::create_lens(
+            original.settings.clone(),
+            original.scope.clone(),
+            queued_at,
+            "queued-during-readiness",
+            "new-job",
+        )
+        .unwrap();
+        control.repository.create(&queued).await.unwrap();
+        clock.store(queued_at.timestamp_millis(), Ordering::SeqCst);
+        release.send(()).unwrap();
+
+        let claim = tokio::time::timeout(Duration::from_secs(10), claim_task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap()
+            .expect("New queued work must precede the remaining readiness probes");
+
+        assert_eq!(claim.lens_id, queued.id);
+        assert_eq!(claim.job.id, "new-job");
+        assert_eq!(claim.job.worker_id.as_deref(), Some(worker.id.as_str()));
+        assert_eq!(claim.job.attempts, 1);
+        assert_eq!(claim.job.status, wire::JobStatus::Running);
+        assert_eq!(
+            claim.job.lease_until,
+            Some(queued_at + chrono::TimeDelta::minutes(5))
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        let unchanged: Vec<_> = control
+            .repository
+            .lenses(&worker.scope)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|lens| lens.id.starts_with("auto-agent-"))
+            .collect();
+        assert_eq!(
+            serde_json::to_value(unchanged).unwrap(),
+            serde_json::to_value(fixture.initial).unwrap()
+        );
+    }
+
     fn unavailable() -> Error {
         CheckpointError::Store(RepositoryError::Unavailable(Box::new(
             std::io::Error::from(std::io::ErrorKind::ConnectionReset),
@@ -556,7 +951,8 @@ mod tests {
         true
     )]
     #[case::checkpoint_conflict(CheckpointError::Store(RepositoryError::Conflict).into(), 409, false)]
-    #[case::lost_ownership(CheckpointError::Ownership.into(), 409, false)]
+    #[case::unconfirmed_write(RepositoryError::WriteUnconfirmed.into(), 409, false)]
+    #[case::unconfirmed_checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into(), 409, false)]
     #[case::invalid_progress(CheckpointError::Invalid(lens_investigations::Error::ReviewCount).into(), 422, false)]
     #[case::oversized_response(
         Error::StateStorage(litellm_storage_clickhouse::Error::ResponseTooLarge),
@@ -574,13 +970,64 @@ mod tests {
         assert!(matches!(error, Error::Control { status: actual, .. } if actual == status));
     }
 
+    #[rstest]
+    #[case::write(RepositoryError::WriteUnconfirmed.into())]
+    #[case::checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into())]
+    fn unconfirmed_writes_preserve_their_diagnostic(#[case] input: Error) {
+        let Error::Control { diagnostic, .. } = backend_error(input) else {
+            panic!("Expected a control failure");
+        };
+        assert_eq!(
+            diagnostic,
+            Some(RepositoryError::WriteUnconfirmed.to_string())
+        );
+    }
+
+    #[rstest]
+    #[case::checkpoint(CheckpointError::Ownership.into())]
+    #[case::active_job(Error::JobOwnershipLost)]
+    fn confirmed_ownership_loss_remains_typed_and_nonretryable(#[case] input: Error) {
+        let error = backend_error(input);
+        assert!(matches!(error, Error::JobOwnershipLost));
+        assert!(error.is_control_failure());
+        assert!(!error.retryable());
+        assert_eq!(error.status(), http::StatusCode::CONFLICT);
+    }
+
     struct WaitingJob {
+        sample: Mutex<wire::Sample>,
         sample_entered: Notify,
         sample_ready: Notify,
         pulse_seen: Notify,
         pulse_calls: AtomicUsize,
-        revoked: bool,
+        heartbeat_error: Mutex<Option<Error>>,
+        progress_error: Mutex<Option<Error>>,
+        model_error: Mutex<Option<Error>>,
+        model_calls: AtomicUsize,
+        finish_error: Mutex<Option<Error>>,
         results: Mutex<Vec<wire::Result>>,
+    }
+
+    #[fixture]
+    fn waiting_job() -> Arc<WaitingJob> {
+        Arc::new(WaitingJob {
+            sample: Mutex::new(
+                serde_json::from_value(
+                    serde_json::json!({"executions":[],"eligible":0,"selected":0}),
+                )
+                .unwrap(),
+            ),
+            sample_entered: Notify::new(),
+            sample_ready: Notify::new(),
+            pulse_seen: Notify::new(),
+            pulse_calls: AtomicUsize::new(0),
+            heartbeat_error: Mutex::new(None),
+            progress_error: Mutex::new(None),
+            model_error: Mutex::new(None),
+            model_calls: AtomicUsize::new(0),
+            finish_error: Mutex::new(None),
+            results: Mutex::new(vec![]),
+        })
     }
 
     impl JobBackend for WaitingJob {
@@ -588,10 +1035,7 @@ mod tests {
             Box::pin(async move {
                 self.sample_entered.notify_one();
                 self.sample_ready.notified().await;
-                Ok(serde_json::from_value(
-                    serde_json::json!({"executions":[],"eligible":0,"selected":0}),
-                )
-                .unwrap())
+                Ok(self.sample.lock().unwrap().clone())
             })
         }
 
@@ -612,18 +1056,34 @@ mod tests {
             &'a self,
             _: &'a wire::ModelRequest,
         ) -> BoxFuture<'a, Result<wire::ModelResult, Error>> {
-            Box::pin(async { Err(Error::InvalidRequest) })
+            Box::pin(async move {
+                self.model_calls.fetch_add(1, Ordering::SeqCst);
+                Err(backend_error(
+                    self.model_error
+                        .lock()
+                        .unwrap()
+                        .take()
+                        .unwrap_or(Error::InvalidRequest),
+                ))
+            })
         }
 
         fn progress<'a>(&'a self, _: &'a wire::Progress) -> BoxFuture<'a, Result<(), Error>> {
             Box::pin(async move {
-                let call = self.pulse_calls.fetch_add(1, Ordering::SeqCst);
+                self.progress_error
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .map_or(Ok(()), |error| Err(backend_error(error)))
+            })
+        }
+
+        fn heartbeat(&self) -> BoxFuture<'_, Result<(), Error>> {
+            Box::pin(async move {
+                self.pulse_calls.fetch_add(1, Ordering::SeqCst);
                 self.pulse_seen.notify_one();
-                if self.revoked {
-                    return Err(backend_error(CheckpointError::Ownership.into()));
-                }
-                if call == 0 {
-                    return Err(backend_error(unavailable()));
+                if let Some(error) = self.heartbeat_error.lock().unwrap().take() {
+                    return Err(heartbeat_error(error));
                 }
                 Ok(())
             })
@@ -632,45 +1092,147 @@ mod tests {
         fn finish<'a>(&'a self, result: &'a wire::Result) -> BoxFuture<'a, Result<(), Error>> {
             Box::pin(async move {
                 self.results.lock().unwrap().push(result.clone());
-                Ok(())
+                self.finish_error
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .map_or(Ok(()), |error| Err(backend_error(error)))
             })
         }
     }
 
     #[rstest]
-    #[case::storage_recovers(false)]
-    #[case::ownership_revoked(true)]
+    #[case::storage_recovers(unavailable(), false)]
+    #[case::write_conflict(RepositoryError::Conflict.into(), false)]
+    #[case::checkpoint_conflict(CheckpointError::Store(RepositoryError::Conflict).into(), false)]
+    #[case::unconfirmed_write(RepositoryError::WriteUnconfirmed.into(), false)]
+    #[case::unconfirmed_checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into(), false)]
+    #[case::ownership_revoked(CheckpointError::Ownership.into(), true)]
+    #[case::expired_lease(Error::JobOwnershipLost, true)]
     #[tokio::test(start_paused = true)]
     async fn heartbeat_storage_failure_keeps_work_alive_but_revocation_stops_it(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
         #[case] revoked: bool,
     ) {
-        let backend = Arc::new(WaitingJob {
-            sample_entered: Notify::new(),
-            sample_ready: Notify::new(),
-            pulse_seen: Notify::new(),
-            pulse_calls: AtomicUsize::new(0),
-            revoked,
-            results: Mutex::new(vec![]),
-        });
+        let backend = waiting_job;
+        *backend.heartbeat_error.lock().unwrap() = Some(error);
         let client = JobClient::local(backend.clone(), 1, Arc::new(Semaphore::new(1)));
         let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
         let task = tokio::spawn(crate::worker::execute(claim, client));
-        backend.sample_entered.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.sample_entered.notified())
+            .await
+            .unwrap();
         tokio::time::advance(Duration::from_secs(30)).await;
-        backend.pulse_seen.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.pulse_seen.notified())
+            .await
+            .unwrap();
         if revoked {
-            task.await.unwrap().unwrap();
+            tokio::time::timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert_eq!(backend.pulse_calls.load(Ordering::SeqCst), 1);
             assert!(backend.results.lock().unwrap().is_empty());
             return;
         }
         assert!(!task.is_finished());
         tokio::time::advance(Duration::from_secs(30)).await;
-        backend.pulse_seen.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.pulse_seen.notified())
+            .await
+            .unwrap();
         assert!(!task.is_finished());
+        assert_eq!(backend.pulse_calls.load(Ordering::SeqCst), 2);
         backend.sample_ready.notify_one();
-        task.await.unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         let results = backend.results.lock().unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].error.is_empty());
+    }
+
+    #[rstest]
+    #[case::conflict(CheckpointError::Store(RepositoryError::Conflict).into())]
+    #[case::unconfirmed(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into())]
+    #[case::http_conflict(rejected(409, "The operation conflicted"))]
+    #[tokio::test(start_paused = true)]
+    async fn ordinary_progress_conflicts_record_a_failed_result_once(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
+    ) {
+        *waiting_job.sample.lock().unwrap() =
+            serde_json::from_str(include_str!("../tests/fixtures/sample.json")).unwrap();
+        *waiting_job.progress_error.lock().unwrap() = Some(error);
+        waiting_job.sample_ready.notify_one();
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            crate::worker::execute(claim, client),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let results = waiting_job.results.lock().unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].error.contains("HTTP 409"));
+        assert!(results[0].findings.is_empty());
+        assert_eq!(
+            lens_investigations::result_status(&results[0]),
+            lens_investigations::TerminalStatus::Failed
+        );
+        assert_eq!(waiting_job.model_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[rstest]
+    #[case::conflict(RepositoryError::Conflict.into())]
+    #[case::unconfirmed(RepositoryError::WriteUnconfirmed.into())]
+    #[case::provider_conflict(rejected(409, "Provider rejected request"))]
+    #[tokio::test(start_paused = true)]
+    async fn model_write_failures_are_not_replayed(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
+    ) {
+        *waiting_job.model_error.lock().unwrap() = Some(error);
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let request = crate::model::request(
+            wire::ModelRequestPurpose::Investigate,
+            serde_json::json!({}),
+        )
+        .unwrap();
+        let error = tokio::time::timeout(Duration::from_secs(1), client.model(&request))
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(matches!(error, Error::Control { status: 409, .. }));
+        assert!(!error.retryable());
+        assert_eq!(waiting_job.model_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[rstest]
+    #[tokio::test(start_paused = true)]
+    async fn failure_persistence_conflicts_are_returned_to_the_worker_loop(
+        waiting_job: Arc<WaitingJob>,
+    ) {
+        *waiting_job.sample.lock().unwrap() =
+            serde_json::from_str(include_str!("../tests/fixtures/sample.json")).unwrap();
+        *waiting_job.progress_error.lock().unwrap() = Some(RepositoryError::Conflict.into());
+        *waiting_job.finish_error.lock().unwrap() = Some(RepositoryError::WriteUnconfirmed.into());
+        waiting_job.sample_ready.notify_one();
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        let error = tokio::time::timeout(
+            Duration::from_secs(1),
+            crate::worker::execute(claim, client),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(matches!(error, Error::Control { status: 409, .. }));
+        assert_eq!(waiting_job.results.lock().unwrap().len(), 1);
     }
 }

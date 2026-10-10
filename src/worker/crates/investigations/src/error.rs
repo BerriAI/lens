@@ -36,6 +36,8 @@ pub enum Error {
 pub enum RepositoryError {
     #[error("Lens state changed; retry the operation")]
     Conflict,
+    #[error("Lens write outcome is unconfirmed; refresh before trying again")]
+    WriteUnconfirmed,
     #[error("Lens storage is unavailable")]
     Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

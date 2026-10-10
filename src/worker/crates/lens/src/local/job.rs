@@ -30,13 +30,13 @@ impl LocalJob {
                     && job.status == JobStatus::Running
                     && job.lease_until.is_some_and(|lease| lease > now)
             })
-            .ok_or_else(|| rejected(409, "This worker no longer owns the job"))
+            .ok_or(Error::JobOwnershipLost)
     }
 
     pub(super) async fn lens(&self) -> Result<Lens, Error> {
         let worker = self.control.worker().await?;
         if worker.id != self.worker_id {
-            return Err(rejected(409, "This worker no longer owns the job"));
+            return Err(Error::JobOwnershipLost);
         }
         self.control
             .repository
@@ -171,9 +171,7 @@ impl LocalJob {
             .progress(&self.lens_id, &job, body, Utc::now())
             .await
             .map_err(|error| match error {
-                lens_investigations::CheckpointError::Ownership => {
-                    rejected(409, "This worker no longer owns the job")
-                }
+                lens_investigations::CheckpointError::Ownership => Error::JobOwnershipLost,
                 error => error.into(),
             })?
             .ok_or_else(|| rejected(409, "Lens changed concurrently; retry the operation"))?;
@@ -232,6 +230,13 @@ impl JobBackend for LocalJob {
     }
     fn progress<'a>(&'a self, body: &'a Progress) -> BoxFuture<'a, Result<(), Error>> {
         response(self.save_progress(body))
+    }
+    fn heartbeat(&self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move {
+            self.save_progress(&Progress::default())
+                .await
+                .map_err(super::heartbeat_error)
+        })
     }
     fn finish<'a>(&'a self, result: &'a wire::Result) -> BoxFuture<'a, Result<(), Error>> {
         response(self.save_result(result))

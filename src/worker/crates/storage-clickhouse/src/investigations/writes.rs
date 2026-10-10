@@ -5,6 +5,7 @@ use lens_contract::investigations::Lens;
 use lens_investigations::RepositoryError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::time::{Instant, timeout_at};
 
 use super::{Investigations, StoredLens, decode, document, failure, key, workers::backoff};
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 const WRITER_LEASE: Duration = Duration::from_secs(10);
 const WRITER_WAIT: Duration = Duration::from_secs(15);
 const CLEANUP_WAIT: Duration = Duration::from_secs(2);
+pub(super) const WRITE_RETRY_WINDOW: Duration = Duration::from_secs(30);
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -87,7 +89,7 @@ impl Writer {
             .collect();
         tokio::time::timeout(remaining, self.state.commit(changes))
             .await
-            .map_err(|_| RepositoryError::Conflict)?
+            .map_err(|_| RepositoryError::WriteUnconfirmed)?
             .map_err(failure)?;
         self.armed = false;
         Ok(())
@@ -143,17 +145,36 @@ impl Investigations {
         id: &str,
         transform: impl Fn(&Lens) -> Result<Lens, E>,
     ) -> Result<Option<Lens>, E> {
-        let writer = self.writer(id).await?;
-        let previous = self.snapshot(id).await?;
-        if previous.value.is_null() {
-            writer.commit(Vec::new()).await?;
-            return Ok(None);
+        let deadline = Instant::now() + WRITE_RETRY_WINDOW;
+        for attempt in 0..40 {
+            if attempt > 0 {
+                backoff(attempt - 1).await;
+            }
+            if Instant::now() >= deadline {
+                break;
+            }
+            let writer = match timeout_at(deadline, self.writer(id)).await {
+                Ok(Ok(writer)) => writer,
+                Ok(Err(RepositoryError::Conflict)) => continue,
+                Ok(Err(error)) => return Err(error.into()),
+                Err(_) => break,
+            };
+            let previous = self.snapshot(id).await?;
+            if previous.value.is_null() {
+                writer.commit(Vec::new()).await?;
+                return Ok(None);
+            }
+            let current = decode::<StoredLens>(previous.value.clone())?.lens;
+            let candidate = transform(&current)?;
+            match self
+                .publish_lens(writer, previous, &current, &candidate, None)
+                .await
+            {
+                Ok(lens) => return Ok(Some(lens)),
+                Err(RepositoryError::Conflict) => (),
+                Err(error) => return Err(error.into()),
+            }
         }
-        let current = decode::<StoredLens>(previous.value.clone())?.lens;
-        let candidate = transform(&current)?;
-        Ok(Some(
-            self.publish_lens(writer, previous, &current, &candidate, None)
-                .await?,
-        ))
+        Err(RepositoryError::Conflict.into())
     }
 }

@@ -8,8 +8,12 @@ use lens_contract::{
 use lens_investigations::{
     CheckpointError, RepositoryError, apply_progress, criteria_key, current_job, replace_job,
 };
+use tokio::time::{Instant as Deadline, timeout_at};
 
-use super::{Investigations, StoredLens, decode, document, failure, key, workers::backoff};
+use super::{
+    Investigations, StoredLens, decode, document, failure, key, workers::backoff,
+    writes::WRITE_RETRY_WINDOW,
+};
 use crate::{Error, state::Change};
 
 fn review_key(lens_id: &str, job: &Job, execution_id: &str) -> Result<String, RepositoryError> {
@@ -67,8 +71,20 @@ impl Investigations {
                 ))
             })
             .transpose()?;
+        let deadline = Deadline::now() + WRITE_RETRY_WINDOW;
         for attempt in 0..40 {
-            let writer = self.writer(lens_id).await?;
+            if attempt > 0 {
+                backoff(attempt - 1).await;
+            }
+            if Deadline::now() >= deadline {
+                break;
+            }
+            let writer = match timeout_at(deadline, self.writer(lens_id)).await {
+                Ok(Ok(writer)) => writer,
+                Ok(Err(RepositoryError::Conflict)) => continue,
+                Ok(Err(error)) => return Err(error.into()),
+                Err(_) => break,
+            };
             let previous = self.snapshot(lens_id).await?;
             if previous.value.is_null() {
                 return Ok(None);
@@ -100,9 +116,8 @@ impl Investigations {
                 Err(RepositoryError::Conflict) => (),
                 Err(error) => return Err(error.into()),
             }
-            backoff(attempt).await;
         }
-        Ok(None)
+        Err(RepositoryError::Conflict.into())
     }
 
     pub async fn complete_reviews(

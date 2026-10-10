@@ -417,10 +417,7 @@ mod tests {
         if accepted {
             result.unwrap();
         } else {
-            assert!(
-                matches!(result, Err(Error::Control { status: 409, .. })),
-                "{result:?}"
-            );
+            assert!(matches!(result, Err(Error::JobOwnershipLost)), "{result:?}");
         }
         let after = stored_job.job.lens().await.unwrap();
         assert_eq!(
@@ -714,7 +711,7 @@ mod tests {
     #[rstest]
     #[case::complete("", false, (JobStatus::Completed, 1))]
     #[case::empty_failure("storage unavailable", true, (JobStatus::Failed, 7))]
-    #[case::partial_failure("one trace unavailable", false, (JobStatus::Completed, 1))]
+    #[case::partial_failure("one trace unavailable", false, (JobStatus::Failed, 1))]
     fn completed_run_preserves_progress_and_schedules_from_its_result(
         lens: Lens,
         job: Job,

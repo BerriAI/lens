@@ -297,7 +297,7 @@ describe("signal evidence navigation", () => {
     api.signals.mockResolvedValue([result([])]);
     await act(() => testQueryClient.invalidateQueries({ queryKey: ["traceSignals"] }));
 
-    expect(screen.queryByRole("mark")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("mark")).not.toBeInTheDocument());
     expect(screen.getByRole("region", { name: "Signal evidence" })).toHaveTextContent(
       "This signal is no longer available for this trace.",
     );

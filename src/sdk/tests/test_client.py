@@ -41,6 +41,7 @@ def configure(root: Path, endpoint: str, monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("NAMED_AGENT_KEY", "agent-test-credential")
     monkeypatch.setenv("LENS_VERSION", "deployed-build")
     monkeypatch.setenv("LENS_BRANCH", "topic")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
 def test_named_client_uses_saved_mapping_and_separate_credentials(named_server, tmp_path, monkeypatch):
