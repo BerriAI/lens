@@ -94,4 +94,6 @@ The worker stores model, prompt revision, selected trace IDs, repository SHA and
 
 ## Development checks
 
+Previously published manual reports can seed an empty investigator state using `LENS_INVESTIGATOR_KNOWN_FINDINGS`, with an exact `[workspace, channel, agent, repository]` scope and validated `stateSchema.sent` records. Bootstrap never overwrites existing state. Matching measured finding titles suppress a duplicate report even if the model chooses a different issue key
+
 Run `npm ci --ignore-scripts`, `npm run check` and `npm test` in `src/slack-agent`. These checks run separately in the `lens-slack` workflow. Tests exercise the official SDK tool loop with a scripted model, Slack routing and limits, scoped evidence reads, durable-worker decisions, evidence verification and process supervision. They do not send Slack messages or call a paid model

@@ -260,6 +260,7 @@ Frequency must select a matching id from the computed metrics returned by recent
       allowed,
       detail,
       frequencies,
+      finding ? 4 : 2,
     );
   };
 }

@@ -3,6 +3,24 @@ import { test } from "node:test";
 import { answerBlocks, safeAnswer, prose, words } from "./slack.js";
 import { clickhouseConnection } from "./investigator-state.js";
 
+test("finding followups retain all numbered verified references while ordinary answers stay compact", () => {
+  const sources = Array.from({ length: 4 }, (_, i) => ({
+    label: `Trace ${i + 1}`,
+    url: `https://lens.example.com/?trace=${i + 1}`,
+  }));
+  const answer = {
+    title: "Reliability",
+    summary: "The requests differ",
+    sources: [
+      ...sources,
+      { label: "Invented", url: "https://lens.example.com/?trace=other" },
+    ],
+  };
+  const allowed = new Set(sources.map((source) => source.url));
+  assert.equal(safeAnswer(answer, allowed, false).sources.length, 2);
+  assert.deepEqual(safeAnswer(answer, allowed, false, {}, 4).sources, sources);
+});
+
 test("compact Slack rendering preserves paragraphs, formats bold and blocks injected mentions", () => {
   const url = "https://lens.example.com/?trace=verified";
   const answer = safeAnswer(
