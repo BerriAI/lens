@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "traces": 100,
+      "operation": "ingest_10_traces",
+      "baseline_p90_ms": 110.235083,
+      "candidate_p90_ms": 89.45191700000001,
+      "allowed_p90_ms": 147.79385375,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "list_all_traces",
+      "baseline_p90_ms": 84.858958,
+      "candidate_p90_ms": 57.35362500000001,
+      "allowed_p90_ms": 116.07369750000001,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "receipt",
+      "baseline_p90_ms": 7.31975,
+      "candidate_p90_ms": 4.076625,
+      "allowed_p90_ms": 19.1496875,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "span_content",
+      "baseline_p90_ms": 19.942334,
+      "candidate_p90_ms": 10.489583,
+      "allowed_p90_ms": 34.9279175,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "trace_details",
+      "baseline_p90_ms": 7.389791,
+      "candidate_p90_ms": 4.3735,
+      "allowed_p90_ms": 19.23723875,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "ingest_10_traces",
+      "baseline_p90_ms": 100.23474999999999,
+      "candidate_p90_ms": 86.42225,
+      "allowed_p90_ms": 135.29343749999998,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "list_all_traces",
+      "baseline_p90_ms": 924.221293,
+      "candidate_p90_ms": 575.004704,
+      "allowed_p90_ms": 1165.27661625,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "receipt",
+      "baseline_p90_ms": 9.842167,
+      "candidate_p90_ms": 5.817041000000001,
+      "allowed_p90_ms": 22.30270875,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "span_content",
+      "baseline_p90_ms": 26.150083000000002,
+      "candidate_p90_ms": 17.009125,
+      "allowed_p90_ms": 42.68760375,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "trace_details",
+      "baseline_p90_ms": 10.418917,
+      "candidate_p90_ms": 7.140541000000001,
+      "allowed_p90_ms": 23.02364625,
+      "passed": true
+    }
+  ]
+}

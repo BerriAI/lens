@@ -11,5 +11,6 @@
   ],
   "fixture": "service-benchmark fixed fixture: 100 then 1000 traces, 10 spans per trace, warmed reads, 11 samples",
   "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
-  "final_candidate_note": "Final candidate includes signal discovery projection. Initial baseline comparison failed the list_all_traces p90 budget at 1000 traces (575 ms vs allowed 532 ms). Other operations also slowed during that stage. A reverse-order baseline rerun is being retained to investigate shared-host variation; no production speedup is established."
+  "final_candidate_note": "Final candidate includes signal discovery projection. Against the initial baseline, the 1000-trace list p90 failed the budget. A subsequent run of the identical baseline binary slowed to 718 ms median and 924 ms p90 for that list. The reverse-order comparison passes all ten budgets, but environment variation prevents a reliable end-to-end improvement or regression attribution. All runs are retained; use an idle isolated host for release latency qualification.",
+  "final_candidate_code_commit": "32d8a23b"
 }
