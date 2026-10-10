@@ -3,7 +3,7 @@ import { Evidence, redact } from "./investigator-evidence.js";
 import type { Config } from "./config.js";
 
 const count = z.number().int().nonnegative();
-const trace = z.object({
+export const traceSchema = z.object({
   trace_id: z.string(),
   trace_ref: z.string().default(""),
   agent_names: z.array(z.string()),
@@ -18,7 +18,7 @@ const trace = z.object({
   output_tokens: count,
 });
 const tracePage = z.object({
-  data: z.array(trace),
+  data: z.array(traceSchema),
   next_cursor: z.string().nullable(),
 });
 const finding = z.object({
@@ -141,7 +141,7 @@ export class LensClient {
 
   async recent(signal: AbortSignal, detailLimit = 15) {
     const end = Date.now();
-    const rows: z.infer<typeof trace>[] = [];
+    const rows: z.infer<typeof traceSchema>[] = [];
     let cursor: string | null = null;
     let scanned = 0;
     for (let page = 0; page < 100; page++) {
