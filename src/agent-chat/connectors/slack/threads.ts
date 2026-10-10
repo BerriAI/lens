@@ -1,15 +1,15 @@
 import { z } from "zod";
 import type { Config } from "./config.js";
-import type { Turn } from "./agent.js";
-import type { VerifiedCandidate } from "./investigator-agent.js";
-import type { Sample } from "./investigator-evidence.js";
-import { traceSchema } from "./lens.js";
+import type { Turn } from "@litellm/lens-agent/models";
+import type { VerifiedCandidate } from "@litellm/lens-agent/findings";
+import type { Sample } from "@litellm/lens-agent/evidence";
+import { traceSchema } from "@litellm/lens-agent/lens";
 import {
   ClickHouseState,
   clickhouseConnection,
   digest,
   type StateStore,
-} from "./investigator-state.js";
+} from "@litellm/lens-agent/state";
 
 export const threadSchema = z.object({
   title: z.string().max(300),

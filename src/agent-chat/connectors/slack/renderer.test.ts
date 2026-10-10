@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { postCandidate } from "./investigator.js";
-import type { VerifiedCandidate } from "./investigator-agent.js";
-import type { Sample } from "./investigator-evidence.js";
+import { postCandidate } from "./findings.js";
+import type { VerifiedCandidate } from "@litellm/lens-agent/findings";
+import type { Sample } from "@litellm/lens-agent/evidence";
 import type { Config } from "./config.js";
 
 test("a proposed issue has its stable number, status border and private chart in the first message, with receipts in the thread", async () => {

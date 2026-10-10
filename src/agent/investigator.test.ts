@@ -6,19 +6,11 @@ import {
   initialState,
   type State,
 } from "./investigator.js";
-import {
-  digest,
-  type Snapshot,
-  type StateStore,
-} from "./investigator-state.js";
-import { Evidence, type Sample } from "./investigator-evidence.js";
-import {
-  verify,
-  type Candidate,
-  type VerifiedCandidate,
-} from "./investigator-agent.js";
+import { digest, type Snapshot, type StateStore } from "./state.js";
+import { Evidence, type Sample } from "./evidence.js";
+import { verify, type Candidate, type VerifiedCandidate } from "./findings.js";
 import { LensClient } from "./lens.js";
-import type { Config } from "./config.js";
+import type { AgentConfig as Config } from "./config.js";
 
 const trace = (id: string) => ({
   trace_id: id,

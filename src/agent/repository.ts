@@ -1,6 +1,6 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { z } from "zod";
-import { redact } from "./investigator-evidence.js";
+import { redact } from "./evidence.js";
 
 const treeSchema = z.object({
   truncated: z.boolean(),

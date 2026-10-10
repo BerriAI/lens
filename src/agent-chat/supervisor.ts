@@ -80,7 +80,9 @@ if (
     args.length === 0 && process.env.LENS_SLACK_CHAT_ENABLED === "true"
       ? {
           file: process.execPath,
-          args: [new URL("./main.js", import.meta.url).pathname],
+          args: [
+            new URL("./connectors/slack/main.js", import.meta.url).pathname,
+          ],
         }
       : undefined;
   process.exitCode = await supervise(

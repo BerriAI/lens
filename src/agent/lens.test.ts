@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LensClient } from "./lens.js";
-import type { Config } from "./config.js";
+import type { AgentConfig as Config } from "./config.js";
 
 const config = {
   apiUrl: "http://127.0.0.1:4100",

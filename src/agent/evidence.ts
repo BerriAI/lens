@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { LensClient } from "./lens.js";
-import { digest } from "./investigator-state.js";
+import { digest } from "./state.js";
 
 export type Sample = Awaited<ReturnType<LensClient["recent"]>>;
 const span = z.object({

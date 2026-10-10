@@ -7,9 +7,9 @@ import {
   functionCall,
 } from "@openai/agents/testing";
 import { responder } from "./agent.js";
-import type { Config } from "./config.js";
+import type { AgentConfig as Config } from "./config.js";
 import { LensClient } from "./lens.js";
-import type { FindingThread } from "./threads.js";
+import type { FindingContext as FindingThread } from "./models.js";
 
 const config = { agent: "selected", model: "test-model" } as Config;
 
@@ -50,7 +50,7 @@ test("official SDK executes the read tool, carries its evidence to the model, an
   assert(
     JSON.stringify(model.calls[1]?.request.input).includes("fixture evidence"),
   );
-  assert(answer.summary.includes("no measured gain"));
+  assert(answer.answer.summary.includes("no measured gain"));
   assert.equal(model.firstCall?.request.modelSettings.store, false);
   model.assertComplete();
 });
@@ -90,8 +90,6 @@ test("a finding follow-up reads its exact live trace and observed span, rejectin
   const finding: FindingThread = {
     issue: "12",
     title: "Reliability: Lookup fails",
-    turns: [],
-    handled: [],
     traces: [
       {
         trace_id: "chosen",
@@ -206,6 +204,7 @@ test("a finding follow-up reads its exact live trace and observed span, rejectin
   const lastInput = JSON.stringify(model.calls[2]?.request.input);
   assert(lastInput.includes("The action was not confirmed"));
   assert(!lastInput.includes("sk-credential"));
-  assert.equal(answer.sources[0]?.url, url);
+  assert.equal(answer.answer.sources[0]?.url, url);
+  assert(answer.evidenceUrls.includes(url));
   model.assertComplete();
 });

@@ -1,8 +1,9 @@
 import type { Config } from "./config.js";
-import type { Respond, Turn } from "./agent.js";
+import type { Turn } from "@litellm/lens-agent/models";
+import type { ReplyAgent } from "./reply.js";
 import type { Answer } from "./slack.js";
 import type { ThreadRegistry } from "./threads.js";
-import { redact } from "./investigator-evidence.js";
+import { redact } from "@litellm/lens-agent/evidence";
 
 export interface Mention {
   readonly id: string;
@@ -36,7 +37,7 @@ export class Chat {
 
   constructor(
     private readonly config: Pick<Config, "workspace" | "channel">,
-    private readonly respond: Respond,
+    private readonly respond: ReplyAgent,
     private readonly reply: Reply,
     private readonly now: () => number = Date.now,
     private readonly registry?: ThreadRegistry,

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { Evidence, redact } from "./investigator-evidence.js";
-import type { Config } from "./config.js";
+import { Evidence, redact } from "./evidence.js";
+import type { AgentConfig as Config } from "./config.js";
 
 const count = z.number().int().nonnegative();
 export const traceSchema = z.object({
