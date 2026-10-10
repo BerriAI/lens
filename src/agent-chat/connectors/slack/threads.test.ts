@@ -150,6 +150,53 @@ test("reaction failures do not suppress answers, model failures mark the accepte
   assert.deepEqual(states, ["working", "failed"]);
 });
 
+test("finding replies addressed to someone else stay quiet while bare and explicit Lens follow-ups work", async () => {
+  const registry = new FindingThreads(stores());
+  await registry.register(root, finding);
+  let requests = 0;
+  let replies = 0;
+  const states: string[] = [];
+  const chat = new Chat(
+    config,
+    async () => {
+      requests++;
+      return { title: "Lens", summary: "Recorded evidence", sources: [] };
+    },
+    async () => {
+      replies++;
+    },
+    () => now,
+    registry,
+    async (_event, state) => {
+      states.push(state);
+    },
+  );
+  for (const [index, text] of [
+    "<@UDEVIN> Please implement this",
+    "  <@UDEVIN> <@UOTHER> Can you take a look?",
+    "\n<@UOTHER> Why did this fail?",
+  ].entries()) {
+    await chat.mention(event({ text, ts: `180000000${index}.000000` }));
+  }
+  assert.equal(requests, 0);
+  assert.equal(replies, 0);
+  assert.deepEqual(states, []);
+  assert.deepEqual((await registry.read(root))?.handled, []);
+  await chat.mention(
+    event({ text: "Why did this tool fail?", ts: "1800000003.000000" }),
+  );
+  await chat.mention(
+    event({
+      text: "<@UDEVIN> <@ULENS> explain the evidence",
+      addressed: true,
+      ts: "1800000004.000000",
+    }),
+  );
+  assert.equal(requests, 2);
+  assert.equal(replies, 2);
+  assert.deepEqual(states, ["working", "done", "working", "done"]);
+});
+
 test("operator bootstrap cannot install cross-agent, cross-origin or mismatched trace identities", async () => {
   const registry = new FindingThreads(stores());
   for (const changed of [

@@ -62,6 +62,13 @@ export class Chat {
       !/^\d+\.\d+$/.test(event.ts)
     )
       return;
+    // Bare follow-ups belong to the finding conversation. A leading mention
+    // addresses someone else unless Slack also identified an explicit Lens mention.
+    if (
+      event.addressed === false &&
+      /^\s*<@[A-Z0-9]+(?:\|[^>]+)?>/.test(event.text)
+    )
+      return;
     for (const [id, at] of this.seen)
       if (now - at > 600_000) this.seen.delete(id);
     const message = `${event.workspace}:${event.channel}:${event.ts}`;
