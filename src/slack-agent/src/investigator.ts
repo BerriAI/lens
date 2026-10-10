@@ -24,6 +24,7 @@ import {
   type ChartSlack,
 } from "./chart.js";
 import { updateWithChart } from "./slack-transport.js";
+import { candidateThread, type ThreadRegistry } from "./threads.js";
 
 const provenance = z.object({
   model: z.string(),
@@ -195,6 +196,7 @@ export async function postCandidate(
   verified: VerifiedCandidate,
   sample: Sample,
   source: z.infer<typeof provenance>,
+  registry?: ThreadRegistry,
 ): Promise<void> {
   const candidate = verified.candidate;
   const icon = {
@@ -279,6 +281,8 @@ export async function postCandidate(
   const cited = sample.traces.filter((row) =>
     candidate.evidence.some((item) => item.trace_id === row.trace_id),
   );
+  if (registry)
+    await registry.register(posted.ts, candidateThread(verified, sample));
   const metrics = [
     "Observed trace sample (not a benchmark)",
     "Trace | Status | Seconds | LLM calls | Tool calls",
@@ -358,6 +362,7 @@ export function startInvestigator(
   config: Config,
   slack: Pick<WebClient, "chat"> & ChartSlack,
   env: NodeJS.ProcessEnv = process.env,
+  registry?: ThreadRegistry,
 ): () => void {
   if (env.LENS_INVESTIGATOR_ENABLED !== "true") return () => {};
   const repository = env.LENS_INVESTIGATOR_REPOSITORY;
@@ -416,7 +421,7 @@ export function startInvestigator(
             };
           },
           post: (candidate, sample, source) =>
-            postCandidate(slack, config, candidate, sample, source),
+            postCandidate(slack, config, candidate, sample, source, registry),
         },
         AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]),
       );

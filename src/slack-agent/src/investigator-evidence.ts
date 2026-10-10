@@ -44,7 +44,7 @@ export function redact(text: string): string {
     )
     .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, "$1[redacted]")
     .replace(
-      /((?:api[_-]?key|password|secret|(?:[A-Za-z]+[_-])?(?:access|admin|bot|app)[_-]?token)["']?\s*[:=]\s*["']?)[^\s"',;]+/gi,
+      /((?:api[\s_-]?key|password|secret|(?:(?:[A-Za-z]+[_-])?(?:access|admin|bot|app)[_-]?)?token)["']?\s*[:=]\s*["']?)[^\s"',;]+/gi,
       "$1[redacted]",
     );
 }
@@ -98,7 +98,7 @@ export class Evidence {
   private failures = 0;
   constructor(
     readonly sample: Sample,
-    private readonly client: LensClient,
+    private readonly client: Pick<LensClient, "get" | "link">,
     private readonly agent: string,
   ) {}
   async trace(id: string, signal: AbortSignal): Promise<string> {

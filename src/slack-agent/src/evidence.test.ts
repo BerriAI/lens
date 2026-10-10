@@ -3,10 +3,23 @@ import { test } from "node:test";
 import {
   currentRequest,
   Evidence,
+  redact,
   type Sample,
 } from "./investigator-evidence.js";
 import { LensClient } from "./lens.js";
 import type { Config } from "./config.js";
+
+test("plain token and spaced API key labels redact pasted credentials in incoming messages and trace evidence", () => {
+  for (const text of [
+    'token: "0123456789abcdef"',
+    "token=0123456789abcdef",
+    '"api key": "0123456789abcdef"',
+    "app_token: 0123456789abcdef",
+  ]) {
+    assert(!redact(text).includes("0123456789abcdef"));
+    assert(redact(text).includes("[redacted]"));
+  }
+});
 
 test("current requests exclude attachments and historical Slack quotations", () => {
   const text =

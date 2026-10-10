@@ -97,7 +97,7 @@ test("model failures release concurrency and give no health conclusion", async (
     () => now,
   );
   await chat.mention(mention());
-  await chat.mention(mention({ id: "two" }));
+  await chat.mention(mention({ id: "two", ts: "1800000001.000000" }));
   assert.equal(calls, 2);
   assert(
     replies.every(
@@ -123,12 +123,18 @@ test("a concurrent mention and hourly budget cannot start additional model reque
     () => now,
   );
   const first = chat.mention(mention());
-  await chat.mention(mention({ id: "concurrent" }));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await chat.mention(mention({ id: "concurrent", ts: "1800000001.000000" }));
   assert.equal(calls, 1);
   release!();
   await first;
   for (let i = 0; i < 25; i++)
-    await chat.mention(mention({ id: `later-${i}` }));
+    await chat.mention(
+      mention({
+        id: `later-${i}`,
+        ts: `18000000${String(i + 2).padStart(2, "0")}.000000`,
+      }),
+    );
   assert.equal(calls, 20);
 });
 

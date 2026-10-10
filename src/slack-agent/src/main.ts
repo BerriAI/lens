@@ -6,6 +6,7 @@ import { startInvestigator } from "./investigator.js";
 import { answerBlocks } from "./slack.js";
 import { prepareChart, renderChartPng } from "./chart.js";
 import { updateWithChart } from "./slack-transport.js";
+import { bootstrapThreads, findingThreads } from "./threads.js";
 
 async function main() {
   const config = configFrom(process.env);
@@ -36,6 +37,15 @@ async function main() {
       timeout: 10_000,
     },
   });
+  const identity = await app.client.auth.test();
+  if (identity.team_id !== config.workspace || !identity.user_id)
+    throw new Error("Slack token workspace does not match its allowlist");
+  const registry = findingThreads(config, process.env);
+  await bootstrapThreads(
+    registry,
+    config,
+    process.env.LENS_SLACK_FINDING_THREADS,
+  );
   const chat = new Chat(
     config,
     responder(config),
@@ -86,6 +96,27 @@ async function main() {
         }
       }
     },
+    Date.now,
+    registry,
+    async (event, state) => {
+      if (process.env.LENS_SLACK_REACTIONS_ENABLED !== "true") return;
+      const target = { channel: event.channel, timestamp: event.ts };
+      await app.client.reactions
+        .add({
+          ...target,
+          name:
+            state === "working"
+              ? "eyes"
+              : state === "done"
+                ? "white_check_mark"
+                : "x",
+        })
+        .catch(() => {});
+      if (state !== "working")
+        await app.client.reactions
+          .remove({ ...target, name: "eyes" })
+          .catch(() => {});
+    },
   );
   let stopInvestigator = () => {};
   app.event("app_mention", async ({ event, body }) => {
@@ -97,9 +128,26 @@ async function main() {
       text: event.text,
       ts: event.ts,
       thread: event.thread_ts,
-      bot: "bot_id" in event,
+      bot: "bot_id" in event || event.user === identity.user_id,
     });
   });
+  if (process.env.LENS_SLACK_THREAD_REPLIES_ENABLED === "true") {
+    app.event("message", async ({ event, body }) => {
+      if (event.subtype && event.subtype !== "file_share") return;
+      if (!("user" in event) || !("text" in event) || !event.text) return;
+      await chat.mention({
+        id: body.event_id,
+        workspace: body.team_id,
+        channel: event.channel,
+        user: event.user ?? "",
+        text: event.text,
+        ts: event.ts,
+        thread: event.thread_ts,
+        bot: "bot_id" in event || event.user === identity.user_id,
+        addressed: event.text.includes(`<@${identity.user_id}>`),
+      });
+    });
+  }
   app.error(async () => {
     console.error("Slack chat request failed");
   });
@@ -108,13 +156,15 @@ async function main() {
       stopInvestigator();
       void app.stop().finally(() => process.exit(0));
     });
-  const identity = await app.client.auth.test();
-  if (identity.team_id !== config.workspace)
-    throw new Error("Slack token workspace does not match its allowlist");
   await app.start();
   console.info("Slack mention agent connected");
   try {
-    stopInvestigator = startInvestigator(config, app.client);
+    stopInvestigator = startInvestigator(
+      config,
+      app.client,
+      process.env,
+      registry,
+    );
   } catch {
     console.error(
       "Lens investigator configuration is invalid; mention chat remains available",

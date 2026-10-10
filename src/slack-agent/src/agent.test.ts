@@ -8,6 +8,8 @@ import {
 } from "@openai/agents/testing";
 import { responder } from "./agent.js";
 import type { Config } from "./config.js";
+import { LensClient } from "./lens.js";
+import type { FindingThread } from "./threads.js";
 
 const config = { agent: "selected", model: "test-model" } as Config;
 
@@ -75,4 +77,135 @@ test("SDK turn limit stops a model that continues asking for evidence", async ()
     /Max turns/i,
   );
   assert.equal(model.calls.length, 8);
+});
+
+test("a finding follow-up reads its exact live trace and observed span, rejecting attempts to read a different trace", async () => {
+  const scoped = {
+    ...config,
+    publicUrl: "https://lens.example.com",
+    apiUrl: "http://127.0.0.1",
+  };
+  const url =
+    "https://lens.example.com/?agent=selected&tab=traces&trace=chosen&trace_ref=saved-ref";
+  const finding: FindingThread = {
+    issue: "12",
+    title: "Reliability: Lookup fails",
+    turns: [],
+    handled: [],
+    traces: [
+      {
+        trace_id: "chosen",
+        trace_ref: "saved-ref",
+        agent_names: ["selected"],
+        service: "selected",
+        start_time: "2026-01-01",
+        duration_ms: 180000,
+        status: "error",
+        llm_calls: 1,
+        tool_calls: 1,
+        error_count: 1,
+        input_tokens: 1,
+        output_tokens: 1,
+        url,
+      },
+    ],
+  };
+  const requests: string[] = [];
+  const client = new LensClient(scoped, async (target) => {
+    const request = new URL(String(target));
+    requests.push(request.pathname);
+    assert.equal(request.searchParams.get("trace_ref"), "saved-ref");
+    assert(request.pathname.startsWith("/v1/traces/chosen"));
+    if (request.pathname.includes("/spans/"))
+      return new Response(
+        JSON.stringify({
+          span_id: request.pathname.endsWith("/tool") ? "tool" : "root",
+          input: JSON.stringify([
+            { role: "user", content: "Please inspect this repository" },
+          ]),
+          output: request.pathname.endsWith("/tool")
+            ? "Tool failed (HTTP 503). The action was not confirmed. sk-credential"
+            : "Repository access unavailable",
+          attributes: { "gen_ai.operation.name": "invoke_agent" },
+        }),
+      );
+    return new Response(
+      JSON.stringify({
+        summary: { trace_id: "chosen", agent_names: ["selected"] },
+        spans: [
+          {
+            span_id: "root",
+            parent_span_id: null,
+            type: "agent",
+            name: "selected",
+            status: "error",
+            duration_ms: 181000,
+            error: null,
+          },
+          {
+            span_id: "tool",
+            parent_span_id: "root",
+            type: "tool",
+            name: "github_repositories",
+            status: "error",
+            duration_ms: 180000,
+            error: "HTTP 503",
+          },
+        ],
+      }),
+    );
+  });
+  const model = new ScriptedModel([
+    [
+      functionCall(
+        "trace_span",
+        { trace_id: "unrelated", span_id: "tool" },
+        { callId: "outside" },
+      ),
+    ],
+    [
+      functionCall(
+        "trace_span",
+        { trace_id: "chosen", span_id: "tool" },
+        { callId: "inside" },
+      ),
+    ],
+    [
+      assistantMessage(
+        JSON.stringify({
+          title: "Reliability",
+          summary: "Repository access returned HTTP 503 after 180 seconds",
+          opportunities: [],
+          sources: [{ label: "Trace 1", url }],
+        }),
+      ),
+    ],
+  ]);
+  const answer = await responder(
+    scoped,
+    client,
+    new Runner({
+      modelProvider: { getModel: async () => model },
+      tracingDisabled: true,
+    }),
+  )(
+    [{ role: "user", content: "Why did this fail?" }],
+    AbortSignal.timeout(10_000),
+    finding,
+  );
+  assert.deepEqual(requests, [
+    "/v1/traces/chosen",
+    "/v1/traces/chosen/spans/root",
+    "/v1/traces/chosen/spans/tool",
+  ]);
+  assert(
+    JSON.stringify(model.firstCall?.request.input).includes(
+      "Please inspect this repository",
+    ),
+  );
+  const lastInput = JSON.stringify(model.calls[2]?.request.input);
+  assert(lastInput.includes("The action was not confirmed"));
+  assert(!lastInput.includes("sk-credential"));
+  assert.equal(answer.sources[0]?.url, url);
+  model.assertComplete();
 });
