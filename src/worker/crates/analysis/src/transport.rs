@@ -263,6 +263,7 @@ impl AnalysisModels {
         };
         let mut response = builder.send().await.map_err(Error::Transport)?;
         let status = response.status();
+        let headers = response.headers().clone();
         let retry_after = response
             .headers()
             .get(reqwest::header::RETRY_AFTER)
@@ -290,6 +291,11 @@ impl AnalysisModels {
             return Err(Error::Provider {
                 status: status.as_u16(),
                 retry_after,
+                diagnostic: crate::ProviderDiagnostic::from_response(
+                    status.as_u16(),
+                    &headers,
+                    &body,
+                ),
             });
         }
         let completion = protocol::response(deployment.config.provider, &deployment.model, &body)?;
