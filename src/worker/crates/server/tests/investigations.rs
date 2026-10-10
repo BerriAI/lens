@@ -4,8 +4,9 @@ pub mod support;
 
 use lens_contract::{
     auth::{Identity, Role},
-    investigations::{Lens, Scope, Worker},
-    worker::{Job, LensSettings},
+    execution::ExecutionId,
+    investigations::{FindingSource, Lens, Scope, Worker},
+    worker::{Evidence, EvidenceRole, Job, LensSettings},
 };
 use lens_investigations::{LensRepository, RepositoryError};
 use lens_server::investigations::{InvestigationAccess, InvestigationAccessError};
@@ -26,6 +27,36 @@ struct Access {
     worker: bool,
 }
 impl InvestigationAccess for Access {
+    async fn verify_finding(
+        &self,
+        lens: &Lens,
+        sources: &[FindingSource],
+    ) -> Result<Option<Vec<Evidence>>, InvestigationAccessError> {
+        if sources
+            .iter()
+            .any(|source| source.quote.as_str() != "Recorded task failure")
+        {
+            return Ok(None);
+        }
+        Ok(Some(
+            sources
+                .iter()
+                .map(|source| Evidence {
+                    execution_id: ExecutionId {
+                        source: "traces".into(),
+                        team_id: lens.scope.team_id.clone(),
+                        trace_id: source.trace_id.clone(),
+                        trace_ref: source.trace_ref.clone(),
+                    }
+                    .encode(),
+                    span_id: source.span_id.clone(),
+                    quote: source.quote.clone(),
+                    role: EvidenceRole::Support,
+                })
+                .collect(),
+        ))
+    }
+
     fn tracing_enabled(&self) -> bool {
         true
     }
@@ -73,6 +104,88 @@ async fn serve(database: &Database, configured: bool, worker: bool) -> Server {
             )
         })
         .await
+}
+
+#[fixture]
+fn finding_import() -> Value {
+    json!({"fingerprint":"a".repeat(64),"agent_name":"test-agent","category":"Reliability",
+        "title":"Tool returned an error","description":"The recorded tool could not complete its task",
+        "suggestion":"Test a bounded retry","limitation":"Unmeasured proposal","priority":"high",
+        "evidence":[{"trace_id":"trace","trace_ref":"B".repeat(64),"span_id":"span","quote":"Recorded task failure"}]})
+}
+
+#[rstest]
+#[case::admin(Role::ProxyAdmin, false, 200)]
+#[case::viewer(Role::ProxyAdminViewer, false, 403)]
+#[case::internal(Role::InternalUser, false, 403)]
+#[case::forged(Role::ProxyAdmin, true, 422)]
+#[tokio::test]
+async fn finding_import_requires_admin_and_verified_evidence(
+    #[future(awt)] database: Database,
+    seed: Lens,
+    mut finding_import: Value,
+    #[case] role: Role,
+    #[case] forged: bool,
+    #[case] expected: u16,
+) {
+    let seed = Lens {
+        settings: LensSettings {
+            agent_name: "test-agent".into(),
+            ..seed.settings.clone()
+        },
+        ..seed
+    };
+    let repository = Investigations(database.store.clone());
+    repository.create(&seed).await.unwrap();
+    let server = serve(&database, true, true).await;
+    if forged {
+        finding_import["evidence"][0]["quote"] = json!("Forged task failure");
+    }
+    let token = identity::delegated(Identity {
+        user_role: role,
+        ..Identity::default()
+    });
+    let response = server
+        .client
+        .post(
+            server
+                .url
+                .join(&format!("/lens/{}/findings/import", seed.id))
+                .unwrap(),
+        )
+        .bearer_auth(&token)
+        .json(&finding_import)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), expected);
+    let saved = repository.get(&seed.id).await.unwrap().unwrap();
+    if expected != 200 {
+        assert_eq!(json!(saved.findings), json!(seed.findings));
+        assert_eq!(saved.version, seed.version);
+        return;
+    }
+    let response: Value = response.json().await.unwrap();
+    let finding_id = format!("agent-{}", "a".repeat(64));
+    assert_eq!(response, json!({"lens_id":seed.id,"finding_id":finding_id}));
+    assert_eq!(saved.findings[0].id, finding_id);
+    assert_eq!(saved.findings.len(), seed.findings.len() + 1);
+    let replay = server
+        .client
+        .post(
+            server
+                .url
+                .join(&format!("/lens/{}/findings/import", seed.id))
+                .unwrap(),
+        )
+        .bearer_auth(&token)
+        .json(&finding_import)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(replay.status(), 200);
+    let after = repository.get(&seed.id).await.unwrap().unwrap();
+    assert_eq!(json!(after.findings), json!(saved.findings));
 }
 
 #[rstest]

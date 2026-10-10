@@ -13,6 +13,8 @@ use std::num::NonZeroU64;
 
 pub mod public;
 pub use public::Public;
+mod import;
+pub use import::{FindingCategory, FindingImport, FindingImported, FindingSource};
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]

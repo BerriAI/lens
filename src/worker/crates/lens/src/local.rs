@@ -265,6 +265,22 @@ impl LocalControl {
 }
 
 impl lens_server::investigations::InvestigationAccess for LocalControl {
+    async fn verify_finding(
+        &self,
+        lens: &lens_contract::investigations::Lens,
+        sources: &[lens_contract::investigations::FindingSource],
+    ) -> Result<
+        Option<Vec<lens_contract::worker::Evidence>>,
+        lens_server::investigations::InvestigationAccessError,
+    > {
+        self.sources
+            .finding_evidence(lens, sources)
+            .await
+            .map_err(|error| {
+                lens_server::investigations::InvestigationAccessError::Unavailable(Box::new(error))
+            })
+    }
+
     fn tracing_enabled(&self) -> bool {
         true
     }
