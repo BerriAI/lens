@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use litellm_storage_clickhouse::READ_LIMITS;
 use litellm_traces_clickhouse::{Connection, Parameter, ReadQuery, execute_named_read};
 use rstest::rstest;
 use serde_json::Value;
@@ -183,7 +182,7 @@ async fn lens_sample_reads_scale_with_window_not_retention(
     let before_id = format!("lens_sample_before_{}", std::process::id());
     let (before_rows, response_bytes) = sample(&fixture, start, end, &before_id).await?;
     assert_eq!(before_rows, SPANS_PER_DAY as usize);
-    assert!(response_bytes > READ_LIMITS.response_bytes);
+    assert!(response_bytes > 4 * 1024 * 1024);
     let before = query_read_rows(&fixture, &before_id).await?;
 
     seed_days(&fixture, 8, 24).await?;

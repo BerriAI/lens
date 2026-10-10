@@ -68,6 +68,8 @@ async fn classifier_sends_recorded_steps_questions_and_logging_tags(
 }
 
 #[rstest]
+#[case::small(1)]
+#[case::beyond_previous_limits(400)]
 #[tokio::test]
 async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_call(
     reader: Reader,
@@ -75,28 +77,45 @@ async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_
     config: SignalConfig,
     scope: Scope,
     execution: Execution,
+    #[case] preceding_steps: usize,
 ) {
     let quote = "You ignored my request again. This still does not work.";
+    let earlier = "Earlier request. ".repeat(8);
+    let choice = format!("L{:03}", preceding_steps + 2);
     let reader = Reader {
-        contents: BTreeMap::from([(
-            "".into(),
-            page(
-                vec![
-                    part("Earlier request"),
-                    lens_contract::worker::TracePart {
+        contents: BTreeMap::from([
+            (
+                "".into(),
+                page(
+                    (0..preceding_steps).map(|_| part(&earlier)).collect(),
+                    Some("second"),
+                ),
+            ),
+            (
+                "second".into(),
+                page(vec![part("More context")], Some("third")),
+            ),
+            (
+                "third".into(),
+                page(vec![part("Latest request")], Some("fourth")),
+            ),
+            (
+                "fourth".into(),
+                page(
+                    vec![lens_contract::worker::TracePart {
                         span_id: "problem-step".into(),
                         ..part(quote)
-                    },
-                ],
-                None,
+                    }],
+                    None,
+                ),
             ),
-        )]),
+        ]),
         ..reader
     };
     let completion = Completion {
         response: json!({"answers":{
             "a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2},
-            "__evidence_0":{"type":"choice","choice":"L001","confidence":0.9},
+            "__evidence_0":{"type":"choice","choice":choice,"confidence":0.9},
             "__evidence_1":{"type":"choice","choice":"none","confidence":0.8}
         }}),
         ..completion
@@ -115,8 +134,24 @@ async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_
     );
     let calls = completion.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].state.steps[1].content, format!("[L001] {quote}"));
-    assert_eq!(*reader.content_calls.lock().unwrap(), vec![""]);
+    assert_eq!(calls[0].state.steps.len(), preceding_steps + 3);
+    assert_eq!(
+        calls[0].state.steps[0].content,
+        format!("[L000] {}", earlier.trim())
+    );
+    assert_eq!(
+        calls[0].state.steps.last().unwrap().content,
+        format!("[{choice}] {quote}")
+    );
+    let Question::Choice { criteria, .. } = &calls[0].questions["__evidence_0"] else {
+        panic!("Expected an evidence choice");
+    };
+    assert_eq!(criteria.len(), preceding_steps + 4);
+    assert!(criteria.contains_key(&choice));
+    assert_eq!(
+        *reader.content_calls.lock().unwrap(),
+        vec!["", "second", "third", "fourth"]
+    );
 }
 
 #[rstest]
@@ -249,15 +284,14 @@ async fn invalid_responses_fail_classification(
 }
 
 #[rstest]
-#[case::at_limit(2000, false)]
-#[case::over_limit(2001, true)]
+#[case::short(2000)]
+#[case::long(70_000)]
 #[tokio::test]
-async fn part_excerpt_preserves_unicode_head_and_tail(
+async fn parts_preserve_all_unicode_content(
     reader: Reader,
     scope: Scope,
     execution: Execution,
     #[case] count: usize,
-    #[case] bounded: bool,
 ) {
     let content = format!("{}{}", "雪".repeat(800), "界".repeat(count - 800));
     let reader = Reader {
@@ -265,30 +299,18 @@ async fn part_excerpt_preserves_unicode_head_and_tail(
         ..reader
     };
     let state = signal_state(&reader, &scope, &execution).await.unwrap();
-    let expected = if bounded {
-        format!(
-            "{}\n[... 1 characters omitted ...]\n{}",
-            "雪".repeat(800),
-            "界".repeat(1200)
-        )
-    } else {
-        content
-    };
-    assert_eq!(state.steps[0].content, expected);
+    assert_eq!(state.steps[0].content, content);
 }
 
 #[rstest]
 #[tokio::test]
-async fn content_stops_at_three_pages_even_with_more_cursors(
-    reader: Reader,
-    scope: Scope,
-    execution: Execution,
-) {
+async fn content_follows_every_page(reader: Reader, scope: Scope, execution: Execution) {
     let reader = Reader {
         contents: BTreeMap::from([
             ("".into(), page(vec![part("first")], Some("second"))),
             ("second".into(), page(vec![part("second")], Some("third"))),
-            ("third".into(), page(vec![part("third")], Some("ignored"))),
+            ("third".into(), page(vec![part("third")], Some("fourth"))),
+            ("fourth".into(), page(vec![part("fourth")], None)),
         ]),
         ..reader
     };
@@ -299,24 +321,23 @@ async fn content_stops_at_three_pages_even_with_more_cursors(
             .iter()
             .map(|step| step.content.as_str())
             .collect::<Vec<_>>(),
-        vec!["first", "second", "third"]
+        vec!["first", "second", "third", "fourth"]
     );
     assert_eq!(
         *reader.content_calls.lock().unwrap(),
-        vec!["", "second", "third"]
+        vec!["", "second", "third", "fourth"]
     );
 }
 
 #[rstest]
-#[case::at_limit(40, false)]
-#[case::over_limit(50, true)]
+#[case::short(40)]
+#[case::long(50)]
 #[tokio::test]
-async fn transcript_preserves_first_and_last_steps_with_omission_count(
+async fn transcript_preserves_all_steps(
     reader: Reader,
     scope: Scope,
     execution: Execution,
     #[case] count: usize,
-    #[case] bounded: bool,
 ) {
     let parts = (0..count)
         .map(|i| part(format!("{i:03}{}", "雪".repeat(997))))
@@ -326,16 +347,11 @@ async fn transcript_preserves_first_and_last_steps_with_omission_count(
         ..reader
     };
     let state = signal_state(&reader, &scope, &execution).await.unwrap();
-    assert_eq!(state.steps.len(), if bounded { 41 } else { 40 });
+    assert_eq!(state.steps.len(), count);
     assert_eq!(state.steps[0].content, format!("000{}", "雪".repeat(997)));
     assert_eq!(
         state.steps.last().unwrap().content,
         format!("{:03}{}", count - 1, "雪".repeat(997))
     );
-    if bounded {
-        assert_eq!(state.steps[15].kind, "omitted");
-        assert_eq!(state.steps[15].name, "");
-        assert_eq!(state.steps[15].content, "10 steps omitted");
-        assert!(state.steps[16].content.starts_with("025"));
-    }
+    assert_eq!(state.steps[15].content, format!("015{}", "雪".repeat(997)));
 }

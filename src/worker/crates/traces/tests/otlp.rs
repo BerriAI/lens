@@ -44,13 +44,82 @@ fn decodes_neutral_spans(#[case] body: &[u8], #[case] content_type: Option<&str>
 }
 
 #[rstest]
-fn accepts_trace_larger_than_eight_mib(mut span: opentelemetry_proto::tonic::trace::v1::Span) {
+fn accepts_large_span_content(mut span: opentelemetry_proto::tonic::trace::v1::Span) {
     use prost::Message;
 
-    span.name = "x".repeat(9 * 1024 * 1024);
+    span.name = "x".repeat(17 * 1024 * 1024);
     let body = request_with(span).encode_to_vec();
-    let decoded = decode_otlp(&body, None).expect("16 MiB default accepts a 9 MiB trace");
-    assert_eq!(decoded[0].name.len(), 9 * 1024 * 1024);
+    let decoded = decode_otlp(&body, None).unwrap();
+    assert_eq!(decoded[0].name, "x".repeat(17 * 1024 * 1024));
+}
+
+#[rstest]
+#[case::json(true)]
+#[case::protobuf(false)]
+fn large_span_collections_decode_without_default_quotas(span: Span, #[case] json: bool) {
+    use prost::Message;
+    let mut request = request_with(span.clone());
+    request.resource_spans[0].scope_spans[0].spans = vec![span; 4097];
+    let (body, media) = if json {
+        (
+            serde_json::to_vec(&request).unwrap(),
+            Some("application/json"),
+        )
+    } else {
+        (request.encode_to_vec(), None)
+    };
+    let decoded = decode_otlp(&body, media).unwrap();
+    assert_eq!(decoded.len(), 4097);
+    assert_eq!(decoded.first().unwrap().name, decoded.last().unwrap().name);
+}
+
+#[rstest]
+#[case::json(true)]
+#[case::protobuf(false)]
+fn large_attribute_event_and_link_collections_decode(span: Span, #[case] json: bool) {
+    use opentelemetry_proto::tonic::{
+        common::v1::{AnyValue, KeyValue, any_value},
+        trace::v1::span::{Event, Link},
+    };
+    use prost::Message;
+    let mut request = request_with(span);
+    let span = &mut request.resource_spans[0].scope_spans[0].spans[0];
+    span.attributes = (0..257)
+        .map(|index| KeyValue {
+            key: format!("attribute-{index}"),
+            value: Some(AnyValue {
+                value: Some(any_value::Value::StringValue(index.to_string())),
+            }),
+            ..Default::default()
+        })
+        .collect();
+    span.events = vec![
+        Event {
+            name: "event".into(),
+            ..Default::default()
+        };
+        257
+    ];
+    span.links = vec![
+        Link {
+            trace_id: vec![1; 16],
+            span_id: vec![1; 8],
+            ..Default::default()
+        };
+        257
+    ];
+    let (body, media) = if json {
+        (
+            serde_json::to_vec(&request).unwrap(),
+            Some("application/json"),
+        )
+    } else {
+        (request.encode_to_vec(), None)
+    };
+    let decoded = decode_otlp(&body, media).unwrap();
+    assert_eq!(decoded[0].attributes.len(), 257);
+    assert_eq!(decoded[0].attributes["attribute-256"], "256");
+    assert_eq!(decoded[0].events.len(), 257);
 }
 
 #[rstest]
@@ -237,7 +306,15 @@ fn nested_values_are_serialized_once(span: opentelemetry_proto::tonic::trace::v1
 #[case::nodes(format!("[{}]", vec!["0"; 65537].join(",")).into_bytes())]
 fn rejects_json_structure_before_building_a_tree(#[case] body: Vec<u8>) {
     assert!(matches!(
-        decode_otlp(&body, Some("application/json")),
+        litellm_traces::decode_otlp_with_limits(
+            &body,
+            Some("application/json"),
+            litellm_traces::DecodeLimits {
+                depth: 32,
+                nodes: 65_536,
+                ..Default::default()
+            }
+        ),
         Err(litellm_traces::Error::TooLarge)
     ));
 }
@@ -273,7 +350,16 @@ fn protobuf_preflight_rejects_expansion_before_prost_allocates(
     request.resource_spans = vec![request.resource_spans[0].clone(); count];
     let body = request.encode_to_vec();
     assert!(matches!(
-        decode_otlp(&body, None),
+        litellm_traces::decode_otlp_with_limits(
+            &body,
+            None,
+            litellm_traces::DecodeLimits {
+                depth: 32,
+                nodes: 65_536,
+                decoded_span_bytes: 16 * 1024 * 1024,
+                ..Default::default()
+            }
+        ),
         Err(litellm_traces::Error::TooLarge)
     ));
 }
@@ -331,7 +417,16 @@ fn unique_attribute_expansion_still_respects_decoded_budget(
     let body = request.encode_to_vec();
     assert!(body.len() < 16 * 1024 * 1024);
     assert!(matches!(
-        decode_otlp(&body, None),
+        litellm_traces::decode_otlp_with_limits(
+            &body,
+            None,
+            litellm_traces::DecodeLimits {
+                depth: 32,
+                nodes: 65_536,
+                decoded_span_bytes: 16 * 1024 * 1024,
+                ..Default::default()
+            }
+        ),
         Err(litellm_traces::Error::TooLarge)
     ));
 }
@@ -359,7 +454,16 @@ fn escaped_attribute_expansion_is_bounded_below_four_mib(
     let body = request.encode_to_vec();
     assert!(body.len() < 4 * 1024 * 1024);
     assert!(matches!(
-        decode_otlp(&body, None),
+        litellm_traces::decode_otlp_with_limits(
+            &body,
+            None,
+            litellm_traces::DecodeLimits {
+                depth: 32,
+                nodes: 65_536,
+                decoded_span_bytes: 16 * 1024 * 1024,
+                ..Default::default()
+            }
+        ),
         Err(litellm_traces::Error::TooLarge)
     ));
 }
@@ -682,12 +786,10 @@ fn metadata_sources_merge_with_flattened_values_taking_precedence(span: Span) {
 }
 
 #[rstest]
-fn metadata_projection_respects_the_decoded_byte_budget(span: Span) {
+fn metadata_projection_preserves_large_values(span: Span) {
     let thread = "x".repeat(9 * 1024 * 1024);
-    assert!(matches!(
-        decode_normalization(span, "example", &[("thread_id", &thread)]),
-        Err(litellm_traces::Error::TooLarge)
-    ));
+    let decoded = decode_normalization(span, "example", &[("thread_id", &thread)]).unwrap();
+    assert_eq!(decoded.attributes["thread_id"], thread);
 }
 
 #[rstest]

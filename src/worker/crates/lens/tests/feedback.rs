@@ -36,7 +36,7 @@ async fn recorded_feedback_contracts_replay_against_real_trace_queries_and_write
     .await
     .unwrap();
     assert!(report.failures.is_empty(), "{:#?}", report.failures);
-    assert_eq!(report.passed, 33);
+    assert_eq!(report.passed, 31);
 }
 
 #[rstest]
@@ -379,22 +379,50 @@ async fn unavailable_storage_returns_an_error_without_exposing_internal_state(
 
 #[rstest]
 #[tokio::test]
-async fn summaries_accept_the_full_documented_batch_size(#[future(awt)] database: Database) {
+async fn summaries_accept_batches_past_the_previous_limit(#[future(awt)] database: Database) {
     let server = database.serve().await;
     let response = server
         .client
         .post(server.url.join("/lens/feedback/summary").unwrap())
         .bearer_auth(ADMIN)
-        .json(&json!({"traces":vec![json!({"trace_id":"missing"});500]}))
+        .json(&json!({"traces":vec![json!({"trace_id":"missing"});501]}))
         .send()
         .await
         .unwrap();
     assert_eq!(response.status(), 200);
     let rows: Vec<Value> = response.json().await.unwrap();
-    assert_eq!(rows.len(), 500);
+    assert_eq!(rows.len(), 501);
     assert_eq!(
         rows[0],
         json!({"trace_id":"missing","trace_ref":"","count":0,"average":null,"lowest":null})
     );
     assert_eq!(rows.last(), rows.first());
+}
+
+#[rstest]
+#[tokio::test]
+async fn long_feedback_comments_roundtrip_without_truncation(#[future(awt)] database: Database) {
+    database.trace(TRACE, "alpha", "feedback-key").await;
+    let server = database.serve().await;
+    let comment = "x".repeat(10_001);
+    let response = server
+        .client
+        .put(server.url.join("/lens/feedback").unwrap())
+        .bearer_auth(ADMIN)
+        .json(&json!({"trace_id":TRACE,"score":5,"comment":comment}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let response = server
+        .client
+        .get(server.url.join("/lens/feedback").unwrap())
+        .query(&[("trace_id", TRACE)])
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let feedback: Value = response.json().await.unwrap();
+    assert_eq!(feedback["feedback"][0]["comment"], comment);
 }

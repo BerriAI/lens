@@ -3,8 +3,6 @@ use litellm_traces_clickhouse::{NORMALIZED_FIELD_DEFINITIONS, span_rows};
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 
-const MAX_VALUE_BYTES: usize = 64 * 1024;
-
 #[fixture]
 fn tenant() -> Tenant {
     Tenant {
@@ -49,9 +47,9 @@ fn export(resources: Vec<(Vec<Value>, Vec<Value>)>) -> Vec<u8> {
         .into_bytes()
 }
 
-fn rows(body: &[u8], tenant: &Tenant, max_value_bytes: usize) -> Vec<Value> {
+fn rows(body: &[u8], tenant: &Tenant) -> Vec<Value> {
     let spans = decode_otlp(body, Some("application/json")).unwrap();
-    span_rows(spans, tenant, max_value_bytes)
+    span_rows(spans, tenant)
         .iter()
         .map(|row| serde_json::to_value(row).unwrap())
         .collect()
@@ -75,7 +73,7 @@ fn tenant_overwrites_claimed_identity_and_resources_stay_shared_per_group(tenant
         (spoofed, vec![span(&"04".repeat(8), vec![], json!({}))]),
     ]);
     let spans = decode_otlp(&body, Some("application/json")).unwrap();
-    let stored = span_rows(spans, &tenant, MAX_VALUE_BYTES);
+    let stored = span_rows(spans, &tenant);
     let resource = |index: usize| &stored[index]["ResourceAttributes"];
 
     assert!(Shared::shares_storage_with(resource(0), resource(1)));
@@ -119,20 +117,16 @@ fn status_message_falls_back_to_the_exception_event(
             ]}],
         }),
     );
-    let row = &rows(
-        &export(vec![(vec![], vec![exported])]),
-        &tenant,
-        MAX_VALUE_BYTES,
-    )[0];
+    let row = &rows(&export(vec![(vec![], vec![exported])]), &tenant)[0];
     assert_eq!(row["StatusCode"], "STATUS_CODE_ERROR");
     assert_eq!(row["StatusMessage"], expected);
 }
 
 #[rstest]
-fn consumed_payloads_leave_span_attributes_and_long_values_are_capped(tenant: Tenant) {
+fn consumed_payloads_leave_span_attributes_without_losing_long_values(tenant: Tenant) {
     let messages = json!([
         {"role": "system", "content": "be brief"},
-        {"role": "user", "content": "x".repeat(300)},
+        {"role": "user", "content": "x".repeat(70_000)},
         {"role": "user", "content": "latest question"},
     ]);
     let exported = span(
@@ -142,26 +136,28 @@ fn consumed_payloads_leave_span_attributes_and_long_values_are_capped(tenant: Te
             attribute("gen_ai.input.messages", &messages.to_string()),
             attribute(
                 "gen_ai.output.messages",
-                &json!([{"role": "assistant", "content": "y".repeat(300)}]).to_string(),
+                &json!([{"role": "assistant", "content": "y".repeat(70_000)}]).to_string(),
             ),
-            attribute("custom.blob", &"z".repeat(300)),
+            attribute("custom.blob", &"z".repeat(70_000)),
         ],
         json!({}),
     );
-    let row = &rows(&export(vec![(vec![], vec![exported])]), &tenant, 200)[0];
+    let row = &rows(&export(vec![(vec![], vec![exported])]), &tenant)[0];
     let attributes = row["SpanAttributes"].as_object().unwrap();
     assert!(!attributes.contains_key("gen_ai.input.messages"));
     assert!(!attributes.contains_key("gen_ai.output.messages"));
-    assert_eq!(
-        attributes["custom.blob"],
-        format!("{}…[truncated 100 bytes]", "z".repeat(200))
-    );
+    assert_eq!(attributes["custom.blob"], "z".repeat(70_000));
     let input = row["Input"].as_str().unwrap();
     let kept: Vec<Value> = serde_json::from_str(input).unwrap();
-    assert!(input.len() <= 200);
+    assert_eq!(Value::Array(kept.clone()), messages);
     assert_eq!(kept[0]["content"], "be brief");
     assert_eq!(kept.last().unwrap()["content"], "latest question");
-    assert!(row["Output"].as_str().unwrap().contains("…[truncated "));
+    assert!(
+        row["Output"]
+            .as_str()
+            .unwrap()
+            .contains(&"y".repeat(70_000))
+    );
     assert_eq!(row["ObservationType"], "llm");
 }
 
@@ -173,7 +169,6 @@ fn rows_carry_every_normalized_column(tenant: Tenant) {
             vec![span(&"02".repeat(8), vec![], json!({}))],
         )]),
         &tenant,
-        MAX_VALUE_BYTES,
     )[0];
     for field in NORMALIZED_FIELD_DEFINITIONS {
         assert!(
@@ -198,7 +193,7 @@ fn absent_identity_fields_are_empty_only_in_storage(tenant: Tenant) {
     assert_eq!(normalized.framework, None);
     assert_eq!(normalized.model, None);
     assert_eq!(normalized.tool_call_id, None);
-    let stored = span_rows(decoded, &tenant, MAX_VALUE_BYTES);
+    let stored = span_rows(decoded, &tenant);
     let row = serde_json::to_value(&stored[0]).unwrap();
     assert_eq!(
         [
@@ -228,7 +223,7 @@ fn compatibility_id_keeps_provider_semantics_with_gateway_keys(tenant: Tenant) {
             json!({}),
         )],
     )]);
-    let stored = rows(&body, &tenant, MAX_VALUE_BYTES);
+    let stored = rows(&body, &tenant);
     assert_eq!(stored[0]["LiteLLMRequestId"], "response");
     assert_eq!(stored[0]["CallEvidence"], "partial");
     assert_eq!(

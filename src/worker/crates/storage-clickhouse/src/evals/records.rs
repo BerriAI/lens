@@ -5,7 +5,7 @@ use lens_contract::eval::{CaseResult, CreateEvalRun, EvalRun, Summary};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::{MAX_CASES, PAGE_SIZE};
+use super::PAGE_SIZE;
 use crate::{Error, EvalError, state::Snapshot};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -93,7 +93,7 @@ pub(super) fn validate_cases(
     request: &CreateEvalRun,
     cases: &[StoredCase],
 ) -> Result<(), EvalError> {
-    if cases.is_empty() || cases.len() > MAX_CASES || !(1..=10).contains(&request.trials) {
+    if cases.is_empty() || request.trials == 0 {
         return Err(EvalError::InvalidRequest("invalid case or trial count"));
     }
     let unique: std::collections::BTreeSet<_> = cases.iter().map(|case| &case.id).collect();

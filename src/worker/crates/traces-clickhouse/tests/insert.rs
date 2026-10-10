@@ -87,10 +87,16 @@ async fn shared_fanout_survives_gzip_insert_over_http(
 
 #[rstest]
 #[tokio::test]
-async fn shared_fanout_over_insert_limit_never_reaches_http(
+async fn shared_fanout_past_the_previous_insert_limit_reaches_http(
     #[with(64 * 1024)] shared_rows: Vec<InsertRow>,
 ) {
     let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(header("Content-Encoding", "gzip"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
     let connection = Connection::parse(&server.uri()).unwrap();
     let result = insert_shared_rows(
         &Client::no_redirect_for_test(),
@@ -100,8 +106,12 @@ async fn shared_fanout_over_insert_limit_never_reaches_http(
         shared_rows,
     )
     .await;
-    assert!(matches!(result, Err(Error::InsertTooLarge)));
-    assert!(server.received_requests().await.unwrap().is_empty());
+    result.unwrap();
+    let received = server.received_requests().await.unwrap();
+    assert_eq!(received.len(), 1);
+    let mut decoder = GzDecoder::new(received[0].body.as_slice());
+    let bytes = std::io::copy(&mut decoder, &mut std::io::sink()).unwrap();
+    assert!(bytes > 64 * 1024 * 1024);
 }
 
 #[rstest]

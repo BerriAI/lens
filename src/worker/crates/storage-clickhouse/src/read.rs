@@ -13,8 +13,8 @@ pub struct ReadLimits {
 }
 
 pub const READ_LIMITS: ReadLimits = ReadLimits {
-    result_rows: 1000,
-    response_bytes: 4 * 1024 * 1024,
+    result_rows: 0,
+    response_bytes: usize::MAX,
     execution_seconds: 10,
 };
 

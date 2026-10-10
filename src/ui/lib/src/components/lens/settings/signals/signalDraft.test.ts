@@ -10,6 +10,21 @@ const saved = {
 };
 
 describe("signal drafts", () => {
+  it("preserves signal counts and text beyond the former limits", () => {
+    const config = {
+      model: "jev",
+      threshold: 0.5,
+      signals: Array.from({ length: 21 }, (_, index) => ({
+        id: `signal_${index}`,
+        name: `${index}${"n".repeat(61)}`,
+        question: "q".repeat(501),
+      })),
+    };
+    const draft = draftFrom(config);
+    expect(draftProblems(draft).any).toBe(false);
+    expect(configFrom(draft)).toEqual(config);
+  });
+
   it("round-trips a saved config unchanged", () => {
     expect(configFrom(draftFrom(saved))).toEqual(saved);
   });

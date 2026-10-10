@@ -35,12 +35,18 @@ describe("buildEvalSpec", () => {
     ["no scorers", { taskCompleted: false }, "at least one scorer"],
     ["a half-filled ordering check", { calledBefore: true, first: "run_tests" }, "both tools"],
     ["an empty judge question", { judge: true }, "judge needs"],
-    ["too many trials", { trials: "11" }, "1 to 10"],
+    ["zero trials", { trials: "0" }, "positive whole number"],
     ["a pass rate over 100", { passRate: "120" }, "at most 100"],
     ["a negative cost", { costPerCase: "-1" }, "non-negative"],
   ])("rejects %s", (_, change, error) => {
     const result = buildEvalSpec({ ...draft, ...change });
     expect(result.ok).toBe(false);
     expect(result.ok ? "" : result.error).toContain(error);
+  });
+
+  it("accepts more than ten trials", () => {
+    const result = buildEvalSpec({ ...draft, trials: "11" });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.spec.trials).toBe(11);
   });
 });

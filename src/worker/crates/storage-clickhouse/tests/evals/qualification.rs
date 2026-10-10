@@ -572,7 +572,6 @@ enum InvalidCreate {
     DuplicateCase,
     EmptyCase,
     ZeroTrials,
-    TooManyTrials,
 }
 
 #[rstest]
@@ -582,7 +581,6 @@ enum InvalidCreate {
 #[case::duplicate_case(InvalidCreate::DuplicateCase)]
 #[case::empty_case(InvalidCreate::EmptyCase)]
 #[case::zero_trials(InvalidCreate::ZeroTrials)]
-#[case::too_many_trials(InvalidCreate::TooManyTrials)]
 #[tokio::test]
 async fn invalid_creation_never_writes_a_record(
     #[future(awt)] database: Database,
@@ -615,15 +613,6 @@ async fn invalid_creation_never_writes_a_record(
             "key".to_owned(),
             CreateEvalRun {
                 trials: 0,
-                ..request
-            },
-            cases,
-        ),
-        InvalidCreate::TooManyTrials => (
-            "team",
-            "key".to_owned(),
-            CreateEvalRun {
-                trials: 11,
                 ..request
             },
             cases,

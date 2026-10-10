@@ -83,7 +83,7 @@ async fn recorded_signals_contracts_replay_against_real_http_and_clickhouse(
     .await
     .unwrap();
     assert!(report.failures.is_empty(), "{:#?}", report.failures);
-    assert_eq!(report.passed, 22);
+    assert_eq!(report.passed, 19);
 }
 
 #[rstest]
@@ -293,28 +293,28 @@ async fn invalid_stored_scores_do_not_become_unclassified_successes(
 }
 
 #[rstest::fixture]
-fn maximum_config() -> Value {
-    let signals:Vec<_> = (0..20).map(|id|json!({"id":format!("s{id:063}"),"name":"n".repeat(60),"question":"q".repeat(500)})).collect();
+fn large_config() -> Value {
+    let signals:Vec<_> = (0..21).map(|id|json!({"id":format!("s{id:063}"),"name":"n".repeat(61),"question":"q".repeat(501)})).collect();
     json!({"model":"evaluation","threshold":0.95,"signals":signals})
 }
 
 #[rstest]
 #[tokio::test]
-async fn the_largest_valid_signal_configuration_survives_a_restart(
+async fn large_signal_configuration_survives_a_restart(
     #[future(awt)] database: Database,
-    maximum_config: Value,
+    large_config: Value,
 ) {
     let server = serve(&database).await;
     let response = server
         .client
         .put(server.url.join("/lens/signals").unwrap())
         .bearer_auth(ADMIN)
-        .json(&maximum_config)
+        .json(&large_config)
         .send()
         .await
         .unwrap();
     assert_eq!(response.status(), 200);
-    assert_eq!(response.json::<Value>().await.unwrap(), maximum_config);
+    assert_eq!(response.json::<Value>().await.unwrap(), large_config);
     drop(server);
     let restarted = serve(&database).await;
     let response = restarted
@@ -325,5 +325,5 @@ async fn the_largest_valid_signal_configuration_survives_a_restart(
         .await
         .unwrap();
     assert_eq!(response.status(), 200);
-    assert_eq!(response.json::<Value>().await.unwrap(), maximum_config);
+    assert_eq!(response.json::<Value>().await.unwrap(), large_config);
 }

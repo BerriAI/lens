@@ -154,16 +154,14 @@ async fn snapshot_at_the_size_limit_is_accepted(trace: Trace) {
 
 #[rstest]
 #[tokio::test]
-async fn snapshot_one_byte_over_the_size_limit_is_rejected(trace: Trace) {
+async fn snapshot_larger_than_the_cache_is_still_returned(trace: Trace) {
     let size = serde_json::to_vec(&trace).unwrap().len();
     let cache = SnapshotCache::new(size - 1, TTL);
     let stored = key("source", &access(), "trace", "ref", 100);
 
-    assert!(matches!(
-        insert(&cache, stored.clone(), trace).await,
-        Err(error) if matches!(*error, Error::ReadTooLarge)
-    ));
-    assert!(cache.get(&stored).await.is_none());
+    let expected = serde_json::to_value(&trace).unwrap();
+    let snapshot = insert(&cache, stored.clone(), trace).await.unwrap();
+    assert_eq!(serde_json::to_value(snapshot.trace()).unwrap(), expected);
 }
 
 #[rstest]

@@ -6,7 +6,6 @@ use serde::Deserialize;
 use super::GatewayConfig;
 use crate::error::GatewayError;
 
-const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 const ANALYSIS_OUTPUT_TOKENS: u64 = 4096;
 
 #[derive(Deserialize)]
@@ -51,21 +50,12 @@ pub(super) async fn fetch(
             status: response.status().as_u16(),
         });
     }
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_RESPONSE_BYTES as u64)
-    {
-        return Err(GatewayError::ResponseLimit);
-    }
     let mut bytes = Vec::new();
     while let Some(chunk) = response
         .chunk()
         .await
         .map_err(|_| GatewayError::Connection)?
     {
-        if bytes.len() + chunk.len() > MAX_RESPONSE_BYTES {
-            return Err(GatewayError::ResponseLimit);
-        }
         bytes.extend_from_slice(&chunk);
     }
     let catalog: Catalog = serde_json::from_slice(&bytes).map_err(|_| GatewayError::Response)?;

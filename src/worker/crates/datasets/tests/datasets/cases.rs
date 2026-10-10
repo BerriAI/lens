@@ -6,7 +6,7 @@ use lens_datasets::{
 };
 use litellm_traces::{ChatRole, SpanDetail, UiContent, UiMessage};
 use rstest::rstest;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 #[rstest]
 #[case::plain(include_str!("../../../parity/fixtures/datasets/05_build_from_plain_text.json"))]
@@ -380,16 +380,9 @@ fn access_matches_lens_scope_rules(
 }
 
 #[rstest]
-fn limits_keep_the_extracted_defaults() {
-    assert_eq!(
-        (
-            Limits::default().max_cases,
-            Limits::default().max_case_chars
-        ),
-        (200, 20_000)
-    );
-    assert_eq!(
-        serde_json::to_value(lens_contract::datasets::CaseSource::default()).unwrap(),
-        json!({"trace_id":"","trace_ref":"","span_id":"","finding_id":"","lens_id":""})
-    );
+fn default_limits_preserve_large_cases_and_datasets() {
+    let mut large = case("large");
+    large.reply = "x".repeat(70_000);
+    let cases = vec![large; 201];
+    assert_eq!(revision_problem(&cases, Limits::default()), None);
 }

@@ -79,7 +79,7 @@ impl SourceReader {
         scope: &Scope,
         execution: &Execution,
         cursor: &str,
-        offset: u32,
+        offset: Option<u32>,
     ) -> Result<ExecutionContent, Error> {
         let rows = self
             .read::<LensContent>(&LensContentParams {
@@ -90,7 +90,10 @@ impl SourceReader {
                 record_team: execution.team_id.clone(),
                 start_time: execution.start_time.clone(),
                 cursor: cursor.into(),
-                offset: offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+                offset: match offset {
+                    Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+                    None => 0,
+                },
             })
             .await?;
         Ok(content_page(execution, rows))

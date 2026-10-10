@@ -12,7 +12,7 @@ use sqlx::{
     migrate::{AppliedMigration, Migrate, MigrateError, Migration},
 };
 
-use crate::{Connection, Error, READ_LIMITS, valid_identifier};
+use crate::{Connection, Error, valid_identifier};
 
 pub async fn execute_statement(
     client: &Client,
@@ -62,9 +62,6 @@ async fn execute_sql(
     }
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
-        if body.len() + chunk.len() > READ_LIMITS.response_bytes {
-            return Err(Error::ResponseTooLarge);
-        }
         body.extend_from_slice(&chunk);
     }
     String::from_utf8(body).map_err(|_| Error::InvalidResponse)

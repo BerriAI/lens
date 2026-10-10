@@ -11,9 +11,6 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 
-pub const MAX_REVIEWS: usize = 60;
-pub const MAX_STEPS: usize = 200;
-
 struct PythonArrays;
 
 impl serde_json::ser::Formatter for PythonArrays {
@@ -80,15 +77,8 @@ pub fn map_review(review: &Review, identity: impl Fn(&str) -> String) -> Review 
 }
 
 pub fn add_step(job: &Job, step: Step) -> Job {
-    let start = job.steps.len().saturating_add(1).saturating_sub(MAX_STEPS);
     Job {
-        steps: job
-            .steps
-            .iter()
-            .skip(start)
-            .cloned()
-            .chain([step])
-            .collect(),
+        steps: job.steps.iter().cloned().chain([step]).collect(),
         ..job.clone()
     }
 }
@@ -102,19 +92,8 @@ pub fn add_review(job: &Job, review: Option<&Review>) -> Result<Job, Error> {
         content_version: String::new(),
         ..review.clone()
     };
-    let start = job
-        .reviews
-        .len()
-        .saturating_add(1)
-        .saturating_sub(MAX_REVIEWS);
     Ok(Job {
-        reviews: job
-            .reviews
-            .iter()
-            .skip(start)
-            .cloned()
-            .chain([summary])
-            .collect(),
+        reviews: job.reviews.iter().cloned().chain([summary]).collect(),
         reviewed: job.reviewed.checked_add(1).ok_or(Error::ReviewCount)?,
         ..job.clone()
     })

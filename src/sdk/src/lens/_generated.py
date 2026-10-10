@@ -32,7 +32,7 @@ class CaseError(BaseModel):
         extra="forbid",
         frozen=True,
     )
-    message: str = Field(..., max_length=2000)
+    message: str
     type: str
 
 
@@ -347,7 +347,7 @@ class CreateEvalRun(BaseModel):
     revision: int = Field(..., ge=1, le=18446744073709551615)
     scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
     timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
-    trials: int = Field(default=1, ge=1, le=10)
+    trials: int = Field(default=1, ge=1, le=4294967295)
     version: str = Field(..., min_length=1)
 
 
@@ -373,7 +373,7 @@ class EvalSpec(BaseModel):
     revision: int | None = Field(default=None, ge=1, le=18446744073709551615)
     scorers: Sequence[TaskCompleted | CalledBefore | Judge] = Field(..., min_length=1)
     timeout_per_trial_ms: int = Field(default=1200000, ge=1, le=18446744073709551615)
-    trials: int = Field(default=1, ge=1, le=10)
+    trials: int = Field(default=1, ge=1, le=4294967295)
 
 
 class RunCase(BaseModel):

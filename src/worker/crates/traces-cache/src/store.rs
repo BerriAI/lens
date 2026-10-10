@@ -42,14 +42,14 @@ pub trait TraceStore: Sync {
         params: &ListTracesParams,
     ) -> impl Future<Output = Result<Vec<ListTracesRow>, StoreError<Self::Error>>> + Send;
 
-    /// Returns spans visible at `snapshot_ms`, sorted by `start_ns`, or `TooLarge` past `MAX_GRAPH_BYTES`/`MAX_GRAPH_SPANS`.
+    /// Returns spans visible at `snapshot_ms`, sorted by `start_ns`.
     fn trace_spans(
         &self,
         params: &TraceSpansParams,
         snapshot_ms: u64,
     ) -> impl Future<Output = Result<Vec<TraceSpansRow>, StoreError<Self::Error>>> + Send;
 
-    /// Returns spans visible at `snapshot_ms`, sorted by `start_ns`, or `TooLarge` past `MAX_GRAPH_BYTES`/`MAX_GRAPH_SPANS`.
+    /// Returns spans visible at `snapshot_ms`, sorted by `start_ns`.
     fn run_spans(
         &self,
         params: &TracePageSpansParams,

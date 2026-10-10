@@ -19,9 +19,6 @@ pub fn redact(message: &str) -> String {
         .fold(message.to_owned(), |text, (_, secret)| {
             text.replace(&secret, "[redacted]")
         })
-        .chars()
-        .take(2000)
-        .collect()
 }
 
 pub async fn evaluate<F, Fut>(

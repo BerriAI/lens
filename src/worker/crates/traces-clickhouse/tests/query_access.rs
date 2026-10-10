@@ -10,6 +10,51 @@ mod support;
 
 use support::{ClickHouseDatabase, database as start_database};
 
+#[rstest]
+#[tokio::test]
+async fn refreshing_a_reader_removes_legacy_result_caps(
+    #[future(awt)] database: Result<Database, Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let database = database?;
+    let reader = database
+        .readers
+        .connection(&database.client, &QueryScope::All, "secret")
+        .await?;
+    let sql = format!(
+        "ALTER USER {} SETTINGS max_result_rows = 1000 CONST, max_result_bytes = 4194304 CONST",
+        reader.url().username()
+    );
+    litellm_storage_clickhouse::execute_statement(
+        &database.client,
+        &database.writer,
+        &sql,
+        std::time::Duration::from_secs(10),
+    )
+    .await?;
+    let refreshed = QueryReaders::new(database.writer.clone(), "trace_test".into())
+        .connection(&database.client, &QueryScope::All, "secret")
+        .await?;
+    let rows: Value = serde_json::from_str(
+        &query_sql(
+            &database.client,
+            &refreshed,
+            "SELECT arrayJoin(range(1001)) AS value",
+        )
+        .await?,
+    )?;
+    assert_eq!(rows["data"].as_array().unwrap().len(), 1001);
+    let rows: Value = serde_json::from_str(
+        &query_sql(
+            &database.client,
+            &refreshed,
+            "SELECT repeat('xxxxxxxx', 524289) AS value",
+        )
+        .await?,
+    )?;
+    assert_eq!(rows["data"][0]["value"], "x".repeat(4 * 1024 * 1024 + 8));
+    Ok(())
+}
+
 struct Database {
     _database: ClickHouseDatabase,
     client: Client,

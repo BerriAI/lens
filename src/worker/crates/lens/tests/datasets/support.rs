@@ -126,7 +126,7 @@ impl Database {
         models: litellm_lens::gateway::Models,
     ) -> Server {
         let client = http_client().unwrap();
-        let config = Config::new(self.name.clone(), &self.url, 14, 65_536).unwrap();
+        let config = Config::new(self.name.clone(), &self.url, 14).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
         let storage = Storage::new(config, client, SERVICE.into());
         let state = Arc::new(if standalone {

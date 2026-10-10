@@ -99,8 +99,6 @@ async fn admin_sql_reads_rows_with_enforced_settings(
 #[case::settings("SET readonly = 0")]
 #[case::inline_settings("SELECT n FROM otel_traces SETTINGS readonly = 0")]
 #[case::time_limit("SELECT n FROM otel_traces SETTINGS max_execution_time = 0")]
-#[case::row_limit("SELECT n FROM otel_traces SETTINGS max_result_rows = 0")]
-#[case::byte_limit("SELECT n FROM otel_traces SETTINGS max_result_bytes = 0")]
 #[case::memory_limit("SELECT n FROM otel_traces SETTINGS max_memory_usage = 0")]
 #[case::other_table("SELECT * FROM private_traces")]
 #[tokio::test]
@@ -161,7 +159,7 @@ async fn admin_sql_rejects_errors_after_output_starts(
 
 #[rstest]
 #[tokio::test]
-async fn admin_sql_enforces_result_row_limit(
+async fn admin_sql_reads_past_the_previous_row_limit(
     #[future(awt)] database: Result<Database, Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let database = database?;
@@ -173,25 +171,19 @@ async fn admin_sql_enforces_result_row_limit(
     let result = read(
         &database.client,
         &connection,
-        "SELECT number FROM numbers(1001)",
+        "SELECT toUInt32(number) AS number FROM numbers(1001)",
     )
-    .await;
+    .await?;
 
-    assert!(
-        matches!(
-            result,
-            Err(Error::Storage(
-                litellm_storage_clickhouse::Error::ResponseTooLarge
-            ))
-        ),
-        "{result:?}"
-    );
+    let rows: Value = serde_json::from_str(&result)?;
+    assert_eq!(rows["data"].as_array().unwrap().len(), 1001);
+    assert_eq!(rows["data"][1000]["number"], 1000);
     Ok(())
 }
 
 #[rstest]
 #[tokio::test]
-async fn admin_sql_enforces_response_byte_limit(
+async fn admin_sql_preserves_responses_past_the_previous_byte_limit(
     #[future(awt)] database: Result<Database, Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let database = database?;
@@ -202,17 +194,11 @@ async fn admin_sql_enforces_response_byte_limit(
         &connection,
         "SELECT repeat('x', 512 * 1024) AS payload FROM numbers(9)",
     )
-    .await;
+    .await?;
 
-    assert!(
-        matches!(
-            result,
-            Err(Error::Storage(
-                litellm_storage_clickhouse::Error::ResponseTooLarge
-            ))
-        ),
-        "{result:?}"
-    );
+    let rows: Value = serde_json::from_str(&result)?;
+    assert_eq!(rows["data"].as_array().unwrap().len(), 9);
+    assert_eq!(rows["data"][8]["payload"], "x".repeat(512 * 1024));
     Ok(())
 }
 

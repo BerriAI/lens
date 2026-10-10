@@ -18,8 +18,8 @@ pub use lifecycle::{
 };
 pub use repository::LensRepository;
 pub use reviews::{
-    MAX_REVIEWS, MAX_STEPS, add_review, add_step, apply_progress, criteria_key, map_extraction,
-    map_review, reviews_after, summarized, summarized_job, update_activity, without_attributes,
+    add_review, add_step, apply_progress, criteria_key, map_extraction, map_review, reviews_after,
+    summarized, summarized_job, update_activity, without_attributes,
 };
 pub use scheduling::{DueLens, ScheduleRepository, TraceFindingsRepository, WorkerRepository};
 pub use settings::{analysis_checks, can_access, validate_run, validate_settings};
