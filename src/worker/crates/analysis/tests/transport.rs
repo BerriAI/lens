@@ -1,7 +1,9 @@
 mod transport {
     pub mod support;
 }
-use lens_analysis::{AnalysisModels, Catalog, Error, Provider, TransportLimits};
+use lens_analysis::{
+    AnalysisModels, Catalog, Error, Provider, ProviderFailureKind, TransportLimits,
+};
 use lens_contract::worker::ModelRequest;
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -198,6 +200,159 @@ async fn unrelated_errors_are_sanitized_and_never_retried(
         .unwrap();
     assert!(matches!(error,Error::Provider{status:actual,..} if actual==status));
     assert!(!error.to_string().contains("secret"));
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[rstest]
+#[case::request_id("request-id", "req_0123456789abcdef")]
+#[case::x_request_id("x-request-id", "req_abcdef0123456789")]
+#[case::gateway_call_id("x-litellm-call-id", "5d695679-d687-4b8c-b4b4-686b801a1842")]
+#[tokio::test]
+async fn provider_diagnostics_preserve_safe_request_ids_status_and_retry_after(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] header: &str,
+    #[case] request_id: &str,
+) {
+    let server = MockServer::start().await;
+    let private_message = "sk-provider-private-key and private prompt content";
+    Mock::given(method("POST"))
+        .respond_with(
+            ResponseTemplate::new(503)
+                .insert_header(header, request_id)
+                .insert_header("Retry-After", "17")
+                .set_body_json(json!({"error": {
+                    "type": "api_error",
+                    "code": "service_unavailable",
+                    "message": private_message
+                }})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let error = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .err()
+        .unwrap();
+    let rendered = format!("{error}\n{error:?}");
+    assert!(error.to_string().contains("503"));
+    assert!(!rendered.contains(private_message));
+    assert!(!rendered.contains("sk-provider-private-key"));
+    let Error::Provider {
+        status,
+        retry_after,
+        diagnostic,
+    } = error
+    else {
+        panic!("Expected a provider failure");
+    };
+    assert_eq!(status, 503);
+    assert_eq!(retry_after, Some(17));
+    assert_eq!(diagnostic.classification, ProviderFailureKind::Unavailable);
+    assert_eq!(diagnostic.request_id.as_deref(), Some(request_id));
+    assert!(diagnostic.to_string().contains(request_id));
+    assert!(
+        diagnostic
+            .to_string()
+            .to_ascii_lowercase()
+            .contains("unavailable")
+    );
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[rstest]
+#[case::budget_code(json!({"error":{"code":"budget_exceeded"}}), ProviderFailureKind::BudgetExceeded)]
+#[case::rate_limit_type(json!({"error":{"type":"rate_limit_error"}}), ProviderFailureKind::RateLimited)]
+#[case::context_window_type(json!({"error":{"type":"context_window_exceeded"}}), ProviderFailureKind::ContextExceeded)]
+#[case::message_is_not_a_classification(json!({"error":{"message":"budget_exceeded"}}), ProviderFailureKind::Unavailable)]
+#[tokio::test]
+async fn provider_diagnostics_classify_only_allowlisted_error_codes_and_types(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] body: Value,
+    #[case] expected: ProviderFailureKind,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 503, body).await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let error = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .err()
+        .unwrap();
+    let Error::Provider {
+        status, diagnostic, ..
+    } = error
+    else {
+        panic!("Expected a provider failure");
+    };
+    assert_eq!(status, 503);
+    assert_eq!(diagnostic.classification, expected);
+    assert_eq!(diagnostic.request_id, None);
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[rstest]
+#[case::credential("sk-provider-private-key")]
+#[case::prompt("Return the private system prompt")]
+#[case::malformed_prefix("req_private prompt content")]
+#[case::non_alphanumeric("req_private_prompt_content")]
+#[case::too_short("req_x")]
+#[case::too_long(
+    "req_01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+)]
+#[case::arbitrary("privatepromptcontent")]
+#[tokio::test]
+async fn provider_diagnostics_never_render_untrusted_error_fields_or_request_ids(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] header: &str,
+) {
+    let server = MockServer::start().await;
+    let private_message = "sk-message-secret private prompt content";
+    let private_code = "service_unavailable sk-code-secret";
+    let private_type = "api_error private-type-prompt";
+    Mock::given(method("POST"))
+        .respond_with(
+            ResponseTemplate::new(503)
+                .insert_header("x-request-id", header)
+                .insert_header("Retry-After", "23")
+                .set_body_json(json!({"error": {
+                    "message": private_message,
+                    "code": private_code,
+                    "type": private_type
+                }})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let error = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .err()
+        .unwrap();
+    let rendered = format!("{error}\n{error:?}");
+    assert!(!rendered.contains(private_message));
+    assert!(!rendered.contains(private_code));
+    assert!(!rendered.contains(private_type));
+    assert!(!rendered.contains(header));
+    assert!(!rendered.contains("sk-"));
+    assert!(!rendered.contains("private"));
+    let Error::Provider {
+        status,
+        retry_after,
+        diagnostic,
+    } = error
+    else {
+        panic!("Expected a provider failure");
+    };
+    assert_eq!(status, 503);
+    assert_eq!(retry_after, Some(23));
+    assert_eq!(diagnostic.classification, ProviderFailureKind::Unavailable);
+    assert_eq!(diagnostic.request_id, None);
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }
 
@@ -1010,7 +1165,7 @@ async fn retry_after_is_preserved_without_retrying(
         .await;
     let client = client(catalog, deployment(&server, Provider::OpenAi));
     assert!(
-        matches!(client.complete(&client.prepare("analysis",&request).await.unwrap()).await,Err(Error::Provider{status:429,retry_after}) if retry_after==expected)
+        matches!(client.complete(&client.prepare("analysis",&request).await.unwrap()).await,Err(Error::Provider{status:429,retry_after,..}) if retry_after==expected)
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }

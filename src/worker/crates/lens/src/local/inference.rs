@@ -221,11 +221,20 @@ fn provider_error(error: lens_analysis::Error) -> Error {
         lens_analysis::Error::Provider {
             status,
             retry_after,
-        } => Error::Control {
-            status,
-            retry_after,
-            diagnostic: Some("Analysis provider rejected the request".into()),
-        },
+            diagnostic,
+        } => {
+            tracing::warn!(
+                upstream_status = status,
+                classification = %diagnostic.classification,
+                request_id = diagnostic.request_id.as_deref(),
+                "Analysis provider rejected the request"
+            );
+            Error::Control {
+                status,
+                retry_after,
+                diagnostic: Some(diagnostic.to_string()),
+            }
+        }
         lens_analysis::Error::Timeout => {
             rejected(504, "Analysis request timed out waiting for model output")
         }
@@ -435,6 +444,39 @@ mod tests {
         };
         assert_eq!(status, expected_status);
         assert_eq!(diagnostic.as_deref(), Some(expected_diagnostic.as_str()));
+    }
+
+    #[rstest]
+    #[case::unavailable(503, true)]
+    #[case::rate_limit(429, true)]
+    #[case::authentication(401, false)]
+    fn provider_failure_preserves_safe_diagnostics_and_retry_policy(
+        #[case] upstream_status: u16,
+        #[case] retryable: bool,
+    ) {
+        let provider_diagnostic = lens_analysis::ProviderDiagnostic {
+            classification: lens_analysis::ProviderFailureKind::Unavailable,
+            request_id: Some("req_diagnostic12345".into()),
+        };
+        let expected = provider_diagnostic.to_string();
+        let error = provider_error(lens_analysis::Error::Provider {
+            status: upstream_status,
+            retry_after: Some(17),
+            diagnostic: provider_diagnostic,
+        });
+
+        assert_eq!(error.retryable(), retryable);
+        let Error::Control {
+            status,
+            retry_after,
+            diagnostic,
+        } = error
+        else {
+            panic!("Provider failures must retain their control status");
+        };
+        assert_eq!(status, upstream_status);
+        assert_eq!(retry_after, Some(17));
+        assert_eq!(diagnostic.as_deref(), Some(expected.as_str()));
     }
 
     #[rstest]
