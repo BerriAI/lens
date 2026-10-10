@@ -143,6 +143,7 @@ async fn finding_import_requires_admin_and_verified_evidence(
     }
     let token = identity::delegated(Identity {
         user_role: role,
+        user_id: Some("caller".into()),
         ..Identity::default()
     });
     let response = server
