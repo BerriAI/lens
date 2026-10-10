@@ -112,6 +112,33 @@ test("a proposed issue has its stable number, status border and private chart in
   assert(JSON.stringify(uploads[0]?.blocks).includes("User tried"));
   messages.length = 0;
   updates.length = 0;
+  await postCandidate(
+    slack,
+    { channel: "C123" } as Config,
+    {
+      ...candidate,
+      candidate: {
+        ...candidate.candidate,
+        kind: "opportunity",
+        category: "Agent quality",
+        title: "Users want to score agent replies and leave feedback",
+      },
+      frequency: { ...candidate.frequency!, support: true },
+    },
+    sample,
+    source,
+  );
+  const feature = JSON.stringify(updates[0]);
+  assert(
+    feature.includes(
+      "Feature Request: Users want to score agent replies and leave feedback",
+    ),
+  );
+  assert(feature.includes("*Category:* Quality"));
+  assert(feature.includes("Needs verification"));
+  assert(!feature.includes("Feature Request: Quality"));
+  messages.length = 0;
+  updates.length = 0;
   slack.filesUploadV2 = async () => {
     throw new Error("private upload failed");
   };
