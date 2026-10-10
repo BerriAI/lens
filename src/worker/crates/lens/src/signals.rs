@@ -44,7 +44,7 @@ impl SignalReader for SourceReader {
             source: LensSettingsSource::Traces,
             ..Default::default()
         };
-        SourceReader::sample(
+        SourceReader::signal_sample(
             self,
             scope,
             SampleRequest {

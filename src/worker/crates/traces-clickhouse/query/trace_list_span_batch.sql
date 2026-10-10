@@ -19,15 +19,16 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
 FROM otel_traces AS o
 WHERE o.Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
   AND o.Timestamp < fromUnixTimestamp64Milli({end_ms:Int64})
+  AND o.TraceId IN {trace_ids:Array(String)}
   AND ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND o.UserId = {user_id:String})
        OR has({team_ids:Array(String)}, o.TeamId))
   AND hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) IN {trace_refs:Array(String)}
   AND o.EngineReceivedMs <= {snapshot_ms:UInt64}
+  AND (o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId) > ({after_team:String}, {after_key:String}, {after_trace:String}, {after_span:String})
 ORDER BY o.Timestamp, o.EngineReceivedMs, o.StatusMessage
 LIMIT 1 BY o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId
 
 )
-WHERE (team_id, api_key_hash, trace_id, span_id) > ({after_team:String}, {after_key:String}, {after_trace:String}, {after_span:String})
 ORDER BY team_id, api_key_hash, trace_id, span_id
 LIMIT {page_size:UInt32}

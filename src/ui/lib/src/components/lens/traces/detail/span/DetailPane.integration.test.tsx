@@ -314,6 +314,7 @@ describe("DetailPane", () => {
       "t1",
       "llm1",
       undefined,
+      expect.any(AbortSignal),
     );
   });
 

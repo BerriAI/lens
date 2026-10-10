@@ -46,8 +46,8 @@ export interface TracesApi {
   /** False for a fixed snapshot: nothing new arrives, so live tail and tracing setup don't apply. */
   readonly live: boolean;
   handoff(traceId: string, spanId?: string | null, traceRef?: string): TraceHandoff;
-  list(window: TraceWindow): Promise<TracePage>;
-  agents(window: TraceWindow): Promise<AgentSummary[]>;
+  list(window: TraceWindow, signal?: AbortSignal): Promise<TracePage>;
+  agents(window: TraceWindow, signal?: AbortSignal): Promise<AgentSummary[]>;
   findings(traces: TraceFindingsRequest["traces"]): Promise<TraceFindingCount[]>;
   signals(traces: TraceFindingsRequest["traces"]): Promise<TraceSignals[]>;
   feedbackSummary(traces: TraceFeedbackRequest["traces"]): Promise<TraceFeedbackSummary[]>;
@@ -55,7 +55,7 @@ export interface TracesApi {
   anyRecorded(): Promise<boolean>;
   trace(traceId: string, traceRef?: string, cursor?: string | null): Promise<Trace>;
   conversation(traceId: string, traceRef?: string, cursor?: string | null): Promise<TraceConversationPage>;
-  span(traceId: string, spanId: string, traceRef?: string): Promise<SpanDetail>;
+  span(traceId: string, spanId: string, traceRef?: string, signal?: AbortSignal): Promise<SpanDetail>;
   spanError(
     traceId: string,
     spanId: string,
@@ -91,11 +91,12 @@ export function liveTracesApi(accessToken: string): TracesApi {
       text: agentHandoffText(traceId, spanId, traceRef),
       copied: "Command copied",
     }),
-    list: (window) => agentTraceListCall({ accessToken, ...window }),
-    agents: async ({ startMs, endMs }) => {
+    list: (window, signal) => agentTraceListCall({ accessToken, ...window, signal }),
+    agents: async ({ startMs, endMs }, signal) => {
       const page = await apiClient.get<TraceAgentList>("/v1/traces/agents", {
         accessToken,
         query: { start_ms: startMs, end_ms: endMs } satisfies TraceAgentsQuery,
+        signal,
       });
       return page.agents ?? [];
     },
@@ -132,7 +133,7 @@ export function liveTracesApi(accessToken: string): TracesApi {
         accessToken,
         query: { trace_ref: traceRef, cursor: cursor ?? undefined } satisfies TraceConversationRequest,
       }),
-    span: (traceId, spanId, traceRef) => agentTraceSpanCall(accessToken, traceId, spanId, traceRef),
+    span: (traceId, spanId, traceRef, signal) => agentTraceSpanCall(accessToken, traceId, spanId, traceRef, signal),
     spanError: (traceId, spanId, options) => agentTraceSpanErrorCall(accessToken, traceId, spanId, options),
   };
 }

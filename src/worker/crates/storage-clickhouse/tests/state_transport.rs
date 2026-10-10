@@ -230,6 +230,135 @@ async fn multi_read_retries_when_heads_move_during_payload_fetch(#[future(awt)] 
 
 #[rstest]
 #[tokio::test]
+async fn unchanged_reads_reuse_verified_blobs_across_clones(#[future(awt)] service: Service) {
+    let value = json!({"settings": {"enabled": true}, "history": [1, 2, 3]});
+    let reference = head("x", 1, value.clone());
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&reference))
+        .expect(2)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(blob(&reference, value.clone())))
+        .expect(1)
+        .mount(&service.server)
+        .await;
+
+    let first = service.store.read("x").await.unwrap();
+    let second = service.store.clone().read("x").await.unwrap();
+    assert_eq!(first.value, value);
+    assert_eq!(second, first);
+}
+
+#[rstest]
+#[case::updated(json!({"enabled": false}))]
+#[case::revoked(Value::Null)]
+#[tokio::test]
+async fn cached_values_never_hide_a_new_head(
+    #[future(awt)] service: Service,
+    #[case] updated: Value,
+) {
+    let first = head("x", 1, json!({"enabled": true}));
+    let next = head("x", 2, updated.clone());
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&first))
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&next))
+        .expect(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(blob(&first, json!({"enabled": true}))),
+        )
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(blob(&next, updated.clone())))
+        .expect(1)
+        .mount(&service.server)
+        .await;
+
+    assert_eq!(service.store.read("x").await.unwrap().head, first);
+    assert_eq!(
+        service.store.read("x").await.unwrap(),
+        Snapshot {
+            head: next,
+            value: updated
+        }
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn missing_records_do_not_issue_empty_blob_queries(#[future(awt)] service: Service) {
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(ResponseTemplate::new(500))
+        .expect(0)
+        .mount(&service.server)
+        .await;
+
+    assert_eq!(
+        service.store.read("missing").await.unwrap(),
+        Snapshot::empty("missing")
+    );
+    assert_eq!(
+        service.store.read("missing").await.unwrap(),
+        Snapshot::empty("missing")
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn corrupt_blobs_do_not_poison_later_reads(#[future(awt)] service: Service) {
+    let reference = head("x", 1, json!("correct"));
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&reference))
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(blob(&reference, json!("corrupt"))),
+        )
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(blob(&reference, json!("correct"))),
+        )
+        .expect(1)
+        .mount(&service.server)
+        .await;
+
+    assert!(matches!(
+        service.store.read("x").await,
+        Err(Error::InvalidResponse)
+    ));
+    assert_eq!(
+        service.store.read("x").await.unwrap().value,
+        json!("correct")
+    );
+    assert_eq!(
+        service.store.read("x").await.unwrap().value,
+        json!("correct")
+    );
+}
+
+#[rstest]
+#[tokio::test]
 async fn unsafe_connection_settings_cannot_relax_state_consistency(
     #[future(awt)] service: Service,
 ) {

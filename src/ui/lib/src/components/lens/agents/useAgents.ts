@@ -17,9 +17,9 @@ export function useAgents(accessToken: string): {
   const traces = useTracesApi(accessToken);
   const { data, isLoading, error } = useQuery({
     queryKey: ["lensAgents", accessToken, traces.live],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const endMs = Date.now();
-      return traces.agents({ startMs: endMs - AGENT_WINDOW_DAYS * DAY_MS, endMs });
+      return traces.agents({ startMs: endMs - AGENT_WINDOW_DAYS * DAY_MS, endMs }, signal);
     },
     staleTime: 60_000,
   });
