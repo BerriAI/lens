@@ -1,304 +1,129 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { Activity, ArrowRight, Check, ChevronDown, Circle, Github, RefreshCw } from "lucide-react";
-import { useMediaQuery } from "usehooks-ts";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useInterval } from "usehooks-ts";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { Button } from "../../ui/button";
-import { cn } from "../../../lib/cva.config";
-import { useAgentConnectionStatus } from "../agents/useAgentConnectionStatus";
 import { useLensAccessToken } from "../data/LensServices";
-import { useLensService } from "./tracing/TracingSetupCard";
+import { useTracesApi } from "../traces/api";
+import { useOnboarding } from "./OnboardingContext";
 import { connectionAuthStatus } from "./connectionErrors";
-
-interface HomeConnectionStatusProps {
-  readonly name: string;
-  readonly enabled: boolean;
-  readonly onOpenTraces: (name: string) => void;
-  readonly onSetup?: () => void;
-  readonly onConnectGitHub?: (name: string) => void;
-  readonly keyReady?: boolean | null;
-  readonly stage?: "name" | "key" | "instructions" | "verify";
-  readonly setupIssue?: string | null;
-  readonly discoverAfter?: number;
-}
+import { findConnectionTrace } from "./homeConnection";
+import type { TracingKeyRecord } from "./tracing/tracingKeys";
 
 export function HomeConnectionStatus({
-  name,
+  keyRecord,
+  startedAt,
   enabled,
-  onOpenTraces,
-  onSetup,
-  onConnectGitHub,
-  keyReady,
-  stage = "instructions",
-  setupIssue,
-  discoverAfter,
-}: HomeConnectionStatusProps) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const detailsId = useId();
-  const verificationHeading = useRef<HTMLHeadingElement>(null);
-  const previousStage = useRef(stage);
-  useEffect(() => {
-    if (stage === "verify" && previousStage.current !== "verify") verificationHeading.current?.focus();
-    previousStage.current = stage;
-  }, [stage]);
-  const desktop = useMediaQuery("(min-width: 1024px)", {
-    initializeWithValue: false,
+  onRestart,
+  onSelectKey,
+}: {
+  readonly keyRecord?: TracingKeyRecord;
+  readonly startedAt: number | null;
+  readonly enabled: boolean;
+  readonly onRestart: () => void;
+  readonly onSelectKey?: () => void;
+}) {
+  const accessToken = useLensAccessToken();
+  const traces = useTracesApi(accessToken);
+  const { openTrace } = useOnboarding();
+  const [clock, setClock] = useState(Date.now);
+  const [retryAt, setRetryAt] = useState(0);
+  const waiting =
+    enabled && Boolean(keyRecord) && startedAt !== null && traces.live;
+  const expired = clock - Math.max(startedAt ?? clock, retryAt) >= 5 * 60_000;
+  const receipt = useQuery({
+    queryKey: ["lens-home-receipt", accessToken, keyRecord?.id, startedAt],
+    queryFn: ({ signal }) =>
+      findConnectionTrace(
+        accessToken,
+        traces,
+        keyRecord!.tenant.api_key_hash,
+        startedAt!,
+        signal,
+      ),
+    enabled: waiting && !expired,
+    retry: false,
+    refetchInterval: (query) =>
+      waiting && !expired && !query.state.data && !query.state.error
+        ? 3000
+        : false,
+    refetchOnWindowFocus: false,
   });
-  const token = useLensAccessToken();
-  const service = useLensService(token, { enabled, refetchInterval: 3000 });
-  const agentName = name.trim();
-  const discovering = !agentName && Number.isFinite(discoverAfter);
-  const receipt = useAgentConnectionStatus(agentName, enabled, discoverAfter);
-  const matchedAgentName = receipt.match?.name ?? agentName;
-  const authStatus = connectionAuthStatus(service.error) ?? connectionAuthStatus(receipt.error);
-  const unavailable = Boolean(service.error || receipt.error);
-  const apiReady = service.data?.connected ?? null;
-  const storageReady = apiReady ? service.data?.status.storage_ready ?? null : null;
-  const credentialsPending = service.data?.status.credentials_ready === false;
-  const endpointMissing = Boolean(service.data && !service.data.url);
-  const blocked =
-    apiReady === false || storageReady === false || credentialsPending || endpointMissing || Boolean(setupIssue);
-  const receiving = !unavailable && !blocked && receipt.status === "receiving";
-  const discovered = discovering && Boolean(receipt.match) && !unavailable && !blocked;
-  const verifying = !discovering && stage === "verify";
-  const checking = service.isFetching || receipt.isChecking;
-  const title =
-    authStatus === 401
-      ? "Sign in again"
-      : authStatus === 403
-        ? "Access required"
-        : unavailable
-          ? "Unable to check"
-          : blocked
-            ? "Connection needs attention"
-            : discovered
-              ? "New trace received"
-              : receiving
-                ? "Receiving traces"
-                : receipt.status === "waiting-for-new-traces"
-                  ? "Waiting for new traces"
-                  : "Waiting for traces";
-  const guidance =
-    authStatus === 401
-      ? "Your session is no longer valid. Sign in again to check your connection."
-      : authStatus === 403
-        ? "Your account cannot check this connection. Ask your Lens administrator for access."
-        : unavailable
-          ? "We couldn't check the connection. Try again to see the latest status."
-          : apiReady === false
-            ? "Lens is unavailable. Check that the service is running, then retry."
-            : storageReady === false
-              ? "Trace storage isn't ready. Check your Lens deployment, then retry."
-              : endpointMissing
-                ? "Set your public Lens address in deployment setup so your project knows where to send traces."
-                : credentialsPending
-                  ? "Lens is syncing tracing credentials. Check again in a moment."
-                  : setupIssue
-                    ? setupIssue
-                    : discovered
-                      ? `A trace arrived from “${matchedAgentName}”. Your coding agent will verify the run it sent before asking: “What would you like to instrument next?”`
-                      : receiving
-                        ? "A recent run is visible in Lens. Open it to inspect your agent's work."
-                        : discovering
-                          ? "Lens is watching for new named traces. Your coding agent will verify the run it sends."
-                          : stage === "name" || !agentName
-                            ? "Choose your project and agent name to watch for its traces here."
-                            : stage === "key"
-                              ? "Get a tracing key, then connect your project using the setup instructions."
-                              : verifying
-                                ? "Run your agent once. Lens will confirm a new trace here."
-                                : "Your coding agent will run one task and verify its trace. Lens checks for new traffic automatically.";
-
+  useInterval(
+    () => setClock(Date.now()),
+    waiting && !receipt.data && !receipt.error && !expired ? 1000 : null,
+  );
+  const matched = waiting ? receipt.data : null;
+  const auth = connectionAuthStatus(receipt.error);
   return (
-    <section
-      aria-label="Live connection"
-      className={cn(
-        "min-w-0",
-        verifying
-          ? "overflow-hidden rounded-md border bg-card lg:col-span-2 lg:col-start-1 lg:row-start-1 lg:grid lg:grid-cols-[minmax(0,1fr)_300px]"
-          : "lg:col-start-2 lg:row-start-1 lg:border-l",
-      )}
-    >
-      <div className={cn(verifying ? "p-5 sm:p-6" : "py-4 lg:px-5")}>
-        <div className={cn("items-center justify-between gap-3", verifying ? "flex" : "hidden lg:flex")}>
-          <h3 className="text-sm font-medium">Live connection</h3>
-          {enabled && (agentName || discovering) && !authStatus && (
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-current motion-safe:animate-pulse" aria-hidden="true" />
-              Checking every 3s
-            </span>
-          )}
-        </div>
-        {verifying && (
-          <h3 ref={verificationHeading} tabIndex={-1} className="mt-3 text-base font-medium outline-none">
-            {unavailable || blocked ? "Check your connection" : receiving ? "Traces received" : "Run one task"}
-          </h3>
-        )}
-        <div
-          className={cn(
-            "inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
-            verifying ? "mt-4" : "lg:mt-4",
-            receiving || discovered
-              ? "bg-success/10 text-success"
-              : unavailable || blocked
-                ? "bg-warning/10 text-warning"
-                : verifying
-                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
-                  : "bg-muted text-muted-foreground",
-          )}
-          role="status"
-          aria-live="polite"
-        >
-          <Activity aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-pulse" />
-          <p>{title}</p>
-        </div>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground lg:text-sm lg:leading-6">{guidance}</p>
-        {(receipt.match || !desktop || unavailable || (blocked && onSetup)) && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {receipt.match && !authStatus && (
-              <Button size="sm" onClick={() => onOpenTraces(matchedAgentName)}>
-                View traces <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Button>
-            )}
-            {(receiving || discovered) && onConnectGitHub && (
-              <Button size="sm" variant="outline" onClick={() => onConnectGitHub(matchedAgentName)}>
-                <Github className="size-3.5" aria-hidden="true" /> Connect GitHub
-              </Button>
-            )}
-            {authStatus === 401 && (
-              <Button size="sm" onClick={() => window.location.reload()}>
-                Reload to sign in
-              </Button>
-            )}
-            {unavailable && !authStatus && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={checking}
-                onClick={() => {
-                  void service.refetch();
-                  receipt.refresh();
-                }}
-              >
-                Retry connection
-              </Button>
-            )}
-            {!desktop && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="px-0 text-xs text-muted-foreground"
-                aria-expanded={detailsOpen}
-                aria-controls={detailsId}
-                onClick={() => setDetailsOpen((open) => !open)}
-              >
-                Connection details
-                <ChevronDown aria-hidden="true" className={cn("size-3.5", detailsOpen && "rotate-180")} />
-              </Button>
-            )}
-            {blocked && onSetup && (
-              <Button variant="link" size="sm" className="px-0 text-xs" onClick={onSetup}>
-                Deployment setup
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="space-y-3" aria-label="Trace delivery" role="region">
       <div
-        id={detailsId}
-        hidden={!desktop && !detailsOpen}
-        className={cn("space-y-5 border-t", verifying ? "p-5 lg:border-t-0 lg:border-l lg:bg-muted/10" : "py-4 lg:p-5")}
+        className="flex items-center gap-2 text-sm font-medium"
+        role="status"
       >
-        <dl className="space-y-3 text-sm">
-          <ConnectionCheck
-            label="Lens API"
-            ready={service.error ? false : apiReady}
-            success="Reachable"
-            failure="Unavailable"
+        {matched ? (
+          <Check aria-hidden className="size-4 text-success" />
+        ) : waiting && !expired && !receipt.error ? (
+          <Loader2
+            aria-hidden
+            className="size-4 motion-safe:animate-spin text-muted-foreground"
           />
-          <ConnectionCheck label="Trace storage" ready={storageReady} success="Ready" failure="Not ready" />
-          {keyReady !== undefined && keyReady !== null && (
-            <ConnectionCheck
-              label="Tracing key"
-              ready={keyReady}
-              success="Ready to use"
-              failure="Activation unconfirmed"
-            />
-          )}
-        </dl>
-        <div>
-          <p className="text-xs text-muted-foreground">{discovered ? "Detected agent" : "Watching for agent"}</p>
-          <p className="mt-1 font-mono text-xs break-all">
-            {matchedAgentName || (discovering ? "New named traces" : "Name your agent to begin")}
-          </p>
-          {receipt.match && (
-            <dl className="mt-3 space-y-2 border-t pt-3 text-xs">
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">
-                  {discovering ? "Runs since setup opened" : "Runs in the last 14 days"}
-                </dt>
-                <dd className="font-medium tabular-nums">{receipt.match.runs.toLocaleString()}</dd>
-              </div>
-              <div className="flex flex-wrap justify-between gap-1">
-                <dt className="text-muted-foreground">Last run started</dt>
-                <dd className="font-medium">{new Date(receipt.match.last_seen).toLocaleString()}</dd>
-              </div>
-            </dl>
-          )}
-        </div>
-        {verifying && !receiving && agentName && !unavailable && !blocked && (
-          <p className="text-xs leading-5 text-muted-foreground">
-            Nothing arriving? Check the endpoint and tracing key, restart your project, and confirm its trace name is{" "}
-            <span className="font-medium text-foreground">{agentName}</span>.
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={checking || !enabled}
-            onClick={() => {
-              void service.refetch();
-              receipt.refresh();
-            }}
-          >
-            <RefreshCw aria-hidden="true" className={cn("size-3.5", checking && "motion-safe:animate-spin")} />
-            {checking ? "Checking…" : "Check connection"}
+        ) : null}
+        {matched
+          ? "Trace received"
+          : receipt.error
+            ? "Could not check for your trace"
+            : expired
+              ? "No trace received yet"
+              : startedAt !== null
+                ? "Waiting for your agent’s trace"
+                : "Run one task"}
+      </div>
+      <p className="text-sm leading-6 text-muted-foreground">
+        {matched
+          ? `A new trace from ${matched.agent_names?.[0] || matched.name || matched.service} arrived using “${keyRecord?.name}”. Open it to see the agent’s work.`
+          : auth === 401
+            ? "Sign in again to check delivery."
+            : auth === 403
+              ? "Your account cannot check delivery. Ask your Lens administrator for access."
+              : receipt.error
+                ? "We couldn’t check delivery. Your setup is saved; retry the check."
+                : expired
+                  ? "Check the tracing endpoint and key, restart your project, then run a task. Your setup is saved."
+                  : "Run a real task in your project. Your coding agent will verify that exact run and give you a link to its trace."}
+      </p>
+      {matched ? (
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => openTrace(matched)}>
+            Open trace <ArrowRight aria-hidden className="size-4" />
+          </Button>
+          <Button variant="outline" onClick={onRestart}>
+            Connect another agent
           </Button>
         </div>
-        {receipt.lastChecked !== null && (
-          <p className="font-mono text-[11px] text-muted-foreground">
-            Last checked {new Date(receipt.lastChecked).toLocaleTimeString()}
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ConnectionCheck({
-  label,
-  ready,
-  success,
-  failure,
-}: {
-  readonly label: string;
-  readonly ready: boolean | null;
-  readonly success: string;
-  readonly failure: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          "flex items-center gap-1.5 text-xs font-medium",
-          ready ? "text-success" : "text-muted-foreground",
-        )}
-      >
-        {ready ? <Check aria-hidden="true" className="size-3.5" /> : <Circle aria-hidden="true" className="size-2" />}
-        {ready === null ? "Checking" : ready ? success : failure}
-      </dd>
+      ) : auth === 401 ? (
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Reload to sign in
+        </Button>
+      ) : waiting && (receipt.error || expired) && !auth ? (
+        <Button
+          variant="outline"
+          disabled={receipt.isFetching}
+          onClick={() => {
+            setClock(Date.now());
+            setRetryAt(Date.now());
+            void receipt.refetch();
+          }}
+        >
+          Check again
+        </Button>
+      ) : !keyRecord && startedAt !== null && onSelectKey ? (
+        <Button variant="link" className="h-auto px-0" onClick={onSelectKey}>
+          Select an existing tracing key
+        </Button>
+      ) : null}
     </div>
   );
 }

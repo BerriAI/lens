@@ -24,9 +24,11 @@ Rerunning the start command preserves the environment file, credentials and Clic
 
 ## Record your first trace
 
-Open **Traces** and choose **Set up tracing** if the setup panel is not already open. Then select your framework, and create a tracing key. Copy the generated configuration into your agent. Keep your agent's existing model endpoint and provider credential; the separate Lens tracing key authorizes telemetry uploads
+Open **Home**, then choose **Create tracing key**. Choose **Copy instructions with key** and paste the instructions into your coding agent inside the project you want to connect. The instructions include your Lens address and the new tracing key, which the coding agent saves in your project's ignored environment file. The key will also be in that coding agent's chat history. Use **Copy without key** and save the key locally as `LITELLM_TRACING_KEY` if you prefer to keep it out of the chat
 
-Run your agent, then use **Check for traces** in setup or open **Traces**. Open the matching run and inspect its messages and tool calls. The **Demo data** switch shows examples; it does not verify your agent connection
+If your project already has a key, choose **My project already has one**. **Manage tracing keys** lets you select an existing key to watch for its new traces or revoke a key. Existing secret values cannot be retrieved again. Keep your agent's model endpoint and provider credential; tracing keys authorize telemetry uploads and delivery checks
+
+Run one actual agent task. The coding agent verifies that exact trace arrived and gives you a link. Home watches for new traces sent with your selected key and offers **Open trace** when one arrives. With a shared existing key, check that the displayed agent is the one you just connected. For manual configuration, choose **Set up manually**. The **Demo data** switch shows examples; it does not verify your agent connection
 
 For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Authorization: Bearer <tracing-key>`. That address works for an agent running on the same host. An agent in another container or on another machine needs a Lens address reachable from there
 

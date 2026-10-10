@@ -395,7 +395,7 @@ describe("AgentTracesSection", () => {
     expect(screen.getByText("Run error")).toBeVisible();
 
     await user.click(screen.getByRole("combobox", { name: "Filter traces by status" }));
-    await user.click(screen.getByRole("option", { name: "With errors" }));
+    await user.click(await screen.findByRole("option", { name: "With errors" }));
     expect(screen.getByText("Recovered request")).toBeVisible();
     expect(screen.getByText("Unset request")).toBeVisible();
     expect(screen.getByText("Failed request")).toBeVisible();

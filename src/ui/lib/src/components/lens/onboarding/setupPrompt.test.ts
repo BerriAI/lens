@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { setupPrompt, type SetupConnection } from "./setupPrompt";
 
 describe("agent setup prompt", () => {
+  it("includes an explicitly supplied tracing key with storage guidance only for tracing setup", () => {
+    const tracingKey = "lens-trace-example-key";
+    const prompt = setupPrompt({ standalone: true, goal: "tracing", tracingKey });
+    expect(prompt).toContain(JSON.stringify(tracingKey));
+    expect(prompt).toContain("ignored local environment file or secret manager");
+    expect(prompt).toContain("Do not echo the key");
+    expect(prompt).not.toContain("If the key is missing");
+    expect(setupPrompt({ standalone: true, goal: "analysis", tracingKey })).not.toContain(tracingKey);
+  });
   it("copies deployment addresses without URL credentials, queries or fragments", () => {
     const prompt = setupPrompt({
       standalone: true,
