@@ -62,11 +62,11 @@ export class Chat {
       !/^\d+\.\d+$/.test(event.ts)
     )
       return;
-    // Bare follow-ups belong to the finding conversation. A leading mention
-    // addresses someone else unless Slack also identified an explicit Lens mention.
+    // Bare follow-ups belong to the finding conversation. Explicit recipients
+    // exclude Lens unless Slack also identified an explicit Lens mention.
     if (
       event.addressed === false &&
-      /^\s*<@[A-Z0-9]+(?:\|[^>]+)?>/.test(event.text)
+      /<@[A-Z0-9]+(?:\|[^>]+)?>/.test(event.text)
     )
       return;
     for (const [id, at] of this.seen)
