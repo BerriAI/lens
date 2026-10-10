@@ -63,13 +63,14 @@ export function safeAnswer(
   allowed: ReadonlySet<string>,
   detail: boolean,
   frequencies: Readonly<Record<string, Frequency>> = {},
+  sourceLimit: 2 | 3 | 4 = 2,
 ): Answer {
   return {
     title: prose(answer.title).slice(0, 100),
     summary: words(prose(answer.summary), detail ? 160 : 80),
     sources: answer.sources
       .filter((source) => allowed.has(source.url))
-      .slice(0, 2)
+      .slice(0, sourceLimit)
       .map((source) => ({
         label: prose(source.label).slice(0, 60) || "Open evidence",
         url: source.url,
