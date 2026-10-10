@@ -30,7 +30,7 @@ import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
 import { SetupAgentPrompt } from "../SetupAgentPrompt";
 import { projectTracingInstructions } from "../setupPrompt";
 import { connectionAuthStatus } from "../connectionErrors";
-import { maskSecret, type TracingKeyRecord } from "./tracingKeys";
+import { createTracingKey, maskSecret, type TracingKeyRecord } from "./tracingKeys";
 export { maskSecret } from "./tracingKeys";
 
 const COPIED_RESET_MS = 1500;
@@ -345,12 +345,8 @@ export function TracingKey({
     setCreating(true);
     setError("");
     try {
-      const result = await apiClient.post<components["schemas"]["IngestionKeyCreated"]>("/lens/tracing/keys", {
-        accessToken,
-        body: { name },
-      });
+      const result = await createTracingKey(accessToken, name);
       if (!isMounted()) return;
-      if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
       onCreated(result.key, result.active, result.record);
     } catch (cause) {
@@ -370,7 +366,7 @@ export function TracingKey({
         <CodeBlock code={tracingKey} display={maskSecret(tracingKey)} tabs={<FileLabel>Your tracing key</FileLabel>} />
         <p className="text-sm text-muted-foreground">
           {compact ? (
-            "Available only on this page. Copy the key, or use Copy instructions with key below to save it in your project."
+            "Available only on this page. Copy this key or include it in the setup instructions to save it in your project."
           ) : (
             <>
               Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only

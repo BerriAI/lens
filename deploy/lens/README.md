@@ -24,9 +24,9 @@ Rerunning the start command preserves the environment file, credentials and Clic
 
 ## Record your first trace
 
-Open **Home**, then choose **Create tracing key**. Choose **Copy instructions with key** and paste the instructions into your coding agent inside the project you want to connect. The instructions include your Lens address and the new tracing key, which the coding agent saves in your project's ignored environment file. The key will also be in that coding agent's chat history. Use **Copy without key** and save the key locally as `LITELLM_TRACING_KEY` if you prefer to keep it out of the chat
+Open **Home** and choose **Copy instructions with new key**. Lens creates a tracing key and copies complete setup instructions, including your Lens address and key. Paste them into your coding agent inside the project you want to connect. The instructions tell the coding agent to save the key in your project's ignored environment file. The key will also be in that coding agent's chat history. To keep the key out of chat, choose **Set up manually**, create a key, and save it locally as `LITELLM_TRACING_KEY`. You can then return to **Use a coding agent** and choose **Copy without key**
 
-If your project already has a key, choose **My project already has one**. **Manage tracing keys** lets you select an existing key to watch for its new traces or revoke a key. Existing secret values cannot be retrieved again. Keep your agent's model endpoint and provider credential; tracing keys authorize telemetry uploads and delivery checks
+If your project already has a key, choose **Use an existing key**. **Manage tracing keys** lets you select an existing key to watch for its new traces or revoke a key. Existing secret values cannot be retrieved again. Keep your agent's model endpoint and provider credential; tracing keys authorize telemetry uploads and delivery checks
 
 Run one actual agent task. The coding agent verifies that exact trace arrived and gives you a link. Home watches for new traces sent with your selected key and offers **Open trace** when one arrives. With a shared existing key, check that the displayed agent is the one you just connected. For manual configuration, choose **Set up manually**. The **Demo data** switch shows examples; it does not verify your agent connection
 

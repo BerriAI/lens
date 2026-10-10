@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import { useTimeout } from "usehooks-ts";
 import { Button } from "../../ui/button";
 import { copyToClipboard } from "../../../utils/dataUtils";
@@ -26,6 +26,7 @@ export function SetupAgentPrompt({
   agentName,
   prominent = false,
   tracingKey,
+  prepareTracingKey,
   onCopied,
   primaryAction = true,
 }: {
@@ -36,12 +37,15 @@ export function SetupAgentPrompt({
   readonly agentName?: string;
   readonly prominent?: boolean;
   readonly tracingKey?: string;
+  readonly prepareTracingKey?: () => Promise<string>;
   readonly onCopied?: () => void;
   readonly primaryAction?: boolean;
 }) {
   const standalone = useLensHost().surface === "standalone";
   const [baseUrl, setBaseUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const copyButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (tracingKey && prominent) copyButton.current?.focus();
@@ -62,22 +66,49 @@ export function SetupAgentPrompt({
   const prompt = setupPrompt({
     ...context,
     baseUrl,
-    tracingKey: tracingKey ? maskSecret(tracingKey) : undefined,
+    tracingKey: tracingKey
+      ? maskSecret(tracingKey)
+      : prepareTracingKey
+        ? "<created when you copy>"
+        : undefined,
   });
   const copy = async (includeKey = true) => {
-    const current = currentBaseUrl();
-    setBaseUrl(current);
-    const success = await copyToClipboard(
-      setupPrompt({
-        ...context,
-        baseUrl: current,
-        tracingKey: includeKey ? tracingKey : undefined,
-      }),
-      "Prompt copied",
-    );
-    setCopied(success);
-    if (success) onCopied?.();
+    if (copying) return;
+    setCopying(true);
+    setError(null);
+    try {
+      const key = includeKey
+        ? tracingKey ?? (await prepareTracingKey?.())
+        : undefined;
+      const current = currentBaseUrl();
+      setBaseUrl(current);
+      const success = await copyToClipboard(
+        setupPrompt({ ...context, baseUrl: current, tracingKey: key }),
+        "Prompt copied",
+      );
+      setCopied(success);
+      if (success) onCopied?.();
+      else
+        setError(
+          key
+            ? "Could not copy the instructions. Your key is saved on this page; try copying again."
+            : "Could not copy the instructions. Try copying again.",
+        );
+    } catch {
+      setError(
+        "Could not create a tracing key. Try again, or use a key already in your project.",
+      );
+    } finally {
+      setCopying(false);
+    }
   };
+  const copyLabel = tracingKey
+    ? "Copy instructions with key"
+    : prepareTracingKey
+      ? "Copy instructions with new key"
+      : prominent
+        ? "Copy setup instructions"
+        : "Set it up for me";
   return (
     <div
       className={
@@ -131,33 +162,33 @@ export function SetupAgentPrompt({
           ref={copyButton}
           variant={prominent && primaryAction ? "default" : "outline"}
           size={prominent ? "default" : "sm"}
-          aria-label={
-            tracingKey
-              ? "Copy instructions with key"
-              : prominent
-                ? "Copy setup instructions"
-                : "Set it up for me"
-          }
+          aria-label={copyLabel}
+          disabled={copying}
           onClick={() => void copy()}
         >
-          {copied ? (
+          {copying ? (
+            <Loader2
+              aria-hidden
+              className="size-3.5 motion-safe:animate-spin"
+            />
+          ) : copied ? (
             <Check aria-hidden="true" className="size-3.5" />
           ) : (
             <Copy aria-hidden="true" className="size-3.5" />
           )}
-          {copied
-            ? "Prompt copied"
-            : tracingKey
-              ? "Copy instructions with key"
-              : prominent
-                ? "Copy setup instructions"
-                : "Set it up for me"}
+          {copying
+            ? "Preparing instructions…"
+            : copied
+              ? "Prompt copied"
+              : copyLabel}
         </Button>
         <p className="text-xs leading-5 text-muted-foreground">
           {prominent
             ? tracingKey
               ? "Includes your tracing key. Paste only into a coding agent you trust; the key will be in its chat history."
-              : "Includes your Lens address. Uses the tracing key in your project."
+              : prepareTracingKey
+                ? "Creates a tracing key and includes it in the instructions. The key will be in your coding agent’s chat history."
+                : "Includes your Lens address. Uses the tracing key in your project."
             : "Copy a prompt for your coding agent. It checks your setup and asks only for missing choices."}
         </p>
         {tracingKey && (
@@ -165,12 +196,18 @@ export function SetupAgentPrompt({
             variant="link"
             size="sm"
             className="px-0"
+            disabled={copying}
             onClick={() => void copy(false)}
           >
             Copy without key
           </Button>
         )}
       </div>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <details
         className="mt-2 text-xs text-muted-foreground"
         onToggle={(event) => {
@@ -187,6 +224,11 @@ export function SetupAgentPrompt({
           <p className="mt-2 text-muted-foreground">
             The preview masks your key. Copy instructions with key includes its
             full value.
+          </p>
+        )}
+        {!tracingKey && prepareTracingKey && (
+          <p className="mt-2 text-muted-foreground">
+            Lens adds the new tracing key when you copy these instructions.
           </p>
         )}
       </details>

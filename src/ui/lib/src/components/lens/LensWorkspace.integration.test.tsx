@@ -169,7 +169,7 @@ it("keeps background agent traffic out of the Home connection result", async () 
     return defaultResponse(path, true);
   });
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { searchParams: "?tab=home&agent=previous-agent" });
-  expect(await screen.findByRole("button", { name: "Create tracing key" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   const connection = within(screen.getByRole("region", { name: "Trace delivery" }));
   expect(connection.getByText("Run one task")).toBeVisible();
   expect(connection.queryByRole("button", { name: "Open trace" })).not.toBeInTheDocument();
@@ -194,6 +194,7 @@ it("opens instructions from a legacy setup link in Traces without creating anoth
   expect(waiting.getByRole("heading", { name: "Your first trace will appear here" })).toBeVisible();
   expect(waiting.getByText("support-agent")).toBeVisible();
   await user.click(waiting.getByRole("button", { name: "Continue setup" }));
+  await user.click(await screen.findByRole("button", { name: "Use an existing key" }));
   expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(screen.queryByRole("navigation", { name: "Setup progress" })).not.toBeInTheDocument();
@@ -573,7 +574,7 @@ describe("Lens interactive demo", () => {
     await user.click(panel.getByRole("button", { name: "Connect project" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("home"));
     expect(tabs.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   });
 
   it("should connect an analysis model from findings through the Settings tab", async () => {
@@ -1082,7 +1083,7 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   await user.click(screen.getByRole("tab", { name: "Agents" }));
   expect(actions.queryByRole("button", { name: "New eval" })).not.toBeInTheDocument();
   await user.click(await actions.findByRole("button", { name: "Connect project" }));
-  expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
 });

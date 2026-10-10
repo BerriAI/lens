@@ -10,6 +10,14 @@ export const maskSecret = (secret: string): string =>
     ? `${secret.slice(0, 5)}${"•".repeat(16)}${secret.slice(-4)}`
     : "•".repeat(secret.length);
 
+export async function createTracingKey(accessToken: string, name: string) {
+  const result = await apiClient.post<
+    components["schemas"]["IngestionKeyCreated"]
+  >("/lens/tracing/keys", { accessToken, body: { name } });
+  if (!result.key) throw new Error("Lens did not return the new key");
+  return result;
+}
+
 export function useTracingKeys(accessToken: string, enabled: boolean) {
   return useQuery({
     queryKey: tracingKeysQuery(accessToken),

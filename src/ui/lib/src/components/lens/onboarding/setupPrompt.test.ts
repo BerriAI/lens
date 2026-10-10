@@ -92,7 +92,7 @@ describe("agent setup prompt", () => {
   it("directs missing tracing credentials to the local key section without asking for secrets or using admin credentials", () => {
     const prompt = setupPrompt({ standalone: true, goal: "tracing" });
     expect(prompt).toContain("Load the dedicated key from this project's local environment");
-    expect(prompt).toContain("Tracing key section on Lens Home");
+    expect(prompt).toContain("Set up manually on Lens Home, then Create tracing key");
     expect(prompt).toContain("tell me where to save it locally, then resume after it is configured");
     expect(prompt).toContain("Do not request or print secret values in this conversation");
     expect(prompt).toContain("Never use a model or Lens admin key for ingestion");
@@ -130,7 +130,7 @@ describe("agent setup prompt", () => {
       const prompt = setupPrompt({ standalone: true, goal });
       expect(prompt).toContain("Implement the agreed setup, reuse valid partial progress, and verify the actual result");
       expect(prompt).not.toContain("What would you like to instrument next?");
-      expect(prompt).not.toContain("Tracing key section on Lens Home");
+      expect(prompt).not.toContain("Set up manually on Lens Home, then Create tracing key");
     },
   );
 });
