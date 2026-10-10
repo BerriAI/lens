@@ -251,6 +251,62 @@ async fn unchanged_reads_reuse_verified_blobs_across_clones(#[future(awt)] servi
 }
 
 #[rstest]
+#[case::changed(json!("new"))]
+#[case::unchanged(json!("old"))]
+#[tokio::test]
+async fn cached_historical_reads_recheck_persisted_revisions(
+    #[future(awt)] service: Service,
+    #[case] current_value: Value,
+) {
+    let original = head("x", 1, json!("old"));
+    let current = head("x", 3, current_value.clone());
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&original))
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_heads"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&current))
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(blob(&original, json!("old"))))
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(""))
+        .up_to_n_times(1)
+        .with_priority(2)
+        .mount(&service.server)
+        .await;
+    Mock::given(select("lens_state_blobs"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(blob(&current, current_value.clone())),
+        )
+        .with_priority(3)
+        .mount(&service.server)
+        .await;
+
+    let cached = service.store.read("x").await.unwrap();
+    assert_eq!(cached.head, original);
+    let resolved = service.store.resolve(&[cached.head]).await;
+    if current_value == json!("old") {
+        assert_eq!(
+            resolved.unwrap(),
+            vec![Snapshot {
+                head: current,
+                value: current_value,
+            }]
+        );
+    } else {
+        assert!(matches!(resolved, Err(Error::StateUnavailable)));
+    }
+}
+
+#[rstest]
 #[case::updated(json!({"enabled": false}))]
 #[case::revoked(Value::Null)]
 #[tokio::test]
