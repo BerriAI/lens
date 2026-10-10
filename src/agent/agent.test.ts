@@ -8,7 +8,7 @@ import {
 } from "@openai/agents/testing";
 import { responder } from "./agent.js";
 import type { AgentConfig as Config } from "./config.js";
-import { LensClient } from "./lens.js";
+import { LensClient, type TraceWindow } from "./lens.js";
 import type { FindingContext as FindingThread } from "./models.js";
 
 const config = { agent: "selected", model: "test-model" } as Config;
@@ -77,6 +77,46 @@ test("SDK turn limit stops a model that continues asking for evidence", async ()
     /Max turns/i,
   );
   assert.equal(model.calls.length, 8);
+});
+
+test("SDK passes the requested lookback into the evidence reader and preserves its exact window", async () => {
+  const window = { lookback_hours: 12, start: null, end: null };
+  const label =
+    "Traces started from 2026-01-02T00:00:00.000Z (inclusive) to 2026-01-02T12:00:00.000Z (exclusive)";
+  const model = new ScriptedModel([
+    [functionCall("recent_traces", window, { callId: "window" })],
+    [
+      assistantMessage(
+        JSON.stringify({
+          title: "Last 12 hours",
+          summary: "No completed tasks were observed in the requested window",
+          opportunities: [],
+          sources: [],
+        }),
+      ),
+    ],
+  ]);
+  const windows: (TraceWindow | undefined)[] = [];
+  await responder(
+    config,
+    {
+      read: async (name, _signal, selected) => {
+        assert.equal(name, "recent_traces");
+        windows.push(selected);
+        return JSON.stringify({ window: label, records: [], metrics: [] });
+      },
+    },
+    new Runner({
+      modelProvider: { getModel: async () => model },
+      tracingDisabled: true,
+    }),
+  )(
+    [{ role: "user", content: "Analyze traces for the last 12 hours" }],
+    AbortSignal.timeout(10_000),
+  );
+  assert.deepEqual(windows, [window]);
+  assert(JSON.stringify(model.calls[1]?.request.input).includes(label));
+  model.assertComplete();
 });
 
 test("a finding follow-up reads its exact live trace and observed span, rejecting attempts to read a different trace", async () => {
