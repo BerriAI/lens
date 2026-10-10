@@ -175,6 +175,7 @@ test("finding replies addressed to someone else stay quiet while bare and explic
     "<@UDEVIN> Please implement this",
     "  <@UDEVIN> <@UOTHER> Can you take a look?",
     "\n<@UOTHER> Why did this fail?",
+    "done, <@UDEVIN> file an improvement and show me",
   ].entries()) {
     await chat.mention(event({ text, ts: `180000000${index}.000000` }));
   }
@@ -183,13 +184,13 @@ test("finding replies addressed to someone else stay quiet while bare and explic
   assert.deepEqual(states, []);
   assert.deepEqual((await registry.read(root))?.handled, []);
   await chat.mention(
-    event({ text: "Why did this tool fail?", ts: "1800000003.000000" }),
+    event({ text: "Why did this tool fail?", ts: "1800000004.000000" }),
   );
   await chat.mention(
     event({
       text: "<@UDEVIN> <@ULENS> explain the evidence",
       addressed: true,
-      ts: "1800000004.000000",
+      ts: "1800000005.000000",
     }),
   );
   assert.equal(requests, 2);
