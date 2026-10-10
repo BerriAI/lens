@@ -86,13 +86,14 @@ export class LensClient {
   }
 
   async get(path: string, signal: AbortSignal): Promise<unknown> {
+    const timeout = path.startsWith("/v1/traces") ? 60_000 : 10_000;
     const response = await this.fetcher(`${this.config.apiUrl}${path}`, {
       headers: {
         Authorization: `Bearer ${this.config.lensKey}`,
         ...(path.startsWith("/lens/evals/") ? { "X-Lens-Contract": "2" } : {}),
       },
       redirect: "error",
-      signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+      signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
     });
     if (!response.ok) throw new Error(`Lens read returned ${response.status}`);
     if (!response.body) throw new Error("Empty Lens read");
