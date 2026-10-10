@@ -6,6 +6,10 @@ use lens_contract::{
 
 use crate::{Error, merge_finding};
 
+fn text_length(value: &str) -> usize {
+    value.encode_utf16().count()
+}
+
 pub fn validate_import(lens: &Lens, request: &FindingImport) -> Result<(), Error> {
     if request.agent_name.trim().is_empty()
         || request.agent_name != lens.settings.agent_name
@@ -18,10 +22,10 @@ pub fn validate_import(lens: &Lens, request: &FindingImport) -> Result<(), Error
             .fingerprint
             .bytes()
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        || request.title.len() > 160
-        || request.description.len() > 4000
-        || request.suggestion.len() > 4000
-        || request.limitation.len() > 2000
+        || text_length(&request.title) > 160
+        || text_length(&request.description) > 4000
+        || text_length(&request.suggestion) > 4000
+        || text_length(&request.limitation) > 2000
         || !(1..=4).contains(&request.evidence.len())
         || request.evidence.iter().any(|source| {
             source.trace_id.is_empty()
@@ -33,8 +37,8 @@ pub fn validate_import(lens: &Lens, request: &FindingImport) -> Result<(), Error
                     .all(|byte| byte.is_ascii_hexdigit())
                 || source.span_id.is_empty()
                 || source.span_id.len() > 128
-                || source.quote.trim().len() < 8
-                || source.quote.len() > 240
+                || text_length(source.quote.trim()) < 8
+                || text_length(&source.quote) > 240
         })
     {
         return Err(Error::InvalidImport);
