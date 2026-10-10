@@ -94,6 +94,13 @@ test("a proposed issue has its stable number, status border and private chart in
   assert.equal(messages.length, 1);
   assert.equal(updates.length, 1);
   assert.equal(updates[0]?.ts, "123.4");
+  assert.equal(
+    messages[0]?.text,
+    "Bug Fix: Reliability — Repository calls fail",
+  );
+  assert.deepEqual(updates[0]?.blocks, messages[0]?.blocks);
+  assert(JSON.stringify(messages[0]?.blocks).includes('"type":"header"'));
+  assert(!JSON.stringify(messages[0]?.attachments).includes('"type":"header"'));
   const first = JSON.stringify(updates[0]);
   assert(
     first.includes("#8058F4") &&

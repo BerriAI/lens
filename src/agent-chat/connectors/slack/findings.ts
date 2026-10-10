@@ -83,15 +83,17 @@ export async function postCandidate(
   const png = await renderChartPng(chartPayload);
   const parent = {
     channel: config.channel,
-    text: "Lens found an improvement candidate",
+    text: title,
+    blocks: [
+      {
+        type: "header" as const,
+        text: { type: "plain_text" as const, text: title, emoji: true },
+      },
+    ],
     attachments: [
       {
         color: "#8058F4",
         blocks: [
-          {
-            type: "header" as const,
-            text: { type: "plain_text" as const, text: title, emoji: true },
-          },
           markdown(
             `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · ${status}*\n*Category:* ${category}\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
           ),
@@ -182,13 +184,14 @@ export async function postCandidate(
     channel: config.channel,
     ts: posted.ts,
     text: parent.text,
+    blocks: parent.blocks,
     parse: "none",
     attachments: parent.attachments.map((attachment) => ({
       ...attachment,
       blocks: [
-        ...attachment.blocks.slice(0, 2),
+        ...attachment.blocks.slice(0, 1),
         chart.block,
-        ...attachment.blocks.slice(2),
+        ...attachment.blocks.slice(1),
       ],
     })),
   });
