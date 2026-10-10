@@ -1,7 +1,12 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import type { AgentConfig as Config } from "./config.js";
-import { LensClient, type ReadTool } from "./lens.js";
+import {
+  LensClient,
+  traceWindowSchema,
+  type ReadTool,
+  type TraceWindow,
+} from "./lens.js";
 import type { Frequency, FindingContext as FindingThread } from "./models.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { Repository } from "./repository.js";
@@ -108,43 +113,40 @@ export async function replyTools(
       }
     : undefined;
   if (traceContext) allow(traceContext);
+  const executeRead = async (name: ReadTool, window?: TraceWindow) => {
+    if (used.has(name))
+      return "This evidence was already read in this answer; use the previous result";
+    used.add(name);
+    const result = await client.read(name, signal, window);
+    const data: unknown = JSON.parse(result);
+    allow(data);
+    const metrics = z
+      .object({
+        metrics: z.array(
+          z.object({
+            id: z.string(),
+            category: z.enum(["Performance", "Agent quality", "Reliability"]),
+            label: z.string(),
+            count: z.number().int().nonnegative(),
+            total: z.number().int().positive(),
+            title: z.string(),
+            unit: z.string(),
+            affected_trace_ids: z.array(z.string()),
+          }),
+        ),
+      })
+      .safeParse(data);
+    if (metrics.success)
+      for (const metric of metrics.data.metrics)
+        frequencies[metric.id] = metric;
+    return result;
+  };
   const read = (name: ReadTool, description: string) =>
     tool({
       name,
       description,
       parameters: z.object({}),
-      execute: async () => {
-        if (used.has(name))
-          return "This evidence was already read in this answer; use the previous result";
-        used.add(name);
-        const result = await client.read(name, signal);
-        const data: unknown = JSON.parse(result);
-        allow(data);
-        const metrics = z
-          .object({
-            metrics: z.array(
-              z.object({
-                id: z.string(),
-                category: z.enum([
-                  "Performance",
-                  "Agent quality",
-                  "Reliability",
-                ]),
-                label: z.string(),
-                count: z.number().int().nonnegative(),
-                total: z.number().int().positive(),
-                title: z.string(),
-                unit: z.string(),
-                affected_trace_ids: z.array(z.string()),
-              }),
-            ),
-          })
-          .safeParse(data);
-        if (metrics.success)
-          for (const metric of metrics.data.metrics)
-            frequencies[metric.id] = metric;
-        return result;
-      },
+      execute: () => executeRead(name),
     });
   const used = new Set<ReadTool>();
 
@@ -172,10 +174,13 @@ export async function replyTools(
           }),
         ]
       : [
-          read(
-            "recent_traces",
-            "Read retained trace history, interactive-root timing and tool-failure metrics, bounded user requests and outputs, and exact evidence links",
-          ),
+          tool({
+            name: "recent_traces",
+            description:
+              "Read trace timing, tool-failure metrics and user requests for the requested window. Set lookback_hours for requests such as last 12 hours, or ISO start and end. Leave all fields null only for all retained history. One fixed window per answer",
+            parameters: traceWindowSchema,
+            execute: (window) => executeRead("recent_traces", window),
+          }),
           read(
             "findings",
             "Read this agent's open investigation candidates and suggested experiments",

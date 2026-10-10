@@ -74,6 +74,146 @@ test("bounded trace scans select exact agent and remove captured content", async
   assert(!result.includes("private"));
 });
 
+test("a lookback fixes one end across pagination while omitted windows retain the historical scan", async (context) => {
+  const now = Date.parse("2026-01-02T12:00:00Z");
+  context.mock.timers.enable({ apis: ["Date"], now });
+  const requests: URL[] = [];
+  const client = new LensClient(config, async (url) => {
+    requests.push(new URL(String(url)));
+    context.mock.timers.tick(60_000);
+    return response({
+      data: [],
+      next_cursor: requests.length === 1 ? "page-two" : null,
+    });
+  });
+  const selected = await client.recent(signal, 15, { lookback_hours: 12 });
+  assert.equal(requests.length, 2);
+  for (const request of requests) {
+    assert.equal(
+      request.searchParams.get("start_ms"),
+      String(now - 43_200_000),
+    );
+    assert.equal(request.searchParams.get("end_ms"), String(now));
+  }
+  assert.equal(requests[1]?.searchParams.get("cursor"), "page-two");
+  assert.equal(
+    selected.window,
+    "Traces started from 2026-01-02T00:00:00.000Z (inclusive) to 2026-01-02T12:00:00.000Z (exclusive)",
+  );
+  const retained = await client.recent(signal);
+  assert.equal(requests[2]?.searchParams.get("start_ms"), "0");
+  assert.equal(retained.window, "all retained history");
+});
+
+test("window boundaries and immutable agent scope exclude unrelated traces before report denominators", async () => {
+  const start = "2026-01-02T00:00:00Z";
+  const end = "2026-01-02T12:00:00Z";
+  const rows = [
+    ["before", "2026-01-01T23:59:59.999Z"],
+    ["at-start", start],
+    ["inside", "2026-01-02T11:59:59.999Z"],
+    ["at-end", end],
+    ["after", "2026-01-02T12:00:00.001Z"],
+  ].map(([id, time]) => ({
+    ...trace("selected"),
+    trace_id: id!,
+    start_time: time!,
+  }));
+  const details: string[] = [];
+  const client = new LensClient(config, async (url) => {
+    const target = new URL(String(url));
+    if (target.pathname === "/v1/traces") {
+      assert.equal(
+        target.searchParams.get("start_ms"),
+        String(Date.parse(start)),
+      );
+      assert.equal(target.searchParams.get("end_ms"), String(Date.parse(end)));
+      return response({
+        data: [...rows, { ...trace("other"), start_time: start }],
+        next_cursor: null,
+      });
+    }
+    const id = target.pathname.split("/")[3]!;
+    if (target.pathname.includes("/spans/"))
+      return response({
+        span_id: "root",
+        input: JSON.stringify([
+          { role: "user", content: "Please finish this task" },
+        ]),
+        output: "Task result",
+        attributes: { "gen_ai.operation.name": "invoke_agent" },
+      });
+    details.push(id);
+    return response({
+      summary: { trace_id: id, agent_names: ["selected"] },
+      spans: [
+        {
+          span_id: "root",
+          parent_span_id: null,
+          name: "selected",
+          type: "agent",
+          status: id === "at-start" ? "error" : "ok",
+          duration_ms: 100,
+          error: null,
+        },
+      ],
+    });
+  });
+  const report = await client.report(signal, { start, end });
+  assert.deepEqual(details.sort(), ["at-start", "inside"]);
+  assert.equal(report.population.inspected_traces, 2);
+  assert.equal(report.population.terminal_traces, 2);
+  assert.deepEqual(
+    report.metrics.find((metric) => metric.id === "root_errors"),
+    {
+      id: "root_errors",
+      category: "Reliability",
+      count: 1,
+      total: 2,
+      label: "1/2 completed interactive turns ended with root errors",
+      title: "Interactive turns end with an error status",
+      unit: "completed interactive turns",
+      affected_trace_ids: ["at-start"],
+    },
+  );
+  assert.equal(
+    report.window,
+    "Traces started from 2026-01-02T00:00:00.000Z (inclusive) to 2026-01-02T12:00:00.000Z (exclusive)",
+  );
+});
+
+test("invalid windows fail closed before any HTTP request or agent scope override", async () => {
+  const end = "2026-01-02T12:00:00Z";
+  let requests = 0;
+  const client = new LensClient(config, async () => {
+    requests++;
+    return response({ data: [], next_cursor: null });
+  });
+  for (const window of [
+    { lookback_hours: 0 },
+    { lookback_hours: -1 },
+    { lookback_hours: Number.POSITIVE_INFINITY },
+    { start: "2026-01-02T00:00:00Z" },
+    { end },
+    { start: end, end },
+    { start: "2026-01-03T00:00:00Z", end },
+    { start: "2026-01-01", end },
+    { start: "2026-01-01T12:00:00", end },
+    { lookback_hours: 12, start: "2026-01-02T00:00:00Z", end },
+    {
+      lookback_hours: 12,
+      end: new Date(Date.now() + 86_400_000).toISOString(),
+    },
+    { lookback_hours: 12, agent: "other" },
+  ]) {
+    const result = JSON.parse(
+      await client.read("recent_traces", signal, window),
+    );
+    assert(result.unavailable, JSON.stringify(window));
+  }
+  assert.equal(requests, 0);
+});
+
 test("findings preserve candidate uncertainty and canonical evidence route without raw quotes", async () => {
   const finding = {
     id: "f1",
