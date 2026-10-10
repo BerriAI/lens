@@ -360,7 +360,7 @@ describe("AgentTracesSection", () => {
     expect(waiting.getByRole("button", { name: "Check for traces" })).toBeEnabled();
   });
 
-  it("lists uninvestigated runs without presenting tool errors as failures", async () => {
+  it("lists step errors separately from investigation findings", async () => {
     vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
     renderSection();
 
@@ -369,13 +369,37 @@ describe("AgentTracesSection", () => {
     const lead = rows.find((row) => row.textContent?.includes("Should we store OTEL agent spans"));
     expect(lead).toBeDefined();
     const failed = rows.find((row) => row.textContent?.includes("acme-404")) as HTMLElement;
-    expect(within(failed).queryByLabelText("2 errors")).not.toBeInTheDocument();
+    expect(within(failed).getByText("2 step errors")).toBeVisible();
     expect(await within(failed).findByTitle("No completed analysis for this trace")).toHaveTextContent("-");
     expect(screen.getByRole("columnheader", { name: "Findings" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Failed" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Cost" })).toBeInTheDocument();
     const costColumn = screen.getAllByRole("columnheader").findIndex((header) => header.textContent === "Cost");
     expect(within(failed).getAllByRole("cell")[costColumn]).toHaveTextContent("—");
+  });
+
+  it("shows and filters step errors even when the overall run did not fail", async () => {
+    const user = userEvent.setup();
+    vi.mocked(agentTraceListCall).mockResolvedValue({
+      data: [
+        { ...runs[0], trace_id: "recovered", status: "ok", error_count: 1, input_preview: "Recovered request" },
+        { ...runs[1], trace_id: "unset", status: "unset", error_count: 2, input_preview: "Unset request" },
+        { ...runs[2], trace_id: "clean", status: "ok", error_count: 0, input_preview: "Clean request" },
+        { ...runs[2], trace_id: "failed", status: "error", error_count: 0, input_preview: "Failed request" },
+      ],
+      next_cursor: null,
+    });
+    renderSection();
+    expect(await screen.findByText("1 step error")).toBeVisible();
+    expect(screen.getByText("2 step errors")).toBeVisible();
+    expect(screen.getByText("Run error")).toBeVisible();
+
+    await user.click(screen.getByRole("combobox", { name: "Filter traces by status" }));
+    await user.click(await screen.findByRole("option", { name: "With errors" }));
+    expect(screen.getByText("Recovered request")).toBeVisible();
+    expect(screen.getByText("Unset request")).toBeVisible();
+    expect(screen.getByText("Failed request")).toBeVisible();
+    expect(screen.queryByText("Clean request")).not.toBeInTheDocument();
   });
 
   it("distinguishes uninvestigated traces, completed clean investigations, and findings", async () => {

@@ -104,24 +104,24 @@ describe("Lens introduction", () => {
     window.sessionStorage.setItem("lens.intro.seen", "true");
     const user = userEvent.setup();
     const first = renderWorkspace();
-    const intro = await screen.findByRole("region", { name: "Get started with Lens" });
+    const intro = await screen.findByRole("region", { name: "Connect an agent" });
     expect(
       within(screen.getByRole("tabpanel", { name: "Home" })).getByRole("region", {
-        name: "Get started with Lens",
+        name: "Connect an agent",
       }),
     ).toBe(intro);
-    expect(within(intro).getByRole("heading", { name: "Get your first trace" })).toBeVisible();
+    expect(within(intro).getByRole("heading", { name: "Connect a new agent" })).toBeVisible();
     expect(within(intro).getByRole("button", { name: "Copy setup instructions" })).toBeEnabled();
     expect(within(intro).queryByRole("textbox", { name: "Agent name" })).not.toBeInTheDocument();
-    expect(within(intro).getAllByRole("button", { name: "Deployment setup" })[0]).toBeVisible();
+    expect((await within(intro).findAllByRole("button", { name: "Deployment setup" }))[0]).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Before you start" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Traces" }));
     expect(await screen.findByRole("region", { name: "Waiting for traces" })).toBeVisible();
-    expect(screen.queryByRole("region", { name: "Get started with Lens" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Connect an agent" })).not.toBeInTheDocument();
     first.unmount();
     renderWorkspace();
-    expect(await screen.findByRole("region", { name: "Get started with Lens" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Connect an agent" })).toBeVisible();
     expect(screen.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -217,8 +217,8 @@ describe("Lens setup journey", () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     renderWorkspace({ onUrlUpdate });
-    const home = within(await screen.findByRole("region", { name: "Get started with Lens" }));
-    await user.click(home.getAllByRole("button", { name: "Deployment setup" })[0]);
+    const home = within(await screen.findByRole("region", { name: "Connect an agent" }));
+    await user.click((await home.findAllByRole("button", { name: "Deployment setup" }))[0]);
     await waitFor(() => expect(setupParam(onUrlUpdate)).toBe("lens"));
     const intro = within(await screen.findByRole("region", { name: "Get started with Lens" }));
     serve({ enabled: true });

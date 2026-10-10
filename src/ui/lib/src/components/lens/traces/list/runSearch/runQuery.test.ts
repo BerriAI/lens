@@ -15,20 +15,20 @@ describe("filterRuns", () => {
     expect(ids("gpt-5")).toEqual([]);
   });
 
-  it("splits runs by their overall status", () => {
+  it("splits runs by whether errors were recorded", () => {
     expect(ids("status:error")).toEqual(["bbb222"]);
     expect(ids("-status:error")).toEqual(["aaa111", "ccc333"]);
     expect(ids("status:OK")).toEqual(["aaa111", "ccc333"]);
   });
 
-  it.each(["ok", "unset"] as const)("keeps %s runs with recovered tool errors in non-failed filters", (status) => {
+  it.each(["ok", "unset"] as const)("includes %s runs with step errors in error filters", (status) => {
     const recovered = run({ status, error_count: 8 });
-    expect(filterRuns([recovered], "status:error")).toEqual([]);
-    expect(filterRuns([recovered], "", { agent: "", status: "error" })).toEqual([]);
-    expect(filterRuns([recovered], "status:ok")).toEqual([recovered]);
-    expect(filterRuns([recovered], "", { agent: "", status: "ok" })).toEqual([recovered]);
-    expect(filterRuns([recovered], "-status:error")).toEqual([recovered]);
-    expect(fieldValues(RUN_INDEX, [recovered], "status")).toEqual(["ok"]);
+    expect(filterRuns([recovered], "status:error")).toEqual([recovered]);
+    expect(filterRuns([recovered], "", { agent: "", status: "error" })).toEqual([recovered]);
+    expect(filterRuns([recovered], "status:ok")).toEqual([]);
+    expect(filterRuns([recovered], "", { agent: "", status: "ok" })).toEqual([]);
+    expect(filterRuns([recovered], "-status:error")).toEqual([]);
+    expect(fieldValues(RUN_INDEX, [recovered], "status")).toEqual(["error"]);
   });
 
   it("reads agents from the trace, falling back to the service, and models from the run", () => {

@@ -55,12 +55,8 @@ it("copies complete instructions from the first screen and exposes the next conv
     />,
   );
 
-  expect(
-    screen.getByRole("heading", { name: "Give this to your coding agent" }),
-  ).toBeVisible();
-  expect(screen.getByText(/^Connect this project to Lens\./)).toHaveTextContent(
-    "What would you like to instrument next?",
-  );
+  expect(screen.getByText("Claude Code", { exact: true })).toBeVisible();
+  expect(screen.getByText(/The instructions help your coding agent/)).toHaveTextContent("run one real task");
   await user.click(
     screen.getByRole("button", { name: "Copy setup instructions" }),
   );

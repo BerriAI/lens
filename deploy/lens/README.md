@@ -24,9 +24,11 @@ Rerunning the start command preserves the environment file, credentials and Clic
 
 ## Record your first trace
 
-Open **Traces** and choose **Set up tracing** if the setup panel is not already open. Then select your framework, and create a tracing key. Copy the generated configuration into your agent. Keep your agent's existing model endpoint and provider credential; the separate Lens tracing key authorizes telemetry uploads
+Open **Home** and choose **Copy instructions with new key**. Lens creates a tracing key and copies complete setup instructions, including your Lens address and key. Paste them into your coding agent inside the project you want to connect. The instructions tell the coding agent to save the key in your project's ignored environment file. The key will also be in that coding agent's chat history. To keep the key out of chat, choose **Set up manually**, create a key, and save it locally as `LITELLM_TRACING_KEY`. You can then return to **Use a coding agent** and choose **Copy without key**
 
-Run your agent, then use **Check for traces** in setup or open **Traces**. Open the matching run and inspect its messages and tool calls. The **Demo data** switch shows examples; it does not verify your agent connection
+If your project already has a key, choose **Use an existing key**. **Manage tracing keys** lets you select an existing key to watch for its new traces or revoke a key. Existing secret values cannot be retrieved again. Keep your agent's model endpoint and provider credential; tracing keys authorize telemetry uploads and delivery checks
+
+Run one actual agent task. The coding agent verifies that exact trace arrived and gives you a link. Home watches for new traces sent with your selected key and offers **Open trace** when one arrives. With a shared existing key, check that the displayed agent is the one you just connected. For manual configuration, choose **Set up manually**. The **Demo data** switch shows examples; it does not verify your agent connection
 
 For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Authorization: Bearer <tracing-key>`. That address works for an agent running on the same host. An agent in another container or on another machine needs a Lens address reachable from there
 

@@ -7,7 +7,7 @@ import type { SearchFilter, SearchQuery } from "../../../../shared/search/search
 import type { RunField } from "./runQuery";
 
 const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,
-       if(ifNull(any(RootStatus), '') IN ('STATUS_CODE_ERROR', 'error'), 'error', 'ok') AS status,
+       if(sum(ErrorCount) > 0 OR ifNull(any(RootStatus), '') IN ('STATUS_CODE_ERROR', 'error'), 'error', 'ok') AS status,
        groupUniqArrayArray(AgentNames) AS agents, groupUniqArrayArray(Models) AS models
 FROM agent_traces_by_key
 GROUP BY TraceId`;

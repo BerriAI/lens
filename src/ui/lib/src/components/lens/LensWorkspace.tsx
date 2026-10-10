@@ -168,6 +168,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   };
   const showSentTrace = (trace: TraceSummary) => {
     leaveSetup();
+    if (trace.agent_names?.[0]) agents.select(trace.agent_names[0]);
     setTab("traces");
     openTrace(traceRefOf(trace));
   };
@@ -217,7 +218,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
                     )}
                     <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
-                    {connectGitHub && agents.agent && activeTab !== "agents" && (
+                    {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
                         size="icon-sm"
@@ -266,7 +267,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    {connectGitHub && agents.agent && activeTab !== "agents" && (
+                    {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -301,14 +302,13 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </TabsContent>
                 ) : (
                   <>
-                    <TabsContent value="home" className={PANEL}>
+                    <TabsContent value="home" keepMounted className={PANEL}>
                       <LensHome
+                        key={accessToken}
                         agents={agents}
-                        enabled={!demo}
-                        onOpenAgent={agents.select}
+                        enabled={!demo && activeTab === "home"}
                         onOpenAgents={() => navigate("agents")}
                         onSetup={canConfigure ? startSetup : undefined}
-                        onConnectGitHub={connectGitHub}
                       />
                     </TabsContent>
                     <TabsContent value="agents" className={PANEL}>
@@ -363,6 +363,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         ) : undefined
                       }
                       onConnectProject={connectProject}
+                      onSetup={canConfigure ? startSetup : undefined}
                     />
                   </TabsContent>
                 )}

@@ -120,6 +120,13 @@ function InputCell({ run }: { run: TraceSummary }) {
   const input = singleLine(previewText(run.input_preview));
   return (
     <div className="flex min-w-0 items-center gap-2">
+      {(run.error_count > 0 || run.status === "error") && (
+        <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+          {run.error_count > 0
+            ? `${run.error_count.toLocaleString()} step ${run.error_count === 1 ? "error" : "errors"}`
+            : "Run error"}
+        </span>
+      )}
       {input ? (
         <span className="truncate text-foreground">{input}</span>
       ) : (

@@ -1,275 +1,171 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { renderWithLens, requestPath, stubGateway } from "../../../../tests/lens-test-utils";
+import { beforeEach, expect, it, vi } from "vitest";
+import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
+import fixture from "../traces/__fixtures__/trace_list.json";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
 
-beforeEach(() => {
-  testQueryClient.clear();
-  vi.clearAllMocks();
-  viewport(true);
-});
-
-afterEach(() => vi.restoreAllMocks());
-
-function viewport(desktop: boolean) {
-  vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-    matches: desktop && query === "(min-width: 1024px)",
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }));
-}
-
-const readyService = {
-  url: "https://lens.example",
-  connected: true,
-  status: { storage_ready: true, credentials_ready: true },
+const key = {
+  id: "key-one",
+  name: "New agent key",
+  created_at: "2026-10-10T00:00:00Z",
+  expires_at: null,
+  tenant: { api_key_hash: "a".repeat(64), team_id: "", user_id: "test" },
+};
+const summary = {
+  ...fixture.data[0],
+  trace_id: "1".repeat(32),
+  trace_ref: "B".repeat(64),
+  agent_names: ["connected-agent"],
 };
 
-it("should discover fresh traffic from an existing agent and use its actual name in both next actions", async () => {
+beforeEach(() => testQueryClient.clear());
+
+it.each([401, 403])("reports a receipt permission failure (%s) without claiming delivery", async (status) => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ detail: "Access required" }, { status })));
+  renderWithLens(<HomeConnectionStatus keyRecord={key} startedAt={Date.now()} enabled onRestart={vi.fn()} />);
+  expect(await screen.findByText(status === 401 ? "Sign in again to check delivery." : "Your account cannot check delivery. Ask your Lens administrator for access.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Open trace" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Check again" })).not.toBeInTheDocument();
+});
+
+it("checks only traces sent after setup with the selected key, and opens the exact trace", async () => {
   const user = userEvent.setup();
   const gateway = stubGateway();
-  const startedAfter = Date.now() - 1000;
-  const onOpenTraces = vi.fn();
-  const onConnectGitHub = vi.fn();
-  const agent = {
-    name: "detected-project-agent",
-    runs: 4,
-    failed_runs: 0,
-    last_seen: new Date(startedAfter - 1000).toISOString(),
-    frameworks: [],
-  };
-  const agents = vi.fn(() => ({ agents: [agent] }));
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : agents()));
+  const openTrace = vi.fn();
+  const startedAt = Date.now() - 1000;
+  gateway.post.mockReturnValue({
+    data: [{ trace_id: summary.trace_id, trace_ref: summary.trace_ref }],
+  });
+  gateway.get.mockReturnValue({ summary, spans: [], agents: [] });
   renderWithLens(
     <HomeConnectionStatus
-      name=""
+      keyRecord={key}
+      startedAt={startedAt}
       enabled
-      discoverAfter={startedAfter}
-      onOpenTraces={onOpenTraces}
-      onConnectGitHub={onConnectGitHub}
+      onRestart={vi.fn()}
     />,
+    { onboarding: { openTrace } },
   );
+  expect(await screen.findByText("Trace received")).toBeVisible();
+  expect(screen.getByText(/A new trace from connected-agent/)).toBeVisible();
+  expect(gateway.post).toHaveBeenCalledWith(
+    "/v1/traces/query",
+    expect.objectContaining({
+      body: {
+        sql: expect.stringContaining(
+          `WHERE ApiKeyHash = '${key.tenant.api_key_hash}'`,
+        ),
+      },
+    }),
+  );
+  expect(gateway.post).toHaveBeenCalledWith(
+    "/v1/traces/query",
+    expect.objectContaining({
+      body: {
+        sql: expect.stringContaining(
+          `min(StartTs) >= fromUnixTimestamp64Milli(${startedAt})`,
+        ),
+      },
+    }),
+  );
+  expect(gateway.get).toHaveBeenCalledWith(
+    `/v1/traces/${summary.trace_id}`,
+    expect.objectContaining({
+      query: expect.objectContaining({ trace_ref: summary.trace_ref }),
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Open trace" }));
+  expect(openTrace).toHaveBeenCalledWith(summary);
+});
 
-  expect(await screen.findByText("Reachable")).toBeVisible();
-  expect(screen.getByText("Waiting for traces")).toBeVisible();
-  expect(screen.getByText("New named traces")).toBeVisible();
-  expect(screen.queryByText(/Name your agent|Step 3 of 3|Get a tracing key/)).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "View traces" })).not.toBeInTheDocument();
-
-  agents.mockReturnValue({ agents: [{ ...agent, runs: 5 }] });
-  await user.click(screen.getByRole("button", { name: "Check connection" }));
-  expect(screen.queryByRole("button", { name: "View traces" })).not.toBeInTheDocument();
-
-  agents.mockReturnValue({
+it("does not claim unrelated agent activity as setup success when no key is selected", () => {
+  const gateway = stubGateway();
+  gateway.get.mockReturnValue({
     agents: [
       {
-        ...agent,
-        runs: 6,
-        last_seen: new Date(startedAfter + 500).toISOString(),
+        name: "background-agent",
+        runs: 1,
+        last_seen: new Date().toISOString(),
       },
     ],
   });
-  await user.click(screen.getByRole("button", { name: "Check connection" }));
-  expect(await screen.findByText("New trace received")).toBeVisible();
-  expect(screen.getByText(/What would you like to instrument next\?/)).toBeVisible();
-  expect(screen.getByText(agent.name)).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "View traces" }));
-  expect(onOpenTraces).toHaveBeenCalledWith(agent.name);
-  await user.click(screen.getByRole("button", { name: "Connect GitHub" }));
-  expect(onConnectGitHub).toHaveBeenCalledWith(agent.name);
-});
-
-it("should name background traffic on mobile without claiming that the setup run is verified", async () => {
-  viewport(false);
-  const gateway = stubGateway();
-  const startedAfter = Date.now() - 1000;
-  const agent = {
-    name: "production-background-agent",
-    runs: 1,
-    failed_runs: 0,
-    last_seen: new Date(startedAfter + 500).toISOString(),
-    frameworks: [],
-  };
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : { agents: [agent] }));
-  renderWithLens(<HomeConnectionStatus name="" enabled discoverAfter={startedAfter} onOpenTraces={vi.fn()} />);
-
-  expect(await screen.findByText("New trace received")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Connection details" })).toHaveAttribute("aria-expanded", "false");
-  expect(screen.getByText(`A trace arrived from “${agent.name}”.`, { exact: false })).toBeVisible();
-  expect(screen.getByText(/Your coding agent will verify the run it sent before asking/)).toBeVisible();
-  expect(screen.queryByText("Agent connected")).not.toBeInTheDocument();
-  expect(screen.queryByText(/Your coding agent should now ask/)).not.toBeInTheDocument();
-});
-
-it.each([
-  ["name", "Choose your project and agent name to watch for its traces here."],
-  ["key", "Get a tracing key, then connect your project using the setup instructions."],
-  [
-    "instructions",
-    "Your coding agent will run one task and verify its trace. Lens checks for new traffic automatically.",
-  ],
-] as const)("should explain the next action at the %s stage without asking for a run", async (stage, guidance) => {
-  const gateway = stubGateway();
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : { agents: [] }));
-  renderWithLens(<HomeConnectionStatus name="support-agent" enabled stage={stage} onOpenTraces={vi.fn()} />);
-
-  expect(await screen.findByText("Reachable")).toBeVisible();
-  expect(screen.getByRole("region", { name: "Live connection" })).toBeVisible();
-  expect(screen.getByText(guidance)).toBeVisible();
-  expect(screen.getByText("Waiting for traces")).toBeVisible();
-  expect(screen.queryByText(/Run one task/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/Nothing arriving/)).not.toBeInTheDocument();
-});
-
-it("should preserve the arrival baseline when entering verification and confirm only a newly observed trace", async () => {
-  const user = userEvent.setup();
-  const gateway = stubGateway();
-  const onOpenTraces = vi.fn();
-  const agent = {
-    name: "support-agent",
-    runs: 1,
-    failed_runs: 0,
-    last_seen: new Date().toISOString(),
-    frameworks: [],
-  };
-  const agents = vi.fn(() => ({ agents: [agent] }));
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : agents()));
-  const view = renderWithLens(
-    <HomeConnectionStatus name={agent.name} enabled stage="instructions" onOpenTraces={onOpenTraces} />,
-  );
-  expect(await screen.findByText("Waiting for new traces")).toBeVisible();
-
-  view.rerender(<HomeConnectionStatus name={agent.name} enabled stage="verify" onOpenTraces={onOpenTraces} />);
-  expect(screen.getByRole("heading", { name: "Run one task" })).toHaveFocus();
-  expect(screen.getByText("Run your agent once. Lens will confirm a new trace here.")).toBeVisible();
-  expect(screen.queryByRole("heading", { name: "Traces received" })).not.toBeInTheDocument();
-  expect(screen.getByText("Waiting for new traces")).toBeVisible();
-
-  agents.mockReturnValue({ agents: [{ ...agent, runs: 2 }] });
-  await user.click(screen.getByRole("button", { name: "Check connection" }));
-  expect(await screen.findByRole("heading", { name: "Traces received" })).toBeVisible();
-  expect(screen.getByText("Receiving traces")).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "View traces" }));
-  expect(onOpenTraces).toHaveBeenCalledWith(agent.name);
-});
-
-it("should explain a storage blocker and recheck both service health and named trace progress", async () => {
-  const user = userEvent.setup();
-  const gateway = stubGateway();
-  const onOpenTraces = vi.fn();
-  const service = {
-    url: "https://lens.example",
-    connected: true,
-    status: { storage_ready: false, credentials_ready: true },
-  };
-  const agent = {
-    name: "support-agent",
-    runs: 1,
-    failed_runs: 0,
-    last_seen: new Date().toISOString(),
-    frameworks: [],
-  };
-  const health = vi.fn(() => service);
-  const agents = vi.fn(() => ({ agents: [agent] }));
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? health() : agents()));
   renderWithLens(
-    <HomeConnectionStatus name={agent.name} enabled stage="verify" keyReady={false} onOpenTraces={onOpenTraces} />,
+    <HomeConnectionStatus startedAt={Date.now()} enabled onRestart={vi.fn()} />,
   );
-
-  expect(screen.getByRole("region", { name: "Live connection" })).toBeVisible();
-  expect(await screen.findByText("Connection needs attention")).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Check your connection" })).toBeVisible();
-  expect(screen.getByText("Not ready")).toBeVisible();
-  expect(await screen.findByRole("button", { name: "View traces" })).toBeVisible();
-  expect(screen.queryByText("Receiving traces")).not.toBeInTheDocument();
-
-  health.mockReturnValue({
-    ...service,
-    status: { ...service.status, storage_ready: true },
-  });
-  agents.mockReturnValue({ agents: [{ ...agent, runs: 2 }] });
-  await user.click(screen.getByRole("button", { name: "Check connection" }));
-  expect(await screen.findByText("Receiving traces")).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Traces received" })).toBeVisible();
-  expect(screen.getByText("Activation unconfirmed")).toBeVisible();
-  expect(screen.queryByText("Not ready")).not.toBeInTheDocument();
-  expect(screen.getByText(/^Last checked /)).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "View traces" }));
-  expect(onOpenTraces).toHaveBeenCalledWith(agent.name);
+  expect(screen.getByText("Waiting for your agent’s trace")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Open trace" }),
+  ).not.toBeInTheDocument();
+  expect(gateway.get).not.toHaveBeenCalled();
+  expect(gateway.post).not.toHaveBeenCalled();
 });
 
-it("should keep existing traces available while mobile connection details are collapsed", async () => {
-  viewport(false);
+it("retains waiting state when the selected key has no new trace", async () => {
+  const gateway = stubGateway();
+  gateway.post.mockReturnValue({ data: [] });
+  renderWithLens(
+    <HomeConnectionStatus
+      keyRecord={key}
+      startedAt={Date.now()}
+      enabled
+      onRestart={vi.fn()}
+    />,
+  );
+  await waitFor(() => expect(gateway.post).toHaveBeenCalledOnce());
+  expect(screen.getByText("Waiting for your agent’s trace")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Open trace" }),
+  ).not.toBeInTheDocument();
+  expect(gateway.get).not.toHaveBeenCalled();
+});
+
+it("bounds automatic waiting and allows a saved connection to be checked again", async () => {
   const user = userEvent.setup();
   const gateway = stubGateway();
-  const onOpenTraces = vi.fn();
-  const agent = {
-    name: "support-agent",
-    runs: 2,
-    failed_runs: 0,
-    last_seen: new Date().toISOString(),
-    frameworks: [],
-  };
-  gateway.get.mockImplementation((path) => (path === "/lens/service" ? readyService : { agents: [agent] }));
-  renderWithLens(<HomeConnectionStatus name={agent.name} enabled stage="key" onOpenTraces={onOpenTraces} />);
-
-  expect(await screen.findByText("Waiting for new traces")).toBeVisible();
-  const toggle = screen.getByRole("button", { name: "Connection details" });
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByRole("button", { name: "Check connection" })).not.toBeInTheDocument();
-  expect(screen.getByText("Lens API")).not.toBeVisible();
-  expect(screen.queryByText(/Nothing arriving/)).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "View traces" }));
-  expect(onOpenTraces).toHaveBeenCalledWith(agent.name);
-
-  await user.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByText("Lens API")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Check connection" })).toBeVisible();
-  await user.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.getByText("Lens API")).not.toBeVisible();
-  expect(screen.getByRole("button", { name: "View traces" })).toBeVisible();
+  gateway.post.mockReturnValue({
+    data: [{ trace_id: summary.trace_id, trace_ref: summary.trace_ref }],
+  });
+  gateway.get.mockReturnValue({ summary, spans: [], agents: [] });
+  renderWithLens(
+    <HomeConnectionStatus
+      keyRecord={key}
+      startedAt={Date.now() - 360_000}
+      enabled
+      onRestart={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("No trace received yet")).toBeVisible();
+  expect(gateway.post).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Check again" }));
+  expect(await screen.findByText("Trace received")).toBeVisible();
 });
 
-it.each([
-  [401, "Sign in again", "Your session is no longer valid. Sign in again to check your connection.", "support-agent"],
-  [
-    403,
-    "Access required",
-    "Your account cannot check this connection. Ask your Lens administrator for access.",
-    "support-agent",
-  ],
-  [401, "Sign in again", "Your session is no longer valid. Sign in again to check your connection.", ""],
-  [403, "Access required", "Your account cannot check this connection. Ask your Lens administrator for access.", ""],
-] as const)(
-  "should explain a %s access failure without exposing backend details (%s)",
-  async (status, title, guidance, name) => {
-    viewport(false);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(async (input) =>
-        requestPath(input) === "/lens/service"
-          ? Response.json(readyService)
-          : Response.json({ detail: "Private backend credentials" }, { status }),
-      ),
-    );
-    renderWithLens(
-      <HomeConnectionStatus name={name} enabled stage="key" discoverAfter={Date.now()} onOpenTraces={vi.fn()} />,
-    );
-
-    expect(await screen.findByText(title)).toBeVisible();
-    expect(screen.getByText(guidance)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Connection details" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText(/Private backend credentials/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Receiving traces")).not.toBeInTheDocument();
-    expect(screen.queryByText("Checking every 3s")).not.toBeInTheDocument();
-  },
-);
+it("offers recovery after a failed receipt lookup without reporting success", async () => {
+  const user = userEvent.setup();
+  const gateway = stubGateway();
+  gateway.post.mockImplementation(() => {
+    throw new Error("Storage unavailable");
+  });
+  renderWithLens(
+    <HomeConnectionStatus
+      keyRecord={key}
+      startedAt={Date.now()}
+      enabled
+      onRestart={vi.fn()}
+    />,
+  );
+  expect(
+    await screen.findByText("Could not check for your trace"),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Open trace" }),
+  ).not.toBeInTheDocument();
+  gateway.post.mockReturnValue({
+    data: [{ trace_id: summary.trace_id, trace_ref: summary.trace_ref }],
+  });
+  gateway.get.mockReturnValue({ summary, spans: [], agents: [] });
+  await user.click(screen.getByRole("button", { name: "Check again" }));
+  expect(await screen.findByText("Trace received")).toBeVisible();
+});

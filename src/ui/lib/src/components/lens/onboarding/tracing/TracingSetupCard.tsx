@@ -30,6 +30,8 @@ import { STANDALONE_DOCS_URL, useLensHost } from "../../../../host/LensHost";
 import { SetupAgentPrompt } from "../SetupAgentPrompt";
 import { projectTracingInstructions } from "../setupPrompt";
 import { connectionAuthStatus } from "../connectionErrors";
+import { createTracingKey, maskSecret, type TracingKeyRecord } from "./tracingKeys";
+export { maskSecret } from "./tracingKeys";
 
 const COPIED_RESET_MS = 1500;
 const DOCS_URL = "https://docs.litellm.ai/docs/proxy/lens";
@@ -84,9 +86,6 @@ export const codingAgentPrompt = (
 export const projectSetupPrompt = (traceUrl: string): string =>
   projectTracingInstructions(traceUrl).join("\n\n");
 
-export const maskSecret = (secret: string): string =>
-  secret.length > 10 ? `${secret.slice(0, 5)}${"•".repeat(16)}${secret.slice(-4)}` : "•".repeat(secret.length);
-
 export const otlpEndpoints = (proxyUrl: string): readonly (readonly [string, string, boolean])[] => [
   ["Traces endpoint", `${proxyUrl}/v1/traces`, true],
   ["Auth header", "Authorization: Bearer <Lens tracing key>", true],
@@ -99,16 +98,22 @@ export function CodeBlock({
   tabs,
   wrap = false,
   copyLabel = "Copy",
+  onCopied,
 }: {
   code: string;
   display?: string;
   tabs?: React.ReactNode;
   wrap?: boolean;
   copyLabel?: string;
+  onCopied?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   useTimeout(() => setCopied(false), copied ? COPIED_RESET_MS : null);
-  const copy = async () => setCopied(await copyToClipboard(code));
+  const copy = async () => {
+    const success = await copyToClipboard(code);
+    setCopied(success);
+    if (success) onCopied?.();
+  };
   return (
     <div className="overflow-hidden rounded-md border border-border bg-muted/30">
       <div className="flex min-h-11 items-center border-b border-border px-3 sm:min-h-9">
@@ -323,12 +328,14 @@ export function TracingKey({
   onCreated,
   name = TRACING_KEY_REQUEST.name,
   compact = false,
+  primary = false,
 }: {
   accessToken: string;
   tracingKey: string | null;
-  onCreated: (key: string, active: boolean) => void;
+  onCreated: (key: string, active: boolean, record: TracingKeyRecord) => void;
   name?: string;
   compact?: boolean;
+  primary?: boolean;
 }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -338,14 +345,10 @@ export function TracingKey({
     setCreating(true);
     setError("");
     try {
-      const result = await apiClient.post<components["schemas"]["IngestionKeyCreated"]>("/lens/tracing/keys", {
-        accessToken,
-        body: { name },
-      });
+      const result = await createTracingKey(accessToken, name);
       if (!isMounted()) return;
-      if (!result.key) throw new Error("Lens did not return the new key");
       setPendingActivation(!result.active);
-      onCreated(result.key, result.active);
+      onCreated(result.key, result.active, result.record);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not create a key");
     } finally {
@@ -363,7 +366,7 @@ export function TracingKey({
         <CodeBlock code={tracingKey} display={maskSecret(tracingKey)} tabs={<FileLabel>Your tracing key</FileLabel>} />
         <p className="text-sm text-muted-foreground">
           {compact ? (
-            "Copy and save this key before leaving. It only sends traces; keep your model credentials unchanged."
+            "Available only on this page. Copy this key or include it in the setup instructions to save it in your project."
           ) : (
             <>
               Hidden for safety. Copy copies the full key, and the environment step below includes it. This key can only
@@ -377,15 +380,15 @@ export function TracingKey({
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Button variant="outline" onClick={() => void create()} disabled={creating}>
+      <Button variant={primary ? "default" : "outline"} onClick={() => void create()} disabled={creating}>
         {creating ? (
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />
         ) : (
           <KeyRound aria-hidden="true" className="size-4" />
         )}
-        Generate tracing key
+        {compact ? "Create tracing key" : "Generate tracing key"}
       </Button>
-      <span className="text-sm text-muted-foreground">Use a dedicated Lens key for tracing.</span>
+      {!compact && <span className="text-sm text-muted-foreground">Use a dedicated Lens key for tracing.</span>}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

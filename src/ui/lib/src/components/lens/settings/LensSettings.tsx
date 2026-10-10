@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Activity, ArrowUpRight, Cpu } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StatusDot } from "../../shared/StatusDot";
@@ -11,17 +11,23 @@ import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
 import { DeploymentAnalysis } from "./worker/DeploymentAnalysis";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { GatewayConnection } from "./GatewayConnection";
+import { TracingKeysDialog } from "../onboarding/tracing/TracingKeysDialog";
+import { useTracesLive } from "../traces/api";
 
 const TRACING_DOCS = "https://docs.litellm.ai/docs/proxy/lens";
 
 function TracingSection({
   enabled,
   onConnectProject,
+  onSetup,
 }: {
   enabled: boolean;
   onConnectProject?: () => void;
+  onSetup?: () => void;
 }) {
   const standalone = useLensHost().surface === "standalone";
+  const [manageKeys, setManageKeys] = useState(false);
+  const live = useTracesLive();
   return (
     <SettingsSection
       heading="Tracing"
@@ -38,7 +44,21 @@ function TracingSection({
             {enabled ? "Tracing enabled" : "Tracing is not enabled"}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {live && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setManageKeys(true)}
+            >
+              Manage tracing keys
+            </Button>
+          )}
+          {onSetup && (
+            <Button variant="outline" size="sm" onClick={onSetup}>
+              Deployment setup
+            </Button>
+          )}
           <a
             href={standalone ? STANDALONE_DOCS_URL : TRACING_DOCS}
             target="_blank"
@@ -58,6 +78,9 @@ function TracingSection({
           </Button>
         </div>
       </SettingsCard>
+      {live && (
+        <TracingKeysDialog open={manageKeys} onOpenChange={setManageKeys} />
+      )}
     </SettingsSection>
   );
 }
@@ -66,10 +89,12 @@ export function LensSettings({
   list,
   workerReadyAction,
   onConnectProject,
+  onSetup,
 }: {
   list: LensList;
   workerReadyAction?: ReactNode;
   onConnectProject?: () => void;
+  onSetup?: () => void;
 }) {
   const standalone = useLensHost().surface === "standalone";
   return (
@@ -83,6 +108,7 @@ export function LensSettings({
         <TracingSection
           enabled={list.tracing_enabled}
           onConnectProject={onConnectProject}
+          onSetup={onSetup}
         />
         {standalone && <GatewayConnection />}
         <SignalSettings />

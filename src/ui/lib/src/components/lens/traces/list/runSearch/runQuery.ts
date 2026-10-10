@@ -19,7 +19,8 @@ export type RunField = keyof typeof RUN_FIELDS;
 
 export const RUN_QUERY: QueryLanguage<RunField> = { fields: RUN_FIELDS, ops: ALL_OPERATORS };
 
-const runStatus = (run: TraceSummary): "ok" | "error" => (run.status === "error" ? "error" : "ok");
+const runStatus = (run: TraceSummary): "ok" | "error" =>
+  run.status === "error" || run.error_count > 0 ? "error" : "ok";
 
 /** Reads the run fields off a loaded page; free text searches trace id, input and name. */
 export const RUN_INDEX: ClientIndex<TraceSummary, RunField> = {
