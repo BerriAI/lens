@@ -1,0 +1,95 @@
+{
+  "scope": "Deterministic replay of actual Chat classes with delayed evidence, status and Slack fixtures; not production latency or model-quality evaluation.",
+  "baseline_ref": "55d6a2365a25828d2b9e21ff49ed3c6435e2fcd4",
+  "baseline_chat_blob": "5e941b7621b0eddab00ca050a5a63b0c62c754af",
+  "candidate_chat_blob": "7fd890dd32c8abd636a79f30b9afefe0cce3f45e",
+  "node": "v24.19.0",
+  "fixtures": {
+    "status_delay_ms": 120,
+    "evidence_delay_ms": 180,
+    "slack_write_delay_ms": 10,
+    "trials": 5
+  },
+  "metrics": {
+    "baseline": {
+      "first_text_median_ms": 313.4,
+      "completion_median_ms": 313.4
+    },
+    "candidate": {
+      "first_text_median_ms": 11.2,
+      "completion_median_ms": 203.8
+    }
+  },
+  "rows": [
+    {
+      "version": "baseline",
+      "trial": 1,
+      "first_text_ms": 314.5,
+      "completion_ms": 314.6,
+      "slack_writes": 1
+    },
+    {
+      "version": "candidate",
+      "trial": 1,
+      "first_text_ms": 14.2,
+      "completion_ms": 208.7,
+      "slack_writes": 2
+    },
+    {
+      "version": "baseline",
+      "trial": 2,
+      "first_text_ms": 314.4,
+      "completion_ms": 314.5,
+      "slack_writes": 1
+    },
+    {
+      "version": "candidate",
+      "trial": 2,
+      "first_text_ms": 11.5,
+      "completion_ms": 204.4,
+      "slack_writes": 2
+    },
+    {
+      "version": "baseline",
+      "trial": 3,
+      "first_text_ms": 312.7,
+      "completion_ms": 312.8,
+      "slack_writes": 1
+    },
+    {
+      "version": "candidate",
+      "trial": 3,
+      "first_text_ms": 11.2,
+      "completion_ms": 203.8,
+      "slack_writes": 2
+    },
+    {
+      "version": "baseline",
+      "trial": 4,
+      "first_text_ms": 313.4,
+      "completion_ms": 313.4,
+      "slack_writes": 1
+    },
+    {
+      "version": "candidate",
+      "trial": 4,
+      "first_text_ms": 11.2,
+      "completion_ms": 202.8,
+      "slack_writes": 2
+    },
+    {
+      "version": "baseline",
+      "trial": 5,
+      "first_text_ms": 313.1,
+      "completion_ms": 313.1,
+      "slack_writes": 1
+    },
+    {
+      "version": "candidate",
+      "trial": 5,
+      "first_text_ms": 10.3,
+      "completion_ms": 203.1,
+      "slack_writes": 2
+    }
+  ]
+}

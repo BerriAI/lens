@@ -30,16 +30,19 @@ export async function updateWithChart(
   message: ChatUpdateArguments,
   wait: (ms: number) => Promise<void> = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms)),
+  signal?: AbortSignal,
 ) {
-  return retryChart(() => slack.chat.update(message), wait);
+  return retryChart(() => slack.chat.update(message), wait, signal);
 }
 
 async function retryChart<T>(
   operation: () => Promise<T>,
   wait: (ms: number) => Promise<void>,
+  signal?: AbortSignal,
 ): Promise<T> {
   const delays = [1000, 2000, 4000, 8000];
   for (let attempt = 0; ; attempt++) {
+    signal?.throwIfAborted();
     try {
       return await operation();
     } catch (error) {

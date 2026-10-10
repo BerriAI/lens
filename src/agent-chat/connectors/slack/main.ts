@@ -1,38 +1,39 @@
 import { App, LogLevel } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import { replyAgent } from "./reply.js";
 import { Chat } from "./chat.js";
 import { configFrom, agentConfig, investigatorOptions } from "./config.js";
 import { startInvestigator } from "@litellm/lens-agent/investigator";
 import { postCandidate } from "./findings.js";
-import { answerBlocks } from "./slack.js";
-import { prepareChart, renderChartPng } from "./chart.js";
-import { updateWithChart } from "./slack-transport.js";
+import { slackReplies } from "./responses.js";
+import { within } from "./completion.js";
 import { bootstrapThreads, findingThreads } from "./threads.js";
-import { workingStatus } from "./activity.js";
+import { workingStatus, reactionStatus } from "./activity.js";
 
 async function main() {
   const config = configFrom(process.env);
   if (!config) return;
+  const logger = {
+    debug() {},
+    info() {},
+    warn() {
+      console.warn("Slack chat warning");
+    },
+    error() {
+      console.error("Slack chat transport error");
+    },
+    setLevel() {},
+    getLevel() {
+      return LogLevel.ERROR;
+    },
+    setName() {},
+  };
   const app = new App({
     token: config.botToken,
     appToken: config.appToken,
     socketMode: true,
     logLevel: LogLevel.ERROR,
-    logger: {
-      debug() {},
-      info() {},
-      warn() {
-        console.warn("Slack chat warning");
-      },
-      error() {
-        console.error("Slack chat transport error");
-      },
-      setLevel() {},
-      getLevel() {
-        return LogLevel.ERROR;
-      },
-      setName() {},
-    },
+    logger,
     clientOptions: {
       retryConfig: { retries: 0 },
       rejectRateLimitedCalls: true,
@@ -48,81 +49,33 @@ async function main() {
     config,
     process.env.LENS_SLACK_FINDING_THREADS,
   );
+  const activityClient = new WebClient(config.botToken, {
+    logger,
+    timeout: 2000,
+    retryConfig: { retries: 0 },
+    rejectRateLimitedCalls: true,
+    logLevel: LogLevel.ERROR,
+  });
   const status = workingStatus((args) =>
-    app.client.assistant.threads.setStatus(args),
+    activityClient.assistant.threads.setStatus(args),
   );
+  const reactions = reactionStatus(activityClient);
+  const responses = slackReplies(app.client);
   const chat = new Chat(
     config,
     replyAgent(config),
-    async (channel, thread, answer) => {
-      const measured = answer.opportunities?.find((item) => item.frequency);
-      if (answer.opportunities?.length && !measured?.frequency)
-        throw new Error("A report needs verified chart data");
-      const payload = measured?.frequency
-        ? {
-            title: measured.frequency.title.slice(0, 80),
-            category: measured.category,
-            affected: measured.frequency.count,
-            total: measured.frequency.total,
-            unit: measured.frequency.unit,
-          }
-        : undefined;
-      const png = payload ? await renderChartPng(payload) : undefined;
-      const blocks = answerBlocks(answer);
-      const posted = await app.client.chat.postMessage({
-        channel,
-        thread_ts: thread,
-        text: "Lens replied in this thread",
-        unfurl_links: false,
-        unfurl_media: false,
-        parse: "none",
-        blocks,
-      });
-      if (payload && png) {
-        if (!posted.ts)
-          throw new Error("Slack did not return a report timestamp");
-        try {
-          const chart = await prepareChart(
-            app.client,
-            payload,
-            { channel, thread },
-            png,
-          );
-          await updateWithChart(app.client, {
-            channel,
-            ts: posted.ts,
-            text: "Lens replied in this thread",
-            parse: "none",
-            blocks: [...blocks, chart.block],
-          });
-        } catch (error) {
-          console.error("Slack reply chart delivery is incomplete");
-          throw error;
-        }
-      }
-    },
+    responses.reply,
     Date.now,
     registry,
     async (event, state) => {
-      await status(event, state);
-      if (process.env.LENS_SLACK_REACTIONS_ENABLED !== "true") return;
-      const target = { channel: event.channel, timestamp: event.ts };
-      await app.client.reactions
-        .add({
-          ...target,
-          name:
-            state === "working"
-              ? "eyes"
-              : state === "done"
-                ? "white_check_mark"
-                : "x",
-        })
-        .catch(() => {});
-      if (state !== "working")
-        await app.client.reactions
-          .remove({ ...target, name: "eyes" })
-          .catch(() => {});
+      await Promise.allSettled([
+        status(event, state),
+        ...(process.env.LENS_SLACK_REACTIONS_ENABLED === "true"
+          ? [reactions(event, state)]
+          : []),
+      ]);
     },
+    { acknowledge: responses.acknowledge },
   );
   let stopInvestigator = () => {};
   app.event("app_mention", async ({ event, body }) => {
@@ -157,10 +110,16 @@ async function main() {
   app.error(async () => {
     console.error("Slack chat request failed");
   });
+  let stopping = false;
   for (const signal of ["SIGINT", "SIGTERM"] as const)
     process.once(signal, () => {
+      if (stopping) return;
+      stopping = true;
       stopInvestigator();
-      void app.stop().finally(() => process.exit(0));
+      void Promise.allSettled([
+        chat.shutdown(8000),
+        within(app.stop(), 8000),
+      ]).finally(() => process.exit(0));
     });
   await app.start();
   console.info("Slack mention agent connected");
