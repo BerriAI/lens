@@ -105,6 +105,7 @@ export async function cycle(
     lease_until: started + 300_000,
     owner: randomUUID(),
   });
+  console.info("Lens investigator durable lease acquired");
   if (claimed.value.runs >= deps.dailyLimit || claimed.value.posts >= 3) return;
   const sample = await deps.sample(signal);
   if (!sample.traces.length) return;
@@ -151,6 +152,7 @@ export async function cycle(
       signature,
       lease_until: 0,
     });
+    console.info("Lens investigator analysis persisted; no new report");
     return;
   }
   const committed = await deps.store.commit(reserved, {
@@ -177,6 +179,7 @@ export async function cycle(
     sample,
     source,
   );
+  console.info("Lens investigator report delivered with durable provenance");
 }
 
 function markdown(text: string) {
@@ -396,16 +399,22 @@ export function startInvestigator(
   const run = async () => {
     if (controller.signal.aborted) return;
     const started = Date.now();
+    let stage = "state claim";
     try {
       await cycle(
         {
           store,
           model,
           dailyLimit,
-          sample: (signal) => client.recent(signal, 100),
+          sample: (signal) => {
+            stage = "trace sample";
+            return client.recent(signal, 100);
+          },
           analyze: async (sample, previous, signal) => {
+            stage = "repository access";
             const repo = new Repository(repository, clientId, key);
             await repo.initialize(signal);
+            stage = "evidence and model analysis";
             const evidence = new Evidence(sample, client, config.agent);
             const candidate = await investigate(
               config,
@@ -415,19 +424,29 @@ export function startInvestigator(
               previous,
               signal,
             );
+            stage = "analysis persistence";
             return {
               candidate: candidate?.frequency ? candidate : undefined,
               sha: repo.sha,
             };
           },
-          post: (candidate, sample, source) =>
-            postCandidate(slack, config, candidate, sample, source, registry),
+          post: (candidate, sample, source) => {
+            stage = "Slack report delivery";
+            return postCandidate(
+              slack,
+              config,
+              candidate,
+              sample,
+              source,
+              registry,
+            );
+          },
         },
         AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]),
       );
     } catch {
       console.warn(
-        "Lens investigator cycle incomplete; report delivery may be partial",
+        `Lens investigator cycle incomplete at ${stage}; report delivery may be partial`,
       );
     }
     if (!controller.signal.aborted)
