@@ -27,6 +27,27 @@ const trace = (agent: string) => ({
   api_key_hash: "private key",
 });
 
+test("cold trace reads get a bounded longer deadline while caller cancellation still wins", async (context) => {
+  const timeouts: number[] = [];
+  context.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
+    timeouts.push(milliseconds);
+    return new AbortController().signal;
+  });
+  const parent = new AbortController();
+  let active: AbortSignal | null | undefined;
+  const client = new LensClient(config, async (_url, init) => {
+    active = init?.signal;
+    return response({});
+  });
+  await client.get("/v1/traces?start_ms=0", parent.signal);
+  assert.deepEqual(timeouts, [60_000]);
+  assert.equal(active?.aborted, false);
+  parent.abort();
+  assert.equal(active?.aborted, true);
+  await client.get("/lens", new AbortController().signal);
+  assert.deepEqual(timeouts, [60_000, 10_000]);
+});
+
 test("bounded trace scans select exact agent and remove captured content", async () => {
   let requests = 0;
   const client = new LensClient(config, async (_url, init) => {
