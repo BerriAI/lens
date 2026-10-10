@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FREQUENCY_WINDOW_DAYS, findingFrequency, percentLabel } from "./frequency";
+import { FREQUENCY_WINDOW_DAYS, findingFrequency, findingTraceFrequency, percentLabel } from "./frequency";
 import type { Sample } from "./types";
 
 const run = (id: string, start_time: string): Sample["executions"][number] => ({
@@ -14,6 +14,39 @@ const run = (id: string, start_time: string): Sample["executions"][number] => ({
   team_id: "",
   trace_id: id,
   trace_ref: "",
+});
+
+describe("findingTraceFrequency", () => {
+  const importedId = `agent-${"a".repeat(64)}`;
+  const sampled = Array.from({ length: 10 }, (_, index) => run(String(index), "2026-10-01T09:00:00Z"));
+  const finding = {
+    id: importedId,
+    investigation_runs: [],
+    merged_finding_ids: [],
+    occurrences: ["0", "outside"],
+  };
+
+  it("retains cited counts without borrowing unrelated samples for an imported or consolidated finding", () => {
+    for (const identity of [
+      { id: importedId },
+      { id: importedId, investigation_runs: ["analysis"] },
+      { id: "canonical", existing_finding_id: importedId },
+      { id: "canonical", merged_finding_ids: [importedId] },
+    ]) {
+      expect(findingTraceFrequency({ ...finding, ...identity }, sampled)).toEqual({
+        affected: 2,
+        total: null,
+        days: [],
+      });
+    }
+  });
+
+  it("preserves legacy prevalence and unaffected sampled traces", () => {
+    const frequency = findingTraceFrequency({ ...finding, id: "legacy" }, sampled);
+    expect(frequency.affected).toBe(1);
+    expect(frequency.total).toBe(10);
+    expect(frequency.days.at(-1)).toEqual({ day: "2026-10-01", affected: 1, unaffected: 9 });
+  });
 });
 
 describe("findingFrequency", () => {
@@ -38,7 +71,11 @@ describe("findingFrequency", () => {
     const { days } = findingFrequency(["a"], [run("a", "2026-10-04T12:00:00Z")]);
     expect(days).toHaveLength(FREQUENCY_WINDOW_DAYS);
     expect(days[0]).toEqual({ day: "2026-09-21", affected: 0, unaffected: 0 });
-    expect(days.at(-1)).toEqual({ day: "2026-10-04", affected: 1, unaffected: 0 });
+    expect(days.at(-1)).toEqual({
+      day: "2026-10-04",
+      affected: 1,
+      unaffected: 0,
+    });
   });
 
   it("keeps every sampled day when the sample spans longer than two weeks", () => {
@@ -48,11 +85,18 @@ describe("findingFrequency", () => {
   });
 
   it("returns no days when nothing was sampled", () => {
-    expect(findingFrequency(["a"], [])).toEqual({ affected: 0, total: 0, days: [] });
+    expect(findingFrequency(["a"], [])).toEqual({
+      affected: 0,
+      total: 0,
+      days: [],
+    });
   });
 });
 
 describe("percentLabel", () => {
+  it("does not invent a rate without a denominator", () => {
+    expect(percentLabel(2, null)).toBeNull();
+  });
   it("rounds to one decimal and drops a trailing zero", () => {
     expect(percentLabel(5, 54)).toBe("9.3%");
     expect(percentLabel(1, 2)).toBe("50%");

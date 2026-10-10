@@ -11,7 +11,11 @@ import { FindingsView } from "./FindingsView";
 let proxy = stubGateway();
 const data = createLensDemoData();
 const support = data.lenses[0];
-const twin: Lens = { ...support, id: "twin", settings: { ...support.settings, name: "Second support review" } };
+const twin: Lens = {
+  ...support,
+  id: "twin",
+  settings: { ...support.settings, name: "Second support review" },
+};
 const lenses = [support, twin, data.lenses[1]];
 const issue = support.findings.find((finding) => finding.kind === "issue")!;
 
@@ -26,15 +30,22 @@ beforeEach(() => {
 it("deduplicates findings across investigations and applies feedback to every source", async () => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();
-  renderWithLens(<FindingsView />, { searchParams: "?tab=findings", onUrlUpdate });
+  renderWithLens(<FindingsView />, {
+    searchParams: "?tab=findings",
+    onUrlUpdate,
+  });
   const rows = await screen.findAllByRole("row", { name: issue.title });
   expect(rows).toHaveLength(1);
   expect(
     within(rows[0]).getByTitle(`2 affected traces across ${support.settings.name}, ${twin.settings.name}`),
   ).toBeVisible();
   await user.click(rows[0]);
-  const panel = await screen.findByRole("complementary", { name: "Finding details" });
-  fireEvent.change(within(panel).getByRole("textbox"), { target: { value: "A handoff now handles failures" } });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  fireEvent.change(within(panel).getByRole("textbox"), {
+    target: { value: "A handoff now handles failures" },
+  });
   await user.click(within(panel).getByRole("button", { name: "Mark resolved" }));
   await waitFor(() => expect(proxy.patch).toHaveBeenCalledTimes(2));
   expect(proxy.patch.mock.calls.map(([path, request]) => [path, request.body])).toEqual([
@@ -42,6 +53,39 @@ it("deduplicates findings across investigations and applies feedback to every so
     [`/lens/twin/findings/${issue.id}`, { status: "resolved", reason: "A handoff now handles failures" }],
   ]);
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("issue")).toBe(false));
+});
+
+it("omits inferred percentages when any grouped source contains imported evidence", async () => {
+  const legacy = { ...issue, id: "legacy", priority: "high" as const };
+  const imported = {
+    ...issue,
+    id: "canonical",
+    priority: "low" as const,
+    merged_finding_ids: [`agent-${"a".repeat(64)}`],
+  };
+  proxy.get.mockImplementation(async (path) =>
+    path === "/lens"
+      ? {
+          lenses: [
+            { ...support, findings: [legacy] },
+            { ...twin, findings: [imported] },
+          ],
+          workers: [],
+          tracing_enabled: true,
+        }
+      : { data: [] },
+  );
+  const user = userEvent.setup();
+  renderWithLens(<FindingsView readOnly />, { searchParams: "?tab=findings" });
+  const row = await screen.findByRole("row", { name: issue.title });
+  expect(row).toHaveTextContent("2 traces");
+  expect(row).not.toHaveTextContent("% affected");
+  await user.click(row);
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  expect(panel).toHaveTextContent("2 affected traces");
+  expect(within(panel).getByRole("region", { name: "Frequency" })).toHaveTextContent("Trace rate unavailable");
 });
 
 it("restores inbox filters from a link and keeps filter changes in the URL", async () => {
@@ -69,13 +113,56 @@ it("reopens an inbox finding from a link and navigates between findings with the
     searchParams: `?tab=findings&issue=${encodeURIComponent(rows[0].key)}`,
     onUrlUpdate,
   });
-  const panel = await screen.findByRole("complementary", { name: "Finding details" });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
   expect(within(panel).getByRole("heading", { name: rows[0].title })).toBeVisible();
   expect(within(panel).queryByRole("button", { name: "Mark resolved" })).not.toBeInTheDocument();
   await user.keyboard("j");
   expect(await within(panel).findByRole("heading", { name: rows[1].title })).toBeVisible();
   await user.keyboard("{Escape}");
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("issue")).toBe(false));
+});
+
+it("keeps imported tool-call evidence without inferring trace prevalence from an unrelated job", async () => {
+  const sampled = Array.from({ length: 10 }, (_, index) => ({
+    ...support.jobs[0].sample!.executions[0],
+    id: `sample-${index}`,
+  }));
+  const finding = {
+    ...issue,
+    id: `agent-${"a".repeat(64)}`,
+    description: "8/10 completed repository tool calls failed. Controlled UI fixture.",
+    occurrences: ["sample-0", "outside"],
+    investigation_runs: [],
+  };
+  const imported: Lens = {
+    ...support,
+    findings: [finding],
+    jobs: [
+      {
+        ...support.jobs[0],
+        sample: { eligible: 10, selected: 10, executions: sampled },
+      },
+    ],
+  };
+  proxy.get.mockImplementation(async (path) =>
+    path === "/lens" ? { lenses: [imported], workers: [], tracing_enabled: true } : { data: [] },
+  );
+  renderWithLens(<FindingsView readOnly />, {
+    searchParams: `?tab=findings&issue=${encodeURIComponent(findingKey(imported, finding))}`,
+  });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
+  expect(within(panel).getByText(finding.description)).toBeVisible();
+  const frequency = within(panel).getByRole("region", { name: "Frequency" });
+  expect(frequency).toHaveTextContent("Trace rate unavailable");
+  expect(frequency).toHaveTextContent("2 cited affected traces");
+  expect(frequency).not.toHaveTextContent("1 of 10");
+  expect(within(frequency).queryByTestId("frequency-chart")).not.toBeInTheDocument();
+  expect(screen.getByRole("row", { name: finding.title })).toHaveTextContent("2 traces");
+  expect(screen.getByRole("row", { name: finding.title })).not.toHaveTextContent("10%");
 });
 
 it("retains feedback and the open finding when a grouped review fails", async () => {
@@ -85,7 +172,9 @@ it("retains feedback and the open finding when a grouped review fails", async ()
   });
   renderWithLens(<FindingsView />, { searchParams: "?tab=findings" });
   await user.click(await screen.findByRole("row", { name: issue.title }));
-  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Keep this feedback" } });
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Keep this feedback" },
+  });
   await user.click(screen.getByRole("button", { name: "Mark resolved" }));
   expect(await screen.findByText("Review could not be saved")).toBeVisible();
   expect(screen.getByRole("textbox")).toHaveValue("Keep this feedback");
@@ -93,10 +182,18 @@ it("retains feedback and the open finding when a grouped review fails", async ()
 });
 
 it("reviews only the selected check when two findings have the same title", async () => {
-  const other = { ...issue, id: "different-check", check_id: "different-check" };
+  const other = {
+    ...issue,
+    id: "different-check",
+    check_id: "different-check",
+  };
   proxy.get.mockImplementation(async (path) =>
     path === "/lens"
-      ? { lenses: [{ ...support, findings: [issue, other] }], workers: [], tracing_enabled: true }
+      ? {
+          lenses: [{ ...support, findings: [issue, other] }],
+          workers: [],
+          tracing_enabled: true,
+        }
       : { data: [] },
   );
   const user = userEvent.setup();
@@ -114,7 +211,9 @@ it("opens a grouped finding from a link to any of its owning investigations", as
   renderWithLens(<FindingsView readOnly />, {
     searchParams: `?tab=findings&issue=${encodeURIComponent(findingKey(twin, issue))}`,
   });
-  const panel = await screen.findByRole("complementary", { name: "Finding details" });
+  const panel = await screen.findByRole("complementary", {
+    name: "Finding details",
+  });
   expect(within(panel).getByRole("heading", { name: issue.title })).toBeVisible();
   expect(screen.getByRole("row", { name: issue.title })).toHaveAttribute("aria-selected", "true");
 });
@@ -135,7 +234,13 @@ it("ranks findings under high, medium and low priority headings with the highest
     at("new-high", "high", "2026-10-04T00:00:00Z"),
   ];
   proxy.get.mockImplementation(async (path) =>
-    path === "/lens" ? { lenses: [{ ...support, findings }], workers: [], tracing_enabled: true } : { data: [] },
+    path === "/lens"
+      ? {
+          lenses: [{ ...support, findings }],
+          workers: [],
+          tracing_enabled: true,
+        }
+      : { data: [] },
   );
   renderWithLens(<FindingsView readOnly />, { searchParams: "?tab=findings" });
   const groups = await screen.findAllByRole("rowgroup");

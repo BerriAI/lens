@@ -1,3 +1,4 @@
+import { hasImportedEvidence } from "./frequency";
 import type { Finding, Job, Lens } from "./types";
 
 export type Step = Job["steps"][number];
@@ -26,6 +27,10 @@ const priorityRank = { high: 0, medium: 1, low: 2 } as const;
 
 export function sampledExecutions(lens: Lens) {
   return lens.jobs.flatMap((job) => job.sample?.executions ?? []);
+}
+
+export function inboxHasImportedEvidence(row: InboxRow): boolean {
+  return row.sources.some(({ finding }) => hasImportedEvidence(finding));
 }
 
 export function findingAgents(lens: Lens, finding: Finding): readonly string[] {
