@@ -5,7 +5,10 @@ export type Lens = components["schemas"]["Lens"];
 
 export type Settings = components["schemas"]["LensSettings"];
 
-export type LensList = components["schemas"]["LensList"];
+export type LensList = components["schemas"]["LensList"] & {
+  investigator?: Wire.InvestigatorStatus | null;
+};
+export type InvestigatorStatus = Wire.InvestigatorStatus;
 export type SignalConfig = components["schemas"]["SignalConfig"];
 export type Signal = NonNullable<SignalConfig["signals"]>[number];
 

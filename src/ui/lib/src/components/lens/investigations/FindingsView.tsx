@@ -183,7 +183,7 @@ function InboxDetail({
 
 export function FindingsView({ agent = "", readOnly = false }: { agent?: string; readOnly?: boolean }) {
   const api = useLensApi();
-  const list = useQuery(lensQueries.list(api));
+  const list = useQuery({ ...lensQueries.list(api), refetchInterval: 15_000 });
   const update = useLensUpdate();
   const { issueKey, setIssueKey } = useIssueRoute();
   const filters = useInboxFilters();
@@ -234,6 +234,7 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
         <AutomaticAnalysis
           agent={agent || (filters.agent === ALL_AGENTS ? "" : filters.agent)}
           lenses={list.data?.lenses ?? []}
+          investigator={list.data?.investigator}
           readOnly={readOnly}
           ready={connected}
         />

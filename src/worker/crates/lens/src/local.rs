@@ -1,5 +1,6 @@
 mod automatic;
 mod inference;
+mod investigator;
 mod job;
 mod results;
 
@@ -29,6 +30,7 @@ pub struct LocalControl {
     pub models: crate::gateway::AnalysisSource,
     worker_hash: Arc<str>,
     slots: Arc<Semaphore>,
+    investigator: Option<investigator::Investigator>,
 }
 
 impl LocalControl {
@@ -44,6 +46,7 @@ impl LocalControl {
             models: models.into(),
             worker_hash: worker_hash.into(),
             slots: Arc::new(Semaphore::new(16)),
+            investigator: None,
         }
     }
 
@@ -139,7 +142,13 @@ impl LocalControl {
                 .await?;
             for candidate in &page {
                 let lens = &candidate.lens;
-                if current_job(lens).is_some() || !self.can_claim(lens, worker) {
+                if current_job(lens).is_some()
+                    || !self.can_claim(lens, worker)
+                    || self
+                        .investigator
+                        .as_ref()
+                        .is_some_and(|investigator| investigator.manages(lens))
+                {
                     continue;
                 }
                 let ready = match self.automatic_ready(lens, now()).await {
@@ -269,6 +278,15 @@ impl LocalControl {
 }
 
 impl lens_server::investigations::InvestigationAccess for LocalControl {
+    async fn investigator_status(
+        &self,
+        lenses: &[Lens],
+    ) -> Option<lens_contract::investigations::InvestigatorStatus> {
+        self.investigator
+            .as_ref()?
+            .status(&self.repository.0, lenses)
+            .await
+    }
     async fn verify_finding(
         &self,
         lens: &lens_contract::investigations::Lens,

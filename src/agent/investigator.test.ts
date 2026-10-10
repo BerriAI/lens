@@ -5,6 +5,7 @@ import {
   cycle,
   initialState,
   type State,
+  stateSchema,
 } from "./investigator.js";
 import { digest, type Snapshot, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
@@ -253,6 +254,56 @@ test("daily paid-run limit persists and quiet results do not post", async () => 
   await cycle(deps, AbortSignal.timeout(1000));
   assert.equal(analyses, 1);
   assert.equal(posts, 0);
+  assert.equal(store.snapshot.value.last_outcome, "run_limit");
+  assert.equal(store.snapshot.value.lease_until, 0);
+  assert.equal(
+    store.snapshot.value.next_at,
+    Date.parse(new Date(time).toISOString().slice(0, 10) + "T00:00:00Z") +
+      86_400_000,
+  );
+});
+
+test("the fourth distinct finding is analyzed, persisted and sent instead of silently stopping at three posts", async () => {
+  const store = new MemoryState();
+  const time = 1_800_000_000_000;
+  store.snapshot = {
+    ...store.snapshot,
+    value: {
+      ...initialState,
+      day: new Date(time).toISOString().slice(0, 10),
+      posts: 3,
+    },
+  };
+  let analyses = 0;
+  let imports = 0;
+  let posts = 0;
+  await cycle(
+    {
+      store,
+      sample: async () => sample,
+      analyze: async () => {
+        analyses++;
+        return { candidate: verified, sha: "sha" };
+      },
+      persist: async () => {
+        imports++;
+        return native;
+      },
+      post: async () => {
+        posts++;
+      },
+      model: "model",
+      dailyLimit: 144,
+      now: () => time,
+    },
+    AbortSignal.timeout(1000),
+  );
+  assert.equal(analyses, 1);
+  assert.equal(imports, 1);
+  assert.equal(posts, 1);
+  assert.equal(store.snapshot.value.posts, 4);
+  assert.equal(store.snapshot.value.lease_until, 0);
+  assert.equal(store.snapshot.value.last_outcome, "delivered");
 });
 
 test("verified repeated findings refresh native evidence without another Slack notification", async () => {
@@ -314,6 +365,8 @@ test("a failed Slack attempt is persisted before sending and cannot be blindly r
     now: () => time,
   };
   await assert.rejects(cycle(deps, AbortSignal.timeout(1000)));
+  assert.equal(store.snapshot.value.last_outcome, "delivery_unknown");
+  assert.equal(store.snapshot.value.lease_until, 0);
   time += 600_001;
   await cycle(deps, AbortSignal.timeout(1000));
   assert.equal(attempts, 1);
@@ -364,6 +417,8 @@ test("failed analysis leaves evidence eligible for the next cycle and still char
   };
   await assert.rejects(cycle(deps, AbortSignal.timeout(1000)));
   assert.equal(store.snapshot.value.signature, "");
+  assert.equal(store.snapshot.value.last_outcome, "failed");
+  assert.equal(store.snapshot.value.lease_until, 0);
   time += 600_001;
   await cycle(deps, AbortSignal.timeout(1000));
   assert.equal(attempts, 2);
@@ -596,4 +651,12 @@ test("trace and span reads cannot escape the selected sample or expose credentia
   const result = await evidence.span("a", "s", AbortSignal.timeout(1000));
   assert.equal(reads, 2);
   assert(!result.includes("sk-abc123secret"));
+});
+
+test("stored investigator state from before status reporting remains readable", () => {
+  const { last_outcome, last_check_at, last_error, ...legacy } = initialState;
+  const parsed = stateSchema.parse(legacy);
+  assert.equal(parsed.last_outcome, "starting");
+  assert.equal(parsed.last_check_at, 0);
+  assert.equal(parsed.posts, legacy.posts);
 });

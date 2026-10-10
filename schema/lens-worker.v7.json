@@ -919,6 +919,93 @@
       ],
       "type": "object"
     },
+    "InvestigatorState": {
+      "enum": [
+        "starting",
+        "running",
+        "scheduled",
+        "stalled",
+        "failed",
+        "daily_limit",
+        "unavailable"
+      ],
+      "type": "string"
+    },
+    "InvestigatorStatus": {
+      "properties": {
+        "agent_name": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "last_analysis_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_checked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lens_id": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "next_run_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "posts_today": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "run_limit": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runs_today": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/definitions/InvestigatorState"
+        }
+      },
+      "required": [
+        "lens_id",
+        "agent_name",
+        "model",
+        "state",
+        "detail",
+        "runs_today",
+        "run_limit",
+        "posts_today"
+      ],
+      "type": "object"
+    },
     "IssueBrief": {
       "additionalProperties": false,
       "properties": {
