@@ -325,20 +325,39 @@ export interface InvestigatorOptions {
   readonly stateDatabase: string;
   readonly knownFindings?: string;
 }
+interface InvestigatorServices {
+  readonly client: Pick<
+    LensClient,
+    "recent" | "get" | "link" | "persistFinding"
+  >;
+  readonly store: StateStore<State>;
+  readonly repository: (signal: AbortSignal) => Promise<Repository>;
+  readonly investigate: typeof investigate;
+}
 export function startInvestigator(
   config: Config,
   options: InvestigatorOptions,
   publish: InvestigatorDependencies["post"],
+  services: Partial<InvestigatorServices> = {},
 ): () => void {
-  const client = new LensClient(config);
+  const client = services.client ?? new LensClient(config);
   const { repository, clientId, key, dailyLimit, model, scope } = options;
-  const store = new ClickHouseState(
-    options.stateConnection,
-    options.stateDatabase,
-    `investigator/${digest(JSON.stringify(scope))}`,
-    stateSchema,
-    initialState,
-  );
+  const store =
+    services.store ??
+    new ClickHouseState(
+      options.stateConnection,
+      options.stateDatabase,
+      `investigator/${digest(JSON.stringify(scope))}`,
+      stateSchema,
+      initialState,
+    );
+  const repositoryFor =
+    services.repository ??
+    (async (signal: AbortSignal) => {
+      const repo = new Repository(repository, clientId, key);
+      await repo.initialize(signal);
+      return repo;
+    });
   const controller = new AbortController();
   let timer: NodeJS.Timeout | undefined;
   let initialized = false;
@@ -361,11 +380,10 @@ export function startInvestigator(
           },
           analyze: async (sample, previous, signal) => {
             stage = "repository access";
-            const repo = new Repository(repository, clientId, key);
-            await repo.initialize(signal);
+            const repo = await repositoryFor(signal);
             stage = "evidence and model analysis";
             const evidence = new Evidence(sample, client, config.agent);
-            const candidate = await investigate(
+            const candidate = await (services.investigate ?? investigate)(
               config,
               model,
               evidence,
@@ -375,7 +393,7 @@ export function startInvestigator(
             );
             stage = "analysis persistence";
             return {
-              candidate: candidate?.frequency ? candidate : undefined,
+              candidate,
               sha: repo.sha,
             };
           },

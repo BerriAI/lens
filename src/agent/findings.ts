@@ -4,7 +4,7 @@ import { Repository } from "./repository.js";
 import { digest } from "./state.js";
 import type { MeasuredFrequency, NativeFinding } from "./models.js";
 
-export const PROMPT_REVISION = "lens-investigator-v1";
+export const PROMPT_REVISION = "lens-investigator-v2";
 export const candidateSchema = z.object({
   kind: z.enum(["quiet", "issue", "regression", "opportunity", "frustration"]),
   category: z.enum(["Performance", "Agent quality", "Reliability"]),
@@ -201,11 +201,11 @@ export function verify(
     (metric) =>
       metric.id === candidate.frequency_metric &&
       metric.category === candidate.category &&
-      metric.title === candidate.title &&
       candidate.evidence.every((item) =>
         metric.affected_trace_ids.includes(item.trace_id),
       ),
   );
+  if (candidate.frequency_metric !== "unknown" && !frequency) return;
   if ((singleRequest || candidate.kind === "frustration") && humanRequest) {
     const requests = [
       ...new Map(

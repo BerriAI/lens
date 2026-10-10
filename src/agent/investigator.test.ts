@@ -6,11 +6,13 @@ import {
   initialState,
   type State,
   stateSchema,
+  startInvestigator,
 } from "./investigator.js";
 import { digest, type Snapshot, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { verify, type Candidate, type VerifiedCandidate } from "./findings.js";
 import { LensClient } from "./lens.js";
+import { Repository } from "./repository.js";
 import type { AgentConfig as Config } from "./config.js";
 
 const trace = (id: string) => ({
@@ -103,6 +105,178 @@ class MemoryState implements StateStore<State> {
     return this.snapshot;
   }
 }
+
+test(
+  "scheduled startup preserves a verified finding with unknown frequency through native persistence and delivery",
+  { timeout: 3000 },
+  async (context) => {
+    const store = new MemoryState();
+    let deliver!: () => void;
+    const delivered = new Promise<void>((resolve) => {
+      deliver = resolve;
+    });
+    const bodies: Record<string, unknown>[] = [];
+    const config = {
+      agent: "selected",
+      apiUrl: "https://lens.example.com",
+      publicUrl: "https://lens.example.com",
+      lensKey: "fixture",
+    } as Config;
+    const client = new LensClient(config, async (_url, init) => {
+      if (init?.method === "POST") {
+        bodies.push(JSON.parse(String(init.body)));
+        return new Response(
+          JSON.stringify({
+            lens_id: native.lensId,
+            finding_id: native.findingId,
+          }),
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          lenses: [
+            {
+              id: native.lensId,
+              settings: { agent_name: "selected" },
+              findings: [],
+            },
+          ],
+        }),
+      );
+    });
+    const stop = startInvestigator(
+      config,
+      {
+        repository: "example/repo",
+        clientId: "fixture",
+        key: "fixture",
+        dailyLimit: 1,
+        model: "fixture",
+        scope: ["selected"],
+        stateConnection: "http://localhost",
+        stateDatabase: "fixture",
+      },
+      async (finding) => {
+        assert.equal(finding.frequency, undefined);
+        assert.equal(finding.native.findingId, native.findingId);
+        deliver();
+      },
+      {
+        store,
+        client: {
+          recent: async () => sample,
+          get: client.get.bind(client),
+          link: client.link.bind(client),
+          persistFinding: client.persistFinding.bind(client),
+        },
+        repository: async () =>
+          new Repository("example/repo", "fixture", "fixture"),
+        investigate: async () => ({
+          ...verified,
+          fingerprint: digest("verified finding"),
+        }),
+      },
+    );
+    context.after(stop);
+    await delivered;
+    assert.equal(bodies.length, 1);
+    assert.match(String(bodies[0]?.description), /Frequency: unknown/);
+    assert.doesNotMatch(String(bodies[0]?.description), /0\/0|undefined|NaN/);
+    assert.equal(store.snapshot.value.sent.length, 1);
+    assert.equal(store.snapshot.value.runs, 1);
+  },
+);
+
+test("finding headlines are independent of measured cohorts while invalid metric selections fail closed", async () => {
+  const traces = [trace("a"), trace("b"), { ...trace("c"), status: "ok" }];
+  const evidence = new Evidence(
+    { ...sample, traces },
+    {
+      link: (query) =>
+        `https://lens.example.com/?${new URLSearchParams(query)}`,
+      get: async (path) => {
+        const id = path.split("/")[3]!.split("?")[0]!;
+        return path.includes("/spans/")
+          ? {
+              span_id: `span-${id}`,
+              input: JSON.stringify([
+                { role: "user", content: "Inspect repository" },
+              ]),
+              output: "tool returned missing argument",
+              attributes: {
+                "session.id": `incident-${id}`,
+                "gen_ai.operation.name": "invoke_agent",
+              },
+            }
+          : {
+              summary: { trace_id: id, agent_names: ["selected"] },
+              spans: [
+                {
+                  span_id: `span-${id}`,
+                  parent_span_id: null,
+                  name: "selected",
+                  type: "agent",
+                  status: id === "c" ? "ok" : "error",
+                  duration_ms: 100,
+                  error: null,
+                },
+              ],
+              next_cursor: null,
+            };
+      },
+    },
+    "selected",
+  );
+  await evidence.loadRoots(AbortSignal.timeout(1000));
+  const repo = {
+    files: new Map([
+      [
+        "src/tool.ts",
+        {
+          path: "src/tool.ts",
+          content: "function tool(input) {}",
+          url: "https://github.com/example/repo/blob/sha/src/tool.ts",
+        },
+      ],
+    ]),
+  };
+  const measured = verify(
+    { ...candidate, frequency_metric: "root_errors" },
+    evidence,
+    repo,
+  );
+  assert(measured);
+  assert.equal(measured.candidate.title, candidate.title);
+  assert.equal(measured.frequency?.count, 2);
+  assert.equal(measured.frequency?.total, 3);
+  assert.notEqual(measured.frequency?.title, candidate.title);
+  assert.deepEqual(
+    measured.frequency,
+    evidence.report().metrics.find((metric) => metric.id === "root_errors"),
+  );
+  const unknown = verify(candidate, evidence, repo);
+  assert(unknown);
+  assert.equal(unknown.frequency, undefined);
+  for (const invalid of [
+    { ...candidate, frequency_metric: "unavailable_metric" },
+    { ...candidate, frequency_metric: "" },
+    {
+      ...candidate,
+      frequency_metric: "root_errors",
+      category: "Performance" as const,
+    },
+    {
+      ...candidate,
+      frequency_metric: "root_errors",
+      evidence: [
+        candidate.evidence[0]!,
+        { trace_id: "c", span_id: "span-c", quote: "missing argument" },
+      ],
+    },
+    { ...candidate, evidence: [candidate.evidence[0]!] },
+  ])
+    assert.equal(verify(invalid, evidence, repo), undefined);
+});
 
 test("scoped known manual reports initialize only empty state and suppress the same measured finding", async () => {
   const scope = ["workspace", "channel", "selected", "example/repo"];

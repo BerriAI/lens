@@ -27,8 +27,6 @@ export function slackReplies(slack: Pick<WebClient, "chat"> & ChartSlack) {
   const reply: Reply = async (channel, thread, answer, message, signal) => {
     signal?.throwIfAborted();
     const measured = answer.opportunities?.find((item) => item.frequency);
-    if (answer.opportunities?.length && !measured?.frequency)
-      throw new Error("A report needs verified chart data");
     const payload = measured?.frequency
       ? {
           title: measured.frequency.title.slice(0, 80),
