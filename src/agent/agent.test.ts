@@ -10,8 +10,142 @@ import { responder } from "./agent.js";
 import type { AgentConfig as Config } from "./config.js";
 import { LensClient, type TraceWindow } from "./lens.js";
 import type { FindingContext as FindingThread } from "./models.js";
+import { replyTools } from "./tools.js";
 
 const config = { agent: "selected", model: "test-model" } as Config;
+
+test("finding citations count each trace once while retaining different cited spans and their original labels", async () => {
+  const scoped = { ...config, publicUrl: "https://lens.example.com" };
+  const trace = (id: string, span: string) => ({
+    trace_id: id,
+    trace_ref: `ref-${id}`,
+    span_id: span,
+    agent_names: ["selected"],
+    service: "selected",
+    start_time: "2026-01-01",
+    duration_ms: 100,
+    status: id === "failed" ? "error" : "ok",
+    llm_calls: 0,
+    tool_calls: 1,
+    error_count: id === "failed" ? 1 : 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    url: `https://lens.example.com/?trace=${id}&span=${span}`,
+  });
+  const requests: string[] = [];
+  const result = await replyTools(
+    scoped,
+    {
+      read: async () => assert.fail("A finding must not read unrelated traces"),
+      link: (query) =>
+        `https://lens.example.com/?${new URLSearchParams(query)}`,
+      get: async (path) => {
+        requests.push(path);
+        const url = new URL(path, scoped.publicUrl);
+        const id = url.pathname.split("/")[3]!;
+        const span = url.pathname.split("/")[5];
+        if (span)
+          return {
+            span_id: span,
+            input: JSON.stringify([
+              { role: "user", content: "Inspect repository" },
+            ]),
+            output: "Recorded result",
+            attributes: { "gen_ai.operation.name": "invoke_agent" },
+          };
+        return {
+          summary: { trace_id: id, agent_names: ["selected"] },
+          spans: [
+            {
+              span_id: "root",
+              parent_span_id: null,
+              type: "agent",
+              name: "selected",
+              status: id === "failed" ? "error" : "ok",
+              duration_ms: 100,
+              error: null,
+            },
+            {
+              span_id: "tool",
+              parent_span_id: "root",
+              type: "tool",
+              name: "repository_lookup",
+              status: id === "failed" ? "error" : "ok",
+              duration_ms: 90,
+              error: id === "failed" ? "HTTP 503" : null,
+            },
+          ],
+        };
+      },
+    },
+    AbortSignal.timeout(10_000),
+    {
+      issue: "fixture",
+      title: "Repository lookup error",
+      traces: [
+        trace("failed", "root"),
+        trace("failed", "tool"),
+        trace("failed", "tool"),
+        trace("healthy", "root"),
+      ],
+    },
+  );
+  const context = result.traceContext!;
+  assert.equal(context.report.population.terminal_traces, 2);
+  assert.equal(context.report.population.root_error_traces, 1);
+  assert.deepEqual(
+    context.report.metrics.find((metric) => metric.id === "root_errors")
+      ?.affected_trace_ids,
+    ["failed"],
+  );
+  assert.equal(
+    context.report.metrics.find((metric) => metric.id === "root_errors")?.total,
+    2,
+  );
+  assert.equal(
+    context.report.metrics.find(
+      (metric) => metric.title === "repository_lookup calls fail",
+    )?.count,
+    1,
+  );
+  assert.equal(
+    context.report.metrics.find(
+      (metric) => metric.title === "repository_lookup calls fail",
+    )?.total,
+    2,
+  );
+  assert.deepEqual(
+    context.numbered_sources.map((source) => source.label),
+    ["Trace 1", "Trace 2", "Trace 4"],
+  );
+  assert.equal(context.cited_spans.length, 3);
+  assert.equal(context.traces.length, 2);
+  assert.equal(
+    requests.filter((path) => path.startsWith("/v1/traces/failed?")).length,
+    1,
+  );
+  assert.equal(
+    requests.filter((path) => path.startsWith("/v1/traces/failed/spans/root?"))
+      .length,
+    1,
+  );
+  await assert.rejects(
+    replyTools(
+      scoped,
+      { read: async () => assert.fail("Unexpected read") },
+      AbortSignal.timeout(10_000),
+      {
+        issue: "fixture",
+        title: "Conflicting revisions",
+        traces: [
+          trace("failed", "root"),
+          { ...trace("failed", "root"), trace_ref: "another-revision" },
+        ],
+      },
+    ),
+    /conflicting trace revisions/,
+  );
+});
 
 test("official SDK executes the read tool, carries its evidence to the model, and bounds repeated tool reads", async () => {
   const model = new ScriptedModel([

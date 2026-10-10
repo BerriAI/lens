@@ -52,16 +52,34 @@ export async function replyTools(
         allowed.add(url);
     }
   };
+  const citations = (finding?.traces ?? [])
+    .map((trace, index) => ({ ...trace, label: `Trace ${index + 1}` }))
+    .filter(
+      (trace, index, all) =>
+        all.findIndex((item) => item.url === trace.url) === index,
+    );
+  const traces = citations.filter(
+    (trace, index) =>
+      citations.findIndex((item) => item.trace_id === trace.trace_id) === index,
+  );
+  if (
+    (finding?.traces ?? []).some(
+      (trace) =>
+        traces.find((item) => item.trace_id === trace.trace_id)?.trace_ref !==
+        trace.trace_ref,
+    )
+  )
+    throw new Error("Finding has conflicting trace revisions");
   const selected: Sample | undefined = finding
     ? {
         agent: config.agent,
         window: "traces cited in this finding",
-        scanned_rows: finding.traces.length,
-        matched_rows: finding.traces.length,
+        scanned_rows: traces.length,
+        matched_rows: traces.length,
         incomplete: false,
         sampled_for_detail: false,
         population: {
-          inspected_traces: finding.traces.length,
+          inspected_traces: traces.length,
           root_error_traces: 0,
           span_error_traces: 0,
           terminal_traces: 0,
@@ -70,7 +88,7 @@ export async function replyTools(
         },
         warning:
           "Selected evidence only, not a population frequency or benchmark",
-        traces: finding.traces,
+        traces,
       }
     : undefined;
   if (selected && (!client.get || !client.link))
@@ -89,14 +107,14 @@ export async function replyTools(
   const traceContext = evidence
     ? {
         finding: { issue: finding!.issue, title: finding!.title },
-        numbered_sources: finding!.traces.map((trace, index) => ({
-          label: `Trace ${index + 1}`,
+        numbered_sources: citations.map((trace) => ({
+          label: trace.label,
           trace_id: trace.trace_id,
           span_id: trace.span_id,
           url: trace.url,
         })),
         cited_spans: await Promise.all(
-          finding!.traces.map((trace) =>
+          citations.map((trace) =>
             trace.span_id
               ? evidence.span(trace.trace_id, trace.span_id, signal)
               : null,
@@ -104,7 +122,7 @@ export async function replyTools(
         ),
         report: evidence.report(),
         traces: await Promise.all(
-          finding!.traces.map(
+          traces.map(
             async (trace) => await evidence.trace(trace.trace_id, signal),
           ),
         ),
