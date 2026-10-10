@@ -17,6 +17,9 @@ pub trait JobBackend: Send + Sync {
         request: &'a wire::ModelRequest,
     ) -> BoxFuture<'a, Result<wire::ModelResult, Error>>;
     fn progress<'a>(&'a self, progress: &'a wire::Progress) -> BoxFuture<'a, Result<(), Error>>;
+    fn heartbeat(&self) -> BoxFuture<'_, Result<(), Error>> {
+        Box::pin(async move { self.progress(&wire::Progress::default()).await })
+    }
     fn finish<'a>(&'a self, result: &'a wire::Result) -> BoxFuture<'a, Result<(), Error>>;
 }
 
@@ -53,7 +56,7 @@ impl JobClient {
     }
 
     pub async fn heartbeat(&self) -> Result<(), Error> {
-        self.backend.progress(&wire::Progress::default()).await
+        self.backend.heartbeat().await
     }
 
     pub async fn progress(&self, progress: &wire::Progress) -> Result<(), Error> {

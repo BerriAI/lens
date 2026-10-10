@@ -417,10 +417,7 @@ mod tests {
         if accepted {
             result.unwrap();
         } else {
-            assert!(
-                matches!(result, Err(Error::Control { status: 409, .. })),
-                "{result:?}"
-            );
+            assert!(matches!(result, Err(Error::JobOwnershipLost)), "{result:?}");
         }
         let after = stored_job.job.lens().await.unwrap();
         assert_eq!(

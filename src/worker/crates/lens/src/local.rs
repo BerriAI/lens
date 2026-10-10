@@ -145,7 +145,11 @@ impl LocalControl {
                 let ready = match self.automatic_ready(lens, now()).await {
                     Ok(ready) => ready,
                     Err(error) => {
-                        tracing::warn!(lens_id = %lens.id, error = %error, "Lens could not check automatic analysis readiness; skipping this agent");
+                        let storage_error = match &error {
+                            Error::StateStorage(source) => Some(source.to_string()),
+                            _ => None,
+                        };
+                        tracing::warn!(lens_id = %lens.id, error = %error, storage_error = storage_error.as_deref(), "Lens could not check automatic analysis readiness; skipping this agent");
                         false
                     }
                 };
@@ -352,10 +356,25 @@ fn rejected(status: u16, message: &str) -> Error {
     }
 }
 
+fn heartbeat_error(error: Error) -> Error {
+    use lens_investigations::{CheckpointError, RepositoryError};
+    match error {
+        Error::InvestigationStorage(
+            error @ (RepositoryError::Conflict | RepositoryError::WriteUnconfirmed),
+        )
+        | Error::Checkpoint(CheckpointError::Store(
+            error @ (RepositoryError::Conflict | RepositoryError::WriteUnconfirmed),
+        )) => rejected(503, &error.to_string()),
+        error => backend_error(error),
+    }
+}
+
 fn backend_error(error: Error) -> Error {
     use lens_investigations::{CheckpointError, RepositoryError};
     match error {
-        error @ Error::Control { .. } | error @ Error::Request(_) => error,
+        error @ Error::Control { .. }
+        | error @ Error::Request(_)
+        | error @ Error::JobOwnershipLost => error,
         Error::InvestigationStorage(RepositoryError::Conflict)
         | Error::Checkpoint(CheckpointError::Store(RepositoryError::Conflict)) => {
             rejected(409, "Lens changed concurrently; retry the operation")
@@ -364,9 +383,7 @@ fn backend_error(error: Error) -> Error {
         | Error::Checkpoint(CheckpointError::Store(error @ RepositoryError::WriteUnconfirmed)) => {
             rejected(409, &error.to_string())
         }
-        Error::Checkpoint(CheckpointError::Ownership) => {
-            rejected(409, "This worker no longer owns the job")
-        }
+        Error::Checkpoint(CheckpointError::Ownership) => Error::JobOwnershipLost,
         Error::Investigation(error) | Error::Checkpoint(CheckpointError::Invalid(error)) => {
             rejected(422, &error.to_string())
         }
@@ -619,7 +636,7 @@ mod tests {
     use crate::{control::JobBackend, wire};
     use futures_util::future::BoxFuture;
     use lens_investigations::CheckpointError;
-    use rstest::rstest;
+    use rstest::{fixture, rstest};
     use std::sync::{
         Mutex,
         atomic::{AtomicI64, AtomicUsize, Ordering},
@@ -925,7 +942,6 @@ mod tests {
     #[case::checkpoint_conflict(CheckpointError::Store(RepositoryError::Conflict).into(), 409, false)]
     #[case::unconfirmed_write(RepositoryError::WriteUnconfirmed.into(), 409, false)]
     #[case::unconfirmed_checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into(), 409, false)]
-    #[case::lost_ownership(CheckpointError::Ownership.into(), 409, false)]
     #[case::invalid_progress(CheckpointError::Invalid(lens_investigations::Error::ReviewCount).into(), 422, false)]
     #[case::oversized_response(
         Error::StateStorage(litellm_storage_clickhouse::Error::ResponseTooLarge),
@@ -956,13 +972,51 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::checkpoint(CheckpointError::Ownership.into())]
+    #[case::active_job(Error::JobOwnershipLost)]
+    fn confirmed_ownership_loss_remains_typed_and_nonretryable(#[case] input: Error) {
+        let error = backend_error(input);
+        assert!(matches!(error, Error::JobOwnershipLost));
+        assert!(error.is_control_failure());
+        assert!(!error.retryable());
+        assert_eq!(error.status(), http::StatusCode::CONFLICT);
+    }
+
     struct WaitingJob {
+        sample: Mutex<wire::Sample>,
         sample_entered: Notify,
         sample_ready: Notify,
         pulse_seen: Notify,
         pulse_calls: AtomicUsize,
-        revoked: bool,
+        heartbeat_error: Mutex<Option<Error>>,
+        progress_error: Mutex<Option<Error>>,
+        model_error: Mutex<Option<Error>>,
+        model_calls: AtomicUsize,
+        finish_error: Mutex<Option<Error>>,
         results: Mutex<Vec<wire::Result>>,
+    }
+
+    #[fixture]
+    fn waiting_job() -> Arc<WaitingJob> {
+        Arc::new(WaitingJob {
+            sample: Mutex::new(
+                serde_json::from_value(
+                    serde_json::json!({"executions":[],"eligible":0,"selected":0}),
+                )
+                .unwrap(),
+            ),
+            sample_entered: Notify::new(),
+            sample_ready: Notify::new(),
+            pulse_seen: Notify::new(),
+            pulse_calls: AtomicUsize::new(0),
+            heartbeat_error: Mutex::new(None),
+            progress_error: Mutex::new(None),
+            model_error: Mutex::new(None),
+            model_calls: AtomicUsize::new(0),
+            finish_error: Mutex::new(None),
+            results: Mutex::new(vec![]),
+        })
     }
 
     impl JobBackend for WaitingJob {
@@ -970,10 +1024,7 @@ mod tests {
             Box::pin(async move {
                 self.sample_entered.notify_one();
                 self.sample_ready.notified().await;
-                Ok(serde_json::from_value(
-                    serde_json::json!({"executions":[],"eligible":0,"selected":0}),
-                )
-                .unwrap())
+                Ok(self.sample.lock().unwrap().clone())
             })
         }
 
@@ -994,18 +1045,34 @@ mod tests {
             &'a self,
             _: &'a wire::ModelRequest,
         ) -> BoxFuture<'a, Result<wire::ModelResult, Error>> {
-            Box::pin(async { Err(Error::InvalidRequest) })
+            Box::pin(async move {
+                self.model_calls.fetch_add(1, Ordering::SeqCst);
+                Err(backend_error(
+                    self.model_error
+                        .lock()
+                        .unwrap()
+                        .take()
+                        .unwrap_or(Error::InvalidRequest),
+                ))
+            })
         }
 
         fn progress<'a>(&'a self, _: &'a wire::Progress) -> BoxFuture<'a, Result<(), Error>> {
             Box::pin(async move {
-                let call = self.pulse_calls.fetch_add(1, Ordering::SeqCst);
+                self.progress_error
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .map_or(Ok(()), |error| Err(backend_error(error)))
+            })
+        }
+
+        fn heartbeat(&self) -> BoxFuture<'_, Result<(), Error>> {
+            Box::pin(async move {
+                self.pulse_calls.fetch_add(1, Ordering::SeqCst);
                 self.pulse_seen.notify_one();
-                if self.revoked {
-                    return Err(backend_error(CheckpointError::Ownership.into()));
-                }
-                if call == 0 {
-                    return Err(backend_error(unavailable()));
+                if let Some(error) = self.heartbeat_error.lock().unwrap().take() {
+                    return Err(heartbeat_error(error));
                 }
                 Ok(())
             })
@@ -1014,45 +1081,147 @@ mod tests {
         fn finish<'a>(&'a self, result: &'a wire::Result) -> BoxFuture<'a, Result<(), Error>> {
             Box::pin(async move {
                 self.results.lock().unwrap().push(result.clone());
-                Ok(())
+                self.finish_error
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .map_or(Ok(()), |error| Err(backend_error(error)))
             })
         }
     }
 
     #[rstest]
-    #[case::storage_recovers(false)]
-    #[case::ownership_revoked(true)]
+    #[case::storage_recovers(unavailable(), false)]
+    #[case::write_conflict(RepositoryError::Conflict.into(), false)]
+    #[case::checkpoint_conflict(CheckpointError::Store(RepositoryError::Conflict).into(), false)]
+    #[case::unconfirmed_write(RepositoryError::WriteUnconfirmed.into(), false)]
+    #[case::unconfirmed_checkpoint(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into(), false)]
+    #[case::ownership_revoked(CheckpointError::Ownership.into(), true)]
+    #[case::expired_lease(Error::JobOwnershipLost, true)]
     #[tokio::test(start_paused = true)]
     async fn heartbeat_storage_failure_keeps_work_alive_but_revocation_stops_it(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
         #[case] revoked: bool,
     ) {
-        let backend = Arc::new(WaitingJob {
-            sample_entered: Notify::new(),
-            sample_ready: Notify::new(),
-            pulse_seen: Notify::new(),
-            pulse_calls: AtomicUsize::new(0),
-            revoked,
-            results: Mutex::new(vec![]),
-        });
+        let backend = waiting_job;
+        *backend.heartbeat_error.lock().unwrap() = Some(error);
         let client = JobClient::local(backend.clone(), 1, Arc::new(Semaphore::new(1)));
         let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
         let task = tokio::spawn(crate::worker::execute(claim, client));
-        backend.sample_entered.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.sample_entered.notified())
+            .await
+            .unwrap();
         tokio::time::advance(Duration::from_secs(30)).await;
-        backend.pulse_seen.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.pulse_seen.notified())
+            .await
+            .unwrap();
         if revoked {
-            task.await.unwrap().unwrap();
+            tokio::time::timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert_eq!(backend.pulse_calls.load(Ordering::SeqCst), 1);
             assert!(backend.results.lock().unwrap().is_empty());
             return;
         }
         assert!(!task.is_finished());
         tokio::time::advance(Duration::from_secs(30)).await;
-        backend.pulse_seen.notified().await;
+        tokio::time::timeout(Duration::from_secs(1), backend.pulse_seen.notified())
+            .await
+            .unwrap();
         assert!(!task.is_finished());
+        assert_eq!(backend.pulse_calls.load(Ordering::SeqCst), 2);
         backend.sample_ready.notify_one();
-        task.await.unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
         let results = backend.results.lock().unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].error.is_empty());
+    }
+
+    #[rstest]
+    #[case::conflict(CheckpointError::Store(RepositoryError::Conflict).into())]
+    #[case::unconfirmed(CheckpointError::Store(RepositoryError::WriteUnconfirmed).into())]
+    #[case::http_conflict(rejected(409, "The operation conflicted"))]
+    #[tokio::test(start_paused = true)]
+    async fn ordinary_progress_conflicts_record_a_failed_result_once(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
+    ) {
+        *waiting_job.sample.lock().unwrap() =
+            serde_json::from_str(include_str!("../tests/fixtures/sample.json")).unwrap();
+        *waiting_job.progress_error.lock().unwrap() = Some(error);
+        waiting_job.sample_ready.notify_one();
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            crate::worker::execute(claim, client),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let results = waiting_job.results.lock().unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].error.contains("HTTP 409"));
+        assert!(results[0].findings.is_empty());
+        assert_eq!(
+            lens_investigations::result_status(&results[0]),
+            lens_investigations::TerminalStatus::Failed
+        );
+        assert_eq!(waiting_job.model_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[rstest]
+    #[case::conflict(RepositoryError::Conflict.into())]
+    #[case::unconfirmed(RepositoryError::WriteUnconfirmed.into())]
+    #[case::provider_conflict(rejected(409, "Provider rejected request"))]
+    #[tokio::test(start_paused = true)]
+    async fn model_write_failures_are_not_replayed(
+        waiting_job: Arc<WaitingJob>,
+        #[case] error: Error,
+    ) {
+        *waiting_job.model_error.lock().unwrap() = Some(error);
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let request = crate::model::request(
+            wire::ModelRequestPurpose::Investigate,
+            serde_json::json!({}),
+        )
+        .unwrap();
+        let error = tokio::time::timeout(Duration::from_secs(1), client.model(&request))
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(matches!(error, Error::Control { status: 409, .. }));
+        assert!(!error.retryable());
+        assert_eq!(waiting_job.model_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[rstest]
+    #[tokio::test(start_paused = true)]
+    async fn failure_persistence_conflicts_are_returned_to_the_worker_loop(
+        waiting_job: Arc<WaitingJob>,
+    ) {
+        *waiting_job.sample.lock().unwrap() =
+            serde_json::from_str(include_str!("../tests/fixtures/sample.json")).unwrap();
+        *waiting_job.progress_error.lock().unwrap() = Some(RepositoryError::Conflict.into());
+        *waiting_job.finish_error.lock().unwrap() = Some(RepositoryError::WriteUnconfirmed.into());
+        waiting_job.sample_ready.notify_one();
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        let error = tokio::time::timeout(
+            Duration::from_secs(1),
+            crate::worker::execute(claim, client),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(matches!(error, Error::Control { status: 409, .. }));
+        assert_eq!(waiting_job.results.lock().unwrap().len(), 1);
     }
 }

@@ -209,7 +209,7 @@ fn context_exceeded() -> ModelResult {
 fn policy_error(error: lens_inference::Error) -> Error {
     let status = match error {
         lens_inference::Error::MonthlyBudget | lens_inference::Error::RequestBudget { .. } => 402,
-        lens_inference::Error::JobReassigned => 409,
+        lens_inference::Error::JobReassigned => return Error::JobOwnershipLost,
         lens_inference::Error::ReservationExpired => 503,
         _ => 400,
     };
@@ -425,7 +425,6 @@ mod tests {
     #[rstest]
     #[case::monthly_budget(lens_inference::Error::MonthlyBudget, 402, false)]
     #[case::request_budget(lens_inference::Error::RequestBudget { amount: 2.0, available: 1.0 }, 402, false)]
-    #[case::reassigned(lens_inference::Error::JobReassigned, 409, false)]
     #[case::expired(lens_inference::Error::ReservationExpired, 503, true)]
     #[case::invalid_prompt(lens_inference::Error::MalformedPrompt, 400, false)]
     fn inference_policy_preserves_status_and_diagnostic(
@@ -444,6 +443,14 @@ mod tests {
         };
         assert_eq!(status, expected_status);
         assert_eq!(diagnostic.as_deref(), Some(expected_diagnostic.as_str()));
+    }
+
+    #[rstest]
+    fn reassigned_inference_is_confirmed_ownership_loss() {
+        let error = policy_error(lens_inference::Error::JobReassigned);
+        assert!(matches!(error, Error::JobOwnershipLost));
+        assert!(error.is_control_failure());
+        assert!(!error.retryable());
     }
 
     #[rstest]

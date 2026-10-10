@@ -25,13 +25,19 @@ pub async fn execute(mut claim: wire::Claim, client: JobClient) -> Result<(), Er
     };
     let outcome = tokio::select! { result = work => result, result = pulse => result };
     match outcome {
-        Ok(()) | Err(Error::Control { status: 409, .. }) => {}
-        Err(error) => failure(&client, &error.to_string()).await?,
+        Ok(()) => {}
+        Err(Error::JobOwnershipLost) => {
+            tracing::info!(job_id = %claim.job.id, category = "ownership_lost", "Lens analysis stopped after losing job ownership");
+        }
+        Err(error) => {
+            tracing::warn!(job_id = %claim.job.id, category = "analysis_failed", "Lens analysis failed; recording the failure");
+            failure(&client, &claim.job.id, &error.to_string()).await?;
+        }
     }
     Ok(())
 }
 
-async fn failure(client: &JobClient, message: &str) -> Result<(), Error> {
+async fn failure(client: &JobClient, job_id: &str, message: &str) -> Result<(), Error> {
     let result = wire::Result {
         coverage: wire::Coverage::default(),
         findings: Vec::new(),
@@ -40,7 +46,15 @@ async fn failure(client: &JobClient, message: &str) -> Result<(), Error> {
         error: message.into(),
     };
     match client.finish(&result).await {
-        Ok(_) | Err(Error::Control { status: 409, .. }) => Ok(()),
+        Ok(_) => Ok(()),
+        Err(Error::JobOwnershipLost) => {
+            tracing::info!(
+                job_id,
+                category = "ownership_lost",
+                "Lens failure could not be recorded after losing job ownership"
+            );
+            Ok(())
+        }
         Err(error) => Err(error),
     }
 }
