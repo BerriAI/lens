@@ -39,8 +39,8 @@ export async function supervise(
       console.error("Slack sidecar process failed");
     });
     helper.once("close", () => {
-      if (stopping || restarts >= 3) return;
-      restarts++;
+      if (stopping) return;
+      restarts = Math.min(restarts + 1, 10);
       console.warn("Slack sidecar stopped; retrying startup");
       restart = setTimeout(launch, restartMs * restarts);
     });
