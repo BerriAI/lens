@@ -29,6 +29,7 @@ pub struct Config {
     pub github: Option<lens_server::github::GitHubApp>,
     pub github_service_url: Option<url::Url>,
     pub github_service_enabled: bool,
+    pub slack: Option<crate::slack::SlackConfig>,
 }
 
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
@@ -78,6 +79,7 @@ impl Config {
             ));
         }
         Ok(Self {
+            slack: crate::slack::SlackConfig::read(&read, &public_url)?,
             github_service_url: read("LENS_GITHUB_SERVICE_URL")
                 .filter(|value| !value.is_empty())
                 .map(|value| {

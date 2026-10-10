@@ -3,9 +3,12 @@ use std::sync::Arc;
 use chrono::DateTime;
 use lens_server::tracing::{TraceAgent, TraceReadError, TraceReader};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TracePage,
+    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
-    request::{TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest},
+    request::{
+        CONVERSATION_PAGE_SIZE_DEFAULT, TraceConversationRequest, TraceDetailRequest,
+        TraceErrorPageRequest, TraceSpanRequest,
+    },
 };
 use litellm_traces_cache::ReadError;
 use litellm_traces_clickhouse::{
@@ -158,6 +161,28 @@ impl TraceReader for TraceApi {
                 &trace_id,
                 &span_id,
                 &request.trace_ref,
+            )
+            .await
+            .map_err(read_error)
+    }
+
+    async fn conversation(
+        &self,
+        scope: ReadAccessParams,
+        trace_id: String,
+        request: TraceConversationRequest,
+    ) -> Result<Option<TraceConversationPage>, TraceReadError> {
+        let _permit = self.permit().await?;
+        self.0
+            .storage
+            .reader
+            .get_conversation(
+                &self.traces(),
+                &scope,
+                &trace_id,
+                &request.trace_ref,
+                request.cursor.as_deref(),
+                request.page_size.unwrap_or(CONVERSATION_PAGE_SIZE_DEFAULT),
             )
             .await
             .map_err(read_error)

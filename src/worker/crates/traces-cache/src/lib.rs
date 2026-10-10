@@ -1,4 +1,5 @@
 mod cache;
+mod conversation;
 mod cursor;
 mod error;
 mod list;

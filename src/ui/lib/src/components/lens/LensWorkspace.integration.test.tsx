@@ -313,7 +313,7 @@ describe("Lens interactive demo", () => {
     await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(4));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("q")).toBe("agent:support_agent status:error"));
     await user.click(screen.getByRole("tab", { name: "Findings" }));
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
     expect(network).not.toHaveBeenCalled();
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
@@ -449,7 +449,7 @@ describe("Lens interactive demo", () => {
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
       searchParams: `?tab=investigations&lens=${saved.id}`,
     });
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Traces" }));
     expect(await screen.findByText("Where is order #1042?")).toBeVisible();
@@ -480,7 +480,7 @@ describe("Lens interactive demo", () => {
     expect(screen.queryByRole("button", { name: /Preview sample|Explore with sample data/ })).not.toBeInTheDocument();
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
     await user.click(tabs.getByRole("tab", { name: "Findings" }));
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
     await user.click(tabs.getByRole("tab", { name: "Traces" }));
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
@@ -535,16 +535,16 @@ describe("Lens interactive demo", () => {
       return defaultResponse(path, true);
     });
     renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-      searchParams: "?tab=investigations&dialog=new",
+      searchParams: `?tab=investigations&dialog=new&agent=${saved.settings.agent_name}`,
     });
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(tabs.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("region", { name: "New investigation" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: `Configure analysis for ${saved.settings.agent_name}` }));
+    await user.click(screen.getByRole("button", { name: "Findings settings" }));
     expect(await screen.findByRole("dialog")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.getByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Findings settings" })).toBeVisible();
   });
 
   it.each(["standalone", "embedded"] as const)("shows deployment analysis and worker health on %s", async (surface) => {
@@ -606,7 +606,7 @@ describe("Lens interactive demo", () => {
     expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
   });
 
-  it("sends the first-time guide's Configure analysis into the Settings tab", async () => {
+  it("should connect an analysis model from findings through the Settings tab", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
     network.mockImplementation(async (input) => {
@@ -625,8 +625,8 @@ describe("Lens interactive demo", () => {
       searchParams: "?tab=investigations",
       onUrlUpdate,
     });
-    const guide = within(await screen.findByRole("region", { name: "Automatic analysis" }));
-    await user.click(await guide.findByRole("button", { name: "Configure analysis" }));
+    const guide = within(await screen.findByRole("region", { name: "Findings settings" }));
+    await user.click(await guide.findByRole("button", { name: "Connect model" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("settings"));
     const panel = within(await screen.findByRole("region", { name: "Settings" }));
     expect(await panel.findByRole("heading", { name: "Add an analysis provider" })).toBeVisible();
@@ -696,7 +696,7 @@ describe("Lens interactive demo", () => {
     await user.click(panel.getByRole("button", { name: "View automatic analysis" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
     expect(lastUrl(onUrlUpdate).get("dialog")).toBeNull();
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
   });
 
   it.each(["standalone", "embedded"] as const)("hides Settings for read-only %s sessions", async (surface) => {
@@ -804,10 +804,29 @@ it("opens demo findings without exposing analysis edits or touching live data", 
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
     searchParams: "?tab=investigations&demo=true",
   });
-  expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: /Configure analysis/ })).not.toBeInTheDocument();
+  expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
   await user.click(await screen.findByRole("row", { name: finding.title }));
   expect(await screen.findByRole("heading", { name: finding.title })).toBeVisible();
+  expect(network).not.toHaveBeenCalled();
+});
+
+it("should show only the selected agent's findings and open their report", async () => {
+  const user = userEvent.setup();
+  const data = createLensDemoData();
+  const support = data.lenses[0].findings.find((finding) => finding.kind === "issue")!;
+  const research = data.lenses[1].findings.find((finding) => finding.kind === "issue")!;
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: "?tab=findings&demo=true&agent=research_agent&inbox_agent=support_agent",
+  });
+  expect(await screen.findByRole("row", { name: research.title })).toBeVisible();
+  expect(screen.queryByRole("row", { name: support.title })).not.toBeInTheDocument();
+  expect(screen.queryByRole("combobox", { name: "Filter by agent" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("row", { name: research.title }));
+  const report = await screen.findByRole("complementary", { name: "Finding details" });
+  expect(within(report).getByRole("heading", { name: research.title })).toBeVisible();
+  expect(within(report).getByText(research.description)).toBeVisible();
   expect(network).not.toHaveBeenCalled();
 });
 
@@ -916,7 +935,7 @@ describe("Lens agent selector", () => {
     expect(sidebar.queryByRole("button", { name: "Agent: research_agent" })).not.toBeInTheDocument();
     expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
     await user.click(sidebar.getByRole("tab", { name: "Findings" }));
-    expect(await screen.findByRole("region", { name: "Automatic analysis" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     expect(sidebar.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     await user.click(sidebar.getByRole("tab", { name: "Agents" }));
     expect(await screen.findByRole("region", { name: "Agents directory" })).toBeVisible();

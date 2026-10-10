@@ -148,6 +148,11 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .local_worker
         .clone()
         .ok_or(litellm_lens::Error::Unavailable)?;
+    if let Some(slack) = config.slack {
+        let notifications =
+            litellm_lens::slack::Notifications::new(slack, worker.repository.clone())?;
+        tasks.spawn(notifications.serve());
+    }
     tasks.spawn(worker.serve());
     let signals = application
         .signals_worker

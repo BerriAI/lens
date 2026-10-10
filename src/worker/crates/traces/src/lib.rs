@@ -43,5 +43,5 @@ pub use tenant::Tenant;
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};
 pub use view::{
     AgentNode, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage, SpanStatus, SpendMatch,
-    Trace, TracePage, TraceSummary,
+    Trace, TraceConversationPage, TraceConversationTurn, TracePage, TraceSummary,
 };

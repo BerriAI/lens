@@ -8,12 +8,15 @@ const iso = (time: number) => new Date(time).toISOString();
 const DEMO_ASKERS = ["maya@acme.dev", "jordan@acme.dev", "priya@acme.dev"];
 
 /** Demo runs start from a Slack thread so the run header shows who asked and where. */
-const demoSource = (scene: Scenario, index: number): NonNullable<Trace["summary"]["source"]> => ({
-  type: "slack",
-  url: `https://acme.slack.com/archives/C0DEMO/p${1_700_000_000_000 + index}`,
-  title: scene.question,
-  user: DEMO_ASKERS[index % DEMO_ASKERS.length],
-});
+const demoSource = (scene: Scenario, index: number): NonNullable<Trace["summary"]["source"]> => {
+  const root = scene.session ? scenarios.findLastIndex((candidate) => candidate.session === scene.session) : index;
+  return {
+    type: "slack",
+    url: `https://acme.slack.com/archives/C0DEMO/p${1_700_000_000_000 + root}`,
+    title: scenarios[root].question,
+    user: DEMO_ASKERS[root % DEMO_ASKERS.length],
+  };
+};
 
 function makeTrace(scene: Scenario, index: number, now: number) {
   const traceId = (index + 1).toString(16).padStart(32, "0");
@@ -115,6 +118,7 @@ function makeTrace(scene: Scenario, index: number, now: number) {
       "gen_ai.agent.name": scene.agent,
       "service.name": "demo-agents",
       demo: "true",
+      ...(scene.session ? { "session.id": scene.session } : {}),
       ...(span.model ? { "gen_ai.request.model": span.model } : {}),
     },
   }));

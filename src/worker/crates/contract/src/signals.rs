@@ -64,6 +64,15 @@ pub struct SignalFlag {
     #[serde(deserialize_with = "score")]
     #[schemars(range(min = 0, max = 1))]
     pub score: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<SignalEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SignalEvidence {
+    pub span_id: String,
+    pub quote: String,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
@@ -124,6 +133,8 @@ pub struct SignalData {
     #[serde(default, deserialize_with = "scores")]
     pub scores: BTreeMap<String, f64>,
     #[serde(default)]
+    pub evidence: BTreeMap<String, SignalEvidence>,
+    #[serde(default)]
     pub model: String,
     #[serde(default)]
     pub error: String,
@@ -142,6 +153,8 @@ pub struct SignalAttempt {
     pub status: SignalAttemptStatus,
     #[serde(default, deserialize_with = "scores")]
     pub scores: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub evidence: BTreeMap<String, SignalEvidence>,
     pub model: String,
     #[serde(default)]
     pub error: String,

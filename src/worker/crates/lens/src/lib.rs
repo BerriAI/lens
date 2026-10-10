@@ -20,6 +20,7 @@ pub mod pipeline;
 pub mod sandbox;
 pub mod setup;
 pub mod signals;
+pub mod slack;
 mod storage;
 pub mod worker;
 

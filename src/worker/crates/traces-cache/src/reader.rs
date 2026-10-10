@@ -49,7 +49,7 @@ fn settle<T, E>(result: Result<T, Arc<Miss<E>>>) -> Result<Option<T>, ReadError<
 pub struct TraceReader {
     snapshots: SnapshotCache,
     pub(super) lists: ListCache,
-    response_bytes: usize,
+    pub(super) response_bytes: usize,
 }
 
 impl TraceReader {
@@ -296,7 +296,7 @@ impl TraceReader {
     }
 }
 
-async fn reference<S: TraceStore>(
+pub(super) async fn reference<S: TraceStore>(
     store: &S,
     access: &ReadAccessParams,
     trace_id: &str,

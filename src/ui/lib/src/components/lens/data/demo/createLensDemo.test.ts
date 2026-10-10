@@ -4,6 +4,19 @@ import { createLensDemoData } from "./fixtures";
 import { evidenceTarget } from "../../model/findings";
 
 describe("Lens demo data", () => {
+  it("shows the original order request before its follow-up without including later turns", async () => {
+    const api = createLensDemo().traces;
+    const history = await api.conversation("00000000000000000000000000000001");
+    expect(history.turns).toHaveLength(1);
+    expect(history.turns[0].input).toContain("Can you help me track my order?");
+    expect(history.turns[0].output).toContain("Of course. What is your order number?");
+    const original = await api.trace(history.turns[0].trace_id);
+    const followup = await api.trace("00000000000000000000000000000001");
+    expect(original.summary.source).toEqual(followup.summary.source);
+    expect((await api.conversation(original.summary.trace_id)).turns).toEqual([]);
+    expect(history.next_cursor).toBeNull();
+  });
+
   it("links every finding to the quoted original step and assessed run", () => {
     const data = createLensDemoData();
     for (const lens of data.lenses) {

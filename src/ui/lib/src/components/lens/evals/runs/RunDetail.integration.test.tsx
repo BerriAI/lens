@@ -84,6 +84,7 @@ describe("Eval case results", () => {
       if (path === `/lens/evals/runs/${completed.id}`) return completed;
       if (path === `/lens/evals/runs/${completed.id}/cases`) return [linked];
       if (path === `/lens/evals/runs/${completed.id}/cases/${linked.case_id}`) return linked;
+      if (path === `/v1/traces/${record.trace.summary.trace_id}/conversation`) return { turns: [], next_cursor: null };
       if (path === `/v1/traces/${record.trace.summary.trace_id}`)
         return { ...record.trace, summary: { ...record.trace.summary, trace_ref: traceRef } };
       if (path === "/lens/feedback") return { feedback: [] };

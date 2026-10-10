@@ -12,7 +12,9 @@ use litellm_traces::{
     query::named::{
         ListTracesParams, ListTracesRow, ReadAccessParams, SpanDetailParams, SpanDetailRow,
         SpanErrorParams, SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow,
-        TraceIdentityParams, TracePageSpansParams, TraceSpansParams, TraceSpansRow,
+        TraceConversationAnchor, TraceConversationAnchorParams, TraceConversationRow,
+        TraceConversationTurnsParams, TraceIdentityParams, TracePageSpansParams, TraceSpansParams,
+        TraceSpansRow,
     },
 };
 use litellm_traces_cache::{LIVE_TTL, ReadError, StoreError, TraceReader, TraceStore};
@@ -22,6 +24,8 @@ const START_NS: i64 = 1_790_742_989_000_000_000;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum Operation {
+    ConversationAnchor,
+    ConversationTurns,
     TraceRefs,
     ListRuns,
     TraceSpans,
@@ -43,6 +47,10 @@ struct FakeError;
 
 #[derive(Default)]
 struct State {
+    conversation_anchor: Option<TraceConversationAnchor>,
+    conversation_rows: Vec<TraceConversationRow>,
+    conversation_requests: Vec<TraceConversationTurnsParams>,
+    conversation_too_large_above: Option<u32>,
     failures: HashMap<Operation, Failure>,
     trace_refs: Vec<String>,
     list_runs: Vec<ListTracesRow>,
@@ -58,6 +66,8 @@ struct State {
 
 #[derive(Default)]
 struct Calls {
+    conversation_anchor: AtomicUsize,
+    conversation_turns: AtomicUsize,
     trace_refs: AtomicUsize,
     list_runs: AtomicUsize,
     trace_spans: AtomicUsize,
@@ -124,6 +134,8 @@ impl FakeStore {
 
     fn calls(&self, operation: Operation) -> usize {
         match operation {
+            Operation::ConversationAnchor => self.calls.conversation_anchor.load(Ordering::SeqCst),
+            Operation::ConversationTurns => self.calls.conversation_turns.load(Ordering::SeqCst),
             Operation::TraceRefs => self.calls.trace_refs.load(Ordering::SeqCst),
             Operation::ListRuns => self.calls.list_runs.load(Ordering::SeqCst),
             Operation::TraceSpans => self.calls.trace_spans.load(Ordering::SeqCst),
@@ -148,6 +160,49 @@ impl TraceStore for FakeStore {
 
     fn source(&self) -> &str {
         "fake"
+    }
+
+    async fn conversation_anchor(
+        &self,
+        _: &TraceConversationAnchorParams,
+    ) -> Result<Option<TraceConversationAnchor>, StoreError<Self::Error>> {
+        self.calls
+            .conversation_anchor
+            .fetch_add(1, Ordering::SeqCst);
+        let state = self.state.lock().unwrap();
+        Self::failure(&state, Operation::ConversationAnchor)?;
+        Ok(state.conversation_anchor.clone())
+    }
+
+    async fn conversation_turns(
+        &self,
+        params: &TraceConversationTurnsParams,
+    ) -> Result<Vec<TraceConversationRow>, StoreError<Self::Error>> {
+        self.calls.conversation_turns.fetch_add(1, Ordering::SeqCst);
+        let mut state = self.state.lock().unwrap();
+        state.conversation_requests.push(params.clone());
+        Self::failure(&state, Operation::ConversationTurns)?;
+        if state
+            .conversation_too_large_above
+            .is_some_and(|limit| params.limit > limit)
+        {
+            return Err(StoreError::TooLarge);
+        }
+        Ok(state
+            .conversation_rows
+            .iter()
+            .filter(|row| {
+                params.has_cursor == 0
+                    || (row.start_ns, &row.trace_ref, &row.span_id)
+                        > (
+                            params.after_start_ns,
+                            &params.after_trace_ref,
+                            &params.after_span_id,
+                        )
+            })
+            .take(params.limit as usize)
+            .cloned()
+            .collect())
     }
 
     async fn trace_refs(
@@ -923,4 +978,200 @@ async fn concurrent_pages_of_an_evicted_snapshot_share_one_storage_read() {
     assert_eq!(left.unwrap().unwrap().spans[0].span_id, "span-1");
     assert_eq!(right.unwrap().unwrap().spans[0].span_id, "span-1");
     assert_eq!(store.calls(Operation::TraceSpans), 1);
+}
+
+fn conversation_store() -> FakeStore {
+    FakeStore {
+        state: Mutex::new(State {
+            conversation_anchor: Some(TraceConversationAnchor {
+                trace_ref: "current-ref".into(),
+                team_id: "team".into(),
+                api_key_hash: "key".into(),
+                session_id: "session".into(),
+                start_ns: START_NS + 10,
+            }),
+            conversation_rows: (0..3)
+                .map(|index| TraceConversationRow {
+                    trace_id: format!("prior-{index}"),
+                    trace_ref: format!("ref-{index}"),
+                    span_id: format!("span-{index}"),
+                    start_ns: START_NS,
+                    input: "earlier request".into(),
+                    output: "earlier reply".into(),
+                })
+                .collect(),
+            ..State::default()
+        }),
+        calls: Calls::default(),
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn conversation_pages_preserve_tied_times_and_derived_owner_scope() {
+    let store = conversation_store();
+    let reader = TraceReader::new(usize::MAX);
+    let mut cursor = None;
+    for index in 0..3 {
+        let page = reader
+            .get_conversation(
+                &store,
+                &access(),
+                "current",
+                "current-ref",
+                cursor.as_deref(),
+                1,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(page.turns.len(), 1);
+        assert_eq!(page.turns[0].trace_id, format!("prior-{index}"));
+        assert_eq!(page.turns[0].input, "earlier request");
+        cursor = page.next_cursor;
+        assert_eq!(cursor.is_some(), index < 2);
+    }
+    let state = store.state.lock().unwrap();
+    for request in &state.conversation_requests {
+        assert_eq!(request.team_id, "team");
+        assert_eq!(request.api_key_hash, "key");
+        assert_eq!(request.session_id, "session");
+        assert_eq!(request.current_trace_id, "current");
+        assert_eq!(request.before_ns, START_NS + 10);
+        assert_eq!(
+            request.snapshot_ms,
+            state.conversation_requests[0].snapshot_ms
+        );
+        assert_eq!(request.limit, 2);
+    }
+}
+
+#[rstest]
+#[case::access(true)]
+#[case::session(false)]
+#[tokio::test]
+async fn conversation_cursor_cannot_cross_authorization_or_session(#[case] changed_access: bool) {
+    let store = conversation_store();
+    let reader = TraceReader::new(usize::MAX);
+    let first = reader
+        .get_conversation(&store, &access(), "current", "current-ref", None, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut scope = access();
+    if changed_access {
+        scope.all_teams = false;
+        scope.user_id = "other-user".into();
+    } else {
+        store
+            .state
+            .lock()
+            .unwrap()
+            .conversation_anchor
+            .as_mut()
+            .unwrap()
+            .session_id = "other-session".into();
+    }
+    let result = reader
+        .get_conversation(
+            &store,
+            &scope,
+            "current",
+            "current-ref",
+            first.next_cursor.as_deref(),
+            1,
+        )
+        .await;
+    assert!(matches!(result, Err(ReadError::TraceChanged)));
+    assert_eq!(store.calls(Operation::ConversationTurns), 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn conversation_reduces_storage_pages_without_losing_continuation() {
+    let store = conversation_store();
+    store.state.lock().unwrap().conversation_too_large_above = Some(2);
+    let page = TraceReader::new(usize::MAX)
+        .get_conversation(&store, &access(), "current", "current-ref", None, 10)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(page.turns.len(), 1);
+    assert!(page.next_cursor.is_some());
+    assert_eq!(
+        store
+            .state
+            .lock()
+            .unwrap()
+            .conversation_requests
+            .iter()
+            .map(|request| request.limit)
+            .collect::<Vec<_>>(),
+        vec![11, 5, 2]
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn conversation_response_budget_preserves_cursor_and_rejects_oversized_single_turn() {
+    let store = conversation_store();
+    let first = TraceReader::new(usize::MAX)
+        .get_conversation(&store, &access(), "current", "current-ref", None, 1)
+        .await
+        .unwrap()
+        .unwrap();
+    let budget = serde_json::to_vec(&first).unwrap().len();
+    let reader = TraceReader::new(budget);
+    let page = reader
+        .get_conversation(&store, &access(), "current", "current-ref", None, 2)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(page.turns.len(), 1);
+    assert!(serde_json::to_vec(&page).unwrap().len() <= budget);
+    let next = reader
+        .get_conversation(
+            &store,
+            &access(),
+            "current",
+            "current-ref",
+            page.next_cursor.as_deref(),
+            2,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(next.turns[0].trace_id, "prior-1");
+    let too_small = TraceReader::new(1)
+        .get_conversation(&store, &access(), "current", "current-ref", None, 1)
+        .await;
+    assert!(matches!(too_small, Err(ReadError::TooLarge)));
+}
+
+#[rstest]
+#[case::missing(false)]
+#[case::unavailable_session(true)]
+#[tokio::test]
+async fn conversation_without_an_authorized_session_does_not_query_turns(#[case] exists: bool) {
+    let store = conversation_store();
+    if exists {
+        store
+            .state
+            .lock()
+            .unwrap()
+            .conversation_anchor
+            .as_mut()
+            .unwrap()
+            .session_id
+            .clear();
+    } else {
+        store.state.lock().unwrap().conversation_anchor = None;
+    }
+    let page = TraceReader::new(usize::MAX)
+        .get_conversation(&store, &access(), "current", "current-ref", None, 1)
+        .await
+        .unwrap();
+    assert_eq!(page.is_some(), exists);
+    assert!(page.is_none_or(|page| page.turns.is_empty() && page.next_cursor.is_none()));
+    assert_eq!(store.calls(Operation::ConversationTurns), 0);
 }

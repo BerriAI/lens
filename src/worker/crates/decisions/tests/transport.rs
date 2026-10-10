@@ -251,8 +251,7 @@ fn request() -> DecisionRequest {
         },
         questions: BTreeMap::from([(
             "a".into(),
-            Question {
-                r#type: "noul",
+            Question::Noul {
                 instructions: "Is help requested?".into(),
             },
         )]),
@@ -340,15 +339,22 @@ fn models(
 #[tokio::test]
 async fn adapters_preserve_provider_paths_model_names_and_decision_body(
     deployment: Deployment,
-    request: DecisionRequest,
+    mut request: DecisionRequest,
     #[case] provider: Provider,
     #[case] model: &str,
     #[case] base: &str,
     #[case] endpoint: &str,
     #[case] sent_model: &str,
 ) {
+    request.questions.insert(
+        "evidence".into(),
+        Question::Choice {
+            instructions: "Which excerpt supports the signal?".into(),
+            criteria: BTreeMap::from([("L000".into(), None), ("none".into(), None)]),
+        },
+    );
     let server = MockServer::start().await;
-    let response = json!({"answers":{"a":{"type":"noul","noul":0.8}}});
+    let response = json!({"answers":{"a":{"type":"noul","noul":0.8},"evidence":{"type":"choice","choice":"L000","confidence":0.9}}});
     Mock::given(method("POST"))
         .and(path(endpoint))
         .respond_with(ResponseTemplate::new(200).set_body_json(&response))

@@ -23,8 +23,7 @@ fn decision() -> DecisionRequest {
         },
         questions: BTreeMap::from([(
             "quality".into(),
-            Question {
-                r#type: "noul",
+            Question::Noul {
                 instructions: "Was the task completed?".into(),
             },
         )]),

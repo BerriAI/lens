@@ -23,7 +23,7 @@ import { flaggedSignals, isFlagged, type TraceSignalState } from "./useTraceSign
 import { LOW_SCORE, isLowFeedback, type TraceFeedbackState } from "./useTraceFeedback";
 import { SignalPills } from "../ui/SignalPills";
 import { FrameworkLogo, traceFramework } from "../ui/TraceFramework";
-import type { TraceSummary } from "../types";
+import type { SignalFlag, TraceSummary } from "../types";
 import { traceRefOf } from "../routing";
 import { fmtMs, previewText, traceAgentNames } from "../utils";
 
@@ -36,6 +36,7 @@ interface AgentTracesTableProps {
   showSignals?: boolean;
   signalsColumn?: boolean;
   onSetUpSignals?: () => void;
+  onOpenSignal?: (run: TraceSummary, flag: SignalFlag) => void;
   isLoading: boolean;
   error: Error | null;
   hasMore: boolean;
@@ -93,7 +94,11 @@ const NUM = "font-mono text-foreground";
 const FindingsContext = createContext<ReadonlyMap<string, TraceFindingState>>(new Map());
 const SignalsContext = createContext<ReadonlyMap<string, TraceSignalState>>(new Map());
 const NO_SIGNALS: ReadonlyMap<string, TraceSignalState> = new Map();
-const SignalSetupContext = createContext<{ configured: boolean; onSetUp?: () => void }>({ configured: false });
+const SignalSetupContext = createContext<{
+  configured: boolean;
+  onSetUp?: () => void;
+  onOpen?: (run: TraceSummary, flag: SignalFlag) => void;
+}>({ configured: false });
 const FLAGGED_ROW = "bg-destructive/[0.04] shadow-[inset_2px_0_0_var(--color-destructive)] hover:bg-destructive/[0.07]";
 const FeedbackContext = createContext<ReadonlyMap<string, TraceFeedbackState>>(new Map());
 const NO_FEEDBACK: ReadonlyMap<string, TraceFeedbackState> = new Map();
@@ -175,7 +180,7 @@ const mutedCell = (label: string, title: string) => (
 );
 
 function SignalsCell({ run }: { run: TraceSummary }) {
-  const { configured } = useContext(SignalSetupContext);
+  const { configured, onOpen } = useContext(SignalSetupContext);
   const state = useContext(SignalsContext).get(runKey(run));
   const muted = mutedCell;
   if (!configured) return muted("-", "Signals are not set up");
@@ -187,7 +192,13 @@ function SignalsCell({ run }: { run: TraceSummary }) {
   if (status === "failed") return muted("Not checked", "The System 1 model could not check this run");
   const flags = flaggedSignals(state.signals);
   if (!flags.length) return <span title="No signals detected" />;
-  return <SignalPills flags={flags} className="overflow-hidden" />;
+  return (
+    <SignalPills
+      flags={flags}
+      className="overflow-hidden"
+      onSelect={onOpen ? (flag) => onOpen(run, flag) : undefined}
+    />
+  );
 }
 
 export const formatScore = (score: number): string => (Number.isInteger(score) ? String(score) : score.toFixed(1));
@@ -374,6 +385,7 @@ export function AgentTracesTable({
   showSignals = false,
   signalsColumn = showSignals,
   onSetUpSignals,
+  onOpenSignal,
   isLoading,
   error,
   hasMore,
@@ -406,7 +418,13 @@ export function AgentTracesTable({
     <FindingsContext.Provider value={findings}>
       <FeedbackContext.Provider value={feedbackOrEmpty(feedback)}>
         <SignalsContext.Provider value={signals}>
-          <SignalSetupContext.Provider value={{ configured: showSignals, onSetUp: onSetUpSignals }}>
+          <SignalSetupContext.Provider
+            value={{
+              configured: showSignals,
+              onSetUp: onSetUpSignals,
+              onOpen: onOpenSignal,
+            }}
+          >
             <InspectorTable.Root table={table} data-testid="runs-table" className="lens-table border-t">
               <InspectorTable.Grid
                 aria-label="Agent runs"

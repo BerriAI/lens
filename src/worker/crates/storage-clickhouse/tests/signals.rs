@@ -171,7 +171,8 @@ async fn superseded_claim_cannot_overwrite_its_successor(
         database.store.read(&key(&execution)).await.unwrap(),
         previous
     );
-    let accepted: SignalAttempt = serde_json::from_value(json!({"status":"classified","model":successor_config.model,"scores":{"user_frustration":0.8}})).unwrap();
+    let accepted: SignalAttempt = serde_json::from_value(json!({"status":"classified","model":successor_config.model,"scores":{"user_frustration":0.8},
+        "evidence":{"user_frustration":{"span_id":"problem-step","quote":"You ignored my request again 🗿"}}})).unwrap();
     repository
         .store(
             &execution,
@@ -187,6 +188,13 @@ async fn superseded_claim_cannot_overwrite_its_successor(
     assert_eq!(rows[0].claimed_until, None);
     assert_eq!(rows[0].classified_at, Some(new_start));
     assert_eq!(rows[0].data, value(&accepted));
+    let projected =
+        lens_signals::trace_signals(&identity(&execution), Some(&rows[0]), &successor_config)
+            .unwrap();
+    assert_eq!(
+        projected.flags[0].evidence,
+        accepted.evidence.get("user_frustration").cloned()
+    );
     assert_eq!(rows[0].span_count, execution.span_count);
     repository
         .store(&execution, &successor_config, new_lease, new_start, &stale)
