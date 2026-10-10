@@ -2,6 +2,18 @@
 
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "InvestigatorState".
+ */
+export type InvestigatorState =
+  | "starting"
+  | "running"
+  | "scheduled"
+  | "stalled"
+  | "failed"
+  | "daily_limit"
+  | "unavailable";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".
  */
 export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
@@ -514,6 +526,24 @@ export interface FindingGroups {
  */
 export interface Findings {
   findings?: FindingDraft[];
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "InvestigatorStatus".
+ */
+export interface InvestigatorStatus {
+  agent_name: string;
+  detail: string;
+  last_analysis_at?: string | null;
+  last_checked_at?: string | null;
+  lens_id: string;
+  model: string;
+  next_run_at?: string | null;
+  posts_today: number;
+  run_limit: number;
+  runs_today: number;
+  state: InvestigatorState;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

@@ -115,7 +115,8 @@ impl Application {
             crate::SourceReader(state),
             models.clone(),
             token_hash,
-        );
+        )
+        .with_investigator_environment();
         self.router = self
             .router
             .merge(lens_server::investigations::router(

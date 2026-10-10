@@ -27,6 +27,13 @@ use lens_investigations::{LensRepository, RepositoryError, can_access};
 use rand::Rng;
 
 pub trait InvestigationAccess: Send + Sync {
+    fn investigator_status(
+        &self,
+        _lenses: &[Lens],
+    ) -> impl Future<Output = Option<lens_contract::investigations::InvestigatorStatus>> + Send
+    {
+        async { None }
+    }
     fn verify_finding(
         &self,
         _lens: &Lens,
@@ -177,7 +184,7 @@ async fn list<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
 ) -> Result<Json<LensList>, InvestigationError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let scope = scope(&identity, false)?;
-    let lenses = app
+    let lenses: Vec<_> = app
         .repository
         .lenses(&scope)
         .await?
@@ -192,10 +199,12 @@ async fn list<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
         .into_iter()
         .filter(|worker| can_access(&scope, &worker.scope))
         .collect();
+    let investigator = app.access.investigator_status(&lenses).await;
     Ok(Json(LensList {
         lenses,
         workers,
         tracing_enabled: app.access.tracing_enabled(),
+        investigator,
     }))
 }
 

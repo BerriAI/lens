@@ -115,6 +115,35 @@ pub struct LensList {
     pub lenses: Vec<Lens>,
     pub workers: Vec<Worker>,
     pub tracing_enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub investigator: Option<InvestigatorStatus>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InvestigatorState {
+    Starting,
+    Running,
+    Scheduled,
+    Stalled,
+    Failed,
+    DailyLimit,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct InvestigatorStatus {
+    pub lens_id: String,
+    pub agent_name: String,
+    pub model: String,
+    pub state: InvestigatorState,
+    pub detail: String,
+    pub next_run_at: Option<DateTime<Utc>>,
+    pub last_checked_at: Option<DateTime<Utc>>,
+    pub last_analysis_at: Option<DateTime<Utc>>,
+    pub runs_today: u64,
+    pub run_limit: u64,
+    pub posts_today: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]

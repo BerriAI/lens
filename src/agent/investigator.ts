@@ -26,6 +26,22 @@ export const stateSchema = z.object({
   owner: z.string(),
   runs: z.number(),
   posts: z.number(),
+  last_check_at: z.number().default(0),
+  last_outcome: z
+    .enum([
+      "starting",
+      "running",
+      "no_traces",
+      "unchanged",
+      "quiet",
+      "duplicate",
+      "delivered",
+      "failed",
+      "delivery_unknown",
+      "run_limit",
+    ])
+    .default("starting"),
+  last_error: z.string().default(""),
   next_issue_number: z.number().int().positive().default(1),
   signature: z.string(),
   sent: z.array(
@@ -55,6 +71,9 @@ export const initialState: State = {
   owner: "",
   runs: 0,
   posts: 0,
+  last_check_at: 0,
+  last_outcome: "starting",
+  last_error: "",
   next_issue_number: 1,
   signature: "",
   sent: [],
@@ -124,120 +143,175 @@ export async function cycle(
     next_at: started + 600_000,
     lease_until: started + 300_000,
     owner: randomUUID(),
+    last_check_at: started,
+    last_outcome: "running",
+    last_error: "",
   });
   console.info("Lens investigator durable lease acquired");
-  if (claimed.value.runs >= deps.dailyLimit || claimed.value.posts >= 3) return;
-  const sample = await deps.sample(signal);
-  if (!sample.traces.length) return;
-  const signature = digest(
-    JSON.stringify(
-      sample.traces
-        .map((row) => [
-          row.trace_id,
-          row.status,
-          row.duration_ms,
-          row.error_count,
-          row.llm_calls,
-        ])
-        .sort(),
-    ),
-  );
-  if (signature === claimed.value.signature) return;
-  if (now() >= claimed.value.lease_until - 30_000) return;
-  const reserved = await deps.store.commit(claimed, {
-    ...claimed.value,
-    runs: claimed.value.runs + 1,
-  });
-  const result = await deps.analyze(sample, reserved.value.sent, signal);
-  if (signal.aborted || now() >= reserved.value.lease_until - 30_000) return;
-  const source = {
-    model: deps.model,
-    prompt_revision: PROMPT_REVISION,
-    trace_ids: sample.traces.map((row) => row.trace_id),
-    repository_sha: result.sha,
-    at: started,
-  };
-  const candidate = result.candidate;
-  if (!candidate) {
-    await deps.store.commit(reserved, {
-      ...reserved.value,
-      last_run: source,
-      signature,
+  if (claimed.value.runs >= deps.dailyLimit) {
+    await deps.store.commit(claimed, {
+      ...claimed.value,
+      next_at: Date.parse(`${day}T00:00:00Z`) + 86_400_000,
       lease_until: 0,
-    });
-    console.info("Lens investigator analysis persisted; no new report");
-    return;
-  }
-  const duplicate = reserved.value.sent.find(
-    (item) =>
-      item.fingerprint === candidate.fingerprint ||
-      item.evidence_hash === candidate.evidenceHash ||
-      item.title === candidate.candidate.title,
-  );
-  const persisted =
-    duplicate && /^[a-f0-9]{64}$/.test(duplicate.fingerprint)
-      ? { ...candidate, fingerprint: duplicate.fingerprint }
-      : candidate;
-  // Native import is idempotent. A timeout here must leave the evidence eligible
-  // for retry, while an ambiguous Slack send below remains durably claimed.
-  const native = await deps.persist(persisted, sample, source, signal);
-  const owned = await deps.store.read();
-  if (
-    signal.aborted ||
-    now() >= owned.value.lease_until - 30_000 ||
-    owned.value.owner !== reserved.value.owner ||
-    owned.revision !== reserved.revision
-  )
-    return;
-  if (duplicate) {
-    await deps.store.commit(owned, {
-      ...owned.value,
-      signature,
-      last_run: source,
-      lease_until: 0,
-      sent: owned.value.sent.map((item) =>
-        item.fingerprint === duplicate.fingerprint
-          ? {
-              ...item,
-              fingerprint: persisted.fingerprint,
-              evidence_hash: candidate.evidenceHash,
-              provenance: source,
-              native_finding: native,
-            }
-          : item,
-      ),
+      last_outcome: "run_limit",
     });
     console.info(
-      "Lens investigator native finding refreshed; no new notification",
+      "Lens investigator daily analysis budget reached; resumes at UTC midnight",
     );
     return;
   }
-  const committed = await deps.store.commit(owned, {
-    ...owned.value,
-    signature,
-    posts: reserved.value.posts + 1,
-    next_issue_number: reserved.value.next_issue_number + 1,
-    last_run: source,
-    sent: [
-      ...reserved.value.sent,
-      {
-        fingerprint: candidate.fingerprint,
-        evidence_hash: candidate.evidenceHash,
-        issue_key: candidate.candidate.issue_key,
-        title: candidate.candidate.title,
-        issue_number: reserved.value.next_issue_number,
-        native_finding: native,
-        provenance: source,
-      },
-    ].slice(-200),
-  });
-  if (now() >= committed.value.lease_until - 15_000 || signal.aborted) return;
-  await deps.post(
-    { ...candidate, native, issueNumber: reserved.value.next_issue_number },
-    sample,
-    source,
-  );
-  console.info("Lens investigator report delivered with durable provenance");
+  try {
+    const sample = await deps.sample(signal);
+    if (!sample.traces.length) {
+      await deps.store.commit(claimed, {
+        ...claimed.value,
+        lease_until: 0,
+        last_outcome: "no_traces",
+      });
+      return;
+    }
+    const signature = digest(
+      JSON.stringify(
+        sample.traces
+          .map((row) => [
+            row.trace_id,
+            row.status,
+            row.duration_ms,
+            row.error_count,
+            row.llm_calls,
+          ])
+          .sort(),
+      ),
+    );
+    if (signature === claimed.value.signature) {
+      await deps.store.commit(claimed, {
+        ...claimed.value,
+        lease_until: 0,
+        last_outcome: "unchanged",
+      });
+      return;
+    }
+    if (now() >= claimed.value.lease_until - 30_000) return;
+    const reserved = await deps.store.commit(claimed, {
+      ...claimed.value,
+      runs: claimed.value.runs + 1,
+    });
+    const result = await deps.analyze(sample, reserved.value.sent, signal);
+    if (signal.aborted || now() >= reserved.value.lease_until - 30_000) return;
+    const source = {
+      model: deps.model,
+      prompt_revision: PROMPT_REVISION,
+      trace_ids: sample.traces.map((row) => row.trace_id),
+      repository_sha: result.sha,
+      at: started,
+    };
+    const candidate = result.candidate;
+    if (!candidate) {
+      await deps.store.commit(reserved, {
+        ...reserved.value,
+        last_run: source,
+        signature,
+        lease_until: 0,
+        last_outcome: "quiet",
+      });
+      console.info("Lens investigator analysis persisted; no new report");
+      return;
+    }
+    const duplicate = reserved.value.sent.find(
+      (item) =>
+        item.fingerprint === candidate.fingerprint ||
+        item.evidence_hash === candidate.evidenceHash ||
+        item.title === candidate.candidate.title,
+    );
+    const persisted =
+      duplicate && /^[a-f0-9]{64}$/.test(duplicate.fingerprint)
+        ? { ...candidate, fingerprint: duplicate.fingerprint }
+        : candidate;
+    // Native import is idempotent. A timeout here must leave the evidence eligible
+    // for retry, while an ambiguous Slack send below remains durably claimed.
+    const native = await deps.persist(persisted, sample, source, signal);
+    const owned = await deps.store.read();
+    if (
+      signal.aborted ||
+      now() >= owned.value.lease_until - 30_000 ||
+      owned.value.owner !== reserved.value.owner ||
+      owned.revision !== reserved.revision
+    )
+      return;
+    if (duplicate) {
+      await deps.store.commit(owned, {
+        ...owned.value,
+        signature,
+        last_run: source,
+        lease_until: 0,
+        last_outcome: "duplicate",
+        sent: owned.value.sent.map((item) =>
+          item.fingerprint === duplicate.fingerprint
+            ? {
+                ...item,
+                fingerprint: persisted.fingerprint,
+                evidence_hash: candidate.evidenceHash,
+                provenance: source,
+                native_finding: native,
+              }
+            : item,
+        ),
+      });
+      console.info(
+        "Lens investigator native finding refreshed; no new notification",
+      );
+      return;
+    }
+    const committed = await deps.store.commit(owned, {
+      ...owned.value,
+      signature,
+      posts: reserved.value.posts + 1,
+      next_issue_number: reserved.value.next_issue_number + 1,
+      last_run: source,
+      last_outcome: "delivery_unknown",
+      sent: [
+        ...reserved.value.sent,
+        {
+          fingerprint: candidate.fingerprint,
+          evidence_hash: candidate.evidenceHash,
+          issue_key: candidate.candidate.issue_key,
+          title: candidate.candidate.title,
+          issue_number: reserved.value.next_issue_number,
+          native_finding: native,
+          provenance: source,
+        },
+      ].slice(-200),
+    });
+    if (now() >= committed.value.lease_until - 15_000 || signal.aborted) return;
+    await deps.post(
+      { ...candidate, native, issueNumber: reserved.value.next_issue_number },
+      sample,
+      source,
+    );
+    await deps.store.commit(committed, {
+      ...committed.value,
+      lease_until: 0,
+      last_outcome: "delivered",
+    });
+    console.info("Lens investigator report delivered with durable provenance");
+  } catch (error) {
+    const failed = await deps.store.read();
+    if (failed.value.owner === claimed.value.owner) {
+      await deps.store.commit(failed, {
+        ...failed.value,
+        lease_until: 0,
+        last_outcome:
+          failed.value.last_outcome === "delivery_unknown"
+            ? "delivery_unknown"
+            : "failed",
+        last_error:
+          failed.value.last_outcome === "delivery_unknown"
+            ? "Slack delivery could not be confirmed. The finding is saved in Lens; the message will not be blindly resent."
+            : "Analysis could not finish. The same evidence remains eligible for the next check.",
+      });
+    }
+    throw error;
+  }
 }
 
 export interface InvestigatorOptions {
@@ -270,7 +344,6 @@ export function startInvestigator(
   let initialized = false;
   const run = async () => {
     if (controller.signal.aborted) return;
-    const started = Date.now();
     let stage = "state claim";
     try {
       if (!initialized) {
@@ -323,12 +396,9 @@ export function startInvestigator(
       );
     }
     if (!controller.signal.aborted)
-      timer = setTimeout(
-        () => {
-          void run();
-        },
-        Math.max(1000, started + 600_000 - Date.now()),
-      );
+      timer = setTimeout(() => {
+        void run();
+      }, 15_000);
   };
   console.info("Lens periodic investigator enabled");
   void run();

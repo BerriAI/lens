@@ -381,3 +381,65 @@ it("should not offer another agent's settings while a new agent is waiting for a
   expect(screen.queryByText(initial.settings.agent_name)).not.toBeInTheDocument();
   expect(proxy.post).not.toHaveBeenCalled();
 });
+
+it("uses the actual shared investigator status instead of the overdue legacy worker schedule", async () => {
+  const checked = new Date().toISOString();
+  renderWithLens(
+    <AutomaticAnalysis
+      agent={initial.settings.agent_name}
+      lenses={[
+        {
+          ...initial,
+          last_scan_at: checked,
+          next_run_at: "2020-01-01T00:00:00Z",
+        },
+      ]}
+      ready
+      readOnly={false}
+      investigator={{
+        lens_id: initial.id,
+        agent_name: initial.settings.agent_name,
+        model: "investigator-model",
+        state: "scheduled",
+        detail: "Analysis completed. No new finding met the evidence threshold.",
+        next_run_at: new Date(Date.now() + 600_000).toISOString(),
+        last_checked_at: checked,
+        last_analysis_at: checked,
+        runs_today: 56,
+        run_limit: 144,
+        posts_today: 3,
+      }}
+    />,
+  );
+  expect(await screen.findByText("Automatic findings active")).toBeVisible();
+  expect(screen.getByText("Analysis completed. No new finding met the evidence threshold.")).toBeVisible();
+  expect(screen.getByText(/3 Slack send attempts today/)).toBeVisible();
+  expect(screen.queryByText("Next run: waiting for worker")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+});
+
+it("makes a missing investigator check visible instead of leaving a stale scheduled label", async () => {
+  renderWithLens(
+    <AutomaticAnalysis
+      agent={initial.settings.agent_name}
+      lenses={[initial]}
+      ready
+      readOnly={false}
+      investigator={{
+        lens_id: initial.id,
+        agent_name: initial.settings.agent_name,
+        model: "investigator-model",
+        state: "scheduled",
+        detail: "Previous check completed",
+        next_run_at: "2020-01-01T00:00:00Z",
+        last_checked_at: "2020-01-01T00:00:00Z",
+        last_analysis_at: null,
+        runs_today: 1,
+        run_limit: 144,
+        posts_today: 0,
+      }}
+    />,
+  );
+  expect(await screen.findByText("Investigator overdue")).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent("worker has not confirmed progress");
+});

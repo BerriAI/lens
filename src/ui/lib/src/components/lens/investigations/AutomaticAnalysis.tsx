@@ -15,7 +15,9 @@ import { useSaveLens } from "../data/mutations";
 import { useAnalysisModels } from "../setup/fields/useAnalysisModels";
 import { analysisModelOptions, modelGate } from "../setup/fields/analysisModels";
 import { useLensRoute } from "../route";
-import type { Lens, Settings } from "../model/types";
+import type { InvestigatorStatus, Lens, Settings } from "../model/types";
+
+import { InvestigatorAnalysis } from "./InvestigatorAnalysis";
 
 function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }) {
   const models = useAnalysisModels();
@@ -277,11 +279,13 @@ function AgentAnalysis({
 }
 
 export function AutomaticAnalysis({
+  investigator,
   lenses,
   agent = "",
   readOnly,
   ready,
 }: {
+  investigator?: InvestigatorStatus | null;
   lenses: Lens[];
   agent?: string;
   readOnly: boolean;
@@ -292,6 +296,8 @@ export function AutomaticAnalysis({
   const availableModels = !demo && !models.modelsLoading && !models.modelsError ? models.models : null;
   const matching = agent ? lenses.filter((lens) => lens.settings.agent_name === agent) : [];
   const lens = matching.find((item) => item.id.startsWith("auto-agent-")) ?? matching[0];
+  if (investigator && investigator.agent_name === agent && matching.some((item) => item.id === investigator.lens_id))
+    return <InvestigatorAnalysis investigator={investigator} />;
   if (lens)
     return (
       <AgentAnalysis key={lens.id} lens={lens} readOnly={readOnly} ready={ready} availableModels={availableModels} />
