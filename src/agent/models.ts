@@ -1,4 +1,9 @@
 import type { Sample } from "./evidence.js";
+export interface NativeFinding {
+  readonly lensId: string;
+  readonly findingId: string;
+  readonly url: string;
+}
 export interface Answer {
   readonly title: string;
   readonly summary: string;

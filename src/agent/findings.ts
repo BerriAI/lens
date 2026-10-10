@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Evidence, redact } from "./evidence.js";
 import { Repository } from "./repository.js";
 import { digest } from "./state.js";
-import type { MeasuredFrequency } from "./models.js";
+import type { MeasuredFrequency, NativeFinding } from "./models.js";
 
 export const PROMPT_REVISION = "lens-investigator-v1";
 export const candidateSchema = z.object({
@@ -39,6 +39,10 @@ export interface VerifiedCandidate {
     readonly quote: string;
     readonly url: string;
   }[];
+}
+
+export interface PersistedCandidate extends VerifiedCandidate {
+  readonly native: NativeFinding;
 }
 
 export function verify(

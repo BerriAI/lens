@@ -199,6 +199,13 @@ test("finding context preserves posted trace numbering and selected spans indepe
   const context = candidateThread(
     {
       issueNumber: 12,
+      native: {
+        lensId: "lens1",
+        findingId: "agent-" + "a".repeat(64),
+        url:
+          "https://lens.example.com/?tab=findings&issue=lens1:agent-" +
+          "a".repeat(64),
+      },
       candidate: { title: "Failure", evidence },
       evidenceLinks: links,
     },
@@ -208,6 +215,7 @@ test("finding context preserves posted trace numbering and selected spans indepe
     context.traces.map((item) => [item.trace_id, item.span_id, item.url]),
     evidence.map((item, i) => [item.trace_id, item.span_id, links[i]]),
   );
+  assert.equal(context.issue, "agent-" + "a".repeat(64));
 });
 
 test("unavailable durable context gives an explicit mention an error and leaves unmentioned threads quiet", async () => {

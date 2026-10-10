@@ -2,7 +2,7 @@ import type { WebClient } from "@slack/web-api";
 import type { z } from "zod";
 import type { Config } from "./config.js";
 import type { Sample } from "@litellm/lens-agent/evidence";
-import type { VerifiedCandidate } from "@litellm/lens-agent/findings";
+import type { PersistedCandidate } from "@litellm/lens-agent/findings";
 import { provenance } from "@litellm/lens-agent/investigator";
 import { escapeSlack, prose, words } from "./slack.js";
 import {
@@ -27,7 +27,7 @@ function markdown(text: string) {
 export async function postCandidate(
   slack: Pick<WebClient, "chat"> & ChartSlack,
   config: Config,
-  verified: VerifiedCandidate,
+  verified: PersistedCandidate,
   sample: Sample,
   source: z.infer<typeof provenance>,
   registry?: ThreadRegistry,
@@ -91,7 +91,7 @@ export async function postCandidate(
             text: { type: "plain_text" as const, text: title, emoji: true },
           },
           markdown(
-            `*Lens Issue #${verified.issueNumber ?? "unassigned"} · Proposed*\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
+            `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · Proposed*\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
           ),
           {
             type: "context" as const,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Config } from "./config.js";
 import type { Turn } from "@litellm/lens-agent/models";
+import type { NativeFinding } from "@litellm/lens-agent/models";
 import type { VerifiedCandidate } from "@litellm/lens-agent/findings";
 import type { Sample } from "@litellm/lens-agent/evidence";
 import { traceSchema } from "@litellm/lens-agent/lens";
@@ -36,12 +37,15 @@ export const threadSchema = z.object({
 export type FindingThread = z.infer<typeof threadSchema>;
 export function candidateThread(
   verified: Pick<VerifiedCandidate, "issueNumber" | "evidenceLinks"> & {
+    native?: NativeFinding;
     candidate: Pick<VerifiedCandidate["candidate"], "title" | "evidence">;
   },
   sample: Pick<Sample, "traces">,
 ): FindingThread {
   return threadSchema.parse({
-    issue: String(verified.issueNumber ?? "unassigned"),
+    issue:
+      verified.native?.findingId ??
+      String(verified.issueNumber ?? "unassigned"),
     title: verified.candidate.title,
     traces: verified.candidate.evidence.map((item, index) => {
       const trace = sample.traces.find((row) => row.trace_id === item.trace_id);

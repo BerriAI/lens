@@ -19,6 +19,7 @@ export function agentConfig(config: Config): AgentConfig {
     openaiKey: config.openaiKey,
     openaiBaseUrl: config.openaiBaseUrl,
     model: config.model,
+    findingLensId: config.findingLensId,
   };
 }
 
@@ -99,6 +100,7 @@ export function configFrom(env: NodeJS.ProcessEnv): Config | undefined {
       true,
     ),
     model: env.LENS_SLACK_MODEL?.trim() || "gpt-6-luna",
+    findingLensId: env.LENS_FINDINGS_LENS_ID?.trim() || undefined,
   };
 }
 

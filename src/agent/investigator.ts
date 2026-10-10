@@ -6,7 +6,12 @@ import { ClickHouseState, digest, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { Repository } from "./repository.js";
 import { investigate } from "./agent.js";
-import { PROMPT_REVISION, type VerifiedCandidate } from "./findings.js";
+import {
+  PROMPT_REVISION,
+  type VerifiedCandidate,
+  type PersistedCandidate,
+} from "./findings.js";
+import type { NativeFinding } from "./models.js";
 export const provenance = z.object({
   model: z.string(),
   prompt_revision: z.string(),
@@ -30,6 +35,13 @@ export const stateSchema = z.object({
       issue_key: z.string(),
       title: z.string(),
       issue_number: z.number().int().positive().optional(),
+      native_finding: z
+        .object({
+          lensId: z.string(),
+          findingId: z.string(),
+          url: z.string().url(),
+        })
+        .optional(),
       provenance,
     }),
   ),
@@ -78,10 +90,16 @@ export interface InvestigatorDependencies {
     signal: AbortSignal,
   ) => Promise<{ candidate?: VerifiedCandidate; sha: string }>;
   readonly post: (
-    candidate: VerifiedCandidate,
+    candidate: PersistedCandidate,
     sample: Sample,
     source: z.infer<typeof provenance>,
   ) => Promise<void>;
+  readonly persist: (
+    candidate: VerifiedCandidate,
+    sample: Sample,
+    source: z.infer<typeof provenance>,
+    signal: AbortSignal,
+  ) => Promise<NativeFinding>;
   readonly model: string;
   readonly dailyLimit: number;
   readonly now?: () => number;
@@ -158,8 +176,19 @@ export async function cycle(
     console.info("Lens investigator analysis persisted; no new report");
     return;
   }
-  const committed = await deps.store.commit(reserved, {
-    ...reserved.value,
+  // Native import is idempotent. A timeout here must leave the evidence eligible
+  // for retry, while an ambiguous Slack send below remains durably claimed.
+  const native = await deps.persist(candidate, sample, source, signal);
+  const owned = await deps.store.read();
+  if (
+    signal.aborted ||
+    now() >= owned.value.lease_until - 30_000 ||
+    owned.value.owner !== reserved.value.owner ||
+    owned.revision !== reserved.revision
+  )
+    return;
+  const committed = await deps.store.commit(owned, {
+    ...owned.value,
     signature,
     posts: reserved.value.posts + 1,
     next_issue_number: reserved.value.next_issue_number + 1,
@@ -172,13 +201,14 @@ export async function cycle(
         issue_key: candidate.candidate.issue_key,
         title: candidate.candidate.title,
         issue_number: reserved.value.next_issue_number,
+        native_finding: native,
         provenance: source,
       },
     ].slice(-200),
   });
   if (now() >= committed.value.lease_until - 15_000 || signal.aborted) return;
   await deps.post(
-    { ...candidate, issueNumber: reserved.value.next_issue_number },
+    { ...candidate, native, issueNumber: reserved.value.next_issue_number },
     sample,
     source,
   );
@@ -254,6 +284,10 @@ export function startInvestigator(
           post: (candidate, sample, source) => {
             stage = "report delivery";
             return publish(candidate, sample, source);
+          },
+          persist: (candidate, sample, source, signal) => {
+            stage = "native finding persistence";
+            return client.persistFinding(candidate, sample, source, signal);
           },
         },
         AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]),

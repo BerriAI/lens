@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LensClient } from "./lens.js";
 import type { AgentConfig as Config } from "./config.js";
+import type { VerifiedCandidate } from "./findings.js";
+import type { Sample } from "./evidence.js";
 
 const config = {
   apiUrl: "http://127.0.0.1:4100",
@@ -157,4 +159,144 @@ test("invalid or failed evidence reads return unknown without leaking response b
     assert(result.includes("unavailable"));
     assert(!result.includes("secret failure"));
   }
+});
+
+const imported: VerifiedCandidate = {
+  fingerprint: "a".repeat(64),
+  evidenceHash: "evidence",
+  evidenceLinks: ["https://lens.example.com/?trace=selected"],
+  codeLinks: ["https://github.com/example/repo/blob/sha/tool.ts#L1"],
+  frequency: {
+    count: 2,
+    total: 3,
+    unit: "tool calls",
+    label: "2/3 tool calls failed",
+    title: "tool failed",
+  },
+  candidate: {
+    kind: "issue",
+    category: "Reliability",
+    confidence: 0.9,
+    impact: 8,
+    frequency_metric: "tool_error",
+    issue_key: "tool_error",
+    title: "tool failed",
+    observation: "The tool returned an error",
+    code_hypothesis: "The route may be unavailable",
+    experiment: "Replay the affected cases and compare outcomes",
+    outcome: "users could complete the task",
+    limitation: "No validated improvement",
+    evidence: [
+      { trace_id: "selected", span_id: "tool", quote: "HTTP 503 unavailable" },
+    ],
+    code: [{ path: "tool.ts", quote: "callTool()" }],
+  },
+};
+const importSample = {
+  traces: [
+    {
+      ...trace("selected"),
+      service: "selected",
+      url: "https://lens.example.com/?trace=selected",
+    },
+  ],
+} satisfies Pick<Sample, "traces">;
+const importSource = {
+  model: "model",
+  prompt_revision: "version",
+  trace_ids: ["selected"],
+  repository_sha: "sha",
+  at: 0,
+};
+const nativeLens = (id: string, agent = "selected") => ({
+  id,
+  settings: { agent_name: agent },
+  findings: [],
+});
+
+test("native publication sends scoped exact evidence and returns the server's canonical finding identity", async () => {
+  const sent: { url: string; body: Record<string, unknown> }[] = [];
+  const client = new LensClient(
+    { ...config, findingLensId: "chosen" },
+    async (url, init) => {
+      if (init?.method === "GET")
+        return response({
+          lenses: [nativeLens("other"), nativeLens("chosen")],
+        });
+      assert.equal(
+        new Headers(init?.headers).get("Content-Type"),
+        "application/json",
+      );
+      sent.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+      return response({
+        lens_id: "chosen",
+        finding_id: "consolidated-canonical-id",
+      });
+    },
+  );
+  const result = await client.persistFinding(
+    imported,
+    importSample,
+    importSource,
+    signal,
+  );
+  assert.equal(sent[0]?.url, config.apiUrl + "/lens/chosen/findings/import");
+  assert.deepEqual(sent[0]?.body.evidence, [
+    { ...imported.candidate.evidence[0], trace_ref: "ref" },
+  ]);
+  assert.equal(sent[0]?.body.fingerprint, imported.fingerprint);
+  assert(String(sent[0]?.body.description).includes("Impact: 8/10"));
+  assert(
+    String(sent[0]?.body.description).includes("Customer benefit if validated"),
+  );
+  assert(
+    String(sent[0]?.body.limitation).includes("No measured improvement yet"),
+  );
+  assert.equal(result.findingId, "consolidated-canonical-id");
+  assert.equal(
+    new URL(result.url).searchParams.get("issue"),
+    "chosen:consolidated-canonical-id",
+  );
+});
+
+test("native publication fails closed for ambiguous targets, wrong agents, absent trace refs and mismatched responses", async () => {
+  for (const targets of [
+    [],
+    [nativeLens("one"), nativeLens("two")],
+    [nativeLens("wrong", "other")],
+  ]) {
+    let posts = 0;
+    const client = new LensClient(config, async (_url, init) => {
+      if (init?.method === "POST") posts++;
+      return response({ lenses: targets });
+    });
+    await assert.rejects(
+      client.persistFinding(imported, importSample, importSource, signal),
+      /matching native Lens/,
+    );
+    assert.equal(posts, 0);
+  }
+  const client = new LensClient(config, async (_url, init) =>
+    response(
+      init?.method === "POST"
+        ? { lens_id: "wrong", finding_id: "id" }
+        : { lenses: [nativeLens("one")] },
+    ),
+  );
+  await assert.rejects(
+    client.persistFinding(
+      imported,
+      {
+        ...importSample,
+        traces: [{ ...importSample.traces[0]!, trace_ref: "" }],
+      },
+      importSource,
+      signal,
+    ),
+    /exact trace reference/,
+  );
+  await assert.rejects(
+    client.persistFinding(imported, importSample, importSource, signal),
+    /identity does not match/,
+  );
 });
