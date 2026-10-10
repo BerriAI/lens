@@ -23,6 +23,64 @@ fn output_agent_io() -> Value {
     })
 }
 
+#[rstest]
+#[tokio::test]
+async fn more_than_ten_trials_can_be_created_and_submitted(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let mut payload = create_payload();
+    payload["trials"] = json!(11);
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request("POST", "/lens/evals/runs", "team-a", Some(payload)))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 201);
+    let run: EvalRun = body(response).await;
+    assert_eq!(run.expected_trials, 22);
+    let response = eval_fixture
+        .app
+        .clone()
+        .oneshot(request(
+            "PUT",
+            &format!("/lens/evals/runs/{}/results/case-1/10", run.id),
+            "team-a",
+            Some(json!({"trace": {"value": "session-11"}})),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 204);
+    let stored = eval_fixture.store.get("team-a", &run.id).await.unwrap();
+    assert_eq!(stored.trials[0].trial, 10);
+    assert_eq!(
+        stored.trials[0].result.trace.as_ref().unwrap().value,
+        "session-11"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn long_error_results_are_stored_without_truncation(
+    #[future(awt)] eval_fixture: EvalFixture,
+) {
+    let run = create(&eval_fixture).await;
+    let message = "x".repeat(2 * 1024 * 1024 + 1);
+    let write = request(
+        "PUT",
+        &format!("/lens/evals/runs/{}/results/case-1/0", run.id),
+        "team-a",
+        Some(json!({"error": {"type": "Error", "message": message}})),
+    );
+    let response = eval_fixture.app.clone().oneshot(write).await.unwrap();
+    assert_eq!(response.status(), 204);
+    let stored = eval_fixture.store.get("team-a", &run.id).await.unwrap();
+    assert_eq!(
+        stored.trials[0].result.error.as_ref().unwrap().message,
+        message
+    );
+}
+
 fn v2(mut request: axum::http::Request<axum::body::Body>) -> axum::http::Request<axum::body::Body> {
     request
         .headers_mut()
@@ -795,7 +853,6 @@ async fn should_persist_missing_traces_as_errors_before_publishing_summary(
 
 #[rstest]
 #[case::zero_trials("trials", json!(0))]
-#[case::too_many_trials("trials", json!(11))]
 #[case::empty_agent("agent", json!(""))]
 #[case::zero_revision("revision", json!(0))]
 #[case::zero_timeout("timeout_per_trial_ms", json!(0))]
@@ -1115,7 +1172,7 @@ async fn should_store_eval_definitions_per_team_and_update_in_place(
 #[case::reserved("runs", spec(1), 405)]
 #[case::uppercase("Agent", spec(1), 422)]
 #[case::no_scorers("agent", json!({"agent": "moyai", "dataset_id": "dataset-1", "scorers": []}), 422)]
-#[case::too_many_trials("agent", spec(11), 422)]
+#[case::zero_trials("agent", spec(0), 422)]
 #[case::unknown_field("agent", json!({"agent": "moyai", "dataset_id": "d", "scorers": [{"kind": "task_completed"}], "extra": 1}), 422)]
 #[tokio::test]
 async fn should_reject_invalid_eval_definitions(

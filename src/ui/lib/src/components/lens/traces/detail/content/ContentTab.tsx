@@ -19,7 +19,7 @@ export function useSpanDetail(accessToken: string, traceId: string, spanId: stri
   const traces = useTracesApi(accessToken);
   const queryOptions: UseQueryOptions<SpanDetail, Error> = {
     queryKey: ["agentTraceSpan", traceId, traceRef, spanId, accessToken],
-    queryFn: () => traces.span(traceId, spanId as string, traceRef),
+    queryFn: ({ signal }) => traces.span(traceId, spanId as string, traceRef, signal),
     enabled: spanId !== null,
     staleTime: Infinity,
   };

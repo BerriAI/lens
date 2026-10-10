@@ -106,6 +106,7 @@ async fn resolve_runs<S: TraceStore>(
     let params = TracePageSpansParams {
         access: access.clone(),
         trace_refs: runs.iter().map(|row| row.trace_ref.clone()).collect(),
+        trace_ids: runs.iter().map(|row| row.trace_id.clone()).collect(),
         start_ms,
         end_ms: end_ms.saturating_add(1),
     };
@@ -121,15 +122,7 @@ async fn resolve_runs<S: TraceStore>(
         }
         Err(error) => return Err(map_store_error(error)),
     };
-    let Some(spend_rows) = spend(store, access, &spans).await else {
-        // The batch's combined spend read failed; a run's own narrower window may still
-        // resolve, so fall back per run instead of leaving every run in the batch costless.
-        let mut resolved = Vec::with_capacity(runs.len());
-        for row in runs {
-            resolved.push(resolve_run(reader, store, access, row).await?);
-        }
-        return Ok(resolved);
-    };
+    let spend_rows = spend(store, access, &spans).await;
     let mut spans = spans;
     spans.sort_by(|left, right| {
         run_key(&left.team_id, &left.api_key_hash, &left.trace_id)
@@ -152,21 +145,30 @@ async fn resolve_runs<S: TraceStore>(
             )
         })
         .collect();
-    Ok(runs
-        .iter()
-        .map(|row| {
-            let spans = by_run
-                .get(&run_key(&row.team_id, &row.api_key_hash, &row.trace_id))
-                .copied()
-                .unwrap_or_default();
-            let spend =
-                spend_window(spans).map_or(&[][..], |window| spend_within(&spend_rows, window));
-            resolve_trace(&row.trace_id, &row.trace_ref, spans, spend).map(|trace| {
+    let mut resolved = Vec::with_capacity(runs.len());
+    for row in runs {
+        let spans = by_run
+            .get(&run_key(&row.team_id, &row.api_key_hash, &row.trace_id))
+            .copied()
+            .unwrap_or_default();
+        let fallback;
+        let costs = match &spend_rows {
+            Some(costs) => {
+                spend_window(spans).map_or(&[][..], |window| spend_within(costs, window))
+            }
+            None => {
+                fallback = spend(store, access, spans).await.unwrap_or_default();
+                &fallback
+            }
+        };
+        resolved.push(
+            resolve_trace(&row.trace_id, &row.trace_ref, spans, costs).map(|trace| {
                 let freshness = Freshness::of(spans, &trace, snapshot_ms);
                 ListedRun::Resolved(Box::new(trace.summary), freshness)
-            })
-        })
-        .collect())
+            }),
+        );
+    }
+    Ok(resolved)
 }
 
 async fn resolve_run<S: TraceStore>(

@@ -16,8 +16,6 @@ pub enum GatewayError {
         "The LiteLLM gateway rejected model discovery (HTTP {status}). Check the gateway API key and model access."
     )]
     Rejected { status: u16 },
-    #[error("The gateway model catalog exceeded the response size limit.")]
-    ResponseLimit,
     #[error(
         "The gateway returned an invalid model catalog. Check that this URL serves LiteLLM /model_group/info."
     )]
@@ -111,22 +109,12 @@ pub enum Error {
         "The compacted task exceeds the model context window. Use a larger-context model or shorter instructions."
     )]
     CompactedContext,
-    #[error("History reply exceeds 32 MiB. Select a smaller turn range, then a character range.")]
-    HistoryTooLarge,
-    #[error(
-        "Investigation journal exceeded 512 MiB. Reduce the sample or split the investigation."
-    )]
-    JournalTooLarge,
     #[error("Python input exceeds 256 MiB. Select fewer executions or spans.")]
     PythonInputTooLarge,
     #[error("Unknown span IDs in Python request")]
     UnknownPythonSpan,
     #[error("Unknown execution IDs in Python request")]
     UnknownPythonExecution,
-    #[error(
-        "Tool output exceeds 8 MiB. Select narrower spans or a character range, or use Python to summarize the evidence."
-    )]
-    ToolOutputTooLarge,
     #[error("The smallest candidate comparison exceeds model context. Use a larger-context model.")]
     CandidateContext,
     #[error("The analysis conversation exceeds the model context window.")]

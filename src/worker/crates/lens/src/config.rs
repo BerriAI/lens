@@ -128,7 +128,6 @@ impl Config {
                     .unwrap_or_else(|| "14".into())
                     .parse()
                     .map_err(|_| Error::Configuration("AGENT_TRACING_RETENTION_DAYS"))?,
-                65_536,
             )?,
         })
     }
@@ -196,10 +195,13 @@ fn gateway_models(
 fn dataset_config(read: impl Fn(&str) -> Option<String>) -> lens_server::datasets::DatasetConfig {
     lens_server::datasets::DatasetConfig {
         limits: lens_datasets::Limits {
-            max_cases: integer_or_default(read("LENS_DATASET_MAX_CASES").as_deref(), 200),
+            max_cases: integer_or_default(
+                read("LENS_DATASET_MAX_CASES").as_deref(),
+                lens_datasets::Limits::default().max_cases,
+            ),
             max_case_chars: integer_or_default(
                 read("LENS_DATASET_MAX_CASE_CHARS").as_deref(),
-                20_000,
+                lens_datasets::Limits::default().max_case_chars,
             ),
         },
         trace_retry_after_seconds: integer_or_default(
@@ -542,8 +544,14 @@ mod tests {
     #[rstest]
     fn missing_dataset_configuration_preserves_defaults() {
         let config = dataset_config(|_| None);
-        assert_eq!(config.limits.max_cases, 200);
-        assert_eq!(config.limits.max_case_chars, 20_000);
+        assert_eq!(
+            config.limits.max_cases,
+            lens_datasets::Limits::default().max_cases
+        );
+        assert_eq!(
+            config.limits.max_case_chars,
+            lens_datasets::Limits::default().max_case_chars
+        );
         assert_eq!(config.trace_retry_after_seconds, 2);
     }
 }

@@ -168,7 +168,7 @@ async fn source_sampling_and_evidence_preserve_scopes(
     assert!(execution.metadata.iter().any(|field|field.key.as_str()=="customer.segment" && field.value.as_str()=="test"));
     let content = server
         .sources
-        .content(&scope, execution, "", 0)
+        .content(&scope, execution, "", Some(0))
         .await
         .unwrap();
     assert_eq!(content.parts.len(), 1);
@@ -205,7 +205,7 @@ async fn source_sampling_and_evidence_preserve_scopes(
     assert!(
         server
             .sources
-            .content(&denied, execution, "", 0)
+            .content(&denied, execution, "", Some(0))
             .await
             .unwrap()
             .parts

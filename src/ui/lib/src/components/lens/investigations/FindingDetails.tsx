@@ -11,7 +11,7 @@ import { copyToClipboard } from "../../../utils/dataUtils";
 
 import { AddToDatasetButton } from "../datasets/AddToDatasetDialog";
 import { evidenceTarget, findingMarkdown } from "../model/findings";
-import { findingFrequency } from "../model/frequency";
+import { findingTraceFrequency, hasImportedEvidence } from "../model/frequency";
 import { agoLabel, runTime } from "../model/format";
 import { findingAgents, findingKey, type OwnedFinding, sampledExecutions } from "../model/inbox";
 import type { Finding, Sample } from "../model/types";
@@ -32,6 +32,7 @@ export interface FindingDetailsProps {
   readonly lensId?: string;
   readonly agents?: readonly string[];
   readonly sampledRuns: Sample["executions"];
+  readonly hasUnscopedEvidence?: boolean;
   readonly readOnly: boolean;
   readonly busy: boolean;
   readonly onOpenEvidence: (evidence: EvidenceRef) => void;
@@ -206,7 +207,12 @@ function Example({ group, onOpenEvidence }: { group: ExampleGroup; onOpenEvidenc
               <QuoteCard
                 key={`${quote.span_id}-${i}`}
                 quote={quote}
-                onOpen={() => onOpenEvidence({ id: quote.execution_id, span: quote.span_id })}
+                onOpen={() =>
+                  onOpenEvidence({
+                    id: quote.execution_id,
+                    span: quote.span_id,
+                  })
+                }
               />
             ))}
           </EvidenceRail>
@@ -285,6 +291,7 @@ export function FindingDetails({
   lensId,
   agents = [],
   sampledRuns,
+  hasUnscopedEvidence = hasImportedEvidence(finding),
   readOnly,
   busy,
   onOpenEvidence,
@@ -343,14 +350,20 @@ export function FindingDetails({
         )}
         <section>
           <h2 className={`mb-2 ${SECTION_LABEL}`}>Monitors</h2>
-          <FrequencyCard frequency={findingFrequency(finding.occurrences, sampledRuns)} />
+          <FrequencyCard frequency={findingTraceFrequency(finding, sampledRuns, hasUnscopedEvidence)} />
         </section>
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <h2 className={SECTION_LABEL}>Examples</h2>
             {lensId && finding.evidence.length > 0 && (
               <AddToDatasetButton
-                sources={[{ kind: "finding", lens_id: lensId, finding_ids: [finding.id] }]}
+                sources={[
+                  {
+                    kind: "finding",
+                    lens_id: lensId,
+                    finding_ids: [finding.id],
+                  },
+                ]}
                 agentName={agents[0]}
                 label="Add evidence to dataset"
               />

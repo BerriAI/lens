@@ -6,7 +6,6 @@ import type { DatasetsApi } from "../../datasets/client";
 import type { BuildSource, CaseSource, Dataset, DatasetCase, DatasetMessage, SkippedCase } from "../../datasets/types";
 import type { LensDemoData } from "./fixtures";
 
-const MAX_CASES = 200;
 const NO_SOURCE: CaseSource = { trace_id: "", trace_ref: "", span_id: "", finding_id: "", lens_id: "" };
 const ROLES: ReadonlySet<string> = new Set(["system", "user", "assistant", "tool"]);
 
@@ -154,8 +153,6 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
       for (const candidate of candidates) {
         if (!isCase(candidate)) skipped.push(candidate);
         else if (seen.has(candidate.id)) skipped.push({ source: candidate.source, reason: "duplicate" });
-        else if (existing.length + cases.length >= MAX_CASES)
-          skipped.push({ source: candidate.source, reason: "over_limit" });
         else {
           seen.add(candidate.id);
           cases.push(candidate);

@@ -66,13 +66,13 @@ export interface AgentTracesResult {
  */
 export function useAgentTraces({ accessToken, range, enabled }: UseAgentTracesOptions): AgentTracesResult {
   const traces = useTracesApi(accessToken);
-  const fetchPage = async (pageParam: unknown): Promise<LoadedTracePage> => {
+  const fetchPage = async (pageParam: unknown, signal: AbortSignal): Promise<LoadedTracePage> => {
     const window = (pageParam as TraceWindow | null) ?? timeWindow(range, Date.now());
-    return { ...(await traces.list(window)), window };
+    return { ...(await traces.list(window, signal)), window };
   };
   const queryOptions: Parameters<typeof useInfiniteQuery<LoadedTracePage, Error>>[0] = {
     queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs],
-    queryFn: ({ pageParam }) => fetchPage(pageParam),
+    queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
     initialPageParam: null,
     getNextPageParam: (lastPage) =>
       lastPage.next_cursor ? { ...lastPage.window, cursor: lastPage.next_cursor } : undefined,

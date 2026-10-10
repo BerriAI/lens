@@ -24,9 +24,9 @@ WHERE o.TraceId = {trace_id:String}
   AND ({trace_ref:String} = '' OR
        hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) = {trace_ref:String})
   AND o.EngineReceivedMs <= {snapshot_ms:UInt64}
+  AND o.SpanId > {after_span_id:String}
 ORDER BY o.Timestamp, o.EngineReceivedMs, o.StatusMessage
 LIMIT 1 BY o.SpanId
 )
-WHERE span_id > {after_span_id:String}
 ORDER BY span_id
 LIMIT {page_size:UInt32}

@@ -7,7 +7,7 @@ use std::{num::NonZeroU64, time::Duration};
 use super::LocalControl;
 use crate::{Error, SampleRequest};
 
-const FIRST_RUN_TRACES: i64 = 10;
+const FIRST_RUN_TRACES: u64 = 10;
 
 fn uncovered(agent: &str, lenses: &[Lens]) -> bool {
     !lenses
@@ -86,9 +86,9 @@ impl LocalControl {
         }
         let (start, end) = scheduled_window(lens, now)?;
         let selection = ActivitySelection::from(&lens.settings);
-        let sample = self
+        let eligible = self
             .sources
-            .sample(
+            .sample_eligible(
                 &lens.scope,
                 SampleRequest {
                     selection: &selection,
@@ -107,7 +107,7 @@ impl LocalControl {
                 },
             )
             .await?;
-        Ok(sample.eligible >= FIRST_RUN_TRACES)
+        Ok(eligible >= FIRST_RUN_TRACES)
     }
 
     pub(super) async fn automatic_loop(&self) {

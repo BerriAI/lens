@@ -5,10 +5,12 @@ mod transport;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    sync::Arc,
     time::Duration,
 };
 
 use litellm_http::Client;
+use moka::future::Cache;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -22,11 +24,27 @@ use transport::{command, decode, encode};
 pub struct ClickHouseState {
     client: Client,
     connection: Connection,
+    blobs: Cache<Head, Arc<str>>,
 }
 
 impl ClickHouseState {
     pub fn new(client: Client, connection: Connection) -> Self {
-        Self { client, connection }
+        Self {
+            client,
+            connection,
+            blobs: Cache::builder()
+                .max_capacity(64 * 1024 * 1024)
+                .weigher(|head: &Head, data: &Arc<str>| {
+                    u32::try_from(
+                        data.len()
+                            .saturating_add(head.key.len())
+                            .saturating_add(256),
+                    )
+                    .unwrap_or(u32::MAX)
+                })
+                .time_to_idle(Duration::from_secs(600))
+                .build(),
+        }
     }
 
     pub async fn initialize(&self, keeper_path: &str) -> Result<(), Error> {
@@ -152,26 +170,24 @@ impl ClickHouseState {
         if heads.iter().any(|head| !head.valid()) {
             return Err(Error::InvalidState);
         }
-        let references: Vec<_> = heads
-            .iter()
-            .filter(|head| !head.digest.is_empty())
-            .map(|head| (&head.key, head.revision, &head.digest))
-            .collect();
-        let body = self.command(
-            "SELECT key, revision, digest, data FROM lens_state_blobs FINAL \
-             WHERE (key, revision, digest) IN \
-             JSONExtract({references:String}, 'Array(Tuple(String, UInt64, String))') FORMAT JSONEachRow",
-            &[("references", encode(&references)?)], String::new(),
-        ).await?;
         let mut values = BTreeMap::new();
-        for blob in decode::<Blob>(&body)? {
-            if !heads.contains(&blob.head) {
-                return Err(Error::InvalidResponse);
+        let mut missing = BTreeSet::new();
+        for head in heads.iter().filter(|head| !head.digest.is_empty()) {
+            if let Some(data) = self.blobs.get(head).await {
+                let value = serde_json::from_str(&data).map_err(|_| Error::InvalidResponse)?;
+                values.insert(
+                    head.clone(),
+                    Snapshot {
+                        head: head.clone(),
+                        value,
+                    },
+                );
+            } else {
+                missing.insert(head);
             }
-            let snapshot = blob.snapshot()?;
-            if values.insert(snapshot.head.clone(), snapshot).is_some() {
-                return Err(Error::InvalidResponse);
-            }
+        }
+        if !missing.is_empty() {
+            self.load_values(&missing, &mut values).await?;
         }
         Ok(heads
             .iter()
@@ -186,6 +202,39 @@ impl ClickHouseState {
                 }
             })
             .collect())
+    }
+
+    async fn load_values(
+        &self,
+        missing: &BTreeSet<&Head>,
+        values: &mut BTreeMap<Head, Snapshot>,
+    ) -> Result<(), Error> {
+        let references: Vec<_> = missing
+            .iter()
+            .map(|head| (&head.key, head.revision, &head.digest))
+            .collect();
+        let body = self.command(
+            "SELECT key, revision, digest, data FROM lens_state_blobs FINAL \
+             WHERE (key, revision, digest) IN \
+             JSONExtract({references:String}, 'Array(Tuple(String, UInt64, String))') FORMAT JSONEachRow",
+            &[("references", encode(&references)?)], String::new(),
+        ).await?;
+        let mut verified = Vec::new();
+        for blob in decode::<Blob>(&body)? {
+            if !missing.contains(&blob.head) {
+                return Err(Error::InvalidResponse);
+            }
+            let data: Arc<str> = Arc::from(blob.data.as_str());
+            let snapshot = blob.snapshot()?;
+            verified.push((snapshot.head.clone(), data));
+            if values.insert(snapshot.head.clone(), snapshot).is_some() {
+                return Err(Error::InvalidResponse);
+            }
+        }
+        for (head, data) in verified {
+            self.blobs.insert(head, data).await;
+        }
+        Ok(())
     }
 
     pub async fn resolve(&self, heads: &[Head]) -> Result<Vec<Snapshot>, Error> {

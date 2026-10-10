@@ -35,7 +35,7 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
     let at = (ingested_at - chrono::TimeDelta::seconds(60))
         .timestamp_nanos_opt()
         .unwrap();
-    let payload = json!({"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"signal-agent"}}]},"scopeSpans":[{"spans":[{"traceId":"a1112222333344445555666677778888","spanId":"1111222233334444","name":"Signal agent","startTimeUnixNano":at.to_string(),"endTimeUnixNano":(at+1_000_000).to_string(),"attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"invoke_agent"}},{"key":"gen_ai.agent.name","value":{"stringValue":"signal-agent"}},{"key":"gen_ai.input.messages","value":{"stringValue":"[{\"role\":\"user\",\"content\":\"I am frustrated that you ignored the request\"}]"}}],"status":{"code":1}}]}]}]});
+    let payload = json!({"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"signal-agent"}}]},"scopeSpans":[{"spans":[{"traceId":"a1112222333344445555666677778888","spanId":"1111222233334444","name":"Signal agent","startTimeUnixNano":at.to_string(),"endTimeUnixNano":(at+1_000_000).to_string(),"attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"invoke_agent"}},{"key":"gen_ai.agent.name","value":{"stringValue":"signal-agent"}},{"key":"unused.payload","value":{"stringValue":"x".repeat(65536)}},{"key":"gen_ai.input.messages","value":{"stringValue":"[{\"role\":\"user\",\"content\":\"I am frustrated that you ignored the request\"}]"}}],"status":{"code":1}}]}]}]});
     let result = reqwest::Client::new()
         .post(format!("{}/v1/traces", server.url))
         .bearer_auth(INGEST)

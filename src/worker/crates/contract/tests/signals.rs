@@ -27,9 +27,7 @@ fn defaults_match_recorded_python_configuration() {
 #[case::unicode_id("id", json!("雪"))]
 #[case::long_id("id", json!("a".repeat(65)))]
 #[case::empty_name("name", json!(""))]
-#[case::long_name("name", json!("雪".repeat(61)))]
 #[case::short_question("question", json!("ab"))]
-#[case::long_question("question", json!("雪".repeat(501)))]
 fn invalid_signal_fields_are_rejected(#[case] field: &str, #[case] value: Value) {
     let mut signal = json!({"id":"a","name":"Name","question":"Question?"});
     signal[field] = value;
@@ -38,7 +36,7 @@ fn invalid_signal_fields_are_rejected(#[case] field: &str, #[case] value: Value)
 
 #[rstest]
 #[case::minimum("a", "雪", "雪雪雪")]
-#[case::maximum(&"a".repeat(64), &"雪".repeat(60), &"雪".repeat(500))]
+#[case::long_content(&"a".repeat(64), &"雪".repeat(61), &"雪".repeat(501))]
 #[case::underscore("a_1", "Name", "Why?")]
 fn signal_bounds_count_unicode_characters(
     #[case] id: &str,
@@ -70,8 +68,8 @@ fn threshold_validation_preserves_range_and_coercion(#[case] value: Value, #[cas
 #[rstest]
 #[case::empty(0, true)]
 #[case::maximum(20, true)]
-#[case::overflow(21, false)]
-fn signal_count_is_bounded(#[case] count: usize, #[case] valid: bool) {
+#[case::past_previous_limit(21, true)]
+fn every_signal_is_accepted(#[case] count: usize, #[case] valid: bool) {
     let signals = (0..count)
         .map(|i| json!({"id":format!("a{i}"),"name":"A","question":"Why?"}))
         .collect::<Vec<_>>();

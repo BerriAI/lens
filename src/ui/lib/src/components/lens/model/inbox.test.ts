@@ -1,9 +1,11 @@
+import { hasImportedEvidence } from "./frequency";
 import { describe, expect, it } from "vitest";
 
 import {
   UNKNOWN_AGENT,
   inboxRows,
   inboxFinding,
+  inboxHasImportedEvidence,
   filterInbox,
   findFinding,
   findingAgents,
@@ -79,6 +81,22 @@ const ranked = (id: string, title: string, priority: Finding["priority"], lastSe
   title,
   priority,
   last_seen: lastSeen,
+});
+
+it("retains imported evidence provenance after merging and across every grouped source", () => {
+  const importedId = `agent-${"a".repeat(64)}`;
+  const imported = finding({ id: importedId, priority: "low" });
+  const merged = finding({ id: "canonical", merged_finding_ids: [importedId], priority: "low" });
+  const legacy = finding({ id: "legacy", priority: "high" });
+  expect(hasImportedEvidence(legacy)).toBe(false);
+  expect(hasImportedEvidence(imported)).toBe(true);
+  expect(hasImportedEvidence(merged)).toBe(true);
+  for (const current of [imported, merged]) {
+    const [row] = inboxRows([lens("legacy", "support", [legacy]), lens("imported", "support", [current])]);
+    expect(inboxFinding(row).id).toBe("legacy");
+    expect(inboxHasImportedEvidence(row)).toBe(true);
+  }
+  expect(inboxHasImportedEvidence(inboxRows([lens("legacy", "support", [legacy])])[0])).toBe(false);
 });
 
 describe("openFindings", () => {

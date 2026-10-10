@@ -24,6 +24,20 @@ function Legend() {
 }
 
 export function FrequencyCard({ frequency }: { frequency: Frequency }) {
+  if (frequency.total === null)
+    return (
+      <section
+        aria-label="Frequency"
+        className="space-y-3 rounded-lg border border-t-2 border-t-indigo-400 bg-card p-4"
+      >
+        <h3 className="lens-section-label font-mono text-[10px] font-medium text-muted-foreground">Frequency</h3>
+        <p className="text-lg font-medium">Trace rate unavailable</p>
+        <p className="text-sm text-muted-foreground">
+          {frequency.affected} cited affected {frequency.affected === 1 ? "trace" : "traces"}. No verified trace
+          denominator is available.
+        </p>
+      </section>
+    );
   const percent = percentLabel(frequency.affected, frequency.total);
   const data = frequency.days.map((d) => ({ ...d, label: dayLabel(d.day) }));
   const range = data.length > 0 ? `${data[0].label} – ${data[data.length - 1].label}` : null;

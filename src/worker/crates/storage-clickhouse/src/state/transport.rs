@@ -5,8 +5,6 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{Connection, Error, Parameter};
 
-const RESPONSE_LIMIT: usize = 64 * 1024 * 1024;
-
 pub(super) async fn command(
     client: &Client,
     connection: &Connection,
@@ -14,9 +12,6 @@ pub(super) async fn command(
     parameters: &[(&str, String)],
     body: String,
 ) -> Result<String, Error> {
-    if body.len() > RESPONSE_LIMIT {
-        return Err(Error::InsertTooLarge);
-    }
     let mut url = connection.url().clone();
     let pairs: Vec<_> = url
         .query_pairs()
@@ -67,9 +62,6 @@ pub(super) async fn command(
         .and_then(|value| value.parse().ok());
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
-        if chunk.len() > RESPONSE_LIMIT - bytes.len() {
-            return Err(Error::ResponseTooLarge);
-        }
         bytes.extend_from_slice(&chunk);
     }
     let text = String::from_utf8(bytes).map_err(|_| Error::InvalidResponse)?;

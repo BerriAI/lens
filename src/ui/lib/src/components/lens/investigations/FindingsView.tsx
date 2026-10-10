@@ -10,13 +10,14 @@ import { useLensApi } from "../data/LensServices";
 import { useLensUpdate } from "../data/mutations";
 import { lensQueries } from "../data/queries";
 import { agoLabel } from "../model/format";
-import { findingFrequency, percentLabel } from "../model/frequency";
+import { findingTraceFrequency, percentLabel } from "../model/frequency";
 import {
   ALL_AGENTS,
   filterInbox,
   findingKey,
   inboxAgents,
   inboxFinding,
+  inboxHasImportedEvidence,
   inboxRows,
   inboxSampledRuns,
   type InboxRow,
@@ -73,7 +74,7 @@ function FilterSelect<T extends string>({
 }
 
 function FindingRow({ row, now }: { row: InboxRow; now: number }) {
-  const frequency = findingFrequency(inboxFinding(row).occurrences, inboxSampledRuns(row));
+  const frequency = findingTraceFrequency(inboxFinding(row), inboxSampledRuns(row), inboxHasImportedEvidence(row));
   const percent = percentLabel(frequency.affected, frequency.total);
   return (
     <Inspector.Row
@@ -160,6 +161,7 @@ function InboxDetail({
           finding={inboxFinding(row)}
           agents={row.agents}
           sampledRuns={inboxSampledRuns(row)}
+          hasUnscopedEvidence={inboxHasImportedEvidence(row)}
           readOnly={readOnly}
           busy={busy}
           onOpenEvidence={setEvidence}

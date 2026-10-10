@@ -14,7 +14,7 @@ use litellm_traces_clickhouse::query::lens::{
     self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
     LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams, LensContentRow,
     LensEvidence, LensEvidenceParams, LensFindingSource, LensFindingSourceParams, LensSample,
-    LensSampleParams, LensSampleRow,
+    LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
 };
 
 use crate::{Error, State, wait_for_read_slot};
@@ -75,12 +75,32 @@ impl SourceReader {
         sample_page(rows, &request)
     }
 
+    pub(crate) async fn signal_sample(
+        &self,
+        scope: &Scope,
+        request: SampleRequest<'_>,
+    ) -> Result<Sample, Error> {
+        let parameters = sample_parameters(scope, &request)?;
+        let rows = self.read::<LensSignalSample>(&parameters).await?;
+        sample_page(rows, &request)
+    }
+
+    pub(crate) async fn sample_eligible(
+        &self,
+        scope: &Scope,
+        request: SampleRequest<'_>,
+    ) -> Result<u64, Error> {
+        let parameters = sample_parameters(scope, &request)?;
+        let rows = self.read::<LensSampleEligibility>(&parameters).await?;
+        Ok(rows.first().map_or(0, |row| row.eligible))
+    }
+
     pub async fn content(
         &self,
         scope: &Scope,
         execution: &Execution,
         cursor: &str,
-        offset: u32,
+        offset: Option<u32>,
     ) -> Result<ExecutionContent, Error> {
         let rows = self
             .read::<LensContent>(&LensContentParams {
@@ -91,7 +111,10 @@ impl SourceReader {
                 record_team: execution.team_id.clone(),
                 start_time: execution.start_time.clone(),
                 cursor: cursor.into(),
-                offset: offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+                offset: match offset {
+                    Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+                    None => 0,
+                },
             })
             .await?;
         Ok(content_page(execution, rows))

@@ -27,7 +27,7 @@ impl SignalReader for SourceReader {
         execution: &Execution,
         cursor: &str,
     ) -> Result<ExecutionContent, SourceError> {
-        SourceReader::content(self, scope, execution, cursor, 0)
+        SourceReader::content(self, scope, execution, cursor, None)
             .await
             .map_err(|error| SourceError(Box::new(error)))
     }
@@ -44,7 +44,7 @@ impl SignalReader for SourceReader {
             source: LensSettingsSource::Traces,
             ..Default::default()
         };
-        SourceReader::sample(
+        SourceReader::signal_sample(
             self,
             scope,
             SampleRequest {

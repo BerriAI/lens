@@ -72,7 +72,7 @@ pub async fn database() -> Database {
         }
     };
     let name = format!("lens_activity_test_{}", uuid::Uuid::new_v4().simple());
-    let config = Config::new(name.clone(), &url, 14, 65_536).unwrap();
+    let config = Config::new(name.clone(), &url, 14).unwrap();
     let sessions = ClickHouseState::new(
         http_client().unwrap(),
         Connection::reader(&url, &name).unwrap(),

@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-09",
+  "reference_revision": "9b8bb82ffa8e6659f2664d0184c9a2455a282483",
+  "note": "Initial HTTP candidate includes all performance changes except metadata-free signal discovery. Background classification and investigation models were not configured. Both binaries used the same benchmark runner and fresh databases. No production page timings are represented.",
+  "initial_candidate_includes": [
+    "state payload cache",
+    "trace ID predicates",
+    "cursor predicate pushdown",
+    "spend fallback reuse",
+    "readiness projection"
+  ],
+  "fixture": "service-benchmark fixed fixture: 100 then 1000 traces, 10 spans per trace, warmed reads, 11 samples",
+  "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+  "final_candidate_note": "Final candidate includes signal discovery projection. Against the initial baseline, the 1000-trace list p90 failed the budget. A subsequent run of the identical baseline binary slowed to 718 ms median and 924 ms p90 for that list. The reverse-order comparison passes all ten budgets, but environment variation prevents a reliable end-to-end improvement or regression attribution. All runs are retained; use an idle isolated host for release latency qualification.",
+  "final_candidate_code_commit": "32d8a23b"
+}

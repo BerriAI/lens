@@ -19,13 +19,13 @@ pub struct DecodeLimits {
 impl Default for DecodeLimits {
     fn default() -> Self {
         Self {
-            depth: 32,
-            nodes: 65_536,
-            spans: 4_096,
-            attributes: 256,
-            events: 256,
-            links: 256,
-            decoded_span_bytes: 16 * 1024 * 1024,
+            depth: usize::MAX,
+            nodes: usize::MAX,
+            spans: usize::MAX,
+            attributes: usize::MAX,
+            events: usize::MAX,
+            links: usize::MAX,
+            decoded_span_bytes: usize::MAX,
         }
     }
 }

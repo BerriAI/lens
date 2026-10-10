@@ -5,8 +5,6 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::{sync::Arc, time::Duration};
 use url::Url;
 
-const MAX_RESPONSE: usize = 16 * 1024 * 1024;
-
 #[derive(Clone)]
 pub struct Control {
     client: Client,
@@ -87,9 +85,6 @@ impl Control {
         }
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await? {
-            if body.len().saturating_add(chunk.len()) > MAX_RESPONSE {
-                return Err(Error::TooLarge);
-            }
             body.extend_from_slice(&chunk);
         }
         if body.is_empty() {
