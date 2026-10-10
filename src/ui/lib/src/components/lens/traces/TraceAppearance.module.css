@@ -4,8 +4,7 @@
   flex-wrap: wrap;
   gap: 4px 16px;
   padding: 4px 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
@@ -17,15 +16,7 @@
 }
 
 .counts dd {
-  color: var(--lens-brand, #0017b7);
-}
-
-.counts > div:nth-child(2) dd {
-  color: var(--lens-cyan, #0785aa);
-}
-
-.counts > div:nth-child(3) dd {
-  color: var(--lens-violet, #7951c8);
+  color: var(--foreground);
 }
 
 .timeline {
@@ -43,8 +34,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px 0;
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted-foreground);
 }
 

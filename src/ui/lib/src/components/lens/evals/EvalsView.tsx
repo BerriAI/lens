@@ -25,6 +25,7 @@ import type { DatasetSummary } from "../datasets/types";
 import { useEvalRunRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import { NewEval } from "./NewEval";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { useEvalDefinition, useEvals } from "./runs/api";
 import { RunDetail } from "./runs/RunDetail";
 import { RunsTab } from "./runs/RunsTab";
@@ -68,19 +69,18 @@ export function EvalsView() {
     );
   return (
     <>
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-card px-6 py-5">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Evals</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Run your agent against saved test cases. Inspect every result and
-            trace
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus /> New eval
-        </Button>
-      </header>
-      <EvalList onOpen={openEval} />
+      <LensPageHeader
+        title="Evals"
+        description="Run your agent against saved test cases. Inspect every result and trace"
+        actions={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus /> New eval
+          </Button>
+        }
+      />
+      <div className="lens-page-body flex min-h-0 flex-1 flex-col">
+        <EvalList onOpen={openEval} />
+      </div>
     </>
   );
 }
@@ -221,9 +221,9 @@ function EvalTable({
       noun="eval"
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+      <div className="lens-panel flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="lens-toolbar flex h-9 shrink-0 items-center gap-2 border-b px-3">
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {evals.length} {evals.length === 1 ? "eval" : "evals"}
           </span>
         </div>
@@ -269,35 +269,38 @@ function EvalPage({
   const dataset = datasets.data?.find((item) => item.id === spec.dataset_id);
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
-      <header className="shrink-0 border-b px-6 py-4">
-        <Button
-          variant="ghost"
-          size="xs"
-          className="-ml-2 mb-2 text-muted-foreground"
-          onClick={onBack}
-        >
-          <ChevronLeft /> Evals
-        </Button>
-        <h1 className="break-words text-lg font-semibold tracking-tight">
-          {name}
-        </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Code2 aria-hidden="true" className="size-3.5" />
-            {spec.agent_io ? "Saved HTTP contract" : "Runs in your code"}
-          </span>
-          <span>
-            Agent{" "}
-            <span className="font-medium text-foreground">{spec.agent}</span>
-          </span>
-          <span>
-            Dataset{" "}
-            <span className="font-medium text-foreground">
-              {datasetLabel(definition.data, datasets.data ?? [])}
+      <LensPageHeader
+        title={name}
+        navigation={
+          <Button
+            variant="ghost"
+            size="xs"
+            className="-ml-2 text-muted-foreground"
+            onClick={onBack}
+          >
+            <ChevronLeft /> Evals
+          </Button>
+        }
+        description={
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Code2 aria-hidden="true" className="size-3.5" />
+              {spec.agent_io ? "Saved HTTP contract" : "Runs in your code"}
             </span>
-          </span>
-        </div>
-        <details className="mt-3 text-xs text-muted-foreground">
+            <span>
+              Agent{" "}
+              <span className="font-medium text-foreground">{spec.agent}</span>
+            </span>
+            <span>
+              Dataset{" "}
+              <span className="font-medium text-foreground">
+                {datasetLabel(definition.data, datasets.data ?? [])}
+              </span>
+            </span>
+          </div>
+        }
+      >
+        <details className="text-xs text-muted-foreground">
           <summary className="w-fit cursor-pointer hover:text-foreground">
             Scoring configuration
           </summary>
@@ -310,7 +313,7 @@ function EvalPage({
             <dd>{gateLabel(spec.gate)}</dd>
           </dl>
         </details>
-      </header>
+      </LensPageHeader>
       <RunsTab
         definition={definition.data}
         datasetName={dataset?.name ?? spec.dataset_id}

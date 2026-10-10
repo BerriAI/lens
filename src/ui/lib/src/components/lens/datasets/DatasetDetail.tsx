@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ChevronRight,
-  Database,
-  Download,
-  Loader2,
-  TriangleAlert,
-} from "lucide-react";
+import { ChevronRight, Download, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StateMessage } from "../../shared/StateMessage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
@@ -20,6 +14,7 @@ import {
   useSaveRevision,
 } from "./api";
 import { CasePanel } from "./CasePanel";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { CaseTable } from "./CaseTable";
 import {
   changedCount,
@@ -133,35 +128,28 @@ function DatasetRevision(props: DatasetRevisionProps) {
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="lens-toolbar flex shrink-0 flex-col gap-2 border-b px-3 py-3 sm:px-4">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground"
-        >
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded hover:text-foreground hover:underline"
+      <LensPageHeader
+        navigation={
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1 text-xs text-muted-foreground"
           >
-            Datasets
-          </button>
-          <ChevronRight aria-hidden="true" className="size-3" />
-          <span className="truncate">{dataset.name}</span>
-        </nav>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--lens-cyan)]/20 bg-[var(--lens-cyan)]/10 text-[var(--lens-cyan)]">
-              <Database aria-hidden="true" className="size-4" />
-            </span>
-            <h2 className="min-w-0 truncate text-base font-semibold">
-              {dataset.name}
-            </h2>
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded hover:text-foreground hover:underline"
+            >
+              Datasets
+            </button>
+            <ChevronRight aria-hidden="true" className="size-3" />
+            <span className="truncate">{dataset.name}</span>
+          </nav>
+        }
+        title={dataset.name}
+        description={dataset.agent_name || "Any agent"}
+        actions={
+          <>
             <IdChip value={dataset.id} label="Copy dataset ID" />
-            <span className="hidden truncate font-mono text-xs text-muted-foreground sm:inline">
-              {dataset.agent_name || "Any agent"}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
             <RevisionPicker
               revision={dataset.revision}
               latest={latestRevision}
@@ -194,9 +182,9 @@ function DatasetRevision(props: DatasetRevisionProps) {
                 Save as revision {dataset.revision + 1}
               </Button>
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
       <Tabs value="cases" className="min-h-0 flex-1 gap-0">
         <div className="shrink-0 border-b px-3 sm:px-4">
           <TabsList

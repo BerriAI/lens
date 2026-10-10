@@ -25,7 +25,7 @@ export const ownedFindingKey = (owned: OwnedFinding): string => findingKey(owned
 
 type Quote = Finding["evidence"][number];
 
-const SECTION_LABEL = "lens-section-label font-mono text-[10px] font-medium tracking-wide text-muted-foreground";
+const SECTION_LABEL = "lens-section-label";
 
 export interface FindingDetailsProps {
   readonly finding: Finding;
@@ -305,7 +305,7 @@ export function FindingDetails({
       <TopBar finding={finding} onClose={onClose} />
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-5 pb-16 sm:px-6">
         <header className="flex flex-col gap-3 border-b pb-5">
-          <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance">{finding.title}</h1>
+          <h1 className="lens-page-title text-balance">{finding.title}</h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
             {finding.kind === "issue" ? (
               <PriorityPill priority={finding.priority} />

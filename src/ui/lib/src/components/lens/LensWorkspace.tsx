@@ -246,8 +246,15 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 {connectGitHub && agents.agent && activeTab !== "agents" && (
-                  <Button variant="outline" size="sm" onClick={() => connectGitHub(agents.agent!)}>
-                    <Github aria-hidden="true" className="size-4" /> Connect GitHub
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Connect GitHub"
+                    title="Connect GitHub"
+                    onClick={() => connectGitHub(agents.agent!)}
+                  >
+                    <Github aria-hidden="true" className="size-4" />{" "}
+                    <span className="hidden sm:inline">Connect GitHub</span>
                   </Button>
                 )}
                 <DemoToggle demo={demo} onChange={toggleDemo} />
@@ -273,12 +280,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             <div
               className={cn(
                 "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card",
-                !traceWorkspace && "px-3 md:px-5",
                 !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
               )}
             >
               {showSetup ? (
-                <TabsContent value={activeTab} keepMounted className={cn(PANEL, "p-3 sm:p-5")}>
+                <TabsContent value={activeTab} keepMounted className={cn(PANEL, "lens-page-body")}>
                   {setupState.loading ? (
                     <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                       <Loader2 aria-hidden="true" className="size-4 animate-spin" />

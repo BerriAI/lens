@@ -1,34 +1,31 @@
 import type { ReactNode } from "react";
 
 export function LensPageHeader({
-  section,
   title,
   description,
   actions,
+  navigation,
+  children,
+  "aria-label": label,
 }: {
-  readonly section?: string;
   readonly title: ReactNode;
-  readonly description?: string;
+  readonly description?: ReactNode;
   readonly actions?: ReactNode;
+  readonly navigation?: ReactNode;
+  readonly children?: ReactNode;
+  readonly "aria-label"?: string;
 }) {
   return (
-    <header className="lens-page-header">
-      <div className="relative min-w-0">
-        {section && (
-          <p className="lens-section-label mb-2 flex items-center gap-2">
-            <span aria-hidden="true" className="lens-spectrum">
-              <i />
-              <i />
-              <i />
-              <i />
-            </span>
-            {section}
-          </p>
-        )}
-        <h2 className="flex items-center gap-2.5 text-xl font-medium tracking-tight sm:text-2xl">{title}</h2>
-        {description && <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>}
+    <header aria-label={label} className="lens-page-header">
+      {navigation && <div className="basis-full text-xs text-muted-foreground">{navigation}</div>}
+      <div className="min-w-0 flex-1 basis-full sm:basis-0">
+        <h2 className="lens-page-title flex flex-wrap items-center gap-2">
+          {title}
+        </h2>
+        {description && <div className="mt-1 text-sm leading-5 text-muted-foreground">{description}</div>}
       </div>
-      {actions && <div className="relative flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
+      {children && <div className="min-w-0 basis-full">{children}</div>}
     </header>
   );
 }

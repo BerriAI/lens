@@ -49,20 +49,24 @@ export function Workspace() {
   if (session.error instanceof ApiError && session.error.status === 401)
     return <SignIn />;
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-8">
-      <h1 className="text-lg font-semibold">Cannot reach Lens</h1>
-      <p className="text-sm text-muted-foreground">
-        Check that the Lens API is running, then retry.
-      </p>
-      <button
-        className="rounded-md border px-3 py-2 text-sm"
-        onClick={() => void session.refetch()}
-      >
-        Retry
-      </button>
-      <a href="?demo=true" className="text-sm underline">
-        Explore demo data
-      </a>
+    <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
+      <header className="lens-page-header">
+        <h1 className="lens-page-title">Cannot reach Lens</h1>
+      </header>
+      <div className="lens-page-body flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          Check that the Lens API is running, then retry.
+        </p>
+        <button
+          className="rounded-md border px-3 py-2 text-sm"
+          onClick={() => void session.refetch()}
+        >
+          Retry
+        </button>
+        <a href="?demo=true" className="text-sm underline">
+          Explore demo data
+        </a>
+      </div>
     </main>
   );
 }
@@ -104,36 +108,40 @@ function SignIn() {
     login.mutate(token);
   };
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-5 p-8">
-      <h1 className="text-xl font-semibold">Sign in to Lens</h1>
-      <form onSubmit={submit} className="flex flex-col gap-3">
-        <label htmlFor="setup-token" className="text-sm font-medium">
-          Setup token
-        </label>
-        <input
-          id="setup-token"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-          className="rounded-md border px-3 py-2"
-        />
-        <button
-          disabled={login.isPending}
-          className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-        >
-          {login.isPending ? "Signing in…" : "Sign in"}
-        </button>
-        {login.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {login.error.message}
-          </p>
-        )}
-      </form>
-      <a href="?demo=true" className="text-sm underline">
-        Explore demo data
-      </a>
+    <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
+      <header className="lens-page-header">
+        <h1 className="lens-page-title">Sign in to Lens</h1>
+      </header>
+      <div className="lens-page-body flex flex-col gap-5">
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <label htmlFor="setup-token" className="text-sm font-medium">
+            Setup token
+          </label>
+          <input
+            id="setup-token"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            className="rounded-md border px-3 py-2"
+          />
+          <button
+            disabled={login.isPending}
+            className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+          >
+            {login.isPending ? "Signing in…" : "Sign in"}
+          </button>
+          {login.isError && (
+            <p role="alert" className="text-sm text-destructive">
+              {login.error.message}
+            </p>
+          )}
+        </form>
+        <a href="?demo=true" className="text-sm underline">
+          Explore demo data
+        </a>
+      </div>
     </main>
   );
 }

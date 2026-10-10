@@ -126,11 +126,6 @@ function SidebarNavigation({
           <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
         </div>
       )}
-      {!collapsed && (
-        <p className="mb-3 px-2.5 font-mono text-[10px] font-medium tracking-[0.16em] text-muted-foreground uppercase">
-          Workspace
-        </p>
-      )}
       <LensTabs
         orientation="vertical"
         activity={activity}

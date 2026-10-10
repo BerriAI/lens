@@ -8,6 +8,7 @@ import { cn } from "../../../../lib/cva.config";
 
 import { useEvalRun, useRunCases } from "./api";
 import { CaseCompare } from "./CaseCompare";
+import { LensPageHeader } from "../../ui/LensPageHeader";
 import { shortSha } from "./format";
 import { caseStatus, CriticalTag, RunStatusBadge, StatusBadge } from "./RunBadges";
 import type { EvalRun, RunCaseSummary } from "./types";
@@ -54,14 +55,16 @@ export function RunDetail({ runId, caseId, onBack, onOpenCase }: RunDetailProps)
 
 function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
   return (
-    <header aria-label="Run" className="space-y-3 border-b px-5 py-4">
-      <Button variant="ghost" size="sm" className="-ml-2 h-7 text-muted-foreground" onClick={onBack}>
-        <ArrowLeft className="size-3.5" /> All runs
-      </Button>
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="min-w-0 truncate text-lg font-semibold">{run.eval}</h2>
-        <RunStatusBadge run={run} />
-        {run.summary && (
+    <LensPageHeader
+      aria-label="Run"
+      navigation={
+        <Button variant="ghost" size="sm" className="-ml-2 h-7 text-muted-foreground" onClick={onBack}>
+          <ArrowLeft className="size-3.5" /> All runs
+        </Button>
+      }
+      title={run.eval}
+      actions={
+        run.summary && (
           <p aria-label="Case totals" className="ml-auto flex items-center gap-4 text-sm tabular-nums">
             <span className="text-success">{run.summary.passed} passed</span>
             <span className={cn(run.summary.total > run.summary.passed ? "text-destructive" : "text-muted-foreground")}>
@@ -69,16 +72,20 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
             </span>
             <span className="text-muted-foreground">{run.summary.total} cases</span>
           </p>
-        )}
-      </div>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span>{run.branch}</span>
-        <code>{shortSha(run.version)}</code>
-        {run.pr !== null && <span>PR #{run.pr}</span>}
-        <span>
-          {run.received_trials}/{run.expected_trials} trials received
-        </span>
-      </p>
+        )
+      }
+      description={
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <RunStatusBadge run={run} />
+          <span>{run.branch}</span>
+          <code>{shortSha(run.version)}</code>
+          {run.pr !== null && <span>PR #{run.pr}</span>}
+          <span>
+            {run.received_trials}/{run.expected_trials} trials received
+          </span>
+        </p>
+      }
+    >
       {run.summary && !run.summary.gate.passed && (
         <div role="alert" aria-label="Run checks" className="space-y-1 text-xs text-destructive">
           <p>Run checks failed</p>
@@ -91,7 +98,7 @@ function RunHeader({ run, onBack }: { run: EvalRun; onBack: () => void }) {
           )}
         </div>
       )}
-    </header>
+    </LensPageHeader>
   );
 }
 

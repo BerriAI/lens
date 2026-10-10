@@ -214,7 +214,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
         <SetupAgentPrompt goal="signals" featureConfigured={active} />
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 font-mono text-xs"
+          className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs"
         >
           <StatusDot state={active ? "ok" : "off"} />
           {active ? `Flagging traces with ${saved.model}` : "Signals are off"}
@@ -252,7 +252,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
         )}
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
           <div className="space-y-1.5">
-            <label htmlFor={modelId} className="font-mono text-xs font-medium">
+            <label htmlFor={modelId} className="text-xs font-medium">
               System 1 model
             </label>
             <SearchSelect
@@ -274,7 +274,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
             )}
           </div>
           <div className="space-y-1.5">
-            <label htmlFor={thresholdId} className="font-mono text-xs font-medium">
+            <label htmlFor={thresholdId} className="text-xs font-medium">
               Flag at score
             </label>
             <div className="flex items-center gap-1.5">

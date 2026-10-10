@@ -893,7 +893,7 @@ export function TracingSetupCard(props: TracingSetupProps) {
   return (
     <div className="w-full max-w-3xl pb-8" data-testid="tracing-setup-card">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-xl font-semibold tracking-tight">{setupTitle(enabled, props.connected ?? false)}</h2>
+        <h2 className="lens-page-title">{setupTitle(enabled, props.connected ?? false)}</h2>
         <span role="status" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           {enabled ? (
             <ActiveDot />

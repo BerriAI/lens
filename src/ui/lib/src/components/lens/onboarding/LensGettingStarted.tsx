@@ -75,8 +75,8 @@ function Prerequisites() {
       ]
     : PREREQUISITES;
   return (
-    <aside className="rounded-2xl border bg-card p-6" aria-labelledby="lens-prerequisites">
-      <h2 id="lens-prerequisites" className="text-base font-semibold">
+    <aside className="rounded-xl border bg-card p-6" aria-labelledby="lens-prerequisites">
+      <h2 id="lens-prerequisites" className="lens-section-label">
         Before you start
       </h2>
       <ul className="mt-5 space-y-5 text-sm">

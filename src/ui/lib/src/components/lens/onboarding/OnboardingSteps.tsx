@@ -206,7 +206,7 @@ export function OnboardingSteps({
     <ol
       ref={listRef}
       data-slot="onboarding-steps"
-      className={cn("divide-y overflow-hidden rounded-2xl border bg-card", className)}
+      className={cn("divide-y overflow-hidden rounded-xl border bg-card", className)}
     >
       {STEPS.slice(offset).map(({ title, description, complete, Content }, index) => {
         const stepIndex = index + offset;
@@ -226,7 +226,7 @@ export function OnboardingSteps({
                 <span className="min-w-0 flex-1">
                   <span
                     className={cn(
-                      "block text-sm font-medium sm:text-base",
+                      "block text-sm font-medium",
                       !open && "text-muted-foreground group-hover:text-foreground",
                     )}
                   >
