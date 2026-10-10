@@ -25,7 +25,7 @@ test("a proposed issue has its stable number, status border and private chart in
     frequency: {
       count: 4,
       total: 5,
-      title: "Repository calls fail",
+      title: "Observed repository calls return errors",
       label: "4/5 completed repository calls failed",
       unit: "completed repository calls",
     },
@@ -114,6 +114,8 @@ test("a proposed issue has its stable number, status border and private chart in
   );
   assert(first.includes("*Agent:* moyai"));
   assert(first.includes('"slack_file":{"id":"F0123ABC"}'));
+  assert(first.includes("Measured cohort"));
+  assert(first.includes(candidate.frequency!.title));
   assert(!first.includes("User tried"));
   assert.equal(uploads[0]?.thread_ts, "123.4");
   assert.equal(uploads[0]?.channel_id, "C123");
@@ -161,4 +163,36 @@ test("a proposed issue has its stable number, status border and private chart in
   );
   assert.equal(messages.length, 1);
   assert.equal(updates.length, 0);
+  messages.length = 0;
+  uploads.length = 0;
+  await postCandidate(
+    slack,
+    { channel: "C123", agent: "fixture-agent" } as Config,
+    {
+      ...candidate,
+      frequency: undefined,
+      candidate: { ...candidate.candidate, frequency_metric: "unknown" },
+    },
+    sample,
+    source,
+  );
+  assert.equal(messages.length, 2);
+  assert.equal(updates.length, 0);
+  assert.equal(uploads.length, 0);
+  assert.equal(messages[1]?.thread_ts, "123.4");
+  assert.equal(messages[1]?.parse, "none");
+  assert.equal(messages[1]?.unfurl_links, false);
+  const unknown = JSON.stringify(messages);
+  assert(unknown.includes("*Agent:* fixture-agent"));
+  assert(unknown.includes("Frequency:* unknown (no matching measured cohort)"));
+  assert(
+    unknown.includes("User tried") &&
+      unknown.includes("Code hypothesis") &&
+      unknown.includes("Required experiment"),
+  );
+  assert(
+    unknown.includes(candidate.native.url) &&
+      unknown.includes(candidate.codeLinks[0]!),
+  );
+  assert(!/slack_file|image|NaN|0\/0|\d%/.test(unknown));
 });

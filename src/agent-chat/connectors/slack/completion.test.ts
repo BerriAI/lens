@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Chat, type Activity, type Mention } from "./chat.js";
 import type { ReplyAgent } from "./reply.js";
-import type { Answer } from "./slack.js";
+import { safeAnswer, type Answer } from "./slack.js";
 import { slackReplies } from "./responses.js";
 import { failureAnswer, within } from "./completion.js";
 import type { ThreadRegistry } from "./threads.js";
@@ -65,6 +65,46 @@ function create(
     cleanupTimeoutMs: 30,
   });
 }
+
+test("an on-demand finding with no valid metric updates its acknowledgment without a chart or fabricated rate", async () => {
+  const output = transport();
+  const url = "https://lens.example.com/?trace=observed";
+  const grounded = safeAnswer(
+    {
+      ...answer,
+      opportunities: [
+        {
+          category: "Reliability",
+          summary: "The observed repository call failed",
+          impact: 8,
+          frequency_metric: "unavailable",
+          metric_title: "Invented metric",
+          sources: [{ label: "Trace", url }],
+          frequency: {
+            count: 7,
+            total: 10,
+            title: "Invented metric",
+            label: "7/10 calls",
+            unit: "calls",
+          },
+        },
+      ],
+    },
+    new Set([url]),
+    false,
+  );
+  await create(async () => grounded, output).mention(event);
+  assert.equal(output.posted.length, 1);
+  assert.equal(output.updated.length, 1);
+  assert.equal(
+    output.updated[0]?.ts,
+    output.posted[0]?.ts ?? "1800000000.123456",
+  );
+  const rendered = JSON.stringify(output.updated[0]);
+  assert(rendered.includes("The observed repository call failed"));
+  assert(rendered.includes("Frequency: unknown") && rendered.includes(url));
+  assert(!/Evidence unavailable|slack_file|7\/10|70%/.test(rendered));
+});
 
 test("acknowledgment precedes delayed evidence and a stalled status call; the answer updates one message", async (t) => {
   const logs: string[] = [];

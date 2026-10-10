@@ -202,7 +202,6 @@ export class LensClient {
     const lensId = targets[0]!.id;
     const candidate = verified.candidate;
     const frequency = verified.frequency;
-    if (!frequency) throw new Error("Native finding needs verified frequency");
     const evidence = candidate.evidence.map((item) => {
       const trace = sample.traces.find((row) => row.trace_id === item.trace_id);
       if (!trace?.trace_ref)
@@ -213,7 +212,9 @@ export class LensClient {
       `Findings V2 · ${candidate.kind === "opportunity" ? "Feature Request" : "Bug Fix"} · ${candidate.category}`,
       `Observed: ${candidate.observation}`,
       `Impact: ${candidate.impact}/10 (assessment). Confidence: ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment).`,
-      `${frequency.support ? "Observed request support" : "Frequency"}: ${frequency.count}/${frequency.total} ${frequency.unit}. ${frequency.label}`,
+      frequency
+        ? `${frequency.support ? "Observed request support" : "Measured cohort"}: ${frequency.title}. ${frequency.label}`
+        : "Frequency: unknown (no matching measured cohort)",
       `Customer benefit if validated: ${candidate.outcome}`,
       `Model: ${source.model}. Prompt: ${source.prompt_revision}. Repository: ${source.repository_sha}. Recorded: ${new Date(source.at).toISOString()}.`,
     ].join("\n\n");

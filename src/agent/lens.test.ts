@@ -387,6 +387,11 @@ test("native publication sends scoped exact evidence and returns the server's ca
   assert.equal(sent[0]?.body.fingerprint, imported.fingerprint);
   assert(String(sent[0]?.body.description).includes("Impact: 8/10"));
   assert(
+    String(sent[0]?.body.description).includes(
+      `Measured cohort: ${imported.frequency!.title}`,
+    ),
+  );
+  assert(
     String(sent[0]?.body.description).includes("Customer benefit if validated"),
   );
   assert(
@@ -397,6 +402,18 @@ test("native publication sends scoped exact evidence and returns the server's ca
     new URL(result.url).searchParams.get("issue"),
     "chosen:consolidated-canonical-id",
   );
+  await client.persistFinding(
+    { ...imported, frequency: undefined },
+    importSample,
+    importSource,
+    signal,
+  );
+  assert.match(
+    String(sent[1]?.body.description),
+    /Frequency: unknown \(no matching measured cohort\)/,
+  );
+  assert.doesNotMatch(String(sent[1]?.body.description), /0\/0|undefined|NaN/);
+  assert.deepEqual(sent[1]?.body.evidence, sent[0]?.body.evidence);
 });
 
 test("native publication fails closed for ambiguous targets, wrong agents, absent trace refs and mismatched responses", async () => {

@@ -57,30 +57,35 @@ export async function postCandidate(
     ),
   ].slice(0, 3);
   const frequency = verified.frequency
-    ? `${Math.round((100 * verified.frequency.count) / verified.frequency.total)}% (${verified.frequency.count}/${verified.frequency.total}) — ${verified.frequency.label.replace(/^\d+\/\d+ /, "")}`
-    : "unknown";
+    ? `${verified.frequency.title}: ${Math.round((100 * verified.frequency.count) / verified.frequency.total)}% (${verified.frequency.count}/${verified.frequency.total}) — ${verified.frequency.label.replace(/^\d+\/\d+ /, "")}`
+    : "unknown (no matching measured cohort)";
+  const frequencyLabel = verified.frequency?.support
+    ? "Observed request support"
+    : verified.frequency
+      ? "Measured cohort"
+      : "Frequency";
   const links = verified.evidenceLinks
     .slice(0, 3)
     .map((url, index) => `<${url}|Trace ${index + 1}>`)
     .join(" · ");
-  if (!verified.frequency)
-    throw new Error("A report needs a verified frequency cohort");
-  const chartPayload: ChartPayload = {
-    title: verified.frequency.support
-      ? "Observed request support"
-      : verified.frequency.title.slice(0, 80),
-    category,
-    affected: verified.frequency.count,
-    total: verified.frequency.total,
-    unit: verified.frequency.unit,
-    ...(verified.frequency.support
-      ? {
-          affectedLabel: "Supporting requests",
-          otherLabel: "Other reviewed requests",
-        }
-      : {}),
-  };
-  const png = await renderChartPng(chartPayload);
+  const chartPayload: ChartPayload | undefined = verified.frequency
+    ? {
+        title: verified.frequency.support
+          ? "Observed request support"
+          : verified.frequency.title.slice(0, 80),
+        category,
+        affected: verified.frequency.count,
+        total: verified.frequency.total,
+        unit: verified.frequency.unit,
+        ...(verified.frequency.support
+          ? {
+              affectedLabel: "Supporting requests",
+              otherLabel: "Other reviewed requests",
+            }
+          : {}),
+      }
+    : undefined;
+  const png = chartPayload ? await renderChartPng(chartPayload) : undefined;
   const parent = {
     channel: config.channel,
     text: title,
@@ -95,7 +100,7 @@ export async function postCandidate(
         color: "#8058F4",
         blocks: [
           markdown(
-            `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · ${status}*\n*Agent:* ${escapeSlack(config.agent)}\n*Category:* ${category}\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
+            `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · ${status}*\n*Agent:* ${escapeSlack(config.agent)}\n*Category:* ${category}\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${frequencyLabel}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
           ),
           {
             type: "context" as const,
@@ -153,7 +158,7 @@ export async function postCandidate(
   const details = [
     markdown(receipts || excerpts),
     markdown(
-      `*Observed issue*\n${escapeSlack(words(prose(candidate.observation), 80))}\n*Frequency:* ${escapeSlack(frequency)}`,
+      `*Observed issue*\n${escapeSlack(words(prose(candidate.observation), 80))}\n*${frequencyLabel}:* ${escapeSlack(frequency)}`,
     ),
     markdown(
       `*Code hypothesis*\n${escapeSlack(words(prose(candidate.code_hypothesis), 80))}\n${verified.codeLinks.map((url, index) => `<${url}|Code reference ${index + 1}>`).join(" · ")}`,
@@ -174,6 +179,18 @@ export async function postCandidate(
       ],
     },
   ];
+  if (!chartPayload) {
+    await slack.chat.postMessage({
+      channel: config.channel,
+      thread_ts: posted.ts,
+      text: `Evidence for ${title}`,
+      blocks: details,
+      parse: "none",
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+    return;
+  }
   const chart = await prepareChart(
     slack,
     chartPayload,
