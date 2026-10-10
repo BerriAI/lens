@@ -110,3 +110,18 @@ Start the UI with `npm ci` and `npm run dev:ui`. Use the app's printed address w
 ### Connection error
 
 ![connection-error before and after](connection-error.png)
+
+## Embedded gateway layout
+
+The shared package's embedded mode uses one 45px top bar at desktop width. Collection titles and descriptions no longer add a second header; page actions move into the top bar and detail views use compact contextual toolbars. The dotted background remains
+
+These captures use the package in a local host preview with demo data, before and after the embedded layout change. The gray bar represents the gateway's existing chrome. They do not claim that gateway-dev has deployed the change
+
+| View | Before | After |
+| --- | --- | --- |
+| Agents | ![Embedded Agents before](embedded/agents-before.jpg) | ![Embedded Agents after](embedded/agents-after.jpg) |
+| Traces | ![Embedded Traces before](embedded/traces-before.jpg) | ![Embedded Traces after](embedded/traces-after.jpg) |
+| Evals | ![Embedded Evals before](embedded/evals-before.jpg) | ![Embedded Evals after](embedded/evals-after.jpg) |
+| New eval | ![Embedded new eval before](embedded/new-eval-before.jpg) | ![Embedded new eval after](embedded/new-eval-after.jpg) |
+
+![Embedded Evals on mobile](embedded/evals-mobile-after.jpg)

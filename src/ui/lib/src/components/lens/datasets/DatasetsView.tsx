@@ -42,6 +42,7 @@ export function DatasetsView({ readOnly = false }: DatasetsViewProps) {
       ) : (
         <>
           <LensPageHeader
+            page="datasets"
             title="Datasets"
             description="Save conversations as test cases for your agents"
           />

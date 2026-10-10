@@ -70,6 +70,7 @@ export function EvalsView() {
   return (
     <>
       <LensPageHeader
+        page="evals"
         title="Evals"
         description="Run your agent against saved test cases. Inspect every result and trace"
         actions={

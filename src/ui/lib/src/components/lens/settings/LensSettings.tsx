@@ -75,6 +75,7 @@ export function LensSettings({
   return (
     <div aria-label="Settings" role="region" className="flex w-full flex-col">
       <LensPageHeader
+        page="settings"
         title="Settings"
         description="Manage connections, signals, and automatic analysis"
       />

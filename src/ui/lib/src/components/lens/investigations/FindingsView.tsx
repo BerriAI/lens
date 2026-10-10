@@ -223,6 +223,7 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
     >
       <div className="@container/findings flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
         <LensPageHeader
+          page="findings"
           title="Findings"
           description={
             agent ? "Issues and improvements from this agent’s traces." : "Issues and improvements across your agents."

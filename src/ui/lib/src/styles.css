@@ -550,6 +550,40 @@
   padding: 1.5rem var(--lens-page-gutter, 1.5rem);
 }
 
+.lens-embedded {
+  --lens-page-gutter: 1rem;
+}
+
+.lens-embedded-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.25rem var(--lens-page-gutter);
+  border-bottom: 1px solid var(--lens-border);
+  background-color: var(--card);
+  background-image: radial-gradient(var(--lens-grid) 0.8px, transparent 0.8px);
+  background-size: 14px 14px;
+}
+
+.lens-embedded .lens-page-body {
+  padding-block: 1rem;
+}
+
+.lens-page-header-compact {
+  gap: 0.5rem 1rem;
+  padding-block: 0.5rem;
+  background-image: none;
+}
+
+.lens-page-header-compact .lens-page-title {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  letter-spacing: normal;
+}
+
 @media (max-width: 639px) {
   .lens-workspace,
   .lens-shell-overlay {

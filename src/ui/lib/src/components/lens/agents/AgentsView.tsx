@@ -34,6 +34,7 @@ export function AgentsView({
   return (
     <section aria-label="Agents directory" className="flex min-h-0 flex-1 flex-col">
       <LensPageHeader
+        page="agents"
         title={
           <>
             Agents

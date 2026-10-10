@@ -45,6 +45,8 @@ Dataset and eval detail pages use the same page header as their collections. Pla
 
 Home and setup retain a readable content width, complete copyable instructions, and a visible connection state. Settings retains its label-and-control columns, which stack on narrow screens. Forms may use a narrower content column without moving their page header away from the shared gutter
 
+Inside the gateway, use one compact top bar for tabs, agent selection, page actions, and workspace controls. Collection headers pass their `page` to `LensPageHeader`, which keeps the heading accessible and places actions in that bar. Do not repeat the collection title or description below it. Detail views keep a compact contextual toolbar for their title, back navigation, metadata, and actions. Embedded content uses 16px gutters and padding; tabs scroll and controls wrap at narrow widths
+
 ## Actions, state, and recovery
 
 Use the shared Button, Input, Select, Tabs, and state primitives. Keep one primary next action for the current task. Use outline or ghost styling for secondary actions. Controls wrap on narrow screens instead of pushing the page beyond the viewport; wide data tables scroll inside their panel

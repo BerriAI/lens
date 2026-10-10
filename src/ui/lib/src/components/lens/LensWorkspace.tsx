@@ -40,6 +40,7 @@ import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
+import { LensPageActionsContext } from "./ui/LensPageHeader";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -101,6 +102,7 @@ const PANEL =
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
   const embedded = useLensHost().surface === "embedded";
+  const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
@@ -191,36 +193,57 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
       <main
         className={cn(
           "lens-workspace relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
+          embedded && "lens-embedded",
           !embedded && "lens-shell",
         )}
       >
-        <Tabs.Root
-          value={activeTab}
-          orientation={embedded ? "horizontal" : "vertical"}
-          onValueChange={(value) => navigate(value as LensTab)}
-          className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
-        >
-          {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
-          <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
-            <header
-              className={cn(
-                "flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card px-4 md:px-6",
-                !embedded && "lens-workspace-header pl-14 md:pl-6",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-2 text-sm">
-                {embedded ? (
-                  <>
-                    <h1 className="font-medium">Lens</h1>
+        <LensPageActionsContext.Provider value={{ target: pageActions, tab: activeTab }}>
+          <Tabs.Root
+            value={activeTab}
+            orientation={embedded ? "horizontal" : "vertical"}
+            onValueChange={(value) => navigate(value as LensTab)}
+            className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
+          >
+            {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
+            <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
+              {embedded ? (
+                <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
+                  <h1 className="sr-only">Lens</h1>
+                  <div className="min-w-0 max-w-full overflow-x-auto">
+                    <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
+                  </div>
+                  <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
                     {agents.agent && (
-                      <>
-                        <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
-                      </>
+                      <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
                     )}
-                  </>
-                ) : (
-                  <>
+                    <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
+                    {connectGitHub && agents.agent && activeTab !== "agents" && (
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label="Connect GitHub"
+                        title="Connect GitHub"
+                        onClick={() => connectGitHub(agents.agent!)}
+                      >
+                        <Github aria-hidden="true" className="size-4" />
+                      </Button>
+                    )}
+                    <DemoToggle demo={demo} onChange={toggleDemo} />
+                    <a
+                      href="https://docs.litellm.ai/docs/proxy/lens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Documentation"
+                      title="Documentation"
+                      className="rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <BookOpen aria-hidden="true" className="size-4" />
+                    </a>
+                  </div>
+                </header>
+              ) : (
+                <header className="lens-workspace-header flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card pr-4 pl-14 md:px-6">
+                  <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
                     {activeTab === "traces" && agents.agent && (
                       <>
@@ -241,127 +264,112 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       </>
                     )}
                     <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {connectGitHub && agents.agent && activeTab !== "agents" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label="Connect GitHub"
+                        title="Connect GitHub"
+                        onClick={() => connectGitHub(agents.agent!)}
+                      >
+                        <Github aria-hidden="true" className="size-4" />{" "}
+                        <span className="hidden sm:inline">Connect GitHub</span>
+                      </Button>
+                    )}
+                    <DemoToggle demo={demo} onChange={toggleDemo} />
+                  </div>
+                </header>
+              )}
+              <div
+                className={cn(
+                  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card",
+                  !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
+                )}
+              >
+                {showSetup ? (
+                  <TabsContent value={activeTab} keepMounted className={cn(PANEL, "lens-page-body")}>
+                    {setupState.loading ? (
+                      <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                        <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                        Checking Lens setup…
+                      </p>
+                    ) : (
+                      <LensGettingStarted state={setupState} onStart={startSetup} onExit={exitSetup} />
+                    )}
+                  </TabsContent>
+                ) : (
+                  <>
+                    <TabsContent value="home" className={PANEL}>
+                      <LensHome
+                        agents={agents}
+                        enabled={!demo}
+                        onOpenAgent={agents.select}
+                        onOpenAgents={() => navigate("agents")}
+                        onSetup={canConfigure ? startSetup : undefined}
+                        onConnectGitHub={connectGitHub}
+                      />
+                    </TabsContent>
+                    <TabsContent value="agents" className={PANEL}>
+                      <AgentsView
+                        agents={agents}
+                        onOpenAgent={agents.select}
+                        onConnectProject={connectProject}
+                        onConnectGitHub={connectGitHub}
+                      />
+                    </TabsContent>
+                    <TabsContent value="traces" keepMounted className={PANEL}>
+                      <AgentTracesPage
+                        accessToken={accessToken}
+                        isActive={activeTab === "traces"}
+                        readOnly={readOnly}
+                        canMintTracingKey={isAdmin}
+                        canViewFindings={canViewInvestigations}
+                        onSetUpSignals={canConfigure ? showSettings : undefined}
+                        onConnectAgent={connectProject}
+                      />
+                    </TabsContent>
+                    <TabsContent value="findings" className={PANEL}>
+                      {canViewInvestigations ? (
+                        <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
+                      ) : (
+                        <p className="py-6 text-sm text-muted-foreground">
+                          Findings require proxy administrator access.
+                        </p>
+                      )}
+                    </TabsContent>
+                    <TabsContent value="datasets" className={PANEL}>
+                      <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
+                    </TabsContent>
+                    <TabsContent value="evals" className={PANEL}>
+                      {canViewInvestigations ? (
+                        <EvalsView />
+                      ) : (
+                        <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
+                      )}
+                    </TabsContent>
                   </>
                 )}
-              </div>
-              <div className="flex shrink-0 items-center gap-3">
-                {connectGitHub && agents.agent && activeTab !== "agents" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Connect GitHub"
-                    title="Connect GitHub"
-                    onClick={() => connectGitHub(agents.agent!)}
-                  >
-                    <Github aria-hidden="true" className="size-4" />{" "}
-                    <span className="hidden sm:inline">Connect GitHub</span>
-                  </Button>
-                )}
-                <DemoToggle demo={demo} onChange={toggleDemo} />
-                {embedded && (
-                  <a
-                    href="https://docs.litellm.ai/docs/proxy/lens"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Documentation"
-                    title="Documentation"
-                    className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <BookOpen aria-hidden="true" className="size-4" />
-                  </a>
-                )}
-              </div>
-            </header>
-            {embedded && (
-              <div className="shrink-0 overflow-x-auto border-b bg-card px-4 md:px-6">
-                <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
-              </div>
-            )}
-            <div
-              className={cn(
-                "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card",
-                !embedded && !traceWorkspace && "m-2 rounded-xl border md:m-4",
-              )}
-            >
-              {showSetup ? (
-                <TabsContent value={activeTab} keepMounted className={cn(PANEL, "lens-page-body")}>
-                  {setupState.loading ? (
-                    <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                      <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-                      Checking Lens setup…
-                    </p>
-                  ) : (
-                    <LensGettingStarted state={setupState} onStart={startSetup} onExit={exitSetup} />
-                  )}
-                </TabsContent>
-              ) : (
-                <>
-                  <TabsContent value="home" className={PANEL}>
-                    <LensHome
-                      agents={agents}
-                      enabled={!demo}
-                      onOpenAgent={agents.select}
-                      onOpenAgents={() => navigate("agents")}
-                      onSetup={canConfigure ? startSetup : undefined}
-                      onConnectGitHub={connectGitHub}
-                    />
-                  </TabsContent>
-                  <TabsContent value="agents" className={PANEL}>
-                    <AgentsView
-                      agents={agents}
-                      onOpenAgent={agents.select}
+                {workers && list && (
+                  <TabsContent value="settings" keepMounted className={PANEL}>
+                    <LensSettings
+                      list={list}
+                      workerReadyAction={
+                        list.lenses.length === 0 ? (
+                          <Button className="w-full" onClick={showFindings}>
+                            View automatic analysis
+                          </Button>
+                        ) : undefined
+                      }
                       onConnectProject={connectProject}
-                      onConnectGitHub={connectGitHub}
                     />
                   </TabsContent>
-                  <TabsContent value="traces" keepMounted className={PANEL}>
-                    <AgentTracesPage
-                      accessToken={accessToken}
-                      isActive={activeTab === "traces"}
-                      readOnly={readOnly}
-                      canMintTracingKey={isAdmin}
-                      canViewFindings={canViewInvestigations}
-                      onSetUpSignals={canConfigure ? showSettings : undefined}
-                      onConnectAgent={connectProject}
-                    />
-                  </TabsContent>
-                  <TabsContent value="findings" className={PANEL}>
-                    {canViewInvestigations ? (
-                      <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
-                    ) : (
-                      <p className="py-6 text-sm text-muted-foreground">Findings require proxy administrator access.</p>
-                    )}
-                  </TabsContent>
-                  <TabsContent value="datasets" className={PANEL}>
-                    <DatasetsPanel canView={canViewInvestigations} isAdmin={isAdmin} readOnly={readOnly} />
-                  </TabsContent>
-                  <TabsContent value="evals" className={PANEL}>
-                    {canViewInvestigations ? (
-                      <EvalsView />
-                    ) : (
-                      <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
-                    )}
-                  </TabsContent>
-                </>
-              )}
-              {workers && list && (
-                <TabsContent value="settings" keepMounted className={PANEL}>
-                  <LensSettings
-                    list={list}
-                    workerReadyAction={
-                      list.lenses.length === 0 ? (
-                        <Button className="w-full" onClick={showFindings}>
-                          View automatic analysis
-                        </Button>
-                      ) : undefined
-                    }
-                    onConnectProject={connectProject}
-                  />
-                </TabsContent>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        </Tabs.Root>
+          </Tabs.Root>
+        </LensPageActionsContext.Provider>
       </main>
       {github.agent && connectGitHub && (
         <AgentGitHubDialog
