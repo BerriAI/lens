@@ -20,6 +20,12 @@ pub use records::{Change, Head, PreparedCommit, Snapshot};
 pub(crate) use retry::backoff;
 use transport::{command, decode, encode};
 
+#[derive(Clone, Copy)]
+enum BlobRead {
+    Current,
+    Historical,
+}
+
 #[derive(Clone)]
 pub struct ClickHouseState {
     client: Client,
@@ -152,7 +158,7 @@ impl ClickHouseState {
         }
         for attempt in 0..8 {
             let before = self.heads(keys).await?;
-            let values = self.values(&before).await?;
+            let values = self.values(&before, BlobRead::Current).await?;
             if (keys.len() == 1 || before == self.heads(keys).await?)
                 && let Some(values) = values
             {
@@ -163,7 +169,7 @@ impl ClickHouseState {
         Err(Error::StateUnavailable)
     }
 
-    async fn values(&self, heads: &[Head]) -> Result<Option<Vec<Snapshot>>, Error> {
+    async fn values(&self, heads: &[Head], read: BlobRead) -> Result<Option<Vec<Snapshot>>, Error> {
         if heads.is_empty() {
             return Ok(Some(Vec::new()));
         }
@@ -173,7 +179,11 @@ impl ClickHouseState {
         let mut values = BTreeMap::new();
         let mut missing = BTreeSet::new();
         for head in heads.iter().filter(|head| !head.digest.is_empty()) {
-            if let Some(data) = self.blobs.get(head).await {
+            let cached = match read {
+                BlobRead::Current => self.blobs.get(head).await,
+                BlobRead::Historical => None,
+            };
+            if let Some(data) = cached {
                 let value = serde_json::from_str(&data).map_err(|_| Error::InvalidResponse)?;
                 values.insert(
                     head.clone(),
@@ -238,7 +248,7 @@ impl ClickHouseState {
     }
 
     pub async fn resolve(&self, heads: &[Head]) -> Result<Vec<Snapshot>, Error> {
-        if let Some(values) = self.values(heads).await? {
+        if let Some(values) = self.values(heads, BlobRead::Historical).await? {
             return Ok(values);
         }
         let keys: Vec<_> = heads.iter().map(|head| head.key.as_str()).collect();
