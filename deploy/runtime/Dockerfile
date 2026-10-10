@@ -1,6 +1,7 @@
 ARG LENS_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
 ARG LENS_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
 ARG LENS_UI_BUILD_IMAGE=node:24.14.1-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c
+ARG LENS_SLACK_BUILD_IMAGE=node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 
 FROM $LENS_UI_BUILD_IMAGE AS ui-builder
 WORKDIR /src
@@ -12,7 +13,7 @@ RUN npm ci
 COPY src/ui/ src/ui/
 RUN npm run build:ui
 
-FROM $LENS_UI_BUILD_IMAGE AS slack-builder
+FROM $LENS_SLACK_BUILD_IMAGE AS slack-builder
 WORKDIR /app/slack-agent
 COPY src/slack-agent/package.json src/slack-agent/package-lock.json ./
 RUN npm ci --ignore-scripts

@@ -33,7 +33,7 @@ Publishing verified paired eval results to Slack, creating fixes, and automated 
 
 ## Ask Lens in a thread
 
-The optional Node 24 sidecar uses the official [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents/sdk) and [Slack Bolt Socket Mode](https://docs.slack.dev/tools/bolt-js/concepts/socket-mode/). Add the bot scopes `app_mentions:read`, `chat:write` and `files:write`, subscribe to `app_mention`, enable Socket Mode, and create an app token with `connections:write`. Reinstall the Slack app after changing scopes, then invite Lens to the configured channel
+The optional Node 24.20.0 sidecar uses the official [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents/sdk) and [Slack Bolt Socket Mode](https://docs.slack.dev/tools/bolt-js/concepts/socket-mode/). Add the bot scopes `app_mentions:read`, `chat:write` and `files:write`, subscribe to `app_mention`, enable Socket Mode, and create an app token with `connections:write`. Reinstall the Slack app after changing scopes, then invite Lens to the configured channel
 
 ```dotenv
 LENS_SLACK_CHAT_ENABLED=true

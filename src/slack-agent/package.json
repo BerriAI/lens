@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.14.1"
+    "node": ">=24.20.0"
   },
   "scripts": {
     "build": "tsc",
