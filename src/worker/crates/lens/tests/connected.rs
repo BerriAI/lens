@@ -24,8 +24,7 @@ impl Drop for Server {
 #[fixture]
 async fn server() -> Server {
     let storage = MockServer::start().await;
-    let config =
-        litellm_traces_clickhouse::Config::new("lens".into(), &storage.uri(), 14, 65_536).unwrap();
+    let config = litellm_traces_clickhouse::Config::new("lens".into(), &storage.uri(), 14).unwrap();
     let state = Arc::new(State::connected(
         Storage::new(config, http_client().unwrap(), "query-secret".into()),
         SERVICE_TOKEN.into(),

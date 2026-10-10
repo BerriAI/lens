@@ -474,8 +474,7 @@ mod fixtures {
         )
         .await
         .unwrap();
-        let config =
-            litellm_traces_clickhouse::Config::new(database.clone(), &url, 14, 65_536).unwrap();
+        let config = litellm_traces_clickhouse::Config::new(database.clone(), &url, 14).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
         store
             .initialize(&format!("/local-job-tests/{database}"))
@@ -574,13 +573,9 @@ mod fixtures {
             .respond_with(wiremock::ResponseTemplate::new(503))
             .mount(&source)
             .await;
-        let config = litellm_traces_clickhouse::Config::new(
-            "unavailable_traces".into(),
-            &source.uri(),
-            14,
-            65_536,
-        )
-        .unwrap();
+        let config =
+            litellm_traces_clickhouse::Config::new("unavailable_traces".into(), &source.uri(), 14)
+                .unwrap();
         let state = State::standalone(Storage::new(
             config,
             http_client().unwrap(),

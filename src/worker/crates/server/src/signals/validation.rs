@@ -34,8 +34,8 @@ impl Model {
             ],
             Self::Signal => &[
                 ("id", true, FieldKind::Signals(Kind::Id)),
-                ("name", true, FieldKind::String(1, Some(60))),
-                ("question", true, FieldKind::String(3, Some(500))),
+                ("name", true, FieldKind::String(1, None)),
+                ("question", true, FieldKind::String(3, None)),
             ],
         }
     }
@@ -54,9 +54,7 @@ pub(crate) fn after(
     let Some(signals) = value.get("signals").and_then(Value::as_array) else {
         return;
     };
-    let message = if signals.len() > 20 {
-        Some("A maximum of 20 signals is allowed")
-    } else if signals
+    let message = if signals
         .iter()
         .map(|signal| signal["id"].as_str().unwrap())
         .collect::<BTreeSet<_>>()

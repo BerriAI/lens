@@ -50,7 +50,7 @@ impl Default for TransportLimits {
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(600),
-            max_response_bytes: 16 * 1024 * 1024,
+            max_response_bytes: usize::MAX,
         }
     }
 }

@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use axum::{
     Extension, Json, Router,
     body::Bytes,
-    extract::{Path, Query, Request, State, rejection::QueryRejection},
+    extract::{DefaultBodyLimit, Path, Query, Request, State, rejection::QueryRejection},
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -157,6 +157,7 @@ fn routers<R: SessionRepository + 'static>(
     });
     let authorized = |router: Router<Arc<EvalState<R>>>| {
         router
+            .layer(DefaultBodyLimit::disable())
             .route_layer(middleware::from_fn_with_state(
                 state.clone(),
                 authorize::<R>,
@@ -282,7 +283,7 @@ fn validate_create(request: &CreateEvalRun) -> Result<(), EvalApiError> {
         || request.branch.trim().is_empty()
         || request.dataset_id.is_empty()
         || request.revision == 0
-        || !(1..=10).contains(&request.trials)
+        || request.trials == 0
         || request.scorers.is_empty()
         || request.timeout_per_trial_ms == 0
     {

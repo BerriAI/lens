@@ -217,7 +217,7 @@ impl JobBackend for LocalJob {
                     &lens.scope,
                     execution,
                     cursor,
-                    offset.try_into().map_err(|_| Error::InvalidRequest)?,
+                    Some(offset.try_into().map_err(|_| Error::InvalidRequest)?),
                 )
                 .await
         })

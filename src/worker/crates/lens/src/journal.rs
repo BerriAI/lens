@@ -1,8 +1,4 @@
-use crate::{
-    Error,
-    evidence::{MAX_TOOL_BYTES, limited},
-    wire,
-};
+use crate::{Error, wire};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -18,7 +14,6 @@ pub struct Turn {
 pub struct Journal {
     directory: tempfile::TempDir,
     pub turns: Vec<usize>,
-    bytes: usize,
 }
 
 struct Excerpt {
@@ -35,9 +30,6 @@ impl Excerpt {
         let end = self.end.saturating_sub(self.characters).min(length);
         if start < end {
             for character in text.chars().skip(start).take(end - start) {
-                if self.text.len() + character.len_utf8() > MAX_TOOL_BYTES {
-                    return Err(Error::ToolOutputTooLarge);
-                }
                 self.text.push(character);
             }
         }
@@ -80,16 +72,11 @@ impl Journal {
         Ok(Self {
             directory,
             turns: Vec::new(),
-            bytes: bytes.len(),
         })
     }
 
     pub async fn push(&mut self, turn: &Turn) -> Result<(), Error> {
         let encoded = serde_json::to_string(turn)?;
-        self.bytes += encoded.len();
-        if self.bytes > 512 * 1024 * 1024 {
-            return Err(Error::JournalTooLarge);
-        }
         tokio::fs::write(
             self.directory.path().join(self.turns.len().to_string()),
             encoded.as_bytes(),
@@ -115,13 +102,8 @@ impl Journal {
             return self.excerpt(request, start, end).await;
         }
         let mut turns = Vec::<Value>::new();
-        let mut bytes = 0;
         for index in start..end {
             let path = self.directory.path().join(index.to_string());
-            bytes += tokio::fs::metadata(&path).await?.len();
-            if bytes > 32 * 1024 * 1024 {
-                return Err(Error::HistoryTooLarge);
-            }
             turns.push(serde_json::from_slice(&tokio::fs::read(path).await?)?);
         }
         let initial: Value = if request.include_initial {
@@ -133,7 +115,7 @@ impl Journal {
         normalized.char_start = 0;
         normalized.char_end = None;
         let reply = json!({"request": normalized, "total_turns": self.turns.len(), "initial_context": initial, "turns": turns, "turn_characters": self.turns});
-        limited(reply)
+        Ok(reply)
     }
 
     async fn excerpt(
@@ -189,7 +171,7 @@ impl Journal {
             }
         }
         excerpt.append("}")?;
-        limited(
+        Ok(
             json!({"request": request, "total_turns": self.turns.len(), "excerpt": excerpt.text, "characters": excerpt.characters}),
         )
     }

@@ -44,6 +44,12 @@ fn golden_fixtures_round_trip(#[case] name: &str) {
 }
 
 #[rstest]
+fn more_than_ten_trials_are_valid(spec: EvalSpec) {
+    let spec = EvalSpec { trials: 11, ..spec };
+    spec.validate().unwrap();
+}
+
+#[rstest]
 #[case::tie(2, 1, 1)]
 #[case::majority(3, 2, 1)]
 #[case::missing(3, 0, 3)]

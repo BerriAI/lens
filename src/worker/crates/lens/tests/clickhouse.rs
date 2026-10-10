@@ -29,7 +29,7 @@ async fn traces_round_trip_through_real_clickhouse_with_scoped_reads(
     let url = std::env::var("LENS_TEST_CLICKHOUSE_URL").expect("set LENS_TEST_CLICKHOUSE_URL");
     let client = http_client().unwrap();
     let database = format!("lens_test_{}", uuid::Uuid::new_v4().simple());
-    let config = Config::new(database.clone(), &url, 14, 65_536).unwrap();
+    let config = Config::new(database.clone(), &url, 14).unwrap();
     let storage = Storage::new(
         config.clone(),
         client.clone(),

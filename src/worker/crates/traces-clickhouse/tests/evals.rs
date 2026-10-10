@@ -190,17 +190,20 @@ async fn missing_or_unreadable_traces_are_absent(
 }
 
 #[rstest]
+#[case::small(1)]
+#[case::large_session(1025)]
 #[tokio::test]
 async fn session_reference_includes_every_trace_in_the_session(
     #[future] populated: TestResult<Fixture>,
+    #[case] additional_traces: usize,
 ) -> TestResult {
     let fixture = populated.await?;
     let writer = Connection::writer(&fixture.database.url)?;
     insert_rows(&fixture.database.client, &writer, "eval_traces", InsertTable::OtelTraces,
-        vec![serde_json::from_value(json!({"Timestamp":OffsetDateTime::now_utc().unix_timestamp_nanos() as i64,
-            "TraceId":"different-trace","SpanId":"root-two","TeamId":"team-a","ApiKeyHash":"key-a",
+        (0..additional_traces).map(|index| serde_json::from_value(json!({"Timestamp":OffsetDateTime::now_utc().unix_timestamp_nanos() as i64,
+            "TraceId":format!("different-trace-{index}"),"SpanId":"root-two","TeamId":"team-a","ApiKeyHash":"key-a",
             "ResourceAttributes":{"agent.name":"agent","agent.version":"sha","deployment.environment":"lens-eval"},
-            "SpanAttributes":{"session.id":"session-a"}}))?]).await?;
+            "SpanAttributes":{"session.id":"session-a"}}))).collect::<Result<Vec<_>, _>>()?).await?;
     let trace = fixture
         .traces
         .read(
@@ -213,14 +216,18 @@ async fn session_reference_includes_every_trace_in_the_session(
         )
         .await?
         .unwrap();
-    assert_eq!(trace.spans.len(), 3);
+    assert_eq!(trace.spans.len(), additional_traces + 2);
+    assert_eq!(trace.traces.len(), additional_traces + 1);
     assert_eq!(
         trace
             .traces
             .iter()
-            .map(|trace| trace.trace_id.as_str())
-            .collect::<Vec<_>>(),
-        vec!["different-trace", "trace-a"]
+            .map(|trace| trace.trace_id.clone())
+            .collect::<std::collections::BTreeSet<_>>(),
+        (0..additional_traces)
+            .map(|index| format!("different-trace-{index}"))
+            .chain(["trace-a".into()])
+            .collect()
     );
     assert!(
         trace

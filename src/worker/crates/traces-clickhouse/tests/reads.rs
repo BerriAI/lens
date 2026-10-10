@@ -22,6 +22,54 @@ fn make_reader(client: &Client, connection: Connection) -> (TraceReader, ClickHo
 }
 
 #[rstest]
+#[case::own_key("receipt-key", true)]
+#[case::other_key("other-key", false)]
+#[tokio::test]
+async fn receipts_cover_more_than_one_thousand_spans(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] key: &str,
+    #[case] expected: bool,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let trace_id = "aabbccdd00112233aabbccdd00112233";
+    let span_ids: Vec<String> = (1..=1001).map(|index| format!("{index:016x}")).collect();
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        span_ids
+            .iter()
+            .map(|span_id| {
+                BTreeMap::from([
+                    ("Timestamp".into(), json!(1_790_000_000_000_000_000_i64)),
+                    ("TraceId".into(), json!(trace_id)),
+                    ("SpanId".into(), json!(span_id)),
+                    ("ApiKeyHash".into(), json!("receipt-key")),
+                ])
+            })
+            .collect(),
+    )
+    .await?;
+    let connection = Connection::reader(&fixture.database.url, DATABASE)?;
+    let received = litellm_traces_clickhouse::trace_received(
+        client,
+        &connection,
+        &litellm_traces::Tenant {
+            api_key_hash: key.into(),
+            ..Default::default()
+        },
+        trace_id,
+        &span_ids,
+    )
+    .await?;
+    assert_eq!(received, expected);
+    Ok(())
+}
+
+#[rstest]
 #[case::api_key("key-a", "")]
 #[case::user("", "user-a")]
 #[tokio::test]
@@ -308,10 +356,6 @@ async fn large_runs_remain_complete_under_default_reader_limits(
             .ok_or("missing page")?;
         assert_eq!(page.summary, detail.summary);
         assert!(page.spans.len() <= 200);
-        assert!(
-            serde_json::to_vec(&page)?.len()
-                <= litellm_storage_clickhouse::READ_LIMITS.response_bytes
-        );
         if ids.is_empty() {
             assert!(
                 reader
@@ -512,7 +556,7 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
 
 #[rstest]
 #[tokio::test]
-async fn an_oversized_span_keeps_the_run_list_available_with_partial_totals(
+async fn a_large_span_keeps_the_run_list_and_trace_complete(
     #[future(awt)] seeded_database: TestResult<SeededDatabase>,
 ) -> TestResult {
     let fixture = seeded_database?;
@@ -559,13 +603,13 @@ async fn an_oversized_span_keeps_the_run_list_available_with_partial_totals(
         .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(after.data.len(), before.data.len());
-    let limited = after
+    let updated = after
         .data
         .iter()
         .find(|item| item.trace_ref == run.trace_ref)
         .ok_or("missing run")?;
-    assert!(limited.resolution_limited);
-    assert_eq!(limited.span_count, 4);
+    assert!(!updated.resolution_limited);
+    assert_eq!(updated.span_count, 4);
     assert!(
         after
             .data
@@ -573,12 +617,17 @@ async fn an_oversized_span_keeps_the_run_list_available_with_partial_totals(
             .filter(|item| item.trace_ref != run.trace_ref)
             .all(|item| !item.resolution_limited)
     );
-    assert!(matches!(
-        reader
-            .get_trace_page(&store, &access, &run.trace_id, &run.trace_ref, None, 200)
-            .await,
-        Err(ReadError::TooLarge)
-    ));
+    let trace = reader
+        .get_trace_page(&store, &access, &run.trace_id, &run.trace_ref, None, 200)
+        .await?
+        .ok_or("missing large trace")?;
+    assert_eq!(trace.spans.len(), 4);
+    let span = trace
+        .spans
+        .iter()
+        .find(|span| span.span_id == "oversized-child")
+        .ok_or("missing large span")?;
+    assert!(span.name == "x".repeat(16 * 1024 * 1024 + 1));
     Ok(())
 }
 

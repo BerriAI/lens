@@ -152,14 +152,13 @@ impl Fresh for Latest {
 pub struct SnapshotCache {
     pinned: Cache<SnapshotKey, Arc<Snapshot>>,
     latest: Cache<SnapshotKey, Latest>,
-    max_graph_bytes: usize,
 }
 
 impl SnapshotCache {
-    pub fn new(max_graph_bytes: usize, idle: Duration) -> Self {
+    pub fn new(cache_bytes: usize, idle: Duration) -> Self {
         Self {
             pinned: Cache::builder()
-                .max_capacity((max_graph_bytes as u64).saturating_mul(2))
+                .max_capacity((cache_bytes as u64).saturating_mul(2))
                 .weigher(|_: &SnapshotKey, snapshot: &Arc<Snapshot>| snapshot.weight)
                 .time_to_idle(idle)
                 .build(),
@@ -167,7 +166,6 @@ impl SnapshotCache {
                 .max_capacity(MAX_INDEX_ENTRIES)
                 .expire_after(ByFreshness)
                 .build(),
-            max_graph_bytes,
         }
     }
 
@@ -229,9 +227,6 @@ impl SnapshotCache {
         freshness: Freshness,
     ) -> Result<Snapshot, Error> {
         let encoded = serde_json::to_vec(&trace)?;
-        if encoded.len() > self.max_graph_bytes {
-            return Err(Error::ReadTooLarge);
-        }
         let span_ids: Vec<&str> = trace
             .spans
             .iter()

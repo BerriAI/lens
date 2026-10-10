@@ -26,8 +26,8 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_cases: 200,
-            max_case_chars: 20_000,
+            max_cases: i64::MAX,
+            max_case_chars: i64::MAX,
         }
     }
 }

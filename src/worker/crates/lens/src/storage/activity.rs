@@ -54,7 +54,7 @@ impl ActivityReader for SourceReader {
         cursor: &str,
         offset: u32,
     ) -> Result<ExecutionContent, ActivityReadError> {
-        SourceReader::content(self, scope, execution, cursor, offset)
+        SourceReader::content(self, scope, execution, cursor, Some(offset))
             .await
             .map_err(failure)
     }

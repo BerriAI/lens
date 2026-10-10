@@ -668,15 +668,11 @@ async fn checkpoint_history_preserves_only_the_supplied_finding_summary() {
 #[rstest]
 #[tokio::test]
 async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
-    use litellm_lens::{
-        activity::Tracker,
-        agent,
-        evidence::{MAX_TOOL_BYTES, Workspace},
-    };
+    use litellm_lens::{activity::Tracker, agent, evidence::Workspace};
     let server = MockServer::start().await;
     let claim: wire::Claim = serde_json::from_value(fixture()).unwrap();
     let sample: wire::Sample = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
-    let filler_size = MAX_TOOL_BYTES * 3 / 5;
+    let filler_size = 5 * 1024 * 1024;
     let page_calls = Arc::new(AtomicUsize::new(0));
     let page_count = page_calls.clone();
     let execution = sample.executions[0].clone();
@@ -707,7 +703,7 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
                 0 => json!({"tools":[{"action":"catalog","execution_id":"run-test"},{"action":"catalog","execution_id":"run-test"}],"checkpoint":"Inspect the archived second reply"}),
                 1 => {
                     let reply: Value = serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
-                    assert!(reply["tool_results"][1].as_str().unwrap().contains("Combined tool output exceeds"), "{}", reply["tool_results"][1].as_str().unwrap().chars().take(600).collect::<String>());
+                    assert!(reply["tool_results"][1].as_str().unwrap().contains("ARCHIVED_SECOND_REPLY"), "{}", reply["tool_results"][1].as_str().unwrap().chars().take(600).collect::<String>());
                     json!({"tools":[{"action":"history","turn_start":0,"turn_end":1,"char_start":filler_size,"char_end":filler_size+6000}]})
                 },
                 2 => {

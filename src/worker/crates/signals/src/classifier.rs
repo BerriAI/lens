@@ -12,8 +12,6 @@ use serde_json::Value;
 
 use crate::{DecisionsError, Error, SignalReader};
 
-const MAX_CANDIDATES: usize = 254;
-const STATE_CHARACTERS: usize = 40_000;
 const PASSAGE_CHARACTERS: usize = 600;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -50,86 +48,14 @@ pub trait Decisions: Send + Sync {
     ) -> impl Future<Output = Result<Value, DecisionsError>> + Send;
 }
 
-#[derive(Clone)]
 struct SourceStep {
     step: SignalStep,
     span_id: String,
-    source: String,
 }
 
 struct EvidenceState {
     state: SignalState,
     candidates: BTreeMap<String, SignalEvidence>,
-}
-
-fn excerpt(content: &str) -> String {
-    let length = content.chars().count();
-    if length <= 2_000 {
-        return content.into();
-    }
-    let head = content.chars().take(800).collect::<String>();
-    let tail = content.chars().skip(length - 1_200).collect::<String>();
-    format!(
-        "{head}\n[... {} characters omitted ...]\n{tail}",
-        length - 2_000
-    )
-}
-
-fn take(
-    steps: impl Iterator<Item = SourceStep>,
-    mut remaining: usize,
-    tail: bool,
-) -> Vec<SourceStep> {
-    let mut result = Vec::new();
-    for step in steps {
-        if remaining == 0 {
-            break;
-        }
-        let length = step.step.content.chars().count();
-        let used = remaining.min(length);
-        let content = if tail {
-            step.step.content.chars().skip(length - used).collect()
-        } else {
-            step.step.content.chars().take(used).collect()
-        };
-        result.push(SourceStep {
-            step: SignalStep {
-                content,
-                ..step.step
-            },
-            ..step
-        });
-        remaining -= used;
-    }
-    result
-}
-
-fn bounded(steps: Vec<SourceStep>, limit: usize) -> Vec<SourceStep> {
-    if steps
-        .iter()
-        .map(|step| step.step.content.chars().count())
-        .sum::<usize>()
-        <= limit
-    {
-        return steps;
-    }
-    let head_budget = limit * 3 / 8;
-    let head = take(steps.iter().cloned(), head_budget, false);
-    let mut tail = take(steps.iter().rev().cloned(), limit - head_budget, true);
-    tail.reverse();
-    let omitted = steps.len() as i64 - head.len() as i64 - tail.len() as i64;
-    head.into_iter()
-        .chain([SourceStep {
-            step: SignalStep {
-                kind: "omitted".into(),
-                name: String::new(),
-                content: format!("{omitted} steps omitted"),
-            },
-            span_id: String::new(),
-            source: String::new(),
-        }])
-        .chain(tail)
-        .collect()
 }
 
 async fn source_steps(
@@ -139,16 +65,15 @@ async fn source_steps(
 ) -> Result<Vec<SourceStep>, Error> {
     let mut steps = Vec::new();
     let mut cursor = String::new();
-    for _ in 0..3 {
+    loop {
         let content = reader.content(scope, execution, &cursor).await?;
         steps.extend(content.parts.into_iter().map(|part| SourceStep {
             step: SignalStep {
                 kind: part.kind,
                 name: part.name,
-                content: excerpt(&part.content),
+                content: part.content,
             },
             span_id: part.span_id,
-            source: part.content,
         }));
         let Some(next) = content.next_cursor else {
             break;
@@ -171,13 +96,11 @@ pub async fn signal_state(
     execution: &Execution,
 ) -> Result<SignalState, Error> {
     Ok(state(
-        bounded(
-            source_steps(reader, scope, execution).await?,
-            STATE_CHARACTERS,
-        )
-        .into_iter()
-        .map(|source| source.step)
-        .collect(),
+        source_steps(reader, scope, execution)
+            .await?
+            .into_iter()
+            .map(|source| source.step)
+            .collect(),
     ))
 }
 
@@ -227,16 +150,12 @@ fn quotable(quote: &str) -> bool {
 fn evidence_state(steps: Vec<SourceStep>) -> EvidenceState {
     let mut candidates = BTreeMap::new();
     let mut annotated = Vec::new();
-    for source in bounded(steps, STATE_CHARACTERS - MAX_CANDIDATES * 8 - 64) {
+    for source in steps {
         let content = passages(&source.step.content)
             .into_iter()
             .map(|passage| {
                 let quote = passage.trim();
-                if candidates.len() < MAX_CANDIDATES
-                    && !source.span_id.is_empty()
-                    && quotable(quote)
-                    && source.source.contains(quote)
-                {
+                if !source.span_id.is_empty() && quotable(quote) {
                     let id = format!("L{:03}", candidates.len());
                     candidates.insert(
                         id.clone(),
@@ -399,7 +318,7 @@ pub async fn classify(
             scores: BTreeMap::new(),
             evidence: BTreeMap::new(),
             model: config.model.clone(),
-            error: error.to_string().chars().take(300).collect(),
+            error: error.to_string(),
         },
     }
 }
@@ -418,19 +337,18 @@ mod tests {
             step: SignalStep {
                 kind: "llm".into(),
                 name: "model".into(),
-                content: excerpt(content),
+                content: content.into(),
             },
             span_id: "span".into(),
-            source: content.into(),
         }]);
         assert!(prepared.candidates.is_empty());
     }
 
     #[rstest]
-    #[case::unicode_and_excerpt(120, format!("Input: {}\n[... content omitted ...]\nOutput: {}\nStatus: OK", "🗿".repeat(5000), "雪".repeat(2000)))]
+    #[case::unicode_and_source_omission(120, format!("Input: {}\n[... content omitted ...]\nOutput: {}\nStatus: OK", "🗿".repeat(5000), "雪".repeat(2000)))]
     #[case::many_lines(120, "Useful evidence\n".repeat(100))]
-    #[case::candidate_limit(400, "Useful evidence".into())]
-    fn selectable_passages_are_bounded_visible_literal_source_text(
+    #[case::many_candidates(400, "Useful evidence".into())]
+    fn selectable_passages_are_visible_literal_source_text(
         #[case] count: usize,
         #[case] content: String,
     ) {
@@ -440,24 +358,14 @@ mod tests {
                     step: SignalStep {
                         kind: "user".into(),
                         name: "message".into(),
-                        content: excerpt(&content),
+                        content: content.clone(),
                     },
                     span_id: format!("span-{index}"),
-                    source: content.clone(),
                 })
                 .collect(),
         );
         assert!(!prepared.candidates.is_empty());
-        assert!(prepared.candidates.len() <= MAX_CANDIDATES);
-        assert!(
-            prepared
-                .state
-                .steps
-                .iter()
-                .map(|step| step.content.chars().count())
-                .sum::<usize>()
-                <= STATE_CHARACTERS
-        );
+        assert_eq!(prepared.state.steps.len(), count);
         let sent = prepared
             .state
             .steps

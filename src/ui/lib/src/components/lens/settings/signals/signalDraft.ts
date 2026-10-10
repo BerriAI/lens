@@ -1,9 +1,6 @@
 import type { SignalConfig } from "../../model/types";
 import { SIGNAL_LIBRARY } from "../../model/signals";
 
-export const MAX_SIGNALS = 20;
-const MAX_NAME = 60;
-const MAX_QUESTION = 500;
 const MAX_ID = 64;
 
 export interface SignalRow {
@@ -26,7 +23,6 @@ export interface RowProblems {
 
 export interface DraftProblems {
   readonly threshold?: string;
-  readonly signals?: string;
   readonly rows: ReadonlyMap<string, RowProblems>;
   readonly any: boolean;
 }
@@ -77,13 +73,9 @@ const rowProblems = (row: SignalRow, duplicateName: boolean): RowProblems => {
   const question = row.question.trim();
   const nameProblem = [
     !name ? "Name the signal" : undefined,
-    name.length > MAX_NAME ? `Keep the name under ${MAX_NAME} characters` : undefined,
     duplicateName ? "Another signal has this name" : undefined,
   ].find((problem) => problem !== undefined);
-  const questionProblem = [
-    question.length < 3 ? "Ask a yes or no question about the run" : undefined,
-    question.length > MAX_QUESTION ? `Keep the question under ${MAX_QUESTION} characters` : undefined,
-  ].find((problem) => problem !== undefined);
+  const questionProblem = question.length < 3 ? "Ask a yes or no question about the run" : undefined;
   return { name: nameProblem, question: questionProblem };
 };
 
@@ -102,8 +94,7 @@ export function draftProblems(draft: SignalDraft): DraftProblems {
     Number.isInteger(thresholdPercent) && thresholdPercent >= 5 && thresholdPercent <= 95
       ? undefined
       : "Use a whole number from 5 to 95";
-  const signals = draft.rows.length > MAX_SIGNALS ? `Use at most ${MAX_SIGNALS} signals` : undefined;
-  return { threshold, signals, rows, any: Boolean(threshold || signals || rows.size) };
+  return { threshold, rows, any: Boolean(threshold || rows.size) };
 }
 
 export function configFrom(draft: SignalDraft): SignalConfig {

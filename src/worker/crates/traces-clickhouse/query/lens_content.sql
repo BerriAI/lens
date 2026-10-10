@@ -7,12 +7,13 @@ SELECT * FROM (
         ObservationType AS kind,
         toString(Timestamp, 'UTC') AS start_time,
         toString(addNanoseconds(Timestamp, Duration), 'UTC') AS end_time,
-        if({offset:UInt32}=1 AND lengthUTF8(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage))>8000,
+        multiIf({offset:UInt32}=0, concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage),
+            {offset:UInt32}=1 AND lengthUTF8(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage))>8000,
             concat('Input: ',excerpt(Input,2000),'\nOutput: ',excerpt(Output,5000),
                 '\nStatus: ',StatusCode,' ',excerpt(StatusMessage,500)),
             substringUTF8(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage),
                 content_offset,8000)) AS content,
-        lengthUTF8(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage))
+        {offset:UInt32}!=0 AND lengthUTF8(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage))
             >= content_offset+8000 AS truncated
     FROM otel_traces WHERE {source:String}='traces'
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
@@ -29,11 +30,12 @@ SELECT * FROM (
     SELECT request_id AS span_id, '' AS parent_span_id, model AS name, 'llm' AS kind,
         toString(start_time, 'UTC') AS start_time,
         toString(end_time, 'UTC') AS end_time,
-        if({offset:UInt32}=1 AND lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))>8000,
+        multiIf({offset:UInt32}=0, concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),
+            {offset:UInt32}=1 AND lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))>8000,
             concat('Input: ',excerpt(messages,2000),'\nOutput: ',excerpt(response,5000),'\nError: ',excerpt(error_str,500)),
             substringUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),
                 content_offset,8000)) AS content,
-        lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))
+        {offset:UInt32}!=0 AND lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))
             >= content_offset+8000 AS truncated
     FROM spend_logs FINAL WHERE {source:String}='requests'
       AND ({all_teams:UInt8}=1 OR team_id={team:String})

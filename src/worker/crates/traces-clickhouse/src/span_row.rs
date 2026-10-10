@@ -1,11 +1,7 @@
-//! Decoded spans as `otel_traces` rows: payloads capped, the sending tenant stamped over whatever
-//! the export claimed, and resource maps shared across the rows that came from one resource.
-
 use std::collections::{BTreeMap, HashMap};
 
 use litellm_traces::{
     CallEvidence, CallKey, DecodedEvent, DecodedSpan, Shared, SharedIdentity, Tenant,
-    truncate_messages, truncate_value,
 };
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -77,11 +73,7 @@ fn present_fields<T: Serialize>(value: &T) -> String {
     }
 }
 
-pub fn span_rows(
-    spans: Vec<DecodedSpan>,
-    tenant: &Tenant,
-    max_value_bytes: usize,
-) -> Vec<InsertRow> {
+pub fn span_rows(spans: Vec<DecodedSpan>, tenant: &Tenant) -> Vec<InsertRow> {
     let mut resources = SharedValues::new();
     let mut scopes = SharedValues::new();
     spans
@@ -102,7 +94,7 @@ pub fn span_rows(
                 .attributes
                 .into_iter()
                 .filter(|(key, _)| !span.consumed_attributes.contains(&key.as_str()))
-                .map(|(key, value)| (key, Value::String(truncate_value(value, max_value_bytes))))
+                .map(|(key, value)| (key, Value::String(value)))
                 .collect();
             let shared = [
                 (
@@ -177,15 +169,9 @@ pub fn span_rows(
                 ("Model", Value::String(normalized.model.unwrap_or_default())),
                 ("InputTokens", Value::from(normalized.input_tokens)),
                 ("OutputTokens", Value::from(normalized.output_tokens)),
-                (
-                    "Input",
-                    Value::String(truncate_messages(normalized.input, max_value_bytes)),
-                ),
+                ("Input", Value::String(normalized.input)),
                 ("InputPreview", Value::String(normalized.input_preview)),
-                (
-                    "Output",
-                    Value::String(truncate_value(normalized.output, max_value_bytes)),
-                ),
+                ("Output", Value::String(normalized.output)),
                 (
                     "ToolCallId",
                     Value::String(normalized.tool_call_id.unwrap_or_default()),

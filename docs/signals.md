@@ -2,6 +2,8 @@
 
 Signals flag traces that match questions you define, such as whether an agent reports success without confirming the result. Lens sends eligible trace content to a configured evaluation provider, then displays matches in **Traces**
 
+Signals read every page and preserve each step's full captured content. The evaluation provider's context window still applies; a provider failure is recorded as a failed attempt
+
 Signals use a Decisions API evaluation model. An investigation analysis model alone does not enable them
 
 For optional help from your coding agent, copy the [provider setup prompt](setup-with-agent.md#enable-investigations-signals-or-eval-judging) and specify signals
