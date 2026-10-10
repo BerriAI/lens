@@ -151,7 +151,7 @@ function SetupEditor({
             <ChevronLeft className="size-5" />
           </Button>
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">{TITLES[mode]}</h2>
+            <h2 className="lens-page-title">{TITLES[mode]}</h2>
             <p className="text-xs text-muted-foreground">
               Matching activity on the right updates as you change the setup.
             </p>

@@ -42,11 +42,13 @@ export function DatasetsView({ readOnly = false }: DatasetsViewProps) {
       ) : (
         <>
           <LensPageHeader
-            section="05 / REPLAY LIBRARY"
+            page="datasets"
             title="Datasets"
-            description="Real conversations. Reproducible test cases."
+            description="Save conversations as test cases for your agents"
           />
-          <DatasetList onOpen={openDataset} />
+          <div className="lens-page-body flex min-h-0 flex-1 flex-col">
+            <DatasetList onOpen={openDataset} />
+          </div>
         </>
       )}
     </section>
@@ -101,7 +103,7 @@ const DATASET_HEIGHT = 36;
 function NameCell({ row: { original: dataset } }: Cell) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-[var(--lens-cyan)]/20 bg-[var(--lens-cyan)]/10 text-[var(--lens-cyan)]">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md border bg-muted/30 text-muted-foreground">
         <Database aria-hidden="true" className="size-3.5" />
       </span>
       <span className="flex min-w-0 flex-col">
@@ -126,7 +128,7 @@ function AgentCell({ row: { original: dataset } }: Cell) {
 
 function RevisionCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="font-mono tabular-nums text-muted-foreground">
+    <span className="tabular-nums text-muted-foreground">
       {dataset.revision}
     </span>
   );
@@ -134,9 +136,7 @@ function RevisionCell({ row: { original: dataset } }: Cell) {
 
 function CasesCell({ row: { original: dataset } }: Cell) {
   return (
-    <span className="inline-flex min-w-6 justify-center rounded-md bg-[var(--lens-brand)]/10 px-1.5 py-0.5 font-mono text-xs tabular-nums text-[var(--lens-brand)]">
-      {dataset.case_count}
-    </span>
+    <span className="tabular-nums text-foreground">{dataset.case_count}</span>
   );
 }
 
@@ -215,7 +215,7 @@ function DatasetTable({
       noun="dataset"
       storageKey={FINDING_PANEL_WIDTH_KEY}
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+      <div className="lens-panel flex min-h-0 flex-1 flex-col overflow-hidden">
         <InspectorTable.Root table={table}>
           <InspectorTable.Grid
             aria-label="Datasets"
@@ -237,7 +237,7 @@ function DatasetTable({
             </InspectorTable.Body>
           </InspectorTable.Grid>
         </InspectorTable.Root>
-        <footer className="lens-toolbar flex h-8 shrink-0 items-center border-t px-3 font-mono text-[11px] text-muted-foreground">
+        <footer className="lens-toolbar flex h-8 shrink-0 items-center border-t px-3 text-xs text-muted-foreground">
           {datasets.length} {datasets.length === 1 ? "dataset" : "datasets"} ·{" "}
           {cases} {cases === 1 ? "case" : "cases"}
         </footer>

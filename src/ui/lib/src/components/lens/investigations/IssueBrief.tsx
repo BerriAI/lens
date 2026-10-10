@@ -16,9 +16,7 @@ const COPIED_RESET_MS = 1500;
 
 const markdown: Components = {
   h1: ({ children }) => <p className="mb-4 border-b border-border pb-2 text-base font-semibold">{children}</p>,
-  h2: ({ children }) => (
-    <h3 className="mt-5 mb-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{children}</h3>
-  ),
+  h2: ({ children }) => <h3 className="mt-5 mb-1.5 lens-section-label">{children}</h3>,
   p: ({ children }) => <p className="text-sm leading-6">{children}</p>,
   ol: ({ children }) => (
     <ol className="list-decimal space-y-3 pl-5 text-sm leading-6 marker:text-muted-foreground">{children}</ol>

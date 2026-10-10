@@ -32,7 +32,7 @@ function TracingSection({
         <div className="flex items-center gap-3 text-sm">
           <span
             role="status"
-            className="inline-flex items-center gap-2 font-mono text-xs"
+            className="inline-flex items-center gap-2 text-sm"
           >
             <StatusDot state={enabled ? "ok" : "off"} />
             {enabled ? "Tracing enabled" : "Tracing is not enabled"}
@@ -75,11 +75,11 @@ export function LensSettings({
   return (
     <div aria-label="Settings" role="region" className="flex w-full flex-col">
       <LensPageHeader
-        section="07 / CONFIGURATION"
+        page="settings"
         title="Settings"
-        description="Wire up your agents. Tune what Lens watches."
+        description="Manage connections, signals, and automatic analysis"
       />
-      <div className="mx-auto w-full max-w-6xl divide-y divide-border px-4 py-5 sm:px-6">
+      <div className="lens-page-body w-full max-w-6xl divide-y divide-border">
         <TracingSection
           enabled={list.tracing_enabled}
           onConnectProject={onConnectProject}

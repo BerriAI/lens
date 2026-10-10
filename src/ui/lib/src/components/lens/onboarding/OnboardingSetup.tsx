@@ -29,10 +29,10 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 id={titleId} className="text-2xl font-semibold tracking-tight">
+          <h2 id={titleId} className="lens-page-title">
             Get Lens running
           </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
             Each step checks your connection, so you’ll see when it’s working.
           </p>
         </div>

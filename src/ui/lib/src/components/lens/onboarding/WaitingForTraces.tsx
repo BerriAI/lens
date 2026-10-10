@@ -29,7 +29,7 @@ export function WaitingForTraces({
           <Activity aria-hidden className="size-3.5" />
           Waiting for traces
         </span>
-        <h2 className="mt-5 text-xl font-semibold tracking-tight">
+        <h2 className="lens-page-title mt-5">
           {project ? "Your first trace will appear here" : "Connect your project to see its traces"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">

@@ -39,11 +39,11 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
         "flex-none gap-2.5 text-[13px] font-medium text-muted-foreground data-active:text-foreground data-active:shadow-none",
         vertical
           ? "lens-nav-tab h-9 w-full justify-start rounded-md px-2.5 after:hidden data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground hover:bg-sidebar-accent/60"
-          : "h-11 rounded-none px-2 after:inset-x-0 after:bottom-0 after:h-0.5",
+          : "h-9 rounded-none px-2 after:inset-x-0 after:bottom-0 after:h-0.5",
         collapsed && "justify-center px-0",
       )}
     >
-      <Icon aria-hidden="true" className="size-4" />
+      {vertical && <Icon aria-hidden="true" className="size-4" />}
       <span className={cn(collapsed && "sr-only")}>{label}</span>
       {value === "findings" && activity !== "idle" && (
         <span
@@ -74,7 +74,7 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
         "flex rounded-none bg-transparent p-0",
         vertical
           ? "h-auto! min-h-fit w-full flex-1 flex-col items-stretch justify-start gap-1"
-          : "h-11 w-max justify-start gap-3",
+          : "h-9 w-max justify-start gap-1",
       )}
     >
       {NAVIGATION_ITEMS.map(({ value, label, icon }) => item(value, label, icon))}

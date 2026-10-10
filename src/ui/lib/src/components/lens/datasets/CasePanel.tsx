@@ -37,7 +37,7 @@ export function CasePanel({
     <Tabs defaultValue="case" className="min-h-0 flex-1 gap-0">
       <header className="lens-toolbar flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="min-w-0 truncate font-mono text-sm font-semibold text-foreground">
+          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
             Case #{shortCaseId(item.id)}{" "}
             <span className="font-normal text-muted-foreground">
               @ {datasetName}
@@ -154,7 +154,7 @@ function SourceBody({ item }: { item: DatasetCase }) {
   const { source } = item;
   return (
     <div className="flex flex-col gap-4 p-4">
-      <dl className="lens-panel grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-2 rounded-lg border p-3 font-mono text-xs">
+      <dl className="lens-panel grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-2 p-3 text-xs">
         {SOURCE_FIELDS.map(([label, key]) => (
           <div key={key} className="contents">
             <dt className="text-muted-foreground">{label}</dt>

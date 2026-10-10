@@ -73,8 +73,7 @@ export function InvestigationDetail({
       <section className="min-w-0 space-y-5">
         <div className="flex flex-wrap justify-between gap-3 border-b pb-4">
           <div className="min-w-0">
-            <p className="lens-section-label mb-2 font-mono text-[10px] text-muted-foreground">Investigation</p>
-            <h2 className="font-mono text-lg font-medium break-words">{lens.settings.name}</h2>
+            <h2 className="lens-page-title">{lens.settings.name}</h2>
             <InvestigationSummary lens={lens} />
           </div>
           <div className="flex items-center gap-2 self-start">

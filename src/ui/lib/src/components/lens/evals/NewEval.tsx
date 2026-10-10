@@ -15,6 +15,7 @@ import {
 } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import { useDatasets } from "../datasets/api";
+import { LensPageHeader } from "../ui/LensPageHeader";
 import { buildEvalSpec, EMPTY_DRAFT, type NewEvalDraft } from "./newEvalSpec";
 import { useSaveEval } from "./runs/api";
 
@@ -51,17 +52,20 @@ export function NewEval({
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-5">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">New eval</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose the dataset and scoring rules for your agent test
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onCancel}>
-          <ChevronLeft /> Evals
-        </Button>
-      </header>
+      <LensPageHeader
+        title="New eval"
+        description="Choose the dataset and scoring rules for your agent test"
+        navigation={
+          <Button
+            variant="ghost"
+            size="xs"
+            className="-ml-2 text-muted-foreground"
+            onClick={onCancel}
+          >
+            <ChevronLeft /> Evals
+          </Button>
+        }
+      />
       <form
         aria-label="New eval"
         className="min-h-0 flex-1 overflow-y-auto"
@@ -70,7 +74,7 @@ export function NewEval({
           submit();
         }}
       >
-        <div className="mx-auto my-5 grid max-w-3xl gap-4 px-4 text-sm">
+        <div className="lens-page-body grid max-w-3xl gap-4 text-sm">
           <p className="text-sm leading-6 text-muted-foreground">
             Saving an eval does not execute your agent. Next, connect this eval
             to your Python test or GitHub workflow to run its cases and see pass
@@ -239,7 +243,7 @@ export function NewEval({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid gap-4 rounded-md border px-5 py-5 [&_input]:bg-background [&_textarea]:bg-background">
+    <section className="lens-panel grid gap-4 p-5 [&_input]:bg-background [&_textarea]:bg-background">
       <h3 className="text-sm font-medium">{title}</h3>
       {children}
     </section>
@@ -249,9 +253,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="grid gap-1 text-xs">
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       {children}
     </label>
   );

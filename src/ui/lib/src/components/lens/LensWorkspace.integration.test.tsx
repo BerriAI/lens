@@ -1084,3 +1084,35 @@ it("should switch color themes from the sidebar and restore the saved preference
     window.localStorage.removeItem(storageKey);
   }
 });
+
+it("keeps embedded page actions usable as forms open and the selected tab changes", async () => {
+  const user = userEvent.setup();
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (path === "/lens/evals" || path === "/lens/datasets") return Response.json([]);
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", analysis: "deployment" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=evals" },
+  );
+  const actions = within(screen.getByRole("group", { name: "Page actions" }));
+  await user.click(await actions.findByRole("button", { name: "New eval" }));
+  const form = await screen.findByRole("form", { name: "New eval" });
+  fireEvent.change(within(form).getByRole("textbox", { name: "Name", exact: true }), {
+    target: { value: "regressions" },
+  });
+  expect(actions.queryByRole("button", { name: "New eval" })).not.toBeInTheDocument();
+  await user.click(within(form).getByRole("button", { name: "Cancel" }));
+  expect(await actions.findByRole("button", { name: "New eval" })).toBeVisible();
+  await user.click(screen.getByRole("tab", { name: "Agents" }));
+  expect(actions.queryByRole("button", { name: "New eval" })).not.toBeInTheDocument();
+  await user.click(await actions.findByRole("button", { name: "Connect project" }));
+  expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
+  expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
+});

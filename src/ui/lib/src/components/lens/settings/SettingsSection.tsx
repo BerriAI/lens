@@ -16,12 +16,10 @@ export function SettingsSection({ heading, description, icon, className, childre
       className={cn("grid gap-4 py-6 first:pt-0 last:pb-0 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8", className)}
     >
       <div className="space-y-2">
-        {icon && (
-          <span className="mb-3 flex size-9 items-center justify-center rounded-lg border border-[var(--lens-brand)]/20 bg-[var(--lens-brand)]/10 text-[var(--lens-brand)]">
-            {icon}
-          </span>
-        )}
-        <h2 className="lens-section-label text-xs font-semibold">{heading}</h2>
+        <h2 className="lens-section-label flex items-center gap-2">
+          {icon && <span className="text-muted-foreground">{icon}</span>}
+          {heading}
+        </h2>
         <p className="text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
       <div className="min-w-0 space-y-3">{children}</div>

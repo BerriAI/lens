@@ -56,7 +56,7 @@ function FilterSelect<T extends string>({
     <Select items={items} value={value} onValueChange={(next: T | null) => next !== null && onChange(next)}>
       <SelectTrigger
         size="sm"
-        className="h-8 min-w-0 flex-1 bg-background font-mono text-[11px] shadow-none hover:bg-muted"
+        className="h-8 min-w-0 flex-1 bg-background text-xs shadow-none hover:bg-muted"
         aria-label={label}
       >
         <SelectValue />
@@ -90,7 +90,7 @@ function FindingRow({ row, now }: { row: InboxRow; now: number }) {
       <div role="gridcell" className="line-clamp-2 text-[13px] leading-5 font-medium text-pretty text-foreground">
         {row.title}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-mono text-[10px] text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="tabular-nums" title={formatActivityTimestamp(row.lastSeen)}>
           {agoLabel(Date.parse(row.lastSeen), now)}
         </span>
@@ -116,7 +116,7 @@ function FindingList({ rows, now }: { rows: readonly InboxRow[]; now: number }) 
         <div role="rowgroup" key={group.priority} aria-label={`${PRIORITY_LABEL[group.priority]} priority findings`}>
           <div
             role="row"
-            className="sticky top-0 z-raised flex items-center gap-2 border-b bg-background px-4 py-3 font-mono text-[10px] font-medium tracking-wide text-muted-foreground"
+            className="sticky top-0 z-raised flex items-center gap-2 border-b bg-background px-4 py-3 text-xs font-medium text-muted-foreground"
           >
             <PriorityDot priority={group.priority} />
             <span role="columnheader">{PRIORITY_LABEL[group.priority]} priority</span>
@@ -223,6 +223,7 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
     >
       <div className="@container/findings flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
         <LensPageHeader
+          page="findings"
           title="Findings"
           description={
             agent ? "Issues and improvements from this agent’s traces." : "Issues and improvements across your agents."
@@ -243,60 +244,62 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
             }}
           />
         )}
-        <div className="lens-panel flex min-h-0 flex-1 overflow-hidden rounded-lg border">
-          <section
-            aria-label="Findings list"
-            className={`flex min-h-0 w-full flex-col border-r @3xl/findings:w-72 @3xl/findings:shrink-0 @5xl/findings:w-80 ${selected ? "hidden @3xl/findings:flex" : "flex"}`}
-          >
-            <div className="lens-toolbar flex shrink-0 items-center gap-2 border-b px-3 py-3">
-              {!agent && (
-                <FilterSelect
-                  label="Filter by agent"
-                  value={filters.agent}
-                  items={agents}
-                  onChange={filters.setAgent}
-                />
-              )}
-              <FilterSelect
-                label="Filter by priority"
-                value={filters.priority}
-                items={PRIORITIES}
-                onChange={filters.setPriority}
-              />
-            </div>
-            <FindingList rows={rows} now={now} />
-            {!rows.length && !list.error && (
-              <p className="lens-empty-state px-4 py-16 text-center text-xs leading-6 text-muted-foreground">
-                {all.length
-                  ? "No findings match these filters."
-                  : "No findings yet. Automatic analysis checks your traces and reports problems here."}
-              </p>
-            )}
-            <footer className="flex h-9 shrink-0 items-center border-t px-3 font-mono text-[10px] text-muted-foreground">
-              {rows.length} {rows.length === 1 ? "finding" : "findings"}
-              {rows.length !== all.length && ` of ${all.length}`}
-            </footer>
-          </section>
-          {selected ? (
-            <aside
-              aria-label="Finding details"
-              data-testid="finding-panel"
-              className="flex min-h-0 min-w-0 flex-1 flex-col"
+        <div className="lens-page-body flex min-h-0 flex-1">
+          <div className="lens-panel flex min-h-0 flex-1 overflow-hidden">
+            <section
+              aria-label="Findings list"
+              className={`flex min-h-0 w-full flex-col border-r @3xl/findings:w-72 @3xl/findings:shrink-0 @5xl/findings:w-80 ${selected ? "hidden @3xl/findings:flex" : "flex"}`}
             >
-              <InboxDetail row={selected} readOnly={readOnly} busy={update.isPending} onReview={review} />
-            </aside>
-          ) : (
-            <div className="lens-empty-state hidden min-w-0 flex-1 flex-col items-center justify-center gap-5 p-8 text-sm text-muted-foreground @3xl/findings:flex">
-              <span className="flex size-14 items-center justify-center rounded-xl border border-indigo-200 bg-background text-indigo-600 dark:border-indigo-400/30 dark:text-indigo-300">
-                <ScanLine aria-hidden="true" className="size-6" strokeWidth={1.5} />
-              </span>
-              {rows.length ? (
-                <p className="max-w-64 text-center text-xs leading-6">
-                  Select a finding to see how often it happens and where.
+              <div className="lens-toolbar flex shrink-0 items-center gap-2 border-b px-3 py-3">
+                {!agent && (
+                  <FilterSelect
+                    label="Filter by agent"
+                    value={filters.agent}
+                    items={agents}
+                    onChange={filters.setAgent}
+                  />
+                )}
+                <FilterSelect
+                  label="Filter by priority"
+                  value={filters.priority}
+                  items={PRIORITIES}
+                  onChange={filters.setPriority}
+                />
+              </div>
+              <FindingList rows={rows} now={now} />
+              {!rows.length && !list.error && (
+                <p className="lens-empty-state px-4 py-16 text-center text-xs leading-6 text-muted-foreground">
+                  {all.length
+                    ? "No findings match these filters."
+                    : "No findings yet. Automatic analysis checks your traces and reports problems here."}
                 </p>
-              ) : null}
-            </div>
-          )}
+              )}
+              <footer className="flex h-9 shrink-0 items-center border-t px-3 text-xs text-muted-foreground">
+                {rows.length} {rows.length === 1 ? "finding" : "findings"}
+                {rows.length !== all.length && ` of ${all.length}`}
+              </footer>
+            </section>
+            {selected ? (
+              <aside
+                aria-label="Finding details"
+                data-testid="finding-panel"
+                className="flex min-h-0 min-w-0 flex-1 flex-col"
+              >
+                <InboxDetail row={selected} readOnly={readOnly} busy={update.isPending} onReview={review} />
+              </aside>
+            ) : (
+              <div className="lens-empty-state hidden min-w-0 flex-1 flex-col items-center justify-center gap-5 p-8 text-sm text-muted-foreground @3xl/findings:flex">
+                <span className="flex size-14 items-center justify-center rounded-xl border bg-background text-muted-foreground">
+                  <ScanLine aria-hidden="true" className="size-6" strokeWidth={1.5} />
+                </span>
+                {rows.length ? (
+                  <p className="max-w-64 text-center text-xs leading-6">
+                    Select a finding to see how often it happens and where.
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Inspector.Root>

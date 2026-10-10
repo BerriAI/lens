@@ -224,7 +224,6 @@ export function InvestigationList({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
         <LensPageHeader
-          section="04 / CONTINUOUS FEEDBACK"
           title="Investigations"
           description="Focused checks that turn agent runs into your next fix."
           actions={actions}
