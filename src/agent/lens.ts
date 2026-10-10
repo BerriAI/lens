@@ -73,6 +73,66 @@ const evalRun = z.object({
 
 export type ReadTool = "recent_traces" | "findings" | "eval_results";
 
+export const traceWindowSchema = z
+  .object({
+    lookback_hours: z
+      .number()
+      .positive()
+      .nullish()
+      .describe("Hours before end (or now). Do not combine with start"),
+    start: z
+      .string()
+      .datetime({ offset: true })
+      .nullish()
+      .describe("Inclusive ISO 8601 start with timezone; requires end"),
+    end: z
+      .string()
+      .datetime({ offset: true })
+      .nullish()
+      .describe(
+        "Exclusive ISO 8601 end with timezone; defaults to now only with lookback_hours",
+      ),
+  })
+  .strict();
+export type TraceWindow = z.infer<typeof traceWindowSchema>;
+
+function traceWindow(request: TraceWindow | undefined, now: number) {
+  const input = traceWindowSchema.parse(request ?? {});
+  const bounded =
+    input.lookback_hours != null || input.start != null || input.end != null;
+  if (
+    (input.lookback_hours != null && input.start != null) ||
+    (input.lookback_hours == null &&
+      (input.start == null) !== (input.end == null))
+  )
+    throw new Error(
+      "Choose lookback hours or both explicit trace window boundaries",
+    );
+  const end = input.end == null ? now : Date.parse(input.end);
+  const start =
+    input.lookback_hours != null
+      ? end - input.lookback_hours * 3_600_000
+      : input.start == null
+        ? 0
+        : Date.parse(input.start);
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(end) ||
+    start < 0 ||
+    start >= end ||
+    end > now
+  )
+    throw new Error("Invalid trace window boundaries");
+  return {
+    start,
+    end,
+    bounded,
+    label: bounded
+      ? `Traces started from ${new Date(start).toISOString()} (inclusive) to ${new Date(end).toISOString()} (exclusive)`
+      : "all retained history",
+  };
+}
+
 export class LensClient {
   constructor(
     private readonly config: Config,
@@ -199,11 +259,15 @@ export class LensClient {
     };
   }
 
-  async read(tool: ReadTool, signal: AbortSignal): Promise<string> {
+  async read(
+    tool: ReadTool,
+    signal: AbortSignal,
+    window?: TraceWindow,
+  ): Promise<string> {
     try {
       const result =
         tool === "recent_traces"
-          ? await this.report(signal)
+          ? await this.report(signal, window)
           : tool === "findings"
             ? await this.findings(signal)
             : await this.evals(signal);
@@ -224,22 +288,22 @@ export class LensClient {
     }
   }
 
-  async report(signal: AbortSignal) {
-    const sample = await this.recent(signal, 100);
+  async report(signal: AbortSignal, window?: TraceWindow) {
+    const sample = await this.recent(signal, 100, window);
     const evidence = new Evidence(sample, this, this.config.agent);
     await evidence.loadRoots(signal);
     return evidence.report();
   }
 
-  async recent(signal: AbortSignal, detailLimit = 15) {
-    const end = Date.now();
+  async recent(signal: AbortSignal, detailLimit = 15, request?: TraceWindow) {
+    const window = traceWindow(request, Date.now());
     const rows: z.infer<typeof traceSchema>[] = [];
     let cursor: string | null = null;
     let scanned = 0;
     for (let page = 0; page < 100; page++) {
       const query = new URLSearchParams({
-        start_ms: "0",
-        end_ms: String(end),
+        start_ms: String(window.start),
+        end_ms: String(window.end),
       });
       if (cursor) query.set("cursor", cursor);
       const response = tracePage.parse(
@@ -249,8 +313,11 @@ export class LensClient {
       rows.push(
         ...response.data.filter(
           (row) =>
-            row.agent_names.includes(this.config.agent) ||
-            row.service === (this.config.service ?? this.config.agent),
+            (row.agent_names.includes(this.config.agent) ||
+              row.service === (this.config.service ?? this.config.agent)) &&
+            (!window.bounded ||
+              (Date.parse(row.start_time) >= window.start &&
+                Date.parse(row.start_time) < window.end)),
         ),
       );
       cursor = response.next_cursor;
@@ -284,7 +351,7 @@ export class LensClient {
         : null;
     return {
       agent: this.config.agent,
-      window: "all retained history",
+      window: window.label,
       scanned_rows: scanned,
       matched_rows: unique.length,
       incomplete: cursor !== null,

@@ -1,7 +1,12 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import type { AgentConfig as Config } from "./config.js";
-import { LensClient, type ReadTool } from "./lens.js";
+import {
+  LensClient,
+  traceWindowSchema,
+  type ReadTool,
+  type TraceWindow,
+} from "./lens.js";
 import type { Frequency, FindingContext as FindingThread } from "./models.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { Repository } from "./repository.js";
@@ -47,16 +52,32 @@ export async function replyTools(
         allowed.add(url);
     }
   };
+  const citations = (finding?.traces ?? []).filter(
+    (trace, index, all) =>
+      all.findIndex((item) => item.url === trace.url) === index,
+  );
+  const traces = citations.filter(
+    (trace, index) =>
+      citations.findIndex((item) => item.trace_id === trace.trace_id) === index,
+  );
+  if (
+    (finding?.traces ?? []).some(
+      (trace) =>
+        traces.find((item) => item.trace_id === trace.trace_id)?.trace_ref !==
+        trace.trace_ref,
+    )
+  )
+    throw new Error("Finding has conflicting trace revisions");
   const selected: Sample | undefined = finding
     ? {
         agent: config.agent,
         window: "traces cited in this finding",
-        scanned_rows: finding.traces.length,
-        matched_rows: finding.traces.length,
+        scanned_rows: traces.length,
+        matched_rows: traces.length,
         incomplete: false,
         sampled_for_detail: false,
         population: {
-          inspected_traces: finding.traces.length,
+          inspected_traces: traces.length,
           root_error_traces: 0,
           span_error_traces: 0,
           terminal_traces: 0,
@@ -65,7 +86,7 @@ export async function replyTools(
         },
         warning:
           "Selected evidence only, not a population frequency or benchmark",
-        traces: finding.traces,
+        traces,
       }
     : undefined;
   if (selected && (!client.get || !client.link))
@@ -91,7 +112,7 @@ export async function replyTools(
           url: trace.url,
         })),
         cited_spans: await Promise.all(
-          finding!.traces.map((trace) =>
+          citations.map((trace) =>
             trace.span_id
               ? evidence.span(trace.trace_id, trace.span_id, signal)
               : null,
@@ -99,7 +120,7 @@ export async function replyTools(
         ),
         report: evidence.report(),
         traces: await Promise.all(
-          finding!.traces.map(
+          traces.map(
             async (trace) => await evidence.trace(trace.trace_id, signal),
           ),
         ),
@@ -108,43 +129,40 @@ export async function replyTools(
       }
     : undefined;
   if (traceContext) allow(traceContext);
+  const executeRead = async (name: ReadTool, window?: TraceWindow) => {
+    if (used.has(name))
+      return "This evidence was already read in this answer; use the previous result";
+    used.add(name);
+    const result = await client.read(name, signal, window);
+    const data: unknown = JSON.parse(result);
+    allow(data);
+    const metrics = z
+      .object({
+        metrics: z.array(
+          z.object({
+            id: z.string(),
+            category: z.enum(["Performance", "Agent quality", "Reliability"]),
+            label: z.string(),
+            count: z.number().int().nonnegative(),
+            total: z.number().int().positive(),
+            title: z.string(),
+            unit: z.string(),
+            affected_trace_ids: z.array(z.string()),
+          }),
+        ),
+      })
+      .safeParse(data);
+    if (metrics.success)
+      for (const metric of metrics.data.metrics)
+        frequencies[metric.id] = metric;
+    return result;
+  };
   const read = (name: ReadTool, description: string) =>
     tool({
       name,
       description,
       parameters: z.object({}),
-      execute: async () => {
-        if (used.has(name))
-          return "This evidence was already read in this answer; use the previous result";
-        used.add(name);
-        const result = await client.read(name, signal);
-        const data: unknown = JSON.parse(result);
-        allow(data);
-        const metrics = z
-          .object({
-            metrics: z.array(
-              z.object({
-                id: z.string(),
-                category: z.enum([
-                  "Performance",
-                  "Agent quality",
-                  "Reliability",
-                ]),
-                label: z.string(),
-                count: z.number().int().nonnegative(),
-                total: z.number().int().positive(),
-                title: z.string(),
-                unit: z.string(),
-                affected_trace_ids: z.array(z.string()),
-              }),
-            ),
-          })
-          .safeParse(data);
-        if (metrics.success)
-          for (const metric of metrics.data.metrics)
-            frequencies[metric.id] = metric;
-        return result;
-      },
+      execute: () => executeRead(name),
     });
   const used = new Set<ReadTool>();
 
@@ -172,10 +190,13 @@ export async function replyTools(
           }),
         ]
       : [
-          read(
-            "recent_traces",
-            "Read retained trace history, interactive-root timing and tool-failure metrics, bounded user requests and outputs, and exact evidence links",
-          ),
+          tool({
+            name: "recent_traces",
+            description:
+              "Read trace timing, tool-failure metrics and user requests for the requested window. Set lookback_hours for requests such as last 12 hours, or ISO start and end. Leave all fields null only for all retained history. One fixed window per answer",
+            parameters: traceWindowSchema,
+            execute: (window) => executeRead("recent_traces", window),
+          }),
           read(
             "findings",
             "Read this agent's open investigation candidates and suggested experiments",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AssistantThreadsSetStatusArguments } from "@slack/web-api";
-import { workingStatus } from "./activity.js";
+import { workingStatus, reactionStatus } from "./activity.js";
 import type { Mention } from "./chat.js";
 
 const event: Mention = {
@@ -41,6 +41,33 @@ test("working status refreshes in the original thread and clears on either termi
       { channel_id: event.channel, thread_ts: event.thread, status: "" },
     ]);
   }
+});
+
+test("a delayed eyes reaction is removed after terminal feedback instead of reappearing", async () => {
+  const calls: string[] = [];
+  let release = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const activity = reactionStatus({
+    reactions: {
+      add: async ({ name }: { name: string }) => {
+        calls.push(`add:${name}`);
+        if (name === "eyes") await pending;
+        return { ok: true };
+      },
+      remove: async ({ name }: { name: string }) => {
+        calls.push(`remove:${name}`);
+        return { ok: true };
+      },
+    },
+  } as unknown as Parameters<typeof reactionStatus>[0]);
+  const started = activity(event, "working");
+  const stopped = activity(event, "failed");
+  assert.deepEqual(calls, ["add:eyes"]);
+  release();
+  await Promise.all([started, stopped]);
+  assert.deepEqual(calls, ["add:eyes", "add:x", "remove:eyes"]);
 });
 
 test("a delayed start cannot restore a completed indicator and another message cannot clear it", async () => {
