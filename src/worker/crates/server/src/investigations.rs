@@ -18,15 +18,22 @@ use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     auth::{Identity, Role},
     investigations::{
-        FindingUpdate, Lens, LensList, Public, ReviewPage, RunRequest, Scope, WatchAllResult,
-        WatchSkipped, Worker,
+        FindingImport, FindingImported, FindingSource, FindingUpdate, Lens, LensList, Public,
+        ReviewPage, RunRequest, Scope, WatchAllResult, WatchSkipped, Worker,
     },
-    worker::{Job, LensSettings},
+    worker::{Evidence, Job, LensSettings},
 };
 use lens_investigations::{LensRepository, RepositoryError, can_access};
 use rand::Rng;
 
 pub trait InvestigationAccess: Send + Sync {
+    fn verify_finding(
+        &self,
+        _lens: &Lens,
+        _sources: &[FindingSource],
+    ) -> impl Future<Output = Result<Option<Vec<Evidence>>, InvestigationAccessError>> + Send {
+        async { Ok(None) }
+    }
     fn tracing_enabled(&self) -> bool;
     fn workers(
         &self,
@@ -77,6 +84,10 @@ where
             get(reviews::<R, D, A>),
         )
         .public_route("/lens/{lens_id}/cancel", post(cancel::<R, D, A>))
+        .public_route(
+            "/lens/{lens_id}/findings/import",
+            post(import::<R, D, A>).layer(DefaultBodyLimit::max(64 * 1024)),
+        )
         .public_route(
             "/lens/{lens_id}/findings/{finding_id}",
             patch(feedback::<R, D, A>),
@@ -388,6 +399,36 @@ async fn feedback<R: SessionRepository, D: LensRepository, A: InvestigationAcces
         })
         .await?,
     ))
+}
+
+async fn import<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
+    State(app): State<Arc<App<R, D, A>>>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    method: Method,
+    Json(request): Json<FindingImport>,
+) -> Result<Json<FindingImported>, InvestigationError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let scope = scope(&identity, true)?;
+    let lens = get_lens(&app.repository, &id, &scope).await?;
+    lens_investigations::validate_import(&lens, &request)?;
+    let evidence = app
+        .access
+        .verify_finding(&lens, &request.evidence)
+        .await?
+        .ok_or(lens_investigations::Error::InvalidImport)?;
+    let now = Utc::now();
+    let updated = mutate(&app.repository, &id, &scope, |current| {
+        if current.revision != lens.revision || current.scope != lens.scope {
+            return Err(lens_investigations::Error::ImportScope);
+        }
+        lens_investigations::import_finding(current, &request, evidence.clone(), now)
+    })
+    .await?;
+    Ok(Json(FindingImported {
+        lens_id: updated.id,
+        finding_id: updated.findings[0].id.clone(),
+    }))
 }
 
 async fn watch_all<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
