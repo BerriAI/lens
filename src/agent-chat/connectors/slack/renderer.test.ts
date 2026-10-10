@@ -86,7 +86,7 @@ test("a proposed issue has its stable number, status border and private chart in
   };
   await postCandidate(
     slack,
-    { channel: "C123" } as Config,
+    { channel: "C123", agent: "moyai" } as Config,
     candidate,
     sample,
     source,
@@ -96,7 +96,7 @@ test("a proposed issue has its stable number, status border and private chart in
   assert.equal(updates[0]?.ts, "123.4");
   assert.equal(
     messages[0]?.text,
-    "Bug Fix: Reliability — Repository calls fail",
+    "Bug Fix: moyai · Reliability — Repository calls fail",
   );
   assert.deepEqual(updates[0]?.blocks, messages[0]?.blocks);
   assert(JSON.stringify(messages[0]?.blocks).includes('"type":"header"'));
@@ -109,9 +109,10 @@ test("a proposed issue has its stable number, status border and private chart in
       first.includes("Proposed"),
   );
   assert(
-    first.includes("Bug Fix: Reliability") &&
+    first.includes("Bug Fix: moyai · Reliability") &&
       first.includes("What this can improve"),
   );
+  assert(first.includes("*Agent:* moyai"));
   assert(first.includes('"slack_file":{"id":"F0123ABC"}'));
   assert(!first.includes("User tried"));
   assert.equal(uploads[0]?.thread_ts, "123.4");
@@ -121,7 +122,7 @@ test("a proposed issue has its stable number, status border and private chart in
   updates.length = 0;
   await postCandidate(
     slack,
-    { channel: "C123" } as Config,
+    { channel: "C123", agent: "moyai" } as Config,
     {
       ...candidate,
       candidate: {
@@ -138,7 +139,7 @@ test("a proposed issue has its stable number, status border and private chart in
   const feature = JSON.stringify(updates[0]);
   assert(
     feature.includes(
-      "Feature Request: Users want to score agent replies and leave feedback",
+      "Feature Request: moyai · Users want to score agent replies and leave feedback",
     ),
   );
   assert(feature.includes("*Category:* Quality"));
@@ -152,7 +153,7 @@ test("a proposed issue has its stable number, status border and private chart in
   await assert.rejects(
     postCandidate(
       slack,
-      { channel: "C123" } as Config,
+      { channel: "C123", agent: "moyai" } as Config,
       candidate,
       sample,
       source,
