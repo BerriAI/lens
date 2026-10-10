@@ -1,6 +1,11 @@
 <clickhouse>
     <logger>
+        <level>information</level>
         <console>true</console>
         <console_log_level>warning</console_log_level>
     </logger>
+    <text_log>
+        <level>information</level>
+    </text_log>
+    <processors_profile_log remove="1"/>
 </clickhouse>
