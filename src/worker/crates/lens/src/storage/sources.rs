@@ -3,18 +3,18 @@ use std::sync::Arc;
 use lens_contract::{
     activity::ActivitySelection,
     execution::ExecutionId,
-    investigations::Scope,
+    investigations::{FindingSource, Lens, Scope},
     worker::{
-        Evidence, Execution, ExecutionContent, ExecutionSource, LensSettingsSource, MetadataFilter,
-        Sample, TracePart,
+        Evidence, EvidenceRole, Execution, ExecutionContent, ExecutionSource, LensSettingsSource,
+        MetadataFilter, Sample, TracePart,
     },
 };
 use litellm_storage_clickhouse::{Query, fetch};
 use litellm_traces_clickhouse::query::lens::{
     self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
     LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams, LensContentRow,
-    LensEvidence, LensEvidenceParams, LensSample, LensSampleEligibility, LensSampleParams,
-    LensSampleRow, LensSignalSample,
+    LensEvidence, LensEvidenceParams, LensFindingSource, LensFindingSourceParams, LensSample,
+    LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
 };
 
 use crate::{Error, State, wait_for_read_slot};
@@ -139,6 +139,81 @@ impl SourceReader {
             })
             .await?;
         Ok(rows.first().is_some_and(|row| row.count != 0))
+    }
+
+    pub async fn finding_evidence(
+        &self,
+        lens: &Lens,
+        sources: &[FindingSource],
+    ) -> Result<Option<Vec<Evidence>>, Error> {
+        let mut verified = Vec::with_capacity(sources.len());
+        for source in sources {
+            let rows = self
+                .read::<LensFindingSource>(&LensFindingSourceParams {
+                    access: access(&lens.scope),
+                    trace_id: source.trace_id.clone(),
+                    trace_ref: source.trace_ref.clone(),
+                    agent_name: lens.settings.agent_name.clone(),
+                    selected_team: lens.settings.team_id.clone(),
+                    service: lens.settings.service.clone(),
+                    filter_keys: lens
+                        .settings
+                        .filters
+                        .iter()
+                        .map(|item| item.key.to_string())
+                        .collect(),
+                    filter_values: lens
+                        .settings
+                        .filters
+                        .iter()
+                        .map(|item| item.value.to_string())
+                        .collect(),
+                })
+                .await?;
+            let [row] = rows.as_slice() else {
+                return Ok(None);
+            };
+            let identity = ExecutionId {
+                source: "traces".into(),
+                team_id: row.team_id.clone(),
+                trace_id: source.trace_id.clone(),
+                trace_ref: source.trace_ref.clone(),
+            };
+            if !lens.settings.execution_ids.is_empty()
+                && !lens.settings.execution_ids.iter().any(|selected| {
+                    ExecutionId::decode(selected).is_some_and(|selected| selected == identity)
+                })
+            {
+                return Ok(None);
+            }
+            let execution = Execution {
+                id: identity.encode(),
+                source: ExecutionSource::Traces,
+                team_id: identity.team_id,
+                trace_id: identity.trace_id,
+                trace_ref: identity.trace_ref,
+                start_time: row.start_time.clone(),
+                name: String::new(),
+                service: String::new(),
+                metadata: Vec::new(),
+                span_count: 0,
+                root_seen: false,
+            };
+            let evidence = Evidence {
+                execution_id: execution.id.clone(),
+                span_id: source.span_id.clone(),
+                quote: source.quote.clone(),
+                role: EvidenceRole::Support,
+            };
+            if !self
+                .verify_evidence(&lens.scope, &execution, &evidence)
+                .await?
+            {
+                return Ok(None);
+            }
+            verified.push(evidence);
+        }
+        Ok(Some(verified))
     }
 }
 

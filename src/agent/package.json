@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.0",
+    "prettier": "3.2.5",
+    "typescript": "5.9.3"
+  },
+  "name": "@litellm/lens-agent",
+  "exports": {
+    ".": "./dist/agent.js",
+    "./*": "./dist/*.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit && prettier --check \"*.ts\" package.json tsconfig.json",
+    "test": "npm run build && node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "8.3.1",
+    "@openai/agents": "0.20.0",
+    "openai": "7.32.0",
+    "zod": "4.6.5"
+  }
+}

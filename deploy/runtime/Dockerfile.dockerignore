@@ -8,6 +8,10 @@
 !src/worker/**
 !src/ui/
 !src/ui/**
+!src/agent/
+!src/agent/**
+!src/agent-chat/
+!src/agent-chat/**
 **/node_modules/
 **/target/
 **/.next/

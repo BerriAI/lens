@@ -1,0 +1,26 @@
+{
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.0",
+    "prettier": "3.2.5",
+    "typescript": "5.9.3"
+  },
+  "name": "@litellm/lens-agent-chat",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit && prettier --check \"*.ts\" connectors package.json tsconfig.json",
+    "test": "npm run build && node --test dist/*.test.js dist/connectors/slack/*.test.js",
+    "start": "node dist/connectors/slack/main.js"
+  },
+  "dependencies": {
+    "@litellm/lens-agent": "file:../agent",
+    "@resvg/resvg-js": "2.6.2",
+    "@slack/bolt": "5.1.0",
+    "zod": "4.6.5"
+  }
+}

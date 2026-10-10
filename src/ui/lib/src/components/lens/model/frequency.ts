@@ -1,4 +1,4 @@
-import type { Sample } from "./types";
+import type { Finding, Sample } from "./types";
 
 type Execution = Sample["executions"][number];
 
@@ -10,7 +10,7 @@ export interface DayCount {
 
 export interface Frequency {
   readonly affected: number;
-  readonly total: number;
+  readonly total: number | null;
   readonly days: readonly DayCount[];
 }
 
@@ -34,7 +34,10 @@ export function findingFrequency(occurrences: readonly string[], executions: rea
   const sampled = [...new Map(executions.map((run) => [run.id, run] as const)).values()];
   const hit = new Set(occurrences);
   const dated = sampled
-    .map((run) => ({ affected: hit.has(run.id), ms: Date.parse(run.start_time) }))
+    .map((run) => ({
+      affected: hit.has(run.id),
+      ms: Date.parse(run.start_time),
+    }))
     .filter(({ ms }) => Number.isFinite(ms));
   const stamps = dated.map(({ ms }) => ms);
   const days = dated.length ? dayRange(Math.min(...stamps), Math.max(...stamps)) : [];
@@ -49,10 +52,31 @@ export function findingFrequency(occurrences: readonly string[], executions: rea
   };
 }
 
-export function percentLabel(affected: number, total: number): string | null {
-  if (total <= 0) return null;
+type FindingIdentity = Pick<Finding, "id" | "existing_finding_id" | "merged_finding_ids">;
+
+export function hasImportedEvidence(finding: FindingIdentity): boolean {
+  return [finding.id, finding.existing_finding_id, ...(finding.merged_finding_ids ?? [])].some(
+    (id) => id != null && /^agent-[a-f0-9]{64}$/.test(id),
+  );
+}
+
+export function findingTraceFrequency(
+  finding: FindingIdentity & Pick<Finding, "occurrences">,
+  executions: readonly Execution[],
+  hasUnscopedEvidence = hasImportedEvidence(finding),
+): Frequency {
+  if (hasUnscopedEvidence) return { affected: new Set(finding.occurrences).size, total: null, days: [] };
+  return findingFrequency(finding.occurrences, executions);
+}
+
+export function percentLabel(affected: number, total: number | null): string | null {
+  if (total === null || total <= 0) return null;
   return `${Number(((affected / total) * 100).toFixed(1))}%`;
 }
 
 export const dayLabel = (day: string): string =>
-  new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });

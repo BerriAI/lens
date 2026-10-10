@@ -340,6 +340,37 @@ impl Query for LensContent {
     const SQL: &'static str = include_str!("../../query/lens_content.sql");
 }
 
+pub struct LensFindingSource;
+
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LensFindingSourceParams {
+    #[serde(flatten)]
+    pub access: LensAccessParams,
+    pub trace_id: String,
+    pub trace_ref: String,
+    pub agent_name: String,
+    pub selected_team: String,
+    pub service: String,
+    pub filter_keys: Vec<String>,
+    pub filter_values: Vec<String>,
+}
+
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Debug)]
+pub struct LensFindingSourceRow {
+    pub team_id: String,
+    pub start_time: String,
+}
+
+impl Query for LensFindingSource {
+    type Params = LensFindingSourceParams;
+    type Row = LensFindingSourceRow;
+
+    const SQL: &'static str = include_str!("../../query/lens_finding_source.sql");
+}
+
 pub struct LensEvidence;
 
 #[macro_rules_attribute::apply(crate::wire_type)]

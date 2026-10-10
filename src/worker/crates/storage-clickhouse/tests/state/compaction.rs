@@ -166,8 +166,13 @@ async fn abandoned_first_write_cannot_publish_after_reclamation(#[future(awt)] d
 }
 
 #[rstest]
+#[case::same_client(false)]
+#[case::independent_client(true)]
 #[tokio::test]
-async fn deleted_revision_cannot_resolve_to_changed_content(#[future(awt)] database: Database) {
+async fn deleted_revision_cannot_resolve_to_changed_content(
+    #[future(awt)] database: Database,
+    #[case] independent: bool,
+) {
     database
         .store
         .commit(vec![initial("lens", json!("old"))])
@@ -179,7 +184,12 @@ async fn deleted_revision_cannot_resolve_to_changed_content(#[future(awt)] datab
         .commit(vec![change(before.clone(), json!("new"))])
         .await
         .unwrap();
-    database.store.compact(&["lens"]).await.unwrap();
+    let compactor = if independent {
+        database.independent()
+    } else {
+        database.store.clone()
+    };
+    compactor.compact(&["lens"]).await.unwrap();
     assert!(matches!(
         database.store.resolve(&[before.head]).await,
         Err(Error::StateUnavailable)

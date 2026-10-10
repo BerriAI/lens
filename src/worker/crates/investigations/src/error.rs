@@ -1,5 +1,9 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Finding evidence must belong to the configured Lens agent and source")]
+    ImportScope,
+    #[error("Finding import contains invalid identity, evidence or content")]
+    InvalidImport,
     #[error("Each check must have a unique ID")]
     DuplicateCheck,
     #[error("Describe expected behavior or add an enabled check")]

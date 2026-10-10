@@ -3,6 +3,7 @@
 mod commands;
 mod error;
 mod findings;
+mod import;
 mod lifecycle;
 mod repository;
 mod reviews;
@@ -12,6 +13,7 @@ mod settings;
 pub use commands::{create_lens, manual_run, update_finding_status, update_settings};
 pub use error::{CheckpointError, Error, RepositoryError};
 pub use findings::{merge_finding, snapshot_finding};
+pub use import::{import_finding, validate_import};
 pub use lifecycle::{
     QueueOptions, TerminalStatus, cancel_job, claim_job, current_job, due_at, end_job,
     next_scan_start, queue_job, renew_budget, replace_job, result_status, scheduled_window,

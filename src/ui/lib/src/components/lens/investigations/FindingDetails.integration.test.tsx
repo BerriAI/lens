@@ -171,6 +171,51 @@ it("reports how many sampled traces the finding affected and highlights each quo
   expect(screen.queryByRole("article", { name: "run b" })).not.toBeInTheDocument();
 });
 
+it.each([{ id: `agent-${"a".repeat(64)}` }, { id: "canonical", merged_finding_ids: [`agent-${"a".repeat(64)}`] }])(
+  "keeps imported evidence counts without inferring frequency from unrelated samples: $id",
+  (identity) => {
+    const traceOf = (id: string) => btoa(JSON.stringify(["traces", "", id]));
+    const sampled = Array.from({ length: 10 }, (_, index) => ({
+      id: traceOf(String(index)),
+      name: `run ${index}`,
+      start_time: "2026-10-01T10:00:00Z",
+      metadata: [],
+      root_seen: true,
+      service: "support_agent",
+      source: "traces" as const,
+      span_count: 1,
+      team_id: "",
+      trace_id: String(index),
+      trace_ref: "",
+    }));
+    const current: Finding = {
+      ...finding,
+      ...identity,
+      description: "Frozen cohort: 8 of 10 observed tool calls failed",
+      occurrences: [traceOf("0"), traceOf("outside-sample")],
+      evidence: [{ execution_id: traceOf("0"), span_id: "s", quote: "HTTP 503 unavailable", role: "support" }],
+    };
+    renderWithLens(
+      <Inspector.Root
+        items={[]}
+        itemKey={ownedFindingKey}
+        selected={owned(current)}
+        onSelectedChange={vi.fn()}
+        noun="finding"
+        storageKey="test.finding"
+      >
+        <FindingPanel readOnly busy={false} sampledRuns={sampled} onReview={vi.fn()} />
+      </Inspector.Root>,
+    );
+    const panel = screen.getByRole("complementary", { name: "Finding details" });
+    expect(panel).toHaveTextContent("2 affected traces");
+    expect(panel).toHaveTextContent("Frozen cohort: 8 of 10 observed tool calls failed");
+    expect(within(panel).getByRole("region", { name: "Frequency" })).toHaveTextContent("Trace rate unavailable");
+    expect(panel).not.toHaveTextContent("10%");
+    expect(within(panel).getByText("HTTP 503 unavailable")).toBeVisible();
+  },
+);
+
 it("shows contributing investigation runs and every affected trace, including older traces without retained quotes", async () => {
   const traceId = btoa(JSON.stringify(["traces", "", "older-trace", ""]));
   const current: Finding = {
