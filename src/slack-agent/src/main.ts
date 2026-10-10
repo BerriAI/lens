@@ -7,6 +7,7 @@ import { answerBlocks } from "./slack.js";
 import { prepareChart, renderChartPng } from "./chart.js";
 import { updateWithChart } from "./slack-transport.js";
 import { bootstrapThreads, findingThreads } from "./threads.js";
+import { workingStatus } from "./activity.js";
 
 async function main() {
   const config = configFrom(process.env);
@@ -45,6 +46,9 @@ async function main() {
     registry,
     config,
     process.env.LENS_SLACK_FINDING_THREADS,
+  );
+  const status = workingStatus((args) =>
+    app.client.assistant.threads.setStatus(args),
   );
   const chat = new Chat(
     config,
@@ -99,6 +103,7 @@ async function main() {
     Date.now,
     registry,
     async (event, state) => {
+      await status(event, state);
       if (process.env.LENS_SLACK_REACTIONS_ENABLED !== "true") return;
       const target = { channel: event.channel, timestamp: event.ts };
       await app.client.reactions
