@@ -45,6 +45,10 @@ export function safeAnswer(
     summary: words(prose(answer.summary), detail ? 160 : 80),
     sources: answer.sources
       .filter((source) => allowed.has(source.url))
+      .filter(
+        (source, index, all) =>
+          all.findIndex((item) => item.url === source.url) === index,
+      )
       .slice(0, sourceLimit)
       .map((source) => ({
         label: prose(source.label).slice(0, 60) || "Open evidence",

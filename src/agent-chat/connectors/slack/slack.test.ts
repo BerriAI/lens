@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { answerBlocks, safeAnswer, prose, words } from "./slack.js";
 import { clickhouseConnection } from "@litellm/lens-agent/state";
 
-test("finding followups retain all numbered verified references while ordinary answers stay compact", () => {
+test("finding followups retain unique numbered references while ordinary answers stay compact", () => {
   const sources = Array.from({ length: 4 }, (_, i) => ({
     label: `Trace ${i + 1}`,
     url: `https://lens.example.com/?trace=${i + 1}`,
@@ -12,7 +12,9 @@ test("finding followups retain all numbered verified references while ordinary a
     title: "Reliability",
     summary: "The requests differ",
     sources: [
-      ...sources,
+      sources[0]!,
+      { label: "Duplicate citation", url: sources[0]!.url },
+      ...sources.slice(1),
       { label: "Invented", url: "https://lens.example.com/?trace=other" },
     ],
   };
