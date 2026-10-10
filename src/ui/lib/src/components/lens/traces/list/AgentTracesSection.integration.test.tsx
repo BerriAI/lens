@@ -166,7 +166,7 @@ describe("AgentTracesSection", () => {
     expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(1);
     expect(screen.queryByTestId("runs-placeholder")).not.toBeInTheDocument();
     expect(agentTraceListCall).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(agentTraceListCall).mock.calls[1][0]).toEqual({ ...first, cursor: "next" });
+    expect(vi.mocked(agentTraceListCall).mock.calls[1][0]).toEqual({ ...first, cursor: "next", signal: expect.any(AbortSignal) });
     vi.mocked(agentTraceListCall).mockResolvedValueOnce({ data: runs.slice(1, 2), next_cursor: null });
     await user.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(2));
@@ -314,6 +314,25 @@ describe("AgentTracesSection", () => {
     expect(screen.getByRole("complementary", { name: "Trace details" })).toBe(drawer);
     expect(screen.queryByRole("region", { name: "Waiting for traces" })).not.toBeInTheDocument();
     await act(async () => finishRefresh(traceList as TracePage));
+  });
+
+  it("cancels an obsolete time range while rendering the newly selected range", async () => {
+    const pending = Promise.withResolvers<TracePage>();
+    vi.mocked(agentTraceListCall)
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce({ data: runs.slice(0, 1), next_cursor: null });
+    const view = renderWithProviders(
+      <AgentTracesSection accessToken="sk-test" isActive range={PINNED_DAY} />,
+    );
+    await waitFor(() => expect(agentTraceListCall).toHaveBeenCalledOnce());
+    const signal = vi.mocked(agentTraceListCall).mock.calls[0][0].signal;
+    expect(signal?.aborted).toBe(false);
+
+    view.rerender(<AgentTracesSection accessToken="sk-test" isActive range={{ ...PINNED_DAY, hours: 1 }} />);
+    expect(await screen.findByTestId("agent-trace-row")).toBeVisible();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => pending.resolve({ data: runs, next_cursor: null }));
+    expect(screen.getAllByTestId("agent-trace-row")).toHaveLength(1);
   });
 
   it("separates a failed history check from the empty list and retries that check", async () => {

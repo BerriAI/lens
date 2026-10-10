@@ -32,6 +32,14 @@ For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Aut
 
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 
+## Trace content and size
+
+Lens preserves the full input, output, and attribute values supplied by your instrumentation. Trace uploads, trace reads, eval sessions, and datasets have no default byte or item quotas. Eval runs have no fixed case or trial-count ceilings. Signal definitions and feedback comments have no maximum text length, and signal counts and feedback batches have no fixed item ceiling. Large traces are read in pages, and cache eviction does not make a trace unreadable
+
+Optional operator limits remain available through `OTLP_MAX_SPANS`, `OTLP_MAX_ATTRIBUTES`, `OTLP_MAX_EVENTS`, `OTLP_MAX_LINKS`, `OTLP_MAX_DECODE_DEPTH`, `OTLP_MAX_DECODE_NODES`, `OTLP_MAX_DECODED_SPAN_BYTES`, `CLICKHOUSE_TRACE_MAX_INSERT_BYTES`, `LENS_DATASET_MAX_CASES`, and `LENS_DATASET_MAX_CASE_CHARS`. Leave these unset for the default behavior. Existing explicit values continue to apply
+
+Your exporter, reverse proxy, database, and available memory can still constrain the data Lens receives or processes. Model context windows and the [calculation sandbox](../../docs/sandbox.md) also apply when analyzing traces. Content truncated before it reaches Lens, or stored by an older version with truncation, cannot be reconstructed
+
 ## Configure a deployment
 
 For Kubernetes, use the [Lens Helm chart](../../helm/lens/README.md). To move an existing gateway-hosted Lens installation and its saved records, follow [Migrate existing Lens data](../../docs/migration.md) before changing which service owns its writers

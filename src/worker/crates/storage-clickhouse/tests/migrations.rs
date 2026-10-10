@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use litellm_http::Client;
 use litellm_storage_clickhouse::{
-    ClickHouseMigrate, Connection, Error, READ_LIMITS, execute_statement, storage_error,
+    ClickHouseMigrate, Connection, Error, execute_statement, storage_error,
 };
 use rstest::{fixture, rstest};
 use sqlx::{
@@ -435,14 +435,12 @@ async fn schema_requests_override_unsafe_connection_settings(
 
 #[rstest]
 #[tokio::test]
-async fn oversized_ledger_response_is_rejected_before_migrations(
+async fn malformed_large_ledger_response_is_rejected_before_migrations(
     #[future(awt)] mock_server: MockServer,
 ) {
     Mock::given(method("POST"))
         .and(body_string(SELECT_APPLIED))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_string(" ".repeat(READ_LIMITS.response_bytes + 1)),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_string("x".repeat(4 * 1024 * 1024 + 1)))
         .mount(&mock_server)
         .await;
     let client = Client::no_redirect_for_test();
@@ -459,11 +457,11 @@ async fn oversized_ledger_response_is_rejected_before_migrations(
     let error = migrator
         .run_direct(None, &mut adapter, false)
         .await
-        .expect_err("oversized result is rejected");
+        .expect_err("malformed result is rejected");
 
     assert!(matches!(
         storage_error(&error),
-        Some(Error::ResponseTooLarge)
+        Some(Error::InvalidResponse)
     ));
     assert_eq!(
         mock_server

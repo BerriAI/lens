@@ -23,7 +23,7 @@ fn max_insert_bytes() -> Result<usize, Error> {
             .ok()
             .filter(|value| *value > 0)
             .ok_or(Error::InvalidLimit(name)),
-        Err(std::env::VarError::NotPresent) => Ok(64 * 1024 * 1024),
+        Err(std::env::VarError::NotPresent) => Ok(usize::MAX),
         Err(_) => Err(Error::InvalidLimit(name)),
     }
 }

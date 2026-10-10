@@ -19,15 +19,7 @@ import { SIGNAL_LIBRARY, signalsConfigured, systemOneModels } from "../../model/
 import { WatchPicker } from "../../setup/WatchPicker";
 import type { SignalConfig } from "../../model/types";
 import { SettingsCard, SettingsSection } from "../SettingsSection";
-import {
-  MAX_SIGNALS,
-  configFrom,
-  draftFrom,
-  draftProblems,
-  newRow,
-  type SignalDraft,
-  type SignalRow,
-} from "./signalDraft";
+import { configFrom, draftFrom, draftProblems, newRow, type SignalDraft, type SignalRow } from "./signalDraft";
 
 const LIBRARY_QUESTIONS: ReadonlySet<string> = new Set(SIGNAL_LIBRARY.map((signal) => signal.question));
 
@@ -303,7 +295,6 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
             selected={picked}
             onChange={pick}
             onAddCustom={addRow}
-            addDisabled={draft.rows.length >= MAX_SIGNALS}
           />
           {custom.length > 0 && (
             <ul aria-label="Custom signals" className="space-y-2">
@@ -321,7 +312,6 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
           {draft.rows.length === 0 && (
             <p className="text-xs text-muted-foreground">Pick at least one signal to flag traces</p>
           )}
-          <FieldError>{problems.signals}</FieldError>
         </div>
         <p className="text-xs text-muted-foreground">
           Lens sends trace content to this model automatically. Your provider may charge for these requests.

@@ -52,8 +52,6 @@ pub enum InvalidCaseResult {
     NeedsOutputOrTraceOrError,
     #[error("case result trace value must not be empty")]
     EmptyTraceValue,
-    #[error("case result error message is too long")]
-    ErrorMessageTooLong,
     #[error("case result cost must be finite and nonnegative")]
     NegativeOrNonFiniteCost,
 }

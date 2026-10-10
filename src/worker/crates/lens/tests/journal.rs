@@ -1,5 +1,4 @@
 use litellm_lens::{
-    Error,
     journal::{Journal, Turn},
     wire,
 };
@@ -77,7 +76,13 @@ async fn small_unicode_excerpts_are_readable_from_history_over_32_mib(
         "action": "history", "include_initial": initial_context,
     }))
     .unwrap();
-    assert!(journal.reply(&request).await.is_err());
+    let full = journal.reply(&request).await.unwrap();
+    let preserved = if initial_context {
+        &full["initial_context"]["task"]
+    } else {
+        &full["turns"][0]["tool_results"][0]
+    };
+    assert_eq!(preserved.as_str().unwrap().len(), 36 * 1024 * 1024);
     request.char_start = 6 * 1024 * 1024;
     request.char_end = Some(request.char_start + 30);
     let reply = journal.reply(&request).await.unwrap();
@@ -89,8 +94,9 @@ async fn small_unicode_excerpts_are_readable_from_history_over_32_mib(
     assert!(reply["characters"].as_u64().unwrap() > 12 * 1024 * 1024);
     request.char_end = None;
     request.char_start = 1;
-    assert!(matches!(
-        journal.reply(&request).await,
-        Err(Error::ToolOutputTooLarge)
-    ));
+    let full_excerpt = journal.reply(&request).await.unwrap();
+    assert_eq!(
+        full_excerpt["excerpt"].as_str().unwrap().chars().count() as u64,
+        full_excerpt["characters"].as_u64().unwrap() - 1
+    );
 }

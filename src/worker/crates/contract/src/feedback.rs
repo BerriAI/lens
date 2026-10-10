@@ -32,7 +32,6 @@ pub struct FeedbackSubmission {
     #[schemars(range(min = 0, max = 10))]
     pub score: u8,
     #[serde(default)]
-    #[schemars(length(max = 10_000))]
     pub comment: String,
     #[serde(default)]
     #[schemars(length(max = 256))]
@@ -94,6 +93,6 @@ pub struct TraceFeedbackSummary {
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TraceFeedbackRequest {
-    #[schemars(length(min = 1, max = 500))]
+    #[schemars(length(min = 1))]
     pub traces: Vec<TraceIdentity>,
 }

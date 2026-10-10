@@ -7,7 +7,6 @@ pub use crate::agent_io::AgentIo;
 pub use crate::error::InvalidCaseResult;
 
 pub const DEFAULT_TIMEOUT_PER_TRIAL_MS: u64 = 1_200_000;
-pub const MAX_ERROR_MESSAGE_CHARS: u64 = 2000;
 pub const FINDING_ID_META_KEY: &str = "finding_id";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -119,7 +118,7 @@ pub struct CreateEvalRun {
     #[serde(default)]
     pub ci_url: String,
     #[serde(default = "one_trial")]
-    #[schemars(range(min = 1, max = 10))]
+    #[schemars(range(min = 1))]
     pub trials: u32,
     #[schemars(length(min = 1))]
     pub scorers: Vec<Scorer>,
@@ -145,7 +144,7 @@ pub struct EvalSpec {
     #[schemars(length(min = 1))]
     pub scorers: Vec<Scorer>,
     #[serde(default = "one_trial")]
-    #[schemars(range(min = 1, max = 10))]
+    #[schemars(range(min = 1))]
     pub trials: u32,
     #[serde(default = "main_branch")]
     #[schemars(length(min = 1))]
@@ -200,7 +199,6 @@ pub struct TraceRef {
 #[serde(deny_unknown_fields)]
 pub struct CaseError {
     pub r#type: String,
-    #[schemars(length(max = 2000))]
     pub message: String,
 }
 
@@ -231,13 +229,6 @@ impl CaseResult {
             .is_some_and(|trace| trace.value.trim().is_empty())
         {
             return Err(InvalidCaseResult::EmptyTraceValue);
-        }
-        if self
-            .error
-            .as_ref()
-            .is_some_and(|error| error.message.chars().count() as u64 > MAX_ERROR_MESSAGE_CHARS)
-        {
-            return Err(InvalidCaseResult::ErrorMessageTooLong);
         }
         if self
             .cost_usd

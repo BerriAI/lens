@@ -19,8 +19,7 @@ use litellm_traces::{
     resolve_trace, to_ui_content,
 };
 
-pub const MAX_GRAPH_BYTES: usize = 64 * 1024 * 1024;
-pub const MAX_GRAPH_SPANS: usize = 100_000;
+const SNAPSHOT_CACHE_BYTES: usize = 64 * 1024 * 1024;
 
 const SNAPSHOT_IDLE: Duration = Duration::from_secs(120);
 
@@ -56,7 +55,7 @@ pub struct TraceReader {
 impl TraceReader {
     pub fn new(response_bytes: usize) -> Self {
         Self {
-            snapshots: SnapshotCache::new(MAX_GRAPH_BYTES, SNAPSHOT_IDLE),
+            snapshots: SnapshotCache::new(SNAPSHOT_CACHE_BYTES, SNAPSHOT_IDLE),
             lists: ListCache::new(),
             response_bytes,
         }

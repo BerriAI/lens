@@ -64,8 +64,8 @@ export function buildEvalSpec(draft: NewEvalDraft): DraftResult {
   ];
   if (scorers.length === 0) return { ok: false, error: "Pick at least one scorer" };
   const trials = Number(draft.trials);
-  if (!Number.isInteger(trials) || trials < 1 || trials > 10)
-    return { ok: false, error: "Trials must be a whole number from 1 to 10" };
+  if (!Number.isSafeInteger(trials) || trials < 1)
+    return { ok: false, error: "Trials must be a positive whole number" };
   const regressions = optionalNumber(draft.regressions);
   const critical = optionalNumber(draft.critical);
   const passRate = optionalNumber(draft.passRate);

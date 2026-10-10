@@ -64,3 +64,15 @@ def test_generated_defaults_and_nulls_keep_public_numeric_api():
     with pytest.raises(ValidationError):
         Gate(pass_rate=1.01)
     assert scorers.called_before("test", "commit").first == "test"
+
+
+def test_error_messages_preserve_full_content():
+    message = "traceback line\n" * 5000
+    result = CaseResult.model_validate({"error": {"type": "Error", "message": message}})
+    assert result.error.message == message
+
+
+def test_more_than_ten_trials_are_valid():
+    payload = json.loads((FIXTURES / "create_run.json").read_text())
+    run = CreateEvalRun.model_validate({**payload, "trials": 11})
+    assert run.trials == 11

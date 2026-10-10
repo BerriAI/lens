@@ -9,7 +9,6 @@ use std::{
 use tokio::io::AsyncWriteExt;
 use unicode_casefold::UnicodeCaseFold;
 
-pub const MAX_TOOL_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PYTHON_INPUT: usize = 256 * 1024 * 1024;
 
 #[derive(Clone)]
@@ -255,7 +254,6 @@ impl Workspace {
         source: &Source,
         start: usize,
         end: Option<usize>,
-        remaining: usize,
     ) -> Result<wire::TracePart, Error> {
         let mut content = String::new();
         let mut offset = start;
@@ -266,9 +264,6 @@ impl Workspace {
             let size = piece.content.chars().count();
             let fragment =
                 character_range(&piece.content, 0, end.map(|end| end.saturating_sub(offset)));
-            if content.len().saturating_add(fragment.len()) > remaining {
-                return Err(Error::ToolOutputTooLarge);
-            }
             content.push_str(&fragment);
             offset += size;
             if end.is_some_and(|end| offset >= end) {
@@ -365,7 +360,6 @@ impl Workspace {
         let mut catalog = Vec::new();
         let mut parts = Vec::new();
         let mut missing: BTreeSet<_> = request.span_ids.iter().cloned().collect();
-        let mut remaining = MAX_TOOL_BYTES;
         for execution in executions {
             if request.action == A::Catalog && request.execution_id.is_none() {
                 catalog.push(json!({"execution": execution, "spans": [], "partial": self.partial(execution), "characters": null}));
@@ -390,9 +384,6 @@ impl Workspace {
                         source.part.start_time,
                         source.part.end_time
                     ]);
-                    remaining = remaining
-                        .checked_sub(serde_json::to_vec(&span)?.len())
-                        .ok_or(Error::TooLarge)?;
                     spans.push(span);
                     continue;
                 }
@@ -406,12 +397,8 @@ impl Workspace {
                         &source,
                         request.char_start as usize,
                         request.char_end.map(|n| n as usize),
-                        remaining,
                     )
                     .await?;
-                remaining = remaining
-                    .checked_sub(serde_json::to_vec(&part)?.len())
-                    .ok_or(Error::TooLarge)?;
                 parts.push(part);
             }
             if request.action == A::Catalog {
@@ -419,7 +406,7 @@ impl Workspace {
             }
         }
         let reply = json!({"request": request, "catalog": catalog, "parts": parts, "error": if missing.is_empty() || request.action == A::Catalog { String::new() } else { format!("Unknown span IDs: {}", missing.into_iter().collect::<Vec<_>>().join(", ")) }});
-        limited(reply)
+        Ok(reply)
     }
 
     fn review_reply(&self, request: &wire::EvidenceRequest) -> Result<Value, Error> {
@@ -443,12 +430,12 @@ impl Workspace {
             })
             .collect();
         if request.action == A::ReviewCatalog {
-            return limited(
+            return Ok(
                 json!({"request": request, "review_catalog": selected.iter().map(|r| json!({"execution_id": r.execution_id, "phase": r.phase, "characters": r.content.chars().count()})).collect::<Vec<_>>() }),
             );
         }
         let needle: String = request.query.case_fold().collect();
-        limited(
+        Ok(
             json!({"request": request, "reviews": selected.into_iter().filter(|r| request.action != A::SearchReviews || r.content.case_fold().collect::<String>().contains(&needle)).map(|r| json!({"execution_id": r.execution_id, "phase": r.phase, "content": character_range(&r.content, request.char_start as usize, request.char_end.map(|n| n as usize))})).collect::<Vec<_>>() }),
         )
     }
@@ -552,11 +539,4 @@ pub fn character_range(text: &str, start: usize, end: Option<usize>) -> String {
                 .unwrap_or(usize::MAX),
         )
         .collect()
-}
-
-pub fn limited(value: Value) -> Result<Value, Error> {
-    if serde_json::to_vec(&value)?.len() > MAX_TOOL_BYTES {
-        return Err(Error::TooLarge);
-    }
-    Ok(value)
 }

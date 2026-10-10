@@ -1678,6 +1678,17 @@ async fn lens_content_keeps_output_visible_after_long_input(
         "Input: {}\nOutput: Delivered result\nError: ",
         "x".repeat(input_length)
     );
+    parameters.insert("offset".into(), Parameter::Integer(0));
+    let full = execute_named_read(
+        &database.client,
+        &connection,
+        ReadQuery::Content,
+        &parameters,
+    )
+    .await?;
+    let full: serde_json::Value = serde_json::from_str(&full)?;
+    assert_eq!(full["data"][0]["content"], original);
+    assert_eq!(full["data"][0]["truncated"], 0);
     let mut recovered = String::new();
     for offset in (2..original.len() + 2).step_by(8000) {
         parameters.insert("offset".into(), Parameter::Integer(offset as i64));
@@ -2375,7 +2386,7 @@ fn field_definitions_match_serialized_normalized_span() {
         api_key_hash: "key".into(),
         ..Tenant::default()
     };
-    let rows = span_rows(spans, &tenant, 64 * 1024);
+    let rows = span_rows(spans, &tenant);
     let row =
         serde_json::to_value(rows.first().expect("storage row")).expect("serializable storage row");
     let keys: BTreeSet<_> = row

@@ -1,10 +1,4 @@
-use litellm_storage_clickhouse::{Query, ReadLimits};
-
-const SAMPLE_READ_LIMITS: ReadLimits = ReadLimits {
-    result_rows: 10_000,
-    response_bytes: 16 * 1024 * 1024,
-    ..litellm_storage_clickhouse::READ_LIMITS
-};
+use litellm_storage_clickhouse::Query;
 
 pub const LENS_QUERIES: [litellm_traces::ReadQuery; 9] = [
     litellm_traces::ReadQuery::TraceAgents,
@@ -262,10 +256,43 @@ impl Query for LensSample {
     type Params = LensSampleParams;
     type Row = LensSampleRow;
 
-    const READ_LIMITS: ReadLimits = SAMPLE_READ_LIMITS;
     const SQL: &'static str = concat!(
         include_str!("../../query/lens_eval_spend.sql"),
         include_str!("../../query/lens_sample.sql")
+    );
+}
+
+pub struct LensSampleEligibility;
+
+pub struct LensSignalSample;
+
+impl Query for LensSignalSample {
+    type Params = LensSampleParams;
+    type Row = LensSampleRow;
+
+    const SQL: &'static str = concat!(
+        "SELECT * EXCEPT(attributes) FROM (",
+        include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/lens_sample.sql"),
+        ")"
+    );
+}
+
+#[derive(serde::Deserialize)]
+pub struct LensSampleEligibilityRow {
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub eligible: u64,
+}
+
+impl Query for LensSampleEligibility {
+    type Params = LensSampleParams;
+    type Row = LensSampleEligibilityRow;
+
+    const SQL: &'static str = concat!(
+        "SELECT eligible FROM (",
+        include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/lens_sample.sql"),
+        ")"
     );
 }
 

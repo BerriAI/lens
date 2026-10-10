@@ -1,0 +1,85 @@
+{
+  "passed": false,
+  "checks": [
+    {
+      "traces": 100,
+      "operation": "ingest_10_traces",
+      "baseline_p90_ms": 88.93445799999999,
+      "candidate_p90_ms": 89.45191700000001,
+      "allowed_p90_ms": 121.1680725,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "list_all_traces",
+      "baseline_p90_ms": 47.161541,
+      "candidate_p90_ms": 57.35362500000001,
+      "allowed_p90_ms": 68.95192625,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "receipt",
+      "baseline_p90_ms": 4.1097920000000006,
+      "candidate_p90_ms": 4.076625,
+      "allowed_p90_ms": 15.13724,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "span_content",
+      "baseline_p90_ms": 10.598917,
+      "candidate_p90_ms": 10.489583,
+      "allowed_p90_ms": 23.24864625,
+      "passed": true
+    },
+    {
+      "traces": 100,
+      "operation": "trace_details",
+      "baseline_p90_ms": 4.661958,
+      "candidate_p90_ms": 4.3735,
+      "allowed_p90_ms": 15.8274475,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "ingest_10_traces",
+      "baseline_p90_ms": 86.91125,
+      "candidate_p90_ms": 86.42225,
+      "allowed_p90_ms": 118.6390625,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "list_all_traces",
+      "baseline_p90_ms": 417.268169,
+      "candidate_p90_ms": 575.004704,
+      "allowed_p90_ms": 531.58521125,
+      "passed": false
+    },
+    {
+      "traces": 1000,
+      "operation": "receipt",
+      "baseline_p90_ms": 4.437375,
+      "candidate_p90_ms": 5.817041000000001,
+      "allowed_p90_ms": 15.54671875,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "span_content",
+      "baseline_p90_ms": 12.382791000000001,
+      "candidate_p90_ms": 17.009125,
+      "allowed_p90_ms": 25.47848875,
+      "passed": true
+    },
+    {
+      "traces": 1000,
+      "operation": "trace_details",
+      "baseline_p90_ms": 4.800708,
+      "candidate_p90_ms": 7.140541000000001,
+      "allowed_p90_ms": 16.000885,
+      "passed": true
+    }
+  ]
+}

@@ -2594,6 +2594,7 @@ dependencies = [
  "lens-investigations",
  "lens-signals",
  "litellm-http",
+ "moka",
  "percent-encoding",
  "rand 0.8.7",
  "rstest",

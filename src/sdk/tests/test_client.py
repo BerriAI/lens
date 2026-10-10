@@ -32,6 +32,7 @@ def named_server(endpoint: str) -> Iterator[tuple[str, Queue[tuple[str, str, str
 
 
 def configure(root: Path, endpoint: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     (root / "pyproject.toml").write_text(
         '[tool.lens.connections.agent]\nbase_url_env="NAMED_AGENT_URL"\nauth="bearer"\ntoken_env="NAMED_AGENT_KEY"\n'
     )
@@ -90,14 +91,14 @@ def test_named_client_detects_github_context_but_keeps_deployed_version(named_se
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
     monkeypatch.setenv("GITHUB_SHA", "checkout-only-sha")
-    monkeypatch.setenv("GITHUB_HEAD_REF", "topic")
+    monkeypatch.setenv("GITHUB_HEAD_REF", "ci-topic")
     monkeypatch.setenv("GITHUB_RUN_ID", "named-github")
     monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
     monkeypatch.setenv("GITHUB_REPOSITORY", "example/agent")
     report: Final = Lens(endpoint, "lens-dev").evals.run("named-pass")
     assert report.run.pr == 29
     assert report.run.version == "deployed-build"
-    assert report.run.branch == "topic"
+    assert report.run.branch == "ci-topic"
     result: Final = subprocess.run(
         [sys.executable, "-m", "lens.cli", "eval", "--name", "named-pass", "--ci", "--json"],
         cwd=tmp_path,
@@ -110,7 +111,7 @@ def test_named_client_detects_github_context_but_keeps_deployed_version(named_se
     cli_run: Final = json.loads(result.stdout)["runs"][0]
     assert cli_run["pr"] == 29
     assert cli_run["version"] == "deployed-build"
-    assert cli_run["branch"] == "topic"
+    assert cli_run["branch"] == "ci-topic"
 
 
 def test_named_client_explicit_build_context_without_identity_runs_fresh(named_server, tmp_path, monkeypatch):

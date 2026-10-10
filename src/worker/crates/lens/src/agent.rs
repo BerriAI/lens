@@ -1,7 +1,7 @@
 use crate::{
     Error,
     activity::Tracker,
-    evidence::{MAX_TOOL_BYTES, Workspace},
+    evidence::Workspace,
     journal::{Journal, Turn as JournalTurn},
     model, sandbox, wire,
 };
@@ -245,7 +245,6 @@ pub async fn run<T: Output>(
         }
         let mut results = Vec::new();
         let mut archived = Vec::new();
-        let mut bytes = 0;
         for tool in turn.tools {
             let operation = match &tool {
                 Tool::Evidence(r) => r.action.to_string(),
@@ -272,12 +271,6 @@ pub async fn run<T: Output>(
                 Tool::Evidence(r) => journal.reference(r).unwrap_or_else(|| result.clone()),
                 _ => result.clone(),
             });
-            bytes += result.len();
-            if bytes > MAX_TOOL_BYTES {
-                let error = json!({"request": tool, "error": "Combined tool output exceeds 8 MiB. Request smaller ranges or fewer tools per turn."}).to_string();
-                results.push(error);
-                continue;
-            }
             results.push(result);
         }
         journal

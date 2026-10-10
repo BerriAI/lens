@@ -387,8 +387,7 @@ mod fixtures {
         )
         .await
         .unwrap();
-        let config =
-            litellm_traces_clickhouse::Config::new(database.clone(), &url, 14, 65_536).unwrap();
+        let config = litellm_traces_clickhouse::Config::new(database.clone(), &url, 14).unwrap();
         let store = ClickHouseState::new(client.clone(), config.storage().reader().clone());
         store
             .initialize(&format!("/local-job-tests/{database}"))

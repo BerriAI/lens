@@ -111,17 +111,13 @@ fn checkpoint_summary_keeps_identity_but_hides_extracted_content(job: Job) {
 #[rstest]
 #[case::below_limit(2, 0)]
 #[case::at_limit(60, 0)]
-#[case::beyond_limit(63, 3)]
-fn review_history_retains_newest_while_counting_all(
-    job: Job,
-    #[case] count: usize,
-    #[case] first: usize,
-) {
+#[case::beyond_limit(63, 0)]
+fn review_history_retains_every_review(job: Job, #[case] count: usize, #[case] first: usize) {
     let grown = (0..count).fold(job, |job, index| {
         add_review(&job, Some(&review(index))).unwrap()
     });
     assert_eq!(grown.reviewed, count as i64);
-    assert_eq!(grown.reviews.len(), count.min(MAX_REVIEWS));
+    assert_eq!(grown.reviews.len(), count);
     assert_eq!(grown.reviews[0].execution_id, format!("run-{first}"));
     assert_eq!(
         grown.reviews.last().unwrap().execution_id,
@@ -181,8 +177,8 @@ fn polling_uses_completion_order_cursor(
 #[rstest]
 #[case::short(2, 0)]
 #[case::at_limit(200, 0)]
-#[case::overflow(205, 5)]
-fn step_history_is_bounded(
+#[case::overflow(205, 0)]
+fn step_history_retains_every_step(
     job: Job,
     now: DateTime<Utc>,
     #[case] count: usize,
@@ -203,7 +199,7 @@ fn step_history_is_bounded(
             },
         )
     });
-    assert_eq!(grown.steps.len(), count.min(MAX_STEPS));
+    assert_eq!(grown.steps.len(), count);
     assert_eq!(grown.steps[0].label.as_str(), format!("step {first}"));
     assert_eq!(
         grown.steps.last().unwrap().label.as_str(),
