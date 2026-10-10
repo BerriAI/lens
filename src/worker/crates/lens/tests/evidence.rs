@@ -26,6 +26,7 @@ async fn workspace(text: Arc<Mutex<String>>) -> (MockServer, Workspace, wire::Ex
                 "parts":[{"execution_id":"run-test","span_id":"span-test","parent_span_id":"root",
                     "name":"tool","kind":"tool","content":text.chars().skip(start).take(8000).collect::<String>(),
                     "truncated":start+8000<text.chars().count(),
+                    "metrics":{"input_tokens":104847,"output_tokens":40,"input_present":true,"output_present":true,"model_call":true},
                     "start_time":"2026-10-03 10:00:00.200000009","end_time":"2026-10-03 10:00:00.200000019"}]
             }))
         }).mount(&server).await;
@@ -47,6 +48,8 @@ async fn reads_search_citations_and_python_preserve_original_unicode_across_page
     let reply = workspace.respond(&read).await.unwrap();
     assert_eq!(reply["parts"][0]["content"], original);
     assert_eq!(reply["parts"][0]["parent_span_id"], "root");
+    assert_eq!(reply["parts"][0]["metrics"]["input_tokens"], 104847);
+    assert!(reply["parts"][0]["metrics"]["cache_read_tokens"].is_null());
     assert_eq!(
         reply["parts"][0]["start_time"],
         "2026-10-03 10:00:00.200000009"
@@ -75,6 +78,10 @@ async fn reads_search_citations_and_python_preserve_original_unicode_across_page
         "2026-10-03 10:00:00.200000019"
     );
     assert_eq!(data["sessions"][0]["partial"], false);
+    assert_eq!(
+        data["sessions"][0]["parts"][0]["metrics"]["output_tokens"],
+        40
+    );
 }
 
 #[rstest]

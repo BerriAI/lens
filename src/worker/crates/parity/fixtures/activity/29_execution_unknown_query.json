@@ -35,6 +35,16 @@
           "end_time": "{{sql_timestamp}}",
           "execution_id": "WyJ0cmFjZXMiLCAiYWxwaGEiLCAiZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMGYwZjBmMCIsICIiXQ==",
           "kind": "agent",
+          "metrics": {
+            "input_tokens": null,
+            "output_tokens": null,
+            "cache_read_tokens": null,
+            "cache_write_tokens": null,
+            "input_present": false,
+            "output_present": false,
+            "model_call": null,
+            "gateway_cost_usd": null
+          },
           "name": "feedback fixture",
           "parent_span_id": "",
           "span_id": "0101010101010101",

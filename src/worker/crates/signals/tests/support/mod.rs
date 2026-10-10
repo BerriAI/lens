@@ -46,6 +46,7 @@ pub fn now() -> DateTime<Utc> {
 
 pub fn part(content: impl Into<String>) -> TracePart {
     TracePart {
+        metrics: None,
         execution_id: "id".into(),
         span_id: "span".into(),
         parent_span_id: "".into(),

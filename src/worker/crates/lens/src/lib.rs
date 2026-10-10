@@ -15,6 +15,7 @@ mod ingest;
 pub mod journal;
 pub mod local;
 pub mod local_credentials;
+mod measurements;
 pub mod model;
 pub mod pipeline;
 pub mod sandbox;

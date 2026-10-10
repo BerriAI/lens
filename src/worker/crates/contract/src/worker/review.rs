@@ -150,6 +150,8 @@ pub struct TracePart {
     pub execution_id: String,
     pub kind: String,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<SpanMetrics>,
     #[serde(default)]
     #[schemars(extend("default" = ""))]
     pub parent_span_id: String,
@@ -160,4 +162,17 @@ pub struct TracePart {
     #[serde(default)]
     #[schemars(extend("default" = false))]
     pub truncated: bool,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, Default, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SpanMetrics {
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub cache_read_tokens: Option<u64>,
+    pub cache_write_tokens: Option<u64>,
+    pub input_present: bool,
+    pub output_present: bool,
+    pub model_call: Option<bool>,
+    pub gateway_cost_usd: Option<f64>,
 }

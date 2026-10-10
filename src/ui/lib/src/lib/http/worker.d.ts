@@ -431,11 +431,26 @@ export interface TracePart {
   end_time?: string;
   execution_id: string;
   kind: string;
+  metrics?: SpanMetrics | null;
   name: string;
   parent_span_id?: string;
   span_id: string;
   start_time?: string;
   truncated?: boolean;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SpanMetrics".
+ */
+export interface SpanMetrics {
+  cache_read_tokens?: number | null;
+  cache_write_tokens?: number | null;
+  gateway_cost_usd?: number | null;
+  input_present: boolean;
+  input_tokens?: number | null;
+  model_call?: boolean | null;
+  output_present: boolean;
+  output_tokens?: number | null;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

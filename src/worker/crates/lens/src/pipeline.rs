@@ -99,7 +99,7 @@ async fn review(
         let result = agent::run::<wire::Extraction>(&local_claim, &local_workspace, Assignment {
             stage: "context_review", purpose: wire::ModelRequestPurpose::Extract,
             task: format!("{}\nReview the assigned execution, including its recorded subagents. Original evidence is available through tools. Inspect actual trace evidence before concluding there are no issues; metadata alone is not enough. The result field follows the Extraction schema.", include_str!("../prompts/review.md")),
-            supplied: json!({"execution": execution, "characters": null, "recorded_spans": execution.span_count, "partial": workspace.partial(execution)}),
+            supplied: json!({"execution": execution, "characters": null, "recorded_spans": execution.span_count, "partial": workspace.partial(execution), "measurements": workspace.measurements(&execution.id)}),
         }, &tracker).await;
         match result {
             Ok(extraction) => (extraction, String::new()),

@@ -1535,12 +1535,12 @@ async fn lens_content_keeps_original_timestamps_with_start_time_slack(
         serde_json::from_value(serde_json::json!({
             "Timestamp": root_start, "Duration": 2_000_000_000, "TraceId": "run",
             "SpanId": "z-root", "ParentSpanId": "", "SpanName": "root", "ObservationType": "agent",
-            "TeamId": "team", "Input": "task", "Output": "done", "StatusCode": "OK"
+            "TeamId": "team", "Input": "task", "Output": "done", "StatusCode": "OK", "InputTokens":104847, "OutputTokens":40
         }))?,
         serde_json::from_value(serde_json::json!({
             "Timestamp": child_start, "Duration": 17, "TraceId": "run",
             "SpanId": "a-child", "ParentSpanId": "z-root", "SpanName": "child", "ObservationType": "tool",
-            "TeamId": "team", "Input": "action", "Output": "result", "StatusCode": "OK"
+            "TeamId": "team", "Input": "action", "Output": "result", "StatusCode": "OK", "SpanAttributes":{"gen_ai.usage.input_tokens":"0", "cache_read_tokens":"0", "private.attribute":"excluded"}
         }))?,
     ]).await?;
     let request_start = seconds * 1000 + 123;
@@ -1550,7 +1550,7 @@ async fn lens_content_keeps_original_timestamps_with_start_time_slack(
         "spend_logs",
         vec![serde_json::from_value(serde_json::json!({
             "request_id": "run", "team_id": "team", "model": "model", "start_time": request_start,
-            "end_time": request_end, "messages": "request", "response": "response"
+            "end_time": request_end, "messages": "request", "response": "response", "prompt_tokens":123, "completion_tokens":40, "cache_read_tokens":12, "spend":0.25
         }))?],
     )
     .await?;
@@ -1609,16 +1609,16 @@ async fn lens_content_keeps_original_timestamps_with_start_time_slack(
         serde_json::json!([
             {"span_id":"a-child", "parent_span_id":"z-root", "name":"child", "kind":"tool",
              "start_time":timestamp(child_start)?, "end_time":timestamp(child_start + 17)?,
-             "content":"Input: action\nOutput: result\nStatus: OK ", "truncated":0},
+             "content":"Input: action\nOutput: result\nStatus: OK ", "truncated":0, "input_tokens":0, "output_tokens":0, "metric_attributes":{"gen_ai.usage.input_tokens":"0", "cache_read_tokens":"0"}, "input_present":1, "output_present":1, "gateway_cost_usd":null},
             {"span_id":"z-root", "parent_span_id":"", "name":"root", "kind":"agent",
              "start_time":timestamp(root_start)?, "end_time":timestamp(root_start + 2_000_000_000)?,
-             "content":"Input: task\nOutput: done\nStatus: OK ", "truncated":0}
+             "content":"Input: task\nOutput: done\nStatus: OK ", "truncated":0, "input_tokens":104847, "output_tokens":40, "metric_attributes":{}, "input_present":1, "output_present":1, "gateway_cost_usd":null}
         ])
     } else {
         serde_json::json!([
             {"span_id":"run", "parent_span_id":"", "name":"model", "kind":"llm",
              "start_time":timestamp(request_start * 1_000_000)?, "end_time":timestamp(request_end * 1_000_000)?,
-             "content":"Input: request\nOutput: response\nError: ", "truncated":0}
+             "content":"Input: request\nOutput: response\nError: ", "truncated":0, "input_tokens":123, "output_tokens":40, "metric_attributes":{"cache_read_tokens":"12"}, "input_present":1, "output_present":1, "gateway_cost_usd":0.25}
         ])
     };
     assert_eq!(actual["data"], expected);

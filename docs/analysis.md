@@ -67,6 +67,16 @@ To receive new improvement candidates in Slack, configure the optional [Slack fi
 
 The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while analysis is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
 
+## Performance, efficiency and telemetry checks
+
+Open an agent's **Findings → Settings** and enable **Performance**, **Efficiency** or **Telemetry integrity** under **Analysis dimensions**. These checks are opt-in; saved instructions and automatic analysis defaults stay the same
+
+Performance compares the requested work with the root duration and the union of recorded model intervals, including wait before the first model call and after the last. Overlapping model calls are counted once. Time outside recorded model spans is evidence of waiting, not proof of its cause; incomplete trees or invalid timing leave the breakdown unknown
+
+Efficiency receives token and cache counters, the resolved model-call inventory, and matched gateway costs per span. Missing counters and costs stay unknown, including legacy zero values without recorded presence. Parent and child usage are not added together. Telemetry integrity can identify gaps such as missing messages despite token usage, while keeping intentional redaction and unknown capture policy distinct from model failure
+
+Each finding still needs an original evidence quote. Measurements describe the sampled execution and do not establish population rates
+
 ## Connect an OpenAI-compatible endpoint
 
 Use this option for a compatible provider or an optional LiteLLM gateway. Set `LENS_MODEL_API_KEY` to its model credential and replace the example base URL with an address reachable from the Lens server:

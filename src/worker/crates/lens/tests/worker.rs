@@ -744,3 +744,57 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
     assert_eq!(page_calls.load(Ordering::SeqCst), 2);
     assert_eq!(model_calls.load(Ordering::SeqCst), 3);
 }
+
+#[rstest]
+#[tokio::test]
+async fn native_review_receives_measured_evidence_before_the_first_model_call() {
+    let server = MockServer::start().await;
+    let mut claim = fixture();
+    claim["job"]["settings"]["context"] = json!("");
+    claim["job"]["settings"]["checks"] = json!([
+        {"id":"watch_performance", "instruction":"Find slow replies", "enabled":true},
+        {"id":"watch_efficiency", "instruction":"Find excessive usage", "enabled":true},
+        {"id":"watch_telemetry", "instruction":"Find recording gaps", "enabled":false}
+    ]);
+    let claim: wire::Claim = serde_json::from_value(claim).unwrap();
+    let mut sample: wire::Sample =
+        serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
+    sample.executions[0].span_count = 2;
+    let metrics = json!({"input_tokens":104847,"output_tokens":40,"input_present":true,"output_present":true,"model_call":true});
+    let root_metrics = json!({"input_present":true,"output_present":true,"model_call":false});
+    Mock::given(method("GET")).and(path("/replay/lens-test/job-test/content"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"execution":sample.executions[0],"parts":[
+            {"execution_id":"run-test","span_id":"root","parent_span_id":"","name":"assistant","kind":"agent","content":"Input: Say hello briefly\nOutput: Hello","start_time":"2026-01-01 00:00:00","end_time":"2026-01-01 00:01:38.626465","metrics":root_metrics},
+            {"execution_id":"run-test","span_id":"model","parent_span_id":"root","name":"model","kind":"llm","content":"Input: Say hello briefly\nOutput: Hello","start_time":"2026-01-01 00:00:01","end_time":"2026-01-01 00:00:47.065685","metrics":metrics}
+        ]}))).mount(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/progress"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(|request: &Request| {
+            let model: wire::ModelRequest = request.body_json().unwrap();
+            assert_eq!(model.purpose, wire::ModelRequestPurpose::Extract);
+            let supplied: Value = serde_json::from_str(&model.messages[1].content).unwrap();
+            let measurements = &supplied["supplied"]["measurements"];
+            assert_eq!(measurements["timing"]["outside_model_seconds"], 52.56078);
+            assert_eq!(measurements["usage"]["input_tokens"], 104847);
+            assert!(measurements["usage"]["cache_read_tokens"].is_null());
+            assert_eq!(measurements["model_span_ids"], json!(["model"]));
+            let prompt: Value = serde_json::from_str(&model.prompt).unwrap();
+            assert_eq!(prompt["checks"].as_array().unwrap().len(), 2);
+            ResponseTemplate::new(200).set_body_json(
+                json!({"content":json!({"result":{"observations":[]}}).to_string(),"cost":0}),
+            )
+        })
+        .expect(1)
+        .mount(&server)
+        .await;
+    let result = pipeline::analyze(&claim, sample, client(&server))
+        .await
+        .unwrap();
+    assert!(result.error.is_empty());
+    assert_eq!(result.coverage.screened, 1);
+}

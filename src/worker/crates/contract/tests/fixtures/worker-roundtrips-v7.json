@@ -5081,7 +5081,7 @@
       "unexpected": true
     },
     "result": {
-      "error": "unknown field `unexpected`, expected one of `content`, `end_time`, `execution_id`, `kind`, `name`, `parent_span_id`, `span_id`, `start_time`, `truncated`"
+      "error": "unknown field `unexpected`, expected one of `content`, `end_time`, `execution_id`, `kind`, `name`, `metrics`, `parent_span_id`, `span_id`, `start_time`, `truncated`"
     }
   },
   {

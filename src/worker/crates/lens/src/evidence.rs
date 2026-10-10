@@ -19,6 +19,7 @@ pub struct Workspace {
     partial: Arc<Mutex<BTreeSet<String>>>,
     errors: Arc<Mutex<BTreeMap<String, BTreeSet<String>>>>,
     previews: Arc<Mutex<BTreeMap<String, Vec<wire::ReviewSpan>>>>,
+    measurements: Arc<Mutex<BTreeMap<String, crate::measurements::Measurements>>>,
 }
 
 struct Source {
@@ -36,6 +37,7 @@ impl Workspace {
             partial: Arc::default(),
             errors: Arc::default(),
             previews: Arc::default(),
+            measurements: Arc::default(),
         }
     }
 
@@ -69,6 +71,13 @@ impl Workspace {
             .lock()
             .map(|errors| errors.contains_key(execution_id))
             .unwrap_or(true)
+    }
+
+    pub(crate) fn measurements(
+        &self,
+        execution_id: &str,
+    ) -> Option<crate::measurements::Measurements> {
+        self.measurements.lock().ok()?.get(execution_id).cloned()
     }
 
     pub fn previews(&self, execution_id: &str) -> Vec<wire::ReviewSpan> {
@@ -307,11 +316,16 @@ impl Workspace {
 
     pub async fn fingerprint(&self, execution: &wire::Execution) -> Result<String, Error> {
         let mut digest = Sha256::new();
-        digest.update(b"lens-rust-v1\0");
+        digest.update(b"lens-rust-v2\0");
+        let mut parts = Vec::new();
         digest.update(serde_json::to_vec(execution)?);
         let sources = self.sources(execution, &[]);
         futures_util::pin_mut!(sources);
         while let Some(source) = sources.try_next().await? {
+            parts.push(wire::TracePart {
+                content: String::new(),
+                ..source.part.clone()
+            });
             digest.update(serde_json::to_vec(&wire::TracePart {
                 content: String::new(),
                 truncated: false,
@@ -326,6 +340,12 @@ impl Workspace {
             digest.update(content_hash.finalize());
         }
         digest.update([u8::from(self.partial(execution))]);
+        if let Ok(mut measurements) = self.measurements.lock() {
+            measurements.insert(
+                execution.id.clone(),
+                crate::measurements::summarize(execution, &parts, self.partial(execution)),
+            );
+        }
         Ok(format!("{:x}", digest.finalize()))
     }
 

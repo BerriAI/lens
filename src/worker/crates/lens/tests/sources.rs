@@ -177,6 +177,18 @@ async fn source_sampling_and_evidence_preserve_scopes(
             .content
             .contains("Find the missing invoice")
     );
+    assert_eq!(
+        content.parts[0].metrics.as_ref().unwrap().model_call,
+        Some(false)
+    );
+    assert_eq!(
+        content.parts[0].metrics.as_ref().unwrap().gateway_cost_usd,
+        None
+    );
+    assert_eq!(
+        content.parts[0].metrics.as_ref().unwrap().input_tokens,
+        None
+    );
     assert!(!content.partial);
     assert!(content.next_cursor.is_none());
     let quote:Evidence = serde_json::from_value(json!({"execution_id":execution.id,"span_id":content.parts[0].span_id,"quote":"Find the missing invoice"})).unwrap();

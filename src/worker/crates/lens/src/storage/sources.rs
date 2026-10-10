@@ -6,7 +6,7 @@ use lens_contract::{
     investigations::{FindingSource, Lens, Scope},
     worker::{
         Evidence, EvidenceRole, Execution, ExecutionContent, ExecutionSource, LensSettingsSource,
-        MetadataFilter, Sample, TracePart,
+        MetadataFilter, Sample, SpanMetrics, TracePart,
     },
 };
 use litellm_storage_clickhouse::{Query, fetch};
@@ -117,7 +117,40 @@ impl SourceReader {
                 },
             })
             .await?;
-        Ok(content_page(execution, rows))
+        let mut page = content_page(execution, rows);
+        if execution.source == ExecutionSource::Traces
+            && offset.is_none_or(|offset| offset <= 1)
+            && !page.parts.is_empty()
+            && !execution.trace_ref.is_empty()
+        {
+            let store = litellm_traces_clickhouse::ClickHouseTraces::new(
+                self.0.storage.client.clone(),
+                self.0.storage.config.storage().reader().clone(),
+            );
+            let access = litellm_traces::query::named::ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec![execution.team_id.clone()],
+            };
+            if let Ok(Some(trace)) = Box::pin(self.0.storage.reader.get_trace(
+                &store,
+                &access,
+                &execution.trace_id,
+                &execution.trace_ref,
+            ))
+            .await
+            {
+                for part in &mut page.parts {
+                    if let Some(span) = trace.spans.iter().find(|span| span.span_id == part.span_id)
+                        && let Some(metrics) = &mut part.metrics
+                    {
+                        metrics.model_call = Some(span.spend_match.is_some());
+                        metrics.gateway_cost_usd = span.spend;
+                    }
+                }
+            }
+        }
+        Ok(page)
     }
 
     pub async fn verify_evidence(
@@ -363,6 +396,7 @@ fn content_page(execution: &Execution, rows: Vec<LensContentRow>) -> ExecutionCo
     let parts = rows
         .into_iter()
         .map(|row| TracePart {
+            metrics: Some(span_metrics(&row, execution.source)),
             execution_id: execution.id.clone(),
             span_id: row.span_id,
             parent_span_id: row.parent_span_id,
@@ -382,11 +416,85 @@ fn content_page(execution: &Execution, rows: Vec<LensContentRow>) -> ExecutionCo
     }
 }
 
+fn span_metrics(row: &LensContentRow, source: ExecutionSource) -> SpanMetrics {
+    let recorded = |keys: &[&str]| {
+        keys.iter().find_map(|key| {
+            row.metric_attributes
+                .get(*key)
+                .and_then(|value| value.trim().parse::<u64>().ok())
+        })
+    };
+    let known = |normalized, keys: &[&str]| {
+        if normalized > 0 {
+            Some(normalized)
+        } else {
+            recorded(keys).filter(|value| *value == 0)
+        }
+    };
+    SpanMetrics {
+        input_tokens: known(
+            row.input_tokens,
+            &[
+                "gen_ai.usage.input_tokens",
+                "gen_ai.usage.prompt_tokens",
+                "llm.token_count.prompt",
+                "ai.usage.promptTokens",
+                "ai.usage.tokens",
+                "input_tokens",
+            ],
+        ),
+        output_tokens: known(
+            row.output_tokens,
+            &[
+                "gen_ai.usage.output_tokens",
+                "gen_ai.usage.completion_tokens",
+                "llm.token_count.completion",
+                "ai.usage.completionTokens",
+                "output_tokens",
+            ],
+        ),
+        cache_read_tokens: recorded(&[
+            "gen_ai.usage.cache_read.input_tokens",
+            "gen_ai.usage.input_tokens_details.cache_read",
+            "cache_read_tokens",
+        ]),
+        cache_write_tokens: recorded(&[
+            "gen_ai.usage.cache_creation.input_tokens",
+            "gen_ai.usage.input_tokens_details.cache_write",
+            "cache_creation_tokens",
+        ]),
+        input_present: row.input_present,
+        output_present: row.output_present,
+        model_call: (source == ExecutionSource::Requests).then_some(true),
+        gateway_cost_usd: row.gateway_cost_usd,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rstest::{fixture, rstest};
     use serde_json::json;
+
+    #[rstest]
+    #[case::missing(0, json!({}), None, None)]
+    #[case::zero(0, json!({"gen_ai.usage.input_tokens":"0", "cache_read_tokens":"0"}), Some(0), Some(0))]
+    #[case::recorded(104847, json!({}), Some(104847), None)]
+    #[case::malformed(0, json!({"gen_ai.usage.input_tokens":"invalid", "cache_read_tokens":"-1"}), None, None)]
+    fn content_metrics_preserve_unknown_and_recorded_values(
+        #[case] normalized: u64,
+        #[case] attributes: serde_json::Value,
+        #[case] expected: Option<u64>,
+        #[case] cache: Option<u64>,
+    ) {
+        let row: LensContentRow = serde_json::from_value(json!({"span_id":"span", "parent_span_id":"root", "name":"model", "kind":"llm", "start_time":"", "end_time":"", "content":"", "truncated":0, "input_tokens":normalized, "metric_attributes":attributes})).unwrap();
+        let metrics = span_metrics(&row, ExecutionSource::Traces);
+        assert_eq!(metrics.input_tokens, expected);
+        assert_eq!(metrics.output_tokens, None);
+        assert_eq!(metrics.cache_read_tokens, cache);
+        assert_eq!(metrics.gateway_cost_usd, None);
+        assert_eq!(metrics.model_call, None);
+    }
 
     #[fixture]
     fn row() -> LensSampleRow {

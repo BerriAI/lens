@@ -137,7 +137,9 @@ it("should preserve paused settings while saving a model, prompt, frequency, and
   await user.type(within(dialog).getByLabelText("Prompt"), "Find repeated tool errors");
   await user.clear(within(dialog).getByLabelText("Frequency (minutes)"));
   await user.type(within(dialog).getByLabelText("Frequency (minutes)"), "30");
-  const budget = within(dialog).getByRole("spinbutton", { name: "Monthly findings budget (USD)" });
+  const budget = within(dialog).getByRole("spinbutton", {
+    name: "Monthly findings budget (USD)",
+  });
   expect(budget).toBeVisible();
   await user.clear(budget);
   await user.type(budget, "0");
@@ -166,6 +168,53 @@ it("should expose a connection problem and hide editing for read-only viewers", 
   expect(screen.getByText("Waiting for connection")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
   expect(proxy.post).not.toHaveBeenCalled();
+});
+
+it("should save opt-in dimensions from findings settings without replacing saved instructions", async () => {
+  const user = userEvent.setup();
+  const custom = {
+    id: "custom",
+    instruction: "Check response accuracy",
+    enabled: true,
+  };
+  const performance = {
+    id: "watch_performance",
+    instruction: "Flag replies over 20 seconds",
+    enabled: false,
+  };
+  const lens: Lens = {
+    ...initial,
+    settings: { ...initial.settings, checks: [custom, performance] },
+  };
+  proxy.put.mockImplementation(async (_path, request) => ({
+    ...lens,
+    settings: request.body,
+  }));
+  renderWithLens(<AutomaticAnalysis agent={lens.settings.agent_name} lenses={[lens]} ready readOnly={false} />);
+  await user.click(screen.getByRole("button", { name: "Findings settings" }));
+  const dialog = screen.getByRole("dialog", { name: "Findings settings" });
+  expect(within(dialog).getByRole("switch", { name: "performance" })).not.toBeChecked();
+  expect(within(dialog).getByRole("switch", { name: "efficiency" })).not.toBeChecked();
+  expect(within(dialog).getByRole("switch", { name: "telemetry integrity" })).not.toBeChecked();
+  await user.click(within(dialog).getByRole("switch", { name: "performance" }));
+  await user.click(within(dialog).getByRole("switch", { name: "efficiency" }));
+  await user.click(within(dialog).getByRole("switch", { name: "telemetry integrity" }));
+  await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+  await waitFor(() =>
+    expect(proxy.put).toHaveBeenCalledWith(
+      `/lens/${lens.id}`,
+      expect.objectContaining({
+        body: expect.objectContaining({
+          checks: [
+            custom,
+            { ...performance, enabled: true },
+            expect.objectContaining({ id: "watch_efficiency", enabled: true }),
+            expect.objectContaining({ id: "watch_telemetry", enabled: true }),
+          ],
+        }),
+      }),
+    ),
+  );
 });
 
 it("should keep a failed analysis error visible with its next retry time", () => {

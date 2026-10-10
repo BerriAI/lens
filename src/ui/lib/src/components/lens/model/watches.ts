@@ -8,6 +8,33 @@ export interface Watch {
   defaultOn: boolean;
 }
 
+export const analysisDimensions: readonly Watch[] = [
+  {
+    id: "watch_performance",
+    name: "performance",
+    summary: "slow replies and time outside model calls",
+    instruction:
+      "Find runs with excessive latency relative to the requested work, including short replies delayed before or after model calls. Use recorded timing measurements and original task evidence. Distinguish time outside recorded model spans from a proven cause; long coding tasks are not short replies.",
+    defaultOn: false,
+  },
+  {
+    id: "watch_efficiency",
+    name: "efficiency",
+    summary: "oversized context and unnecessary usage",
+    instruction:
+      "Find runs where prompt size, repeated calls, cache use or recorded gateway cost is disproportionate to the task. Use supplied usage measurements and original task evidence. Missing cache or cost values are unknown, never zero; large context alone does not prove waste.",
+    defaultOn: false,
+  },
+  {
+    id: "watch_telemetry",
+    name: "telemetry integrity",
+    summary: "missing or inconsistent trace evidence",
+    instruction:
+      "Find observability gaps that prevent reliable analysis, such as missing messages despite recorded token usage, incomplete span trees or inconsistent telemetry. Distinguish recording limitations and intentional redaction from failed model calls. State unknown capture policy and do not infer missing cost should be available.",
+    defaultOn: false,
+  },
+];
+
 export const watches: readonly Watch[] = [
   {
     id: "watch_unsolved",
@@ -73,6 +100,7 @@ export const watches: readonly Watch[] = [
       "Find runs with malicious or unsafe behavior from the agent or the user: destructive or irreversible actions, deception, leaking secrets or private data, or attempts to bypass instructions or safeguards.",
     defaultOn: false,
   },
+  ...analysisDimensions,
 ];
 
 export function watchChecks(enabled: ReadonlySet<string>): Settings["checks"] {
@@ -89,4 +117,10 @@ export function initialWatches(checks: Settings["checks"] | undefined): Readonly
 
 export function isWatch(check: Settings["checks"][number]): boolean {
   return watches.some((watch) => watch.id === check.id);
+}
+
+export function setAnalysisDimension(checks: Settings["checks"], watch: Watch, enabled: boolean): Settings["checks"] {
+  return checks.some((check) => check.id === watch.id)
+    ? checks.map((check) => (check.id === watch.id ? { ...check, enabled } : check))
+    : [...checks, { id: watch.id, instruction: watch.instruction, enabled }];
 }

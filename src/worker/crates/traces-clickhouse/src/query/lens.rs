@@ -322,6 +322,18 @@ pub struct LensContentRow {
     pub parent_span_id: String,
     pub name: String,
     pub kind: String,
+    #[serde(default, deserialize_with = "super::number::deserialize")]
+    pub input_tokens: u64,
+    #[serde(default, deserialize_with = "super::number::deserialize")]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub metric_attributes: std::collections::BTreeMap<String, String>,
+    #[serde(default, deserialize_with = "super::number::boolean")]
+    pub input_present: bool,
+    #[serde(default, deserialize_with = "super::number::boolean")]
+    pub output_present: bool,
+    #[serde(default, deserialize_with = "super::number::optional_finite")]
+    pub gateway_cost_usd: Option<f64>,
     pub start_time: String,
     pub end_time: String,
     pub content: String,

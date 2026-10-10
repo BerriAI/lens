@@ -16,6 +16,7 @@ import { useAnalysisModels } from "../setup/fields/useAnalysisModels";
 import { analysisModelOptions, modelGate } from "../setup/fields/analysisModels";
 import { useLensRoute } from "../route";
 import type { InvestigatorStatus, Lens, Settings } from "../model/types";
+import { analysisDimensions, setAnalysisDimension } from "../model/watches";
 
 import { InvestigatorAnalysis } from "./InvestigatorAnalysis";
 
@@ -74,6 +75,32 @@ function AnalysisSettings({ lens, onClose }: { lens: Lens; onClose: () => void }
               onChange={(event) => setSettings({ ...settings, context: event.target.value })}
             />
           </div>
+          <fieldset className="space-y-3">
+            <legend className="mb-3 text-sm font-medium">Analysis dimensions</legend>
+            {analysisDimensions.map((watch) => (
+              <div key={watch.id} className="flex items-center justify-between gap-4">
+                <div className="grid gap-1">
+                  <label htmlFor={`analysis-${watch.id}`} className="text-sm font-medium capitalize">
+                    {watch.name}
+                  </label>
+                  <p id={`analysis-${watch.id}-description`} className="text-xs text-muted-foreground">
+                    {watch.summary}
+                  </p>
+                </div>
+                <Switch
+                  id={`analysis-${watch.id}`}
+                  aria-describedby={`analysis-${watch.id}-description`}
+                  checked={settings.checks.some((check) => check.id === watch.id && check.enabled)}
+                  onCheckedChange={(enabled) =>
+                    setSettings({
+                      ...settings,
+                      checks: setAnalysisDimension(settings.checks, watch, enabled),
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </fieldset>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="analysis-frequency" className="text-sm font-medium">

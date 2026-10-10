@@ -5,6 +5,18 @@ WITH greatest(toInt64({offset:UInt32})-1,1) AS content_offset,
 SELECT * FROM (
     SELECT SpanId AS span_id, ParentSpanId AS parent_span_id, SpanName AS name,
         ObservationType AS kind,
+        InputTokens AS input_tokens, OutputTokens AS output_tokens,
+        mapFilter((key, value) -> key IN (
+            'gen_ai.usage.input_tokens', 'gen_ai.usage.prompt_tokens', 'gen_ai.usage.output_tokens',
+            'gen_ai.usage.completion_tokens', 'llm.token_count.prompt', 'llm.token_count.completion',
+            'ai.usage.promptTokens', 'ai.usage.completionTokens', 'ai.usage.tokens',
+            'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_creation_tokens',
+            'gen_ai.usage.cache_read.input_tokens', 'gen_ai.usage.cache_creation.input_tokens',
+            'gen_ai.usage.input_tokens_details.cache_read', 'gen_ai.usage.input_tokens_details.cache_write'
+        ), SpanAttributes) AS metric_attributes,
+        trimBoth(Input) NOT IN ('', '[]', '{}', 'null') AS input_present,
+        trimBoth(Output) NOT IN ('', '[]', '{}', 'null') AS output_present,
+        CAST(NULL, 'Nullable(Float64)') AS gateway_cost_usd,
         toString(Timestamp, 'UTC') AS start_time,
         toString(addNanoseconds(Timestamp, Duration), 'UTC') AS end_time,
         multiIf({offset:UInt32}=0, concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage),
@@ -28,6 +40,14 @@ SELECT * FROM (
 UNION ALL
 SELECT * FROM (
     SELECT request_id AS span_id, '' AS parent_span_id, model AS name, 'llm' AS kind,
+        prompt_tokens AS input_tokens, completion_tokens AS output_tokens,
+        mapFilter((key, value) -> value != '', map(
+            'cache_read_tokens', if(cache_read_tokens > 0, toString(cache_read_tokens), ''),
+            'cache_creation_tokens', if(cache_write_tokens > 0, toString(cache_write_tokens), '')
+        )) AS metric_attributes,
+        trimBoth(messages) NOT IN ('', '[]', '{}', 'null') AS input_present,
+        trimBoth(response) NOT IN ('', '[]', '{}', 'null') AS output_present,
+        spend AS gateway_cost_usd,
         toString(start_time, 'UTC') AS start_time,
         toString(end_time, 'UTC') AS end_time,
         multiIf({offset:UInt32}=0, concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),
