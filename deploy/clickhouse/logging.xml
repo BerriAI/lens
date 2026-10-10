@@ -1,0 +1,6 @@
+<clickhouse>
+    <logger>
+        <console>true</console>
+        <console_log_level>warning</console_log_level>
+    </logger>
+</clickhouse>
