@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { answerBlocks, safeAnswer, prose, words } from "./slack.js";
-import { clickhouseConnection } from "./investigator-state.js";
+import { clickhouseConnection } from "@litellm/lens-agent/state";
 
 test("finding followups retain all numbered verified references while ordinary answers stay compact", () => {
   const sources = Array.from({ length: 4 }, (_, i) => ({

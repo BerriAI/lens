@@ -1,38 +1,13 @@
-import { redact } from "./investigator-evidence.js";
+import { redact } from "@litellm/lens-agent/evidence";
 
-export interface Answer {
-  readonly title: string;
-  readonly summary: string;
-  readonly sources: readonly { label: string; url: string }[];
-  readonly opportunities?: readonly Opportunity[];
-}
-export type Category = "Performance" | "Agent quality" | "Reliability";
-export interface Frequency {
-  readonly category: Category;
-  readonly label: string;
-  readonly count?: number;
-  readonly total?: number;
-  readonly title?: string;
-  readonly unit?: string;
-  readonly affected_trace_ids?: readonly string[];
-}
-export interface MeasuredFrequency {
-  readonly count: number;
-  readonly total: number;
-  readonly label: string;
-  readonly title: string;
-  readonly unit: string;
-  readonly support?: boolean;
-}
-export interface Opportunity {
-  readonly category: Category;
-  readonly summary: string;
-  readonly impact: number;
-  readonly frequency_metric: string;
-  readonly metric_title?: string;
-  readonly sources: readonly { label: string; url: string }[];
-  readonly frequency?: MeasuredFrequency;
-}
+import type { Answer, Category, Frequency } from "@litellm/lens-agent/models";
+export type {
+  Answer,
+  Category,
+  Frequency,
+  Opportunity,
+  MeasuredFrequency,
+} from "@litellm/lens-agent/models";
 export const categories: readonly Category[] = [
   "Performance",
   "Agent quality",

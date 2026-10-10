@@ -1,18 +1,25 @@
 import { isIP } from "node:net";
 
-export interface Config {
+import type { AgentConfig } from "@litellm/lens-agent/config";
+import type { InvestigatorOptions } from "@litellm/lens-agent/investigator";
+import { clickhouseConnection } from "@litellm/lens-agent/state";
+export interface Config extends AgentConfig {
   readonly botToken: string;
   readonly appToken: string;
   readonly workspace: string;
   readonly channel: string;
-  readonly agent: string;
-  readonly service?: string;
-  readonly publicUrl: string;
-  readonly apiUrl: string;
-  readonly lensKey: string;
-  readonly openaiKey: string;
-  readonly openaiBaseUrl: string;
-  readonly model: string;
+}
+export function agentConfig(config: Config): AgentConfig {
+  return {
+    agent: config.agent,
+    service: config.service,
+    publicUrl: config.publicUrl,
+    apiUrl: config.apiUrl,
+    lensKey: config.lensKey,
+    openaiKey: config.openaiKey,
+    openaiBaseUrl: config.openaiBaseUrl,
+    model: config.model,
+  };
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -92,5 +99,29 @@ export function configFrom(env: NodeJS.ProcessEnv): Config | undefined {
       true,
     ),
     model: env.LENS_SLACK_MODEL?.trim() || "gpt-6-luna",
+  };
+}
+
+export function investigatorOptions(
+  config: Config,
+  env: NodeJS.ProcessEnv,
+): InvestigatorOptions | undefined {
+  if (env.LENS_INVESTIGATOR_ENABLED !== "true") return undefined;
+  const repository = required(env, "LENS_INVESTIGATOR_REPOSITORY");
+  const clientId = required(env, "LENS_GITHUB_CLIENT_ID");
+  const key = required(env, "LENS_GITHUB_PRIVATE_KEY");
+  const dailyLimit = Number(env.LENS_INVESTIGATOR_DAILY_RUN_LIMIT ?? "144");
+  if (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > 144)
+    throw new Error("Invalid investigator daily limit");
+  return {
+    repository,
+    clientId,
+    key,
+    dailyLimit,
+    model: env.LENS_INVESTIGATOR_MODEL?.trim() || "gpt-6-astra",
+    scope: [config.workspace, config.channel, config.agent, repository],
+    stateConnection: clickhouseConnection(env),
+    stateDatabase: env.CLICKHOUSE_DATABASE || "lens",
+    knownFindings: env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
   };
 }

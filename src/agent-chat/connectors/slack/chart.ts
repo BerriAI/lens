@@ -26,7 +26,7 @@ export interface ChartDestination {
 }
 
 const fontFile = fileURLToPath(
-  new URL("../assets/LensSans.ttf", import.meta.url),
+  new URL("../../../assets/LensSans.ttf", import.meta.url),
 );
 const purple = "#4220ed";
 const gray = "#80808b";

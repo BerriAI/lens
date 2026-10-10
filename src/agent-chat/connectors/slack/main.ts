@@ -1,8 +1,9 @@
 import { App, LogLevel } from "@slack/bolt";
-import { responder } from "./agent.js";
+import { replyAgent } from "./reply.js";
 import { Chat } from "./chat.js";
-import { configFrom } from "./config.js";
-import { startInvestigator } from "./investigator.js";
+import { configFrom, agentConfig, investigatorOptions } from "./config.js";
+import { startInvestigator } from "@litellm/lens-agent/investigator";
+import { postCandidate } from "./findings.js";
 import { answerBlocks } from "./slack.js";
 import { prepareChart, renderChartPng } from "./chart.js";
 import { updateWithChart } from "./slack-transport.js";
@@ -52,7 +53,7 @@ async function main() {
   );
   const chat = new Chat(
     config,
-    responder(config),
+    replyAgent(config),
     async (channel, thread, answer) => {
       const measured = answer.opportunities?.find((item) => item.frequency);
       if (answer.opportunities?.length && !measured?.frequency)
@@ -164,12 +165,21 @@ async function main() {
   await app.start();
   console.info("Slack mention agent connected");
   try {
-    stopInvestigator = startInvestigator(
-      config,
-      app.client,
-      process.env,
-      registry,
-    );
+    const options = investigatorOptions(config, process.env);
+    if (options)
+      stopInvestigator = startInvestigator(
+        agentConfig(config),
+        options,
+        (candidate, sample, source) =>
+          postCandidate(
+            app.client,
+            config,
+            candidate,
+            sample,
+            source,
+            registry,
+          ),
+      );
   } catch {
     console.error(
       "Lens investigator configuration is invalid; mention chat remains available",

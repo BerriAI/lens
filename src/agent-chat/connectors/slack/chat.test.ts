@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Chat, type Mention } from "./chat.js";
 import { configFrom, localApiUrl, type Config } from "./config.js";
-import type { Turn } from "./agent.js";
+import type { Turn } from "@litellm/lens-agent/models";
 
 export const config: Config = {
   botToken: "bot-test",

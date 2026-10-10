@@ -1,13 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  currentRequest,
-  Evidence,
-  redact,
-  type Sample,
-} from "./investigator-evidence.js";
+import { currentRequest, Evidence, redact, type Sample } from "./evidence.js";
 import { LensClient } from "./lens.js";
-import type { Config } from "./config.js";
+import type { AgentConfig as Config } from "./config.js";
 
 test("plain token and spaced API key labels redact pasted credentials in incoming messages and trace evidence", () => {
   for (const text of [

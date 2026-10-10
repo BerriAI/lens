@@ -8,9 +8,9 @@ import {
   type FindingThread,
 } from "./threads.js";
 import type { Config } from "./config.js";
-import type { Snapshot, StateStore } from "./investigator-state.js";
-import type { Turn } from "./agent.js";
-import type { Sample } from "./investigator-evidence.js";
+import type { Snapshot, StateStore } from "@litellm/lens-agent/state";
+import type { Turn } from "@litellm/lens-agent/models";
+import type { Sample } from "@litellm/lens-agent/evidence";
 
 const config = {
   workspace: "TTEST",
