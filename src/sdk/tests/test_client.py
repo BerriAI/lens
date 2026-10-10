@@ -14,7 +14,7 @@ from named_agent import handler
 
 from lens import Lens
 from lens.config import Execution
-from lens.errors import ConfigurationError, GateFailed
+from lens.errors import ApiFailure, ConfigurationError, GateFailed
 
 
 @pytest.fixture
@@ -41,6 +41,7 @@ def configure(root: Path, endpoint: str, monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("NAMED_AGENT_KEY", "agent-test-credential")
     monkeypatch.setenv("LENS_VERSION", "deployed-build")
     monkeypatch.setenv("LENS_BRANCH", "topic")
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
 def test_named_client_uses_saved_mapping_and_separate_credentials(named_server, tmp_path, monkeypatch):
@@ -125,6 +126,18 @@ def test_named_client_explicit_build_context_without_identity_runs_fresh(named_s
     assert first.total == second.total == 3
 
 
+def test_explicit_missing_baseline_rejects_before_invoking_agent(named_server, tmp_path, monkeypatch):
+    endpoint, requests = named_server
+    configure(tmp_path, endpoint, monkeypatch)
+    with pytest.raises(ApiFailure) as error:
+        Lens(endpoint, "lens-dev").evals.run(
+            "named-pass", execution=Execution("candidate-build", "topic", baseline_run_id="missing")
+        )
+    assert error.value.status == 422
+    observed = tuple(requests.get_nowait() for _ in range(requests.qsize()))
+    assert not any(call[1] == "/invoke" for call in observed)
+
+
 async def test_named_sync_api_rejects_active_event_loop():
     with pytest.raises(ConfigurationError, match="arun"):
         Lens("http://127.0.0.1:1", "not-sent").evals.run("named-pass")
@@ -183,7 +196,9 @@ def test_saved_python_evaluation_records_local_outputs_and_server_baseline(named
         baseline: Final = evaluation.finish()
         baseline.assert_passed()
     assert evaluation.report is not None
-    with client.evals.test("named-python", execution=Execution("candidate-build", "topic")) as candidate:
+    with client.evals.test(
+        "named-python", execution=Execution("candidate-build", "topic", baseline_run_id=baseline.run.id)
+    ) as candidate:
         for case in candidate.cases:
             candidate.record(case, output="Improved answer", session_id=f"pass-{case.id}")
         report: Final = candidate.finish()
@@ -196,6 +211,12 @@ def test_saved_python_evaluation_records_local_outputs_and_server_baseline(named
     observed: Final = tuple(requests.get_nowait() for _ in range(requests.qsize()))
     assert not any(call[1] in {"/invoke", "/fail"} for call in observed)
     assert all(json.loads(call[3]).get("agent_io") is None for call in observed if call[1] == "/lens/evals/runs")
+    candidate_request: Final = next(
+        json.loads(call[3])
+        for call in observed
+        if call[1] == "/lens/evals/runs" and json.loads(call[3])["version"] == "candidate-build"
+    )
+    assert candidate_request["baseline_run_id"] == baseline.run.id
 
 
 def test_saved_python_context_records_execution_errors_without_hiding_original_exception(named_server):

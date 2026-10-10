@@ -27,6 +27,7 @@ fn request() -> CreateEvalRun {
         dataset_id: "dataset".into(),
         revision: 7,
         case_ids: None,
+        baseline_run_id: None,
         version: "sha-candidate".into(),
         branch: "main".into(),
         pr: None,
@@ -682,6 +683,105 @@ enum Mismatch {
 
 #[rstest]
 #[tokio::test]
+async fn explicit_baseline_survives_other_completion_and_reload(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+) {
+    let store = EvalStore::new(database.store.clone());
+    let peer = EvalStore::new(database.independent());
+    let now = Utc::now();
+    let selected = create(
+        &store,
+        "team",
+        CreateEvalRun {
+            version: "base-a".into(),
+            ..request.clone()
+        },
+        cases.clone(),
+        now,
+    )
+    .await;
+    let selected = complete(&store, &selected, now).await;
+    let concurrent = create(
+        &peer,
+        "team",
+        CreateEvalRun {
+            version: "base-b".into(),
+            ..request.clone()
+        },
+        cases.clone(),
+        now,
+    )
+    .await;
+    let candidate = create(
+        &store,
+        "team",
+        CreateEvalRun {
+            branch: "feature-a".into(),
+            baseline_run_id: Some(selected.run.id.clone()),
+            ..request
+        },
+        cases,
+        now,
+    )
+    .await;
+    let concurrent = complete(&peer, &concurrent, now + Duration::seconds(1)).await;
+    let restored = peer.get("team", &candidate.run.id).await.unwrap();
+    assert_eq!(peer.baseline(&restored).await.unwrap(), Some(selected));
+    let legacy = StoredRun {
+        request: CreateEvalRun {
+            baseline_run_id: None,
+            ..restored.request.clone()
+        },
+        ..restored
+    };
+    assert_eq!(peer.baseline(&legacy).await.unwrap(), Some(concurrent));
+}
+
+#[rstest]
+#[case::missing("missing", true)]
+#[case::empty("", true)]
+#[case::whitespace(" ", true)]
+#[case::running("running", false)]
+#[tokio::test]
+async fn explicit_baseline_rejects_unavailable_runs_before_creating_candidate(
+    #[future(awt)] database: Database,
+    request: CreateEvalRun,
+    cases: Vec<StoredCase>,
+    #[case] id: &str,
+    #[case] missing: bool,
+) {
+    let store = EvalStore::new(database.store.clone());
+    let now = Utc::now();
+    let existing = create(&store, "team", request.clone(), cases.clone(), now).await;
+    let candidate = CreateEvalRun {
+        baseline_run_id: Some(if missing {
+            id.to_owned()
+        } else {
+            existing.run.id
+        }),
+        ..request
+    };
+    assert!(matches!(
+        store
+            .create("team", candidate, cases, None, "https://lens.test", now)
+            .await,
+        Err(EvalError::InvalidRequest(_))
+    ));
+    assert_eq!(
+        store
+            .state()
+            .keys("eval-run/", "", 100)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[rstest]
+#[tokio::test]
 async fn scoring_leases_have_one_owner_and_fence_an_expired_worker(
     #[future(awt)] database: Database,
     request: CreateEvalRun,
@@ -785,6 +885,7 @@ async fn baseline_excludes_incompatible_runs(
     request: CreateEvalRun,
     cases: Vec<StoredCase>,
     #[case] mismatch: Mismatch,
+    #[values(false, true)] explicit: bool,
 ) {
     let store = EvalStore::new(database.store.clone());
     let now = Utc::now();
@@ -841,8 +942,24 @@ async fn baseline_excludes_incompatible_runs(
     };
     let baseline = create(&store, team, incompatible, baseline_cases, now).await;
     complete(&store, &baseline, now).await;
-    let candidate = create(&store, "team", request, cases, now).await;
-    assert_eq!(store.baseline(&candidate).await.unwrap(), None);
+    let result = store
+        .create(
+            "team",
+            CreateEvalRun {
+                baseline_run_id: explicit.then_some(baseline.run.id),
+                ..request
+            },
+            cases,
+            None,
+            "https://lens.test",
+            now,
+        )
+        .await;
+    if explicit {
+        assert!(matches!(result, Err(EvalError::InvalidRequest(_))));
+    } else {
+        assert_eq!(store.baseline(&result.unwrap()).await.unwrap(), None);
+    }
 }
 
 #[rstest]

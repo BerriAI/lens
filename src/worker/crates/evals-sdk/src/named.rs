@@ -64,6 +64,7 @@ pub(crate) async fn prepare(
         dataset_id: dataset.id,
         revision: dataset.revision,
         case_ids: Some(cases.iter().map(|case| case.id.clone()).collect()),
+        baseline_run_id: execution.baseline_run_id.clone(),
         version: execution.version.clone(),
         branch: execution.branch.clone(),
         pr: execution.pr,
