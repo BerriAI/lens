@@ -43,7 +43,7 @@ export async function postCandidate(
   const category =
     candidate.category === "Agent quality" ? "Quality" : candidate.category;
   const title =
-    `${candidate.kind === "opportunity" ? "Feature Request: " : `Bug Fix: ${category} — `}${prose(candidate.title)}`.slice(
+    `${candidate.kind === "opportunity" ? `Feature Request: ${config.agent} · ` : `Bug Fix: ${config.agent} · ${category} — `}${prose(candidate.title)}`.slice(
       0,
       150,
     );
@@ -95,14 +95,14 @@ export async function postCandidate(
         color: "#8058F4",
         blocks: [
           markdown(
-            `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · ${status}*\n*Category:* ${category}\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
+            `*<${verified.native.url}|Finding #${escapeSlack(verified.native.findingId.replace(/^agent-/, "").slice(0, 8))}> · ${status}*\n*Agent:* ${escapeSlack(config.agent)}\n*Category:* ${category}\n*Impact Score:* ${candidate.impact}/10 (assessment)\n*Helps Users:* ${users.length ? users.map(escapeSlack).join(", ") : "user identity unavailable"}${links ? ` · ${links}` : ""}\n*${verified.frequency.support ? "Observed request support" : "Frequency"}:* ${escapeSlack(frequency)}\n*What this can improve:* If validated, ${escapeSlack(words(prose(candidate.outcome), 25))}`,
           ),
           {
             type: "context" as const,
             elements: [
               {
                 type: "mrkdwn" as const,
-                text: `${icon} ${category} · ${status} · Confidence ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment)`,
+                text: `${icon} ${escapeSlack(config.agent)} · ${category} · ${status} · Confidence ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment)`,
                 verbatim: true,
               },
             ],
