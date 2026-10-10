@@ -74,13 +74,13 @@ function fixtureApi(flags: SignalFlag[] = [flag]) {
   } satisfies TracesApi;
 }
 
-function Harness({ api, flags = [flag] }: { api: TracesApi; flags?: SignalFlag[] }) {
+function Harness({ api, flags = [flag], runs = [trace] }: { api: TracesApi; flags?: SignalFlag[]; runs?: Trace[] }) {
   const routing = useOpenTraceRouting();
-  const ref = traceRefOf(trace.summary);
+  const refs = runs.map((run) => traceRefOf(run.summary));
   return (
     <TracesApiContext.Provider value={api}>
       <Inspector.Root
-        items={[ref]}
+        items={refs}
         itemKey={traceKey}
         selected={routing.trace}
         onSelectedChange={routing.openTrace}
@@ -88,9 +88,9 @@ function Harness({ api, flags = [flag] }: { api: TracesApi; flags?: SignalFlag[]
         storageKey="signal-test"
       >
         <AgentTracesTable
-          traces={[trace.summary]}
+          traces={runs.map((run) => run.summary)}
           findings={new Map()}
-          signals={new Map([[traceKey(ref), { status: "ready", signals: result(flags) }]])}
+          signals={new Map(refs.map((ref) => [traceKey(ref), { status: "ready", signals: result(flags) }]))}
           showSignals
           onOpenSignal={(run, signal) => routing.openSignal(traceRefOf(run), signal)}
           isLoading={false}
@@ -131,6 +131,105 @@ describe("signal evidence navigation", () => {
     localStorage.clear();
   });
 
+  it("opens an ordinary flagged row on the first signal with evidence and highlights its exact excerpt", async () => {
+    const flags = [{ ...flag, signal_id: "legacy", name: "Legacy detection", evidence: undefined }, flag];
+    const api = fixtureApi(flags);
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<Harness api={api} flags={flags} />, { onUrlUpdate });
+
+    await userEvent.click(screen.getByTestId("agent-trace-row"));
+
+    const evidence = await screen.findByRole("region", { name: "Signal evidence" });
+    expect(within(evidence).getByRole("heading")).toHaveTextContent(flag.name);
+    expect(within(evidence).getByRole("mark").textContent).toBe(flag.evidence?.quote);
+    expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", step.span_id);
+    expect(await screen.findByRole("region", { name: "Output" })).toHaveTextContent("Cannot open the file");
+    await waitFor(() => expect(lastUrl(onUrlUpdate).get("signal")).toBe(flag.signal_id));
+    expect(lastUrl(onUrlUpdate).get("span")).toBe(step.span_id);
+    expect(lastUrl(onUrlUpdate).toString()).not.toContain("Permission");
+  });
+
+  it("preserves a direct step link when the trace also has signal evidence", async () => {
+    renderWithProviders(<Harness api={fixtureApi()} />, {
+      searchParams: `?trace=${trace.summary.trace_id}&span=${root.span_id}`,
+    });
+
+    await within(await screen.findByRole("banner")).findByRole("button", { name: "View Tool failure evidence" });
+
+    expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", root.span_id);
+    expect(screen.queryByRole("region", { name: "Signal evidence" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a manually selected step when signal evidence arrives later", async () => {
+    const pending = Promise.withResolvers<TraceSignals[]>();
+    const api = fixtureApi();
+    api.signals.mockReturnValue(pending.promise);
+    renderWithProviders(<Harness api={api} />);
+    await userEvent.click(screen.getByTestId("agent-trace-row"));
+    await screen.findByRole("complementary", { name: "Span details" });
+    await userEvent.click(screen.getByRole("treeitem", { name: /Nested agent/ }));
+
+    await act(() => pending.resolve([result([flag])]));
+    await within(screen.getByRole("banner")).findByRole("button", { name: "View Tool failure evidence" });
+
+    expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", branch.span_id);
+    expect(screen.queryByRole("region", { name: "Signal evidence" })).not.toBeInTheDocument();
+  });
+
+  it.each(["pointer", "keyboard"])("keeps details closed by %s when signal evidence arrives later", async (input) => {
+    const pending = Promise.withResolvers<TraceSignals[]>();
+    const api = fixtureApi();
+    api.signals.mockReturnValue(pending.promise);
+    renderWithProviders(<Harness api={api} />);
+    await userEvent.click(screen.getByTestId("agent-trace-row"));
+    await screen.findByRole("complementary", { name: "Span details" });
+    if (input === "pointer") await userEvent.click(screen.getByRole("button", { name: "Close details" }));
+    else fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("complementary", { name: "Span details" })).not.toBeInTheDocument();
+
+    await act(() => pending.resolve([result([flag])]));
+    await within(screen.getByRole("banner")).findByRole("button", { name: "View Tool failure evidence" });
+
+    expect(screen.queryByRole("complementary", { name: "Span details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Signal evidence" })).not.toBeInTheDocument();
+  });
+
+  it("keeps dismissed evidence closed after refetch and initializes it again when the run is reopened", async () => {
+    const api = fixtureApi();
+    renderWithProviders(<Harness api={api} />);
+    await userEvent.click(screen.getByTestId("agent-trace-row"));
+    const evidence = await screen.findByRole("region", { name: "Signal evidence" });
+    await userEvent.click(within(evidence).getByRole("button", { name: "Dismiss signal evidence" }));
+
+    await act(() => testQueryClient.invalidateQueries({ queryKey: ["traceSignals"] }));
+
+    expect(screen.queryByRole("region", { name: "Signal evidence" })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", step.span_id);
+    await userEvent.click(screen.getByRole("button", { name: "Back to runs" }));
+    await userEvent.click(screen.getByTestId("agent-trace-row"));
+    expect((await screen.findByRole("mark")).textContent).toBe(flag.evidence?.quote);
+  });
+
+  it("initializes the next run after evidence was dismissed in the previous run", async () => {
+    const next = { ...trace, summary: { ...trace.summary, trace_id: "next-run", trace_ref: "next-ref" } };
+    const api = fixtureApi();
+    api.trace.mockImplementation(async (traceId) => (traceId === next.summary.trace_id ? next : trace));
+    api.signals.mockImplementation(async (traces) => traces.map((identity) => ({ ...result([flag]), ...identity })));
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<Harness api={api} runs={[trace, next]} />, { onUrlUpdate });
+    await userEvent.click(screen.getAllByTestId("agent-trace-row")[0]);
+    const evidence = await screen.findByRole("region", { name: "Signal evidence" });
+    await userEvent.click(within(evidence).getByRole("button", { name: "Dismiss signal evidence" }));
+    expect(screen.queryByRole("mark")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByTestId("agent-trace-row")[1]);
+
+    expect((await screen.findByRole("mark")).textContent).toBe(flag.evidence?.quote);
+    await waitFor(() => expect(lastUrl(onUrlUpdate).get("trace")).toBe(next.summary.trace_id));
+    expect(lastUrl(onUrlUpdate).get("signal")).toBe(flag.signal_id);
+    expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", step.span_id);
+  });
+
   it("opens a table signal on its step and highlights the exact retained excerpt without putting text in the URL", async () => {
     const api = fixtureApi();
     const onUrlUpdate = vi.fn();
@@ -154,9 +253,13 @@ describe("signal evidence navigation", () => {
   });
 
   it("reveals a collapsed filtered step, reopens closed details, and clears evidence when another step is selected", async () => {
-    renderWithProviders(<Harness api={fixtureApi()} />);
-    await userEvent.click(screen.getByTestId("agent-trace-row"));
+    renderWithProviders(<Harness api={fixtureApi()} />, {
+      searchParams: `?trace=${trace.summary.trace_id}&span=${root.span_id}`,
+    });
     await screen.findByRole("complementary", { name: "Span details" });
+    await userEvent.click(
+      within(screen.getByRole("treeitem", { name: /Nested agent/ })).getByRole("button", { name: "Collapse" }),
+    );
     expect(screen.queryByRole("treeitem", { name: /Check result/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Search steps" }), {
       target: { value: "no matching step" },
@@ -218,7 +321,7 @@ describe("signal evidence navigation", () => {
     expect(screen.queryByRole("mark")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back to runs" }));
     await userEvent.click(screen.getByTestId("agent-trace-row"));
-    await screen.findByRole("complementary", { name: "Span details" });
-    expect(screen.queryByRole("region", { name: "Signal evidence" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Signal evidence" })).toHaveTextContent(message);
+    expect(screen.queryByRole("mark")).not.toBeInTheDocument();
   });
 });

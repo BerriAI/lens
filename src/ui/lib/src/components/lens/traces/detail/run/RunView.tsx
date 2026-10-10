@@ -2,7 +2,7 @@
 
 import { QueryErrorResetBoundary, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 
 import { LoadingState } from "../../../../shared/LoadingState";
@@ -116,6 +116,32 @@ function LoadedRun({
   const traceQuery = useSuspenseInfiniteQuery(traceQueryOptions);
   const signalState = useTraceSignalState(accessToken, { trace_id: traceId, trace_ref: traceRef }, showSignals);
   const signals = flaggedSignals(signalState?.status === "ready" ? signalState.signals : undefined);
+  const defaultSignalPending = useRef(true);
+  useEffect(() => {
+    if (switching || !showSignals || !defaultSignalPending.current) return;
+    if (
+      selection.spanId ||
+      selection.signalId ||
+      selection.view !== "steps" ||
+      selection.spanTab !== "content" ||
+      selection.stepQuery ||
+      selection.errorsOnly
+    ) {
+      defaultSignalPending.current = false;
+      return;
+    }
+    const signal = signals.find((flag) => flag.evidence) ?? signals[0];
+    if (signal) {
+      defaultSignalPending.current = false;
+      selection.selectSignal(signal);
+      return;
+    }
+    const cancelDefaultSignal = () => {
+      defaultSignalPending.current = false;
+    };
+    document.addEventListener("keydown", cancelDefaultSignal, true);
+    return () => document.removeEventListener("keydown", cancelDefaultSignal, true);
+  }, [selection, showSignals, signals, switching]);
   const selectedSignal = signals.find((signal) => signal.signal_id === selection.signalId);
   const focusedSelection = selection.signalId
     ? { ...selection, spanId: selectedSignal?.evidence?.span_id ?? null }
@@ -181,6 +207,9 @@ function LoadedRun({
   return (
     <Tabs
       value={selection.view}
+      onPointerDownCapture={() => {
+        defaultSignalPending.current = false;
+      }}
       onValueChange={(value) => selection.setView(value as RunSelection["view"])}
       className={cn(
         "@container/trace flex flex-1 flex-col gap-0 overflow-hidden bg-background",
