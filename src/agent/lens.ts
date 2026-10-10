@@ -150,7 +150,7 @@ export class LensClient {
       return { ...item, trace_ref: trace.trace_ref };
     });
     const description = [
-      `Findings V2 · ${candidate.kind === "opportunity" ? "Feature" : "Bug Fix"} · ${candidate.category}`,
+      `Findings V2 · ${candidate.kind === "opportunity" ? "Feature Request" : "Bug Fix"} · ${candidate.category}`,
       `Observed: ${candidate.observation}`,
       `Impact: ${candidate.impact}/10 (assessment). Confidence: ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment).`,
       `${frequency.support ? "Observed request support" : "Frequency"}: ${frequency.count}/${frequency.total} ${frequency.unit}. ${frequency.label}`,
