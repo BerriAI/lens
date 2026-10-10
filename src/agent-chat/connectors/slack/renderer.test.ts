@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { postCandidate } from "./findings.js";
-import type { VerifiedCandidate } from "@litellm/lens-agent/findings";
+import type { PersistedCandidate } from "@litellm/lens-agent/findings";
 import type { Sample } from "@litellm/lens-agent/evidence";
 import type { Config } from "./config.js";
 
@@ -9,8 +9,15 @@ test("a proposed issue has its stable number, status border and private chart in
   const messages: Record<string, unknown>[] = [];
   const updates: Record<string, unknown>[] = [];
   const uploads: Record<string, unknown>[] = [];
-  const candidate: VerifiedCandidate = {
+  const candidate: PersistedCandidate = {
     issueNumber: 7,
+    native: {
+      lensId: "lens1",
+      findingId: "agent-" + "a".repeat(64),
+      url:
+        "https://lens.example.com/?tab=findings&issue=lens1:agent-" +
+        "a".repeat(64),
+    },
     fingerprint: "fingerprint",
     evidenceHash: "hash",
     evidenceLinks: ["https://lens.example.com/?trace=one"],
@@ -90,7 +97,8 @@ test("a proposed issue has its stable number, status border and private chart in
   const first = JSON.stringify(updates[0]);
   assert(
     first.includes("#8058F4") &&
-      first.includes("Lens Issue #7") &&
+      first.includes("Finding #aaaaaaaa") &&
+      first.includes(candidate.native.url) &&
       first.includes("Proposed"),
   );
   assert(

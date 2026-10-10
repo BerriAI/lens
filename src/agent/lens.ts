@@ -1,6 +1,9 @@
 import { z } from "zod";
-import { Evidence, redact } from "./evidence.js";
+import { Evidence, redact, type Sample } from "./evidence.js";
 import type { AgentConfig as Config } from "./config.js";
+import type { VerifiedCandidate } from "./findings.js";
+import type { NativeFinding } from "./models.js";
+import type { provenance } from "./investigator.js";
 
 const count = z.number().int().nonnegative();
 export const traceSchema = z.object({
@@ -86,10 +89,21 @@ export class LensClient {
   }
 
   async get(path: string, signal: AbortSignal): Promise<unknown> {
-    const timeout = path.startsWith("/v1/traces") ? 60_000 : 10_000;
+    return this.request(path, signal);
+  }
+
+  private async request(
+    path: string,
+    signal: AbortSignal,
+    body?: object,
+  ): Promise<unknown> {
+    const timeout = path.startsWith("/v1/traces") || body ? 60_000 : 10_000;
     const response = await this.fetcher(`${this.config.apiUrl}${path}`, {
+      method: body ? "POST" : "GET",
+      ...(body ? { body: JSON.stringify(body) } : {}),
       headers: {
         Authorization: `Bearer ${this.config.lensKey}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
         ...(path.startsWith("/lens/evals/") ? { "X-Lens-Contract": "2" } : {}),
       },
       redirect: "error",
@@ -105,6 +119,84 @@ export class LensClient {
       chunks.push(chunk);
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  }
+
+  async persistFinding(
+    verified: VerifiedCandidate,
+    sample: Pick<Sample, "traces">,
+    source: z.infer<typeof provenance>,
+    signal: AbortSignal,
+  ): Promise<NativeFinding> {
+    if (!/^[a-f0-9]{64}$/.test(verified.fingerprint))
+      throw new Error("Invalid finding fingerprint");
+    const available = lenses.parse(await this.get("/lens", signal)).lenses;
+    const targets = available.filter(
+      (lens) =>
+        lens.settings.agent_name === this.config.agent &&
+        (!this.config.findingLensId || lens.id === this.config.findingLensId),
+    );
+    if (targets.length !== 1)
+      throw new Error(
+        "Configure LENS_FINDINGS_LENS_ID for one matching native Lens",
+      );
+    const lensId = targets[0]!.id;
+    const candidate = verified.candidate;
+    const frequency = verified.frequency;
+    if (!frequency) throw new Error("Native finding needs verified frequency");
+    const evidence = candidate.evidence.map((item) => {
+      const trace = sample.traces.find((row) => row.trace_id === item.trace_id);
+      if (!trace?.trace_ref)
+        throw new Error("Finding evidence needs an exact trace reference");
+      return { ...item, trace_ref: trace.trace_ref };
+    });
+    const description = [
+      `Findings V2 · ${candidate.kind === "opportunity" ? "Feature" : "Bug Fix"} · ${candidate.category}`,
+      `Observed: ${candidate.observation}`,
+      `Impact: ${candidate.impact}/10 (assessment). Confidence: ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment).`,
+      `${frequency.support ? "Observed request support" : "Frequency"}: ${frequency.count}/${frequency.total} ${frequency.unit}. ${frequency.label}`,
+      `Customer benefit if validated: ${candidate.outcome}`,
+      `Model: ${source.model}. Prompt: ${source.prompt_revision}. Repository: ${source.repository_sha}. Recorded: ${new Date(source.at).toISOString()}.`,
+    ].join("\n\n");
+    const result = z
+      .object({ lens_id: z.string(), finding_id: z.string().min(1).max(100) })
+      .parse(
+        await this.request(
+          `/lens/${encodeURIComponent(lensId)}/findings/import`,
+          signal,
+          {
+            fingerprint: verified.fingerprint,
+            agent_name: this.config.agent,
+            category: candidate.category,
+            title: candidate.title,
+            description: redact(description).slice(0, 4000),
+            suggestion: redact(
+              `Code hypothesis: ${candidate.code_hypothesis}\n\nRequired experiment: ${candidate.experiment}\n\n${verified.codeLinks.join("\n")}`,
+            ).slice(0, 4000),
+            limitation: redact(
+              `${candidate.limitation}\nProposed change. Bounded sample; distinct traces may share an incident. Current code is not verified deployed code. No measured improvement yet.`,
+            ).slice(0, 2000),
+            priority:
+              candidate.impact >= 8
+                ? "high"
+                : candidate.impact >= 5
+                  ? "medium"
+                  : "low",
+            evidence,
+          },
+        ),
+      );
+    if (result.lens_id !== lensId)
+      throw new Error(
+        "Native finding identity does not match verified candidate",
+      );
+    return {
+      lensId,
+      findingId: result.finding_id,
+      url: this.link({
+        tab: "findings",
+        issue: `${lensId}:${result.finding_id}`,
+      }),
+    };
   }
 
   async read(tool: ReadTool, signal: AbortSignal): Promise<string> {

@@ -72,6 +72,14 @@ const verified: VerifiedCandidate = {
   evidenceLinks: ["https://lens.example.com"],
   codeLinks: ["https://github.com/example/repo/blob/sha/src/tool.ts"],
 };
+const native = {
+  lensId: "lens-selected",
+  findingId: "agent-" + "a".repeat(64),
+  url:
+    "https://lens.example.com/?tab=findings&issue=lens-selected:agent-" +
+    "a".repeat(64),
+};
+const persist = async () => native;
 class MemoryState implements StateStore<State> {
   snapshot: Snapshot<State> = {
     key: "test",
@@ -128,6 +136,7 @@ test("scoped known manual reports initialize only empty state and suppress the s
   await cycle(
     {
       store,
+      persist,
       sample: async () => sample,
       analyze: async () => ({ candidate: verified, sha: "sha" }),
       post: async () => {
@@ -156,6 +165,7 @@ test("CAS claims prevent overlapping paid investigations and survive a new worke
   let posts = 0;
   const deps = {
     store,
+    persist,
     sample: async () => sample,
     analyze: async () => {
       analyses++;
@@ -191,6 +201,7 @@ test("unchanged traces and repeated candidates stay quiet across later cycles", 
   let posts = 0;
   const deps = {
     store,
+    persist,
     sample: async () => sample,
     analyze: async () => {
       analyses++;
@@ -223,6 +234,7 @@ test("daily paid-run limit persists and quiet results do not post", async () => 
   let posts = 0;
   const deps = {
     store,
+    persist,
     sample: async () => ({ ...sample, traces: [trace(String(time))] }),
     analyze: async () => {
       analyses++;
@@ -248,6 +260,7 @@ test("a failed Slack attempt is persisted before sending and cannot be blindly r
   let attempts = 0;
   const deps = {
     store,
+    persist,
     sample: async () => ({ ...sample, traces: [trace(String(time))] }),
     analyze: async () => ({ candidate: verified, sha: "pinned" }),
     post: async () => {
@@ -272,6 +285,7 @@ test("expired ownership cannot post after a long model request", async () => {
   await cycle(
     {
       store,
+      persist,
       sample: async () => sample,
       analyze: async () => {
         time += 300_000;
@@ -295,6 +309,7 @@ test("failed analysis leaves evidence eligible for the next cycle and still char
   let attempts = 0;
   const deps = {
     store,
+    persist,
     sample: async () => sample,
     analyze: async () => {
       if (++attempts === 1) throw new Error("temporary provider failure");
@@ -312,6 +327,70 @@ test("failed analysis leaves evidence eligible for the next cycle and still char
   assert.equal(attempts, 2);
   assert.equal(store.snapshot.value.runs, 2);
   assert.notEqual(store.snapshot.value.signature, "");
+});
+
+test("native import failures do not reserve a Slack send and retry the same verified identity", async () => {
+  const store = new MemoryState();
+  let time = 1_800_000_000_000;
+  let imports = 0;
+  let posts = 0;
+  const deps = {
+    store,
+    sample: async () => sample,
+    analyze: async () => ({ candidate: verified, sha: "pinned" }),
+    persist: async (item: VerifiedCandidate) => {
+      assert.equal(item.fingerprint, verified.fingerprint);
+      if (++imports === 1) throw new Error("ambiguous native response");
+      return native;
+    },
+    post: async (item: VerifiedCandidate & { native: typeof native }) => {
+      assert.deepEqual(item.native, native);
+      posts++;
+    },
+    model: "model",
+    dailyLimit: 12,
+    now: () => time,
+  };
+  await assert.rejects(cycle(deps, AbortSignal.timeout(1000)));
+  assert.equal(store.snapshot.value.posts, 0);
+  assert.equal(store.snapshot.value.sent.length, 0);
+  assert.equal(store.snapshot.value.signature, "");
+  assert.equal(store.snapshot.value.runs, 1);
+  time += 600_001;
+  await cycle(deps, AbortSignal.timeout(1000));
+  assert.equal(imports, 2);
+  assert.equal(posts, 1);
+  assert.deepEqual(store.snapshot.value.sent[0]?.native_finding, native);
+});
+
+test("a lost lease after native persistence prevents Slack reservation and delivery", async () => {
+  const store = new MemoryState();
+  let posts = 0;
+  await cycle(
+    {
+      store,
+      sample: async () => sample,
+      analyze: async () => ({ candidate: verified, sha: "pinned" }),
+      persist: async () => {
+        const previous = await store.read();
+        await store.commit(previous, {
+          ...previous.value,
+          owner: "replacement-worker",
+        });
+        return native;
+      },
+      post: async () => {
+        posts++;
+      },
+      model: "model",
+      dailyLimit: 12,
+      now: () => 1_800_000_000_000,
+    },
+    AbortSignal.timeout(1000),
+  );
+  assert.equal(posts, 0);
+  assert.equal(store.snapshot.value.posts, 0);
+  assert.equal(store.snapshot.value.sent.length, 0);
 });
 
 test("quotes and code must exist in read evidence; confidence cannot bypass verification", () => {

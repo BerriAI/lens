@@ -7,4 +7,5 @@ export interface AgentConfig {
   readonly openaiKey: string;
   readonly openaiBaseUrl: string;
   readonly model: string;
+  readonly findingLensId?: string;
 }
