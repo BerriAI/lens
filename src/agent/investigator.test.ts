@@ -149,6 +149,7 @@ test("scoped known manual reports initialize only empty state and suppress the s
     AbortSignal.timeout(1000),
   );
   assert.equal(posts, 0);
+  assert.deepEqual(store.snapshot.value.sent[0]?.native_finding, native);
   const preserved = structuredClone(store.snapshot);
   await bootstrapKnownFindings(
     store,
@@ -252,6 +253,47 @@ test("daily paid-run limit persists and quiet results do not post", async () => 
   await cycle(deps, AbortSignal.timeout(1000));
   assert.equal(analyses, 1);
   assert.equal(posts, 0);
+});
+
+test("verified repeated findings refresh native evidence without another Slack notification", async () => {
+  const store = new MemoryState();
+  store.read = async () => structuredClone(store.snapshot);
+  let time = 1_800_000_000_000;
+  let posts = 0;
+  const fingerprints: string[] = [];
+  const firstFingerprint = "a".repeat(64);
+  const deps = {
+    store,
+    sample: async () => ({ ...sample, traces: [trace(String(time))] }),
+    analyze: async () => ({
+      candidate: {
+        ...verified,
+        fingerprint: posts ? "b".repeat(64) : firstFingerprint,
+        evidenceHash: String(time),
+      },
+      sha: "sha",
+    }),
+    persist: async (item: VerifiedCandidate) => {
+      fingerprints.push(item.fingerprint);
+      return native;
+    },
+    post: async () => {
+      posts++;
+    },
+    model: "model",
+    dailyLimit: 12,
+    now: () => time,
+  };
+  await cycle(deps, AbortSignal.timeout(1000));
+  time += 600_001;
+  await cycle(deps, AbortSignal.timeout(1000));
+  assert.deepEqual(fingerprints, [firstFingerprint, firstFingerprint]);
+  assert.equal(posts, 1);
+  assert.equal(store.snapshot.value.posts, 1);
+  assert.equal(store.snapshot.value.sent.length, 1);
+  assert.equal(store.snapshot.value.sent[0]?.provenance.at, time);
+  assert.equal(store.snapshot.value.sent[0]?.evidence_hash, String(time));
+  assert.deepEqual(store.snapshot.value.sent[0]?.native_finding, native);
 });
 
 test("a failed Slack attempt is persisted before sending and cannot be blindly replayed", async () => {

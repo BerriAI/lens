@@ -158,15 +158,7 @@ export async function cycle(
     at: started,
   };
   const candidate = result.candidate;
-  const duplicate =
-    candidate &&
-    reserved.value.sent.some(
-      (item) =>
-        item.fingerprint === candidate.fingerprint ||
-        item.evidence_hash === candidate.evidenceHash ||
-        item.title === candidate.candidate.title,
-    );
-  if (!candidate || duplicate) {
+  if (!candidate) {
     await deps.store.commit(reserved, {
       ...reserved.value,
       last_run: source,
@@ -176,9 +168,19 @@ export async function cycle(
     console.info("Lens investigator analysis persisted; no new report");
     return;
   }
+  const duplicate = reserved.value.sent.find(
+    (item) =>
+      item.fingerprint === candidate.fingerprint ||
+      item.evidence_hash === candidate.evidenceHash ||
+      item.title === candidate.candidate.title,
+  );
+  const persisted =
+    duplicate && /^[a-f0-9]{64}$/.test(duplicate.fingerprint)
+      ? { ...candidate, fingerprint: duplicate.fingerprint }
+      : candidate;
   // Native import is idempotent. A timeout here must leave the evidence eligible
   // for retry, while an ambiguous Slack send below remains durably claimed.
-  const native = await deps.persist(candidate, sample, source, signal);
+  const native = await deps.persist(persisted, sample, source, signal);
   const owned = await deps.store.read();
   if (
     signal.aborted ||
@@ -187,6 +189,29 @@ export async function cycle(
     owned.revision !== reserved.revision
   )
     return;
+  if (duplicate) {
+    await deps.store.commit(owned, {
+      ...owned.value,
+      signature,
+      last_run: source,
+      lease_until: 0,
+      sent: owned.value.sent.map((item) =>
+        item.fingerprint === duplicate.fingerprint
+          ? {
+              ...item,
+              fingerprint: persisted.fingerprint,
+              evidence_hash: candidate.evidenceHash,
+              provenance: source,
+              native_finding: native,
+            }
+          : item,
+      ),
+    });
+    console.info(
+      "Lens investigator native finding refreshed; no new notification",
+    );
+    return;
+  }
   const committed = await deps.store.commit(owned, {
     ...owned.value,
     signature,
