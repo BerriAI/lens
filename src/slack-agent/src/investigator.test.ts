@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cycle, initialState, type State } from "./investigator.js";
+import {
+  bootstrapKnownFindings,
+  cycle,
+  initialState,
+  type State,
+} from "./investigator.js";
 import {
   digest,
   type Snapshot,
@@ -97,6 +102,61 @@ class MemoryState implements StateStore<State> {
     return this.snapshot;
   }
 }
+
+test("scoped known manual reports initialize only empty state and suppress the same measured finding", async () => {
+  const scope = ["workspace", "channel", "selected", "example/repo"];
+  const seed = JSON.stringify({
+    scope,
+    findings: [
+      {
+        fingerprint: "prior-fingerprint",
+        evidence_hash: "prior-evidence",
+        issue_key: "prior-key",
+        title: candidate.title,
+        issue_number: 2026100901,
+        provenance: {
+          model: "model",
+          prompt_revision: "version",
+          trace_ids: ["a"],
+          repository_sha: "sha",
+          at: 1,
+        },
+      },
+    ],
+  });
+  const store = new MemoryState();
+  await assert.rejects(
+    bootstrapKnownFindings(store, ["other", ...scope.slice(1)], seed),
+    /scope/,
+  );
+  assert.equal(store.snapshot.revision, 0);
+  await bootstrapKnownFindings(store, scope, seed);
+  assert.equal(store.snapshot.value.sent[0]?.issue_number, 2026100901);
+  let posts = 0;
+  await cycle(
+    {
+      store,
+      sample: async () => sample,
+      analyze: async () => ({ candidate: verified, sha: "sha" }),
+      post: async () => {
+        posts++;
+      },
+      model: "model",
+      dailyLimit: 144,
+      now: () => 1_800_000_000_000,
+    },
+    AbortSignal.timeout(1000),
+  );
+  assert.equal(posts, 0);
+  const preserved = structuredClone(store.snapshot);
+  await bootstrapKnownFindings(
+    store,
+    scope,
+    seed.replace(candidate.title, "Changed title"),
+  );
+  assert.deepEqual(store.snapshot, preserved);
+  assert.equal(store.snapshot.value.next_issue_number, 1);
+});
 
 test("CAS claims prevent overlapping paid investigations and survive a new worker instance", async () => {
   const store = new MemoryState();

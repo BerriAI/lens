@@ -66,6 +66,27 @@ export const initialState: State = {
   sent: [],
   last_run: null,
 };
+
+export async function bootstrapKnownFindings(
+  store: StateStore<State>,
+  scope: readonly string[],
+  raw?: string,
+): Promise<void> {
+  if (!raw) return;
+  if (raw.length > 64_000) throw new Error("Known findings exceed limit");
+  const seed = z
+    .object({
+      scope: z.array(z.string()).length(4),
+      findings: stateSchema.shape.sent.min(1).max(10),
+    })
+    .parse(JSON.parse(raw));
+  if (JSON.stringify(seed.scope) !== JSON.stringify(scope))
+    throw new Error("Known findings scope does not match");
+  const current = await store.read();
+  if (current.revision !== 0) return;
+  await store.commit(current, { ...current.value, sent: seed.findings });
+  console.info("Lens investigator known reports initialized");
+}
 export interface InvestigatorDependencies {
   readonly store: StateStore<State>;
   readonly sample: (signal: AbortSignal) => Promise<Sample>;
@@ -142,7 +163,8 @@ export async function cycle(
     reserved.value.sent.some(
       (item) =>
         item.fingerprint === candidate.fingerprint ||
-        item.evidence_hash === candidate.evidenceHash,
+        item.evidence_hash === candidate.evidenceHash ||
+        item.title === candidate.candidate.title,
     );
   if (!candidate || duplicate) {
     await deps.store.commit(reserved, {
@@ -382,20 +404,30 @@ export function startInvestigator(
   }
   const model = env.LENS_INVESTIGATOR_MODEL?.trim() || "gpt-6-astra";
   const client = new LensClient(config);
+  const scope = [config.workspace, config.channel, config.agent, repository];
   const store = new ClickHouseState(
     clickhouseConnection(env),
     env.CLICKHOUSE_DATABASE || "lens",
-    `investigator/${digest(JSON.stringify([config.workspace, config.channel, config.agent, repository]))}`,
+    `investigator/${digest(JSON.stringify(scope))}`,
     stateSchema,
     initialState,
   );
   const controller = new AbortController();
   let timer: NodeJS.Timeout | undefined;
+  let initialized = false;
   const run = async () => {
     if (controller.signal.aborted) return;
     const started = Date.now();
     let stage = "state claim";
     try {
+      if (!initialized) {
+        await bootstrapKnownFindings(
+          store,
+          scope,
+          env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
+        );
+        initialized = true;
+      }
       await cycle(
         {
           store,
