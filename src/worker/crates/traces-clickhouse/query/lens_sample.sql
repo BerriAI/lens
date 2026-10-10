@@ -36,8 +36,8 @@ SELECT *, selection_key FROM (
     HAVING max(EngineReceivedMs) < {end:UInt64}
        AND max(toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) < {end:UInt64}
        AND ({agent_name:String}='' OR countIf(AgentName={agent_name:String}) > 0)
-       AND countIf(arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v,
-           {filter_keys:Array(String)},{filter_values:Array(String)})
+       AND countIf((empty({filter_keys:Array(String)}) OR arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v,
+           {filter_keys:Array(String)},{filter_values:Array(String)}))
            AND ({service:String}='' OR ServiceName={service:String})) > 0
     UNION ALL
     SELECT 'requests' AS source, request_id AS trace_id, team_id, '' AS trace_ref, model AS name,

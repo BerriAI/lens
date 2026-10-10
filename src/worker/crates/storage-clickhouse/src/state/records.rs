@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use crate::Error;
 
 #[serde_as]
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Ord, PartialOrd, Serialize)]
 pub struct Head {
     pub key: String,
     #[serde_as(as = "PickFirst<(_, DisplayFromStr)>")]

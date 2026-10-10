@@ -18,6 +18,7 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
 FROM otel_traces AS o
 WHERE o.Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
   AND o.Timestamp < fromUnixTimestamp64Milli({end_ms:Int64})
+  AND o.TraceId IN {trace_ids:Array(String)}
   AND ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND o.UserId = {user_id:String})
        OR has({team_ids:Array(String)}, o.TeamId))

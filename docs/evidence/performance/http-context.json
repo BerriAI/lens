@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-09",
+  "reference_revision": "9b8bb82ffa8e6659f2664d0184c9a2455a282483",
+  "note": "Initial HTTP candidate includes all performance changes except metadata-free signal discovery. Background classification and investigation models were not configured. Both binaries used the same benchmark runner and fresh databases. No production page timings are represented.",
+  "initial_candidate_includes": [
+    "state payload cache",
+    "trace ID predicates",
+    "cursor predicate pushdown",
+    "spend fallback reuse",
+    "readiness projection"
+  ],
+  "fixture": "service-benchmark fixed fixture: 100 then 1000 traces, 10 spans per trace, warmed reads, 11 samples",
+  "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+  "final_candidate_note": "Final candidate includes signal discovery projection. Initial baseline comparison failed the list_all_traces p90 budget at 1000 traces (575 ms vs allowed 532 ms). Other operations also slowed during that stage. A reverse-order baseline rerun is being retained to investigate shared-host variation; no production speedup is established."
+}

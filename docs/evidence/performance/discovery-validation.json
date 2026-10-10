@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-09",
+  "reference_revision": "9b8bb82ffa8e6659f2664d0184c9a2455a282483",
+  "scope": "Synthetic local database reads, not production page timings",
+  "environment": {
+    "clickhouse": "26.9.6.6",
+    "image": "clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e",
+    "architecture": "aarch64",
+    "vm_cpu": 2,
+    "vm_memory_gib": 3
+  },
+  "method": "Both paths warmed once, then 11 samples each in alternating order on the same rows. Single client. Development build. No production traffic. Baseline invokes LensSample; candidate invokes LensSampleEligibility or LensSignalSample, both on this checkout with the empty-filter optimization.",
+  "results": [
+    {
+      "benchmark": "readiness",
+      "traces": 2000,
+      "payload_bytes": 3000,
+      "baseline_ms": [
+        26.382375,
+        49.055,
+        29.300458000000003,
+        32.742875,
+        31.239542,
+        29.579292,
+        30.858,
+        30.689083999999998,
+        44.468084,
+        40.175416,
+        44.569166
+      ],
+      "candidate_ms": [
+        14.195124999999999,
+        27.255208,
+        16.8625,
+        16.415875,
+        18.127125,
+        20.456708,
+        19.182709,
+        19.184375,
+        24.566208999999997,
+        27.123084,
+        28.082167000000002
+      ],
+      "baseline_read_bytes": 6160802,
+      "candidate_read_bytes": 83838
+    },
+    {
+      "benchmark": "readiness",
+      "traces": 2000,
+      "payload_bytes": 65536,
+      "baseline_ms": [
+        259.854,
+        256.697875,
+        244.658542,
+        236.676458,
+        249.319125,
+        260.353709,
+        259.099375,
+        243.624666,
+        246.84020900000002,
+        257.67841699999997,
+        245.61450000000002
+      ],
+      "candidate_ms": [
+        17.445249999999998,
+        28.100959,
+        19.143,
+        16.64425,
+        20.729542,
+        17.67425,
+        21.327292,
+        16.183125,
+        26.2825,
+        20.475333,
+        20.922832999999997
+      ],
+      "baseline_read_bytes": 131228758,
+      "candidate_read_bytes": 83780
+    },
+    {
+      "benchmark": "signal_discovery",
+      "traces": 2000,
+      "payload_bytes": 65536,
+      "baseline_ms": [
+        266.517375,
+        302.357541,
+        274.40354099999996,
+        273.519583,
+        299.19745800000004,
+        268.234917,
+        306.061625,
+        275.00087499999995,
+        302.610208,
+        259.15495799999997,
+        291.915667
+      ],
+      "candidate_ms": [
+        26.442083,
+        42.559,
+        23.874917,
+        22.6775,
+        23.503166,
+        25.063083,
+        22.163958,
+        20.98525,
+        22.108458000000002,
+        21.621875,
+        22.689958
+      ],
+      "baseline_read_bytes": 131228758,
+      "candidate_read_bytes": 112670
+    }
+  ]
+}

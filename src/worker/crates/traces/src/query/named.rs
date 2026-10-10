@@ -183,6 +183,7 @@ pub struct TracePageSpansParams {
     #[serde(flatten)]
     pub access: ReadAccessParams,
     pub trace_refs: Vec<String>,
+    pub trace_ids: Vec<String>,
     pub start_ms: i64,
     pub end_ms: i64,
 }

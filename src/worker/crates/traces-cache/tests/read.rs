@@ -700,7 +700,7 @@ async fn gateway_cost_refreshes_until_every_model_call_is_priced(
 
 #[rstest]
 #[tokio::test]
-async fn failed_batch_spend_lookup_falls_back_to_each_run_instead_of_losing_every_cost() {
+async fn failed_batch_spend_lookup_retries_costs_without_reading_spans_again() {
     let mut first = span(0);
     first.trace_id = "trace-a".into();
     first.kind = ObservationType::Llm;
@@ -723,8 +723,6 @@ async fn failed_batch_spend_lookup_falls_back_to_each_run_instead_of_losing_ever
         state.trace_spans.insert("ref-b".to_owned(), vec![second]);
         state.spend = vec![spend_row("response-a", 1.5), spend_row("response-b", 2.5)];
     }
-    // The batch covers both runs' response ids (2); each run resolved on its own only ever
-    // asks for its own (1), so this fails only the combined read, not the per-run fallback.
     store.set_spend_fails_above_response_ids(1);
 
     let page = TraceReader::new(usize::MAX)
@@ -747,7 +745,8 @@ async fn failed_batch_spend_lookup_falls_back_to_each_run_instead_of_losing_ever
     assert_eq!(by_ref["ref-a"], 1.5);
     assert_eq!(by_ref["ref-b"], 2.5);
     assert_eq!(store.calls(Operation::RunSpans), 1);
-    assert_eq!(store.calls(Operation::TraceSpans), 2);
+    assert_eq!(store.calls(Operation::TraceSpans), 0);
+    assert_eq!(store.calls(Operation::Spend), 3);
 }
 
 #[rstest]

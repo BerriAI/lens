@@ -29,18 +29,20 @@ export const agentTraceListCall = async ({
   startMs,
   endMs,
   cursor,
+  signal,
 }: {
   accessToken: string;
   startMs: number;
   endMs: number;
   cursor?: string | null;
+  signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
     start_ms: startMs,
     end_ms: endMs,
     cursor: cursor ?? undefined,
   } satisfies TraceListQuery;
-  return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query });
+  return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };
 
 export const agentTraceCall = async (
@@ -63,12 +65,14 @@ export const agentTraceSpanCall = async (
   traceId: string,
   spanId: string,
   traceRef?: string,
+  signal?: AbortSignal,
 ): Promise<SpanDetail> =>
   apiClient.get<SpanDetail>(
     `/v1/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}`,
     {
       accessToken,
       query: { trace_ref: traceRef || undefined } satisfies SpanQuery,
+      signal,
     },
   );
 

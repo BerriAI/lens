@@ -262,6 +262,40 @@ impl Query for LensSample {
     );
 }
 
+pub struct LensSampleEligibility;
+
+pub struct LensSignalSample;
+
+impl Query for LensSignalSample {
+    type Params = LensSampleParams;
+    type Row = LensSampleRow;
+
+    const SQL: &'static str = concat!(
+        "SELECT * EXCEPT(attributes) FROM (",
+        include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/lens_sample.sql"),
+        ")"
+    );
+}
+
+#[derive(serde::Deserialize)]
+pub struct LensSampleEligibilityRow {
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub eligible: u64,
+}
+
+impl Query for LensSampleEligibility {
+    type Params = LensSampleParams;
+    type Row = LensSampleEligibilityRow;
+
+    const SQL: &'static str = concat!(
+        "SELECT eligible FROM (",
+        include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/lens_sample.sql"),
+        ")"
+    );
+}
+
 pub struct LensContent;
 
 #[macro_rules_attribute::apply(crate::wire_type)]

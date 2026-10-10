@@ -14,7 +14,7 @@ export function useConversationDetails(trace: Trace, accessToken: string) {
   const spanQuery = useCallback(
     (span: Span) => ({
       queryKey: ["agentTraceSpan", traceId, traceRef, span.span_id, accessToken],
-      queryFn: (): Promise<SpanDetail> => traces.span(traceId, span.span_id, traceRef),
+      queryFn: ({ signal }: { signal: AbortSignal }): Promise<SpanDetail> => traces.span(traceId, span.span_id, traceRef, signal),
       staleTime: Infinity,
       retry: false as const,
       retryOnMount: false,

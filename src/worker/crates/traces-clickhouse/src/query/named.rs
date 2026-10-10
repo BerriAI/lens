@@ -251,6 +251,7 @@ struct TracePageSpansParamsEncoding {
     #[serde(flatten)]
     pub access: contracts::ReadAccessParams,
     pub trace_refs: Vec<String>,
+    pub trace_ids: Vec<String>,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
     #[serde(deserialize_with = "super::number::deserialize")]
