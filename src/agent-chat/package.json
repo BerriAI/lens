@@ -13,14 +13,16 @@
   "name": "@litellm/lens-agent-chat",
   "scripts": {
     "build": "tsc",
-    "check": "tsc --noEmit && prettier --check \"*.ts\" connectors package.json tsconfig.json",
+    "check": "tsc --noEmit && prettier --check \"*.ts\" connectors scripts package.json tsconfig.json",
     "test": "npm run build && node --test dist/*.test.js dist/connectors/slack/*.test.js",
-    "start": "node dist/connectors/slack/main.js"
+    "start": "node dist/connectors/slack/main.js",
+    "benchmark:ack": "npm run build && node scripts/benchmark-ack.mjs"
   },
   "dependencies": {
     "@litellm/lens-agent": "file:../agent",
     "@resvg/resvg-js": "2.6.2",
     "@slack/bolt": "5.1.0",
+    "@slack/web-api": "8.2.0",
     "zod": "4.6.5"
   }
 }

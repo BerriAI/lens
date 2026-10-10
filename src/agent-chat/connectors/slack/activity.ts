@@ -1,4 +1,7 @@
-import type { AssistantThreadsSetStatusArguments } from "@slack/web-api";
+import type {
+  AssistantThreadsSetStatusArguments,
+  WebClient,
+} from "@slack/web-api";
 import type { Activity } from "./chat.js";
 
 export function workingStatus(
@@ -43,5 +46,33 @@ export function workingStatus(
     clearInterval(current.timer);
     await current.update;
     await send("");
+  };
+}
+
+export function reactionStatus(slack: Pick<WebClient, "reactions">): Activity {
+  const active = new Map<string, Promise<unknown>>();
+  return async (event, state) => {
+    const key = `${event.workspace}:${event.channel}:${event.ts}`;
+    const target = { channel: event.channel, timestamp: event.ts };
+    if (state === "working") {
+      if (active.has(key)) return;
+      const pending = slack.reactions
+        .add({ ...target, name: "eyes" })
+        .catch(() => {});
+      active.set(key, pending);
+      await pending;
+      return;
+    }
+    const pending = active.get(key);
+    if (!pending) return;
+    active.delete(key);
+    await pending;
+    await Promise.allSettled([
+      slack.reactions.add({
+        ...target,
+        name: state === "done" ? "white_check_mark" : "x",
+      }),
+      slack.reactions.remove({ ...target, name: "eyes" }),
+    ]);
   };
 }
