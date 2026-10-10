@@ -116,7 +116,7 @@ test("finding citations count each trace once while retaining different cited sp
   );
   assert.deepEqual(
     context.numbered_sources.map((source) => source.label),
-    ["Trace 1", "Trace 2", "Trace 4"],
+    ["Trace 1", "Trace 2", "Trace 3", "Trace 4"],
   );
   assert.equal(context.cited_spans.length, 3);
   assert.equal(context.traces.length, 2);

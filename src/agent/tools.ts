@@ -52,12 +52,10 @@ export async function replyTools(
         allowed.add(url);
     }
   };
-  const citations = (finding?.traces ?? [])
-    .map((trace, index) => ({ ...trace, label: `Trace ${index + 1}` }))
-    .filter(
-      (trace, index, all) =>
-        all.findIndex((item) => item.url === trace.url) === index,
-    );
+  const citations = (finding?.traces ?? []).filter(
+    (trace, index, all) =>
+      all.findIndex((item) => item.url === trace.url) === index,
+  );
   const traces = citations.filter(
     (trace, index) =>
       citations.findIndex((item) => item.trace_id === trace.trace_id) === index,
@@ -107,8 +105,8 @@ export async function replyTools(
   const traceContext = evidence
     ? {
         finding: { issue: finding!.issue, title: finding!.title },
-        numbered_sources: citations.map((trace) => ({
-          label: trace.label,
+        numbered_sources: finding!.traces.map((trace, index) => ({
+          label: `Trace ${index + 1}`,
           trace_id: trace.trace_id,
           span_id: trace.span_id,
           url: trace.url,
