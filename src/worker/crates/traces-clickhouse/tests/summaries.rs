@@ -148,6 +148,52 @@ async fn oversized_summary_does_not_block_projection_of_other_traces(
     assert_eq!(saved.len(), 1);
     assert_eq!(saved[0].trace_id, "smaller-trace");
     assert_eq!(saved[0].span_count, 1);
+    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    Ok(())
+}
+
+#[rstest]
+#[case::cooling_down(0, 0)]
+#[case::retry_due(120_000, 1)]
+#[tokio::test]
+async fn deferred_projections_retry_only_after_the_cooldown(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] age_ms: u64,
+    #[case] expected: usize,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![span("owner", "first")],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    let scope = access(true, "", &[]);
+    let rows = store.list_runs(&list_params(scope.clone())).await?;
+    let computed_at =
+        (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64 - age_ms;
+    let marker = json!({
+        "TeamId": "team", "ApiKeyHash": "key", "TraceId": "shared-trace",
+        "TraceRef": rows[0].trace_ref, "ScopeUserId": "", "SourceSpanCount": 0,
+        "StartTs": "2026-09-21 14:13:20.000", "ComputedAt": computed_at,
+        "ResolutionVersion": 0, "SpendKeys": [], "Summary": ""
+    });
+    client
+        .post(config.storage().writer().url().clone())
+        .body(format!(
+            "INSERT INTO {DATABASE}.lens_trace_summaries FORMAT JSONEachRow\n{marker}"
+        ))
+        .send()
+        .await?
+        .error_for_status()?;
+
+    assert_eq!(summaries::project(client, &config, 16).await?, expected);
+    assert_eq!(store.summaries(&scope, &rows).await?.len(), expected);
     Ok(())
 }
 

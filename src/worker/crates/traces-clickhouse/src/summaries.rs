@@ -15,6 +15,7 @@ struct Summaries;
 
 const RESOLUTION_VERSION: u32 = 1;
 const MAX_RUN_BYTES: usize = 2 * 1024 * 1024;
+const RETRY_DELAY_MS: u64 = 60_000;
 
 #[derive(Serialize)]
 struct SummaryParams {
@@ -125,6 +126,7 @@ struct Candidates;
 #[derive(Serialize)]
 struct CandidateParams {
     resolution_version: u32,
+    retry_before_ms: u64,
     limit: u32,
 }
 
@@ -221,6 +223,7 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         config.storage().reader(),
         &CandidateParams {
             resolution_version: RESOLUTION_VERSION,
+            retry_before_ms: now_ms().saturating_sub(RETRY_DELAY_MS),
             limit: limit.min(16),
         },
     )

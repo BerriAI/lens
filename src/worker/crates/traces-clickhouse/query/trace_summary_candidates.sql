@@ -24,8 +24,10 @@ SELECT runs.TeamId AS team_id, runs.ApiKeyHash AS api_key_hash, runs.TraceId AS 
        runs.source_span_count, runs.start_ms
 FROM runs
 LEFT JOIN summaries USING (TeamId, ApiKeyHash, TraceId)
-WHERE summaries.SourceSpanCount != runs.source_span_count
+WHERE (summaries.SourceSpanCount != runs.source_span_count
    OR summaries.ResolutionVersion != {resolution_version:UInt32}
-   OR (runs.TeamId, runs.ApiKeyHash, runs.TraceId) IN (SELECT TeamId, ApiKeyHash, TraceId FROM changed_costs)
+   OR (runs.TeamId, runs.ApiKeyHash, runs.TraceId) IN (SELECT TeamId, ApiKeyHash, TraceId FROM changed_costs))
+  AND (summaries.ResolutionVersion != 0
+       OR summaries.ComputedAt <= {retry_before_ms:UInt64})
 ORDER BY summaries.ComputedAt, runs.start_ms DESC, trace_ref
 LIMIT {limit:UInt32}
