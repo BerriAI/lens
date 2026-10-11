@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     ReadError, Snapshot, SnapshotCache, SnapshotKey, StoreError, TraceStore,
@@ -84,6 +84,16 @@ impl TraceReader {
             cursor_trace_id,
             limit: limit.min(500).min(accepted),
         };
+        match store.summary_page(&params).await {
+            Ok(Some(page)) => {
+                return Ok(TracePage {
+                    data: page.data,
+                    next_cursor: page.next_position.as_ref().map(encode_cursor),
+                });
+            }
+            Err(error) => tracing::warn!(%error, "stored trace page unavailable"),
+            Ok(None) => {}
+        }
         let page = loop {
             match store.list_runs(&params).await {
                 Err(StoreError::TooLarge) if params.limit > 1 => {
@@ -99,11 +109,33 @@ impl TraceReader {
             .filter(|_| page.len() == params.limit as usize)
             .map(|last| encode_cursor(&(last.start_ms, &last.trace_ref)));
         let data = {
-            let mut summaries = Vec::with_capacity(page.len());
-            for batch in run_batches(&page) {
-                summaries.extend(list_summaries(self, store, access, batch).await?);
+            let stored = match store.summaries(access, &page).await {
+                Ok(summaries) => summaries,
+                Err(error) => {
+                    tracing::warn!(%error, "stored trace summaries unavailable");
+                    Vec::new()
+                }
+            };
+            let mut summaries: HashMap<_, _> = stored
+                .into_iter()
+                .map(|summary| (summary.trace_ref.clone(), summary))
+                .collect();
+            let unresolved: Vec<_> = page
+                .iter()
+                .filter(|row| !summaries.contains_key(&row.trace_ref))
+                .cloned()
+                .collect();
+            for batch in run_batches(&unresolved) {
+                summaries.extend(
+                    list_summaries(self, store, access, batch)
+                        .await?
+                        .into_iter()
+                        .map(|summary| (summary.trace_ref.clone(), summary)),
+                );
             }
-            summaries
+            page.iter()
+                .filter_map(|row| summaries.remove(&row.trace_ref))
+                .collect()
         };
         Ok(TracePage { data, next_cursor })
     }

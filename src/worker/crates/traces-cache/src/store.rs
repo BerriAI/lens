@@ -15,11 +15,33 @@ pub enum StoreError<E> {
     Failed(E),
 }
 
+#[derive(Clone)]
+pub struct SummaryPage {
+    pub data: Vec<litellm_traces::TraceSummary>,
+    pub next_position: Option<(i64, String)>,
+}
+
 pub trait TraceStore: Sync {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Identifies the backing storage for snapshot cache keys.
     fn source(&self) -> &str;
+
+    fn summary_page(
+        &self,
+        _params: &ListTracesParams,
+    ) -> impl Future<Output = Result<Option<SummaryPage>, StoreError<Self::Error>>> + Send {
+        async { Ok(None) }
+    }
+
+    fn summaries(
+        &self,
+        _access: &litellm_traces::query::named::ReadAccessParams,
+        _runs: &[ListTracesRow],
+    ) -> impl Future<Output = Result<Vec<litellm_traces::TraceSummary>, StoreError<Self::Error>>> + Send
+    {
+        async { Ok(Vec::new()) }
+    }
 
     fn trace_refs(
         &self,

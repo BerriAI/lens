@@ -23,6 +23,7 @@ mod schema;
 mod span_batches;
 mod span_row;
 mod sql;
+pub mod summaries;
 mod table;
 #[cfg(feature = "schema")]
 pub mod wire_schema;

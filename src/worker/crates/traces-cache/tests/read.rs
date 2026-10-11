@@ -28,6 +28,7 @@ enum Operation {
     ConversationTurns,
     TraceRefs,
     ListRuns,
+    Summaries,
     TraceSpans,
     RunSpans,
     Spend,
@@ -47,6 +48,8 @@ struct FakeError;
 
 #[derive(Default)]
 struct State {
+    summary_page: Option<litellm_traces_cache::SummaryPage>,
+    summaries: Vec<litellm_traces::TraceSummary>,
     conversation_anchor: Option<TraceConversationAnchor>,
     conversation_rows: Vec<TraceConversationRow>,
     conversation_requests: Vec<TraceConversationTurnsParams>,
@@ -70,6 +73,7 @@ struct Calls {
     conversation_turns: AtomicUsize,
     trace_refs: AtomicUsize,
     list_runs: AtomicUsize,
+    summaries: AtomicUsize,
     trace_spans: AtomicUsize,
     run_spans: AtomicUsize,
     spend: AtomicUsize,
@@ -138,6 +142,7 @@ impl FakeStore {
             Operation::ConversationTurns => self.calls.conversation_turns.load(Ordering::SeqCst),
             Operation::TraceRefs => self.calls.trace_refs.load(Ordering::SeqCst),
             Operation::ListRuns => self.calls.list_runs.load(Ordering::SeqCst),
+            Operation::Summaries => self.calls.summaries.load(Ordering::SeqCst),
             Operation::TraceSpans => self.calls.trace_spans.load(Ordering::SeqCst),
             Operation::RunSpans => self.calls.run_spans.load(Ordering::SeqCst),
             Operation::Spend => self.calls.spend.load(Ordering::SeqCst),
@@ -160,6 +165,24 @@ impl TraceStore for FakeStore {
 
     fn source(&self) -> &str {
         "fake"
+    }
+
+    async fn summary_page(
+        &self,
+        _: &ListTracesParams,
+    ) -> Result<Option<litellm_traces_cache::SummaryPage>, StoreError<Self::Error>> {
+        Ok(self.state.lock().unwrap().summary_page.clone())
+    }
+
+    async fn summaries(
+        &self,
+        _: &ReadAccessParams,
+        _: &[ListTracesRow],
+    ) -> Result<Vec<litellm_traces::TraceSummary>, StoreError<Self::Error>> {
+        self.calls.summaries.fetch_add(1, Ordering::SeqCst);
+        let state = self.state.lock().unwrap();
+        Self::failure(&state, Operation::Summaries)?;
+        Ok(state.summaries.clone())
     }
 
     async fn conversation_anchor(
@@ -542,6 +565,86 @@ async fn list_run_budget_halves_the_limit_and_cursor_requires_a_full_page() {
     assert_eq!(page.data.len(), 1);
     assert!(page.next_cursor.is_none());
     assert_eq!(shorter.calls(Operation::ListRuns), 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn complete_summary_pages_skip_candidate_and_graph_reads() {
+    let store = FakeStore::default();
+    let summary = litellm_traces::resolve_trace("trace", "ref", &[span(0)], &[])
+        .unwrap()
+        .summary;
+    store.state.lock().unwrap().summary_page = Some(litellm_traces_cache::SummaryPage {
+        data: vec![summary.clone()],
+        next_position: None,
+    });
+    store.set_failure(Operation::ListRuns, Failure::Failed);
+    store.set_failure(Operation::RunSpans, Failure::Failed);
+    store.set_failure(Operation::Spend, Failure::Failed);
+
+    let page = TraceReader::new(usize::MAX)
+        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .await
+        .unwrap();
+
+    assert_eq!(page.data, vec![summary]);
+    assert!(page.next_cursor.is_none());
+    assert_eq!(store.calls(Operation::ListRuns), 0);
+    assert_eq!(store.calls(Operation::RunSpans), 0);
+}
+
+#[rstest]
+#[tokio::test]
+async fn stored_summaries_preserve_page_order_without_reading_spans_or_spend() {
+    let store = FakeStore::default();
+    let first = run("first", "ref-first");
+    let second = run("second", "ref-second");
+    let first_summary = litellm_traces::resolve_trace("first", "ref-first", &[span(0)], &[])
+        .unwrap()
+        .summary;
+    let second_summary =
+        litellm_traces::resolve_trace("second", "ref-second", &[span(0), span(1)], &[])
+            .unwrap()
+            .summary;
+    store.set_list_runs(vec![first, second]);
+    store.state.lock().unwrap().summaries = vec![second_summary.clone(), first_summary.clone()];
+    store.set_failure(Operation::RunSpans, Failure::Failed);
+    store.set_failure(Operation::TraceSpans, Failure::Failed);
+    store.set_failure(Operation::Spend, Failure::Failed);
+
+    let page = TraceReader::new(usize::MAX)
+        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .await
+        .unwrap();
+
+    assert_eq!(page.data, vec![first_summary, second_summary]);
+    assert!(page.next_cursor.is_some());
+    assert_eq!(store.calls(Operation::RunSpans), 0);
+    assert_eq!(store.calls(Operation::TraceSpans), 0);
+    assert_eq!(store.calls(Operation::Spend), 0);
+}
+
+#[rstest]
+#[case::unavailable(Failure::Failed)]
+#[case::too_large(Failure::TooLarge)]
+#[tokio::test]
+async fn failed_summary_reads_preserve_resolved_list_results(#[case] failure: Failure) {
+    let store = FakeStore::default();
+    store.set_list_runs(vec![run("trace", "ref")]);
+    store.set_run_spans(vec![span(0), span(1)]);
+    store.set_failure(Operation::Summaries, failure);
+    let expected = litellm_traces::resolve_trace("trace", "ref", &[span(0), span(1)], &[])
+        .unwrap()
+        .summary;
+
+    let page = TraceReader::new(usize::MAX)
+        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .await
+        .unwrap();
+
+    assert_eq!(page.data, vec![expected]);
+    assert_eq!(store.calls(Operation::RunSpans), 1);
+    assert!(page.next_cursor.is_none());
 }
 
 #[rstest]
