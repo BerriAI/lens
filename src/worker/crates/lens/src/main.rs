@@ -10,7 +10,9 @@ struct Diagnostics;
 impl litellm_tracing::Sink for Diagnostics {
     fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
         (metadata.target().starts_with("litellm_lens")
-            || metadata.target().starts_with("lens_signals"))
+            || metadata.target().starts_with("lens_signals")
+            || (metadata.target().starts_with("litellm_traces")
+                && *metadata.level() <= tracing::Level::WARN))
             && *metadata.level() <= tracing::Level::INFO
     }
     fn emit(&self, record: &litellm_tracing::Record) {
