@@ -4,6 +4,7 @@ import type { AgentConfig as Config } from "./config.js";
 import type { VerifiedCandidate } from "./findings.js";
 import type { NativeFinding } from "./models.js";
 import type { provenance } from "./investigator.js";
+import { feedbackLabels, productSupportLabels } from "./documentation.js";
 
 const count = z.number().int().nonnegative();
 export const traceSchema = z.object({
@@ -201,6 +202,7 @@ export class LensClient {
       );
     const lensId = targets[0]!.id;
     const candidate = verified.candidate;
+    const documentation = this.config.focus === "documentation";
     const frequency = verified.frequency;
     const evidence = candidate.evidence.map((item) => {
       const trace = sample.traces.find((row) => row.trace_id === item.trace_id);
@@ -209,7 +211,9 @@ export class LensClient {
       return { ...item, trace_ref: trace.trace_ref };
     });
     const description = [
-      `Findings V2 · ${candidate.kind === "opportunity" ? "Feature Request" : "Bug Fix"} · ${candidate.category}`,
+      documentation
+        ? `${verified.feedback ? feedbackLabels[verified.feedback.type] : "Docs feedback"}. Product support: ${productSupportLabels[verified.feedback?.productSupport ?? "unverified"]}`
+        : `Findings V2 · ${candidate.kind === "opportunity" ? "Feature Request" : "Bug Fix"} · ${candidate.category}`,
       `Observed: ${candidate.observation}`,
       `Impact: ${candidate.impact}/10 (assessment). Confidence: ${Math.round(candidate.confidence * 100)}/100 (uncalibrated assessment).`,
       frequency
@@ -231,10 +235,10 @@ export class LensClient {
             title: candidate.title,
             description: redact(description).slice(0, 4000),
             suggestion: redact(
-              `Code hypothesis: ${candidate.code_hypothesis}\n\nRequired experiment: ${candidate.experiment}\n\n${verified.codeLinks.join("\n")}`,
+              `${documentation ? "What the docs establish" : "Code hypothesis"}: ${candidate.code_hypothesis}\n\n${documentation ? "Suggested follow-up and verification" : "Required experiment"}: ${candidate.experiment}\n\n${verified.codeLinks.join("\n")}`,
             ).slice(0, 4000),
             limitation: redact(
-              `${candidate.limitation}\nProposed change. Bounded sample; distinct traces may share an incident. Current code is not verified deployed code. No measured improvement yet.`,
+              `${candidate.limitation}\n${documentation ? "Bounded sample. Current documentation source was inspected; historical publication and reader outcomes are not verified" : "Proposed change. Bounded sample; distinct traces may share an incident. Current code is not verified deployed code. No measured improvement yet."}`,
             ).slice(0, 2000),
             priority:
               candidate.impact >= 8
@@ -291,7 +295,12 @@ export class LensClient {
 
   async report(signal: AbortSignal, window?: TraceWindow) {
     const sample = await this.recent(signal, 100, window);
-    const evidence = new Evidence(sample, this, this.config.agent);
+    const evidence = new Evidence(
+      sample,
+      this,
+      this.config.agent,
+      this.config.rootInput,
+    );
     await evidence.loadRoots(signal);
     return evidence.report();
   }
@@ -385,7 +394,9 @@ export class LensClient {
   private async findings(signal: AbortSignal) {
     const response = lenses.parse(await this.get("/lens", signal));
     const selected = response.lenses.filter(
-      (lens) => lens.settings.agent_name === this.config.agent,
+      (lens) =>
+        lens.settings.agent_name === this.config.agent &&
+        (!this.config.findingLensId || lens.id === this.config.findingLensId),
     );
     const items = selected
       .flatMap((lens) =>

@@ -107,7 +107,7 @@ export interface InvestigatorDependencies {
     sample: Sample,
     previous: State["sent"],
     signal: AbortSignal,
-  ) => Promise<{ candidate?: VerifiedCandidate; sha: string }>;
+  ) => Promise<{ candidates: readonly VerifiedCandidate[]; sha: string }>;
   readonly post: (
     candidate: PersistedCandidate,
     sample: Sample,
@@ -121,6 +121,8 @@ export interface InvestigatorDependencies {
   ) => Promise<NativeFinding>;
   readonly model: string;
   readonly dailyLimit: number;
+  readonly intervalMinutes?: number;
+  readonly maxFindings?: number;
   readonly now?: () => number;
 }
 
@@ -131,6 +133,7 @@ export async function cycle(
   const now = deps.now ?? Date.now;
   const current = await deps.store.read();
   const started = now();
+  const intervalMs = (deps.intervalMinutes ?? 10) * 60_000;
   if (current.value.next_at > started || current.value.lease_until > started)
     return;
   const day = new Date(started).toISOString().slice(0, 10);
@@ -140,7 +143,7 @@ export async function cycle(
       : { ...current.value, day, runs: 0, posts: 0 };
   const claimed = await deps.store.commit(current, {
     ...previous,
-    next_at: started + 600_000,
+    next_at: started + intervalMs,
     lease_until: started + 300_000,
     owner: randomUUID(),
     last_check_at: started,
@@ -205,10 +208,17 @@ export async function cycle(
       repository_sha: result.sha,
       at: started,
     };
-    const candidate = result.candidate;
-    if (!candidate) {
+    const candidates = [...result.candidates]
+      .sort(
+        (a, b) =>
+          b.candidate.impact - a.candidate.impact ||
+          b.candidate.confidence - a.candidate.confidence,
+      )
+      .slice(0, deps.maxFindings ?? 1);
+    if (!candidates.length) {
       await deps.store.commit(reserved, {
         ...reserved.value,
+        next_at: Math.max(reserved.value.next_at, now() + intervalMs),
         last_run: source,
         signature,
         lease_until: 0,
@@ -217,88 +227,109 @@ export async function cycle(
       console.info("Lens investigator analysis persisted; no new report");
       return;
     }
-    const duplicate = reserved.value.sent.find(
-      (item) =>
-        item.fingerprint === candidate.fingerprint ||
-        item.evidence_hash === candidate.evidenceHash ||
-        item.title === candidate.candidate.title,
-    );
-    const persisted =
-      duplicate && /^[a-f0-9]{64}$/.test(duplicate.fingerprint)
-        ? { ...candidate, fingerprint: duplicate.fingerprint }
-        : candidate;
-    // Native import is idempotent. A timeout here must leave the evidence eligible
-    // for retry, while an ambiguous Slack send below remains durably claimed.
-    const native = await deps.persist(persisted, sample, source, signal);
-    const owned = await deps.store.read();
-    if (
-      signal.aborted ||
-      now() >= owned.value.lease_until - 30_000 ||
-      owned.value.owner !== reserved.value.owner ||
-      owned.revision !== reserved.revision
-    )
-      return;
-    if (duplicate) {
-      await deps.store.commit(owned, {
+    for (const candidate of candidates) {
+      const pending = await deps.store.read();
+      if (
+        pending.value.owner !== reserved.value.owner ||
+        now() >= pending.value.lease_until - 30_000 ||
+        signal.aborted
+      )
+        return;
+      const duplicate = pending.value.sent.find(
+        (item) =>
+          item.fingerprint === candidate.fingerprint ||
+          item.evidence_hash === candidate.evidenceHash ||
+          item.title === candidate.candidate.title,
+      );
+      const persisted =
+        duplicate && /^[a-f0-9]{64}$/.test(duplicate.fingerprint)
+          ? { ...candidate, fingerprint: duplicate.fingerprint }
+          : candidate;
+      // Native import is idempotent. A timeout here must leave the evidence eligible
+      // for retry, while an ambiguous Slack send below remains durably claimed.
+      const native = await deps.persist(persisted, sample, source, signal);
+      const owned = await deps.store.read();
+      if (
+        signal.aborted ||
+        now() >= owned.value.lease_until - 30_000 ||
+        owned.value.owner !== reserved.value.owner ||
+        owned.revision !== pending.revision
+      )
+        return;
+      if (duplicate) {
+        await deps.store.commit(owned, {
+          ...owned.value,
+          last_run: source,
+          last_outcome: "duplicate",
+          sent: owned.value.sent.map((item) =>
+            item.fingerprint === duplicate.fingerprint
+              ? {
+                  ...item,
+                  fingerprint: persisted.fingerprint,
+                  evidence_hash: candidate.evidenceHash,
+                  provenance: source,
+                  native_finding: native,
+                }
+              : item,
+          ),
+        });
+        console.info(
+          "Lens investigator native finding refreshed; no new notification",
+        );
+        continue;
+      }
+      const committed = await deps.store.commit(owned, {
         ...owned.value,
-        signature,
+        next_at: Math.max(owned.value.next_at, now() + intervalMs),
+        posts: owned.value.posts + 1,
+        next_issue_number: owned.value.next_issue_number + 1,
         last_run: source,
-        lease_until: 0,
-        last_outcome: "duplicate",
-        sent: owned.value.sent.map((item) =>
-          item.fingerprint === duplicate.fingerprint
-            ? {
-                ...item,
-                fingerprint: persisted.fingerprint,
-                evidence_hash: candidate.evidenceHash,
-                provenance: source,
-                native_finding: native,
-              }
-            : item,
-        ),
+        last_outcome: "delivery_unknown",
+        sent: [
+          ...owned.value.sent,
+          {
+            fingerprint: candidate.fingerprint,
+            evidence_hash: candidate.evidenceHash,
+            issue_key: candidate.candidate.issue_key,
+            title: candidate.candidate.title,
+            issue_number: owned.value.next_issue_number,
+            native_finding: native,
+            provenance: source,
+          },
+        ].slice(-200),
+      });
+      if (now() >= committed.value.lease_until - 15_000 || signal.aborted)
+        return;
+      await deps.post(
+        { ...candidate, native, issueNumber: owned.value.next_issue_number },
+        sample,
+        source,
+      );
+      await deps.store.commit(committed, {
+        ...committed.value,
+        last_outcome: "delivered",
       });
       console.info(
-        "Lens investigator native finding refreshed; no new notification",
+        "Lens investigator report delivered with durable provenance",
       );
-      return;
     }
-    const committed = await deps.store.commit(owned, {
-      ...owned.value,
+    const completed = await deps.store.read();
+    if (completed.value.owner !== reserved.value.owner) return;
+    await deps.store.commit(completed, {
+      ...completed.value,
       signature,
-      posts: reserved.value.posts + 1,
-      next_issue_number: reserved.value.next_issue_number + 1,
-      last_run: source,
-      last_outcome: "delivery_unknown",
-      sent: [
-        ...reserved.value.sent,
-        {
-          fingerprint: candidate.fingerprint,
-          evidence_hash: candidate.evidenceHash,
-          issue_key: candidate.candidate.issue_key,
-          title: candidate.candidate.title,
-          issue_number: reserved.value.next_issue_number,
-          native_finding: native,
-          provenance: source,
-        },
-      ].slice(-200),
-    });
-    if (now() >= committed.value.lease_until - 15_000 || signal.aborted) return;
-    await deps.post(
-      { ...candidate, native, issueNumber: reserved.value.next_issue_number },
-      sample,
-      source,
-    );
-    await deps.store.commit(committed, {
-      ...committed.value,
+      next_at: Math.max(completed.value.next_at, now() + intervalMs),
       lease_until: 0,
-      last_outcome: "delivered",
     });
-    console.info("Lens investigator report delivered with durable provenance");
   } catch (error) {
     const failed = await deps.store.read();
     if (failed.value.owner === claimed.value.owner) {
       await deps.store.commit(failed, {
         ...failed.value,
+        next_at:
+          failed.value.next_issue_number === claimed.value.next_issue_number
+            ? Math.min(failed.value.next_at, now() + 600_000)
+            : failed.value.next_at,
         lease_until: 0,
         last_outcome:
           failed.value.last_outcome === "delivery_unknown"
@@ -316,9 +347,12 @@ export async function cycle(
 
 export interface InvestigatorOptions {
   readonly repository: string;
+  readonly repositoryAccess?: "public";
   readonly clientId: string;
   readonly key: string;
   readonly dailyLimit: number;
+  readonly intervalMinutes?: number;
+  readonly maxFindings?: number;
   readonly model: string;
   readonly scope: readonly string[];
   readonly stateConnection: string;
@@ -354,7 +388,13 @@ export function startInvestigator(
   const repositoryFor =
     services.repository ??
     (async (signal: AbortSignal) => {
-      const repo = new Repository(repository, clientId, key);
+      const repo = new Repository(
+        repository,
+        clientId,
+        key,
+        fetch,
+        options.repositoryAccess,
+      );
       await repo.initialize(signal);
       return repo;
     });
@@ -374,6 +414,8 @@ export function startInvestigator(
           store,
           model,
           dailyLimit,
+          intervalMinutes: options.intervalMinutes,
+          maxFindings: options.maxFindings,
           sample: (signal) => {
             stage = "trace sample";
             return client.recent(signal, 100);
@@ -382,18 +424,25 @@ export function startInvestigator(
             stage = "repository access";
             const repo = await repositoryFor(signal);
             stage = "evidence and model analysis";
-            const evidence = new Evidence(sample, client, config.agent);
-            const candidate = await (services.investigate ?? investigate)(
+            const evidence = new Evidence(
+              sample,
+              client,
+              config.agent,
+              config.rootInput,
+            );
+            const candidates = await (services.investigate ?? investigate)(
               config,
               model,
               evidence,
               repo,
               previous,
               signal,
+              undefined,
+              options.maxFindings,
             );
             stage = "analysis persistence";
             return {
-              candidate,
+              candidates,
               sha: repo.sha,
             };
           },

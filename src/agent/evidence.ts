@@ -100,6 +100,7 @@ export class Evidence {
     readonly sample: Sample,
     private readonly client: Pick<LensClient, "get" | "link">,
     private readonly agent: string,
+    private readonly rootInput?: "text",
   ) {}
   async trace(id: string, signal: AbortSignal): Promise<string> {
     const selected = this.sample.traces.find((row) => row.trace_id === id);
@@ -166,6 +167,12 @@ export class Evidence {
         ),
       );
     if (response.span_id !== spanId) return "Span identity did not match";
+    const textRequest =
+      this.rootInput === "text" &&
+      observed.parent_span_id === null &&
+      observed.type === "agent" &&
+      observed.name === this.agent &&
+      response.attributes["gen_ai.operation.name"] === "invoke_agent";
     const observation: Observation = {
       trace_id: id,
       span_id: spanId,
@@ -184,7 +191,10 @@ export class Evidence {
         observed.parent_span_id === null &&
         observed.type === "agent" &&
         observed.name === this.agent,
-      humanInput: humanMessages(response.input)
+      humanInput: (textRequest
+        ? [redact(currentRequest(response.input))]
+        : humanMessages(response.input)
+      )
         .slice(-2)
         .map((text) => text.slice(0, 6000)),
       incident:
@@ -192,6 +202,7 @@ export class Evidence {
         response.attributes["moyai.run_id"] ||
         response.attributes["moyai.turn_id"] ||
         response.attributes["moyai.session_url"] ||
+        (textRequest ? id : null) ||
         null,
       attributes: Object.fromEntries(
         Object.entries(response.attributes).filter(([key]) =>

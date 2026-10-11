@@ -8,6 +8,7 @@ import {
   MaxTurnsExceededError,
 } from "@openai/agents";
 import OpenAI from "openai";
+import { z } from "zod";
 import type { AgentConfig as Config } from "./config.js";
 import { LensClient } from "./lens.js";
 import type {
@@ -24,6 +25,11 @@ import {
 } from "./findings.js";
 import { Evidence } from "./evidence.js";
 import { replyPrompt, investigationPrompt } from "./prompt.js";
+import {
+  documentationCandidateSchema,
+  documentationScope,
+  verifyDocumentation,
+} from "./documentation.js";
 import {
   answerSchema,
   replyTools,
@@ -74,9 +80,10 @@ export function responder(
       name: "Lens",
       model: config.model,
       outputType: answerSchema,
-      instructions: replyPrompt(config.agent, detail, finding?.issue),
+      instructions:
+        replyPrompt(config.agent, detail, finding?.issue) +
+        (config.focus === "documentation" ? `\n${documentationScope}` : ""),
       modelSettings: {
-        maxTokens: 1200,
         store: false,
         parallelToolCalls: false,
       },
@@ -119,14 +126,25 @@ export async function investigate(
   previous: readonly { issue_key: string; title: string }[],
   signal: AbortSignal,
   runner: Runner = runnerFor(config),
-): Promise<VerifiedCandidate | undefined> {
+  maxFindings = 1,
+): Promise<readonly VerifiedCandidate[]> {
   await evidence.loadRoots(signal);
+  const schema =
+    config.focus === "documentation"
+      ? documentationCandidateSchema
+      : candidateSchema;
+  const batchSchema = z.object({
+    candidates: z.array(schema).max(maxFindings),
+  });
   const agent = new Agent({
     name: "Lens investigator",
     model,
-    outputType: candidateSchema,
-    modelSettings: { maxTokens: 2500, store: false, parallelToolCalls: false },
-    instructions: investigationPrompt(config.agent),
+    outputType: maxFindings === 1 ? schema : batchSchema,
+    modelSettings: { store: false, parallelToolCalls: false },
+    instructions:
+      investigationPrompt(config.agent) +
+      (config.focus === "documentation" ? `\n${documentationScope}` : "") +
+      `\nCompare the strongest distinct opportunities across the entire available sample. Select up to ${maxFindings} of the most useful new findings together, ranked by actionable user impact and evidence strength. Prefer a supported workflow blocker or recurring need over a minor detail. Never fill the quota with weak findings or split one issue into multiple reports. Previous candidates do not qualify as new. ${maxFindings > 1 ? "Return candidates: [] when nothing qualifies." : "Return quiet when nothing qualifies."}`,
     tools: investigationTools(evidence, repo, signal),
   });
   const input = JSON.stringify({
@@ -136,11 +154,27 @@ export async function investigate(
     commit: repo.sha,
     prompt_revision: PROMPT_REVISION,
   });
+  const validate = (value: unknown) =>
+    config.focus === "documentation"
+      ? verifyDocumentation(value, evidence, repo)
+      : verify(candidateSchema.parse(value), evidence, repo);
+  const validateOutput = (value: unknown) => {
+    const values =
+      maxFindings === 1 ? [value] : batchSchema.parse(value).candidates;
+    const verified = values.map(validate).filter((item) => item !== undefined);
+    return [
+      ...new Map(verified.map((item) => [item.fingerprint, item])).values(),
+    ]
+      .sort(
+        (a, b) =>
+          b.candidate.impact - a.candidate.impact ||
+          b.candidate.confidence - a.candidate.confidence,
+      )
+      .slice(0, maxFindings);
+  };
   try {
     const result = await runner.run(agent, input, { maxTurns: 20, signal });
-    return result.finalOutput
-      ? verify(result.finalOutput, evidence, repo)
-      : undefined;
+    return result.finalOutput ? validateOutput(result.finalOutput) : [];
   } catch (error) {
     if (!(error instanceof MaxTurnsExceededError) || signal.aborted)
       throw error;
@@ -149,8 +183,6 @@ export async function investigate(
       `${input}\nFinalize now using only these already-read observations and code. Return quiet if insufficient.\n${JSON.stringify({ observations: [...evidence.observations.values()].slice(0, 6), code: [...repo.files.values()].slice(0, 4) })}`,
       { maxTurns: 1, signal },
     );
-    return result.finalOutput
-      ? verify(result.finalOutput, evidence, repo)
-      : undefined;
+    return result.finalOutput ? validateOutput(result.finalOutput) : [];
   }
 }

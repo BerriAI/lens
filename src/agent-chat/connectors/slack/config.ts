@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { z } from "zod";
 
 import type { AgentConfig } from "@litellm/lens-agent/config";
 import type { InvestigatorOptions } from "@litellm/lens-agent/investigator";
@@ -8,6 +9,10 @@ export interface Config extends AgentConfig {
   readonly appToken: string;
   readonly workspace: string;
   readonly channel: string;
+  readonly repository?: string;
+  readonly repositoryAccess?: "public";
+  readonly intervalMinutes?: number;
+  readonly maxFindings?: number;
 }
 export function agentConfig(config: Config): AgentConfig {
   return {
@@ -20,7 +25,44 @@ export function agentConfig(config: Config): AgentConfig {
     openaiBaseUrl: config.openaiBaseUrl,
     model: config.model,
     findingLensId: config.findingLensId,
+    focus: config.focus,
+    rootInput: config.rootInput,
   };
+}
+
+const targetSchema = z
+  .object({
+    channel: z.string().regex(/^[CG][A-Z0-9]+$/),
+    agent: z.string().trim().min(1),
+    service: z.string().trim().min(1).optional(),
+    repository: z.string().regex(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/),
+    repositoryAccess: z.literal("public").optional(),
+    findingLensId: z.string().trim().min(1),
+    focus: z.literal("documentation").optional(),
+    rootInput: z.literal("text").optional(),
+    intervalMinutes: z.number().int().min(10).max(1440).optional(),
+    maxFindings: z.number().int().min(1).max(2).optional(),
+  })
+  .strict();
+
+export function channelConfigs(
+  config: Config,
+  env: NodeJS.ProcessEnv,
+): readonly Config[] {
+  const targets = env.LENS_SLACK_ADDITIONAL_TARGETS
+    ? z.array(targetSchema).parse(JSON.parse(env.LENS_SLACK_ADDITIONAL_TARGETS))
+    : [];
+  const channels = [config.channel, ...targets.map((target) => target.channel)];
+  if (new Set(channels).size !== channels.length)
+    throw new Error("Each Slack target requires a distinct channel");
+  return [
+    config,
+    ...targets.map((target) => ({
+      ...config,
+      ...target,
+      service: target.service ?? target.agent,
+    })),
+  ];
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -109,7 +151,8 @@ export function investigatorOptions(
   env: NodeJS.ProcessEnv,
 ): InvestigatorOptions | undefined {
   if (env.LENS_INVESTIGATOR_ENABLED !== "true") return undefined;
-  const repository = required(env, "LENS_INVESTIGATOR_REPOSITORY");
+  const repository =
+    config.repository ?? required(env, "LENS_INVESTIGATOR_REPOSITORY");
   const clientId = required(env, "LENS_GITHUB_CLIENT_ID");
   const key = required(env, "LENS_GITHUB_PRIVATE_KEY");
   const dailyLimit = Number(env.LENS_INVESTIGATOR_DAILY_RUN_LIMIT ?? "144");
@@ -117,13 +160,18 @@ export function investigatorOptions(
     throw new Error("Invalid investigator daily limit");
   return {
     repository,
+    repositoryAccess: config.repositoryAccess,
     clientId,
     key,
     dailyLimit,
+    intervalMinutes: config.intervalMinutes,
+    maxFindings: config.maxFindings,
     model: env.LENS_INVESTIGATOR_MODEL?.trim() || "gpt-6-astra",
     scope: [config.workspace, config.channel, config.agent, repository],
     stateConnection: clickhouseConnection(env),
     stateDatabase: env.CLICKHOUSE_DATABASE || "lens",
-    knownFindings: env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
+    knownFindings: config.repository
+      ? undefined
+      : env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
   };
 }

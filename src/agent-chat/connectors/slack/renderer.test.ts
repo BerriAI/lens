@@ -195,4 +195,71 @@ test("a proposed issue has its stable number, status border and private chart in
       unknown.includes(candidate.codeLinks[0]!),
   );
   assert(!/slack_file|image|NaN|0\/0|\d%/.test(unknown));
+
+  messages.length = 0;
+  uploads.length = 0;
+  await postCandidate(
+    slack,
+    {
+      channel: "CDOCS",
+      agent: "docs-search",
+      focus: "documentation",
+    } as Config,
+    {
+      ...candidate,
+      feedback: { type: "documentation_gap", productSupport: "unverified" },
+      receipts: [...candidate.receipts!, ...candidate.receipts!],
+      candidate: {
+        ...candidate.candidate,
+        category: "Agent quality",
+        title: "Clarify budget precedence",
+      },
+    },
+    sample,
+    source,
+  );
+  assert.equal(messages.length, 2);
+  assert(messages.every((message) => message.channel === "CDOCS"));
+  assert.equal(messages[0]?.text, "Docs gap: Clarify budget precedence");
+  assert.equal(uploads.length, 0);
+  const docs = JSON.stringify(messages);
+  assert.equal(docs.split("Reader question").length - 1, 1);
+  assert(
+    docs.includes("Reader question") &&
+      docs.includes("What the docs establish") &&
+      docs.includes("Documentation source"),
+  );
+  assert(docs.includes("Suggested follow-up and verification"));
+  assert(
+    docs.includes(
+      "Unverified; this finding does not establish product support",
+    ),
+  );
+  assert(
+    !docs.includes("Agent behavior") &&
+      !docs.includes("LLM calls") &&
+      !docs.includes("Observed duration"),
+  );
+  for (const type of ["user_need", "capability_request"] as const) {
+    messages.length = 0;
+    await postCandidate(
+      slack,
+      {
+        channel: "CDOCS",
+        agent: "docs-search",
+        focus: "documentation",
+      } as Config,
+      {
+        ...candidate,
+        feedback: { type, productSupport: "unverified" },
+      },
+      sample,
+      source,
+    );
+    assert.equal(
+      messages[0]?.text,
+      `${type === "user_need" ? "User need" : "Capability request"}: ${candidate.candidate.title}`,
+    );
+    assert(!JSON.stringify(messages).includes("Docs gap"));
+  }
 });

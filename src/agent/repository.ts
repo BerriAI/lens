@@ -28,6 +28,7 @@ export class Repository {
     private readonly clientId: string,
     private readonly privateKey: string,
     private readonly fetcher: typeof fetch = fetch,
+    private readonly access: "installation" | "public" = "installation",
   ) {
     if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(name))
       throw new Error("Invalid allowed repository");
@@ -41,7 +42,7 @@ export class Repository {
     const response = await this.fetcher(`https://api.github.com${path}`, {
       method: body ? "POST" : "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         Accept: "application/vnd.github+json",
         "User-Agent": "lens-investigator",
         "X-GitHub-Api-Version": "2026-03-10",
@@ -64,6 +65,41 @@ export class Repository {
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
   }
   async initialize(signal: AbortSignal): Promise<void> {
+    if (this.access === "installation") await this.authenticate(signal);
+    const repo = z
+      .object({ default_branch: z.string(), private: z.boolean() })
+      .parse(await this.request(`/repos/${this.name}`, this.token, signal));
+    if (this.access === "public" && repo.private)
+      throw new Error(
+        "Public repository access cannot read a private repository",
+      );
+    this.sha = z
+      .object({ sha: z.string().regex(/^[a-f0-9]{40}$/) })
+      .parse(
+        await this.request(
+          `/repos/${this.name}/commits/${encodeURIComponent(repo.default_branch)}`,
+          this.token,
+          signal,
+        ),
+      ).sha;
+    const tree = treeSchema.parse(
+      await this.request(
+        `/repos/${this.name}/git/trees/${this.sha}?recursive=1`,
+        this.token,
+        signal,
+      ),
+    );
+    this.paths = tree.tree.filter(
+      (item) =>
+        item.type === "blob" &&
+        (item.size ?? Infinity) <= 50_000 &&
+        /\.(rs|ts|tsx|js|py|md|mdx|toml|json)$/.test(item.path) &&
+        !/(^|\/)(node_modules|vendor|\.git|\.env)|lock\.(json|toml)$|package-lock\.json$/.test(
+          item.path,
+        ),
+    );
+  }
+  private async authenticate(signal: AbortSignal): Promise<void> {
     const auth = createAppAuth({
       appId: this.clientId,
       privateKey: this.privateKey,
@@ -85,34 +121,6 @@ export class Repository {
         },
       ),
     ).token;
-    const repo = z
-      .object({ default_branch: z.string() })
-      .parse(await this.request(`/repos/${this.name}`, this.token, signal));
-    this.sha = z
-      .object({ sha: z.string().regex(/^[a-f0-9]{40}$/) })
-      .parse(
-        await this.request(
-          `/repos/${this.name}/commits/${encodeURIComponent(repo.default_branch)}`,
-          this.token,
-          signal,
-        ),
-      ).sha;
-    const tree = treeSchema.parse(
-      await this.request(
-        `/repos/${this.name}/git/trees/${this.sha}?recursive=1`,
-        this.token,
-        signal,
-      ),
-    );
-    this.paths = tree.tree.filter(
-      (item) =>
-        item.type === "blob" &&
-        (item.size ?? Infinity) <= 50_000 &&
-        /\.(rs|ts|tsx|js|py|md|toml|json)$/.test(item.path) &&
-        !/(^|\/)(node_modules|vendor|\.git|\.env)|lock\.(json|toml)$|package-lock\.json$/.test(
-          item.path,
-        ),
-    );
   }
   list(query: string): string {
     const paths = this.paths

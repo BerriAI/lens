@@ -8,4 +8,6 @@ export interface AgentConfig {
   readonly openaiBaseUrl: string;
   readonly model: string;
   readonly findingLensId?: string;
+  readonly focus?: "documentation";
+  readonly rootInput?: "text";
 }

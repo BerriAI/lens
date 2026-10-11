@@ -4,6 +4,10 @@ import type { Config } from "./config.js";
 import type { Sample } from "@litellm/lens-agent/evidence";
 import type { PersistedCandidate } from "@litellm/lens-agent/findings";
 import { provenance } from "@litellm/lens-agent/investigator";
+import {
+  feedbackLabels,
+  productSupportLabels,
+} from "@litellm/lens-agent/documentation";
 import { escapeSlack, prose, words } from "./slack.js";
 import {
   prepareChart,
@@ -33,6 +37,7 @@ export async function postCandidate(
   registry?: ThreadRegistry,
 ): Promise<void> {
   const candidate = verified.candidate;
+  const documentation = config.focus === "documentation";
   const icon = {
     issue: "🔎",
     regression: "📉",
@@ -40,10 +45,15 @@ export async function postCandidate(
     frustration: "😤",
     quiet: "",
   }[candidate.kind];
-  const category =
-    candidate.category === "Agent quality" ? "Quality" : candidate.category;
+  const category = documentation
+    ? verified.feedback
+      ? feedbackLabels[verified.feedback.type]
+      : "Docs feedback"
+    : candidate.category === "Agent quality"
+      ? "Quality"
+      : candidate.category;
   const title =
-    `${candidate.kind === "opportunity" ? `Feature Request: ${config.agent} · ` : `Bug Fix: ${config.agent} · ${category} — `}${prose(candidate.title)}`.slice(
+    `${documentation ? `${category}: ` : candidate.kind === "opportunity" ? `Feature Request: ${config.agent} · ` : `Bug Fix: ${config.agent} · ${category} — `}${prose(candidate.title)}`.slice(
       0,
       150,
     );
@@ -64,27 +74,28 @@ export async function postCandidate(
     : verified.frequency
       ? "Measured cohort"
       : "Frequency";
-  const links = verified.evidenceLinks
+  const links = [...new Set(verified.evidenceLinks)]
     .slice(0, 3)
     .map((url, index) => `<${url}|Trace ${index + 1}>`)
     .join(" · ");
-  const chartPayload: ChartPayload | undefined = verified.frequency
-    ? {
-        title: verified.frequency.support
-          ? "Observed request support"
-          : verified.frequency.title.slice(0, 80),
-        category,
-        affected: verified.frequency.count,
-        total: verified.frequency.total,
-        unit: verified.frequency.unit,
-        ...(verified.frequency.support
-          ? {
-              affectedLabel: "Supporting requests",
-              otherLabel: "Other reviewed requests",
-            }
-          : {}),
-      }
-    : undefined;
+  const chartPayload: ChartPayload | undefined =
+    verified.frequency && !documentation
+      ? {
+          title: verified.frequency.support
+            ? "Observed request support"
+            : verified.frequency.title.slice(0, 80),
+          category,
+          affected: verified.frequency.count,
+          total: verified.frequency.total,
+          unit: verified.frequency.unit,
+          ...(verified.frequency.support
+            ? {
+                affectedLabel: "Supporting requests",
+                otherLabel: "Other reviewed requests",
+              }
+            : {}),
+        }
+      : undefined;
   const png = chartPayload ? await renderChartPng(chartPayload) : undefined;
   const parent = {
     channel: config.channel,
@@ -148,25 +159,37 @@ export async function postCandidate(
         `>${escapeSlack(item.quote).replace(/\n/g, "\n>")}\n<${verified.evidenceLinks[index]}|Open trace ${index + 1}>`,
     )
     .join("\n\n");
-  const receipts = verified.receipts
+  const readerRequests = documentation
+    ? [
+        ...new Map(
+          verified.receipts?.map((receipt) => [receipt.url, receipt]),
+        ).values(),
+      ]
+    : verified.receipts;
+  const receipts = readerRequests
     ?.slice(0, 3)
-    .map(
-      (receipt, index) =>
-        `*Trace ${index + 1}*${receipt.user ? ` · ${escapeSlack(receipt.user)}` : ""}\n*User tried*\n>${escapeSlack(words(prose(receipt.request), 35) || "User request unavailable").replace(/\n/g, "\n>")}\n*Agent behavior*\n>${escapeSlack(words(prose(receipt.behavior), 35) || "Final response unavailable").replace(/\n/g, "\n>")}\n*Observed failure or gap*\n>${escapeSlack(receipt.quote).replace(/\n/g, "\n>")}\n<${receipt.url}|Trace ${index + 1}>`,
+    .map((receipt, index) =>
+      documentation
+        ? `*Reader question*\n>${escapeSlack(words(prose(receipt.request), 50) || receipt.quote).replace(/\n/g, "\n>")}\n<${receipt.url}|Supporting search conversation ${index + 1}>`
+        : `*Trace ${index + 1}*${receipt.user ? ` · ${escapeSlack(receipt.user)}` : ""}\n*User tried*\n>${escapeSlack(words(prose(receipt.request), 35) || "User request unavailable").replace(/\n/g, "\n>")}\n*Agent behavior*\n>${escapeSlack(words(prose(receipt.behavior), 35) || "Final response unavailable").replace(/\n/g, "\n>")}\n*Observed failure or gap*\n>${escapeSlack(receipt.quote).replace(/\n/g, "\n>")}\n<${receipt.url}|Trace ${index + 1}>`,
     )
     .join("\n\n");
   const details = [
     markdown(receipts || excerpts),
     markdown(
-      `*Observed issue*\n${escapeSlack(words(prose(candidate.observation), 80))}\n*${frequencyLabel}:* ${escapeSlack(frequency)}`,
+      `*${documentation ? "What users are trying to do" : "Observed issue"}*\n${escapeSlack(words(prose(candidate.observation), 80))}\n*${frequencyLabel}:* ${escapeSlack(frequency)}`,
     ),
     markdown(
-      `*Code hypothesis*\n${escapeSlack(words(prose(candidate.code_hypothesis), 80))}\n${verified.codeLinks.map((url, index) => `<${url}|Code reference ${index + 1}>`).join(" · ")}`,
+      `*${documentation ? "What the docs establish" : "Code hypothesis"}*\n${escapeSlack(words(prose(candidate.code_hypothesis), 80))}\n${verified.codeLinks.map((url, index) => `<${url}|${documentation ? "Documentation source" : "Code reference"} ${index + 1}>`).join(" · ")}${documentation ? `\n*Product support:* ${productSupportLabels[verified.feedback?.productSupport ?? "unverified"]}` : ""}`,
     ),
-    markdown(`\`\`\`\n${escapeSlack(metrics)}\n\`\`\``),
-    markdown(`\`\`\`\n${escapeSlack(graph)}\n\`\`\``),
+    ...(documentation
+      ? []
+      : [
+          markdown(`\`\`\`\n${escapeSlack(metrics)}\n\`\`\``),
+          markdown(`\`\`\`\n${escapeSlack(graph)}\n\`\`\``),
+        ]),
     markdown(
-      `*Required experiment*\n${escapeSlack(words(prose(candidate.experiment), 100))}\n\n*Limitations*\n${escapeSlack(words(prose(candidate.limitation), 60))}\nBounded sample; distinct trace IDs may share an incident. Current code is not verified deployed code. No measured improvement yet`,
+      `*${documentation ? "Suggested follow-up and verification" : "Required experiment"}*\n${escapeSlack(words(prose(candidate.experiment), 100))}\n\n*Limitations*\n${escapeSlack(words(prose(candidate.limitation), 60))}\n${documentation ? "Current documentation source was inspected; historical publication and reader outcomes are not verified" : "Bounded sample; distinct trace IDs may share an incident. Current code is not verified deployed code. No measured improvement yet"}`,
     ),
     {
       type: "context" as const,

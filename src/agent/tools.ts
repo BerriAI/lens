@@ -99,6 +99,7 @@ export async function replyTools(
           link: (query) => client.link!(query),
         },
         config.agent,
+        config.rootInput,
       )
     : undefined;
   if (evidence) await evidence.loadRoots(signal);

@@ -171,10 +171,12 @@ test(
         },
         repository: async () =>
           new Repository("example/repo", "fixture", "fixture"),
-        investigate: async () => ({
-          ...verified,
-          fingerprint: digest("verified finding"),
-        }),
+        investigate: async () => [
+          {
+            ...verified,
+            fingerprint: digest("verified finding"),
+          },
+        ],
       },
     );
     context.after(stop);
@@ -313,7 +315,7 @@ test("scoped known manual reports initialize only empty state and suppress the s
       store,
       persist,
       sample: async () => sample,
-      analyze: async () => ({ candidate: verified, sha: "sha" }),
+      analyze: async () => ({ candidates: [verified], sha: "sha" }),
       post: async () => {
         posts++;
       },
@@ -345,7 +347,7 @@ test("CAS claims prevent overlapping paid investigations and survive a new worke
     sample: async () => sample,
     analyze: async () => {
       analyses++;
-      return { candidate: verified, sha: "pinned" };
+      return { candidates: [verified], sha: "pinned" };
     },
     post: async () => {
       posts++;
@@ -381,7 +383,7 @@ test("unchanged traces and repeated candidates stay quiet across later cycles", 
     sample: async () => sample,
     analyze: async () => {
       analyses++;
-      return { candidate: verified, sha: "pinned" };
+      return { candidates: [verified], sha: "pinned" };
     },
     post: async () => {
       posts++;
@@ -414,7 +416,7 @@ test("daily paid-run limit persists and quiet results do not post", async () => 
     sample: async () => ({ ...sample, traces: [trace(String(time))] }),
     analyze: async () => {
       analyses++;
-      return { sha: "pinned" };
+      return { candidates: [], sha: "pinned" };
     },
     post: async () => {
       posts++;
@@ -457,7 +459,7 @@ test("the fourth distinct finding is analyzed, persisted and sent instead of sil
       sample: async () => sample,
       analyze: async () => {
         analyses++;
-        return { candidate: verified, sha: "sha" };
+        return { candidates: [verified], sha: "sha" };
       },
       persist: async () => {
         imports++;
@@ -491,11 +493,13 @@ test("verified repeated findings refresh native evidence without another Slack n
     store,
     sample: async () => ({ ...sample, traces: [trace(String(time))] }),
     analyze: async () => ({
-      candidate: {
-        ...verified,
-        fingerprint: posts ? "b".repeat(64) : firstFingerprint,
-        evidenceHash: String(time),
-      },
+      candidates: [
+        {
+          ...verified,
+          fingerprint: posts ? "b".repeat(64) : firstFingerprint,
+          evidenceHash: String(time),
+        },
+      ],
       sha: "sha",
     }),
     persist: async (item: VerifiedCandidate) => {
@@ -529,7 +533,7 @@ test("a failed Slack attempt is persisted before sending and cannot be blindly r
     store,
     persist,
     sample: async () => ({ ...sample, traces: [trace(String(time))] }),
-    analyze: async () => ({ candidate: verified, sha: "pinned" }),
+    analyze: async () => ({ candidates: [verified], sha: "pinned" }),
     post: async () => {
       attempts++;
       throw new Error("lost Slack response");
@@ -558,7 +562,7 @@ test("expired ownership cannot post after a long model request", async () => {
       sample: async () => sample,
       analyze: async () => {
         time += 300_000;
-        return { candidate: verified, sha: "pinned" };
+        return { candidates: [verified], sha: "pinned" };
       },
       post: async () => {
         posts++;
@@ -582,7 +586,7 @@ test("failed analysis leaves evidence eligible for the next cycle and still char
     sample: async () => sample,
     analyze: async () => {
       if (++attempts === 1) throw new Error("temporary provider failure");
-      return { sha: "pinned" };
+      return { candidates: [], sha: "pinned" };
     },
     post: async () => {},
     model: "model",
@@ -608,7 +612,7 @@ test("native import failures do not reserve a Slack send and retry the same veri
   const deps = {
     store,
     sample: async () => sample,
-    analyze: async () => ({ candidate: verified, sha: "pinned" }),
+    analyze: async () => ({ candidates: [verified], sha: "pinned" }),
     persist: async (item: VerifiedCandidate) => {
       assert.equal(item.fingerprint, verified.fingerprint);
       if (++imports === 1) throw new Error("ambiguous native response");
@@ -641,7 +645,7 @@ test("a lost lease after native persistence prevents Slack reservation and deliv
     {
       store,
       sample: async () => sample,
-      analyze: async () => ({ candidate: verified, sha: "pinned" }),
+      analyze: async () => ({ candidates: [verified], sha: "pinned" }),
       persist: async () => {
         const previous = await store.read();
         await store.commit(previous, {
@@ -833,4 +837,96 @@ test("stored investigator state from before status reporting remains readable", 
   assert.equal(parsed.last_outcome, "starting");
   assert.equal(parsed.last_check_at, 0);
   assert.equal(parsed.posts, legacy.posts);
+});
+
+test("a daily review sends only its two strongest findings and cannot burst across midnight or restart", async () => {
+  const store = new MemoryState();
+  let time = Date.parse("2026-01-01T23:55:00Z");
+  let analyses = 0;
+  const posts: string[] = [];
+  const finding = (key: string, impact: number): VerifiedCandidate => ({
+    ...verified,
+    fingerprint: digest(key),
+    evidenceHash: digest(`evidence-${key}`),
+    candidate: { ...candidate, issue_key: key, title: key, impact },
+  });
+  const deps = {
+    store,
+    persist,
+    sample: async () => ({ ...sample, traces: [trace(String(time))] }),
+    analyze: async () => {
+      analyses++;
+      return {
+        candidates: [
+          finding("minor", 5),
+          finding("highest", 8),
+          finding("second", 7),
+        ],
+        sha: "pinned",
+      };
+    },
+    post: async (item: VerifiedCandidate) => {
+      posts.push(item.candidate.title);
+    },
+    model: "model",
+    dailyLimit: 144,
+    intervalMinutes: 1440,
+    maxFindings: 2,
+    now: () => time,
+  };
+  await cycle(deps, AbortSignal.timeout(1000));
+  assert.deepEqual(posts, ["highest", "second"]);
+  assert.equal(store.snapshot.value.posts, 2);
+  assert.equal(store.snapshot.value.sent[1]?.issue_number, 2);
+  const next = store.snapshot.value.next_at;
+  time += 600_001;
+  await cycle({ ...deps }, AbortSignal.timeout(1000));
+  time = next - 1;
+  await cycle({ ...deps }, AbortSignal.timeout(1000));
+  assert.equal(analyses, 1);
+  assert.equal(posts.length, 2);
+  time = next;
+  await cycle({ ...deps }, AbortSignal.timeout(1000));
+  assert.equal(analyses, 2);
+  assert.equal(posts.length, 2);
+  assert.equal(store.snapshot.value.last_outcome, "duplicate");
+  assert.equal(store.snapshot.value.lease_until, 0);
+});
+
+test("daily reviews retry startup failures promptly but preserve the full interval after any send attempt", async () => {
+  const time = 1_800_000_000_000;
+  const store = new MemoryState();
+  const deps = {
+    store,
+    persist,
+    sample: async (): Promise<Sample> => {
+      throw new Error("server starting");
+    },
+    analyze: async () => ({ candidates: [verified], sha: "sha" }),
+    post: async () => {
+      throw new Error("delivery uncertain");
+    },
+    model: "model",
+    dailyLimit: 144,
+    intervalMinutes: 1440,
+    maxFindings: 2,
+    now: () => time,
+  };
+  await assert.rejects(
+    cycle(deps, AbortSignal.timeout(1000)),
+    /server starting/,
+  );
+  assert.equal(store.snapshot.value.next_at, time + 600_000);
+  assert.equal(store.snapshot.value.posts, 0);
+  const retry = time + 600_001;
+  await assert.rejects(
+    cycle(
+      { ...deps, sample: async () => sample, now: () => retry },
+      AbortSignal.timeout(1000),
+    ),
+    /delivery uncertain/,
+  );
+  assert.equal(store.snapshot.value.next_at, retry + 86_400_000);
+  assert.equal(store.snapshot.value.posts, 1);
+  assert.equal(store.snapshot.value.last_outcome, "delivery_unknown");
 });

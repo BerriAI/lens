@@ -2,7 +2,12 @@ import { App, LogLevel } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { replyAgent } from "./reply.js";
 import { Chat } from "./chat.js";
-import { configFrom, agentConfig, investigatorOptions } from "./config.js";
+import {
+  configFrom,
+  channelConfigs,
+  agentConfig,
+  investigatorOptions,
+} from "./config.js";
 import { startInvestigator } from "@litellm/lens-agent/investigator";
 import { postCandidate } from "./findings.js";
 import { slackReplies } from "./responses.js";
@@ -43,12 +48,6 @@ async function main() {
   const identity = await app.client.auth.test();
   if (identity.team_id !== config.workspace || !identity.user_id)
     throw new Error("Slack token workspace does not match its allowlist");
-  const registry = findingThreads(config, process.env);
-  await bootstrapThreads(
-    registry,
-    config,
-    process.env.LENS_SLACK_FINDING_THREADS,
-  );
   const activityClient = new WebClient(config.botToken, {
     logger,
     timeout: 2000,
@@ -61,25 +60,37 @@ async function main() {
   );
   const reactions = reactionStatus(activityClient);
   const responses = slackReplies(app.client);
-  const chat = new Chat(
+  const targets = channelConfigs(config, process.env).map((target) => {
+    const registry = findingThreads(target, process.env);
+    const chat = new Chat(
+      target,
+      replyAgent(target),
+      responses.reply,
+      Date.now,
+      registry,
+      async (event, state) => {
+        await Promise.allSettled([
+          status(event, state),
+          ...(process.env.LENS_SLACK_REACTIONS_ENABLED === "true"
+            ? [reactions(event, state)]
+            : []),
+        ]);
+      },
+      { acknowledge: responses.acknowledge },
+    );
+    return { config: target, registry, chat };
+  });
+  await bootstrapThreads(
+    targets[0]!.registry,
     config,
-    replyAgent(config),
-    responses.reply,
-    Date.now,
-    registry,
-    async (event, state) => {
-      await Promise.allSettled([
-        status(event, state),
-        ...(process.env.LENS_SLACK_REACTIONS_ENABLED === "true"
-          ? [reactions(event, state)]
-          : []),
-      ]);
-    },
-    { acknowledge: responses.acknowledge },
+    process.env.LENS_SLACK_FINDING_THREADS,
   );
-  let stopInvestigator = () => {};
+  const chats = new Map(
+    targets.map((target) => [target.config.channel, target.chat]),
+  );
+  const investigators: (() => void)[] = [];
   app.event("app_mention", async ({ event, body }) => {
-    await chat.mention({
+    await chats.get(event.channel)?.mention({
       id: body.event_id,
       workspace: body.team_id,
       channel: event.channel,
@@ -94,7 +105,7 @@ async function main() {
     app.event("message", async ({ event, body }) => {
       if (event.subtype && event.subtype !== "file_share") return;
       if (!("user" in event) || !("text" in event) || !event.text) return;
-      await chat.mention({
+      await chats.get(event.channel)?.mention({
         id: body.event_id,
         workspace: body.team_id,
         channel: event.channel,
@@ -115,34 +126,38 @@ async function main() {
     process.once(signal, () => {
       if (stopping) return;
       stopping = true;
-      stopInvestigator();
+      for (const stop of investigators) stop();
       void Promise.allSettled([
-        chat.shutdown(8000),
+        ...targets.map((target) => target.chat.shutdown(8000)),
         within(app.stop(), 8000),
       ]).finally(() => process.exit(0));
     });
   await app.start();
   console.info("Slack mention agent connected");
-  try {
-    const options = investigatorOptions(config, process.env);
-    if (options)
-      stopInvestigator = startInvestigator(
-        agentConfig(config),
-        options,
-        (candidate, sample, source) =>
-          postCandidate(
-            app.client,
-            config,
-            candidate,
-            sample,
-            source,
-            registry,
+  for (const target of targets) {
+    try {
+      const options = investigatorOptions(target.config, process.env);
+      if (options)
+        investigators.push(
+          startInvestigator(
+            agentConfig(target.config),
+            options,
+            (candidate, sample, source) =>
+              postCandidate(
+                app.client,
+                target.config,
+                candidate,
+                sample,
+                source,
+                target.registry,
+              ),
           ),
+        );
+    } catch {
+      console.error(
+        "Lens investigator configuration is invalid; mention chat remains available",
       );
-  } catch {
-    console.error(
-      "Lens investigator configuration is invalid; mention chat remains available",
-    );
+    }
   }
 }
 
