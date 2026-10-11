@@ -892,3 +892,41 @@ test("a daily review sends only its two strongest findings and cannot burst acro
   assert.equal(store.snapshot.value.last_outcome, "duplicate");
   assert.equal(store.snapshot.value.lease_until, 0);
 });
+
+test("daily reviews retry startup failures promptly but preserve the full interval after any send attempt", async () => {
+  const time = 1_800_000_000_000;
+  const store = new MemoryState();
+  const deps = {
+    store,
+    persist,
+    sample: async (): Promise<Sample> => {
+      throw new Error("server starting");
+    },
+    analyze: async () => ({ candidates: [verified], sha: "sha" }),
+    post: async () => {
+      throw new Error("delivery uncertain");
+    },
+    model: "model",
+    dailyLimit: 144,
+    intervalMinutes: 1440,
+    maxFindings: 2,
+    now: () => time,
+  };
+  await assert.rejects(
+    cycle(deps, AbortSignal.timeout(1000)),
+    /server starting/,
+  );
+  assert.equal(store.snapshot.value.next_at, time + 600_000);
+  assert.equal(store.snapshot.value.posts, 0);
+  const retry = time + 600_001;
+  await assert.rejects(
+    cycle(
+      { ...deps, sample: async () => sample, now: () => retry },
+      AbortSignal.timeout(1000),
+    ),
+    /delivery uncertain/,
+  );
+  assert.equal(store.snapshot.value.next_at, retry + 86_400_000);
+  assert.equal(store.snapshot.value.posts, 1);
+  assert.equal(store.snapshot.value.last_outcome, "delivery_unknown");
+});

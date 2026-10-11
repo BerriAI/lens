@@ -326,6 +326,10 @@ export async function cycle(
     if (failed.value.owner === claimed.value.owner) {
       await deps.store.commit(failed, {
         ...failed.value,
+        next_at:
+          failed.value.next_issue_number === claimed.value.next_issue_number
+            ? Math.min(failed.value.next_at, now() + 600_000)
+            : failed.value.next_at,
         lease_until: 0,
         last_outcome:
           failed.value.last_outcome === "delivery_unknown"
