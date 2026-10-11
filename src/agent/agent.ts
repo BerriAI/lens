@@ -76,7 +76,7 @@ export function responder(
       outputType: answerSchema,
       instructions: replyPrompt(config.agent, detail, finding?.issue),
       modelSettings: {
-        maxTokens: 1200,
+        maxTokens: 4000,
         store: false,
         parallelToolCalls: false,
       },
