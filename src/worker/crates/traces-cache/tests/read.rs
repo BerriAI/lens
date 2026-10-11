@@ -48,6 +48,7 @@ struct FakeError;
 
 #[derive(Default)]
 struct State {
+    summary_page: Option<litellm_traces_cache::SummaryPage>,
     summaries: Vec<litellm_traces::TraceSummary>,
     conversation_anchor: Option<TraceConversationAnchor>,
     conversation_rows: Vec<TraceConversationRow>,
@@ -164,6 +165,13 @@ impl TraceStore for FakeStore {
 
     fn source(&self) -> &str {
         "fake"
+    }
+
+    async fn summary_page(
+        &self,
+        _: &ListTracesParams,
+    ) -> Result<Option<litellm_traces_cache::SummaryPage>, StoreError<Self::Error>> {
+        Ok(self.state.lock().unwrap().summary_page.clone())
     }
 
     async fn summaries(
@@ -557,6 +565,32 @@ async fn list_run_budget_halves_the_limit_and_cursor_requires_a_full_page() {
     assert_eq!(page.data.len(), 1);
     assert!(page.next_cursor.is_none());
     assert_eq!(shorter.calls(Operation::ListRuns), 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn complete_summary_pages_skip_candidate_and_graph_reads() {
+    let store = FakeStore::default();
+    let summary = litellm_traces::resolve_trace("trace", "ref", &[span(0)], &[])
+        .unwrap()
+        .summary;
+    store.state.lock().unwrap().summary_page = Some(litellm_traces_cache::SummaryPage {
+        data: vec![summary.clone()],
+        next_position: None,
+    });
+    store.set_failure(Operation::ListRuns, Failure::Failed);
+    store.set_failure(Operation::RunSpans, Failure::Failed);
+    store.set_failure(Operation::Spend, Failure::Failed);
+
+    let page = TraceReader::new(usize::MAX)
+        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .await
+        .unwrap();
+
+    assert_eq!(page.data, vec![summary]);
+    assert!(page.next_cursor.is_none());
+    assert_eq!(store.calls(Operation::ListRuns), 0);
+    assert_eq!(store.calls(Operation::RunSpans), 0);
 }
 
 #[rstest]

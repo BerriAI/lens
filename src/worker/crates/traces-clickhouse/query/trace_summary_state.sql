@@ -1,7 +1,7 @@
-WITH summaries AS (
+summaries AS (
     SELECT TeamId, ApiKeyHash, TraceId, TraceRef, SourceSpanCount, ComputedAt, SpendKeys, Summary
     FROM lens_trace_summaries FINAL
-    WHERE TraceRef IN {trace_refs:Array(String)}
+    WHERE TraceRef IN (SELECT trace_ref FROM selected_refs)
       AND ScopeUserId = if({all_teams:UInt8} = 1 OR has({team_ids:Array(String)}, TeamId), '', {user_id:String})
       AND ({all_teams:UInt8} = 1 OR has({team_ids:Array(String)}, TeamId)
            OR ({user_id:String} != '' AND ScopeUserId = {user_id:String}))
@@ -21,8 +21,9 @@ WITH summaries AS (
        AND costs.key_kind = tupleElement(expanded.spend_key, 1)
        AND costs.key_value = tupleElement(expanded.spend_key, 2)
     WHERE costs.EngineReceivedMs >= expanded.ComputedAt
-)
-SELECT Summary AS summary
+), fresh_summaries AS (
+SELECT TraceRef AS trace_ref, Summary AS summary
 FROM summaries INNER JOIN source_counts USING (TeamId, ApiKeyHash, TraceId)
 WHERE summaries.SourceSpanCount = source_counts.source_span_count
   AND TraceRef NOT IN (SELECT TraceRef FROM changed_costs)
+)

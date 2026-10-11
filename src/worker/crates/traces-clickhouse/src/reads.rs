@@ -42,6 +42,15 @@ impl TraceStore for ClickHouseTraces {
         self.connection.url().as_str()
     }
 
+    async fn summary_page(
+        &self,
+        params: &contracts::ListTracesParams,
+    ) -> Result<Option<litellm_traces_cache::SummaryPage>, StoreError<Self::Error>> {
+        crate::summaries::page(&self.client, &self.connection, params)
+            .await
+            .map_err(StoreError::Failed)
+    }
+
     async fn summaries(
         &self,
         access: &contracts::ReadAccessParams,

@@ -4,7 +4,7 @@ use litellm_traces::{
     TraceSummary,
     query::named::{ListTracesRow, ReadAccessParams},
 };
-use litellm_traces_cache::{SummaryProjection, project_run};
+use litellm_traces_cache::{SummaryPage, SummaryProjection, project_run};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
@@ -32,7 +32,72 @@ struct SummaryRow {
 impl Query for Summaries {
     type Params = SummaryParams;
     type Row = SummaryRow;
-    const SQL: &'static str = include_str!("../query/trace_summaries.sql");
+    const SQL: &'static str = concat!(
+        "WITH selected_refs AS (SELECT arrayJoin({trace_refs:Array(String)}) AS trace_ref), ",
+        include_str!("../query/trace_summary_state.sql"),
+        " SELECT summary FROM fresh_summaries"
+    );
+}
+
+struct Page;
+
+#[derive(Serialize)]
+struct PageParams {
+    #[serde(flatten)]
+    list: crate::query::named::ListTracesParams,
+    resolution_version: u32,
+}
+
+#[derive(Deserialize)]
+struct PageRow {
+    trace_ref: String,
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    start_ms: i64,
+    summary: String,
+}
+
+impl Query for Page {
+    type Params = PageParams;
+    type Row = PageRow;
+    const SQL: &'static str = concat!(
+        "WITH ",
+        include_str!("../query/trace_summary_page.sql"),
+        include_str!("../query/trace_summary_state.sql"),
+        " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
+        "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
+        "ORDER BY page.start_ms DESC, page.trace_ref DESC"
+    );
+}
+
+pub(crate) async fn page(
+    client: &Client,
+    connection: &Connection,
+    params: &litellm_traces::query::named::ListTracesParams,
+) -> Result<Option<SummaryPage>, Error> {
+    let rows = fetch::<Page>(
+        client,
+        connection,
+        &PageParams {
+            list: params.clone().into(),
+            resolution_version: RESOLUTION_VERSION,
+        },
+    )
+    .await?;
+    if rows.iter().any(|row| row.summary.is_empty()) {
+        return Ok(None);
+    }
+    let next_position = rows
+        .last()
+        .filter(|_| rows.len() == params.limit as usize)
+        .map(|row| (row.start_ms, row.trace_ref.clone()));
+    let data = rows
+        .into_iter()
+        .map(|row| serde_json::from_str(&row.summary).map_err(|_| Error::InvalidResponse))
+        .collect::<Result<_, _>>()?;
+    Ok(Some(SummaryPage {
+        data,
+        next_position,
+    }))
 }
 
 pub(crate) async fn read(

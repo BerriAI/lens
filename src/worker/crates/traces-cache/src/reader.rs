@@ -84,6 +84,16 @@ impl TraceReader {
             cursor_trace_id,
             limit: limit.min(500).min(accepted),
         };
+        match store.summary_page(&params).await {
+            Ok(Some(page)) => {
+                return Ok(TracePage {
+                    data: page.data,
+                    next_cursor: page.next_position.as_ref().map(encode_cursor),
+                });
+            }
+            Err(error) => tracing::warn!(%error, "stored trace page unavailable"),
+            Ok(None) => {}
+        }
         let page = loop {
             match store.list_runs(&params).await {
                 Err(StoreError::TooLarge) if params.limit > 1 => {
