@@ -4,7 +4,7 @@ use litellm_traces::{
     TraceSummary,
     query::named::{ListTracesRow, ReadAccessParams},
 };
-use litellm_traces_cache::{SummaryProjection, project_run};
+use litellm_traces_cache::{SummaryPage, SummaryProjection, project_run};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
@@ -14,6 +14,7 @@ use crate::{ClickHouseTraces, Config, Connection, Error};
 struct Summaries;
 
 const RESOLUTION_VERSION: u32 = 1;
+const MAX_RUN_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Serialize)]
 struct SummaryParams {
@@ -31,7 +32,72 @@ struct SummaryRow {
 impl Query for Summaries {
     type Params = SummaryParams;
     type Row = SummaryRow;
-    const SQL: &'static str = include_str!("../query/trace_summaries.sql");
+    const SQL: &'static str = concat!(
+        "WITH selected_refs AS (SELECT arrayJoin({trace_refs:Array(String)}) AS trace_ref), ",
+        include_str!("../query/trace_summary_state.sql"),
+        " SELECT summary FROM fresh_summaries"
+    );
+}
+
+struct Page;
+
+#[derive(Serialize)]
+struct PageParams {
+    #[serde(flatten)]
+    list: crate::query::named::ListTracesParams,
+    resolution_version: u32,
+}
+
+#[derive(Deserialize)]
+struct PageRow {
+    trace_ref: String,
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    start_ms: i64,
+    summary: String,
+}
+
+impl Query for Page {
+    type Params = PageParams;
+    type Row = PageRow;
+    const SQL: &'static str = concat!(
+        "WITH ",
+        include_str!("../query/trace_summary_page.sql"),
+        include_str!("../query/trace_summary_state.sql"),
+        " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
+        "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
+        "ORDER BY page.start_ms DESC, page.trace_ref DESC"
+    );
+}
+
+pub(crate) async fn page(
+    client: &Client,
+    connection: &Connection,
+    params: &litellm_traces::query::named::ListTracesParams,
+) -> Result<Option<SummaryPage>, Error> {
+    let rows = fetch::<Page>(
+        client,
+        connection,
+        &PageParams {
+            list: params.clone().into(),
+            resolution_version: RESOLUTION_VERSION,
+        },
+    )
+    .await?;
+    if rows.iter().any(|row| row.summary.is_empty()) {
+        return Ok(None);
+    }
+    let next_position = rows
+        .last()
+        .filter(|_| rows.len() == params.limit as usize)
+        .map(|row| (row.start_ms, row.trace_ref.clone()));
+    let data = rows
+        .into_iter()
+        .map(|row| serde_json::from_str(&row.summary).map_err(|_| Error::InvalidResponse))
+        .collect::<Result<_, _>>()?;
+    Ok(Some(SummaryPage {
+        data,
+        next_position,
+    }))
 }
 
 pub(crate) async fn read(
@@ -155,7 +221,7 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         config.storage().reader(),
         &CandidateParams {
             resolution_version: RESOLUTION_VERSION,
-            limit,
+            limit: limit.min(16),
         },
     )
     .await?;
@@ -174,28 +240,16 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
             Ok(runs) if !runs.is_empty() => runs,
             result => {
                 tracing::warn!(trace_ref = %candidate.trace_ref, error = ?result.err(), "trace summary projection deferred");
-                let retry = Projection {
-                    team_id: &candidate.team_id,
-                    api_key_hash: &candidate.api_key_hash,
-                    trace_id: &candidate.trace_id,
-                    trace_ref: &candidate.trace_ref,
-                    scope_user_id: "",
-                    source_span_count: 0,
-                    start_ts: litellm_traces::iso_time(candidate.start_ms),
-                    computed_at: snapshot_ms,
-                    resolution_version: 0,
-                    spend_keys: Vec::new(),
-                    summary: String::new(),
-                };
-                projections.push(serde_json::to_string(&retry).map_err(|_| Error::InvalidRow)?);
+                projections.push(deferred(candidate, snapshot_ms)?);
                 continue;
             }
         };
-        for run in &runs {
-            projections.push(
-                serde_json::to_string(&projection(candidate, run, snapshot_ms)?)
-                    .map_err(|_| Error::InvalidRow)?,
-            );
+        match encode(candidate, &runs, snapshot_ms) {
+            Ok(rows) => projections.extend(rows),
+            Err(error) => {
+                tracing::warn!(trace_ref = %candidate.trace_ref, %error, "trace summary projection deferred");
+                projections.push(deferred(candidate, snapshot_ms)?);
+            }
         }
     }
     if !projections.is_empty() {
@@ -212,4 +266,40 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         .await?;
     }
     Ok(candidates.len())
+}
+
+fn encode(
+    candidate: &Candidate,
+    runs: &[SummaryProjection],
+    now: u64,
+) -> Result<Vec<String>, Error> {
+    let mut rows = Vec::new();
+    let mut bytes = 0;
+    for run in runs {
+        let row = serde_json::to_string(&projection(candidate, run, now)?)
+            .map_err(|_| Error::InvalidRow)?;
+        bytes += row.len() + 1;
+        if bytes > MAX_RUN_BYTES {
+            return Err(Error::InsertTooLarge);
+        }
+        rows.push(row);
+    }
+    Ok(rows)
+}
+
+fn deferred(candidate: &Candidate, now: u64) -> Result<String, Error> {
+    let retry = Projection {
+        team_id: &candidate.team_id,
+        api_key_hash: &candidate.api_key_hash,
+        trace_id: &candidate.trace_id,
+        trace_ref: &candidate.trace_ref,
+        scope_user_id: "",
+        source_span_count: 0,
+        start_ts: litellm_traces::iso_time(candidate.start_ms),
+        computed_at: now,
+        resolution_version: 0,
+        spend_keys: Vec::new(),
+        summary: String::new(),
+    };
+    serde_json::to_string(&retry).map_err(|_| Error::InvalidRow)
 }

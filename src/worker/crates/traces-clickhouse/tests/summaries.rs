@@ -64,6 +64,94 @@ fn cost(user: &str) -> BTreeMap<String, Value> {
 }
 
 #[rstest]
+#[tokio::test]
+async fn a_late_evaluation_marker_excludes_an_existing_summary(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![span("owner", "first")],
+    )
+    .await?;
+    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    let params = list_params(access(true, "", &[]));
+    assert_eq!(store.summary_page(&params).await?.unwrap().data.len(), 1);
+
+    let marker = span("owner", "evaluation")
+        .into_iter()
+        .chain([
+            (
+                "Timestamp".into(),
+                json!(time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64),
+            ),
+            (
+                "SpanAttributes".into(),
+                json!({"deployment.environment": "lens-eval"}),
+            ),
+        ])
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![marker],
+    )
+    .await?;
+    assert!(store.summary_page(&params).await?.unwrap().data.is_empty());
+    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn oversized_summary_does_not_block_projection_of_other_traces(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let oversized = span("owner", "first")
+        .into_iter()
+        .chain([("InputPreview".into(), json!("x".repeat(2 * 1024 * 1024)))])
+        .collect();
+    let smaller = span("owner", "second")
+        .into_iter()
+        .chain([
+            ("TraceId".into(), json!("smaller-trace")),
+            ("Timestamp".into(), json!(1_789_999_999_000_000_000_i64)),
+        ])
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![oversized, smaller],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    let scope = access(true, "", &[]);
+    let rows = store.list_runs(&list_params(scope.clone())).await?;
+
+    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    assert!(store.summaries(&scope, &rows).await?.is_empty());
+    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    let saved = store.summaries(&scope, &rows).await?;
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].trace_id, "smaller-trace");
+    assert_eq!(saved[0].span_count, 1);
+    Ok(())
+}
+
+#[rstest]
 #[case::administrator(access(true, "", &[]))]
 #[case::team(access(false, "", &["team"]))]
 #[case::owner(access(false, "owner", &[]))]
@@ -109,6 +197,10 @@ async fn summaries_preserve_user_visibility_within_a_shared_trace(
     assert_eq!(summaries::project(client, &config, 16).await?, 1);
     let rows = store.list_runs(&list_params(scope.clone())).await?;
     assert_eq!(store.summaries(&scope, &rows).await?, before.data);
+    assert_eq!(
+        store.summary_page(&list_params(scope)).await?.unwrap().data,
+        before.data
+    );
     Ok(())
 }
 
@@ -161,6 +253,12 @@ async fn cost_corrections_invalidate_previous_aliases_and_owners(
     )
     .await?;
     assert!(store.summaries(&scope, &rows).await?.is_empty());
+    assert!(
+        store
+            .summary_page(&list_params(scope.clone()))
+            .await?
+            .is_none()
+    );
     assert_eq!(summaries::project(client, &config, 16).await?, 1);
     let updated = store.summaries(&scope, &rows).await?;
     assert_eq!(updated.len(), 1);
@@ -235,6 +333,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
     #[future(awt)] seeded_database: TestResult<SeededDatabase>,
     #[case] all_teams: bool,
     #[case] team_id: &str,
+    #[values(1, 50)] limit: u32,
 ) -> TestResult {
     let fixture = seeded_database?;
     let config = Config::new(DATABASE.to_owned(), &fixture.database.url, 7)?;
@@ -248,8 +347,17 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         Connection::reader(&fixture.database.url, DATABASE)?,
     );
     let before = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, 0, 2_000_000_000_000, None, limit)
         .await?;
+    let before_next = if let Some(cursor) = before.next_cursor.as_deref() {
+        Some(
+            TraceReader::new(usize::MAX)
+                .list_traces(&store, &access, 0, 2_000_000_000_000, Some(cursor), limit)
+                .await?,
+        )
+    } else {
+        None
+    };
 
     assert!(summaries::project(&fixture.database.client, &config, 16).await? > 0);
 
@@ -260,19 +368,33 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
             end_ms: 2_000_000_000_000,
             cursor_ms: 0,
             cursor_trace_id: String::new(),
-            limit: 50,
+            limit,
         })
         .await?;
     let persisted = store.summaries(&access, &rows).await?;
     assert_eq!(persisted.len(), before.data.len());
+    let params = ListTracesParams {
+        limit,
+        ..list_params(access.clone())
+    };
+    assert_eq!(
+        store.summary_page(&params).await?.unwrap().data,
+        before.data
+    );
     assert_eq!(
         summaries::project(&fixture.database.client, &config, 16).await?,
         0
     );
 
     let after = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, 0, 2_000_000_000_000, None, limit)
         .await?;
     assert_eq!(after, before);
+    if let Some(cursor) = after.next_cursor.as_deref() {
+        let after_next = TraceReader::new(usize::MAX)
+            .list_traces(&store, &access, 0, 2_000_000_000_000, Some(cursor), limit)
+            .await?;
+        assert_eq!(Some(after_next), before_next);
+    }
     Ok(())
 }
