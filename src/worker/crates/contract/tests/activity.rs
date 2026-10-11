@@ -1,10 +1,18 @@
 use lens_contract::{
-    activity::{ActivitySelection, Preview},
+    activity::{ActivitySelection, Preview, is_decisions_mode},
     investigations::TraceFindingCount,
     worker::LensSettings,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
+
+#[rstest]
+#[case::decisions("decisions", true)]
+#[case::legacy_evaluation("evaluation", true)]
+#[case::chat("chat", false)]
+fn recognizes_both_decisions_model_modes(#[case] mode: &str, #[case] expected: bool) {
+    assert_eq!(is_decisions_mode(mode), expected);
+}
 
 #[rstest]
 fn public_selection_preserves_every_activity_setting() {

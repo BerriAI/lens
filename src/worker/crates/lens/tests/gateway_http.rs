@@ -44,6 +44,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     Mock::given(method("GET")).and(path("/model_group/info"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[
             {"model_group":"new/evaluator","mode":"evaluation"},
+            {"model_group":"typesafe/jev-latest","mode":"decisions"},
             {"model_group":"ordinary-chat","mode":"chat","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_output_tokens":4096}
         ]}))).mount(&gateway).await;
     let refreshed: Value = client
@@ -58,8 +59,10 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .await
         .unwrap();
     assert_eq!(refreshed["connected"], true);
-    assert_eq!(refreshed["evaluation_models"], 1);
-    assert_eq!(registry.evaluation().models(), vec!["new/evaluator"]);
+    assert_eq!(refreshed["evaluation_models"], 2);
+    let evaluation_models = registry.evaluation().models();
+    assert!(evaluation_models.contains(&"new/evaluator".to_owned()));
+    assert!(evaluation_models.contains(&"typesafe/jev-latest".to_owned()));
     let saved = client
         .put(format!("{}/lens/signals", server.url))
         .bearer_auth(ADMIN)
@@ -68,6 +71,16 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .await
         .unwrap();
     assert_eq!(saved.status(), 200);
+    let mut decisions = config.clone();
+    decisions["model"] = json!("typesafe/jev-latest");
+    let saved_decisions = client
+        .put(format!("{}/lens/signals", server.url))
+        .bearer_auth(ADMIN)
+        .json(&decisions)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(saved_decisions.status(), 200);
     let mut chat = config;
     chat["model"] = json!("ordinary-chat");
     let rejected = client
@@ -87,6 +100,6 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .json()
         .await
         .unwrap();
-    assert_eq!(public["data"].as_array().unwrap().len(), 2);
+    assert_eq!(public["data"].as_array().unwrap().len(), 3);
     assert!(!public.to_string().contains("private-gateway-fixture-key"));
 }

@@ -19,7 +19,7 @@ LENS_GATEWAY_API_KEY=<gateway-virtual-key>
 
 Lens fetches the models accessible to this key from the gateway's `/model_group/info` endpoint. Open **Settings**, check the gateway connection, and refresh its models whenever the gateway configuration changes. The key stays on the server
 
-In **Settings > Signals**, choose a discovered System 1 model and save your questions. Only models reported with `mode: evaluation` appear in this selector; Lens sends their requests through the gateway's `/v1/decisions` endpoint using the exact model alias. Ordinary chat models are available for analysis when the gateway supplies valid pricing and output-token limits
+In **Settings > Signals**, choose a discovered System 1 model and save your questions. Models reported with `mode: decisions` or the legacy `mode: evaluation` appear in this selector; Lens sends their requests through the gateway's `/v1/decisions` endpoint using the exact model alias. Ordinary chat models are available for analysis when the gateway supplies valid pricing and output-token limits
 
 Discovered analysis models request at most 4,096 output tokens per call (or their smaller supported limit), while retaining their full context capacity for input checks and budget accounting
 

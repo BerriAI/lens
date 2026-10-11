@@ -74,3 +74,7 @@ pub struct AnalysisModelInfo {
     pub mode: String,
     pub supported_openai_params: Option<Vec<String>>,
 }
+
+pub fn is_decisions_mode(mode: &str) -> bool {
+    matches!(mode, "decisions" | "evaluation")
+}
