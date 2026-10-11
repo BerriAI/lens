@@ -11,6 +11,8 @@ export interface Config extends AgentConfig {
   readonly channel: string;
   readonly repository?: string;
   readonly repositoryAccess?: "public";
+  readonly intervalMinutes?: number;
+  readonly maxFindings?: number;
 }
 export function agentConfig(config: Config): AgentConfig {
   return {
@@ -38,6 +40,8 @@ const targetSchema = z
     findingLensId: z.string().trim().min(1),
     focus: z.literal("documentation").optional(),
     rootInput: z.literal("text").optional(),
+    intervalMinutes: z.number().int().min(10).max(1440).optional(),
+    maxFindings: z.number().int().min(1).max(2).optional(),
   })
   .strict();
 
@@ -160,6 +164,8 @@ export function investigatorOptions(
     clientId,
     key,
     dailyLimit,
+    intervalMinutes: config.intervalMinutes,
+    maxFindings: config.maxFindings,
     model: env.LENS_INVESTIGATOR_MODEL?.trim() || "gpt-6-astra",
     scope: [config.workspace, config.channel, config.agent, repository],
     stateConnection: clickhouseConnection(env),

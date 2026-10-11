@@ -177,6 +177,8 @@ test("additional channels keep their own agent, repository and native findings d
     findingLensId: "docs-lens",
     focus: "documentation",
     rootInput: "text",
+    intervalMinutes: 1440,
+    maxFindings: 2,
   };
   const env = {
     LENS_SLACK_ADDITIONAL_TARGETS: JSON.stringify([target]),
@@ -202,6 +204,9 @@ test("additional channels keep their own agent, repository and native findings d
     "example/docs",
   ]);
   assert.equal(investigatorOptions(docs, env)?.knownFindings, undefined);
+  assert.equal(investigatorOptions(docs, env)?.intervalMinutes, 1440);
+  assert.equal(investigatorOptions(docs, env)?.maxFindings, 2);
+  assert.equal(investigatorOptions(base, env)?.intervalMinutes, undefined);
   assert.equal(investigatorOptions(base, env)?.knownFindings, "original-seed");
   for (const invalid of [
     [{ ...target, channel: base.channel }],
@@ -210,6 +215,8 @@ test("additional channels keep their own agent, repository and native findings d
     [{ ...target, channel: "#docs" }],
     [{ ...target, repository: "../another/repo" }],
     [{ ...target, botToken: "override" }],
+    [{ ...target, intervalMinutes: 0 }],
+    [{ ...target, maxFindings: 3 }],
   ])
     assert.throws(() =>
       channelConfigs(base, {
