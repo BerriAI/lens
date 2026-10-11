@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Chat, type Mention } from "./chat.js";
-import { configFrom, localApiUrl, type Config } from "./config.js";
+import {
+  configFrom,
+  channelConfigs,
+  agentConfig,
+  investigatorOptions,
+  localApiUrl,
+  type Config,
+} from "./config.js";
 import type { Turn } from "@litellm/lens-agent/models";
 
 export const config: Config = {
@@ -151,4 +158,62 @@ test("disabled chat needs no credentials; enabled chat rejects ambiguous tenant 
   assert.equal(localApiUrl("0.0.0.0:4100"), "http://127.0.0.1:4100");
   assert.equal(localApiUrl("[::]:4101"), "http://[::1]:4101");
   assert.throws(() => localApiUrl("example.com:4318"));
+});
+
+test("additional channels keep their own agent, repository and native findings destination", () => {
+  const base = {
+    workspace: "T123",
+    channel: "C123",
+    agent: "original",
+    service: "original-service",
+    findingLensId: "original-lens",
+    botToken: "bot",
+    appToken: "app",
+  } as Config;
+  const target = {
+    channel: "C456",
+    agent: "docs",
+    repository: "example/docs",
+    findingLensId: "docs-lens",
+    focus: "documentation",
+    rootInput: "text",
+  };
+  const env = {
+    LENS_SLACK_ADDITIONAL_TARGETS: JSON.stringify([target]),
+    LENS_INVESTIGATOR_ENABLED: "true",
+    LENS_INVESTIGATOR_REPOSITORY: "example/original",
+    LENS_GITHUB_CLIENT_ID: "client",
+    LENS_GITHUB_PRIVATE_KEY: "key",
+    CLICKHOUSE_URL: "http://localhost:8123",
+    LENS_INVESTIGATOR_KNOWN_FINDINGS: "original-seed",
+  };
+  const configs = channelConfigs(base, env);
+  assert.equal(configs[0], base);
+  const docs = configs[1]!;
+  assert.equal(docs.service, "docs");
+  assert.equal(docs.findingLensId, "docs-lens");
+  assert.equal(docs.botToken, base.botToken);
+  assert.equal(agentConfig(docs).focus, "documentation");
+  assert.equal(agentConfig(docs).rootInput, "text");
+  assert.deepEqual(investigatorOptions(docs, env)?.scope, [
+    "T123",
+    "C456",
+    "docs",
+    "example/docs",
+  ]);
+  assert.equal(investigatorOptions(docs, env)?.knownFindings, undefined);
+  assert.equal(investigatorOptions(base, env)?.knownFindings, "original-seed");
+  for (const invalid of [
+    [{ ...target, channel: base.channel }],
+    [target, target],
+    [{ ...target, findingLensId: "" }],
+    [{ ...target, channel: "#docs" }],
+    [{ ...target, repository: "../another/repo" }],
+    [{ ...target, botToken: "override" }],
+  ])
+    assert.throws(() =>
+      channelConfigs(base, {
+        LENS_SLACK_ADDITIONAL_TARGETS: JSON.stringify(invalid),
+      }),
+    );
 });

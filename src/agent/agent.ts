@@ -25,6 +25,11 @@ import {
 import { Evidence } from "./evidence.js";
 import { replyPrompt, investigationPrompt } from "./prompt.js";
 import {
+  documentationCandidateSchema,
+  documentationScope,
+  verifyDocumentation,
+} from "./documentation.js";
+import {
   answerSchema,
   replyTools,
   investigationTools,
@@ -74,9 +79,10 @@ export function responder(
       name: "Lens",
       model: config.model,
       outputType: answerSchema,
-      instructions: replyPrompt(config.agent, detail, finding?.issue),
+      instructions:
+        replyPrompt(config.agent, detail, finding?.issue) +
+        (config.focus === "documentation" ? `\n${documentationScope}` : ""),
       modelSettings: {
-        maxTokens: 1200,
         store: false,
         parallelToolCalls: false,
       },
@@ -124,9 +130,14 @@ export async function investigate(
   const agent = new Agent({
     name: "Lens investigator",
     model,
-    outputType: candidateSchema,
-    modelSettings: { maxTokens: 2500, store: false, parallelToolCalls: false },
-    instructions: investigationPrompt(config.agent),
+    outputType:
+      config.focus === "documentation"
+        ? documentationCandidateSchema
+        : candidateSchema,
+    modelSettings: { store: false, parallelToolCalls: false },
+    instructions:
+      investigationPrompt(config.agent) +
+      (config.focus === "documentation" ? `\n${documentationScope}` : ""),
     tools: investigationTools(evidence, repo, signal),
   });
   const input = JSON.stringify({
@@ -136,11 +147,13 @@ export async function investigate(
     commit: repo.sha,
     prompt_revision: PROMPT_REVISION,
   });
+  const validate = (value: unknown) =>
+    config.focus === "documentation"
+      ? verifyDocumentation(value, evidence, repo)
+      : verify(candidateSchema.parse(value), evidence, repo);
   try {
     const result = await runner.run(agent, input, { maxTurns: 20, signal });
-    return result.finalOutput
-      ? verify(result.finalOutput, evidence, repo)
-      : undefined;
+    return result.finalOutput ? validate(result.finalOutput) : undefined;
   } catch (error) {
     if (!(error instanceof MaxTurnsExceededError) || signal.aborted)
       throw error;
@@ -149,8 +162,6 @@ export async function investigate(
       `${input}\nFinalize now using only these already-read observations and code. Return quiet if insufficient.\n${JSON.stringify({ observations: [...evidence.observations.values()].slice(0, 6), code: [...repo.files.values()].slice(0, 4) })}`,
       { maxTurns: 1, signal },
     );
-    return result.finalOutput
-      ? verify(result.finalOutput, evidence, repo)
-      : undefined;
+    return result.finalOutput ? validate(result.finalOutput) : undefined;
   }
 }

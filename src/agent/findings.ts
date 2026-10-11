@@ -4,7 +4,7 @@ import { Repository } from "./repository.js";
 import { digest } from "./state.js";
 import type { MeasuredFrequency, NativeFinding } from "./models.js";
 
-export const PROMPT_REVISION = "lens-investigator-v2";
+export const PROMPT_REVISION = "lens-investigator-v3";
 export const candidateSchema = z.object({
   kind: z.enum(["quiet", "issue", "regression", "opportunity", "frustration"]),
   category: z.enum(["Performance", "Agent quality", "Reliability"]),
@@ -26,6 +26,13 @@ export const candidateSchema = z.object({
 export type Candidate = z.infer<typeof candidateSchema>;
 export interface VerifiedCandidate {
   readonly candidate: Candidate;
+  readonly feedback?: {
+    readonly type: "documentation_gap" | "user_need" | "capability_request";
+    readonly productSupport:
+      | "documented"
+      | "documented_limitation"
+      | "unverified";
+  };
   readonly issueNumber?: number;
   readonly fingerprint: string;
   readonly evidenceHash: string;

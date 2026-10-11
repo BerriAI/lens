@@ -316,6 +316,7 @@ export async function cycle(
 
 export interface InvestigatorOptions {
   readonly repository: string;
+  readonly repositoryAccess?: "public";
   readonly clientId: string;
   readonly key: string;
   readonly dailyLimit: number;
@@ -354,7 +355,13 @@ export function startInvestigator(
   const repositoryFor =
     services.repository ??
     (async (signal: AbortSignal) => {
-      const repo = new Repository(repository, clientId, key);
+      const repo = new Repository(
+        repository,
+        clientId,
+        key,
+        fetch,
+        options.repositoryAccess,
+      );
       await repo.initialize(signal);
       return repo;
     });
@@ -382,7 +389,12 @@ export function startInvestigator(
             stage = "repository access";
             const repo = await repositoryFor(signal);
             stage = "evidence and model analysis";
-            const evidence = new Evidence(sample, client, config.agent);
+            const evidence = new Evidence(
+              sample,
+              client,
+              config.agent,
+              config.rootInput,
+            );
             const candidate = await (services.investigate ?? investigate)(
               config,
               model,

@@ -250,6 +250,37 @@ test("findings preserve candidate uncertainty and canonical evidence route witho
   assert(!raw.includes("raw captured") && !raw.includes("Other private"));
 });
 
+test("a configured findings destination excludes other analyses of the same agent", async () => {
+  const scoped = new LensClient(
+    { ...config, findingLensId: "docs" },
+    async () =>
+      response({
+        lenses: [
+          { id: "docs", settings: { agent_name: config.agent }, findings: [] },
+          {
+            id: "agent-diagnostics",
+            settings: { agent_name: config.agent },
+            findings: [
+              {
+                id: "f",
+                title: "Retrieval failed",
+                description: "Out of scope",
+                kind: "issue",
+                status: "open",
+                last_seen: "2026-01-01",
+                evidence: [],
+              },
+            ],
+          },
+        ],
+      }),
+  );
+  const result = JSON.parse(await scoped.read("findings", signal));
+  assert.equal(result.investigations, 1);
+  assert.equal(result.open_findings, 0);
+  assert.deepEqual(result.findings, []);
+});
+
 test("eval counts do not expose unknown cost or claim a paired gain", async () => {
   const client = new LensClient(config, async (url, init) => {
     assert.equal(new Headers(init?.headers).get("X-Lens-Contract"), "2");
@@ -455,5 +486,37 @@ test("native publication fails closed for ambiguous targets, wrong agents, absen
   await assert.rejects(
     client.persistFinding(imported, importSample, importSource, signal),
     /identity does not match/,
+  );
+});
+
+test("docs feedback persists user demand and product uncertainty in its selected collection", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const client = new LensClient(
+    { ...config, findingLensId: "docs", focus: "documentation" },
+    async (_url, init) => {
+      if (init?.method === "GET")
+        return response({ lenses: [nativeLens("other"), nativeLens("docs")] });
+      sent.push(JSON.parse(String(init?.body)));
+      return response({ lens_id: "docs", finding_id: "learning" });
+    },
+  );
+  await client.persistFinding(
+    {
+      ...imported,
+      feedback: { type: "capability_request", productSupport: "unverified" },
+    },
+    importSample,
+    importSource,
+    signal,
+  );
+  assert.match(String(sent[0]?.description), /Capability request/);
+  assert.match(
+    String(sent[0]?.description),
+    /Unverified; this finding does not establish product support/,
+  );
+  assert.match(String(sent[0]?.suggestion), /What the docs establish/);
+  assert.match(
+    String(sent[0]?.suggestion),
+    /Suggested follow-up and verification/,
   );
 });
