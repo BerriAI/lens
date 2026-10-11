@@ -14,6 +14,7 @@ use crate::{ClickHouseTraces, Config, Connection, Error};
 struct Summaries;
 
 const RESOLUTION_VERSION: u32 = 1;
+const MAX_RUN_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Serialize)]
 struct SummaryParams {
@@ -155,7 +156,7 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         config.storage().reader(),
         &CandidateParams {
             resolution_version: RESOLUTION_VERSION,
-            limit,
+            limit: limit.min(16),
         },
     )
     .await?;
@@ -174,28 +175,16 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
             Ok(runs) if !runs.is_empty() => runs,
             result => {
                 tracing::warn!(trace_ref = %candidate.trace_ref, error = ?result.err(), "trace summary projection deferred");
-                let retry = Projection {
-                    team_id: &candidate.team_id,
-                    api_key_hash: &candidate.api_key_hash,
-                    trace_id: &candidate.trace_id,
-                    trace_ref: &candidate.trace_ref,
-                    scope_user_id: "",
-                    source_span_count: 0,
-                    start_ts: litellm_traces::iso_time(candidate.start_ms),
-                    computed_at: snapshot_ms,
-                    resolution_version: 0,
-                    spend_keys: Vec::new(),
-                    summary: String::new(),
-                };
-                projections.push(serde_json::to_string(&retry).map_err(|_| Error::InvalidRow)?);
+                projections.push(deferred(candidate, snapshot_ms)?);
                 continue;
             }
         };
-        for run in &runs {
-            projections.push(
-                serde_json::to_string(&projection(candidate, run, snapshot_ms)?)
-                    .map_err(|_| Error::InvalidRow)?,
-            );
+        match encode(candidate, &runs, snapshot_ms) {
+            Ok(rows) => projections.extend(rows),
+            Err(error) => {
+                tracing::warn!(trace_ref = %candidate.trace_ref, %error, "trace summary projection deferred");
+                projections.push(deferred(candidate, snapshot_ms)?);
+            }
         }
     }
     if !projections.is_empty() {
@@ -212,4 +201,40 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         .await?;
     }
     Ok(candidates.len())
+}
+
+fn encode(
+    candidate: &Candidate,
+    runs: &[SummaryProjection],
+    now: u64,
+) -> Result<Vec<String>, Error> {
+    let mut rows = Vec::new();
+    let mut bytes = 0;
+    for run in runs {
+        let row = serde_json::to_string(&projection(candidate, run, now)?)
+            .map_err(|_| Error::InvalidRow)?;
+        bytes += row.len() + 1;
+        if bytes > MAX_RUN_BYTES {
+            return Err(Error::InsertTooLarge);
+        }
+        rows.push(row);
+    }
+    Ok(rows)
+}
+
+fn deferred(candidate: &Candidate, now: u64) -> Result<String, Error> {
+    let retry = Projection {
+        team_id: &candidate.team_id,
+        api_key_hash: &candidate.api_key_hash,
+        trace_id: &candidate.trace_id,
+        trace_ref: &candidate.trace_ref,
+        scope_user_id: "",
+        source_span_count: 0,
+        start_ts: litellm_traces::iso_time(candidate.start_ms),
+        computed_at: now,
+        resolution_version: 0,
+        spend_keys: Vec::new(),
+        summary: String::new(),
+    };
+    serde_json::to_string(&retry).map_err(|_| Error::InvalidRow)
 }

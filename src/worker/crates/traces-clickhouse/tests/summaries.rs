@@ -64,6 +64,47 @@ fn cost(user: &str) -> BTreeMap<String, Value> {
 }
 
 #[rstest]
+#[tokio::test]
+async fn oversized_summary_does_not_block_projection_of_other_traces(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let oversized = span("owner", "first")
+        .into_iter()
+        .chain([("InputPreview".into(), json!("x".repeat(2 * 1024 * 1024)))])
+        .collect();
+    let smaller = span("owner", "second")
+        .into_iter()
+        .chain([
+            ("TraceId".into(), json!("smaller-trace")),
+            ("Timestamp".into(), json!(1_789_999_999_000_000_000_i64)),
+        ])
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![oversized, smaller],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    let scope = access(true, "", &[]);
+    let rows = store.list_runs(&list_params(scope.clone())).await?;
+
+    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    assert!(store.summaries(&scope, &rows).await?.is_empty());
+    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    let saved = store.summaries(&scope, &rows).await?;
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].trace_id, "smaller-trace");
+    assert_eq!(saved[0].span_count, 1);
+    Ok(())
+}
+
+#[rstest]
 #[case::administrator(access(true, "", &[]))]
 #[case::team(access(false, "", &["team"]))]
 #[case::owner(access(false, "owner", &[]))]
