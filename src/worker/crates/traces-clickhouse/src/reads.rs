@@ -42,6 +42,16 @@ impl TraceStore for ClickHouseTraces {
         self.connection.url().as_str()
     }
 
+    async fn summaries(
+        &self,
+        access: &contracts::ReadAccessParams,
+        runs: &[contracts::ListTracesRow],
+    ) -> Result<Vec<litellm_traces::TraceSummary>, StoreError<Self::Error>> {
+        crate::summaries::read(&self.client, &self.connection, access, runs)
+            .await
+            .map_err(StoreError::Failed)
+    }
+
     async fn trace_refs(
         &self,
         params: &contracts::TraceIdentityParams,

@@ -29,6 +29,7 @@ pub async fn migrated_database(
         "agent_traces_by_key",
         "spend_logs",
         "lens_call_costs",
+        "lens_trace_summaries",
     ] {
         database
             .client

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::{
     ReadError, SnapshotKey, TraceReader, TraceStore,
@@ -8,12 +8,73 @@ use crate::{
     store::StoreError,
 };
 use litellm_traces::{
-    TraceSummary, listed_summary,
-    query::named::{ListTracesRow, ReadAccessParams, TracePageSpansParams, TraceSpansRow},
+    SpendLookup, TraceSummary, listed_summary,
+    query::named::{
+        ListTracesRow, ReadAccessParams, TracePageSpansParams, TraceSpansParams, TraceSpansRow,
+    },
     resolve_trace,
 };
 
 const RUNS_PER_SPAN_READ: usize = 16;
+
+pub struct SummaryProjection {
+    pub scope_user_id: String,
+    pub summary: TraceSummary,
+    pub spend_lookup: SpendLookup,
+    pub canonical_request_ids: Vec<String>,
+}
+
+pub async fn project_run<S: TraceStore>(
+    store: &S,
+    trace_id: &str,
+    trace_ref: &str,
+    snapshot_ms: u64,
+) -> Result<Vec<SummaryProjection>, ReadError<S::Error>> {
+    let access = ReadAccessParams {
+        all_teams: true,
+        user_id: String::new(),
+        team_ids: Vec::new(),
+    };
+    let rows = store
+        .trace_spans(
+            &TraceSpansParams {
+                access: access.clone(),
+                trace_id: trace_id.to_owned(),
+                trace_ref: trace_ref.to_owned(),
+            },
+            snapshot_ms,
+        )
+        .await
+        .map_err(map_store_error)?;
+    let Some(costs) = spend(store, &access, &rows).await else {
+        return Ok(Vec::new());
+    };
+    let users: BTreeSet<_> = std::iter::once("")
+        .chain(rows.iter().map(|row| row.user_id.as_str()))
+        .collect();
+    Ok(users
+        .into_iter()
+        .filter_map(|user| {
+            let scoped_rows: Vec<_> = rows
+                .iter()
+                .filter(|row| user.is_empty() || row.user_id == user)
+                .cloned()
+                .collect();
+            let scoped_costs: Vec<_> = spend_within(&costs, spend_window(&scoped_rows)?)
+                .iter()
+                .filter(|row| user.is_empty() || row.user == user)
+                .cloned()
+                .collect();
+            let trace = resolve_trace(trace_id, trace_ref, &scoped_rows, &scoped_costs)?;
+            Some(SummaryProjection {
+                scope_user_id: user.to_owned(),
+                summary: trace.summary,
+                spend_lookup: SpendLookup::new(&scoped_rows),
+                canonical_request_ids: costs.iter().map(|row| row.request_id.clone()).collect(),
+            })
+        })
+        .collect())
+}
 
 fn run_key(team_id: &str, api_key_hash: &str, trace_id: &str) -> (String, String, String) {
     (

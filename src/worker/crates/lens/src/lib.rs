@@ -301,6 +301,35 @@ pub async fn provision(state: Arc<State>) {
     }
 }
 
+pub async fn project_trace_summaries(state: Arc<State>) {
+    loop {
+        let delay = if state.schema_ready.load(Ordering::Acquire) {
+            let background = Arc::clone(&state);
+            let runtime = tokio::runtime::Handle::current();
+            let result = tokio::task::spawn_blocking(move || {
+                runtime.block_on(litellm_traces_clickhouse::summaries::project(
+                    &background.storage.client,
+                    &background.storage.config,
+                    16,
+                ))
+            })
+            .await
+            .unwrap_or(Err(litellm_traces_clickhouse::Error::Task));
+            match result {
+                Ok(16) => Duration::from_millis(250),
+                Ok(_) => Duration::from_secs(1),
+                Err(error) => {
+                    tracing::warn!(%error, "trace summary projection unavailable");
+                    Duration::from_secs(5)
+                }
+            }
+        } else {
+            Duration::from_secs(1)
+        };
+        tokio::time::sleep(delay).await;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Error, READ_QUEUE_WAIT, wait_for_read_slot};

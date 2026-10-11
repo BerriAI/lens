@@ -160,6 +160,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .ok_or(litellm_lens::Error::Unavailable)?;
     tasks.spawn(signals.serve());
     tasks.spawn(provision(state.clone()));
+    tasks.spawn(litellm_lens::project_trace_summaries(state.clone()));
     let routes = router(state).merge(application.router);
     let routes = if let Some(directory) = config.ui_directory {
         if !std::fs::metadata(directory.join("index.html"))?.is_file() {

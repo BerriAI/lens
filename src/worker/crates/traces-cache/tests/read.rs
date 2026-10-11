@@ -47,6 +47,7 @@ struct FakeError;
 
 #[derive(Default)]
 struct State {
+    summaries: Vec<litellm_traces::TraceSummary>,
     conversation_anchor: Option<TraceConversationAnchor>,
     conversation_rows: Vec<TraceConversationRow>,
     conversation_requests: Vec<TraceConversationTurnsParams>,
@@ -160,6 +161,14 @@ impl TraceStore for FakeStore {
 
     fn source(&self) -> &str {
         "fake"
+    }
+
+    async fn summaries(
+        &self,
+        _: &ReadAccessParams,
+        _: &[ListTracesRow],
+    ) -> Result<Vec<litellm_traces::TraceSummary>, StoreError<Self::Error>> {
+        Ok(self.state.lock().unwrap().summaries.clone())
     }
 
     async fn conversation_anchor(
@@ -542,6 +551,37 @@ async fn list_run_budget_halves_the_limit_and_cursor_requires_a_full_page() {
     assert_eq!(page.data.len(), 1);
     assert!(page.next_cursor.is_none());
     assert_eq!(shorter.calls(Operation::ListRuns), 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn stored_summaries_preserve_page_order_without_reading_spans_or_spend() {
+    let store = FakeStore::default();
+    let first = run("first", "ref-first");
+    let second = run("second", "ref-second");
+    let first_summary = litellm_traces::resolve_trace("first", "ref-first", &[span(0)], &[])
+        .unwrap()
+        .summary;
+    let second_summary =
+        litellm_traces::resolve_trace("second", "ref-second", &[span(0), span(1)], &[])
+            .unwrap()
+            .summary;
+    store.set_list_runs(vec![first, second]);
+    store.state.lock().unwrap().summaries = vec![second_summary.clone(), first_summary.clone()];
+    store.set_failure(Operation::RunSpans, Failure::Failed);
+    store.set_failure(Operation::TraceSpans, Failure::Failed);
+    store.set_failure(Operation::Spend, Failure::Failed);
+
+    let page = TraceReader::new(usize::MAX)
+        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .await
+        .unwrap();
+
+    assert_eq!(page.data, vec![first_summary, second_summary]);
+    assert!(page.next_cursor.is_some());
+    assert_eq!(store.calls(Operation::RunSpans), 0);
+    assert_eq!(store.calls(Operation::TraceSpans), 0);
+    assert_eq!(store.calls(Operation::Spend), 0);
 }
 
 #[rstest]

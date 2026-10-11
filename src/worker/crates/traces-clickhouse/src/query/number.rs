@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 
-pub(super) fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+pub(crate) fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     T: DeserializeOwned,

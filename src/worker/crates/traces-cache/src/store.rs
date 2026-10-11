@@ -21,6 +21,15 @@ pub trait TraceStore: Sync {
     /// Identifies the backing storage for snapshot cache keys.
     fn source(&self) -> &str;
 
+    fn summaries(
+        &self,
+        _access: &litellm_traces::query::named::ReadAccessParams,
+        _runs: &[ListTracesRow],
+    ) -> impl Future<Output = Result<Vec<litellm_traces::TraceSummary>, StoreError<Self::Error>>> + Send
+    {
+        async { Ok(Vec::new()) }
+    }
+
     fn trace_refs(
         &self,
         params: &TraceIdentityParams,

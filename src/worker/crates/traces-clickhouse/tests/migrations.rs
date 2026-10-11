@@ -1050,6 +1050,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_call_costs"},
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
+            {"name": "lens_trace_summaries"},
             {"name": "otel_traces"},
             {"name": "spend_logs"}
         ])
@@ -1081,6 +1082,13 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     )
     .await?;
     insert_rows(&database, "lens_feedback", vec![feedback]).await?;
+    let summary = serde_json::from_value(serde_json::json!({
+        "TeamId": "team-1", "ApiKeyHash": "", "TraceId": "expired", "TraceRef": "expired-ref",
+        "ScopeUserId": "", "SourceSpanCount": 1, "StartTs": old_iso, "ComputedAt": 1,
+        "ResolutionVersion": 1, "SpendKeys": [], "Summary": "{}"
+    }))?;
+    insert_rows(&database, "lens_trace_summaries", vec![summary]).await?;
+    assert_eq!(table_rows(&database, "lens_trace_summaries").await?, 1);
     assert_eq!(table_rows(&database, "agent_traces_by_key").await?, 1);
     assert_eq!(table_rows(&database, "lens_call_costs").await?, 2);
     ensure_schema(&database.client, &writer, "trace_test", 14).await?;
@@ -1118,6 +1126,12 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     assert_eq!(table_rows(&database, "agent_traces_by_key").await?, 0);
     assert_eq!(table_rows(&database, "spend_logs").await?, 0);
     assert_eq!(table_rows(&database, "lens_call_costs").await?, 0);
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_trace_summaries FINAL",
+    )
+    .await?;
+    assert_eq!(table_rows(&database, "lens_trace_summaries").await?, 0);
     let mutation_count = mutation_rows(&database).await?;
     ensure_schema(&database.client, &writer, "trace_test", 14).await?;
     assert_eq!(mutation_rows(&database).await?, mutation_count);
@@ -1137,7 +1151,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     let ttl_queries = ttl_queries["data"].as_array().expect("retention tables");
@@ -1151,6 +1165,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
             "lens_call_costs",
             "lens_eval_traces",
             "lens_feedback",
+            "lens_trace_summaries",
             "otel_traces",
             "spend_logs"
         ]
@@ -1170,7 +1185,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     for row in ttl_queries["data"].as_array().expect("retention tables") {

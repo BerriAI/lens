@@ -82,7 +82,7 @@ pub enum RunSourceType {
 
 /// The conversation that started the run, from the `agent.source.*` span attributes.
 #[macro_rules_attribute::apply(crate::response_type)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct RunSource {
     #[serde(rename = "type")]
     pub kind: RunSourceType,
@@ -95,7 +95,7 @@ pub struct RunSource {
 }
 
 #[macro_rules_attribute::apply(crate::response_type)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct TraceSummary {
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub resolution_limited: bool,
