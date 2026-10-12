@@ -3,6 +3,7 @@ Reconstruct what was requested, attempted, observed and delivered, including sub
 Evaluate the process and delivered outcome independently. Recovery, an honest refusal, and successful root status do not automatically make an underlying tool defect, repeated unnecessary work, or unmet user need healthy
 Use kind=issue for supported problems and kind=pattern for useful demonstrated behavior. Strong affirmative evidence is required for unsolicited problems. Evidence-based plausible explanations are acceptable for explicitly requested hypotheses when clearly qualified
 Preserve specific supported leads whose recurrence or cause may become clearer by comparing sessions. Explain what is observed versus uncertain in each summary
+Write summaries in plain, everyday language that readers understand on the first read. Say what happened with familiar words and a clear subject and verb; avoid jargon, abstract labels, and inflated wording
 Read and search original evidence as useful. You choose what to inspect, including other sampled sessions
 Evaluate every enabled check. Use an explicit check when it covers the deviation; reserve expected_behavior for other supported deviations
 Do not infer task failure from missing recordings. Mark cannot_assess when evidence is insufficient, not when there is no issue
