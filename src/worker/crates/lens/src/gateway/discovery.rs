@@ -75,7 +75,7 @@ pub(super) async fn fetch(
             continue;
         }
         match model.mode.as_deref() {
-            Some("evaluation") => {
+            Some(mode) if lens_contract::activity::is_decisions_mode(mode) => {
                 let deployment = lens_decisions::Deployment {
                     name: model.model_group.clone(),
                     model: model.model_group,
@@ -165,6 +165,41 @@ fn capacity(value: f64) -> Option<NonZeroU64> {
 mod tests {
     use super::{GatewayConfig, Model, analysis_deployment};
     use rstest::rstest;
+    use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    #[rstest]
+    #[case::evaluation("evaluation")]
+    #[case::decisions("decisions")]
+    #[tokio::test]
+    async fn discovers_decisions_modes_as_evaluation_deployments(#[case] mode: &str) {
+        let gateway = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/model_group/info"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": [{"model_group": "typesafe/jev-latest", "mode": mode}]
+            })))
+            .mount(&gateway)
+            .await;
+        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).unwrap();
+        let discovered = super::fetch(&reqwest::Client::new(), &connection, &[], &[])
+            .await
+            .unwrap();
+
+        assert_eq!(
+            discovered
+                .evaluation
+                .iter()
+                .map(|deployment| deployment.model.as_str())
+                .collect::<Vec<_>>(),
+            vec!["typesafe/jev-latest"]
+        );
+        assert!(discovered.analysis.is_empty());
+        assert_eq!(discovered.unavailable, 0);
+    }
 
     #[rstest]
     #[case::large_context(128_000, 4096)]
