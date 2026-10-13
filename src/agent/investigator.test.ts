@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import OpenAI from "openai";
 import {
   bootstrapKnownFindings,
   cycle,
@@ -11,7 +12,7 @@ import {
 import { digest, type Snapshot, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { verify, type Candidate, type VerifiedCandidate } from "./findings.js";
-import { LensClient } from "./lens.js";
+import { LensClient, LensReadError } from "./lens.js";
 import { Repository } from "./repository.js";
 import type { AgentConfig as Config } from "./config.js";
 
@@ -602,6 +603,54 @@ test("failed analysis leaves evidence eligible for the next cycle and still char
   assert.equal(attempts, 2);
   assert.equal(store.snapshot.value.runs, 2);
   assert.notEqual(store.snapshot.value.signature, "");
+});
+
+test("failure status distinguishes response limits and model failures without storing sensitive error content", async () => {
+  const cases = [
+    { error: new LensReadError("size"), expected: "Lens read exceeds limit" },
+    {
+      error: new OpenAI.APIConnectionTimeoutError(),
+      expected: "Model gateway connection or request timed out",
+    },
+    {
+      error: new OpenAI.APIError(
+        403,
+        { message: "sensitive provider response" },
+        "sensitive model prompt",
+        new Headers(),
+      ),
+      expected: "Model request failed (HTTP 403)",
+    },
+    {
+      error: new Error("sensitive trace and credentials"),
+      expected: "Analysis could not finish",
+    },
+  ];
+  for (const { error, expected } of cases) {
+    const store = new MemoryState();
+    await assert.rejects(
+      cycle(
+        {
+          store,
+          persist,
+          sample: async () => sample,
+          analyze: async () => {
+            throw error;
+          },
+          post: async () => assert.fail("Failed analysis must not post"),
+          model: "fixture",
+          dailyLimit: 12,
+          now: () => 1_800_000_000_000,
+        },
+        new AbortController().signal,
+      ),
+    );
+    assert(store.snapshot.value.last_error.startsWith(expected));
+    assert(!JSON.stringify(store.snapshot.value).includes("sensitive"));
+    assert.equal(store.snapshot.value.last_outcome, "failed");
+    assert.equal(store.snapshot.value.posts, 0);
+    assert.equal(store.snapshot.value.signature, "");
+  }
 });
 
 test("native import failures do not reserve a Slack send and retry the same verified identity", async () => {

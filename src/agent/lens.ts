@@ -38,16 +38,13 @@ const finding = z.object({
     z.object({ execution_id: z.string(), role: z.string().default("support") }),
   ),
 });
-const lenses = z.object({
-  lenses: z.array(
-    z.object({
-      id: z.string(),
-      settings: z.object({ agent_name: z.string() }),
-      findings: z.array(finding),
-      jobs: z.array(z.object({ status: z.string() })).default([]),
-    }),
-  ),
+const lens = z.object({
+  id: z.string(),
+  settings: z.object({ agent_name: z.string() }),
+  findings: z.array(finding),
+  jobs: z.array(z.object({ status: z.string() })).default([]),
 });
+const lenses = z.object({ lenses: z.array(lens) });
 const evalRun = z.object({
   id: z.string(),
   agent: z.string(),
@@ -134,6 +131,22 @@ function traceWindow(request: TraceWindow | undefined, now: number) {
   };
 }
 
+export class LensReadError extends Error {
+  constructor(
+    readonly reason: "http" | "empty" | "size",
+    readonly status?: number,
+  ) {
+    super(
+      reason === "http"
+        ? `Lens read returned ${status}`
+        : reason === "size"
+          ? "Lens read exceeds limit"
+          : "Empty Lens read",
+    );
+    this.name = "LensReadError";
+  }
+}
+
 export class LensClient {
   constructor(
     private readonly config: Config,
@@ -153,6 +166,24 @@ export class LensClient {
     return this.request(path, signal);
   }
 
+  private async selectedLenses(signal: AbortSignal) {
+    const available = this.config.findingLensId
+      ? [
+          lens.parse(
+            await this.get(
+              `/lens/${encodeURIComponent(this.config.findingLensId)}`,
+              signal,
+            ),
+          ),
+        ]
+      : lenses.parse(await this.get("/lens", signal)).lenses;
+    return available.filter(
+      (item) =>
+        item.settings.agent_name === this.config.agent &&
+        (!this.config.findingLensId || item.id === this.config.findingLensId),
+    );
+  }
+
   private async request(
     path: string,
     signal: AbortSignal,
@@ -170,13 +201,13 @@ export class LensClient {
       redirect: "error",
       signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
     });
-    if (!response.ok) throw new Error(`Lens read returned ${response.status}`);
-    if (!response.body) throw new Error("Empty Lens read");
+    if (!response.ok) throw new LensReadError("http", response.status);
+    if (!response.body) throw new LensReadError("empty");
     const chunks: Uint8Array[] = [];
     let length = 0;
     for await (const chunk of response.body) {
       length += chunk.length;
-      if (length > 1_048_576) throw new Error("Lens read exceeds limit");
+      if (length > 1_048_576) throw new LensReadError("size");
       chunks.push(chunk);
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -190,12 +221,7 @@ export class LensClient {
   ): Promise<NativeFinding> {
     if (!/^[a-f0-9]{64}$/.test(verified.fingerprint))
       throw new Error("Invalid finding fingerprint");
-    const available = lenses.parse(await this.get("/lens", signal)).lenses;
-    const targets = available.filter(
-      (lens) =>
-        lens.settings.agent_name === this.config.agent &&
-        (!this.config.findingLensId || lens.id === this.config.findingLensId),
-    );
+    const targets = await this.selectedLenses(signal);
     if (targets.length !== 1)
       throw new Error(
         "Configure LENS_FINDINGS_LENS_ID for one matching native Lens",
@@ -392,12 +418,7 @@ export class LensClient {
   }
 
   private async findings(signal: AbortSignal) {
-    const response = lenses.parse(await this.get("/lens", signal));
-    const selected = response.lenses.filter(
-      (lens) =>
-        lens.settings.agent_name === this.config.agent &&
-        (!this.config.findingLensId || lens.id === this.config.findingLensId),
-    );
+    const selected = await this.selectedLenses(signal);
     const items = selected
       .flatMap((lens) =>
         lens.findings

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import OpenAI from "openai";
 import type { AgentConfig as Config } from "./config.js";
-import { LensClient } from "./lens.js";
+import { LensClient, LensReadError } from "./lens.js";
 import { ClickHouseState, digest, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { Repository } from "./repository.js";
@@ -79,6 +80,20 @@ export const initialState: State = {
   sent: [],
   last_run: null,
 };
+
+function failureDetail(error: unknown, signal: AbortSignal): string {
+  if (error instanceof LensReadError) return error.message;
+  if (signal.aborted) return "Investigation deadline exceeded or canceled";
+  if (error instanceof OpenAI.APIConnectionTimeoutError)
+    return "Model gateway connection or request timed out";
+  if (error instanceof OpenAI.APIConnectionError)
+    return "Model gateway connection failed";
+  if (error instanceof OpenAI.APIError && error.status)
+    return `Model request failed (HTTP ${error.status})`;
+  if (error instanceof z.ZodError)
+    return "Investigation data validation failed";
+  return "Analysis could not finish";
+}
 
 export async function bootstrapKnownFindings(
   store: StateStore<State>,
@@ -338,7 +353,7 @@ export async function cycle(
         last_error:
           failed.value.last_outcome === "delivery_unknown"
             ? "Slack delivery could not be confirmed. The finding is saved in Lens; the message will not be blindly resent."
-            : "Analysis could not finish. The same evidence remains eligible for the next check.",
+            : `${failureDetail(error, signal)}. The same evidence remains eligible for the next check.`,
       });
     }
     throw error;
@@ -403,6 +418,10 @@ export function startInvestigator(
   let initialized = false;
   const run = async () => {
     if (controller.signal.aborted) return;
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(240_000),
+    ]);
     let stage = "state claim";
     try {
       if (!initialized) {
@@ -455,11 +474,16 @@ export function startInvestigator(
             return client.persistFinding(candidate, sample, source, signal);
           },
         },
-        AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]),
+        signal,
       );
-    } catch {
+    } catch (error) {
       console.warn(
-        `Lens investigator cycle incomplete at ${stage}; report delivery may be partial`,
+        "Lens investigator cycle incomplete " +
+          JSON.stringify({
+            agent: config.agent,
+            stage,
+            reason: failureDetail(error, signal),
+          }),
       );
     }
     if (!controller.signal.aborted)
