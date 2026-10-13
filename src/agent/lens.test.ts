@@ -253,27 +253,38 @@ test("findings preserve candidate uncertainty and canonical evidence route witho
 test("a configured findings destination excludes other analyses of the same agent", async () => {
   const scoped = new LensClient(
     { ...config, findingLensId: "docs" },
-    async () =>
-      response({
-        lenses: [
-          { id: "docs", settings: { agent_name: config.agent }, findings: [] },
-          {
-            id: "agent-diagnostics",
+    async (url) =>
+      String(url).endsWith("/lens/docs")
+        ? response({
+            id: "docs",
             settings: { agent_name: config.agent },
-            findings: [
+            findings: [],
+          })
+        : response({
+            retained_history: "x".repeat(1_048_577),
+            lenses: [
               {
-                id: "f",
-                title: "Retrieval failed",
-                description: "Out of scope",
-                kind: "issue",
-                status: "open",
-                last_seen: "2026-01-01",
-                evidence: [],
+                id: "docs",
+                settings: { agent_name: config.agent },
+                findings: [],
+              },
+              {
+                id: "agent-diagnostics",
+                settings: { agent_name: config.agent },
+                findings: [
+                  {
+                    id: "f",
+                    title: "Retrieval failed",
+                    description: "Out of scope",
+                    kind: "issue",
+                    status: "open",
+                    last_seen: "2026-01-01",
+                    evidence: [],
+                  },
+                ],
               },
             ],
-          },
-        ],
-      }),
+          }),
   );
   const result = JSON.parse(await scoped.read("findings", signal));
   assert.equal(result.investigations, 1);
@@ -385,15 +396,18 @@ const nativeLens = (id: string, agent = "selected") => ({
   findings: [],
 });
 
-test("native publication sends scoped exact evidence and returns the server's canonical finding identity", async () => {
+test("native publication survives a large unrelated catalogue and returns the server's canonical finding identity", async () => {
   const sent: { url: string; body: Record<string, unknown> }[] = [];
   const client = new LensClient(
     { ...config, findingLensId: "chosen" },
     async (url, init) => {
       if (init?.method === "GET")
-        return response({
-          lenses: [nativeLens("other"), nativeLens("chosen")],
-        });
+        return String(url).endsWith("/lens/chosen")
+          ? response(nativeLens("chosen"))
+          : response({
+              retained_history: "x".repeat(1_048_577),
+              lenses: [nativeLens("other"), nativeLens("chosen")],
+            });
       assert.equal(
         new Headers(init?.headers).get("Content-Type"),
         "application/json",
@@ -489,13 +503,33 @@ test("native publication fails closed for ambiguous targets, wrong agents, absen
   );
 });
 
+test("configured destinations reject a different returned collection or agent before reading or publishing findings", async () => {
+  for (const target of [nativeLens("other"), nativeLens("chosen", "other")]) {
+    let posts = 0;
+    const client = new LensClient(
+      { ...config, findingLensId: "chosen" },
+      async (_url, init) => {
+        if (init?.method === "POST") posts++;
+        return response(target);
+      },
+    );
+    const findings = JSON.parse(await client.read("findings", signal));
+    assert.equal(findings.investigations, 0);
+    assert.deepEqual(findings.findings, []);
+    await assert.rejects(
+      client.persistFinding(imported, importSample, importSource, signal),
+      /matching native Lens/,
+    );
+    assert.equal(posts, 0);
+  }
+});
+
 test("docs feedback persists user demand and product uncertainty in its selected collection", async () => {
   const sent: Record<string, unknown>[] = [];
   const client = new LensClient(
     { ...config, findingLensId: "docs", focus: "documentation" },
     async (_url, init) => {
-      if (init?.method === "GET")
-        return response({ lenses: [nativeLens("other"), nativeLens("docs")] });
+      if (init?.method === "GET") return response(nativeLens("docs"));
       sent.push(JSON.parse(String(init?.body)));
       return response({ lens_id: "docs", finding_id: "learning" });
     },
