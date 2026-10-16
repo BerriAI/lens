@@ -1,5 +1,6 @@
 import { ApiError } from "../../../../lib/http/client";
 import type { TracesApi } from "../../traces/api";
+import { traceAgentNames } from "../../traces/utils";
 import { rollUpAgents } from "../../agents/agentRollup";
 import type { Feedback, TraceSummary } from "../../traces/types";
 import type { LensServices } from "../LensServices";
@@ -95,7 +96,10 @@ function demoTracesApi(data: LensDemoData): TracesApi {
       const step = spanId ? found?.details.find((span) => span.span_id === spanId) : found;
       return { text: JSON.stringify(step, null, 2), copied: spanId ? "Step copied" : "Trace copied" };
     },
-    list: async ({ startMs, endMs }) => ({ data: summariesIn(data, startMs, endMs), next_cursor: null }),
+    list: async ({ startMs, endMs }, agent) => ({
+      data: summariesIn(data, startMs, endMs).filter((trace) => !agent || traceAgentNames(trace).includes(agent)),
+      next_cursor: null,
+    }),
     agents: async ({ startMs, endMs }) => rollUpAgents(summariesIn(data, startMs, endMs)),
     findings: async (traces) =>
       traces.map((trace) => {

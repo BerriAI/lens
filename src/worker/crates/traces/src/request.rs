@@ -1,5 +1,6 @@
 pub const TRACE_PAGE_SIZE_MIN: u16 = 1;
 pub const TRACE_PAGE_SIZE_MAX: u16 = 500;
+pub const TRACE_AGENT_NAME_MAX_LENGTH: usize = 256;
 pub const CONVERSATION_PAGE_SIZE_DEFAULT: u16 = 10;
 pub const CONVERSATION_PAGE_SIZE_MAX: u16 = 50;
 
@@ -25,6 +26,9 @@ pub struct TraceListRequest {
     /// Window end, unix ms. Default: now
     #[serde(default)]
     pub end_ms: Option<i64>,
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(length(max = TRACE_AGENT_NAME_MAX_LENGTH)))]
+    pub agent: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = 512)))]
     pub cursor: Option<String>,

@@ -70,8 +70,8 @@ describe("Lens demo data", () => {
     const network = vi.spyOn(globalThis, "fetch");
     const now = Date.now();
     const services = createLensDemo(now);
-    const all = await services.traces.list({ startMs: 0, endMs: now });
-    const recent = await services.traces.list({ startMs: now - 3600_000, endMs: now });
+    const all = await services.traces.list({ startMs: 0, endMs: now }, "");
+    const recent = await services.traces.list({ startMs: now - 3600_000, endMs: now }, "");
     expect(recent.data.length).toBeGreaterThan(0);
     expect(recent.data.length).toBeLessThan(all.data.length);
     expect(recent.data.every((trace) => Date.parse(trace.start_time) >= now - 3600_000)).toBe(true);

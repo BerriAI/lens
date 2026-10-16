@@ -61,10 +61,12 @@ impl TraceReader {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_traces<S: TraceStore>(
         &self,
         store: &S,
         access: &ReadAccessParams,
+        agent: &str,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<&str>,
@@ -78,6 +80,7 @@ impl TraceReader {
         let accepted = self.lists.limits.get(&scope).await.unwrap_or(u32::MAX);
         let mut params = ListTracesParams {
             access: access.clone(),
+            agent: agent.to_owned(),
             start_ms,
             end_ms,
             cursor_ms,

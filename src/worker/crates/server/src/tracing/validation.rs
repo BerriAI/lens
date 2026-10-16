@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use litellm_traces::request::{
-    CONVERSATION_PAGE_SIZE_MAX, TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest,
-    TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
+    CONVERSATION_PAGE_SIZE_MAX, TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX,
+    TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceListRequest,
+    TraceSpanRequest,
 };
 use serde_json::json;
 
@@ -74,11 +75,26 @@ pub(super) fn list(
     let start = number(&params, "start_ms", &mut errors);
     let end = number(&params, "end_ms", &mut errors);
     let cursor = cursor(&params, &mut errors);
+    let agent = params.get("agent").cloned();
+    let agent_error = agent
+        .as_ref()
+        .filter(|value| value.chars().count() > TRACE_AGENT_NAME_MAX_LENGTH)
+        .map(|value| {
+            failure(
+                "string_too_long",
+                &[json!("query"), json!("agent")],
+                format!("String should have at most {TRACE_AGENT_NAME_MAX_LENGTH} characters"),
+                json!(value),
+                Some(json!({"max_length":TRACE_AGENT_NAME_MAX_LENGTH})),
+            )
+        });
+    errors.extend(agent_error);
     finish(errors)?;
     Ok(TraceListRequest {
         start_ms: exact(start, config)?,
         end_ms: exact(end, config)?,
         cursor,
+        agent,
     })
 }
 

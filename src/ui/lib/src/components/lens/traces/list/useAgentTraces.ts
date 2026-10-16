@@ -42,6 +42,7 @@ interface UseAgentTracesOptions {
   accessToken: string;
   range: RelativeRange;
   enabled: boolean;
+  agent: string;
 }
 
 export interface AgentTracesResult {
@@ -64,14 +65,14 @@ export interface AgentTracesResult {
  * GET /v1/traces for the Logs page time range, cursor-paginated as the runs list scrolls.
  * Preset ranges roll on refresh; subsequent pages keep the first page's window.
  */
-export function useAgentTraces({ accessToken, range, enabled }: UseAgentTracesOptions): AgentTracesResult {
+export function useAgentTraces({ accessToken, range, enabled, agent }: UseAgentTracesOptions): AgentTracesResult {
   const traces = useTracesApi(accessToken);
   const fetchPage = async (pageParam: unknown, signal: AbortSignal): Promise<LoadedTracePage> => {
     const window = (pageParam as TraceWindow | null) ?? timeWindow(range, Date.now());
-    return { ...(await traces.list(window, signal)), window };
+    return { ...(await traces.list(window, agent, signal)), window };
   };
   const queryOptions: Parameters<typeof useInfiniteQuery<LoadedTracePage, Error>>[0] = {
-    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs],
+    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs, agent],
     queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
     initialPageParam: null,
     getNextPageParam: (lastPage) =>

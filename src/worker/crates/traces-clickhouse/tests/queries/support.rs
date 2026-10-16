@@ -115,6 +115,47 @@ pub async fn insert_export(
     Ok(spans)
 }
 
+#[allow(dead_code)]
+pub async fn seed_interleaved_agent_runs(fixture: &SeededDatabase) -> TestResult<(i64, i64)> {
+    let start_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000 - 10_000;
+    let rows = [
+        ("a-old", "A", 1_000),
+        ("b-old", "B", 2_000),
+        ("a-middle", "A", 3_000),
+        ("b-middle", "B", 4_000),
+        ("a-new", "A", 5_000),
+        ("b-new", "B", 6_000),
+    ]
+    .into_iter()
+    .map(|(trace_id, agent, offset_ms)| {
+        BTreeMap::from([
+            (
+                "Timestamp".into(),
+                json!((start_ms + offset_ms) * 1_000_000),
+            ),
+            ("Duration".into(), json!(1_000_000)),
+            ("TraceId".into(), json!(trace_id)),
+            ("SpanId".into(), json!(format!("{trace_id}-span"))),
+            ("ParentSpanId".into(), json!("")),
+            ("SpanName".into(), json!(trace_id)),
+            ("ObservationType".into(), json!("agent")),
+            ("AgentName".into(), json!(agent)),
+            ("TeamId".into(), json!("team-a")),
+            ("ApiKeyHash".into(), json!("key-a")),
+        ])
+    })
+    .collect();
+    insert_rows(
+        &fixture.database.client,
+        &Connection::writer(&fixture.database.url)?,
+        DATABASE,
+        InsertTable::OtelTraces,
+        rows,
+    )
+    .await?;
+    Ok((start_ms, start_ms + 10_000))
+}
+
 fn span_row(span: &DecodedSpan, team: &str, key: &str) -> BTreeMap<String, Value> {
     BTreeMap::from([
         ("Timestamp".into(), json!(span.start_ns)),

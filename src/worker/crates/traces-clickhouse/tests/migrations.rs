@@ -185,6 +185,7 @@ async fn schema_supports_span_rollups_and_spend_joins(
     assert_eq!(detail[0].attributes["gen_ai.response.id"], "response-1");
     let list_parameters = BTreeMap::from([
         ("all_teams".into(), Parameter::Integer(0)),
+        ("agent".into(), Parameter::Text(String::new())),
         ("user_id".into(), Parameter::Text(String::new())),
         ("team_ids".into(), Parameter::Strings(vec!["team-1".into()])),
         (
@@ -659,6 +660,7 @@ async fn listed_agent_names_preserve_scope_and_cursor(
     let connection = Connection::configured(&database.url, "trace_test", "default", "")?;
     let parameters = BTreeMap::from([
         ("all_teams".into(), Parameter::Integer(0)),
+        ("agent".into(), Parameter::Text(String::new())),
         ("user_id".into(), Parameter::Text("owner".into())),
         ("team_ids".into(), Parameter::Strings(vec![])),
         (
@@ -949,6 +951,7 @@ async fn rollup_merges_spans_across_days_without_losing_root_fields(
     let connection = Connection::configured(&database.url, "trace_test", "default", "")?;
     let parameters = BTreeMap::from([
         ("all_teams".into(), Parameter::Integer(0)),
+        ("agent".into(), Parameter::Text(String::new())),
         ("user_id".into(), Parameter::Text(String::new())),
         ("team_ids".into(), Parameter::Strings(vec!["team-1".into()])),
         (
@@ -2539,6 +2542,7 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
                 user_id: "".into(),
                 team_ids: vec!["team".into()],
             },
+            agent: String::new(),
             start_ms: timestamp / 1_000_000 - 1,
             end_ms: timestamp / 1_000_000 + 1,
             cursor_ms: 0,

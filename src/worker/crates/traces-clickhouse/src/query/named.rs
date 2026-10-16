@@ -9,6 +9,7 @@ pub use contracts::ReadAccessParams;
 struct ListTracesParamsEncoding {
     #[serde(flatten)]
     pub access: contracts::ReadAccessParams,
+    pub agent: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
     #[serde(deserialize_with = "super::number::deserialize")]
@@ -380,7 +381,7 @@ mod tests {
     #[case::quoted(true)]
     fn parameters_preserve_flattened_multi_team_access(#[case] quoted: bool) {
         round_trip::<ListTracesParams>(
-            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "start_ms": -1, "end_ms": 10, "cursor_ms": 0, "cursor_trace_id": "", "limit": u32::MAX}),
+            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "agent": "", "start_ms": -1, "end_ms": 10, "cursor_ms": 0, "cursor_trace_id": "", "limit": u32::MAX}),
             quoted,
         );
         round_trip::<SpanErrorParams>(

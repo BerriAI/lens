@@ -10,6 +10,7 @@ import traceList from "../__fixtures__/trace_list.json";
 import AgentTracesPage from "./AgentTracesPage";
 import { filterRuns } from "./runSearch/runQuery";
 import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
+import { traceAgentNames } from "../utils";
 
 import { AgentTracesSection } from "./AgentTracesSection";
 import type { TraceFeedbackSummary, TraceFindingCount, TracePage, TraceSummary } from "../types";
@@ -116,6 +117,28 @@ describe("AgentTracesSection", () => {
     vi.mocked(agentTraceListCall).mockReset();
     serveService(true);
     stubPost(async (traces) => traces.map((trace) => ({ ...trace, finding_count: null })));
+  });
+
+  it("loads and renders the runs for the selected agent", async () => {
+    const agent = "research-agent";
+    const selectedAndOtherRuns = [
+      { ...runs[0], agent_names: [agent] },
+      { ...runs[1], agent_names: ["other-agent"] },
+    ];
+    vi.mocked(agentTraceListCall).mockImplementation(async (request) => ({
+      data: selectedAndOtherRuns.filter((run) => traceAgentNames(run).includes(request.agent ?? "")),
+      next_cursor: null,
+    }));
+    renderWithProviders(<AgentTracesSection accessToken="sk-test" isActive range={ROLLING_DAY} />, {
+      searchParams: `?agent=${agent}`,
+    });
+
+    const rows = await screen.findAllByTestId("agent-trace-row");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent(agent);
+    expect(screen.queryByText(/No loaded runs/i)).not.toBeInTheDocument();
+    expect(agentTraceListCall).toHaveBeenCalledOnce();
+    expect(vi.mocked(agentTraceListCall).mock.calls[0][0]).toMatchObject({ agent });
   });
 
   it("loads the next page only once the list scrolls near its end, then stops at the last page", async () => {

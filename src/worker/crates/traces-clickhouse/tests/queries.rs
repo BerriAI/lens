@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use litellm_storage_clickhouse::fetch;
 use litellm_traces::query::named as contracts;
+use litellm_traces_cache::TraceStore;
 use litellm_traces_clickhouse::{
     Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, execute_read,
     insert_rows,
@@ -16,7 +17,9 @@ use serde_json::Value;
 mod fixtures;
 mod support;
 
-use fixtures::{SeededDatabase, insert_export, migrated_database, seeded_database};
+use fixtures::{
+    SeededDatabase, insert_export, migrated_database, seed_interleaved_agent_runs, seeded_database,
+};
 use support::TestResult;
 
 #[rstest]
@@ -260,6 +263,7 @@ async fn typed_queries_read_normalized_spans_and_keep_trace_identities_separate(
         .await?;
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
+        agent: String::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -329,6 +333,7 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
         .await?;
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
+        agent: String::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -347,6 +352,75 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
     assert_eq!(next.len(), 1);
     assert_eq!(next[0].0.api_key_hash, "key-alt");
     assert_ne!(first[0].0.trace_ref, next[0].0.trace_ref);
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn run_candidates_filter_agents_before_pagination(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let (start_ms, end_ms) = seed_interleaved_agent_runs(&fixture).await?;
+    let config = litellm_traces_clickhouse::Config::new(
+        fixtures::DATABASE.into(),
+        &fixture.database.url,
+        7,
+    )?;
+    let store = litellm_traces_clickhouse::ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let reader = litellm_traces_cache::TraceReader::new(usize::MAX);
+    let access = contracts::ReadAccessParams {
+        all_teams: true,
+        user_id: String::new(),
+        team_ids: Vec::new(),
+    };
+    let params = contracts::ListTracesParams {
+        access: access.clone(),
+        agent: "A".into(),
+        start_ms,
+        end_ms,
+        cursor_ms: 0,
+        cursor_trace_id: String::new(),
+        limit: 2,
+    };
+    assert!(store.summary_page(&params).await?.is_none());
+    let first = reader
+        .list_traces(&store, &access, "A", start_ms, end_ms, None, 2)
+        .await?;
+    assert_eq!(
+        first
+            .data
+            .iter()
+            .map(|run| run.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        ["a-new", "a-middle"]
+    );
+    let next = reader
+        .list_traces(
+            &store,
+            &access,
+            "A",
+            start_ms,
+            end_ms,
+            first.next_cursor.as_deref(),
+            2,
+        )
+        .await?;
+    assert_eq!(
+        next.data
+            .iter()
+            .map(|run| run.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        ["a-old"]
+    );
+    let unfiltered = reader
+        .list_traces(&store, &access, "", start_ms, end_ms, None, 10)
+        .await?;
+    assert_eq!(unfiltered.data.len(), 6);
+    assert_eq!(unfiltered.data[0].trace_id, "b-new");
     Ok(())
 }
 
@@ -375,6 +449,7 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
     assert_eq!(stored.len(), decoded.len());
     let list_params = ListTracesParams::from(contracts::ListTracesParams {
         access: params.access,
+        agent: String::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -730,6 +805,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         &connection,
         &ListTracesParams(contracts::ListTracesParams {
             access: access.clone(),
+            agent: String::new(),
             start_ms,
             end_ms,
             cursor_ms: 0,

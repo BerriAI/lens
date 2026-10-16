@@ -28,6 +28,8 @@ pub struct Storage {
 pub enum Read {
     List {
         scope: ReadAccessParams,
+        #[serde(default)]
+        agent: String,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -125,13 +127,22 @@ impl Storage {
         match request {
             Read::List {
                 scope,
+                agent,
                 start_ms,
                 end_ms,
                 cursor,
                 limit,
             } => encode(
                 self.reader
-                    .list_traces(&store, &scope, start_ms, end_ms, cursor.as_deref(), limit)
+                    .list_traces(
+                        &store,
+                        &scope,
+                        &agent,
+                        start_ms,
+                        end_ms,
+                        cursor.as_deref(),
+                        limit,
+                    )
                     .await?,
             ),
             Read::Trace {

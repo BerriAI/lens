@@ -120,7 +120,7 @@ export function AgentTracesSection({
   const activityId = useId();
   const [zoom, setZoom] = useZoomRouting();
   const [rangeChanged, setRangeChanged] = useState(false);
-  const traceQuery = { accessToken, range, enabled: isActive };
+  const traceQuery = { accessToken, range, enabled: isActive, agent };
   const traces = useAgentTraces(traceQuery);
   const setup = useTracingSetup(traces, isActive, rangeChanged);
   const checkHistory = setup.isEmpty && !rangeChanged;

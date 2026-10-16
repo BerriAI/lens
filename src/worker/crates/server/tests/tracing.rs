@@ -72,6 +72,7 @@ impl TraceReader for Reader {
     async fn list(
         &self,
         scope: ReadAccessParams,
+        agent: String,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -79,7 +80,7 @@ impl TraceReader for Reader {
     ) -> Result<TracePage, TraceReadError> {
         self.record(
             scope,
-            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit}),
+            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit,"agent":agent}),
         )?;
         Ok(TracePage {
             data: Vec::new(),
@@ -279,7 +280,7 @@ async fn admin_reads_use_all_rows_and_preserve_supplied_request_parameters(
         .get(
             server
                 .url
-                .join("/v1/traces?start_ms=1&end_ms=2&cursor=opaque")
+                .join("/v1/traces?start_ms=1&end_ms=2&cursor=opaque&agent=A")
                 .unwrap(),
         )
         .bearer_auth(token)
@@ -297,7 +298,7 @@ async fn admin_reads_use_all_rows_and_preserve_supplied_request_parameters(
     assert!(calls[0].scope.team_ids.is_empty());
     assert_eq!(
         calls[0].parameters,
-        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50})
+        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50,"agent":"A"})
     );
 }
 
@@ -390,6 +391,26 @@ async fn invalid_query_never_reaches_reader(
     let errors: Value = response.json().await.unwrap();
     assert_eq!(errors["detail"][0]["type"], kind);
     assert_eq!(errors["detail"][0]["loc"], loc);
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn overlong_agent_filter_is_rejected_before_reading(#[future(awt)] database: Database) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = server
+        .client
+        .get(server.url.join("/v1/traces").unwrap())
+        .query(&[("agent", "A".repeat(257))])
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 422);
+    let errors: Value = response.json().await.unwrap();
+    assert_eq!(errors["detail"][0]["type"], "string_too_long");
+    assert_eq!(errors["detail"][0]["loc"], json!(["query", "agent"]));
     assert!(reader.calls.lock().unwrap().is_empty());
 }
 
