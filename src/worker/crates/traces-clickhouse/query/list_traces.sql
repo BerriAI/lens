@@ -18,6 +18,11 @@ FROM agent_traces_by_key
 WHERE ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND UserIds = [{user_id:String}])
        OR has({team_ids:Array(String)}, TeamId))
+  AND ({agent:String} = '' OR (TeamId, ApiKeyHash, TraceId) IN (
+      SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+      WHERE AgentName = {agent:String}
+        AND Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
+  ))
   AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
       WHERE ({all_teams:UInt8} = 1
              OR ({user_id:String} != '' AND has(UserIds, {user_id:String}))

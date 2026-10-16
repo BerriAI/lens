@@ -55,7 +55,7 @@ describe("Lens session requests", () => {
       const services = liveLensServices(token);
       await services.lens.lenses();
       await services.lens.datasets.list();
-      await services.traces.list({ startMs: 1, endMs: 2 });
+      await services.traces.list({ startMs: 1, endMs: 2 }, "");
       expect(fetcher).toHaveBeenCalledTimes(3);
     },
   );

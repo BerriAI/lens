@@ -38,6 +38,7 @@ fn request_schemas_preserve_explicit_constraints() {
     assert_eq!(detail["properties"]["page_size"]["minimum"], 1);
     assert_eq!(detail["properties"]["page_size"]["maximum"], 500);
     assert_eq!(list["properties"]["cursor"]["maxLength"], 512);
+    assert_eq!(list["properties"]["agent"]["maxLength"], 256);
     assert_eq!(detail["properties"]["cursor"]["maxLength"], 512);
     assert_eq!(error_page["properties"]["cursor"]["maxLength"], 512);
     assert!(list["properties"]["start_ms"].get("minimum").is_none());
@@ -68,6 +69,7 @@ fn request_models_deserialize_defaults_and_null_cursors() {
     assert!(list.start_ms.is_none());
     assert!(list.end_ms.is_none());
     assert!(list.cursor.is_none());
+    assert!(list.agent.is_none());
     assert_eq!(detail.trace_ref, "");
     assert!(detail.cursor.is_none());
     assert!(detail.page_size.is_none());
@@ -77,6 +79,9 @@ fn request_models_deserialize_defaults_and_null_cursors() {
 
     let null_cursor: TraceListRequest = serde_json::from_value(json!({"cursor": null})).unwrap();
     assert!(null_cursor.cursor.is_none());
+    let selected_agent: TraceListRequest =
+        serde_json::from_value(json!({"agent": "research-agent"})).unwrap();
+    assert_eq!(selected_agent.agent.as_deref(), Some("research-agent"));
 }
 
 #[rstest]

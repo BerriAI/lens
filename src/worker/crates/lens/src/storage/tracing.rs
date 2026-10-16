@@ -45,6 +45,7 @@ impl TraceReader for TraceApi {
     async fn list(
         &self,
         scope: ReadAccessParams,
+        agent: String,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -57,6 +58,7 @@ impl TraceReader for TraceApi {
             .list_traces(
                 &self.traces(),
                 &scope,
+                &agent,
                 start_ms,
                 end_ms,
                 cursor.as_deref(),

@@ -137,7 +137,7 @@ async fn list_costs_match_each_run_when_response_ids_are_reused(
         team_ids: vec!["team-a".into()],
     };
     let page = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(page.data.len(), runs.len());
     for (trace_id, _, cost) in runs {
@@ -263,7 +263,7 @@ async fn large_runs_remain_complete_under_default_reader_limits(
         team_ids: vec!["team-a".into()],
     };
     let page = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 500)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 500)
         .await?;
     assert_eq!(page.data.len(), runs);
     assert!(
@@ -409,7 +409,7 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
         team_ids: Vec::new(),
     };
     let listed = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 10)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 10)
         .await?;
     let summary = listed
         .data
@@ -569,7 +569,7 @@ async fn a_large_span_keeps_the_run_list_and_trace_complete(
         team_ids: Vec::new(),
     };
     let before = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     let run = before
         .data
@@ -595,12 +595,12 @@ async fn a_large_span_keeps_the_run_list_and_trace_complete(
     )
     .await?;
     let cached = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(cached.data, before.data);
     let (reader, store) = make_reader(client, connection);
     let after = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(after.data.len(), before.data.len());
     let updated = after
@@ -739,7 +739,7 @@ async fn assigned_call_ids_require_shared_ownership_through_detail_and_batch_rea
         team_ids: vec!["team-a".into(), "team-b".into()],
     };
     let page = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(page.data.len(), cases.len());
     let summary = page
@@ -852,7 +852,7 @@ async fn native_cost_correlation_survives_session_grouping_and_excludes_other_ow
         team_ids: Vec::new(),
     };
     let page = reader
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(page.data.len(), 1);
     let summary = &page.data[0];

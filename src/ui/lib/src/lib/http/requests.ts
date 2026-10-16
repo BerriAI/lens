@@ -29,18 +29,21 @@ export const agentTraceListCall = async ({
   startMs,
   endMs,
   cursor,
+  agent,
   signal,
 }: {
   accessToken: string;
   startMs: number;
   endMs: number;
   cursor?: string | null;
+  agent?: string;
   signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
     start_ms: startMs,
     end_ms: endMs,
     cursor: cursor ?? undefined,
+    agent: agent || undefined,
   } satisfies TraceListQuery;
   return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };

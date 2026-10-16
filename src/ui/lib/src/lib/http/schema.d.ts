@@ -82116,6 +82116,7 @@ export interface operations {
                 /** @description Window end, unix ms. Default: now */
                 end_ms?: number | null;
                 cursor?: string | null;
+                agent?: string | null;
             };
             header?: never;
             path?: never;

@@ -253,6 +253,7 @@ fn parameters(
             .into_iter()
             .chain(window)
             .chain([
+                ("agent", text("")),
                 ("cursor_ms", Parameter::Integer(0)),
                 ("cursor_trace_id", text("")),
             ])

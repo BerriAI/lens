@@ -42,6 +42,7 @@ pub trait TraceReader: Send + Sync {
     fn list(
         &self,
         scope: ReadAccessParams,
+        agent: String,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -195,6 +196,7 @@ async fn list<R: SessionRepository, B: TraceReader>(
         .reader
         .list(
             scope(&identity)?,
+            request.agent.unwrap_or_default(),
             request.start_ms.unwrap_or(now - 86_400_000),
             request.end_ms.unwrap_or(now),
             request.cursor,

@@ -548,7 +548,7 @@ async fn list_run_budget_halves_the_limit_and_cursor_requires_a_full_page() {
     let reader = TraceReader::new(usize::MAX);
     let access = access();
     let page = reader
-        .list_traces(&store, &access, 0, i64::MAX, None, 8)
+        .list_traces(&store, &access, "", 0, i64::MAX, None, 8)
         .await
         .unwrap();
     assert_eq!(page.data.len(), 2);
@@ -559,7 +559,7 @@ async fn list_run_budget_halves_the_limit_and_cursor_requires_a_full_page() {
     shorter.set_list_runs(vec![run("only", "ref-only")]);
     shorter.set_list_runs_too_large_above(2);
     let page = reader
-        .list_traces(&shorter, &access, 0, i64::MAX, None, 8)
+        .list_traces(&shorter, &access, "", 0, i64::MAX, None, 8)
         .await
         .unwrap();
     assert_eq!(page.data.len(), 1);
@@ -583,7 +583,7 @@ async fn complete_summary_pages_skip_candidate_and_graph_reads() {
     store.set_failure(Operation::Spend, Failure::Failed);
 
     let page = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
 
@@ -613,7 +613,7 @@ async fn stored_summaries_preserve_page_order_without_reading_spans_or_spend() {
     store.set_failure(Operation::Spend, Failure::Failed);
 
     let page = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
 
@@ -638,7 +638,7 @@ async fn failed_summary_reads_preserve_resolved_list_results(#[case] failure: Fa
         .summary;
 
     let page = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
 
@@ -660,7 +660,7 @@ async fn oversized_run_batch_falls_back_to_each_run_and_keeps_listed_summaries()
     store.set_failure(Operation::RunSpans, Failure::TooLarge);
     let reader = TraceReader::new(usize::MAX);
     let page = reader
-        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
     assert_eq!(page.data.len(), 2);
@@ -672,7 +672,7 @@ async fn oversized_run_batch_falls_back_to_each_run_and_keeps_listed_summaries()
     assert_eq!(store.calls(Operation::TraceSpans), 2);
 
     let again = reader
-        .list_traces(&store, &access(), 0, i64::MAX, None, 2)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
     assert_eq!(again.data, page.data);
@@ -745,7 +745,7 @@ async fn gateway_cost_refreshes_until_every_model_call_is_priced(
         .unwrap()
         .unwrap();
     let list = reader
-        .list_traces(&store, &access, 0, i64::MAX, None, 2)
+        .list_traces(&store, &access, "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
     assert_eq!(detail.summary.spend, initial_total);
@@ -764,7 +764,7 @@ async fn gateway_cost_refreshes_until_every_model_call_is_priced(
         .unwrap()
         .unwrap();
     let listed = reader
-        .list_traces(&store, &access, 0, i64::MAX, None, 2)
+        .list_traces(&store, &access, "", 0, i64::MAX, None, 2)
         .await
         .unwrap();
     let expected = if settled {
@@ -829,7 +829,7 @@ async fn failed_batch_spend_lookup_retries_costs_without_reading_spans_again() {
     store.set_spend_fails_above_response_ids(1);
 
     let page = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access(), 0, i64::MAX, None, 8)
+        .list_traces(&store, &access(), "", 0, i64::MAX, None, 8)
         .await
         .unwrap();
 
@@ -917,7 +917,7 @@ async fn zero_list_limit_is_rejected() {
     let access = access();
     assert!(matches!(
         reader
-            .list_traces(&store, &access, 0, i64::MAX, None, 0)
+            .list_traces(&store, &access, "", 0, i64::MAX, None, 0)
             .await,
         Err(ReadError::InvalidParameters)
     ));
@@ -1039,7 +1039,7 @@ async fn listed_runs_are_read_once_until_a_live_run_expires() {
     store.set_run_spans(vec![live, settled]);
     let reader = TraceReader::new(usize::MAX);
     let access = access();
-    let list = || reader.list_traces(&store, &access, 0, i64::MAX, None, 2);
+    let list = || reader.list_traces(&store, &access, "", 0, i64::MAX, None, 2);
 
     let first = list().await.unwrap();
     assert!(first.data.iter().all(|summary| summary.name == "agent"));

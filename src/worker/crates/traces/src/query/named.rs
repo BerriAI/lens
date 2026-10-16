@@ -19,6 +19,7 @@ pub struct ReadAccessParams {
 pub struct ListTracesParams {
     #[serde(flatten)]
     pub access: ReadAccessParams,
+    pub agent: String,
     pub start_ms: i64,
     pub end_ms: i64,
     pub cursor_ms: i64,

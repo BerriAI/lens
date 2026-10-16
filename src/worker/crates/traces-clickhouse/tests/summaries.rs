@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 mod fixtures;
 mod support;
 
-use fixtures::{DATABASE, SeededDatabase, migrated_database, seeded_database};
+use fixtures::{
+    DATABASE, SeededDatabase, migrated_database, seed_interleaved_agent_runs, seeded_database,
+};
 use support::TestResult;
 
 fn access(all_teams: bool, user_id: &str, teams: &[&str]) -> ReadAccessParams {
@@ -25,6 +27,7 @@ fn access(all_teams: bool, user_id: &str, teams: &[&str]) -> ReadAccessParams {
 fn list_params(access: ReadAccessParams) -> ListTracesParams {
     ListTracesParams {
         access,
+        agent: String::new(),
         start_ms: 0,
         end_ms: 2_000_000_000_000,
         cursor_ms: 0,
@@ -107,6 +110,68 @@ async fn a_late_evaluation_marker_excludes_an_existing_summary(
     .await?;
     assert!(store.summary_page(&params).await?.unwrap().data.is_empty());
     assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn summary_pages_filter_agents_before_pagination(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let (start_ms, end_ms) = seed_interleaved_agent_runs(&fixture).await?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    summaries::project(&fixture.database.client, &config, 16).await?;
+    let store = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let reader = TraceReader::new(usize::MAX);
+    let access = access(true, "", &[]);
+    let params = ListTracesParams {
+        access: access.clone(),
+        agent: "A".into(),
+        start_ms,
+        end_ms,
+        cursor_ms: 0,
+        cursor_trace_id: String::new(),
+        limit: 2,
+    };
+    assert!(store.summary_page(&params).await?.is_some());
+    let first = reader
+        .list_traces(&store, &access, "A", start_ms, end_ms, None, 2)
+        .await?;
+    assert_eq!(
+        first
+            .data
+            .iter()
+            .map(|run| run.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        ["a-new", "a-middle"]
+    );
+    let next = reader
+        .list_traces(
+            &store,
+            &access,
+            "A",
+            start_ms,
+            end_ms,
+            first.next_cursor.as_deref(),
+            2,
+        )
+        .await?;
+    assert_eq!(
+        next.data
+            .iter()
+            .map(|run| run.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        ["a-old"]
+    );
+    let unfiltered = reader
+        .list_traces(&store, &access, "", start_ms, end_ms, None, 10)
+        .await?;
+    assert_eq!(unfiltered.data.len(), 6);
+    assert_eq!(unfiltered.data[0].trace_id, "b-new");
     Ok(())
 }
 
@@ -236,7 +301,7 @@ async fn summaries_preserve_user_visibility_within_a_shared_trace(
     .await?;
     let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
     let before = TraceReader::new(usize::MAX)
-        .list_traces(&store, &scope, 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &scope, "", 0, 2_000_000_000_000, None, 50)
         .await?;
     assert_eq!(before.data.len(), 1);
 
@@ -393,12 +458,20 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         Connection::reader(&fixture.database.url, DATABASE)?,
     );
     let before = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, limit)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, limit)
         .await?;
     let before_next = if let Some(cursor) = before.next_cursor.as_deref() {
         Some(
             TraceReader::new(usize::MAX)
-                .list_traces(&store, &access, 0, 2_000_000_000_000, Some(cursor), limit)
+                .list_traces(
+                    &store,
+                    &access,
+                    "",
+                    0,
+                    2_000_000_000_000,
+                    Some(cursor),
+                    limit,
+                )
                 .await?,
         )
     } else {
@@ -410,6 +483,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
     let rows = store
         .list_runs(&ListTracesParams {
             access: access.clone(),
+            agent: String::new(),
             start_ms: 0,
             end_ms: 2_000_000_000_000,
             cursor_ms: 0,
@@ -433,12 +507,20 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
     );
 
     let after = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, 0, 2_000_000_000_000, None, limit)
+        .list_traces(&store, &access, "", 0, 2_000_000_000_000, None, limit)
         .await?;
     assert_eq!(after, before);
     if let Some(cursor) = after.next_cursor.as_deref() {
         let after_next = TraceReader::new(usize::MAX)
-            .list_traces(&store, &access, 0, 2_000_000_000_000, Some(cursor), limit)
+            .list_traces(
+                &store,
+                &access,
+                "",
+                0,
+                2_000_000_000_000,
+                Some(cursor),
+                limit,
+            )
             .await?;
         assert_eq!(Some(after_next), before_next);
     }

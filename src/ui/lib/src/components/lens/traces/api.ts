@@ -46,7 +46,7 @@ export interface TracesApi {
   /** False for a fixed snapshot: nothing new arrives, so live tail and tracing setup don't apply. */
   readonly live: boolean;
   handoff(traceId: string, spanId?: string | null, traceRef?: string): TraceHandoff;
-  list(window: TraceWindow, signal?: AbortSignal): Promise<TracePage>;
+  list(window: TraceWindow, agent: string, signal?: AbortSignal): Promise<TracePage>;
   agents(window: TraceWindow, signal?: AbortSignal): Promise<AgentSummary[]>;
   findings(traces: TraceFindingsRequest["traces"]): Promise<TraceFindingCount[]>;
   signals(traces: TraceFindingsRequest["traces"]): Promise<TraceSignals[]>;
@@ -91,7 +91,7 @@ export function liveTracesApi(accessToken: string): TracesApi {
       text: agentHandoffText(traceId, spanId, traceRef),
       copied: "Command copied",
     }),
-    list: (window, signal) => agentTraceListCall({ accessToken, ...window, signal }),
+    list: (window, agent, signal) => agentTraceListCall({ accessToken, ...window, agent, signal }),
     agents: async ({ startMs, endMs }, signal) => {
       const page = await apiClient.get<TraceAgentList>("/v1/traces/agents", {
         accessToken,

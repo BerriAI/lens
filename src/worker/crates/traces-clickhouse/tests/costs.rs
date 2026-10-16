@@ -170,7 +170,7 @@ async fn trace_costs_work_with_raw_select_revoked_in_either_arrival_order(
     let reader = TraceReader::new(litellm_storage_clickhouse::READ_LIMITS.response_bytes);
     if !spend_first {
         let page = reader
-            .list_traces(&store, &access(), START_MS - 1, START_MS + 2, None, 50)
+            .list_traces(&store, &access(), "", START_MS - 1, START_MS + 2, None, 50)
             .await?;
         assert_eq!(page.data[0].spend, None);
         deliver(&fixture, vec![cost_row.clone()]).await?;
@@ -178,7 +178,7 @@ async fn trace_costs_work_with_raw_select_revoked_in_either_arrival_order(
     }
     deliver(&fixture, vec![cost_row.clone(), cost_row]).await?;
     let page = reader
-        .list_traces(&store, &access(), START_MS - 1, START_MS + 2, None, 50)
+        .list_traces(&store, &access(), "", START_MS - 1, START_MS + 2, None, 50)
         .await?;
     assert_eq!(page.data.len(), 1);
     let summary = &page.data[0];

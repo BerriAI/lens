@@ -19,6 +19,7 @@ test("trace request aliases match the generated OpenAPI shapes", () => {
     start_ms?: number | null;
     end_ms?: number | null;
     cursor?: string | null;
+    agent?: string | null;
   }>();
   expectTypeOf<TraceDetailQuery>().toEqualTypeOf<{
     trace_ref?: string;
