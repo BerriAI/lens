@@ -150,8 +150,10 @@ export async function cycle(
   const current = await deps.store.read();
   const started = now();
   const intervalMs = (deps.intervalMinutes ?? 10) * 60_000;
-  if (current.value.next_at > started || current.value.lease_until > started)
-    return;
+  if (current.value.lease_until > started) return;
+  const abandoned =
+    current.value.last_outcome === "running" && current.value.lease_until > 0;
+  if (current.value.next_at > started && !abandoned) return;
   const day = new Date(started).toISOString().slice(0, 10);
   const previous =
     current.value.day === day

@@ -1113,3 +1113,36 @@ test("renewal during native persistence preserves the delivery claim", async (co
   assert.equal(store.snapshot.value.lease_until, 0);
   assert.equal(store.snapshot.value.last_outcome, "delivered");
 });
+
+test("an expired worker claim resumes a daily review without bypassing an attempted delivery", async () => {
+  const now = 1_800_000_000_000;
+  for (const outcome of ["running", "delivery_unknown"] as const) {
+    const store = new MemoryState();
+    await store.commit(await store.read(), {
+      ...initialState,
+      owner: "stopped-worker",
+      next_at: now + 86_400_000,
+      lease_until: now - 1,
+      last_outcome: outcome,
+    });
+    let posts = 0;
+    await cycle(
+      {
+        store,
+        sample: async () => sample,
+        analyze: async () => ({ candidates: [verified], sha: "pinned" }),
+        persist,
+        post: async () => {
+          posts++;
+        },
+        model: "fixture",
+        dailyLimit: 12,
+        intervalMinutes: 1440,
+        now: () => now,
+      },
+      new AbortController().signal,
+    );
+    assert.equal(posts, outcome === "running" ? 1 : 0);
+    assert.equal(store.snapshot.value.next_at, now + 86_400_000);
+  }
+});
