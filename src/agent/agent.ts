@@ -5,9 +5,9 @@ import {
   setTracingDisabled,
   user,
   assistant,
-  MaxTurnsExceededError,
 } from "@openai/agents";
 import OpenAI from "openai";
+import { InvestigationClient } from "./model-client.js";
 import { z } from "zod";
 import type { AgentConfig as Config } from "./config.js";
 import { LensClient } from "./lens.js";
@@ -43,10 +43,11 @@ export type Respond = (
   finding?: FindingThread,
 ) => Promise<AgentResponse>;
 
-export function runnerFor(config: Config): Runner {
+export function runnerFor(config: Config, investigation = false): Runner {
   setTracingDisabled(true);
+  const Client = investigation ? InvestigationClient : OpenAI;
   const provider = new OpenAIProvider({
-    openAIClient: new OpenAI({
+    openAIClient: new Client({
       apiKey: config.openaiKey,
       baseURL: config.openaiBaseUrl,
       maxRetries: 0,
@@ -125,7 +126,7 @@ export async function investigate(
   repo: Repository,
   previous: readonly { issue_key: string; title: string }[],
   signal: AbortSignal,
-  runner: Runner = runnerFor(config),
+  runner: Runner = runnerFor(config, true),
   maxFindings = 1,
 ): Promise<readonly VerifiedCandidate[]> {
   await evidence.loadRoots(signal);
@@ -172,17 +173,9 @@ export async function investigate(
       )
       .slice(0, maxFindings);
   };
-  try {
-    const result = await runner.run(agent, input, { maxTurns: 20, signal });
-    return result.finalOutput ? validateOutput(result.finalOutput) : [];
-  } catch (error) {
-    if (!(error instanceof MaxTurnsExceededError) || signal.aborted)
-      throw error;
-    const result = await runner.run(
-      agent.clone({ tools: [] }),
-      `${input}\nFinalize now using only these already-read observations and code. Return quiet if insufficient.\n${JSON.stringify({ observations: [...evidence.observations.values()].slice(0, 6), code: [...repo.files.values()].slice(0, 4) })}`,
-      { maxTurns: 1, signal },
-    );
-    return result.finalOutput ? validateOutput(result.finalOutput) : [];
-  }
+  const result = await runner.run(agent, input, {
+    maxTurns: Number.POSITIVE_INFINITY,
+    signal,
+  });
+  return result.finalOutput ? validateOutput(result.finalOutput) : [];
 }
