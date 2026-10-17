@@ -7,6 +7,7 @@ import { ClickHouseState, digest, type StateStore } from "./state.js";
 import { Evidence, type Sample } from "./evidence.js";
 import { Repository } from "./repository.js";
 import { investigate } from "./agent.js";
+import { leaseDuration, renewLease } from "./lease.js";
 import {
   PROMPT_REVISION,
   type VerifiedCandidate,
@@ -83,7 +84,7 @@ export const initialState: State = {
 
 function failureDetail(error: unknown, signal: AbortSignal): string {
   if (error instanceof LensReadError) return error.message;
-  if (signal.aborted) return "Investigation deadline exceeded or canceled";
+  if (signal.aborted) return "Investigation canceled or ownership lost";
   if (error instanceof OpenAI.APIConnectionTimeoutError)
     return "Model gateway connection or request timed out";
   if (error instanceof OpenAI.APIConnectionError)
@@ -143,14 +144,16 @@ export interface InvestigatorDependencies {
 
 export async function cycle(
   deps: InvestigatorDependencies,
-  signal: AbortSignal,
+  cancellation: AbortSignal,
 ): Promise<void> {
   const now = deps.now ?? Date.now;
   const current = await deps.store.read();
   const started = now();
   const intervalMs = (deps.intervalMinutes ?? 10) * 60_000;
-  if (current.value.next_at > started || current.value.lease_until > started)
-    return;
+  if (current.value.lease_until > started) return;
+  const abandoned =
+    current.value.last_outcome === "running" && current.value.lease_until > 0;
+  if (current.value.next_at > started && !abandoned) return;
   const day = new Date(started).toISOString().slice(0, 10);
   const previous =
     current.value.day === day
@@ -159,7 +162,7 @@ export async function cycle(
   const claimed = await deps.store.commit(current, {
     ...previous,
     next_at: started + intervalMs,
-    lease_until: started + 300_000,
+    lease_until: started + leaseDuration,
     owner: randomUUID(),
     last_check_at: started,
     last_outcome: "running",
@@ -178,10 +181,12 @@ export async function cycle(
     );
     return;
   }
+  const lease = renewLease(deps.store, claimed.value.owner, cancellation, now);
+  const { store, signal } = lease;
   try {
     const sample = await deps.sample(signal);
     if (!sample.traces.length) {
-      await deps.store.commit(claimed, {
+      await store.commit(claimed, {
         ...claimed.value,
         lease_until: 0,
         last_outcome: "no_traces",
@@ -202,20 +207,20 @@ export async function cycle(
       ),
     );
     if (signature === claimed.value.signature) {
-      await deps.store.commit(claimed, {
+      await store.commit(claimed, {
         ...claimed.value,
         lease_until: 0,
         last_outcome: "unchanged",
       });
       return;
     }
-    if (now() >= claimed.value.lease_until - 30_000) return;
-    const reserved = await deps.store.commit(claimed, {
+    signal.throwIfAborted();
+    const reserved = await store.commit(claimed, {
       ...claimed.value,
       runs: claimed.value.runs + 1,
     });
     const result = await deps.analyze(sample, reserved.value.sent, signal);
-    if (signal.aborted || now() >= reserved.value.lease_until - 30_000) return;
+    signal.throwIfAborted();
     const source = {
       model: deps.model,
       prompt_revision: PROMPT_REVISION,
@@ -231,7 +236,7 @@ export async function cycle(
       )
       .slice(0, deps.maxFindings ?? 1);
     if (!candidates.length) {
-      await deps.store.commit(reserved, {
+      await store.commit(reserved, {
         ...reserved.value,
         next_at: Math.max(reserved.value.next_at, now() + intervalMs),
         last_run: source,
@@ -243,12 +248,8 @@ export async function cycle(
       return;
     }
     for (const candidate of candidates) {
-      const pending = await deps.store.read();
-      if (
-        pending.value.owner !== reserved.value.owner ||
-        now() >= pending.value.lease_until - 30_000 ||
-        signal.aborted
-      )
+      const pending = await store.read();
+      if (pending.value.owner !== reserved.value.owner || signal.aborted)
         return;
       const duplicate = pending.value.sent.find(
         (item) =>
@@ -263,16 +264,10 @@ export async function cycle(
       // Native import is idempotent. A timeout here must leave the evidence eligible
       // for retry, while an ambiguous Slack send below remains durably claimed.
       const native = await deps.persist(persisted, sample, source, signal);
-      const owned = await deps.store.read();
-      if (
-        signal.aborted ||
-        now() >= owned.value.lease_until - 30_000 ||
-        owned.value.owner !== reserved.value.owner ||
-        owned.revision !== pending.revision
-      )
-        return;
+      const owned = await store.read();
+      if (signal.aborted || owned.value.owner !== reserved.value.owner) return;
       if (duplicate) {
-        await deps.store.commit(owned, {
+        await store.commit(owned, {
           ...owned.value,
           last_run: source,
           last_outcome: "duplicate",
@@ -293,7 +288,7 @@ export async function cycle(
         );
         continue;
       }
-      const committed = await deps.store.commit(owned, {
+      const committed = await store.commit(owned, {
         ...owned.value,
         next_at: Math.max(owned.value.next_at, now() + intervalMs),
         posts: owned.value.posts + 1,
@@ -313,14 +308,13 @@ export async function cycle(
           },
         ].slice(-200),
       });
-      if (now() >= committed.value.lease_until - 15_000 || signal.aborted)
-        return;
+      signal.throwIfAborted();
       await deps.post(
         { ...candidate, native, issueNumber: owned.value.next_issue_number },
         sample,
         source,
       );
-      await deps.store.commit(committed, {
+      await store.commit(committed, {
         ...committed.value,
         last_outcome: "delivered",
       });
@@ -328,15 +322,16 @@ export async function cycle(
         "Lens investigator report delivered with durable provenance",
       );
     }
-    const completed = await deps.store.read();
+    const completed = await store.read();
     if (completed.value.owner !== reserved.value.owner) return;
-    await deps.store.commit(completed, {
+    await store.commit(completed, {
       ...completed.value,
       signature,
       next_at: Math.max(completed.value.next_at, now() + intervalMs),
       lease_until: 0,
     });
   } catch (error) {
+    await lease.stop();
     const failed = await deps.store.read();
     if (failed.value.owner === claimed.value.owner) {
       await deps.store.commit(failed, {
@@ -357,6 +352,8 @@ export async function cycle(
       });
     }
     throw error;
+  } finally {
+    await lease.stop();
   }
 }
 
@@ -418,10 +415,7 @@ export function startInvestigator(
   let initialized = false;
   const run = async () => {
     if (controller.signal.aborted) return;
-    const signal = AbortSignal.any([
-      controller.signal,
-      AbortSignal.timeout(240_000),
-    ]);
+    const signal = controller.signal;
     let stage = "state claim";
     try {
       if (!initialized) {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import OpenAI from "openai";
 import {
   bootstrapKnownFindings,
@@ -111,7 +112,19 @@ test(
   "scheduled startup preserves a verified finding with unknown frequency through native persistence and delivery",
   { timeout: 3000 },
   async (context) => {
+    context.mock.timers.enable({
+      apis: ["Date", "setTimeout"],
+      now: 1_800_000_000_000,
+    });
     const store = new MemoryState();
+    let analyzeStarted!: (signal: AbortSignal) => void;
+    const analyzing = new Promise<AbortSignal>((resolve) => {
+      analyzeStarted = resolve;
+    });
+    let finish!: () => void;
+    const finished = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     let deliver!: () => void;
     const delivered = new Promise<void>((resolve) => {
       deliver = resolve;
@@ -172,15 +185,42 @@ test(
         },
         repository: async () =>
           new Repository("example/repo", "fixture", "fixture"),
-        investigate: async () => [
-          {
-            ...verified,
-            fingerprint: digest("verified finding"),
-          },
-        ],
+        investigate: async (
+          _config,
+          _model,
+          _evidence,
+          _repo,
+          _previous,
+          signal,
+        ) => {
+          analyzeStarted(signal);
+          await finished;
+          return [{ ...verified, fingerprint: digest("verified finding") }];
+        },
       },
     );
     context.after(stop);
+    const signal = await analyzing;
+    for (let minute = 0; minute < 15; minute++) {
+      context.mock.timers.tick(60_000);
+      await setImmediate();
+      assert.equal(signal.aborted, false);
+      assert(store.snapshot.value.lease_until > Date.now());
+    }
+    await cycle(
+      {
+        store,
+        model: "fixture",
+        dailyLimit: 1,
+        sample: async () =>
+          assert.fail("An active investigation must keep ownership"),
+        analyze: async () => assert.fail("Duplicate analysis"),
+        persist,
+        post: async () => assert.fail("Duplicate post"),
+      },
+      new AbortController().signal,
+    );
+    finish();
     await delivered;
     assert.equal(bodies.length, 1);
     assert.match(String(bodies[0]?.description), /Frequency: unknown/);
@@ -556,23 +596,26 @@ test("expired ownership cannot post after a long model request", async () => {
   const store = new MemoryState();
   let time = 1_800_000_000_000;
   let posts = 0;
-  await cycle(
-    {
-      store,
-      persist,
-      sample: async () => sample,
-      analyze: async () => {
-        time += 300_000;
-        return { candidates: [verified], sha: "pinned" };
+  await assert.rejects(
+    cycle(
+      {
+        store,
+        persist,
+        sample: async () => sample,
+        analyze: async () => {
+          time += 300_000;
+          return { candidates: [verified], sha: "pinned" };
+        },
+        post: async () => {
+          posts++;
+        },
+        model: "model",
+        dailyLimit: 12,
+        now: () => time,
       },
-      post: async () => {
-        posts++;
-      },
-      model: "model",
-      dailyLimit: 12,
-      now: () => time,
-    },
-    AbortSignal.timeout(1000),
+      AbortSignal.timeout(1000),
+    ),
+    /ownership lost/,
   );
   assert.equal(posts, 0);
 });
@@ -690,27 +733,30 @@ test("native import failures do not reserve a Slack send and retry the same veri
 test("a lost lease after native persistence prevents Slack reservation and delivery", async () => {
   const store = new MemoryState();
   let posts = 0;
-  await cycle(
-    {
-      store,
-      sample: async () => sample,
-      analyze: async () => ({ candidates: [verified], sha: "pinned" }),
-      persist: async () => {
-        const previous = await store.read();
-        await store.commit(previous, {
-          ...previous.value,
-          owner: "replacement-worker",
-        });
-        return native;
+  await assert.rejects(
+    cycle(
+      {
+        store,
+        sample: async () => sample,
+        analyze: async () => ({ candidates: [verified], sha: "pinned" }),
+        persist: async () => {
+          const previous = await store.read();
+          await store.commit(previous, {
+            ...previous.value,
+            owner: "replacement-worker",
+          });
+          return native;
+        },
+        post: async () => {
+          posts++;
+        },
+        model: "model",
+        dailyLimit: 12,
+        now: () => 1_800_000_000_000,
       },
-      post: async () => {
-        posts++;
-      },
-      model: "model",
-      dailyLimit: 12,
-      now: () => 1_800_000_000_000,
-    },
-    AbortSignal.timeout(1000),
+      AbortSignal.timeout(1000),
+    ),
+    /ownership lost/,
   );
   assert.equal(posts, 0);
   assert.equal(store.snapshot.value.posts, 0);
@@ -978,4 +1024,125 @@ test("daily reviews retry startup failures promptly but preserve the full interv
   assert.equal(store.snapshot.value.next_at, retry + 86_400_000);
   assert.equal(store.snapshot.value.posts, 1);
   assert.equal(store.snapshot.value.last_outcome, "delivery_unknown");
+});
+
+test("heartbeat loss cancels in-flight analysis and leaves evidence retryable", async (context) => {
+  context.mock.timers.enable({
+    apis: ["Date", "setTimeout"],
+    now: 1_800_000_000_000,
+  });
+  const memory = new MemoryState();
+  let writable = true;
+  const store: StateStore<State> = {
+    read: () => memory.read(),
+    commit: (previous, value) => {
+      if (!writable) return Promise.reject(new Error("state unavailable"));
+      return memory.commit(previous, value);
+    },
+  };
+  let started!: () => void;
+  const analyzing = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const running = assert.rejects(
+    cycle(
+      {
+        store,
+        sample: async () => sample,
+        analyze: async (_sample, _previous, signal) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener(
+              "abort",
+              () => {
+                writable = true;
+                reject(signal.reason);
+              },
+              { once: true },
+            );
+            started();
+          }),
+        persist: async () =>
+          assert.fail("Canceled analysis cannot persist a finding"),
+        post: async () => assert.fail("Canceled analysis cannot post"),
+        model: "fixture",
+        dailyLimit: 12,
+      },
+      new AbortController().signal,
+    ),
+    /state unavailable/,
+  );
+  await analyzing;
+  writable = false;
+  context.mock.timers.tick(60_000);
+  await running;
+  assert.equal(memory.snapshot.value.lease_until, 0);
+  assert.equal(memory.snapshot.value.signature, "");
+  assert.equal(memory.snapshot.value.sent.length, 0);
+  assert.equal(memory.snapshot.value.last_outcome, "failed");
+});
+
+test("renewal during native persistence preserves the delivery claim", async (context) => {
+  context.mock.timers.enable({
+    apis: ["Date", "setTimeout"],
+    now: 1_800_000_000_000,
+  });
+  const store = new MemoryState();
+  let posts = 0;
+  await cycle(
+    {
+      store,
+      sample: async () => sample,
+      analyze: async () => ({ candidates: [verified], sha: "pinned" }),
+      persist: async () => {
+        for (let minute = 0; minute < 6; minute++) {
+          context.mock.timers.tick(60_000);
+          await setImmediate();
+        }
+        return native;
+      },
+      post: async () => {
+        posts++;
+      },
+      model: "fixture",
+      dailyLimit: 12,
+    },
+    new AbortController().signal,
+  );
+  assert.equal(posts, 1);
+  assert.equal(store.snapshot.value.sent.length, 1);
+  assert.equal(store.snapshot.value.lease_until, 0);
+  assert.equal(store.snapshot.value.last_outcome, "delivered");
+});
+
+test("an expired worker claim resumes a daily review without bypassing an attempted delivery", async () => {
+  const now = 1_800_000_000_000;
+  for (const outcome of ["running", "delivery_unknown"] as const) {
+    const store = new MemoryState();
+    await store.commit(await store.read(), {
+      ...initialState,
+      owner: "stopped-worker",
+      next_at: now + 86_400_000,
+      lease_until: now - 1,
+      last_outcome: outcome,
+    });
+    let posts = 0;
+    await cycle(
+      {
+        store,
+        sample: async () => sample,
+        analyze: async () => ({ candidates: [verified], sha: "pinned" }),
+        persist,
+        post: async () => {
+          posts++;
+        },
+        model: "fixture",
+        dailyLimit: 12,
+        intervalMinutes: 1440,
+        now: () => now,
+      },
+      new AbortController().signal,
+    );
+    assert.equal(posts, outcome === "running" ? 1 : 0);
+    assert.equal(store.snapshot.value.next_at, now + 86_400_000);
+  }
 });

@@ -24,6 +24,7 @@
     "@octokit/auth-app": "8.3.1",
     "@openai/agents": "0.20.0",
     "openai": "7.32.0",
+    "undici": "8.12.2",
     "zod": "4.6.5"
   }
 }

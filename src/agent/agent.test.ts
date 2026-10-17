@@ -6,11 +6,14 @@ import {
   assistantMessage,
   functionCall,
 } from "@openai/agents/testing";
-import { responder } from "./agent.js";
+import { investigate, responder } from "./agent.js";
 import type { AgentConfig as Config } from "./config.js";
 import { LensClient, type TraceWindow } from "./lens.js";
 import type { FindingContext as FindingThread } from "./models.js";
 import { replyTools } from "./tools.js";
+
+import { Evidence } from "./evidence.js";
+import { Repository } from "./repository.js";
 
 const config = { agent: "selected", model: "test-model" } as Config;
 
@@ -380,5 +383,56 @@ test("a finding follow-up reads its exact live trace and observed span, rejectin
   assert(!lastInput.includes("sk-credential"));
   assert.equal(answer.answer.sources[0]?.url, url);
   assert(answer.evidenceUrls.includes(url));
+  model.assertComplete();
+});
+
+test("scheduled investigations can finish after more than twenty model turns", async () => {
+  const model = new ScriptedModel([
+    ...Array.from({ length: 24 }, (_, i) => [
+      functionCall(
+        "find_code_paths",
+        { query: "documentation" },
+        { callId: String(i) },
+      ),
+    ]),
+    [assistantMessage(JSON.stringify({ candidates: [] }))],
+  ]);
+  const evidence = new Evidence(
+    {
+      agent: "selected",
+      traces: [],
+      window: "fixture",
+      scanned_rows: 0,
+      matched_rows: 0,
+      incomplete: false,
+      sampled_for_detail: false,
+      warning: "",
+      population: {
+        inspected_traces: 0,
+        root_error_traces: 0,
+        span_error_traces: 0,
+        terminal_traces: 0,
+        p95_duration_ms: null,
+        above_p95: null,
+      },
+    },
+    new LensClient(config),
+    "selected",
+  );
+  const result = await investigate(
+    config,
+    "fixture",
+    evidence,
+    new Repository("example/repo", "fixture", "fixture"),
+    [],
+    new AbortController().signal,
+    new Runner({
+      modelProvider: { getModel: async () => model },
+      tracingDisabled: true,
+    }),
+    2,
+  );
+  assert.deepEqual(result, []);
+  assert.equal(model.calls.length, 25);
   model.assertComplete();
 });

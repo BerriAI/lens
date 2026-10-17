@@ -4,7 +4,7 @@ import { Repository } from "./repository.js";
 import { digest } from "./state.js";
 import type { MeasuredFrequency, NativeFinding } from "./models.js";
 
-export const PROMPT_REVISION = "lens-investigator-v4";
+export const PROMPT_REVISION = "lens-investigator-v5";
 export const candidateSchema = z.object({
   kind: z.enum(["quiet", "issue", "regression", "opportunity", "frustration"]),
   category: z.enum(["Performance", "Agent quality", "Reliability"]),
