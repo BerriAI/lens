@@ -13,6 +13,7 @@
     <part_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></part_log>
     <metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></metric_log>
     <query_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_metric_log>
+    <query_views_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_views_log>
     <asynchronous_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_metric_log>
     <asynchronous_insert_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_insert_log>
     <aggregated_zookeeper_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></aggregated_zookeeper_log>
