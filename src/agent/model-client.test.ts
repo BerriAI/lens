@@ -73,3 +73,28 @@ test("investigation requests wait without a model deadline and still honor cance
   cancellation.abort();
   await canceled;
 });
+
+test("the production transport sends requests with its matching dispatcher", async (context) => {
+  const { createServer } = await import("node:http");
+  const server = createServer((_request, response) => {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ id: "transport-completed" }));
+  });
+  context.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert(address && typeof address === "object");
+  const client = new InvestigationClient({
+    apiKey: "fixture",
+    baseURL: `http://127.0.0.1:${address.port}`,
+    maxRetries: 0,
+  });
+  const result = await client.responses.create({
+    model: "fixture",
+    input: "Analyze",
+  });
+  assert.equal(result.id, "transport-completed");
+});
