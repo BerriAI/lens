@@ -214,6 +214,8 @@ pub struct CreateEvalRun {
     pub dataset_id: String,
     pub revision: u64,
     pub case_ids: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_run_id: Option<String>,
     pub version: String,
     pub branch: String,
     pub pr: Option<u64>,
@@ -476,6 +478,8 @@ pub struct Execution {
     pub pr: Option<u64>,
     pub ci_url: String,
     pub identity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_run_id: Option<String>,
 }
 
 pub fn subset_name(

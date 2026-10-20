@@ -328,6 +328,7 @@ class CreateEvalRun(BaseModel):
     )
     agent: str = Field(..., min_length=1)
     agent_io: AgentIo | None = None
+    baseline_run_id: str | None = Field(default=None, min_length=1)
     branch: str = Field(..., min_length=1)
     case_ids: Sequence[str] | None = None
     ci_url: str = ""

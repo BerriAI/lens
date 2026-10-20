@@ -60,6 +60,7 @@ pub fn spec() -> EvalSpec {
 
 pub fn context(branch: &str, identity: &str) -> Execution {
     Execution {
+        baseline_run_id: None,
         version: "sha".into(),
         branch: branch.into(),
         pr: (branch != "main").then_some(7),

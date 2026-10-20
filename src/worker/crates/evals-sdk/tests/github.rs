@@ -203,6 +203,7 @@ async fn running_comment_is_updated_with_real_results_in_place() {
                 pr: Some(7),
                 ci_url: "https://github.com/org/repo/actions/runs/99".into(),
                 identity: "99:1".into(),
+                baseline_run_id: None,
             },
             false,
         )
@@ -323,6 +324,7 @@ async fn failure_replaces_running_comment_without_claiming_an_eval_verdict() {
                 pr: Some(7),
                 ci_url: "https://github.com/org/repo/actions/runs/99".into(),
                 identity: "99:1".into(),
+                baseline_run_id: None,
             },
             true,
         )
