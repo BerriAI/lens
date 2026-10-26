@@ -253,7 +253,7 @@ async fn abandoned_writers_expire_but_live_writers_time_out_without_publishing(
         );
         assert!(started.elapsed() >= Duration::from_secs(29));
         assert!(started.elapsed() < Duration::from_secs(34));
-        assert_eq!(database.store.read(&lease_key()).await.unwrap(), held);
+        assert_eq!(repository.0.read(&lease_key()).await.unwrap(), held);
         assert_eq!(
             value(repository.get(&lens.id).await.unwrap().unwrap()),
             value(&lens)
