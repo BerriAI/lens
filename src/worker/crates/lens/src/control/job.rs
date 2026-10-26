@@ -1,9 +1,23 @@
 use crate::{Error, wire};
 use futures_util::future::BoxFuture;
+use lens_investigations::AnalysisCheckpoint;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 
 pub trait JobBackend: Send + Sync {
+    fn checkpoint<'a>(
+        &'a self,
+        _key: &'a str,
+    ) -> BoxFuture<'a, Result<Option<AnalysisCheckpoint>, Error>> {
+        Box::pin(async { Ok(None) })
+    }
+    fn save_checkpoint<'a>(
+        &'a self,
+        _key: &'a str,
+        checkpoint: &'a AnalysisCheckpoint,
+    ) -> BoxFuture<'a, Result<AnalysisCheckpoint, Error>> {
+        Box::pin(async move { Ok(checkpoint.clone()) })
+    }
     fn sample(&self) -> BoxFuture<'_, Result<wire::Sample, Error>>;
     fn reviews(&self) -> BoxFuture<'_, Result<Vec<wire::Review>, Error>>;
     fn content<'a>(
@@ -43,6 +57,16 @@ impl JobClient {
         }
     }
 
+    pub async fn checkpoint(&self, key: &str) -> Result<Option<AnalysisCheckpoint>, Error> {
+        self.backend.checkpoint(key).await
+    }
+    pub async fn save_checkpoint(
+        &self,
+        key: &str,
+        checkpoint: &AnalysisCheckpoint,
+    ) -> Result<AnalysisCheckpoint, Error> {
+        self.backend.save_checkpoint(key, checkpoint).await
+    }
     pub async fn sample(&self) -> Result<wire::Sample, Error> {
         self.backend.sample().await
     }

@@ -184,6 +184,34 @@ impl LocalJob {
 }
 
 impl JobBackend for LocalJob {
+    fn checkpoint<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> BoxFuture<'a, Result<Option<lens_investigations::AnalysisCheckpoint>, Error>> {
+        response(async move {
+            self.assigned().await?;
+            Ok(self
+                .control
+                .repository
+                .analysis_checkpoint(&self.lens_id, key)
+                .await?)
+        })
+    }
+    fn save_checkpoint<'a>(
+        &'a self,
+        key: &'a str,
+        checkpoint: &'a lens_investigations::AnalysisCheckpoint,
+    ) -> BoxFuture<'a, Result<lens_investigations::AnalysisCheckpoint, Error>> {
+        response(async move {
+            let (_, job) = self.assigned().await?;
+            Ok(self
+                .control
+                .repository
+                .save_analysis_checkpoint(&self.lens_id, &job, key, checkpoint)
+                .await?)
+        })
+    }
+
     fn sample(&self) -> BoxFuture<'_, Result<Sample, Error>> {
         response(self.read_sample())
     }

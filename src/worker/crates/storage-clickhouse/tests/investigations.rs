@@ -1,3 +1,5 @@
+#[path = "investigations/checkpoints.rs"]
+mod checkpoints;
 #[path = "investigations/compaction.rs"]
 mod compaction;
 #[path = "investigations/finding_runs.rs"]
