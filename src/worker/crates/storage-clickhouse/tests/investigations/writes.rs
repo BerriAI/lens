@@ -253,7 +253,7 @@ async fn abandoned_writers_expire_but_live_writers_time_out_without_publishing(
         );
         assert!(started.elapsed() >= Duration::from_secs(29));
         assert!(started.elapsed() < Duration::from_secs(34));
-        assert_eq!(database.store.read(&lease_key()).await.unwrap(), held);
+        assert_eq!(repository.0.read(&lease_key()).await.unwrap(), held);
         assert_eq!(
             value(repository.get(&lens.id).await.unwrap().unwrap()),
             value(&lens)
@@ -820,4 +820,109 @@ async fn locked_update_cannot_rename_a_lens(#[future(awt)] database: Database, l
         value(&lens)
     );
     assert!(database.repository().get("other").await.unwrap().is_none());
+}
+
+#[rstest]
+#[case::progress(false, false)]
+#[case::review(true, false)]
+#[case::persistent_delay(false, true)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn unconfirmed_progress_replays_only_without_a_review(
+    #[future(awt)] database: Database,
+    active: Lens,
+    #[case] with_review: bool,
+    #[case] always_slow: bool,
+) {
+    let lens = active;
+    use litellm_http::Client;
+    use litellm_storage_clickhouse::{Connection, state::ClickHouseState};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    database.repository().create(&lens).await.unwrap();
+    let server = MockServer::start().await;
+    let destination = database.url();
+    let publications = Arc::new(AtomicUsize::new(0));
+    let count = publications.clone();
+    Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(move |request: &Request| {
+            let mut target = destination.clone();
+            target
+                .query_pairs_mut()
+                .extend_pairs(request.url.query_pairs());
+            let body = request.body.clone();
+            let response = std::thread::spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        let response = Client::no_redirect_for_test()
+                            .post(target)
+                            .header("Content-Length", body.len().to_string())
+                            .body(body)
+                            .send()
+                            .await
+                            .unwrap();
+                        let status = response.status().as_u16();
+                        (status, response.text().await.unwrap())
+                    })
+            })
+            .join()
+            .unwrap();
+            let publication = request.url.query_pairs().any(|(name, query)| {
+                name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
+            }) && request
+                .url
+                .query_pairs()
+                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            let template = ResponseTemplate::new(response.0).set_body_string(response.1);
+            if publication && (count.fetch_add(1, Ordering::SeqCst) == 0 || always_slow) {
+                return template.set_delay(Duration::from_secs(15));
+            }
+            template
+        })
+        .mount(&server)
+        .await;
+    let repository = Investigations(ClickHouseState::new(
+        Client::no_redirect_for_test(),
+        Connection::parse(&server.uri()).unwrap(),
+    ));
+    let recorded: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../contract/tests/fixtures/investigations_public.json"
+    ))
+    .unwrap();
+    let progress = Progress {
+        stage: Some("Checking original evidence".into()),
+        coverage: Some(lens_contract::worker::Coverage {
+            investigated: 2,
+            ..Default::default()
+        }),
+        review: with_review.then(|| serde_json::from_value(recorded["review"].clone()).unwrap()),
+        ..Default::default()
+    };
+    let result = repository
+        .progress(&lens.id, &lens.jobs[0], &progress, Utc::now())
+        .await;
+    if with_review || always_slow {
+        assert!(matches!(
+            result,
+            Err(CheckpointError::Store(RepositoryError::WriteUnconfirmed))
+        ));
+        if with_review {
+            assert_eq!(publications.load(Ordering::SeqCst), 1);
+        } else {
+            assert!(publications.load(Ordering::SeqCst) >= 2);
+        }
+    } else {
+        assert_eq!(result.unwrap().unwrap().jobs[0].coverage.investigated, 2);
+        assert_eq!(publications.load(Ordering::SeqCst), 2);
+    }
+    let saved = database.repository().get(&lens.id).await.unwrap().unwrap();
+    assert_eq!(saved.jobs[0].stage, "Checking original evidence");
+    assert_eq!(saved.jobs[0].coverage.investigated, 2);
+    assert_eq!(
+        saved.jobs[0].reviewed,
+        lens.jobs[0].reviewed + i64::from(with_review)
+    );
+    assert_eq!(saved.jobs[0].steps.len(), lens.jobs[0].steps.len() + 1);
+    wait_released(&database).await;
 }

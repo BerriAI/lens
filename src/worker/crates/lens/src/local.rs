@@ -1253,4 +1253,104 @@ mod tests {
         assert!(matches!(error, Error::Control { status: 409, .. }));
         assert_eq!(waiting_job.results.lock().unwrap().len(), 1);
     }
+    #[rstest]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_worker_progress_recovers_after_a_committed_write_times_out(
+        #[future(awt)] stored_job: StoredJob,
+    ) {
+        use litellm_storage_clickhouse::{Connection, state::ClickHouseState};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+        let server = MockServer::start().await;
+        let destination = stored_job
+            .job
+            .control
+            .sources
+            .0
+            .storage
+            .config
+            .storage()
+            .reader()
+            .url()
+            .clone();
+        let count = Arc::new(AtomicUsize::new(0));
+        let publications = count.clone();
+        Mock::given(wiremock::matchers::method("POST"))
+            .respond_with(move |request: &Request| {
+                let mut target = destination.clone();
+                target
+                    .query_pairs_mut()
+                    .extend_pairs(request.url.query_pairs());
+                let body = request.body.clone();
+                let response = std::thread::spawn(move || {
+                    tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .unwrap()
+                        .block_on(async {
+                            let response = litellm_http::Client::no_redirect_for_test()
+                                .post(target)
+                                .header("Content-Length", body.len().to_string())
+                                .body(body)
+                                .send()
+                                .await
+                                .unwrap();
+                            (response.status().as_u16(), response.text().await.unwrap())
+                        })
+                })
+                .join()
+                .unwrap();
+                let publication = request.url.query_pairs().any(|(name, query)| {
+                    name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
+                }) && request
+                    .url
+                    .query_pairs()
+                    .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+                let template = ResponseTemplate::new(response.0).set_body_string(response.1);
+                if publication && publications.fetch_add(1, Ordering::SeqCst) == 0 {
+                    return template.set_delay(Duration::from_secs(15));
+                }
+                template
+            })
+            .mount(&server)
+            .await;
+        let mut job = stored_job.job.clone();
+        job.control.repository = Investigations(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::parse(&server.uri()).unwrap(),
+        ));
+        let client = JobClient::local(Arc::new(job), 4, Arc::new(Semaphore::new(4)));
+        let tasks = (0..4).map(|index| {
+            let client = client.clone();
+            async move {
+                client
+                    .progress(&wire::Progress {
+                        activity: Some(wire::Activity {
+                            id: format!("candidate-{index}"),
+                            phase: wire::ActivityPhase::Investigate,
+                            label: "Checking candidate".into(),
+                            execution_ids: vec![],
+                            started_at: Utc::now(),
+                            operations: vec![],
+                            tool_calls: vec![],
+                            finished: false,
+                        }),
+                        ..Default::default()
+                    })
+                    .await
+            }
+        });
+        let results = futures_util::future::join_all(tasks).await;
+        results.into_iter().collect::<Result<Vec<_>, _>>().unwrap();
+        let saved = stored_job
+            .job
+            .control
+            .repository
+            .get("lens")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.jobs[0].activities.len(), 4);
+        assert!(count.load(Ordering::SeqCst) >= 5);
+    }
 }
