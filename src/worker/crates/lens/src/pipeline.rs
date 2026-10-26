@@ -7,7 +7,9 @@ use crate::{
     grouping, wire,
 };
 use futures_util::{StreamExt, stream};
+use lens_investigations::AnalysisCheckpoint;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -307,16 +309,74 @@ pub async fn analyze(
             })
         })
         .collect::<Result<_, Error>>()?;
-    let candidates =
-        match grouping::group(&client, &pending, &mut result.coverage, concurrency).await {
-            Ok(candidates) => candidates,
-            Err(error) => {
-                result.review_versions.clear();
-                errors.insert(error.to_string());
-                result.error = errors.into_iter().collect::<Vec<_>>().join("\n\n");
-                return Ok(result);
+    let checkpoint_key = if outcomes
+        .iter()
+        .all(|o| o.error.is_empty() && !o.review.content_version.is_empty())
+    {
+        let mut settings = serde_json::to_value(&claim.job.settings)?;
+        settings
+            .as_object_mut()
+            .ok_or(Error::InvalidRequest)?
+            .remove("concurrency");
+        Some(format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&json!({
+                "version": 1,
+                "settings": settings,
+                "findings": claim.findings,
+                "reviews": outcomes.iter().map(|o| json!({
+                    "id": o.review.execution_id, "version": o.review.content_version,
+                    "extraction": o.review.extraction, "consolidated": o.review.consolidated,
+                    "partial": o.review.partial,
+                })).collect::<Vec<_>>(),
+                "prompts": [include_str!("../prompts/cluster.md"), include_str!("../prompts/findings.md"), include_str!("../prompts/response_instructions.md"), include_str!("../prompts/tool_instructions.md"), include_str!("../prompts/python_instructions.md")],
+            }))?)
+        ))
+    } else {
+        None
+    };
+    let cached = match &checkpoint_key {
+        Some(key) => client.checkpoint(key).await?,
+        None => None,
+    };
+    let candidates = if let Some(AnalysisCheckpoint::Grouping {
+        candidates,
+        batches,
+    }) = cached
+    {
+        result.coverage.grouping_batches = batches;
+        result.coverage.grouped_batches = batches;
+        candidates
+    } else {
+        let candidates =
+            match grouping::group(&client, &pending, &mut result.coverage, concurrency).await {
+                Ok(candidates) => candidates,
+                Err(error) => {
+                    result.review_versions.clear();
+                    errors.insert(error.to_string());
+                    result.error = errors.into_iter().collect::<Vec<_>>().join("\n\n");
+                    return Ok(result);
+                }
+            };
+        match &checkpoint_key {
+            Some(key) => {
+                let saved = client
+                    .save_checkpoint(
+                        key,
+                        &AnalysisCheckpoint::Grouping {
+                            candidates,
+                            batches: result.coverage.grouping_batches,
+                        },
+                    )
+                    .await?;
+                let AnalysisCheckpoint::Grouping { candidates, .. } = saved else {
+                    return Err(Error::InvalidRequest);
+                };
+                candidates
             }
-        };
+            None => candidates,
+        }
+    };
     result.coverage.candidates = candidates.len() as i64;
     client
         .progress(&wire::Progress {
@@ -328,13 +388,29 @@ pub async fn analyze(
     let jobs: Vec<_> = candidates.iter().enumerate().map(|(index, candidate)| {
         let workspace = &workspace;
         let client = &client;
+        let checkpoint_key = &checkpoint_key;
         async move {
+            let key = checkpoint_key.as_ref().map(|key| {
+                serde_json::to_vec(&(key, candidate)).map(|value| format!("{:x}", Sha256::digest(value)))
+            }).transpose()?;
+            if let Some(key) = &key
+                && let Some(AnalysisCheckpoint::Checking { result }) = client.checkpoint(key).await? {
+                return Ok((index, Ok(result)));
+            }
             let tracker = Tracker::start(client, format!("investigate:{index}"), wire::ActivityPhase::Investigate, candidate.title.clone(), candidate.execution_ids.clone()).await?;
             let result = agent::run::<wire::Findings>(claim, workspace, Assignment {
                 stage: "context_investigation", purpose: wire::ModelRequestPurpose::Investigate,
                 task: format!("{}\nInvestigate the supplied candidate against original evidence, including counterexamples. Use read_reviews for the candidate sessions and search_reviews to compare other sessions. All sampled sessions and nested agents remain available. Finalize findings about this candidate's check and underlying causes. Unrelated successes are context or counterevidence, not additional findings. Preserve distinct supported causes if the candidate conflates them. Return every supported finding, or an empty findings list if unsupported.", include_str!("../prompts/findings.md")),
                 supplied: serde_json::to_value(candidate)?,
             }, &tracker).await;
+            let result = match (&key, result) {
+                (Some(key), Ok(result)) if workspace.errors().is_empty() => {
+                    let saved = client.save_checkpoint(key, &AnalysisCheckpoint::Checking { result }).await?;
+                    let AnalysisCheckpoint::Checking { result } = saved else { return Err(Error::InvalidRequest); };
+                    Ok(result)
+                }
+                (_, result) => result,
+            };
             tracker.finish().await?;
             Ok::<_, Error>((index, result))
         }

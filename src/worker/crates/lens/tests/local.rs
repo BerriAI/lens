@@ -544,3 +544,230 @@ async fn investigation_creation_rejects_unavailable_analysis_models(
         );
     }
 }
+#[rstest]
+#[case::empty_result(false, "")]
+#[case::finding(true, "")]
+#[case::changed_context(false, "context")]
+#[case::changed_concurrency(false, "concurrency")]
+#[case::changed_trace(false, "trace")]
+#[tokio::test]
+async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_restart(
+    #[future(awt)] database: Database,
+    trace: Value,
+    #[case] with_finding: bool,
+    #[case] changed: &str,
+) {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    use wiremock::Request;
+    let provider = MockServer::start().await;
+    let failed = Arc::new(AtomicBool::new(false));
+    let extraction_calls = Arc::new(AtomicUsize::new(0));
+    let grouping_calls = Arc::new(AtomicUsize::new(0));
+    let checking_calls = Arc::new(AtomicUsize::new(0));
+    let extraction = extraction_calls.clone();
+    let grouping = grouping_calls.clone();
+    let checking = checking_calls.clone();
+    let failure = failed.clone();
+    Mock::given(method("POST")).and(path("/v1/chat/completions")).respond_with(move |request: &Request| {
+        let body: Value = request.body_json().unwrap();
+        let prompt: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+        let content = match prompt["stage"].as_str() {
+            Some("context_review") => {
+                extraction.fetch_add(1, Ordering::SeqCst);
+                let supplied: Value = serde_json::from_str(body["messages"][2]["content"].as_str().unwrap()).unwrap();
+                let id = &supplied["supplied"]["execution"]["id"];
+                let evidence = json!({"execution_id":id,"span_id":"aabbccdd00112233","quote":"Your invoice is paid","role":"support"});
+                json!({"result":{"observations":[
+                    {"check_id":"invoice","summary":"Invoice status reported","evidence":[evidence.clone()]},
+                    {"check_id":"invoice","summary":"Payment confirmation","evidence":[evidence]}
+                ]}})
+            }
+            Some("context_investigation") => {
+                let call = checking.fetch_add(1, Ordering::SeqCst);
+                if call == 1 && !failure.swap(true, Ordering::SeqCst) {
+                    return ResponseTemplate::new(409).set_body_json(json!({"error":{"message":"injected late failure","type":"test_failure"}}));
+                }
+                if call == 0 && with_finding {
+                    let supplied: Value = serde_json::from_str(body["messages"][2]["content"].as_str().unwrap()).unwrap();
+                    json!({"result":{"findings":[{
+                        "title":"Invoice status reported","description":"The agent reports the invoice status","check_id":"invoice","kind":"pattern",
+                        "evidence":[{"execution_id":supplied["supplied"]["execution_ids"][0],"span_id":"aabbccdd00112233","quote":"Your invoice is paid","role":"support"}]
+                    }]}})
+                } else { json!({"result":{"findings":[]}}) }
+            }
+            _ => {
+                grouping.fetch_add(1, Ordering::SeqCst);
+                json!({"candidates":[
+                    {"check_id":"invoice","title":"Invoice status","hypothesis":"Status reported","execution_ids":["p0"]},
+                    {"check_id":"invoice","title":"Confirmation","hypothesis":"Payment confirmed","execution_ids":["p1"]}
+                ]})
+            }
+        };
+        ResponseTemplate::new(200).set_body_json(json!({
+            "id":"checkpoint-test","object":"chat.completion","created":1,"model":"test-analysis",
+            "choices":[{"index":0,"message":{"role":"assistant","content":content.to_string()},"finish_reason":"stop"}],
+            "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
+        }))
+    }).mount(&provider).await;
+    let mut config = deployment(format!("{}/v1", provider.uri()));
+    config.output_limits = OutputLimits::default();
+    let server = database.serve_models(true, vec![config.clone()]).await;
+    let client = reqwest::Client::new();
+    let key: IngestionKeyCreated = client
+        .post(format!("{}/lens/tracing/keys", server.url))
+        .bearer_auth(ADMIN)
+        .json(&json!({"name":"Checkpoint test"}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    client
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(&key.key)
+        .json(&trace)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    let created: Lens = client.post(format!("{}/lens",server.url)).bearer_auth(ADMIN)
+        .json(&json!({"name":"Checkpoint test","model":"test-analysis","agent_name":"local-worker-test","concurrency":1,"monthly_budget":100,"checks":[{"id":"invoice","instruction":"Check invoice status"}]}))
+        .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    client
+        .post(format!("{}/lens/{}/cancel", server.url, created.id))
+        .bearer_auth(ADMIN)
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    let now = chrono::Utc::now();
+    let window =
+        json!({"start":now-chrono::TimeDelta::hours(1),"end":now+chrono::TimeDelta::seconds(1)});
+    client
+        .post(format!("{}/lens/{}/runs", server.url, created.id))
+        .bearer_auth(ADMIN)
+        .json(&window)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    assert!(server.worker.as_ref().unwrap().run_once().await.unwrap());
+    let first: Lens = client
+        .get(format!("{}/lens/{}", server.url, created.id))
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        first.jobs[0].status,
+        JobStatus::Failed,
+        "{}",
+        first.jobs[0].error
+    );
+    assert!(
+        first.jobs[0].error.contains("409"),
+        "{}",
+        first.jobs[0].error
+    );
+    assert!(first.findings.is_empty());
+    assert_eq!(checking_calls.load(Ordering::SeqCst), 2);
+    if changed == "trace" {
+        let mut updated = trace.clone();
+        let mut child = updated["resourceSpans"][0]["scopeSpans"][0]["spans"][0].clone();
+        child["spanId"] = "aabbccdd00112234".into();
+        child["parentSpanId"] = "aabbccdd00112233".into();
+        child["name"] = "Additional invoice evidence".into();
+        child["attributes"][0]["value"]["stringValue"] = "chat".into();
+        updated["resourceSpans"][0]["scopeSpans"][0]["spans"]
+            .as_array_mut()
+            .unwrap()
+            .push(child);
+        client
+            .post(format!("{}/v1/traces", server.url))
+            .bearer_auth(&key.key)
+            .json(&updated)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap();
+    }
+    if matches!(changed, "context" | "concurrency") {
+        let mut settings = serde_json::to_value(&first.settings).unwrap();
+        match changed {
+            "context" => {
+                settings["context"] = "Also verify that the invoice belongs to the user".into()
+            }
+            "concurrency" => settings["concurrency"] = 4.into(),
+            _ => unreachable!(),
+        }
+        client
+            .put(format!("{}/lens/{}", server.url, created.id))
+            .bearer_auth(ADMIN)
+            .json(&settings)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap();
+    }
+    drop(server);
+    let restarted = database.serve_models(true, vec![config]).await;
+    let window = if changed == "trace" {
+        json!({"start": window["start"], "end": chrono::Utc::now() + chrono::TimeDelta::seconds(1)})
+    } else {
+        window
+    };
+    client
+        .post(format!("{}/lens/{}/runs", restarted.url, created.id))
+        .bearer_auth(ADMIN)
+        .json(&window)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+    assert!(restarted.worker.as_ref().unwrap().run_once().await.unwrap());
+    let recovered: Lens = client
+        .get(format!("{}/lens/{}", restarted.url, created.id))
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        recovered.jobs[0].status,
+        JobStatus::Completed,
+        "{}",
+        recovered.jobs[0].error
+    );
+    assert_eq!(
+        extraction_calls.load(Ordering::SeqCst),
+        1 + usize::from(matches!(changed, "context" | "trace"))
+    );
+    assert_eq!(
+        grouping_calls.load(Ordering::SeqCst),
+        1 + usize::from(matches!(changed, "context" | "trace"))
+    );
+    assert_eq!(
+        checking_calls.load(Ordering::SeqCst),
+        3 + usize::from(matches!(changed, "context" | "trace"))
+    );
+    assert_eq!(recovered.jobs[0].coverage.investigated, 2);
+    assert_eq!(recovered.findings.len(), usize::from(with_finding));
+}

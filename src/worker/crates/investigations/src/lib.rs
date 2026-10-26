@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod checkpoints;
 mod commands;
 mod error;
 mod findings;
@@ -10,6 +11,7 @@ mod reviews;
 mod scheduling;
 mod settings;
 
+pub use checkpoints::AnalysisCheckpoint;
 pub use commands::{create_lens, manual_run, update_finding_status, update_settings};
 pub use error::{CheckpointError, Error, RepositoryError};
 pub use findings::{merge_finding, snapshot_finding};

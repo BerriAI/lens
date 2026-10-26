@@ -1,3 +1,4 @@
+mod checkpoints;
 mod history;
 mod reviews;
 mod scheduling;
