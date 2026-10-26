@@ -72,6 +72,7 @@ impl Investigations {
             })
             .transpose()?;
         let deadline = Deadline::now() + WRITE_RETRY_WINDOW;
+        let mut unconfirmed = false;
         for attempt in 0..40 {
             if attempt > 0 {
                 backoff(attempt - 1).await;
@@ -113,11 +114,19 @@ impl Investigations {
                 .await
             {
                 Ok(lens) => return Ok(Some(lens)),
-                Err(RepositoryError::Conflict) => (),
+                Err(RepositoryError::Conflict) => unconfirmed = false,
+                Err(RepositoryError::WriteUnconfirmed) if body.review.is_none() => {
+                    unconfirmed = true;
+                }
                 Err(error) => return Err(error.into()),
             }
         }
-        Err(RepositoryError::Conflict.into())
+        Err(if unconfirmed {
+            RepositoryError::WriteUnconfirmed
+        } else {
+            RepositoryError::Conflict
+        }
+        .into())
     }
 
     pub async fn complete_reviews(
