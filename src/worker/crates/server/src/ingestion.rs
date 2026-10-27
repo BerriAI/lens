@@ -160,7 +160,7 @@ where
             get(list::<R, I, P>).post(create::<R, I, P>),
         )
         .public_route("/lens/tracing/keys/{key_id}", delete(revoke::<R, I, P>))
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))

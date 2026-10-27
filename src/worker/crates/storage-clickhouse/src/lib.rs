@@ -16,7 +16,10 @@ pub mod state;
 pub use error::{Error, EvalError};
 pub use insert::{insert_compressed_rows, insert_encoded_rows};
 pub use migrate::{ClickHouseMigrate, execute_statement, storage_error};
-pub use read::{Parameter, Query, READ_LIMITS, ReadLimits, execute_read, fetch, fetch_json};
+pub use read::{
+    ADHOC_QUERY_LIMITS, Parameter, Query, READ_LIMITS, ReadLimits, execute_read,
+    execute_read_with_limits, fetch, fetch_json,
+};
 use url::Url;
 
 #[derive(Clone)]

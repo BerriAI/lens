@@ -36,7 +36,7 @@ impl Drop for Server {
     }
 }
 
-async fn serve(clickhouse: &str, ready: bool) -> Server {
+fn receiver_state(clickhouse: &str, ready: bool) -> Arc<State> {
     let storage = Storage::new(
         Config::new("litellm".into(), clickhouse, 14).unwrap(),
         http_client().unwrap(),
@@ -60,6 +60,11 @@ async fn serve(clickhouse: &str, ready: bool) -> Server {
             }],
         })
         .unwrap();
+    state
+}
+
+async fn serve(clickhouse: &str, ready: bool) -> Server {
+    let state = receiver_state(clickhouse, ready);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let app = router(state.clone());
@@ -121,6 +126,49 @@ async fn large_uploads_preserve_complete_attributes(#[case] gzip: bool) {
     let row: serde_json::Value = serde_json::from_str(decoded.trim()).unwrap();
     assert_eq!(row["SpanAttributes"]["custom.large"], content);
     assert_eq!(row["TeamId"], "authenticated-team");
+}
+
+#[rstest]
+#[case::plain(false)]
+#[case::gzip_members(true)]
+#[tokio::test]
+async fn oversized_uploads_are_rejected_before_storage(
+    #[case] gzip: bool,
+    #[values("/v1/traces", "/v1/logs")] path: &str,
+) {
+    use axum::{
+        body::{Body, to_bytes},
+        http::Request,
+    };
+    use std::io::Write;
+    use tower::ServiceExt;
+
+    let app = router(receiver_state("http://127.0.0.1:9", true));
+    let bytes = vec![b' '; 33 * 1024 * 1024];
+    let mut request = Request::post(path)
+        .header("authorization", format!("Bearer {KEY}"))
+        .header("content-type", "application/json");
+    let body = if gzip {
+        request = request.header("content-encoding", "gzip");
+        let mut first = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        first.write_all(&bytes[..bytes.len() / 2]).unwrap();
+        let mut second =
+            flate2::write::GzEncoder::new(first.finish().unwrap(), flate2::Compression::fast());
+        second.write_all(&bytes[bytes.len() / 2..]).unwrap();
+        second.finish().unwrap()
+    } else {
+        bytes
+    };
+    let response = app
+        .oneshot(request.body(Body::from(body)).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 413);
+    let body = to_bytes(response.into_body(), 1024).await.unwrap();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap()["code"],
+        8
+    );
 }
 
 #[rstest]

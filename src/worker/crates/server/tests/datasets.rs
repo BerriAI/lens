@@ -309,13 +309,11 @@ async fn dataset_source_failures_preserve_http_error_contract(
 
 #[rstest]
 #[tokio::test]
-async fn dataset_requests_are_not_rejected_by_axums_default_two_megabyte_limit(
-    #[future(awt)] database: Database,
-) {
+async fn oversized_dataset_requests_are_rejected(#[future(awt)] database: Database) {
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let body = format!(
         "{}{{\"name\":\"large request\"}}",
-        " ".repeat(2 * 1024 * 1024)
+        " ".repeat(lens_server::routing::MAX_REQUEST_BYTES)
     );
     let response = server
         .client
@@ -326,11 +324,7 @@ async fn dataset_requests_are_not_rejected_by_axums_default_two_megabyte_limit(
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status(), 200);
-    assert_eq!(
-        response.json::<Dataset>().await.unwrap().name,
-        "large request"
-    );
+    assert_eq!(response.status(), 413);
 }
 
 #[rstest]

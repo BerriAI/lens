@@ -12,7 +12,7 @@ use support::{ClickHouseDatabase, database as start_database};
 
 #[rstest]
 #[tokio::test]
-async fn refreshing_a_reader_removes_legacy_result_caps(
+async fn refreshing_a_reader_replaces_legacy_result_caps(
     #[future(awt)] database: Result<Database, Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let database = database?;
@@ -52,6 +52,48 @@ async fn refreshing_a_reader_removes_legacy_result_caps(
         .await?,
     )?;
     assert_eq!(rows["data"][0]["value"], "x".repeat(4 * 1024 * 1024 + 8));
+    let error = query_sql(
+        &database.client,
+        &refreshed,
+        &format!(
+            "SELECT number FROM numbers({})",
+            litellm_storage_clickhouse::ADHOC_QUERY_LIMITS.result_rows + 1
+        ),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        Error::Storage(litellm_storage_clickhouse::Error::ResponseTooLarge)
+    ));
+    Ok(())
+}
+
+#[rstest]
+#[case::rows("max_result_rows")]
+#[case::bytes("max_result_bytes")]
+#[tokio::test]
+async fn readers_cannot_disable_result_limits(
+    #[future(awt)] database: Result<Database, Box<dyn std::error::Error>>,
+    #[case] setting: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let database = database?;
+    let reader = database
+        .readers
+        .connection(&database.client, &QueryScope::All, "secret")
+        .await?;
+    let result = query_sql(
+        &database.client,
+        &reader,
+        &format!("SELECT 1 SETTINGS {setting}=0"),
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(Error::Storage(
+            litellm_storage_clickhouse::Error::QueryFailed(_)
+        ))
+    ));
     Ok(())
 }
 

@@ -162,6 +162,44 @@ async fn serve(database: &Database, reader: Reader) -> Server {
 }
 
 #[rstest]
+#[case::under_limit(0, 401)]
+#[case::over_limit(lens_server::routing::MAX_REQUEST_BYTES, 413)]
+#[tokio::test]
+async fn unauthenticated_queries_enforce_body_limits_before_storage(
+    #[case] padding: usize,
+    #[case] status: u16,
+) {
+    use axum::{body::Body, http::Request};
+    use lens_auth::{Authentication, Settings};
+    use litellm_storage_clickhouse::{Connection, sessions::Sessions, state::ClickHouseState};
+    use tower::ServiceExt;
+
+    let authentication = Arc::new(Authentication {
+        settings: Settings::new(ADMIN, None, "http://localhost").unwrap(),
+        sessions: Sessions(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::reader("http://127.0.0.1:9", "unused").unwrap(),
+        )),
+    });
+    let reader = Reader::default();
+    let app = lens_server::tracing::router(authentication, reader.clone(), TraceConfig::default());
+    let response = app
+        .oneshot(
+            Request::post("/v1/traces/query")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    "{}{{\"sql\":\"SELECT 1\"}}",
+                    " ".repeat(padding)
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), status);
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
 #[case::list("GET", "/v1/traces", 200)]
 #[case::agents("GET", "/v1/traces/agents", 200)]
 #[case::trace("GET", "/v1/traces/trace-id", 404)]

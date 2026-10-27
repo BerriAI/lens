@@ -67,7 +67,7 @@ where
     Router::new()
         .public_route("/lens/signals", get(read::<R, S, M>).put(save::<R, S, M>))
         .public_route("/lens/traces/signals", post(traces::<R, S, M>))
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))

@@ -71,7 +71,7 @@ pub fn router<R: SessionRepository + 'static, S: FeedbackStore + 'static>(
             get(read::<R, S>).put(submit::<R, S>).delete(delete::<R, S>),
         )
         .public_route("/lens/feedback/summary", post(summary::<R, S>))
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))
@@ -101,7 +101,10 @@ fn write_scope(identity: &Identity) -> Result<Scope, FeedbackError> {
             ..Scope::default()
         });
     }
-    if identity.user_role == Role::ProxyAdminViewer {
+    if matches!(
+        identity.user_role,
+        Role::ProxyAdminViewer | Role::InternalUserViewer | Role::Customer
+    ) {
         return Err(FeedbackError::ForbiddenViewer);
     }
     let team = identity.team_id.as_deref().unwrap_or_default();
@@ -266,6 +269,8 @@ mod tests {
     #[rstest]
     #[case::admin(Role::ProxyAdmin,None,None,Some(Scope{all_teams:true,team_id:String::new(),api_key_hash:String::new()}))]
     #[case::viewer(Role::ProxyAdminViewer, Some("alpha"), Some("key"), None)]
+    #[case::internal_viewer(Role::InternalUserViewer, Some("alpha"), Some("key"), None)]
+    #[case::customer(Role::Customer, Some("alpha"), Some("key"), None)]
     #[case::team(Role::InternalUser,Some("alpha"),Some("key"),Some(Scope{all_teams:false,team_id:"alpha".into(),api_key_hash:String::new()}))]
     #[case::key(Role::InternalUser,None,Some("key"),Some(Scope{all_teams:false,team_id:String::new(),api_key_hash:"key".into()}))]
     #[case::missing(Role::InternalUser, None, None, None)]

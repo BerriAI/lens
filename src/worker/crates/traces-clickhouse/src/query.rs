@@ -311,9 +311,15 @@ pub async fn execute_read(
     sql: &str,
     parameters: &BTreeMap<String, Parameter>,
 ) -> Result<String, Error> {
-    litellm_storage_clickhouse::execute_read(client, connection, sql, parameters)
-        .await
-        .map_err(Error::from)
+    litellm_storage_clickhouse::execute_read_with_limits(
+        client,
+        connection,
+        sql,
+        parameters,
+        litellm_storage_clickhouse::ADHOC_QUERY_LIMITS,
+    )
+    .await
+    .map_err(Error::from)
 }
 
 pub async fn query_sql(

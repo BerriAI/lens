@@ -5,6 +5,8 @@ use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 
 use crate::{Error, Shared};
 
+const MAX_DECODE_DEPTH: usize = 64;
+
 #[derive(Clone, Copy, Debug)]
 pub struct DecodeLimits {
     pub depth: usize,
@@ -19,13 +21,13 @@ pub struct DecodeLimits {
 impl Default for DecodeLimits {
     fn default() -> Self {
         Self {
-            depth: usize::MAX,
-            nodes: usize::MAX,
-            spans: usize::MAX,
-            attributes: usize::MAX,
-            events: usize::MAX,
-            links: usize::MAX,
-            decoded_span_bytes: usize::MAX,
+            depth: MAX_DECODE_DEPTH,
+            nodes: 1_000_000,
+            spans: 16_384,
+            attributes: 4096,
+            events: 4096,
+            links: 4096,
+            decoded_span_bytes: 64 * 1024 * 1024,
         }
     }
 }
@@ -90,7 +92,7 @@ impl<'de> DeserializeSeed<'de> for JsonBudget<'_> {
 
     fn deserialize<D: serde::Deserializer<'de>>(self, decoder: D) -> Result<(), D::Error> {
         *self.nodes += 1;
-        if *self.nodes > self.limits.nodes || self.depth > self.limits.depth {
+        if *self.nodes > self.limits.nodes || self.depth > self.limits.depth.min(MAX_DECODE_DEPTH) {
             *self.exceeded = true;
             return Err(serde::de::Error::custom("OTLP structure exceeds budget"));
         }
@@ -225,7 +227,7 @@ fn scan_message(
     nodes: &mut usize,
     limits: &DecodeLimits,
 ) -> Result<(), Error> {
-    if depth > limits.depth {
+    if depth > limits.depth.min(MAX_DECODE_DEPTH) {
         return Err(Error::TooLarge);
     }
     while !payload.is_empty() {

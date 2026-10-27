@@ -21,6 +21,8 @@ Open `http://localhost:4318/ui/`. Obtain the generated private login credential 
 
 The source chart defaults to the version in its `appVersion`. Before a public release exists, provide a built image through `image.repository` and `image.tag`. A published release is installed from `oci://ghcr.io/berriai/charts/lens` with an exact `--version`; verify its signed release manifest before adopting it
 
+The bundled ClickHouse deployment includes an ingress NetworkPolicy that permits TCP 8123 only from this release's Lens pods in the same namespace. Keeper and Raft ports are not exposed to other pods by that policy. Your cluster must use a CNI that enforces NetworkPolicy, and other policies selecting the ClickHouse pod must not grant broader access because Kubernetes combines their allowed traffic. External ClickHouse deployments need equivalent storage isolation managed by their operator
+
 ## Use existing ClickHouse
 
 Skip this section when using the bundled database. Supported external storage is one ClickHouse server reached through a stable HTTP(S) endpoint. Several Lens replicas can share that endpoint and database. Every request must reach the same ClickHouse server; a load balancer that distributes requests across ClickHouse nodes, a distributed table deployment, and automatic failover to another ClickHouse server are unsupported

@@ -137,7 +137,7 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
             "/v1/traces/{trace_id}/spans/{span_id}/error",
             get(span_error::<R, B>),
         )
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))

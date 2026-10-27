@@ -56,7 +56,7 @@ fn accepts_large_span_content(mut span: opentelemetry_proto::tonic::trace::v1::S
 #[rstest]
 #[case::json(true)]
 #[case::protobuf(false)]
-fn large_span_collections_decode_without_default_quotas(span: Span, #[case] json: bool) {
+fn large_span_collections_decode_within_default_budgets(span: Span, #[case] json: bool) {
     use prost::Message;
     let mut request = request_with(span.clone());
     request.resource_spans[0].scope_spans[0].spans = vec![span; 4097];
@@ -360,6 +360,84 @@ fn protobuf_preflight_rejects_expansion_before_prost_allocates(
                 ..Default::default()
             }
         ),
+        Err(litellm_traces::Error::TooLarge)
+    ));
+}
+
+fn protobuf_message(tag: u32, payload: &[u8]) -> Vec<u8> {
+    let mut encoded = Vec::new();
+    prost::encoding::encode_key(
+        tag,
+        prost::encoding::WireType::LengthDelimited,
+        &mut encoded,
+    );
+    prost::encoding::encode_varint(payload.len() as u64, &mut encoded);
+    encoded.extend_from_slice(payload);
+    encoded
+}
+
+#[rstest]
+#[case::default(litellm_traces::DecodeLimits::default())]
+#[case::nodes_only(litellm_traces::DecodeLimits { depth: usize::MAX, nodes: 100_000, ..Default::default() })]
+#[case::unlimited_structure(litellm_traces::DecodeLimits { depth: usize::MAX, nodes: usize::MAX, ..Default::default() })]
+fn protobuf_nesting_has_an_absolute_ceiling(
+    #[case] limits: litellm_traces::DecodeLimits,
+    #[values(false, true)] logs: bool,
+) {
+    let value = (0..256).fold(vec![0x10, 0x01], |child, _| {
+        protobuf_message(5, &protobuf_message(1, &child))
+    });
+    let body = if logs {
+        protobuf_message(
+            1,
+            &protobuf_message(2, &protobuf_message(2, &protobuf_message(5, &value))),
+        )
+    } else {
+        protobuf_message(
+            1,
+            &protobuf_message(1, &protobuf_message(1, &protobuf_message(2, &value))),
+        )
+    };
+    let decode = if logs {
+        litellm_traces::decode_otlp_logs_with_limits
+    } else {
+        litellm_traces::decode_otlp_with_limits
+    };
+    assert!(matches!(
+        decode(&body, None, limits),
+        Err(litellm_traces::Error::TooLarge)
+    ));
+}
+
+#[rstest]
+#[case::default(litellm_traces::DecodeLimits::default())]
+#[case::unlimited_structure(litellm_traces::DecodeLimits { depth: usize::MAX, nodes: usize::MAX, ..Default::default() })]
+fn json_nesting_has_an_absolute_ceiling(#[case] limits: litellm_traces::DecodeLimits) {
+    let body = format!("{{\"ignored\":{}0{}}}", "[".repeat(80), "]".repeat(80));
+    assert!(matches!(
+        litellm_traces::decode_otlp_with_limits(body.as_bytes(), Some("application/json"), limits),
+        Err(litellm_traces::Error::TooLarge)
+    ));
+}
+
+#[rstest]
+#[case::json(true)]
+#[case::protobuf(false)]
+fn default_span_budget_rejects_oversized_batches(span: Span, #[case] json: bool) {
+    use prost::Message;
+
+    let mut request = request_with(span.clone());
+    request.resource_spans[0].scope_spans[0].spans = vec![span; 20_000];
+    let (body, content_type) = if json {
+        (
+            serde_json::to_vec(&request).unwrap(),
+            Some("application/json"),
+        )
+    } else {
+        (request.encode_to_vec(), None)
+    };
+    assert!(matches!(
+        decode_otlp(&body, content_type),
         Err(litellm_traces::Error::TooLarge)
     ));
 }

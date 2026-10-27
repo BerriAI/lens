@@ -43,6 +43,22 @@ async fn recorded_feedback_contracts_replay_against_real_trace_queries_and_write
 #[case::admin(Role::ProxyAdmin, None, None, "PUT", 200)]
 #[case::viewer_write(Role::ProxyAdminViewer, None, None, "PUT", 403)]
 #[case::viewer_read(Role::ProxyAdminViewer, None, None, "GET", 200)]
+#[case::internal_viewer_write(
+    Role::InternalUserViewer,
+    Some("alpha"),
+    Some("feedback-key"),
+    "PUT",
+    403
+)]
+#[case::internal_viewer_delete(
+    Role::InternalUserViewer,
+    Some("alpha"),
+    Some("feedback-key"),
+    "DELETE",
+    403
+)]
+#[case::customer_write(Role::Customer, Some("alpha"), Some("feedback-key"), "PUT", 403)]
+#[case::customer_delete(Role::Customer, Some("alpha"), Some("feedback-key"), "DELETE", 403)]
 #[case::team_writer(Role::InternalUser, Some("alpha"), None, "PUT", 200)]
 #[case::foreign_team(Role::InternalUser, Some("beta"), None, "PUT", 404)]
 #[case::missing_scope(Role::InternalUser, None, None, "PUT", 403)]
@@ -58,6 +74,29 @@ async fn feedback_keeps_distinct_read_and_write_role_boundaries(
     #[case] status: u16,
 ) {
     database.trace(TRACE, "alpha", "feedback-key").await;
+    let store = FeedbackApi(database.state.clone());
+    let scope = Scope {
+        all_teams: true,
+        ..Scope::default()
+    };
+    let trace = TraceIdentity {
+        trace_id: TRACE.into(),
+        trace_ref: String::new(),
+    };
+    let existing = store
+        .upsert(
+            &scope,
+            &FeedbackWrite {
+                trace: trace.clone(),
+                author: "reviewer".into(),
+                score: 2,
+                comment: "existing feedback".into(),
+                at: chrono::DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap(),
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
     let server = database.serve().await;
     let token = delegated(Identity {
         user_role: role,
@@ -72,7 +111,14 @@ async fn feedback_keeps_distinct_read_and_write_role_boundaries(
             method.parse().unwrap(),
             server
                 .url
-                .join(&format!("/lens/feedback?trace_id={TRACE}"))
+                .join(&format!(
+                    "/lens/feedback?trace_id={TRACE}{}",
+                    if method == "DELETE" {
+                        "&user=reviewer"
+                    } else {
+                        ""
+                    }
+                ))
                 .unwrap(),
         )
         .bearer_auth(token)
@@ -88,6 +134,17 @@ async fn feedback_keeps_distinct_read_and_write_role_boundaries(
     if method == "PUT" && status == 200 {
         assert_eq!(body["author"], "caller");
         assert_eq!(body["score"], 7);
+    }
+    if status == 403 {
+        assert_eq!(
+            store
+                .for_trace(&scope, &trace)
+                .await
+                .unwrap()
+                .unwrap()
+                .feedback,
+            vec![existing]
+        );
     }
 }
 

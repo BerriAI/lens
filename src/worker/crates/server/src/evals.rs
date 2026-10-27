@@ -157,7 +157,7 @@ fn routers<R: SessionRepository + 'static>(
     });
     let authorized = |router: Router<Arc<EvalState<R>>>| {
         router
-            .layer(DefaultBodyLimit::disable())
+            .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
             .route_layer(middleware::from_fn_with_state(
                 state.clone(),
                 authorize::<R>,

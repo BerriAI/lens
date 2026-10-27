@@ -7,6 +7,8 @@ use axum::{
     routing::{MethodRouter, any},
 };
 
+pub const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
+
 pub(crate) trait PublicRoutes<S> {
     fn public_route(self, path: &str, method: MethodRouter<S>) -> Self;
 }

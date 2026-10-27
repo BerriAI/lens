@@ -76,7 +76,7 @@ where
             "/lens/datasets/{dataset_id}/revisions/{revision}/cases",
             get(cases::<R, D, B>),
         )
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))

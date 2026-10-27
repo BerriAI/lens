@@ -65,7 +65,7 @@ async fn long_error_results_are_stored_without_truncation(
     #[future(awt)] eval_fixture: EvalFixture,
 ) {
     let run = create(&eval_fixture).await;
-    let message = "x".repeat(2 * 1024 * 1024 + 1);
+    let message = "x".repeat(lens_server::routing::MAX_REQUEST_BYTES / 2);
     let write = request(
         "PUT",
         &format!("/lens/evals/runs/{}/results/case-1/0", run.id),
