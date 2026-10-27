@@ -50,15 +50,11 @@ fn decode_request<T: Message + Default + serde::de::DeserializeOwned>(
 
     let request = match media_type {
         OtlpMediaType::Json => {
-            if limits.depth != usize::MAX || limits.nodes != usize::MAX {
-                json_preflight(body, limits)?;
-            }
+            json_preflight(body, limits)?;
             serde_json::from_slice(body).map_err(|_| Error::InvalidPayload)?
         }
         OtlpMediaType::Protobuf => {
-            if limits.depth != usize::MAX || limits.nodes != usize::MAX {
-                preflight(body, limits)?;
-            }
+            preflight(body, limits)?;
             T::decode(body).map_err(|_| Error::InvalidPayload)?
         }
     };

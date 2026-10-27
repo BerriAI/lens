@@ -56,4 +56,5 @@ percent-encoding.workspace = true
 rstest.workspace = true
 testcontainers-modules = { version = "0.15.0", features = ["clickhouse"] }
 tokio = { workspace = true, features = ["test-util"] }
+tower = { version = "=0.5.3", features = ["util"] }
 wiremock.workspace = true

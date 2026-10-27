@@ -2548,6 +2548,7 @@ dependencies = [
  "testcontainers-modules",
  "thiserror 2.0.19",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
  "unicode-casefold",

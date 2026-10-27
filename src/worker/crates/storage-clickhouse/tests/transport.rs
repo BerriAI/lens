@@ -145,6 +145,62 @@ async fn server_result_limits_allow_smaller_pages_without_retrying_other_failure
     }
 }
 
+#[rstest]
+#[case::within_limit(0, true)]
+#[case::over_limit(1, false)]
+#[tokio::test]
+async fn reads_enforce_response_size_before_json_decoding(
+    #[case] excess: usize,
+    #[case] allowed: bool,
+) {
+    use litellm_storage_clickhouse::{ReadLimits, execute_read_with_limits};
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::method};
+
+    let body = r#"{"data":[{"answer":"ok"}]}"#;
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(body))
+        .mount(&server)
+        .await;
+    let result = execute_read_with_limits(
+        &Client::no_redirect_for_test(),
+        &Connection::parse(&server.uri()).unwrap(),
+        "SELECT 'ok' AS answer",
+        &BTreeMap::new(),
+        ReadLimits {
+            response_bytes: body.len() - excess,
+            ..litellm_storage_clickhouse::READ_LIMITS
+        },
+    )
+    .await;
+    if allowed {
+        assert_eq!(result.unwrap(), body);
+    } else {
+        assert!(matches!(result, Err(Error::ResponseTooLarge)));
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn default_reads_reject_oversized_responses() {
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::method};
+
+    let server = MockServer::start().await;
+    let body = " ".repeat(litellm_storage_clickhouse::READ_LIMITS.response_bytes + 1);
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(body))
+        .mount(&server)
+        .await;
+    let result = execute_read(
+        &Client::no_redirect_for_test(),
+        &Connection::parse(&server.uri()).unwrap(),
+        "SELECT payload FROM otel_traces",
+        &BTreeMap::new(),
+    )
+    .await;
+    assert!(matches!(result, Err(Error::ResponseTooLarge)));
+}
+
 #[test]
 fn insert_timeout_environment_controls_transport() {
     for value in ["1", "3", "0", "invalid"] {

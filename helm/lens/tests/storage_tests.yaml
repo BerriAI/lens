@@ -5,6 +5,40 @@ release:
   name: lens
   namespace: lens
 tests:
+  - it: restricts bundled storage ingress to the Lens workload HTTP port
+    documentSelector: {path: kind, value: NetworkPolicy}
+    asserts:
+      - equal:
+          path: spec
+          value:
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/instance: lens
+                app.kubernetes.io/component: lens-clickhouse
+            policyTypes: [Ingress]
+            ingress:
+              - from:
+                  - podSelector:
+                      matchLabels:
+                        app.kubernetes.io/instance: lens
+                        app.kubernetes.io/component: lens
+                ports:
+                  - protocol: TCP
+                    port: 8123
+  - it: follows adopted workload selectors for storage access
+    set:
+      instanceOverride: gateway
+      component: lens-worker
+      clickhouse.nameOverride: existing-lens-clickhouse
+    documentSelector: {path: kind, value: NetworkPolicy}
+    asserts:
+      - equal: {path: metadata.name, value: existing-lens-clickhouse}
+      - equal:
+          path: spec.podSelector.matchLabels
+          value: {app.kubernetes.io/instance: gateway, app.kubernetes.io/component: lens-clickhouse}
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels
+          value: {app.kubernetes.io/instance: gateway, app.kubernetes.io/component: lens-worker}
   - it: retains volumes when scaled or removed
     set:
       clickhouse.storage: 40Gi

@@ -1,6 +1,26 @@
 {{- define "lens.clickhouse" -}}
 {{- if include "lens.bundledClickhouse" . }}
 {{- $name := include "lens.clickhouseName" . }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  {{- include "lens.annotations" (dict "root" .) | nindent 2 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Values.instanceOverride | default .Release.Name }}
+      app.kubernetes.io/component: lens-clickhouse
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "lens.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8123
+---
 apiVersion: v1
 kind: Service
 metadata:

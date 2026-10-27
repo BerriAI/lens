@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use hmac::{Hmac, Mac};
 use litellm_http::Client;
-use litellm_storage_clickhouse::READ_LIMITS;
+use litellm_storage_clickhouse::ADHOC_QUERY_LIMITS;
 use litellm_traces::QueryScope;
 use moka::future::Cache;
 use strum::IntoEnumIterator;
@@ -30,10 +30,10 @@ impl ReaderLimits {
 }
 
 pub(crate) const READER_LIMITS: ReaderLimits = ReaderLimits {
-    result_rows: READ_LIMITS.result_rows,
-    result_bytes: 0,
+    result_rows: ADHOC_QUERY_LIMITS.result_rows,
+    result_bytes: ADHOC_QUERY_LIMITS.response_bytes as u64,
     memory_bytes: 256 * MIB,
-    execution_seconds: READ_LIMITS.execution_seconds,
+    execution_seconds: ADHOC_QUERY_LIMITS.execution_seconds,
 };
 
 #[derive(Clone)]

@@ -78,7 +78,7 @@ where
             "/lens/{lens_id}/executions/{execution_id}",
             get(content::<R, D, S>),
         )
-        .layer(DefaultBodyLimit::disable())
+        .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,
         ))

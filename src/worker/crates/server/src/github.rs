@@ -95,7 +95,8 @@ pub fn router<R: SessionRepository + 'static>(
         .public_route("/lens/github/setup", get(setup::<R>))
         .public_route(
             "/lens/github/report",
-            post(report::publish::<R>).layer(DefaultBodyLimit::disable()),
+            post(report::publish::<R>)
+                .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES)),
         )
         .public_route("/lens/github/rerun", post(rerun::start::<R>))
         .public_route("/lens/github/service/authorize", post(service::start::<R>))
@@ -110,7 +111,8 @@ pub fn router<R: SessionRepository + 'static>(
         )
         .public_route(
             "/lens/github/service/connections/{id}/report",
-            post(service::report::<R>).layer(DefaultBodyLimit::disable()),
+            post(service::report::<R>)
+                .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES)),
         )
         .public_route(
             "/lens/github/service/connections/{id}/rerun",

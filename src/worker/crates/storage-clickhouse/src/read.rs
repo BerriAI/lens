@@ -14,8 +14,13 @@ pub struct ReadLimits {
 
 pub const READ_LIMITS: ReadLimits = ReadLimits {
     result_rows: 0,
-    response_bytes: usize::MAX,
+    response_bytes: 64 * 1024 * 1024,
     execution_seconds: 10,
+};
+
+pub const ADHOC_QUERY_LIMITS: ReadLimits = ReadLimits {
+    result_rows: 50_000,
+    ..READ_LIMITS
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -65,7 +70,7 @@ pub async fn execute_read(
     execute_read_with_limits(client, connection, sql, parameters, READ_LIMITS).await
 }
 
-async fn execute_read_with_limits(
+pub async fn execute_read_with_limits(
     client: &Client,
     connection: &Connection,
     sql: &str,
@@ -129,7 +134,7 @@ async fn execute_read_with_limits(
 
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
-        if body.len() + chunk.len() > limits.response_bytes {
+        if chunk.len() > limits.response_bytes.saturating_sub(body.len()) {
             return Err(Error::ResponseTooLarge);
         }
         body.extend_from_slice(&chunk);

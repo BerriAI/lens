@@ -12,6 +12,8 @@ use std::{io::Read, sync::Arc, time::Duration};
 use tokio::sync::OwnedSemaphorePermit;
 
 pub const UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
+pub const MAX_UPLOAD_BYTES: usize = 32 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Message)]
 struct OtlpError {
@@ -22,13 +24,20 @@ struct OtlpError {
 }
 
 fn decompress(payload: &[u8], encoding: Option<&str>) -> Result<Vec<u8>, Error> {
+    if payload.len() > MAX_UPLOAD_BYTES {
+        return Err(Error::TooLarge);
+    }
     match encoding {
         None | Some("identity" | "") => Ok(payload.to_vec()),
         Some("gzip") => {
             let mut decoded = Vec::new();
             MultiGzDecoder::new(payload)
+                .take(MAX_DECOMPRESSED_BYTES as u64 + 1)
                 .read_to_end(&mut decoded)
                 .map_err(|_| Error::InvalidRequest)?;
+            if decoded.len() > MAX_DECOMPRESSED_BYTES {
+                return Err(Error::TooLarge);
+            }
             Ok(decoded)
         }
         Some(_) => Err(Error::InvalidRequest),
@@ -115,7 +124,7 @@ async fn receive_authorized(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::Unavailable)?;
-    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, usize::MAX))
+    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, MAX_UPLOAD_BYTES))
         .await
         .map_err(|_| Error::Unavailable)?
         .map_err(|_| Error::TooLarge)?;
@@ -175,11 +184,30 @@ async fn store(
 
 #[cfg(test)]
 mod tests {
-    use super::{OtlpError, response};
+    use super::{MAX_DECOMPRESSED_BYTES, OtlpError, decompress, response};
     use crate::Error;
     use axum::body::to_bytes;
     use prost::Message;
     use rstest::rstest;
+
+    #[rstest]
+    #[case::at_limit(MAX_DECOMPRESSED_BYTES, true)]
+    #[case::over_limit(MAX_DECOMPRESSED_BYTES + 1, false)]
+    fn gzip_expansion_is_bounded(#[case] size: usize, #[case] accepted: bool) {
+        use std::io::Write;
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&vec![b'x'; size]).unwrap();
+        let compressed = encoder.finish().unwrap();
+        match decompress(&compressed, Some("gzip")) {
+            Ok(decoded) => {
+                assert!(accepted);
+                assert_eq!(decoded.len(), size);
+            }
+            Err(Error::TooLarge) => assert!(!accepted),
+            Err(error) => panic!("unexpected decode error: {error}"),
+        }
+    }
 
     #[rstest]
     #[case::invalid_request(Error::InvalidRequest, 400, 3, false)]
