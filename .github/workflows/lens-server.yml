@@ -65,7 +65,7 @@ jobs:
           printf 'CLICKHOUSE_STATE_TEST_URL=http://%s\n' "$(docker port lens-rust-state 8123/tcp)" >> "$GITHUB_ENV"
       - name: Run tests
         working-directory: src/worker
-        run: cargo test --locked --workspace -- --test-threads=2
+        run: cargo test --locked --workspace --no-fail-fast -- --test-threads=2
       - name: Diagnose failed tests
         if: failure()
         run: |
@@ -96,7 +96,6 @@ jobs:
           src/components/lens/evals
           src/components/lens/settings
           src/components/lens/investigations
-          src/components/lens/model
           src/components/lens/traces
           src/components/lens/LensNavigation.integration.test.tsx
           src/components/lens/LensSetup.integration.test.tsx

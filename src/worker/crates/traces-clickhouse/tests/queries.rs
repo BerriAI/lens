@@ -4,8 +4,7 @@ use litellm_storage_clickhouse::fetch;
 use litellm_traces::query::named as contracts;
 use litellm_traces_cache::TraceStore;
 use litellm_traces_clickhouse::{
-    Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, execute_read,
-    insert_rows,
+    Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, insert_rows,
     query::named::{ListTraces, ListTracesParams, TraceSpans, TraceSpansParams},
     query_help, query_sql,
 };
@@ -107,19 +106,11 @@ async fn lens_sample_keeps_spans_before_window_start_and_excludes_old_only_trace
         .iter()
         .find(|row| row["trace_id"] == "trace-with-slack")
         .ok_or("sampled trace missing")?;
-    let original_start = execute_read(
-        &fixture.database.client,
-        &connection,
-        "SELECT toString(fromUnixTimestamp64Nano({timestamp:Int64}), 'UTC') AS start_time FORMAT JSON",
-        &BTreeMap::from([(
-            "timestamp".into(),
-            Parameter::Integer((start_ms - 2 * 86_400_000) * 1_000_000),
-        )]),
-    )
-    .await?;
-    let original_start: serde_json::Value = serde_json::from_str(&original_start)?;
     assert_eq!(trace["span_count"].as_u64(), Some(2));
-    assert_eq!(trace["start_time"], original_start["data"][0]["start_time"]);
+    assert_eq!(
+        utc_instants(trace["start_time"].as_str().into_iter())?,
+        vec![i128::from(start_ms - 2 * 86_400_000) * 1_000_000]
+    );
     assert!(
         !executions
             .iter()
@@ -266,14 +257,12 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
 }
 
 fn utc_instants<'a>(rendered: impl Iterator<Item = &'a str>) -> TestResult<Vec<i128>> {
-    let format = time::format_description::parse_borrowed::<2>(
-        "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]",
-    )?;
     rendered
         .map(|text| {
-            Ok(time::PrimitiveDateTime::parse(text, &format)?
-                .assume_utc()
-                .unix_timestamp_nanos())
+            Ok(
+                time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)?
+                    .unix_timestamp_nanos(),
+            )
         })
         .collect()
 }

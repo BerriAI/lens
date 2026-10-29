@@ -1,4 +1,3 @@
-import { parseStoredTimestamp } from "../../../utils/activityTimestamp";
 import type { Finding, Sample } from "./types";
 
 type Execution = Sample["executions"][number];
@@ -37,7 +36,7 @@ export function findingFrequency(occurrences: readonly string[], executions: rea
   const dated = sampled
     .map((run) => ({
       affected: hit.has(run.id),
-      ms: parseStoredTimestamp(run.start_time).getTime(),
+      ms: Date.parse(run.start_time),
     }))
     .filter(({ ms }) => Number.isFinite(ms));
   const stamps = dated.map(({ ms }) => ms);

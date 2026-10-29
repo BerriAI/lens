@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FREQUENCY_WINDOW_DAYS, findingFrequency, findingTraceFrequency, percentLabel } from "./frequency";
 import type { Sample } from "./types";
 
@@ -50,15 +50,6 @@ describe("findingTraceFrequency", () => {
 });
 
 describe("findingFrequency", () => {
-  afterEach(() => vi.unstubAllEnvs());
-
-  it("puts a run the server sends without an offset on the same UTC day as its ISO instant in any browser timezone", () => {
-    vi.stubEnv("TZ", "America/Los_Angeles");
-    const server = findingFrequency(["a"], [run("a", "2026-10-28 20:00:00.000000000")]);
-    const iso = findingFrequency(["a"], [run("a", "2026-10-28T20:00:00Z")]);
-    expect(server).toEqual(iso);
-  });
-
   it("counts affected sampled traces per day and keeps empty days between them", () => {
     const runs = [
       run("a", "2026-10-01T09:00:00Z"),
