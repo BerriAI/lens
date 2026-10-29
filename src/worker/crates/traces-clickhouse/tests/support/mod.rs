@@ -18,9 +18,14 @@ pub struct ClickHouseDatabase {
 
 #[fixture]
 pub async fn database() -> TestResult<ClickHouseDatabase> {
+    database_in("UTC").await
+}
+
+pub async fn database_in(timezone: &str) -> TestResult<ClickHouseDatabase> {
     let container = ClickHouse::default()
         .with_tag(CLICKHOUSE_TAG)
         .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
+        .with_env_var("TZ", timezone)
         .start()
         .await?;
     let url = format!(
