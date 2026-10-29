@@ -4,8 +4,7 @@ use litellm_storage_clickhouse::fetch;
 use litellm_traces::query::named as contracts;
 use litellm_traces_cache::TraceStore;
 use litellm_traces_clickhouse::{
-    Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, execute_read,
-    insert_rows,
+    Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, insert_rows,
     query::named::{ListTraces, ListTracesParams, TraceSpans, TraceSpansParams},
     query_help, query_sql,
 };
@@ -108,25 +107,165 @@ async fn lens_sample_keeps_spans_before_window_start_and_excludes_old_only_trace
         .iter()
         .find(|row| row["trace_id"] == "trace-with-slack")
         .ok_or("sampled trace missing")?;
-    let original_start = execute_read(
-        &fixture.database.client,
-        &connection,
-        "SELECT toString(fromUnixTimestamp64Nano({timestamp:Int64})) AS start_time FORMAT JSON",
-        &BTreeMap::from([(
-            "timestamp".into(),
-            Parameter::Integer((start_ms - 2 * 86_400_000) * 1_000_000),
-        )]),
-    )
-    .await?;
-    let original_start: serde_json::Value = serde_json::from_str(&original_start)?;
     assert_eq!(trace["span_count"].as_u64(), Some(2));
-    assert_eq!(trace["start_time"], original_start["data"][0]["start_time"]);
+    assert_eq!(
+        utc_instants(trace["start_time"].as_str().into_iter())?,
+        vec![i128::from(start_ms - 2 * 86_400_000) * 1_000_000]
+    );
     assert!(
         !executions
             .iter()
             .any(|row| row["trace_id"] == "trace-too-old")
     );
     Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
+    #[future(awt)]
+    #[with(support::database_in("America/Los_Angeles"))]
+    migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    use litellm_traces_clickhouse::query::lens::{
+        ExecutionSource, LensAccessParams, LensFindingSource, LensFindingSourceParams, LensSample,
+        LensSampleParams,
+    };
+    let fixture = migrated_database?;
+    let started_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000 - 30_000;
+    let access = || LensAccessParams {
+        all_teams: false,
+        team: "team-lens".into(),
+        key_hash: String::new(),
+    };
+    let sample = |source| LensSampleParams {
+        access: access(),
+        source,
+        start: (started_ms - 60_000) as u64,
+        end: (started_ms + 60_000) as u64,
+        agent_name: String::new(),
+        service: String::new(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
+        selected_team: String::new(),
+        execution_ids: Vec::new(),
+        sample_cap: 0,
+        sample_percent: 100.0,
+        preview: 0,
+        after: String::new(),
+        limit: 100,
+        offset: 0,
+    };
+    let writer = Connection::writer(&fixture.database.url)?;
+    insert_rows(
+        &fixture.database.client,
+        &writer,
+        fixtures::DATABASE,
+        InsertTable::OtelTraces,
+        vec![BTreeMap::from([
+            (
+                "Timestamp".into(),
+                serde_json::json!(started_ms * 1_000_000 + 5_999_999),
+            ),
+            ("Duration".into(), serde_json::json!(1_000_000)),
+            ("TraceId".into(), serde_json::json!("pacific-trace")),
+            ("SpanId".into(), serde_json::json!("pacific-root")),
+            ("ParentSpanId".into(), serde_json::json!("")),
+            ("SpanName".into(), serde_json::json!("pacific-root")),
+            ("ObservationType".into(), serde_json::json!("agent")),
+            ("AgentName".into(), serde_json::json!("pacific-agent")),
+            ("TeamId".into(), serde_json::json!("team-lens")),
+            ("ApiKeyHash".into(), serde_json::json!("")),
+        ])],
+    )
+    .await?;
+    insert_rows(
+        &fixture.database.client,
+        &writer,
+        fixtures::DATABASE,
+        InsertTable::SpendLogs,
+        vec![BTreeMap::from([
+            ("request_id".into(), serde_json::json!("pacific-request")),
+            ("team_id".into(), serde_json::json!("team-lens")),
+            ("start_time".into(), serde_json::json!(started_ms + 5)),
+            ("end_time".into(), serde_json::json!(started_ms + 6)),
+        ])],
+    )
+    .await?;
+    let pacific = Connection::configured(&fixture.database.url, fixtures::DATABASE, "default", "")?;
+    let listed = fetch::<ListTraces>(
+        &fixture.database.client,
+        &pacific,
+        &ListTracesParams(contracts::ListTracesParams {
+            access: contracts::ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec!["team-lens".into()],
+            },
+            agent: String::new(),
+            start_ms: started_ms - 60_000,
+            end_ms: started_ms + 60_000,
+            cursor_ms: 0,
+            cursor_trace_id: String::new(),
+            limit: 10,
+        }),
+    )
+    .await?;
+    let [trace] = listed.as_slice() else {
+        return Err("expected one listed trace".into());
+    };
+    let traced = fetch::<LensSample>(
+        &fixture.database.client,
+        &pacific,
+        &sample(ExecutionSource::Traces),
+    )
+    .await?;
+    let requested = fetch::<LensSample>(
+        &fixture.database.client,
+        &pacific,
+        &sample(ExecutionSource::Requests),
+    )
+    .await?;
+    let found = fetch::<LensFindingSource>(
+        &fixture.database.client,
+        &pacific,
+        &LensFindingSourceParams {
+            access: access(),
+            trace_id: trace.0.trace_id.clone(),
+            trace_ref: trace.0.trace_ref.clone(),
+            agent_name: "pacific-agent".into(),
+            selected_team: String::new(),
+            service: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
+        },
+    )
+    .await?;
+    let listed_ns = i128::from(trace.0.start_ms) * 1_000_000;
+    assert_eq!(
+        (
+            utc_instants(traced.iter().map(|row| row.start_time.as_str()))?,
+            utc_instants(found.iter().map(|row| row.start_time.as_str()))?,
+            utc_instants(requested.iter().map(|row| row.start_time.as_str()))?,
+        ),
+        (
+            vec![listed_ns],
+            vec![listed_ns],
+            vec![i128::from(started_ms + 5) * 1_000_000]
+        )
+    );
+    Ok(())
+}
+
+fn utc_instants<'a>(rendered: impl Iterator<Item = &'a str>) -> TestResult<Vec<i128>> {
+    rendered
+        .map(|text| {
+            Ok(
+                time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)?
+                    .unix_timestamp_nanos(),
+            )
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy, strum::AsRefStr)]
