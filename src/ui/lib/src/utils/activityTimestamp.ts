@@ -1,6 +1,6 @@
 import moment from "moment";
 
-const parseStoredTimestamp = (value: string): Date => {
+export const parseStoredTimestamp = (value: string): Date => {
   const normalized = value.includes("T") ? value : value.replace(" ", "T").slice(0, 23) + "Z";
   return new Date(normalized);
 };
