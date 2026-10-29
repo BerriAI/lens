@@ -164,7 +164,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         vec![BTreeMap::from([
             (
                 "Timestamp".into(),
-                serde_json::json!(started_ms * 1_000_000),
+                serde_json::json!(started_ms * 1_000_000 + 5_999_999),
             ),
             ("Duration".into(), serde_json::json!(1_000_000)),
             ("TraceId".into(), serde_json::json!("pacific-trace")),
@@ -186,8 +186,8 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         vec![BTreeMap::from([
             ("request_id".into(), serde_json::json!("pacific-request")),
             ("team_id".into(), serde_json::json!("team-lens")),
-            ("start_time".into(), serde_json::json!(started_ms)),
-            ("end_time".into(), serde_json::json!(started_ms + 1)),
+            ("start_time".into(), serde_json::json!(started_ms + 5)),
+            ("end_time".into(), serde_json::json!(started_ms + 6)),
         ])],
     )
     .await?;
@@ -250,7 +250,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         (
             vec![listed_ns],
             vec![listed_ns],
-            vec![i128::from(started_ms) * 1_000_000]
+            vec![i128::from(started_ms + 5) * 1_000_000]
         )
     );
     Ok(())
