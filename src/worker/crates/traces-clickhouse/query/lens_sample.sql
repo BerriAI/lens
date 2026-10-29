@@ -9,7 +9,7 @@ SELECT *, selection_key FROM (
         FROM (
     SELECT 'traces' AS source, TraceId AS trace_id, TeamId AS team_id, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
         coalesce(nullIf(argMin(ResourceAttributes['run.name'], Timestamp), ''),
-            argMin(SpanName, Timestamp)) AS name, toString(min(Timestamp)) AS start_time,
+            argMin(SpanName, Timestamp)) AS name, toString(min(Timestamp), 'UTC') AS start_time,
         uniqExact(SpanId) AS span_count, countIf(ParentSpanId='') > 0 AS root_seen,
         argMin(ServiceName, Timestamp) AS service,
         arrayZip(mapKeys(argMin(mapConcat(ResourceAttributes, SpanAttributes), tuple(ParentSpanId!='',Timestamp))),
@@ -41,7 +41,7 @@ SELECT *, selection_key FROM (
            AND ({service:String}='' OR ServiceName={service:String})) > 0
     UNION ALL
     SELECT 'requests' AS source, request_id AS trace_id, team_id, '' AS trace_ref, model AS name,
-        toString(start_time) AS start_time, toUInt64(1) AS span_count, toUInt8(1) AS root_seen,
+        toString(start_time, 'UTC') AS start_time, toUInt64(1) AS span_count, toUInt8(1) AS root_seen,
         model_group AS service,
         arrayConcat(JSONExtractKeysAndValues(metadata, 'requester_metadata', 'String'),
             arrayMap(t -> tuple('tag', t), request_tags)) AS attributes

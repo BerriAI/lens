@@ -1,4 +1,4 @@
-SELECT TeamId AS team_id, toString(min(Timestamp)) AS start_time
+SELECT TeamId AS team_id, toString(min(Timestamp), 'UTC') AS start_time
 FROM otel_traces
 WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
   AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
