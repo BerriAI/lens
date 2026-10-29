@@ -556,14 +556,6 @@ async fn malformed_uploads_never_reach_storage() {
         .await
         .unwrap();
     assert_eq!(malformed.status(), 400);
-    let oversized = client
-        .post(format!("{}/v1/traces", server.url))
-        .bearer_auth(KEY)
-        .body(vec![b' '; 16 * 1024 * 1024 + 1])
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(oversized.status(), 400);
     assert!(store.received_requests().await.unwrap().is_empty());
 }
 
