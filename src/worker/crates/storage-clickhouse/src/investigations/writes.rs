@@ -125,13 +125,31 @@ impl Drop for Writer {
     }
 }
 
+pub(super) fn writer_key(id: &str) -> Result<String, RepositoryError> {
+    key("lens-writer", (id,))
+}
+
 impl Investigations {
     pub(super) async fn writer(&self, id: &str) -> Result<Writer, RepositoryError> {
-        let key = key("lens-writer", (id,))?;
-        let _turn = self.0.turn(&key).await;
+        let turn_key = writer_key(id)?;
+        let investigations = self.clone();
+        let id = id.to_owned();
+        let mut acquisition = tokio::task::JoinSet::new();
+        acquisition.spawn(async move {
+            let _turn = investigations.0.turn(&turn_key).await;
+            investigations.lease(&id).await
+        });
+        acquisition
+            .join_next()
+            .await
+            .ok_or(RepositoryError::Conflict)?
+            .map_err(|error| RepositoryError::Unavailable(Box::new(error)))?
+    }
+
+    pub(super) async fn lease(&self, id: &str) -> Result<Writer, RepositoryError> {
         let mut writer = Writer {
             state: self.0.clone(),
-            key,
+            key: writer_key(id)?,
             token: uuid::Uuid::new_v4().to_string(),
             acquired: None,
             armed: true,
@@ -169,7 +187,7 @@ impl Investigations {
             let current = decode::<StoredLens>(previous.value.clone())?.lens;
             let candidate = transform(&current)?;
             match self
-                .publish_lens(writer, previous, &current, &candidate, None)
+                .publish_lens(writer, previous, &current, &candidate, Vec::new())
                 .await
             {
                 Ok(lens) => return Ok(Some(lens)),

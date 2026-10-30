@@ -282,3 +282,58 @@ pub async fn concurrent_changes(
     }
     results
 }
+
+pub async fn slow_lens_reads(
+    database: &Database,
+    delay: Duration,
+) -> (wiremock::MockServer, Investigations) {
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+    let server = MockServer::start().await;
+    let destination = database.url();
+    Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(move |request: &Request| {
+            let mut target = destination.clone();
+            target
+                .query_pairs_mut()
+                .extend_pairs(request.url.query_pairs());
+            let body = request.body.clone();
+            let (status, text) = std::thread::spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap()
+                    .block_on(async {
+                        let response = Client::no_redirect_for_test()
+                            .post(target)
+                            .header("Content-Length", body.len().to_string())
+                            .body(body)
+                            .send()
+                            .await
+                            .unwrap();
+                        let status = response.status().as_u16();
+                        (status, response.text().await.unwrap())
+                    })
+            })
+            .join()
+            .unwrap();
+            let lens_read = request.url.query_pairs().any(|(name, query)| {
+                name == "query"
+                    && query.starts_with("SELECT key, revision, digest FROM lens_state_heads")
+            }) && request
+                .url
+                .query_pairs()
+                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            let template = ResponseTemplate::new(status).set_body_string(text);
+            if lens_read {
+                return template.set_delay(delay);
+            }
+            template
+        })
+        .mount(&server)
+        .await;
+    let repository = Investigations(ClickHouseState::new(
+        Client::no_redirect_for_test(),
+        Connection::parse(&server.uri()).unwrap(),
+    ));
+    (server, repository)
+}

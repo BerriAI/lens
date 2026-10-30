@@ -6,10 +6,13 @@ use lens_contract::{
 use lens_investigations::{
     CheckpointError, LensRepository, RepositoryError, criteria_key, current_job,
 };
+use litellm_storage_clickhouse::investigations::Investigations;
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 
-use super::support::{Database, database, isolated_database, job, lens, now, record_key, value};
+use super::support::{
+    Database, database, isolated_database, job, lens, now, record_key, slow_lens_reads, value,
+};
 
 #[fixture]
 fn recorded() -> Value {
@@ -633,6 +636,123 @@ async fn concurrent_progress_retries_without_losing_or_duplicating_reviews(
     assert_eq!(cached.len(), 1);
     assert_eq!(cached[0].name, job.reviews.last().unwrap().name);
     assert_eq!(lens.version, active.version + 16);
+}
+
+async fn queued_reviews(
+    repository: &Investigations,
+    lens_id: &str,
+    assigned: &Job,
+    reviews: &[Review],
+    stale: Option<usize>,
+    now: DateTime<Utc>,
+) -> Vec<String> {
+    let tasks: Vec<_> = reviews
+        .iter()
+        .enumerate()
+        .map(|(index, review)| {
+            let repository = repository.clone();
+            let lens_id = lens_id.to_owned();
+            let writer = Job {
+                attempts: assigned.attempts + i64::from(stale == Some(index)),
+                ..assigned.clone()
+            };
+            let body = Progress {
+                review: Some(review.clone()),
+                ..Progress::default()
+            };
+            tokio::spawn(async move { repository.progress(&lens_id, &writer, &body, now).await })
+        })
+        .collect();
+    let mut outcomes = Vec::new();
+    for task in tasks {
+        outcomes.push(match task.await.unwrap() {
+            Ok(Some(_)) => "saved".to_owned(),
+            Ok(None) => "missing".to_owned(),
+            Err(error) => error.to_string(),
+        });
+    }
+    outcomes
+}
+
+#[rstest]
+#[case::all_owned(None)]
+#[case::one_reassigned(Some(5))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn one_store_saves_every_queued_review_when_each_lens_read_is_slow(
+    #[future(awt)] database: Database,
+    active: Lens,
+    assigned: Job,
+    review: Review,
+    now: DateTime<Utc>,
+    #[case] stale: Option<usize>,
+) {
+    database.repository().create(&active).await.unwrap();
+    let (_proxy, repository) = slow_lens_reads(&database, std::time::Duration::from_secs(3)).await;
+    let reviews: Vec<_> = (0..12)
+        .map(|index| Review {
+            execution_id: format!("execution-{index}"),
+            name: format!("Review {index}"),
+            ..review.clone()
+        })
+        .collect();
+    let owned = |index: usize| stale != Some(index);
+    let outcomes = queued_reviews(&repository, &active.id, &assigned, &reviews, stale, now).await;
+    let expected: Vec<_> = (0..reviews.len())
+        .map(|index| {
+            if owned(index) {
+                "saved".to_owned()
+            } else {
+                CheckpointError::Ownership.to_string()
+            }
+        })
+        .collect();
+    assert_eq!(outcomes, expected);
+    let saved = database
+        .repository()
+        .get(&active.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let job = current_job(&saved).unwrap();
+    let names: std::collections::BTreeSet<_> = reviews
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| owned(*index))
+        .map(|(_, review)| review.name.clone())
+        .collect();
+    let summaries: std::collections::BTreeSet<_> = job
+        .reviews
+        .iter()
+        .map(|summary| summary.name.clone())
+        .collect();
+    assert_eq!(summaries, names);
+    assert_eq!(job.reviews.len(), names.len());
+    assert_eq!(job.reviewed, i64::try_from(names.len()).unwrap());
+    let keys: Vec<_> = reviews
+        .iter()
+        .map(|review| review_key(&active, &assigned, review))
+        .collect();
+    let references: Vec<_> = keys.iter().map(String::as_str).collect();
+    let cached: Vec<_> = database
+        .store
+        .read_many(&references)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|record| record.value)
+        .collect();
+    let checkpoints: Vec<_> = reviews
+        .iter()
+        .enumerate()
+        .map(|(index, review)| {
+            if owned(index) {
+                value(Public(review))
+            } else {
+                Value::Null
+            }
+        })
+        .collect();
+    assert_eq!(cached, checkpoints);
 }
 
 #[rstest]

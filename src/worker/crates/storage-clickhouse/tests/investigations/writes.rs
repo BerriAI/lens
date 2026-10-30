@@ -1,4 +1,6 @@
 use std::{
+    future::Future,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -9,10 +11,10 @@ use std::{
 use chrono::Utc;
 use lens_contract::{
     investigations::{BudgetReservation, Lens},
-    worker::{Job, JobStatus, Progress},
+    worker::{Findings, Job, JobStatus, Progress},
 };
 use lens_inference::{BUDGET_LEASE, renew_reservation, reserve_attempt, settle_amount};
-use lens_investigations::{CheckpointError, LensRepository, RepositoryError};
+use lens_investigations::{AnalysisCheckpoint, CheckpointError, LensRepository, RepositoryError};
 use litellm_storage_clickhouse::investigations::Investigations;
 use rstest::{fixture, rstest};
 use tokio::{sync::Notify, task::JoinHandle};
@@ -981,4 +983,65 @@ async fn unconfirmed_progress_replays_only_without_a_review(
     );
     assert_eq!(saved.jobs[0].steps.len(), lens.jobs[0].steps.len() + 1);
     wait_released(&database).await;
+}
+
+type UnpolledWrite<'a> = Pin<Box<dyn Future<Output = Result<(), CheckpointError>> + Send + 'a>>;
+
+fn unpolled_write<'a>(
+    repository: &'a Investigations,
+    assigned: &'a Job,
+    checkpointing: bool,
+) -> UnpolledWrite<'a> {
+    if checkpointing {
+        return Box::pin(async move {
+            let checkpoint = AnalysisCheckpoint::Checking {
+                result: Findings::default(),
+            };
+            repository
+                .save_analysis_checkpoint("lens", assigned, "unpolled", &checkpoint)
+                .await
+                .map(drop)
+        });
+    }
+    Box::pin(async move {
+        let progress = Progress {
+            stage: Some("Unpolled progress".into()),
+            ..Default::default()
+        };
+        repository
+            .progress("lens", assigned, &progress, Utc::now())
+            .await
+            .map(drop)
+    })
+}
+
+#[rstest]
+#[case::progress(false)]
+#[case::checkpoint(true)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn progress_saves_while_an_earlier_writer_of_the_lens_is_not_polled(
+    #[future(awt)] database: Database,
+    active: Lens,
+    #[case] checkpointing: bool,
+) {
+    let repository = database.repository();
+    repository.create(&active).await.unwrap();
+    let assigned = &active.jobs[0];
+    let mut unpolled = unpolled_write(&repository, assigned, checkpointing);
+    assert!(
+        tokio::time::timeout(Duration::ZERO, &mut unpolled)
+            .await
+            .is_err()
+    );
+    let progress = Progress {
+        stage: Some("Polled progress".into()),
+        ..Default::default()
+    };
+    let saved = repository
+        .progress("lens", assigned, &progress, Utc::now())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.jobs[0].stage, "Polled progress");
+    unpolled.await.unwrap();
 }
