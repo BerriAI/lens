@@ -18,8 +18,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - id: runtime-node
         run: |
-          version=$(sed -n 's/^ARG LENS_AGENT_BUILD_IMAGE=node:\([0-9.]*\)-.*/\1/p' ../../deploy/runtime/Dockerfile)
-          test -n "$version"
+          image=$(sed -n 's/^ARG LENS_AGENT_BUILD_IMAGE=//p' ../../deploy/runtime/Dockerfile)
+          version=$(docker run --rm "$image" node -p process.versions.node)
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
