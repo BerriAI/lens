@@ -16,16 +16,21 @@ jobs:
         working-directory: src/agent-chat
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - id: runtime-node
+        run: |
+          image=$(sed -n 's/^ARG LENS_AGENT_BUILD_IMAGE=//p' ../../deploy/runtime/Dockerfile)
+          version=$(docker run --rm "$image" node -p process.versions.node)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 24.20.0
+          node-version: ${{ steps.runtime-node.outputs.version }}
           cache: npm
           cache-dependency-path: |
             src/agent/package-lock.json
             src/agent-chat/package-lock.json
-      - run: npm ci --prefix ../agent --ignore-scripts
+      - run: npm ci --prefix ../agent --ignore-scripts --engine-strict
       - run: npm run check --prefix ../agent
       - run: npm test --prefix ../agent
-      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts --engine-strict
       - run: npm run check
       - run: npm test

@@ -33,7 +33,7 @@ Publishing verified paired eval results to Slack, creating fixes, and automated 
 
 ## Ask Lens in a thread
 
-The optional Node 24.20.0 sidecar uses the official [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents/sdk) and [Slack Bolt Socket Mode](https://docs.slack.dev/tools/bolt-js/concepts/socket-mode/). Add the bot scopes `app_mentions:read`, `chat:write` and `files:write`, subscribe to `app_mention`, enable Socket Mode, and create an app token with `connections:write`. Reinstall the Slack app after changing scopes, then invite Lens to the configured channel
+The optional Node sidecar uses the official [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents/sdk) and [Slack Bolt Socket Mode](https://docs.slack.dev/tools/bolt-js/concepts/socket-mode/). Add the bot scopes `app_mentions:read`, `chat:write` and `files:write`, subscribe to `app_mention`, enable Socket Mode, and create an app token with `connections:write`. Reinstall the Slack app after changing scopes, then invite Lens to the configured channel
 
 ```dotenv
 LENS_SLACK_CHAT_ENABLED=true
@@ -131,7 +131,7 @@ Previously published manual reports can seed an empty investigator state using `
 
 The shared Findings agent lives in `src/agent/agent.ts`. It assembles the official SDK using prompts from `prompt.ts` and read-tool factories from `tools.ts` for conversational analysis and scheduled investigations. Domain verification, Lens reads, repository access and durable scheduling remain in that package. It imports no Slack SDK and receives only model and Lens configuration. The Slack connector lives in `src/agent-chat/connectors/slack`; it calls the core, validates the returned grounding metadata, and handles channel routing, formatting, uploads, reactions and working status. Verified scheduled findings persist into the same native web Findings collection before the Slack connector receives them; both surfaces reference the returned canonical ID and verified evidence.
 
-Run `npm ci --ignore-scripts`, `npm run check` and `npm test` in `src/agent` first, then the same commands in `src/agent-chat`. The connector package links the local core package and requires its compiled declarations. Both suites run in the `lens-agent` workflow. Tests exercise the official SDK tool loop with a scripted model, Slack routing and limits, scoped evidence reads, durable-worker decisions, evidence verification and process supervision. They do not send Slack messages or call a paid model
+Both packages need the Node version their `engines` field names. Run `npm ci --ignore-scripts`, `npm run check` and `npm test` in `src/agent` first, then the same commands in `src/agent-chat`. The connector package links the local core package and requires its compiled declarations. Both suites run in the `lens-agent` workflow. Tests exercise the official SDK tool loop with a scripted model, Slack routing and limits, scoped evidence reads, durable-worker decisions, evidence verification and process supervision. They do not send Slack messages or call a paid model
 
 
 The Findings page reads the shared investigator’s durable status for its configured agent and Lens ID. It shows the actual last check, next check, daily analysis usage and Slack posting activity instead of the unrelated legacy schedule. Quiet, unchanged, failed, overdue and unconfirmed-delivery states are explicit. Status is visible only through the existing authorized Lens list and does not expose trace content or credentials

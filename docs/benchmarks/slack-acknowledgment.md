@@ -11,7 +11,7 @@ This replay compares the actual `Chat` implementation at commit `55d6a2365a25828
 
 The first visible text arrives 96.4% sooner in this controlled fixture. Before, the first text is the final answer after working status and evidence complete. After, it is an acknowledgment before evidence begins; the result updates that message. Completion also avoids waiting serially for working status, but still includes the extra acknowledgment write
 
-These measurements demonstrate the scheduling change, not production latency or model quality. They do not measure Slack rendering, provider response time, task success or production trace processing. The current configured provider route rejected the attempted live analysis with an exhausted-credit error, so no live model improvement is claimed. Local Node was 24.19.0; deployment and CI pin 24.20.0
+These measurements demonstrate the scheduling change, not production latency or model quality. They do not measure Slack rendering, provider response time, task success or production trace processing. The current configured provider route rejected the attempted live analysis with an exhausted-credit error, so no live model improvement is claimed. Local Node was 24.19.0; deployment and CI pinned 24.20.0 at the time
 
 The [raw receipt](slack-acknowledgment.json) records all trials, fixture delays and exact Git source identities. Reproduce after installing and building the core package, then run this from `src/agent-chat`:
 
