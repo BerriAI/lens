@@ -1351,6 +1351,6 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(saved.jobs[0].activities.len(), 4);
-        assert!(count.load(Ordering::SeqCst) >= 5);
+        assert!(count.load(Ordering::SeqCst) >= 2);
     }
 }

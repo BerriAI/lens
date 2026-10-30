@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, time::Instant};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use chrono::{DateTime, Utc};
 use lens_contract::{
@@ -83,12 +83,14 @@ fn retry_after(claimed: Vec<Queued>, error: RepositoryError) -> Vec<Queued> {
                 Some(queued.retried(true))
             })
             .collect(),
-        error => {
-            let mut claimed = claimed.into_iter();
-            if let Some(first) = claimed.next() {
-                first.settle(Err(error.into()));
-            }
-            claimed.collect()
+        RepositoryError::Unavailable(source) => {
+            let source: Arc<dyn std::error::Error + Send + Sync> = Arc::from(source);
+            claimed.into_iter().for_each(|queued| {
+                queued.settle(Err(
+                    RepositoryError::Unavailable(Box::new(source.clone())).into()
+                ));
+            });
+            Vec::new()
         }
     }
 }

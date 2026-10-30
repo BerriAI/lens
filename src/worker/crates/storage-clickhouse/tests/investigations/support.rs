@@ -283,15 +283,34 @@ pub async fn concurrent_changes(
     results
 }
 
+pub enum LensRead {
+    Answered,
+    Failed,
+}
+
 pub async fn slow_lens_reads(
     database: &Database,
     delay: Duration,
+    answer: LensRead,
 ) -> (wiremock::MockServer, Investigations) {
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
     let server = MockServer::start().await;
     let destination = database.url();
+    let failed = matches!(answer, LensRead::Failed);
     Mock::given(wiremock::matchers::method("POST"))
         .respond_with(move |request: &Request| {
+            let lens_read = request.url.query_pairs().any(|(name, query)| {
+                name == "query"
+                    && query.starts_with("SELECT key, revision, digest FROM lens_state_heads")
+            }) && request
+                .url
+                .query_pairs()
+                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            if lens_read && failed {
+                return ResponseTemplate::new(500)
+                    .set_body_string("Code: 241. DB::Exception: Memory limit exceeded")
+                    .set_delay(delay);
+            }
             let mut target = destination.clone();
             target
                 .query_pairs_mut()
@@ -316,13 +335,6 @@ pub async fn slow_lens_reads(
             })
             .join()
             .unwrap();
-            let lens_read = request.url.query_pairs().any(|(name, query)| {
-                name == "query"
-                    && query.starts_with("SELECT key, revision, digest FROM lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
             let template = ResponseTemplate::new(status).set_body_string(text);
             if lens_read {
                 return template.set_delay(delay);

@@ -11,7 +11,8 @@ use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 
 use super::support::{
-    Database, database, isolated_database, job, lens, now, record_key, slow_lens_reads, value,
+    Database, LensRead, database, isolated_database, job, lens, now, record_key, slow_lens_reads,
+    value,
 };
 
 #[fixture]
@@ -638,6 +639,16 @@ async fn concurrent_progress_retries_without_losing_or_duplicating_reviews(
     assert_eq!(lens.version, active.version + 16);
 }
 
+fn numbered(review: &Review, count: usize) -> Vec<Review> {
+    (0..count)
+        .map(|index| Review {
+            execution_id: format!("execution-{index}"),
+            name: format!("Review {index}"),
+            ..review.clone()
+        })
+        .collect()
+}
+
 async fn queued_reviews(
     repository: &Investigations,
     lens_id: &str,
@@ -687,14 +698,13 @@ async fn one_store_saves_every_queued_review_when_each_lens_read_is_slow(
     #[case] stale: Option<usize>,
 ) {
     database.repository().create(&active).await.unwrap();
-    let (_proxy, repository) = slow_lens_reads(&database, std::time::Duration::from_secs(3)).await;
-    let reviews: Vec<_> = (0..12)
-        .map(|index| Review {
-            execution_id: format!("execution-{index}"),
-            name: format!("Review {index}"),
-            ..review.clone()
-        })
-        .collect();
+    let (_proxy, repository) = slow_lens_reads(
+        &database,
+        std::time::Duration::from_secs(3),
+        LensRead::Answered,
+    )
+    .await;
+    let reviews = numbered(&review, 12);
     let owned = |index: usize| stale != Some(index);
     let outcomes = queued_reviews(&repository, &active.id, &assigned, &reviews, stale, now).await;
     let expected: Vec<_> = (0..reviews.len())
@@ -753,6 +763,28 @@ async fn one_store_saves_every_queued_review_when_each_lens_read_is_slow(
         })
         .collect();
     assert_eq!(cached, checkpoints);
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn every_queued_review_gets_the_storage_error_when_lens_reads_fail(
+    #[future(awt)] database: Database,
+    active: Lens,
+    assigned: Job,
+    review: Review,
+    now: DateTime<Utc>,
+) {
+    database.repository().create(&active).await.unwrap();
+    let (_proxy, repository) = slow_lens_reads(
+        &database,
+        std::time::Duration::from_secs(3),
+        LensRead::Failed,
+    )
+    .await;
+    let reviews = numbered(&review, 12);
+    let outcomes = queued_reviews(&repository, &active.id, &assigned, &reviews, None, now).await;
+    let unavailable = RepositoryError::Unavailable("lens read failed".into()).to_string();
+    assert_eq!(outcomes, vec![unavailable; reviews.len()]);
 }
 
 #[rstest]
