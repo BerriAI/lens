@@ -2,6 +2,7 @@ mod maintenance;
 mod records;
 mod retry;
 mod transport;
+mod turns;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -13,12 +14,14 @@ use litellm_http::Client;
 use moka::future::Cache;
 use serde::Deserialize;
 use serde_json::Value;
+use tokio::sync::OwnedMutexGuard;
 
 use crate::{Connection, Error};
 use records::Blob;
 pub use records::{Change, Head, PreparedCommit, Snapshot};
 pub(crate) use retry::backoff;
 use transport::{command, decode, encode};
+use turns::Turns;
 
 #[derive(Clone, Copy)]
 enum BlobRead {
@@ -31,6 +34,7 @@ pub struct ClickHouseState {
     client: Client,
     connection: Connection,
     blobs: Cache<Head, Arc<str>>,
+    turns: Turns,
 }
 
 impl ClickHouseState {
@@ -50,7 +54,12 @@ impl ClickHouseState {
                 })
                 .time_to_idle(Duration::from_secs(600))
                 .build(),
+            turns: Turns::default(),
         }
+    }
+
+    pub(crate) async fn turn(&self, key: &str) -> OwnedMutexGuard<()> {
+        self.turns.take(key).await
     }
 
     pub async fn initialize(&self, keeper_path: &str) -> Result<(), Error> {

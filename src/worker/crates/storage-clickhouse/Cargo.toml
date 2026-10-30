@@ -24,7 +24,7 @@ sha2.workspace = true
 rand.workspace = true
 sqlx = { workspace = true, features = ["migrate"] }
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 url.workspace = true
 uuid.workspace = true
 
