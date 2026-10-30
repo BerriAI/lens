@@ -2,6 +2,7 @@ pub mod activity;
 pub mod agent;
 pub mod api;
 pub mod auth;
+mod completions;
 pub mod config;
 pub mod control;
 mod error;
