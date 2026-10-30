@@ -28,9 +28,9 @@ jobs:
           cache-dependency-path: |
             src/agent/package-lock.json
             src/agent-chat/package-lock.json
-      - run: npm ci --prefix ../agent --ignore-scripts
+      - run: npm ci --prefix ../agent --ignore-scripts --engine-strict
       - run: npm run check --prefix ../agent
       - run: npm test --prefix ../agent
-      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts --engine-strict
       - run: npm run check
       - run: npm test
