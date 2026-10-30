@@ -444,6 +444,62 @@ async fn replaced_writer_retries_from_fresh_state_without_releasing_the_successo
     );
 }
 
+type Arrivals = Arc<std::sync::Mutex<Vec<usize>>>;
+
+async fn queued_writes(
+    repository: &Investigations,
+    arrivals: &Arrivals,
+    count: usize,
+) -> Vec<JoinHandle<Result<Option<Lens>, RepositoryError>>> {
+    let mut writes = Vec::new();
+    for position in 0..count {
+        let repository = repository.clone();
+        let arrivals = arrivals.clone();
+        writes.push(tokio::spawn(async move {
+            repository
+                .update_locked("lens", move |lens| {
+                    arrivals.lock().unwrap().push(position);
+                    Ok(Lens {
+                        spent: lens.spent + 1.0,
+                        ..lens.clone()
+                    })
+                })
+                .await
+        }));
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    writes
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn writers_sharing_a_store_take_a_held_lens_in_arrival_order(
+    #[future(awt)] database: Database,
+    lens: Lens,
+) {
+    database.repository().create(&lens).await.unwrap();
+    let holder = paused_write(database.repository(), 1.0);
+    holder.started.notified().await;
+    let arrivals = Arrivals::default();
+    let writes = queued_writes(&database.repository(), &arrivals, 6).await;
+    holder.release.send(()).unwrap();
+    holder.task.await.unwrap().unwrap();
+    for write in writes {
+        write.await.unwrap().unwrap();
+    }
+    assert_eq!(*arrivals.lock().unwrap(), [0, 1, 2, 3, 4, 5]);
+    assert_eq!(
+        database
+            .repository()
+            .get(&lens.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .spent,
+        lens.spent + 7.0
+    );
+}
+
 #[rstest]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn abort_during_acquisition_publication_releases_the_committed_owner(

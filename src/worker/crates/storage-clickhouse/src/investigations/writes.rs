@@ -127,9 +127,11 @@ impl Drop for Writer {
 
 impl Investigations {
     pub(super) async fn writer(&self, id: &str) -> Result<Writer, RepositoryError> {
+        let key = key("lens-writer", (id,))?;
+        let _turn = self.0.turn(&key).await;
         let mut writer = Writer {
             state: self.0.clone(),
-            key: key("lens-writer", (id,))?,
+            key,
             token: uuid::Uuid::new_v4().to_string(),
             acquired: None,
             armed: true,
