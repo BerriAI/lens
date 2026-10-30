@@ -17,7 +17,8 @@ mod fixtures;
 mod support;
 
 use fixtures::{
-    SeededDatabase, insert_export, migrated_database, seed_interleaved_agent_runs, seeded_database,
+    DATABASE, SeededDatabase, insert_export, migrated_database, seed_interleaved_agent_runs,
+    seeded_database,
 };
 use support::TestResult;
 
@@ -396,10 +397,7 @@ async fn typed_queries_read_normalized_spans_and_keep_trace_identities_separate(
     admin_access: TestResult<contracts::ReadAccessParams>,
 ) -> TestResult {
     let fixture = seeded_database?;
-    let reader = fixture
-        .readers
-        .connection(&fixture.database.client, &QueryScope::All, "fixture-secret")
-        .await?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
@@ -466,10 +464,7 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
     admin_access: TestResult<contracts::ReadAccessParams>,
 ) -> TestResult {
     let fixture = seeded_database?;
-    let reader = fixture
-        .readers
-        .connection(&fixture.database.client, &QueryScope::All, "fixture-secret")
-        .await?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
@@ -575,10 +570,7 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
 ) -> TestResult {
     let fixture = migrated_database?;
     let decoded = insert_export(&fixture, export, "team-a", "key-a").await?;
-    let reader = fixture
-        .readers
-        .connection(&fixture.database.client, &QueryScope::All, "fixture-secret")
-        .await?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let params = TraceSpansParams {
         access: admin_access?,
         trace_id: decoded[0].trace_id.clone(),

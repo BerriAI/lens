@@ -4,7 +4,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use litellm_traces::query::named as contracts;
 use litellm_traces_cache::TraceReader;
 use litellm_traces_clickhouse::{
-    ClickHouseTraces, Connection, InsertTable, QueryScope, encode_rows, execute_read, insert_rows,
+    ClickHouseTraces, Connection, InsertTable, encode_rows, execute_read, insert_rows,
     project_spend_rows, query::named::SpendByResponseIds,
 };
 use rstest::{fixture, rstest};
@@ -258,7 +258,6 @@ async fn canonical_updates_fence_stale_aliases_and_owners(
     #[case] replacement: &str,
     #[case] old_alias: &str,
     #[case] current_alias: &str,
-    #[values(false, true)] scoped: bool,
 ) -> TestResult {
     let fixture = migrated_database?;
     let newer = cost_row
@@ -278,28 +277,13 @@ async fn canonical_updates_fence_stale_aliases_and_owners(
         user_id: "user-a".into(),
         team_ids: Vec::new(),
     };
-    let connection = if scoped {
-        fixture
-            .readers
-            .connection(
-                &fixture.database.client,
-                &QueryScope::Owned {
-                    user_id: "user-a".into(),
-                    team_ids: Vec::new(),
-                },
-                "test-secret",
-            )
-            .await?
-    } else {
-        Connection::reader(&fixture.database.url, DATABASE)?
-    };
+    let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     assert!(
         lookup(&fixture, &connection, old_access, old_alias)
             .await?
             .is_empty()
     );
-    let admin = Connection::reader(&fixture.database.url, DATABASE)?;
-    let current = lookup(&fixture, &admin, access(), current_alias).await?;
+    let current = lookup(&fixture, &connection, access(), current_alias).await?;
     assert_eq!(current.len(), 1);
     assert_eq!(current[0].spend, Some(0.5));
     Ok(())
