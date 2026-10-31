@@ -19,7 +19,7 @@ use litellm_storage_clickhouse::investigations::Investigations;
 use rstest::{fixture, rstest};
 use tokio::{sync::Notify, task::JoinHandle};
 
-use super::support::{Database, database, job, lens, value};
+use super::support::{Database, LensRead, database, job, lens, record_key, slow_lens_reads, value};
 
 #[fixture]
 fn active(lens: Lens, job: Job) -> Lens {
@@ -106,16 +106,17 @@ async fn budget_writes_finish_while_independent_clients_publish_progress(
         })
         .collect();
     ready.notified().await;
+    let reservation = hold.clone();
     let result = tokio::time::timeout(
         Duration::from_secs(20),
-        repository.update_locked("lens", |current| {
+        repository.update_locked("lens", move |current| {
             std::thread::sleep(Duration::from_millis(150));
             if settling {
-                Ok(settle_amount(current, &hold.id, 0.25, None))
+                Ok(settle_amount(current, &reservation.id, 0.25, None))
             } else if renewing {
-                renew_reservation(current, &hold.id, Utc::now())
+                renew_reservation(current, &reservation.id, Utc::now())
             } else {
-                reserve_attempt(current, &assigned, "worker", &hold, Utc::now())
+                reserve_attempt(current, &assigned, "worker", &reservation, Utc::now())
             }
             .map_err(|error| RepositoryError::Unavailable(Box::new(error)))
         }),
@@ -190,10 +191,11 @@ async fn unchanged_or_rejected_updates_release_the_writer_without_changing_data(
     }
     let key = super::support::record_key("lens", &[&lens.id]);
     let before = database.store.read(&key).await.unwrap();
-    let transforms = AtomicUsize::new(0);
+    let transforms = Arc::new(AtomicUsize::new(0));
+    let counted = transforms.clone();
     let result = repository
-        .update_locked(&lens.id, |current| {
-            transforms.fetch_add(1, Ordering::SeqCst);
+        .update_locked(&lens.id, move |current| {
+            counted.fetch_add(1, Ordering::SeqCst);
             if rejected {
                 Err(RepositoryError::Conflict)
             } else {
@@ -585,7 +587,6 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
     );
     task.abort();
     assert!(task.await.unwrap_err().is_cancelled());
-    wait_released(&database).await;
     let saved = database
         .repository()
         .update_locked("lens", |lens| {
@@ -599,6 +600,11 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
         .unwrap();
     assert_eq!(saved.spent, 1.0);
     assert_eq!(saved.version, lens.version + 1);
+    wait_released(&database).await;
+    assert_eq!(
+        value(database.repository().get("lens").await.unwrap().unwrap()),
+        value(&saved)
+    );
 }
 
 #[rstest]
@@ -1044,4 +1050,111 @@ async fn progress_saves_while_an_earlier_writer_of_the_lens_is_not_polled(
         .unwrap();
     assert_eq!(saved.jobs[0].stage, "Polled progress");
     unpolled.await.unwrap();
+}
+
+fn grouping(index: u8) -> AnalysisCheckpoint {
+    AnalysisCheckpoint::Grouping {
+        candidates: vec![],
+        batches: i64::from(index),
+    }
+}
+
+async fn joined<T>(tasks: Vec<JoinHandle<T>>) -> Vec<T> {
+    let mut results = Vec::new();
+    for task in tasks {
+        results.push(task.await.unwrap());
+    }
+    results
+}
+
+#[rstest]
+#[case::analysis_checkpoints(12, 0)]
+#[case::budget_updates(0, 12)]
+#[case::mixed(6, 6)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn one_store_saves_every_queued_write_when_each_lens_read_is_slow(
+    #[future(awt)] database: Database,
+    active: Lens,
+    #[case] checkpoints: u8,
+    #[case] settles: u8,
+) {
+    let holds: Vec<_> = (0..settles)
+        .map(|index| BudgetReservation {
+            id: format!("request-{index}"),
+            job_id: active.jobs[0].id.clone(),
+            amount: 1.0,
+            month: active.budget_month.clone(),
+            expires_at: Some(Utc::now() + BUDGET_LEASE),
+        })
+        .collect();
+    let initial = Lens {
+        reservations: holds.clone(),
+        ..active
+    };
+    database.repository().create(&initial).await.unwrap();
+    let (_proxy, repository) =
+        slow_lens_reads(&database, Duration::from_secs(3), LensRead::Answered).await;
+    let saves: Vec<_> = (0..checkpoints)
+        .map(|index| {
+            let repository = repository.clone();
+            let assigned = initial.jobs[0].clone();
+            tokio::spawn(async move {
+                repository
+                    .save_analysis_checkpoint(
+                        "lens",
+                        &assigned,
+                        &format!("fingerprint-{index}"),
+                        &grouping(index),
+                    )
+                    .await
+                    .map(value)
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .collect();
+    let settlements: Vec<_> = holds
+        .iter()
+        .map(|hold| {
+            let repository = repository.clone();
+            let id = hold.id.clone();
+            tokio::spawn(async move {
+                repository
+                    .update_locked("lens", move |lens| {
+                        Ok::<_, RepositoryError>(settle_amount(lens, &id, 1.0, None))
+                    })
+                    .await
+                    .map(|saved| saved.is_some())
+                    .map_err(|error| error.to_string())
+            })
+        })
+        .collect();
+    let saved = joined(saves).await;
+    let settled = joined(settlements).await;
+    let documents: Vec<_> = (0..checkpoints)
+        .map(|index| value(grouping(index)))
+        .collect();
+    assert_eq!(saved, documents.iter().cloned().map(Ok).collect::<Vec<_>>());
+    assert_eq!(settled, vec![Ok(true); usize::from(settles)]);
+    let keys: Vec<_> = (0..checkpoints)
+        .map(|index| {
+            record_key(
+                "analysis-checkpoint",
+                &["lens", &format!("fingerprint-{index}")],
+            )
+        })
+        .collect();
+    let references: Vec<_> = keys.iter().map(String::as_str).collect();
+    let stored: Vec<_> = database
+        .store
+        .read_many(&references)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|record| record.value)
+        .collect();
+    assert_eq!(stored, documents);
+    let lens = database.repository().get("lens").await.unwrap().unwrap();
+    assert_eq!(lens.spent, initial.spent + f64::from(settles));
+    assert_eq!(lens.jobs[0].cost, f64::from(settles));
+    assert!(lens.reservations.is_empty());
 }

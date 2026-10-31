@@ -115,10 +115,11 @@ impl LocalJob {
             next_cursor: None,
             next_offset: None,
         };
+        let assigned = self.clone();
         let updated = self
             .control
-            .update(&self.lens_id, |lens| {
-                let active = self.active(lens, Utc::now())?;
+            .update(&self.lens_id, move |lens| {
+                let active = assigned.active(lens, Utc::now())?;
                 if active.sample.is_some() {
                     return Ok(lens.clone());
                 }

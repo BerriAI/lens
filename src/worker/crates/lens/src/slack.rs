@@ -673,10 +673,11 @@ mod tests {
             first_seen: Utc::now(),
             ..finding
         };
+        let published = current.clone();
         repository
-            .update_locked(&lens.id, |saved| {
+            .update_locked(&lens.id, move |saved| {
                 Ok::<_, Error>(Lens {
-                    findings: vec![current.clone()],
+                    findings: vec![published.clone()],
                     ..saved.clone()
                 })
             })

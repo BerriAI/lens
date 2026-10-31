@@ -67,7 +67,7 @@ impl LocalControl {
     async fn update(
         &self,
         id: &str,
-        transform: impl Fn(&Lens) -> Result<Lens, Error>,
+        transform: impl Fn(&Lens) -> Result<Lens, Error> + Send + 'static,
     ) -> Result<Lens, Error> {
         self.repository
             .update_locked(id, transform)

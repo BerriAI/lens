@@ -131,25 +131,20 @@ impl Investigations {
         previous: Snapshot,
         current: &Lens,
         candidate: &Lens,
-        checkpoints: Vec<Change>,
+        records: Vec<Change>,
     ) -> Result<Lens, RepositoryError> {
         if current.id != candidate.id {
             return Err(failure(Error::InvalidState));
         }
-        let changed = document(candidate)? != document(current)?;
-        if !changed && checkpoints.is_empty() {
-            writer.commit(Vec::new()).await?;
+        if document(candidate)? == document(current)? {
+            writer.commit(records).await?;
             return Ok(current.clone());
         }
         let updated = Lens {
-            version: if changed {
-                current
-                    .version
-                    .checked_add(1)
-                    .ok_or_else(|| failure(Error::InvalidState))?
-            } else {
-                current.version
-            },
+            version: current
+                .version
+                .checked_add(1)
+                .ok_or_else(|| failure(Error::InvalidState))?,
             ..candidate.clone()
         };
         let archives = self.archive_changes(&previous, current, &updated).await?;
@@ -158,7 +153,7 @@ impl Investigations {
             value: stored(&updated)?,
         })
         .chain(archives)
-        .chain(checkpoints)
+        .chain(records)
         .collect();
         writer.commit(changes).await?;
         Ok(updated)
