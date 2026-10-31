@@ -180,10 +180,11 @@ async fn billing_and_heartbeat_preserve_worker_fields_and_revocation(
     );
     repository.revoke_worker(&worker.id).await.unwrap();
     assert_eq!(database.store.read(&key).await.unwrap(), before);
-    repository.heartbeat(&worker.id, now).await.unwrap();
+    let later = at + Duration::microseconds(1);
+    repository.heartbeat(&worker.id, later).await.unwrap();
     let heartbeat = repository.worker("token").await.unwrap().unwrap();
     assert!(heartbeat.revoked);
-    assert_eq!(heartbeat.last_seen, now);
+    assert_eq!(heartbeat.last_seen, later);
     assert_eq!(
         value(repository.workers().await.unwrap()),
         value(vec![heartbeat])
@@ -514,6 +515,54 @@ async fn concurrent_registration_has_one_durable_token_owner(
         successful_ids,
         std::collections::BTreeSet::from([stored[0].id.clone()])
     );
+}
+
+#[rstest]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_heartbeats_all_succeed_and_keep_the_latest_time(
+    #[future(awt)] database: Database,
+    worker: Worker,
+    now: DateTime<Utc>,
+) {
+    database
+        .repository()
+        .save_worker(&worker, Some("token"))
+        .await
+        .unwrap();
+    let times: Vec<_> = (1..=96)
+        .rev()
+        .map(|offset| now + Duration::milliseconds(offset))
+        .collect();
+    let beats: Vec<_> = times
+        .iter()
+        .map(|&at| {
+            let repository = database.repository();
+            let id = worker.id.clone();
+            tokio::spawn(async move { repository.heartbeat(&id, at).await })
+        })
+        .collect();
+    let outcomes = heartbeat_outcomes(beats).await;
+    assert_eq!(outcomes, vec!["ok".to_owned(); times.len()]);
+    let stored = database
+        .repository()
+        .worker("token")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(Some(stored.last_seen), times.iter().copied().max());
+}
+
+async fn heartbeat_outcomes(
+    beats: Vec<tokio::task::JoinHandle<Result<(), RepositoryError>>>,
+) -> Vec<String> {
+    let mut outcomes = Vec::new();
+    for beat in beats {
+        outcomes.push(match beat.await.unwrap() {
+            Ok(()) => "ok".to_owned(),
+            Err(error) => error.to_string(),
+        });
+    }
+    outcomes
 }
 
 #[rstest]

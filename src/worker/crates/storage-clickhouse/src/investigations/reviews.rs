@@ -8,11 +8,13 @@ use lens_contract::{
 use lens_investigations::{
     CheckpointError, RepositoryError, apply_progress, criteria_key, current_job, replace_job,
 };
-use tokio::time::{Instant as Deadline, timeout_at};
+use serde_json::Value;
+use tokio::sync::oneshot;
 
 use super::{
-    Investigations, StoredLens, decode, document, failure, key, workers::backoff,
-    writes::WRITE_RETRY_WINDOW,
+    Investigations, decode, document, failure, key,
+    pending::{Edit, Outcome, Record},
+    workers::backoff,
 };
 use crate::{Error, state::Change};
 
@@ -31,6 +33,61 @@ fn progress_time(now: DateTime<Utc>, started: Instant) -> Result<DateTime<Utc>, 
 
 fn live_lease(lease: Option<DateTime<Utc>>, now: DateTime<Utc>) -> bool {
     lease.is_some_and(|lease| lease > now)
+}
+
+struct ProgressEdit {
+    assigned: Job,
+    body: Progress,
+    now: DateTime<Utc>,
+    started: Instant,
+    cache: Option<Record>,
+    reply: oneshot::Sender<Result<Option<Lens>, CheckpointError>>,
+}
+
+fn progressed(lens: &Lens, edit: &ProgressEdit) -> Result<Job, CheckpointError> {
+    let now = progress_time(edit.now, edit.started)?;
+    let job = current_job(lens).ok_or(CheckpointError::Ownership)?;
+    if job.id != edit.assigned.id
+        || job.worker_id != edit.assigned.worker_id
+        || job.attempts != edit.assigned.attempts
+        || job.status != JobStatus::Running
+        || !live_lease(job.lease_until, now)
+    {
+        return Err(CheckpointError::Ownership);
+    }
+    Ok(apply_progress(job, &edit.body, now)?)
+}
+
+impl Edit for ProgressEdit {
+    fn abandoned(&self) -> bool {
+        self.reply.is_closed()
+    }
+
+    fn record(&self) -> Option<&Record> {
+        self.cache.as_ref()
+    }
+
+    fn replays_unconfirmed(&self) -> bool {
+        self.body.review.is_none()
+    }
+
+    fn apply(self: Box<Self>, candidate: Lens) -> (Lens, Option<Box<dyn Edit>>) {
+        match progressed(&candidate, &self) {
+            Ok(job) => (replace_job(&candidate, job), Some(self)),
+            Err(error) => {
+                let _ = self.reply.send(Err(error));
+                (candidate, None)
+            }
+        }
+    }
+
+    fn replacing(self: Box<Self>, _stored: Value) -> Option<Box<dyn Edit>> {
+        Some(self)
+    }
+
+    fn answer(self: Box<Self>, outcome: Outcome<'_>) {
+        let _ = self.reply.send(outcome.saved_lens());
+    }
 }
 
 impl Investigations {
@@ -60,73 +117,28 @@ impl Investigations {
         now: DateTime<Utc>,
     ) -> Result<Option<Lens>, CheckpointError> {
         let started = Instant::now();
-        let checkpoint = body.review.as_ref().filter(|review| {
+        let cacheable = body.review.as_ref().filter(|review| {
             !review.reused && review.extraction.is_some() && !review.content_version.is_empty()
         });
-        let cache = checkpoint
+        let cache = cacheable
             .map(|review| {
-                Ok::<_, RepositoryError>((
-                    review_key(lens_id, assigned, &review.execution_id)?,
-                    document(Public(review))?,
-                ))
+                Ok::<_, RepositoryError>(Record {
+                    key: review_key(lens_id, assigned, &review.execution_id)?,
+                    value: document(Public(review))?,
+                })
             })
             .transpose()?;
-        let deadline = Deadline::now() + WRITE_RETRY_WINDOW;
-        let mut unconfirmed = false;
-        for attempt in 0..40 {
-            if attempt > 0 {
-                backoff(attempt - 1).await;
-            }
-            if Deadline::now() >= deadline {
-                break;
-            }
-            let writer = match timeout_at(deadline, self.writer(lens_id)).await {
-                Ok(Ok(writer)) => writer,
-                Ok(Err(RepositoryError::Conflict)) => continue,
-                Ok(Err(error)) => return Err(error.into()),
-                Err(_) => break,
-            };
-            let previous = self.snapshot(lens_id).await?;
-            if previous.value.is_null() {
-                return Ok(None);
-            }
-            let current: StoredLens = decode(previous.value.clone())?;
-            let now = progress_time(now, started)?;
-            let job = current_job(&current.lens).ok_or(CheckpointError::Ownership)?;
-            if job.id != assigned.id
-                || job.worker_id != assigned.worker_id
-                || job.attempts != assigned.attempts
-                || job.status != JobStatus::Running
-                || !live_lease(job.lease_until, now)
-            {
-                return Err(CheckpointError::Ownership);
-            }
-            let candidate = replace_job(&current.lens, apply_progress(job, body, now)?);
-            let checkpoint = match &cache {
-                Some((key, value)) => Some(Change {
-                    previous: self.0.read(key).await.map_err(failure)?,
-                    value: value.clone(),
-                }),
-                None => None,
-            };
-            match self
-                .publish_lens(writer, previous, &current.lens, &candidate, checkpoint)
-                .await
-            {
-                Ok(lens) => return Ok(Some(lens)),
-                Err(RepositoryError::Conflict) => unconfirmed = false,
-                Err(RepositoryError::WriteUnconfirmed) if body.review.is_none() => {
-                    unconfirmed = true;
-                }
-                Err(error) => return Err(error.into()),
-            }
-        }
-        Err(if unconfirmed {
-            RepositoryError::WriteUnconfirmed
-        } else {
-            RepositoryError::Conflict
-        }
-        .into())
+        self.publish_edit(lens_id, |reply| {
+            Box::new(ProgressEdit {
+                assigned: assigned.clone(),
+                body: body.clone(),
+                now,
+                started,
+                cache,
+                reply,
+            })
+        })
+        .await
     }
 
     pub async fn complete_reviews(

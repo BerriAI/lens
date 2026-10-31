@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::Utc;
 use lens_contract::{
     investigations::BudgetReservation,
@@ -29,8 +31,12 @@ impl Settlement for LocalControl {
         cost: f64,
         step: Option<&crate::wire::Step>,
     ) -> Result<(), Error> {
-        self.update(lens_id, |lens| Ok(settle_amount(lens, id, cost, step)))
-            .await?;
+        let id = id.to_owned();
+        let step = step.cloned();
+        self.update(lens_id, move |lens| {
+            Ok(settle_amount(lens, &id, cost, step.as_ref()))
+        })
+        .await?;
         Ok(())
     }
 }
@@ -96,6 +102,7 @@ impl<S: Settlement> Drop for Reservation<S> {
 impl LocalJob {
     pub(super) async fn analyze(&self, body: &ModelRequest) -> Result<ModelResult, Error> {
         let (_, job) = self.assigned().await?;
+        let job = Arc::new(job);
         let models = self.control.models.get();
         let prepared = models
             .prepare(job.settings.model.as_str(), body)
@@ -115,19 +122,22 @@ impl LocalJob {
         };
         let wait = async {
             loop {
+                let hold_id = id.clone();
+                let job = job.clone();
+                let worker_id = self.worker_id.clone();
+                let amount = prepared.estimate;
                 let reserved = self
                     .control
-                    .update(&self.lens_id, |lens| {
+                    .update(&self.lens_id, move |lens| {
                         let now = Utc::now();
                         let hold = BudgetReservation {
-                            id: id.clone(),
+                            id: hold_id.clone(),
                             job_id: job.id.clone(),
-                            amount: prepared.estimate,
+                            amount,
                             month: now.format("%Y-%m").to_string(),
                             expires_at: Some(now + BUDGET_LEASE),
                         };
-                        reserve_attempt(lens, &job, &self.worker_id, &hold, now)
-                            .map_err(policy_error)
+                        reserve_attempt(lens, &job, &worker_id, &hold, now).map_err(policy_error)
                     })
                     .await?;
                 if reserved.reservations.iter().any(|held| held.id == id) {
@@ -149,10 +159,11 @@ impl LocalJob {
         let renew = async {
             loop {
                 tokio::time::sleep(BUDGET_RENEW_INTERVAL).await;
+                let held = id.clone();
                 match tokio::time::timeout(
                     BUDGET_RENEW_INTERVAL,
-                    self.control.update(&self.lens_id, |lens| {
-                        renew_reservation(lens, &id, Utc::now()).map_err(policy_error)
+                    self.control.update(&self.lens_id, move |lens| {
+                        renew_reservation(lens, &held, Utc::now()).map_err(policy_error)
                     }),
                 )
                 .await

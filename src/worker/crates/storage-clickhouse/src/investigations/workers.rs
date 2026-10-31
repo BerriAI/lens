@@ -244,7 +244,7 @@ impl WorkerRepository for Investigations {
 
     async fn heartbeat(&self, worker_id: &str, now: DateTime<Utc>) -> Result<(), RepositoryError> {
         self.update_worker(worker_id, |worker| Worker {
-            last_seen: now,
+            last_seen: worker.last_seen.max(now),
             ..worker
         })
         .await?;

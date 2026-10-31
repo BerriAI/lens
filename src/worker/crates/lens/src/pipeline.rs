@@ -2,6 +2,7 @@ use crate::{
     Error,
     activity::Tracker,
     agent::{self, Assignment},
+    completions::Completions,
     control::JobClient,
     evidence::{Workspace, character_range},
     grouping, wire,
@@ -417,6 +418,7 @@ pub async fn analyze(
     }).collect();
     let calls = stream::iter(jobs).buffer_unordered(concurrency);
     futures_util::pin_mut!(calls);
+    let mut calls = Completions::new(calls);
     let mut drafts = BTreeMap::new();
     let mut unfinished = BTreeSet::new();
     while let Some(outcome) = calls.next().await {
@@ -443,12 +445,12 @@ pub async fn analyze(
                 errors.insert(error.to_string());
             }
         }
-        client
-            .progress(&wire::Progress {
+        calls
+            .during(client.progress(&wire::Progress {
                 stage: Some("Checking original evidence".into()),
                 coverage: Some(result.coverage.clone()),
                 ..Default::default()
-            })
+            }))
             .await?;
     }
     client

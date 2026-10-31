@@ -89,14 +89,16 @@ impl LocalJob {
             .repository
             .finding_runs(&self.lens_id, &ids)
             .await?;
+        let assigned = self.clone();
+        let result = body.clone();
         let finished = self
             .control
-            .update(&self.lens_id, |current| {
+            .update(&self.lens_id, move |current| {
                 let now = Utc::now();
-                let Ok(active) = self.active(current, now) else {
+                let Ok(active) = assigned.active(current, now) else {
                     return Ok(current.clone());
                 };
-                finish(current, active, body, &historical, now)
+                finish(current, active, &result, &historical, now)
             })
             .await?;
         if !body.review_versions.is_empty()

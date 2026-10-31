@@ -1,4 +1,4 @@
-use crate::{Error, activity::Tracker, control::JobClient, model, wire};
+use crate::{Error, activity::Tracker, completions::Completions, control::JobClient, model, wire};
 use futures_util::{StreamExt, stream};
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -183,17 +183,18 @@ pub async fn group(
     ))
     .buffer_unordered(concurrency);
     futures_util::pin_mut!(calls);
+    let mut calls = Completions::new(calls);
     let mut completed = BTreeMap::new();
     while let Some(result) = calls.next().await {
         let (index, candidates) = result?;
         completed.insert(index, candidates);
         coverage.grouped_batches += 1;
-        client
-            .progress(&wire::Progress {
+        calls
+            .during(client.progress(&wire::Progress {
                 stage: Some("Grouping observations".into()),
                 coverage: Some(coverage.clone()),
                 ..Default::default()
-            })
+            }))
             .await?;
     }
     let mut candidates: Vec<_> = completed.into_values().flatten().collect();

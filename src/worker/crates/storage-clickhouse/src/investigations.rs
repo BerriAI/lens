@@ -1,5 +1,6 @@
 mod checkpoints;
 mod history;
+mod pending;
 mod reviews;
 mod scheduling;
 mod schema;
@@ -21,6 +22,7 @@ use crate::{
     Error,
     state::{Change, ClickHouseState, Snapshot},
 };
+pub(crate) use pending::Pending;
 
 const KEY_ENCODING: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
@@ -129,25 +131,20 @@ impl Investigations {
         previous: Snapshot,
         current: &Lens,
         candidate: &Lens,
-        checkpoint: Option<Change>,
+        records: Vec<Change>,
     ) -> Result<Lens, RepositoryError> {
         if current.id != candidate.id {
             return Err(failure(Error::InvalidState));
         }
-        let changed = document(candidate)? != document(current)?;
-        if !changed && checkpoint.is_none() {
-            writer.commit(Vec::new()).await?;
+        if document(candidate)? == document(current)? {
+            writer.commit(records).await?;
             return Ok(current.clone());
         }
         let updated = Lens {
-            version: if changed {
-                current
-                    .version
-                    .checked_add(1)
-                    .ok_or_else(|| failure(Error::InvalidState))?
-            } else {
-                current.version
-            },
+            version: current
+                .version
+                .checked_add(1)
+                .ok_or_else(|| failure(Error::InvalidState))?,
             ..candidate.clone()
         };
         let archives = self.archive_changes(&previous, current, &updated).await?;
@@ -156,7 +153,7 @@ impl Investigations {
             value: stored(&updated)?,
         })
         .chain(archives)
-        .chain(checkpoint)
+        .chain(records)
         .collect();
         writer.commit(changes).await?;
         Ok(updated)
@@ -225,7 +222,7 @@ impl LensRepository for Investigations {
         if current.version != expected.version {
             return Err(RepositoryError::Conflict);
         }
-        self.publish_lens(writer, previous, &current, candidate, None)
+        self.publish_lens(writer, previous, &current, candidate, Vec::new())
             .await
     }
 

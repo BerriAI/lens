@@ -744,3 +744,149 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
     assert_eq!(page_calls.load(Ordering::SeqCst), 2);
     assert_eq!(model_calls.load(Ordering::SeqCst), 3);
 }
+
+struct GatedProgress {
+    stage: &'static str,
+    completed: fn(&wire::Coverage) -> i64,
+    sample: wire::Sample,
+    extraction_calls: AtomicUsize,
+    gated: AtomicBool,
+    waiting: AtomicBool,
+    lane_call: tokio::sync::Notify,
+}
+
+impl GatedProgress {
+    fn lane_called(&self) {
+        if self.waiting.load(Ordering::SeqCst) {
+            self.lane_call.notify_one();
+        }
+    }
+}
+
+impl litellm_lens::control::JobBackend for GatedProgress {
+    fn sample(
+        &self,
+    ) -> futures_util::future::BoxFuture<'_, Result<wire::Sample, litellm_lens::Error>> {
+        Box::pin(async { Ok(self.sample.clone()) })
+    }
+
+    fn reviews(
+        &self,
+    ) -> futures_util::future::BoxFuture<'_, Result<Vec<wire::Review>, litellm_lens::Error>> {
+        Box::pin(async { Ok(vec![]) })
+    }
+
+    fn content<'a>(
+        &'a self,
+        _: &'a str,
+        _: &'a str,
+        _: usize,
+    ) -> futures_util::future::BoxFuture<'a, Result<wire::ExecutionContent, litellm_lens::Error>>
+    {
+        Box::pin(async move {
+            self.lane_called();
+            Ok(serde_json::from_value(json!({
+                "execution": self.sample.executions[0],
+                "parts": [{"execution_id": "run-test", "span_id": "span-test", "name": "refund",
+                    "kind": "tool", "content": QUOTE, "truncated": false}],
+            }))
+            .unwrap())
+        })
+    }
+
+    fn model<'a>(
+        &'a self,
+        request: &'a wire::ModelRequest,
+    ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
+        Box::pin(async move {
+            self.lane_called();
+            let batch_sized = |title: &str| format!("{title} {}", "x".repeat(9000));
+            let content = match request.purpose {
+                wire::ModelRequestPurpose::Extract
+                    if self.extraction_calls.fetch_add(1, Ordering::SeqCst) == 0 =>
+                {
+                    json!({"tools": [{"action": "read", "execution_id": "run-test"}]})
+                }
+                wire::ModelRequestPurpose::Extract => json!({"result": {"observations": [
+                    {"check_id": "refund", "summary": batch_sized("False refund claim"), "evidence": [quote()]},
+                    {"check_id": "refund", "summary": batch_sized("Unverified payment"), "evidence": [quote()]},
+                ]}}),
+                wire::ModelRequestPurpose::Cluster => json!({"candidates": [
+                    {"check_id": "refund", "title": "False refund claim", "hypothesis": "Failure hidden", "execution_ids": ["p0"]},
+                    {"check_id": "refund", "title": "Unverified payment", "hypothesis": "Not checked", "execution_ids": ["p1"]},
+                ]}),
+                _ => json!({"result": {"findings": []}}),
+            };
+            Ok(wire::ModelResult {
+                content: content.to_string(),
+                cost: 0.0,
+                context_exceeded: false,
+                finish_reason: None,
+            })
+        })
+    }
+
+    fn progress<'a>(
+        &'a self,
+        progress: &'a wire::Progress,
+    ) -> futures_util::future::BoxFuture<'a, Result<(), litellm_lens::Error>> {
+        Box::pin(async move {
+            if progress.stage.as_deref() == Some(self.stage)
+                && progress.coverage.as_ref().map(self.completed) == Some(1)
+                && !self.gated.swap(true, Ordering::SeqCst)
+            {
+                self.waiting.store(true, Ordering::SeqCst);
+                self.lane_call.notified().await;
+                return Ok(());
+            }
+            if progress.activity.is_some() {
+                self.lane_called();
+            }
+            Ok(())
+        })
+    }
+
+    fn finish<'a>(
+        &'a self,
+        _: &'a wire::Result,
+    ) -> futures_util::future::BoxFuture<'a, Result<(), litellm_lens::Error>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+#[rstest]
+#[case::grouping("Grouping observations", |coverage: &wire::Coverage| coverage.grouped_batches)]
+#[case::evidence_checking("Checking original evidence", |coverage: &wire::Coverage| coverage.investigated)]
+#[tokio::test]
+async fn lanes_in_flight_keep_running_while_a_progress_write_waits_on_them(
+    #[case] stage: &'static str,
+    #[case] completed: fn(&wire::Coverage) -> i64,
+) {
+    let claim: wire::Claim = serde_json::from_value(fixture()).unwrap();
+    let sample: wire::Sample = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
+    let backend = Arc::new(GatedProgress {
+        stage,
+        completed,
+        sample: sample.clone(),
+        extraction_calls: AtomicUsize::new(0),
+        gated: AtomicBool::new(false),
+        waiting: AtomicBool::new(false),
+        lane_call: tokio::sync::Notify::new(),
+    });
+    let client = JobClient::local(
+        backend.clone(),
+        2,
+        Arc::new(tokio::sync::Semaphore::new(16)),
+    );
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        pipeline::analyze(&claim, sample, client),
+    )
+    .await
+    .expect("the progress write never saw the other lane run")
+    .unwrap();
+    assert!(backend.gated.load(Ordering::SeqCst));
+    assert!(result.error.is_empty(), "{}", result.error);
+    assert_eq!(result.coverage.grouped_batches, 2);
+    assert_eq!(result.coverage.investigated, 2);
+}
