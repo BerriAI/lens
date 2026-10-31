@@ -61,6 +61,10 @@ impl Queued {
         }
     }
 
+    pub(super) fn deadline(&self) -> Deadline {
+        self.deadline
+    }
+
     pub(super) fn record(&self) -> Option<&Record> {
         self.edit.record()
     }

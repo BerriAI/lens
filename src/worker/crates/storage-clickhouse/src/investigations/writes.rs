@@ -310,7 +310,13 @@ impl Investigations {
     }
 
     async fn publish_claimed(&self, lens_id: &str, claimed: Vec<Queued>) -> Vec<Queued> {
-        let (writer, previous, current) = match self.open(lens_id).await {
+        let Some(deadline) = claimed.iter().map(Queued::deadline).min() else {
+            return Vec::new();
+        };
+        let opened = timeout_at(deadline, self.open(lens_id))
+            .await
+            .unwrap_or_else(|_| Err(RepositoryError::Conflict));
+        let (writer, previous, current) = match opened {
             Ok(Some(opened)) => opened,
             Ok(None) => {
                 claimed

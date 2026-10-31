@@ -277,6 +277,58 @@ async fn abandoned_writers_expire_but_live_writers_time_out_without_publishing(
 }
 
 #[rstest]
+#[tokio::test]
+async fn a_write_claimed_late_in_its_window_still_fails_within_it_while_the_lease_is_held(
+    #[future(awt)] database: Database,
+    lens: Lens,
+) {
+    let repository = database.repository();
+    repository.create(&lens).await.unwrap();
+    let previous = database.store.read(&lease_key()).await.unwrap();
+    database
+        .store
+        .commit(vec![litellm_storage_clickhouse::state::Change {
+            previous,
+            value: serde_json::json!({
+                "token": "busy-writer",
+                "expires_at": Utc::now() + chrono::Duration::seconds(90),
+            }),
+        }])
+        .await
+        .unwrap();
+    let spend = |amount: f64| {
+        let repository = repository.clone();
+        tokio::spawn(async move {
+            let started = std::time::Instant::now();
+            let result = repository
+                .update_locked("lens", move |current| {
+                    Ok::<_, RepositoryError>(Lens {
+                        spent: amount,
+                        ..current.clone()
+                    })
+                })
+                .await;
+            (result, started.elapsed())
+        })
+    };
+    let first = spend(1.0);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let second = spend(2.0);
+    for (result, elapsed) in joined(vec![first, second]).await {
+        assert!(
+            matches!(result, Err(RepositoryError::Conflict)),
+            "{result:?}"
+        );
+        assert!(elapsed >= Duration::from_secs(29), "{elapsed:?}");
+        assert!(elapsed < Duration::from_secs(34), "{elapsed:?}");
+    }
+    assert_eq!(
+        value(repository.get(&lens.id).await.unwrap().unwrap()),
+        value(&lens)
+    );
+}
+
+#[rstest]
 #[case::budget(false, false)]
 #[case::progress(true, false)]
 #[case::reassigned_progress(true, true)]
