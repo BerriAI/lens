@@ -95,11 +95,13 @@ def test_github_identity_uses_execution_not_only_sha(tmp_path, monkeypatch):
         "GITHUB_RUN_ID": "101",
         "GITHUB_RUN_ATTEMPT": "2",
         "GITHUB_REPOSITORY": "org/repo",
+        "LENS_BASELINE_RUN_ID": "selected-main-run",
     }.items():
         monkeypatch.setenv(name, value)
     result = Execution.github()
     assert result.version == "merge-sha" and result.branch == "topic" and result.pr == 17
     assert result.identity == "101:2"
+    assert result.baseline_run_id == "selected-main-run"
 
 
 async def test_native_engine_public_lifecycle(native_endpoint, monkeypatch):

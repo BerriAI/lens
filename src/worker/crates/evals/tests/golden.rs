@@ -113,6 +113,7 @@ fn spec() -> sdk::EvalSpec {
 
 fn execution(branch: &str, identity: &str) -> sdk::Execution {
     sdk::Execution {
+        baseline_run_id: None,
         version: identity.into(),
         branch: branch.into(),
         pr: (branch != "main").then_some(7),

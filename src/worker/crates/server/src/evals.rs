@@ -403,6 +403,7 @@ async fn put_definition<R: SessionRepository>(
         dataset_id: spec.dataset_id.clone(),
         revision: spec.revision.unwrap_or(1),
         case_ids: None,
+        baseline_run_id: None,
         version: "definition".into(),
         branch: spec.baseline.clone(),
         pr: None,

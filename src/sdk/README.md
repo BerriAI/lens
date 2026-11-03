@@ -166,7 +166,9 @@ report = lens.evals.run(
 report.assert_passed()
 ```
 
-Establish a main run against the deployed main build, then run the same definition against the candidate build. Lens selects a compatible stored baseline and evaluates the saved gates. The SDK does not deploy builds, pick a baseline locally, or treat an accepted agent request as a successful eval
+Establish a main run against the deployed main build, then run the same definition against the candidate build. Set `Execution(..., baseline_run_id=before.run.id)` on the candidate to compare against that exact completed run. This applies to `lens.evals.test`, `lens.evals.run`, and callback evals. CLI runs and automatically derived execution contexts also accept `LENS_BASELINE_RUN_ID`
+
+Lens requires the selected baseline to belong to the same team and match the eval, agent, dataset revision, scorers, agent I/O contract, trial count, and selected cases. It must be a completed main run. A missing or incompatible explicit baseline rejects the candidate before agent execution. Omitting the ID preserves selection of the latest compatible main run. The SDK does not deploy builds or treat an accepted agent request as a successful eval
 
 Missing definitions, missing local profiles, unsupported mappings, absent credentials, and incompatible services produce errors. An individual agent request failure is recorded on its trial. A failing quality gate remains a completed `Report`; call `assert_passed()` to enforce it in Python. CLI exits remain `0` for pass, `1` for gate failure, and `2` for configuration or infrastructure failure
 
@@ -352,7 +354,7 @@ The test writes `report.write_json("lens-results.json")` before asserting its ga
 
 `report-start` creates a Lens-branded “I'm running here” comment. Publication fetches the completed candidate and its selected baseline from Lens and updates that same bot-owned comment. The check attaches to the candidate's recorded commit SHA. The comment shows both build SHAs, Lens run links, case pass counts, score changes, and costs
 
-Run the checked-out main code first with `Execution(branch="main", version=base_sha)`, then the PR code with its actual head SHA. Use the same saved eval revision, selected cases, and repeat count for both. A missing compatible main run is shown as unavailable, never as a zero-score baseline
+Run the checked-out main code first with `Execution(branch="main", version=base_sha)`, then the PR code with its actual head SHA and `baseline_run_id=before.run.id`. In separate CI steps, read the baseline report's run ID and set `LENS_BASELINE_RUN_ID` for the candidate step. This prevents another PR's main evaluation from replacing the intended comparison. Use the same saved eval revision, selected cases, and repeat count for both. With no explicit ID, a missing compatible main run is shown as unavailable, never as a zero-score baseline
 
 Confidence is reported as a 95% Wilson interval over case verdicts. The confidence score is that interval's lower endpoint, a conservative pass-rate estimate under the independent-case assumption. Repeated executions of one case are not counted as independent cases, and the score does not claim statistical proof of improvement
 
