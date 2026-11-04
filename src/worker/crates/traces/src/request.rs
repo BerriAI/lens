@@ -1,8 +1,33 @@
 pub const TRACE_PAGE_SIZE_MIN: u16 = 1;
 pub const TRACE_PAGE_SIZE_MAX: u16 = 500;
 pub const TRACE_AGENT_NAME_MAX_LENGTH: usize = 256;
+pub const TRACE_TAGS_MAX: usize = 8;
+pub const TRACE_TAG_VALUE_MAX: usize = 256;
+
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TraceTag {
+    pub key: String,
+    pub value: String,
+}
 pub const CONVERSATION_PAGE_SIZE_DEFAULT: u16 = 10;
 pub const CONVERSATION_PAGE_SIZE_MAX: u16 = 50;
+
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Clone, Debug)]
+pub struct TraceTags {
+    pub recorded: Vec<TraceTag>,
+    pub manual: Vec<TraceTag>,
+    pub editable: bool,
+}
+
+#[macro_rules_attribute::apply(crate::request_type)]
+#[derive(Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TraceTagsUpdate {
+    pub tags: Vec<TraceTag>,
+}
 
 #[macro_rules_attribute::apply(crate::request_type)]
 #[derive(Clone, Debug)]
@@ -20,6 +45,8 @@ pub struct TraceConversationRequest {
 #[macro_rules_attribute::apply(crate::request_type)]
 #[derive(Clone, Debug)]
 pub struct TraceListRequest {
+    #[serde(default)]
+    pub tags: Option<String>,
     /// Window start, unix ms. Default: 24h ago
     #[serde(default)]
     pub start_ms: Option<i64>,

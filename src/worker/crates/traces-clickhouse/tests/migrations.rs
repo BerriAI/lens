@@ -1054,6 +1054,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
             {"name": "lens_trace_summaries"},
+            {"name": "lens_trace_tags"},
             {"name": "otel_traces"},
             {"name": "spend_logs"}
         ])
@@ -1154,7 +1155,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries', 'lens_trace_tags') ORDER BY name",
     )
     .await?;
     let ttl_queries = ttl_queries["data"].as_array().expect("retention tables");
@@ -1169,6 +1170,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
             "lens_eval_traces",
             "lens_feedback",
             "lens_trace_summaries",
+            "lens_trace_tags",
             "otel_traces",
             "spend_logs"
         ]
@@ -1188,7 +1190,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries', 'lens_trace_tags') ORDER BY name",
     )
     .await?;
     for row in ttl_queries["data"].as_array().expect("retention tables") {
@@ -2543,6 +2545,8 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
                 team_ids: vec!["team".into()],
             },
             agent: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
             start_ms: timestamp / 1_000_000 - 1,
             end_ms: timestamp / 1_000_000 + 1,
             cursor_ms: 0,

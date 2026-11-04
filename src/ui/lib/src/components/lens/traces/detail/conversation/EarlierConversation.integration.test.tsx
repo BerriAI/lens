@@ -110,6 +110,7 @@ function serve() {
     if (path === `/v1/traces/${currentId}/spans/${currentDetail.span_id}`) return currentDetail;
     if (path === `/v1/traces/${original.trace_id}/spans/${original.span_id}`)
       return { ...original, attributes: {} } satisfies SpanDetail;
+    if (path.endsWith("/tags")) return { recorded: [], manual: [], editable: false };
     if (path === "/lens/feedback") return { feedback: [] };
     throw new Error(`Unexpected read: ${path}`);
   });

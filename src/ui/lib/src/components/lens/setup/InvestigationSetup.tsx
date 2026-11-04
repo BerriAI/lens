@@ -1,5 +1,7 @@
 "use client";
 
+import { useRangeHoursRouting } from "../../shared/timeRange/routing";
+import { useRunFilterRouting } from "../traces/routing";
 import { FormProvider, useWatch, type UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
@@ -69,8 +71,13 @@ interface SetupProps {
 /** Replaces the Investigations tab body: a three-step setup on the left, the activity it matches on the right. */
 export function InvestigationSetup(props: SetupProps) {
   const { initial, mode, defaultSource = "traces" } = props;
+  const { tags, agent } = useRunFilterRouting();
+  const [hours] = useRangeHoursRouting();
+  const defaults = investigationDefaults(initial, mode, defaultSource);
   const form = useZodForm(investigationSchema, {
-    defaultValues: investigationDefaults(initial, mode, defaultSource),
+    defaultValues: mode === "new" && tags.length
+      ? { ...defaults, selection: { ...defaults.selection, source: "traces", filters: tags, agent_name: agent, lookback_hours: hours } }
+      : defaults,
     mode: "onChange",
   });
   return (

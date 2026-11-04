@@ -18,6 +18,15 @@ FROM agent_traces_by_key
 WHERE ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND UserIds = [{user_id:String}])
        OR has({team_ids:Array(String)}, TeamId))
+  AND (empty({filter_keys:Array(String)}) OR (TeamId, ApiKeyHash, TraceId) IN (
+      SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+      LEFT JOIN (SELECT TeamId AS ManualTeamId, ApiKeyHash AS ManualKeyHash, TraceId AS ManualTraceId,
+                               Tags AS ManualTags FROM lens_trace_tags FINAL) AS manual
+      ON TeamId=ManualTeamId AND ApiKeyHash=ManualKeyHash AND TraceId=ManualTraceId
+      WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
+        AND arrayAll((k, v) -> ResourceAttributes[k] = v OR SpanAttributes[k] = v OR ManualTags[k] = v,
+                     {filter_keys:Array(String)}, {filter_values:Array(String)})
+  ))
   AND ({agent:String} = '' OR (TeamId, ApiKeyHash, TraceId) IN (
       SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
       WHERE AgentName = {agent:String}

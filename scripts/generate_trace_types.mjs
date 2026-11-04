@@ -8,7 +8,10 @@ const options = { bannerComment: "", ignoreMinAndMaxItems: true };
 const content =
   "/* Generated from schema/lens-traces.json. Run npm run generate:trace-contract. */\n" +
   (await compile(definitions.TraceConversationPage, "TraceConversationPage", options)) +
-  (await compile(definitions.TraceConversationRequest, "TraceConversationRequest", options));
+  (await compile(definitions.TraceConversationRequest, "TraceConversationRequest", options)) +
+  (await compile(definitions.TraceListRequest, "TraceListRequest", options)) +
+  (await compile(definitions.TraceTags, "TraceTags", options)) +
+  (await compile(definitions.TraceTagsUpdate, "TraceTagsUpdate", options));
 
 if (process.argv.includes("--check")) {
   if ((await readFile(output, "utf8")) !== content)

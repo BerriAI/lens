@@ -1,6 +1,7 @@
 import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback, useState } from "react";
 
+import { traceTagsParser } from "./tags";
 import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
 import type { SignalFlag, TraceSummary } from "./types";
 
@@ -59,6 +60,7 @@ export const OPEN_TRACE_PARSERS = {
 };
 
 export const RUN_FILTER_PARSERS = {
+  tags: traceTagsParser,
   q: parseAsString.withDefault(""),
   agent: parseAsString.withDefault(""),
   status: parseAsStringLiteral(["all", "ok", "error"]).withDefault("all"),
@@ -197,8 +199,10 @@ export function useLocalRunSelection(initialSpanId: string | null): RunSelection
 }
 
 export function useRunFilterRouting() {
-  const [{ q, agent, status }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
+  const [{ q, agent, status, tags }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
   return {
+    tags,
+    setTags: (tags: import("./tags").TraceTag[]) => void setParams({ tags }),
     query: q,
     agent,
     status,

@@ -19,6 +19,7 @@ import { createLensDemo } from "./data/demo/createLensDemo";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
 import { LensTabs } from "./LensTabs";
+import { InvestigationsView } from "./investigations/InvestigationsView";
 import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
@@ -34,7 +35,7 @@ import {
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
-import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
+import { traceRefOf, useRunFilterRouting, useOpenTraceRouting, type TraceRef } from "./traces/routing";
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
@@ -107,6 +108,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
   const { dialog } = useDialogRoute();
+  const { tags } = useRunFilterRouting();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
@@ -332,7 +334,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     </TabsContent>
                     <TabsContent value="findings" className={PANEL}>
                       {canViewInvestigations ? (
-                        <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
+                        dialog === "new" && tags.length > 0 && isAdmin && !readOnly
+                          ? <InvestigationsView readOnly={false} />
+                          : <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
                       ) : (
                         <p className="py-6 text-sm text-muted-foreground">
                           Findings require proxy administrator access.

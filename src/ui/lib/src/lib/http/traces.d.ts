@@ -56,3 +56,34 @@ export interface TraceConversationRequest {
   page_size?: number | null;
   [k: string]: unknown;
 }
+export interface TraceListRequest {
+  tags?: string | null;
+  /**
+   * Window start, unix ms. Default: 24h ago
+   */
+  start_ms?: number | null;
+  /**
+   * Window end, unix ms. Default: now
+   */
+  end_ms?: number | null;
+  agent?: string | null;
+  cursor?: string | null;
+  [k: string]: unknown;
+}
+export interface TraceTags {
+  recorded: TraceTag[];
+  manual: TraceTag[];
+  editable: boolean;
+  [k: string]: unknown;
+}
+export interface TraceTag {
+  key: string;
+  value: string;
+}
+export interface TraceTagsUpdate {
+  tags: TraceTag[];
+}
+export interface TraceTag {
+  key: string;
+  value: string;
+}

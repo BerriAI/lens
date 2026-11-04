@@ -72,6 +72,22 @@ impl TraceReader {
         cursor: Option<&str>,
         limit: u32,
     ) -> Result<TracePage, ReadError<S::Error>> {
+        self.list_tagged_traces(store, access, agent, &[], start_ms, end_ms, cursor, limit)
+            .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn list_tagged_traces<S: TraceStore>(
+        &self,
+        store: &S,
+        access: &ReadAccessParams,
+        agent: &str,
+        tags: &[litellm_traces::request::TraceTag],
+        start_ms: i64,
+        end_ms: i64,
+        cursor: Option<&str>,
+        limit: u32,
+    ) -> Result<TracePage, ReadError<S::Error>> {
         if limit == 0 {
             return Err(ReadError::InvalidParameters);
         }
@@ -81,6 +97,8 @@ impl TraceReader {
         let mut params = ListTracesParams {
             access: access.clone(),
             agent: agent.to_owned(),
+            filter_keys: tags.iter().map(|tag| tag.key.clone()).collect(),
+            filter_values: tags.iter().map(|tag| tag.value.clone()).collect(),
             start_ms,
             end_ms,
             cursor_ms,

@@ -5,9 +5,11 @@ import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../ui/select";
 import { useRunFilterRouting } from "../../routing";
+import { TraceTagFilters } from "./TraceTagFilters";
 import { RunSearch } from "./RunSearch";
 
 interface RunsToolbarProps {
+  canInvestigate?: boolean;
   query: string;
   onQueryChange: (value: string) => void;
   runs: readonly TraceSummary[];
@@ -19,7 +21,7 @@ interface RunsToolbarProps {
   children?: React.ReactNode;
 }
 
-export function RunsToolbar({ query, onQueryChange, runs, range, busy, children }: RunsToolbarProps) {
+export function RunsToolbar({ query, onQueryChange, runs, range, busy, children, canInvestigate }: RunsToolbarProps) {
   const { status, setStatus } = useRunFilterRouting();
   const statuses = [
     { value: "all", label: "All status" },
@@ -51,6 +53,7 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children 
           </SelectContent>
         </Select>
       </div>
+      <TraceTagFilters canInvestigate={canInvestigate} />
       {children && <div className="contents [&>*]:h-10">{children}</div>}
     </div>
   );

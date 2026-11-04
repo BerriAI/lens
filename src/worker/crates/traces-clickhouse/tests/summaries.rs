@@ -28,6 +28,8 @@ fn list_params(access: ReadAccessParams) -> ListTracesParams {
     ListTracesParams {
         access,
         agent: String::new(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms: 0,
         end_ms: 2_000_000_000_000,
         cursor_ms: 0,
@@ -131,6 +133,8 @@ async fn summary_pages_filter_agents_before_pagination(
     let params = ListTracesParams {
         access: access.clone(),
         agent: "A".into(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms,
         end_ms,
         cursor_ms: 0,
@@ -484,6 +488,8 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         .list_runs(&ListTracesParams {
             access: access.clone(),
             agent: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
             start_ms: 0,
             end_ms: 2_000_000_000_000,
             cursor_ms: 0,
@@ -524,5 +530,246 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
             .await?;
         assert_eq!(Some(after_next), before_next);
     }
+    Ok(())
+}
+
+#[rstest]
+#[case::unprojected(false)]
+#[case::projected(true)]
+#[tokio::test]
+async fn tags_filter_before_pagination_and_preserve_tenant_scope(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] projected: bool,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let tagged = |id: &str, team: &str, skill: &str, timestamp: i64| {
+        BTreeMap::from([
+            ("Timestamp".into(), json!(timestamp)),
+            ("TraceId".into(), json!(id)),
+            ("SpanId".into(), json!(id)),
+            ("SpanName".into(), json!("agent")),
+            ("ObservationType".into(), json!("agent")),
+            ("TeamId".into(), json!(team)),
+            ("ApiKeyHash".into(), json!("key")),
+            ("UserId".into(), json!("owner")),
+            ("ResourceAttributes".into(), json!({"skill":skill})),
+            ("SpanAttributes".into(), json!({"department":"engineering"})),
+            ("Duration".into(), json!(1_000_000)),
+        ])
+    };
+    insert_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![
+            tagged(
+                "newest-unmatched",
+                "team",
+                "other",
+                1_790_000_003_000_000_000,
+            ),
+            tagged(
+                "foreign-match",
+                "foreign",
+                "diagram",
+                1_790_000_002_000_000_000,
+            ),
+            tagged("first-match", "team", "diagram", 1_790_000_001_000_000_000),
+            tagged("second-match", "team", "diagram", 1_790_000_000_000_000_000),
+        ],
+    )
+    .await?;
+    if projected {
+        summaries::project(&fixture.database.client, &config, 16).await?;
+    }
+    let store = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let reader = TraceReader::new(usize::MAX);
+    let scope = access(false, "", &["team"]);
+    let tags = vec![
+        litellm_traces::request::TraceTag {
+            key: "skill".into(),
+            value: "diagram".into(),
+        },
+        litellm_traces::request::TraceTag {
+            key: "department".into(),
+            value: "engineering".into(),
+        },
+    ];
+    let first = reader
+        .list_tagged_traces(&store, &scope, "", &tags, 0, 2_000_000_000_000, None, 1)
+        .await?;
+    assert_eq!(first.data[0].trace_id, "first-match");
+    let second = reader
+        .list_tagged_traces(
+            &store,
+            &scope,
+            "",
+            &tags,
+            0,
+            2_000_000_000_000,
+            first.next_cursor.as_deref(),
+            1,
+        )
+        .await?;
+    assert_eq!(second.data[0].trace_id, "second-match");
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn manual_tags_persist_filter_and_select_investigation_activity(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    use litellm_traces::request::TraceTag;
+    use litellm_traces_clickhouse::{
+        query::lens::{ExecutionSource, LensAccessParams, LensSample, LensSampleParams},
+        tags,
+    };
+    let fixture = migrated_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    insert_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![span("owner", "manual-step")],
+    )
+    .await?;
+    let scope = access(false, "owner", &[]);
+    let tag = TraceTag {
+        key: "skill".into(),
+        value: "diagram".into(),
+    };
+    let saved = tags::write(
+        &fixture.database.client,
+        &config,
+        &scope,
+        "shared-trace",
+        "",
+        std::slice::from_ref(&tag),
+    )
+    .await?
+    .unwrap();
+    assert_eq!(saved.manual, vec![tag.clone()]);
+    let reloaded = tags::read(
+        &fixture.database.client,
+        &config,
+        &scope,
+        "shared-trace",
+        "",
+    )
+    .await?
+    .unwrap();
+    assert_eq!(reloaded.manual, vec![tag.clone()]);
+    let other = access(false, "stranger", &["foreign"]);
+    assert!(
+        tags::read(
+            &fixture.database.client,
+            &config,
+            &other,
+            "shared-trace",
+            ""
+        )
+        .await?
+        .is_none()
+    );
+    assert!(
+        tags::write(
+            &fixture.database.client,
+            &config,
+            &other,
+            "shared-trace",
+            "",
+            &[]
+        )
+        .await?
+        .is_none()
+    );
+    let store = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let reader = TraceReader::new(usize::MAX);
+    let page = reader
+        .list_tagged_traces(&store, &scope, "", &[tag], 0, 2_000_000_000_000, None, 50)
+        .await?;
+    assert_eq!(page.data.len(), 1);
+    let selected = litellm_storage_clickhouse::fetch::<LensSample>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &LensSampleParams {
+            access: LensAccessParams {
+                all_teams: true,
+                team: String::new(),
+                key_hash: String::new(),
+            },
+            source: ExecutionSource::Traces,
+            start: 1_789_999_000_000,
+            end: 2_000_000_000_000,
+            agent_name: String::new(),
+            service: String::new(),
+            filter_keys: vec!["skill".into()],
+            filter_values: vec!["diagram".into()],
+            selected_team: String::new(),
+            execution_ids: Vec::new(),
+            sample_cap: 0,
+            sample_percent: 100.0,
+            preview: 1,
+            after: String::new(),
+            limit: 50,
+            offset: 0,
+        },
+    )
+    .await?;
+    assert_eq!(selected.len(), 1);
+    assert!(
+        selected[0]
+            .attributes
+            .contains(&("skill".into(), "diagram".into()))
+    );
+    tags::write(
+        &fixture.database.client,
+        &config,
+        &scope,
+        "shared-trace",
+        "",
+        &[],
+    )
+    .await?
+    .unwrap();
+    assert!(
+        tags::read(
+            &fixture.database.client,
+            &config,
+            &scope,
+            "shared-trace",
+            ""
+        )
+        .await?
+        .unwrap()
+        .manual
+        .is_empty()
+    );
+    let empty = reader
+        .list_tagged_traces(
+            &store,
+            &scope,
+            "",
+            &[TraceTag {
+                key: "skill".into(),
+                value: "diagram".into(),
+            }],
+            0,
+            2_000_000_000_000,
+            None,
+            50,
+        )
+        .await?;
+    assert!(empty.data.is_empty());
     Ok(())
 }

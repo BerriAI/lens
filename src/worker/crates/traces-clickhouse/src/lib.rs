@@ -25,6 +25,7 @@ mod span_row;
 mod sql;
 pub mod summaries;
 mod table;
+pub mod tags;
 #[cfg(feature = "schema")]
 pub mod wire_schema;
 

@@ -1087,3 +1087,30 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
 });
+
+it("opens investigation setup from tagged traces with the selected agent and lookback", async () => {
+  const user = userEvent.setup();
+  const run = createLensDemoData().runs[0].trace.summary;
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/v1/traces") return Response.json({ data: [run], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [{ name: "support_agent", runs: 1, failed_runs: 0, last_seen: new Date().toISOString(), frameworks: [] }] });
+    if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (path === "/lens/traces/findings" || path === "/lens/feedback/summary" || path === "/lens/traces/signals") return Response.json([]);
+    if (path === "/lens/agents") return Response.json(["support_agent"]);
+    if (path.startsWith("/lens/preview")) return Response.json({ eligible: 1, selected: 1, executions: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="test" userRole="Admin" readOnly={false} />, {
+    searchParams: '?tab=traces&agent=support_agent&hours=168&tags=%5B%7B%22key%22%3A%22skill%22%2C%22value%22%3A%22diagram%22%7D%5D',
+  });
+  await user.click(await screen.findByRole("button", { name: "Investigate tags" }));
+  expect(await screen.findByRole("heading", { name: "New investigation" })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Agent (optional)" })).toHaveValue("support_agent");
+  await waitFor(async () => {
+    const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+    expect(requests.filter((request) => request.path === "/lens/preview/sample").map((request) => request.body)).toContainEqual(
+      expect.objectContaining({ lookback_hours: 168, selection: expect.objectContaining({ agent_name: "support_agent", filters: [{ key: "skill", value: "diagram" }] }) }),
+    );
+  });
+});
