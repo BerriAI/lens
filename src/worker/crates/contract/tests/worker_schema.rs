@@ -5,7 +5,17 @@ use serde_json::Value;
 fn generated_worker_schema_preserves_the_current_contract() {
     let expected: Value =
         serde_json::from_str(include_str!("fixtures/python-worker-v7.json")).unwrap();
-    compare("", &lens_contract::schema::worker_contract(), &expected);
+    let mut actual = lens_contract::schema::worker_contract();
+    let profile = actual["definitions"]["LensSettings"]["properties"]
+        .as_object_mut()
+        .unwrap()
+        .remove("profile")
+        .unwrap();
+    assert_eq!(
+        profile,
+        serde_json::json!({"anyOf":[{"type":"string","minLength":1},{"type":"null"}]})
+    );
+    compare("", &actual, &expected);
 }
 
 #[rstest]

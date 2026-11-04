@@ -43,6 +43,11 @@ impl Model {
                 ("service", false, STRING),
                 ("agent_name", false, STRING),
                 (
+                    "profile",
+                    false,
+                    FieldKind::Optional(&FieldKind::String(1, None)),
+                ),
+                (
                     "filters",
                     false,
                     FieldKind::Tuple(

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Bot, Database, FlaskConical, House, Settings, Sparkles, type LucideIcon } from "lucide-react";
+import { Activity, Bot, ChartNoAxesColumn, Database, FlaskConical, House, Settings, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cva.config";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
@@ -20,6 +20,7 @@ const NAVIGATION_ITEMS = [
   { value: "home", label: "Home", icon: House },
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },
+  { value: "profiles", label: "Profiles", icon: ChartNoAxesColumn },
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "datasets", label: "Datasets", icon: Database },
   { value: "evals", label: "Evals", icon: FlaskConical },

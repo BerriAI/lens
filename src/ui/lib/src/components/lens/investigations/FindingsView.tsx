@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ScanLine } from "lucide-react";
+import { Plus, ScanLine } from "lucide-react";
+import { Button } from "../../ui/button";
 import { Inspector, useInspector } from "../../shared/Inspector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useNow } from "../../../hooks/useNow";
@@ -24,7 +25,7 @@ import {
   type Priority,
 } from "../model/inbox";
 import type { Finding } from "../model/types";
-import { useEvidenceRoute, useInboxFilters, useIssueRoute } from "../route";
+import { useDialogRoute, useEvidenceRoute, useInboxFilters, useIssueRoute } from "../route";
 import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { useWorkerConnected } from "../hooks/useWorkerConnected";
@@ -186,6 +187,7 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
   const list = useQuery({ ...lensQueries.list(api), refetchInterval: 15_000 });
   const update = useLensUpdate();
   const { issueKey, setIssueKey } = useIssueRoute();
+  const { openDialog } = useDialogRoute();
   const filters = useInboxFilters();
   const now = useNow(30000);
   const all = filterInbox(inboxRows(list.data?.lenses ?? []), {
@@ -227,6 +229,11 @@ export function FindingsView({ agent = "", readOnly = false }: { agent?: string;
         <LensPageHeader
           page="findings"
           title="Findings"
+          actions={!readOnly && (
+            <Button size="sm" onClick={() => openDialog("new")}>
+              <Plus aria-hidden="true" className="size-4" />New investigation
+            </Button>
+          )}
           description={
             agent ? "Issues and improvements from this agent’s traces." : "Issues and improvements across your agents."
           }
