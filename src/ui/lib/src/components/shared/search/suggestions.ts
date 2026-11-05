@@ -1,4 +1,11 @@
-import { type FieldClause, languageFields, languageOps, parseQuery, type QueryLanguage } from "./language";
+import {
+  type FieldClause,
+  fieldOps,
+  languageFields,
+  languageOps,
+  parseQuery,
+  type QueryLanguage,
+} from "./language";
 import type { FieldValues } from "./valueSource";
 
 export interface Suggestion<F extends string> {
@@ -36,14 +43,24 @@ type Target<F extends string> =
   | { readonly kind: "value"; readonly clause: FieldClause<F> };
 
 const MAX_VALUES = 50;
-const isSpace = (char: string | undefined) => char === undefined || /\s/.test(char);
-const quoteIfNeeded = (value: string) => (/[\s"]/.test(value) ? `"${value.replaceAll('"', "")}"` : value);
+const isSpace = (char: string | undefined) =>
+  char === undefined || /\s/.test(char);
+const quoteIfNeeded = (value: string) =>
+  /[\s"\\]/.test(value) ? JSON.stringify(value) : value;
 
-function target<F extends string>(language: QueryLanguage<F>, text: string, cursor: number): Target<F> | null {
-  const clause = parseQuery(language, text).find((c) => c.from < cursor && c.to === cursor);
+function target<F extends string>(
+  language: QueryLanguage<F>,
+  text: string,
+  cursor: number,
+): Target<F> | null {
+  const clause = parseQuery(language, text).find(
+    (c) => c.from < cursor && c.to === cursor,
+  );
   if (!clause) {
     const betweenTokens = isSpace(text[cursor - 1]) && isSpace(text[cursor]);
-    return betweenTokens ? { kind: "field", prefix: "", negated: false, from: cursor, to: cursor } : null;
+    return betweenTokens
+      ? { kind: "field", prefix: "", negated: false, from: cursor, to: cursor }
+      : null;
   }
   if (clause.kind === "field") return { kind: "value", clause };
   const raw = text.slice(clause.from, clause.to);
@@ -54,40 +71,64 @@ function target<F extends string>(language: QueryLanguage<F>, text: string, curs
 }
 
 /** The field whose value is being typed at the cursor, so a source can be asked for its values. */
-export function completingField<F extends string>(language: QueryLanguage<F>, text: string, cursor: number): F | null {
+export function completingField<F extends string>(
+  language: QueryLanguage<F>,
+  text: string,
+  cursor: number,
+): F | null {
   const found = target(language, text, cursor);
-  return found?.kind === "value" && language.fields[found.clause.field].suggestValues ? found.clause.field : null;
+  return found?.kind === "value" &&
+    language.fields[found.clause.field].suggestValues
+    ? found.clause.field
+    : null;
 }
 
-const literalPart = <F extends string>(language: QueryLanguage<F>, value: string): string =>
-  language.ops.wildcard ? value.replaceAll("*", "") : value;
+const literalPart = <F extends string>(
+  language: QueryLanguage<F>,
+  field: F,
+  value: string,
+): string =>
+  fieldOps(language, field).wildcard ? value.replaceAll("*", "") : value;
 
 /** The substring typed so far for the value at the cursor, wildcards stripped. */
-export function completingPrefix<F extends string>(language: QueryLanguage<F>, text: string, cursor: number): string {
+export function completingPrefix<F extends string>(
+  language: QueryLanguage<F>,
+  text: string,
+  cursor: number,
+): string {
   const found = target(language, text, cursor);
-  return found?.kind === "value" ? literalPart(language, found.clause.value) : "";
+  return found?.kind === "value"
+    ? literalPart(language, found.clause.field, found.clause.value)
+    : "";
 }
 
 function fieldMenu<F extends string>(
   language: QueryLanguage<F>,
   { prefix, negated, from, to }: Extract<Target<F>, { kind: "field" }>,
 ): SuggestionMenu<F> | null {
-  const fields = languageFields(language).filter((field) => field.startsWith(prefix.toLowerCase()));
+  const fields = languageFields(language).filter(
+    (field) =>
+      field.startsWith(prefix.toLowerCase()) &&
+      (!negated || fieldOps(language, field).negation),
+  );
   if (fields.length === 0) return null;
-  const groups = Array.from(new Set(fields.map((field) => language.fields[field].group)), (heading) => ({
-    heading,
-    items: fields
-      .filter((field) => language.fields[field].group === heading)
-      .map((field) => ({
-        id: `field:${field}`,
-        label: field,
-        field,
-        from,
-        to,
-        insert: `${negated ? "-" : ""}${field}:`,
-        completesClause: false,
-      })),
-  }));
+  const groups = Array.from(
+    new Set(fields.map((field) => language.fields[field].group)),
+    (heading) => ({
+      heading,
+      items: fields
+        .filter((field) => language.fields[field].group === heading)
+        .map((field) => ({
+          id: `field:${field}`,
+          label: field,
+          field,
+          from,
+          to,
+          insert: `${negated ? "-" : ""}${field}:`,
+          completesClause: false,
+        })),
+    }),
+  );
   return { groups, showOperators: false, loading: false };
 }
 
@@ -98,7 +139,11 @@ function valueMenu<F extends string>(
   { values, loading }: FieldValues,
 ): SuggestionMenu<F> | null {
   const from = clause.keyTo + 1;
-  const needle = literalPart(language, clause.value).toLowerCase();
+  const needle = literalPart(
+    language,
+    clause.field,
+    clause.value,
+  ).toLowerCase();
   const trailing = clause.to === text.length ? " " : "";
   const suggestions = values
     .filter((value) => value.toLowerCase().includes(needle))
@@ -112,9 +157,16 @@ function valueMenu<F extends string>(
       insert: quoteIfNeeded(value) + trailing,
       completesClause: true,
     }));
-  const showOperators = clause.value === "" && languageOps(language).length > 1;
+  const showOperators =
+    clause.value === "" && languageOps(language, clause.field).length > 1;
   if (suggestions.length === 0 && !showOperators && !loading) return null;
-  return { groups: suggestions.length ? [{ heading: clause.field, items: suggestions }] : [], showOperators, loading };
+  return {
+    groups: suggestions.length
+      ? [{ heading: clause.field, items: suggestions }]
+      : [],
+    showOperators,
+    loading,
+  };
 }
 
 /** What to offer at the cursor: fields while a key is being typed, values once it has a colon. */
@@ -132,6 +184,8 @@ export function suggest<F extends string>(
     language,
     found.clause,
     text,
-    language.fields[field].suggestValues ? lookup(field) : { values: [], loading: false },
+    language.fields[field].suggestValues
+      ? lookup(field)
+      : { values: [], loading: false },
   );
 }

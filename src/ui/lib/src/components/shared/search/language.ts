@@ -5,6 +5,7 @@ export interface FieldSpec {
   readonly icon: LucideIcon;
   /** The field has an enumerable value set worth offering once the key has its colon. */
   readonly suggestValues: boolean;
+  readonly ops?: QueryOperators;
 }
 
 export type FilterOp = "eq" | "neq" | "glob" | "nglob";
@@ -18,7 +19,10 @@ export interface QueryOperators {
 }
 
 export const ALL_OPERATORS: QueryOperators = { negation: true, wildcard: true };
-export const EQUALITY_ONLY: QueryOperators = { negation: false, wildcard: false };
+export const EQUALITY_ONLY: QueryOperators = {
+  negation: false,
+  wildcard: false,
+};
 
 /** The `key:value` vocabulary of one search box. Where the data lives is the evaluator's concern, not the language's. */
 export interface QueryLanguage<F extends string> {
@@ -26,15 +30,28 @@ export interface QueryLanguage<F extends string> {
   readonly ops: QueryOperators;
 }
 
-export const languageOps = <F extends string>({ ops }: QueryLanguage<F>): readonly FilterOp[] => [
-  "eq",
-  ...(ops.negation ? (["neq"] as const) : []),
-  ...(ops.wildcard ? (["glob"] as const) : []),
-  ...(ops.negation && ops.wildcard ? (["nglob"] as const) : []),
-];
+export const fieldOps = <F extends string>(
+  language: QueryLanguage<F>,
+  field: F,
+): QueryOperators => language.fields[field].ops ?? language.ops;
 
-export const isNegatedOp = (op: FilterOp): boolean => op === "neq" || op === "nglob";
-export const isGlobOp = (op: FilterOp): boolean => op === "glob" || op === "nglob";
+export function languageOps<F extends string>(
+  language: QueryLanguage<F>,
+  field?: F | null,
+): readonly FilterOp[] {
+  const ops = field == null ? language.ops : fieldOps(language, field);
+  return [
+    "eq",
+    ...(ops.negation ? (["neq"] as const) : []),
+    ...(ops.wildcard ? (["glob"] as const) : []),
+    ...(ops.negation && ops.wildcard ? (["nglob"] as const) : []),
+  ];
+}
+
+export const isNegatedOp = (op: FilterOp): boolean =>
+  op === "neq" || op === "nglob";
+export const isGlobOp = (op: FilterOp): boolean =>
+  op === "glob" || op === "nglob";
 
 interface Span {
   readonly from: number;
@@ -51,20 +68,35 @@ export type QueryClause<F extends string> =
       readonly value: string;
     });
 
-export type FieldClause<F extends string> = Extract<QueryClause<F>, { kind: "field" }>;
+export type FieldClause<F extends string> = Extract<
+  QueryClause<F>,
+  { kind: "field" }
+>;
 
-export const languageFields = <F extends string>(language: QueryLanguage<F>): F[] =>
-  Object.keys(language.fields) as F[];
+export const languageFields = <F extends string>(
+  language: QueryLanguage<F>,
+): F[] => Object.keys(language.fields) as F[];
 
-const unquote = (raw: string): string => raw.replace(/^"([^"]*)"?$/, "$1");
+function unquote(raw: string): string {
+  if (!raw.startsWith('"')) return raw;
+  try {
+    const decoded: unknown = JSON.parse(raw.endsWith('"') ? raw : `${raw}"`);
+    return typeof decoded === "string" ? decoded : raw;
+  } catch {
+    return raw.slice(1, raw.endsWith('"') ? -1 : undefined);
+  }
+}
 
 /** Whitespace-separated tokens; a double-quoted stretch keeps its spaces. */
 function tokenize(text: string): (Span & { raw: string })[] {
-  return Array.from(text.matchAll(/(?:"[^"]*"?|\S)+/g), (match) => ({
-    raw: match[0],
-    from: match.index,
-    to: match.index + match[0].length,
-  }));
+  return Array.from(
+    text.matchAll(/(?:"(?:\\.|[^"\\])*"?|[^\s"])+/g),
+    (match) => ({
+      raw: match[0],
+      from: match.index,
+      to: match.index + match[0].length,
+    }),
+  );
 }
 
 const filterOp = (negated: boolean, glob: boolean): FilterOp => {
@@ -82,12 +114,13 @@ function parseToken<F extends string>(
   const key = match[2].toLowerCase();
   const negated = match[1] === "-";
   if (!Object.hasOwn(language.fields, key)) return text;
-  if (negated && !language.ops.negation) return text;
+  const ops = fieldOps(language, key as F);
+  if (negated && !ops.negation) return text;
   const value = unquote(match[3]);
   return {
     kind: "field",
     field: key as F,
-    op: filterOp(negated, language.ops.wildcard && value.includes("*")),
+    op: filterOp(negated, ops.wildcard && value.includes("*")),
     keyTo: from + match[1].length + match[2].length,
     value,
     from,
@@ -95,7 +128,10 @@ function parseToken<F extends string>(
   };
 }
 
-export const parseQuery = <F extends string>(language: QueryLanguage<F>, text: string): QueryClause<F>[] =>
+export const parseQuery = <F extends string>(
+  language: QueryLanguage<F>,
+  text: string,
+): QueryClause<F>[] =>
   tokenize(text).map((token) => parseToken(language, token));
 
 /** Whole-value match, ignoring case; `*` is a literal. */
@@ -116,7 +152,9 @@ export function valueMatcher(pattern: string): (value: string) => boolean {
     const candidate = value.toLowerCase();
     if (first && !candidate.startsWith(first)) return false;
     if (last && !candidate.endsWith(last)) return false;
-    const suffixStart = last ? candidate.length - last.length : candidate.length;
+    const suffixStart = last
+      ? candidate.length - last.length
+      : candidate.length;
     let cursor = first ? first.length : 0;
     if (suffixStart < cursor) return false;
     for (const segment of middle) {

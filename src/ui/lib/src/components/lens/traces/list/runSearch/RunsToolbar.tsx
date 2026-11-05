@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "../../../../ui/select";
 import { useRunFilterRouting } from "../../routing";
-import { TraceTagFilters } from "./TraceTagFilters";
 import { RunSearch } from "./RunSearch";
 
 interface RunsToolbarProps {
@@ -47,6 +46,8 @@ export function RunsToolbar({
   return (
     <div className="lens-toolbar flex min-w-0 shrink-0 flex-wrap items-stretch border-b border-border bg-card">
       <RunSearch
+        accessToken={accessToken}
+        canInvestigate={canInvestigate}
         value={query}
         onChange={onQueryChange}
         runs={runs}
@@ -77,11 +78,6 @@ export function RunsToolbar({
           </SelectContent>
         </Select>
       </div>
-      <TraceTagFilters
-        accessToken={accessToken}
-        range={range}
-        canInvestigate={canInvestigate}
-      />
       {children && <div className="contents [&>*]:h-10">{children}</div>}
     </div>
   );

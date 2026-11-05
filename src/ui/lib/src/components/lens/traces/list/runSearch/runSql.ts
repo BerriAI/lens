@@ -3,7 +3,10 @@ import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 import type { TraceQueryBody } from "../../types";
 
 import { isNegatedOp, valueMatcher } from "../../../../shared/search/language";
-import type { SearchFilter, SearchQuery } from "../../../../shared/search/searchQuery";
+import type {
+  SearchFilter,
+  SearchQuery,
+} from "../../../../shared/search/searchQuery";
 import type { RunField } from "./runQuery";
 
 const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,
@@ -12,26 +15,39 @@ const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInp
 FROM agent_traces_by_key
 GROUP BY TraceId`;
 
-const sqlString = (value: string): string => `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+const sqlString = (value: string): string =>
+  `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 
 /** LIKE's own metacharacters match literally. */
-const likeLiteral = (value: string): string => value.replace(/[\\%_]/g, (char) => `\\${char}`);
+const likeLiteral = (value: string): string =>
+  value.replace(/[\\%_]/g, (char) => `\\${char}`);
 /** `*` is the only glob, as in the list filter. */
-const likePattern = (value: string): string => likeLiteral(value).replaceAll("*", "%");
+const likePattern = (value: string): string =>
+  likeLiteral(value).replaceAll("*", "%");
 
-const matches = (column: string, pattern: string): string => `${column} ILIKE ${sqlString(pattern)}`;
-const anyMatches = (column: string, pattern: string): string => `arrayExists(x -> ${matches("x", pattern)}, ${column})`;
+const matches = (column: string, pattern: string): string =>
+  `${column} ILIKE ${sqlString(pattern)}`;
+const anyMatches = (column: string, pattern: string): string =>
+  `arrayExists(x -> ${matches("x", pattern)}, ${column})`;
 
-const STATUS_PREDICATES = { error: "status = 'error'", ok: "status = 'ok'" } as const;
+const STATUS_PREDICATES = {
+  error: "status = 'error'",
+  ok: "status = 'ok'",
+} as const;
 
 /** Status has two values, so a glob over it resolves statically to one, both or neither predicate. */
 function statusPredicate(value: string): string {
-  const hits = (["error", "ok"] as const).filter(valueMatcher(value)).map((status) => STATUS_PREDICATES[status]);
+  const hits = (["error", "ok"] as const)
+    .filter(valueMatcher(value))
+    .map((status) => STATUS_PREDICATES[status]);
   if (hits.length === 2) return "true";
   return hits[0] ?? "false";
 }
 
-const FIELD_PREDICATES: Record<RunField, (value: string) => string> = {
+const FIELD_PREDICATES: Record<
+  Exclude<RunField, "tag">,
+  (value: string) => string
+> = {
   name: (value) => matches("name", likePattern(value)),
   agent: (value) => anyMatches("agents", likePattern(value)),
   status: statusPredicate,
@@ -48,6 +64,8 @@ const textPredicate = (term: string): string => {
 };
 
 function filterPredicate(filter: SearchFilter<RunField>): string {
+  if (filter.field === "tag")
+    throw new Error("Tag filters use the trace API before pagination");
   const predicate = FIELD_PREDICATES[filter.field](filter.value);
   return isNegatedOp(filter.op) ? `NOT (${predicate})` : predicate;
 }
@@ -63,7 +81,10 @@ export const runPredicates = (query: SearchQuery<RunField>): string[] => [
 ];
 
 /** The runs list as a trace query: one row per trace from the per-key rollup, filtered like the list. */
-export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow): string {
+export function runQuerySql(
+  query: SearchQuery<RunField>,
+  range?: TimeWindow,
+): string {
   const having = [timeBound(range), ...runPredicates(query)].join("\n   AND ");
   return `${RUN_ROWS}\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
 }

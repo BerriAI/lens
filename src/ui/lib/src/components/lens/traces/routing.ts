@@ -1,7 +1,13 @@
-import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import {
+  parseAsBoolean,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+} from "nuqs";
 import { useCallback, useState } from "react";
 
 import { traceTagsParser } from "./tags";
+import { mergeTags, withoutSearchTags } from "./list/runSearch/tagSearch";
 import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
 import type { SignalFlag, TraceSummary } from "./types";
 
@@ -16,11 +22,17 @@ export interface TraceRef {
   traceRef?: string;
 }
 
-export const traceRefOf = (run: TraceSummary): TraceRef => ({ traceId: run.trace_id, traceRef: run.trace_ref });
+export const traceRefOf = (run: TraceSummary): TraceRef => ({
+  traceId: run.trace_id,
+  traceRef: run.trace_ref,
+});
 export const traceKey = (ref: TraceRef): string => ref.traceRef || ref.traceId;
 
 /** A shareable link that opens just this run on the current page, dropping list filters and step selection. */
-export const traceShareUrl = (ref: TraceRef, location: Pick<Location, "origin" | "pathname" | "search">): string => {
+export const traceShareUrl = (
+  ref: TraceRef,
+  location: Pick<Location, "origin" | "pathname" | "search">,
+): string => {
   const demo = new URLSearchParams(location.search).get("demo") === "true";
   const params = new URLSearchParams({
     ...(demo ? { demo: "true" } : {}),
@@ -76,7 +88,14 @@ export interface OpenTraceRouting {
   setFullScreen: (fullScreen: boolean) => void;
 }
 
-const FRESH_RUN = { span: null, signal: null, view: null, span_tab: null, steps_q: null, errors: null };
+const FRESH_RUN = {
+  span: null,
+  signal: null,
+  view: null,
+  span_tab: null,
+  steps_q: null,
+  errors: null,
+};
 
 const signalSelection = (signal: SignalFlag | null) => ({
   ...FRESH_RUN,
@@ -86,12 +105,21 @@ const signalSelection = (signal: SignalFlag | null) => ({
 
 /** The open run is a history entry; moving within it (step, view, section) replaces the current one. */
 export function useOpenTraceRouting(): OpenTraceRouting {
-  const [params, setParams] = useQueryStates(OPEN_TRACE_PARSERS, { history: "push" });
+  const [params, setParams] = useQueryStates(OPEN_TRACE_PARSERS, {
+    history: "push",
+  });
   const [signalFocus, setSignalFocus] = useState(0);
   const openTrace = useCallback(
     (ref: TraceRef | null) => {
-      const run = { trace: ref?.traceId ?? null, trace_ref: ref?.traceRef || null };
-      void setParams(ref === null ? { ...FRESH_RUN, ...run, fullscreen: null } : { ...FRESH_RUN, ...run });
+      const run = {
+        trace: ref?.traceId ?? null,
+        trace_ref: ref?.traceRef || null,
+      };
+      void setParams(
+        ref === null
+          ? { ...FRESH_RUN, ...run, fullscreen: null }
+          : { ...FRESH_RUN, ...run },
+      );
     },
     [setParams],
   );
@@ -114,10 +142,17 @@ export function useOpenTraceRouting(): OpenTraceRouting {
     [setParams],
   );
   const selectSpan = useCallback(
-    (id: string) => void setParams({ span: id, span_tab: null, signal: null }, { history: "replace" }),
+    (id: string) =>
+      void setParams(
+        { span: id, span_tab: null, signal: null },
+        { history: "replace" },
+      ),
     [setParams],
   );
-  const setView = useCallback((view: TraceView) => void setParams({ view }, { history: "replace" }), [setParams]);
+  const setView = useCallback(
+    (view: TraceView) => void setParams({ view }, { history: "replace" }),
+    [setParams],
+  );
   const setSpanTab = useCallback(
     (span_tab: SpanTab) => void setParams({ span_tab }, { history: "replace" }),
     [setParams],
@@ -131,11 +166,15 @@ export function useOpenTraceRouting(): OpenTraceRouting {
     [setParams],
   );
   const setFullScreen = useCallback(
-    (fullscreen: boolean) => void setParams({ fullscreen }, { history: "replace" }),
+    (fullscreen: boolean) =>
+      void setParams({ fullscreen }, { history: "replace" }),
     [setParams],
   );
   return {
-    trace: params.trace === null ? null : { traceId: params.trace, traceRef: params.trace_ref ?? undefined },
+    trace:
+      params.trace === null
+        ? null
+        : { traceId: params.trace, traceRef: params.trace_ref ?? undefined },
     openTrace,
     openSignal,
     selection: {
@@ -159,7 +198,9 @@ export function useOpenTraceRouting(): OpenTraceRouting {
 }
 
 /** Same shape as the routed selection, for run views opened inside another surface (a finding's evidence sheet). */
-export function useLocalRunSelection(initialSpanId: string | null): RunSelection {
+export function useLocalRunSelection(
+  initialSpanId: string | null,
+): RunSelection {
   const [spanId, setSpanId] = useState(initialSpanId);
   const [view, setView] = useState<TraceView>("steps");
   const [spanTab, setSpanTab] = useState<SpanTab>("content");
@@ -199,10 +240,12 @@ export function useLocalRunSelection(initialSpanId: string | null): RunSelection
 }
 
 export function useRunFilterRouting() {
-  const [{ q, agent, status, tags }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
+  const [{ q, agent, status, tags }, setParams] =
+    useQueryStates(RUN_FILTER_PARSERS);
   return {
-    tags,
-    setTags: (tags: import("./tags").TraceTag[]) => void setParams({ tags }),
+    tags: mergeTags(tags, q),
+    setTags: (tags: import("./tags").TraceTag[]) =>
+      void setParams({ tags, q: withoutSearchTags(q) }),
     query: q,
     agent,
     status,
