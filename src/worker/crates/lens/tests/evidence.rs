@@ -109,3 +109,137 @@ async fn citations_cannot_join_across_omitted_content(#[case] quote: &str) {
     .unwrap();
     assert!(!workspace.valid(&citation).await.unwrap());
 }
+
+#[rstest]
+#[case::complete(None)]
+#[case::range_before_match(Some(10))]
+#[case::empty_range(Some(0))]
+#[case::page_aligned(Some(8000))]
+#[case::beyond_span(Some(90000))]
+#[tokio::test]
+async fn search_reads_each_matching_span_page_once(#[case] end: Option<u64>) {
+    let original = format!("{}unique late evidence", "x".repeat(39980));
+    let (server, workspace, _) = workspace(Arc::new(Mutex::new(original.clone()))).await;
+    let request: wire::EvidenceRequest = serde_json::from_value(json!({
+        "action":"search", "execution_id":"run-test", "query":"UNIQUE LATE EVIDENCE", "char_end":end,
+    })).unwrap();
+    let reply = workspace.respond(&request).await.unwrap();
+    assert_eq!(
+        reply["parts"][0]["content"],
+        original
+            .chars()
+            .take(end.map_or(usize::MAX, |n| n as usize))
+            .collect::<String>()
+    );
+    assert_eq!(
+        reply["parts"][0]["truncated"],
+        end.is_some_and(|n| n < original.chars().count() as u64)
+    );
+    assert_eq!(server.received_requests().await.unwrap().len(), 5);
+}
+
+#[rstest]
+#[case::unicode_expansion("STRASSE", "Straße", 7998, 16000, true)]
+#[case::unicode_range("STRASSE", "Straße", 8000, 8005, true)]
+#[case::unicode_missing("No such text", "Straße", 0, 20, false)]
+#[case::range_after_match("STRASSE", "Straße", 16000, 17000, true)]
+#[case::beyond_end("STRASSE", "Straße", 30000, 31000, true)]
+#[tokio::test]
+async fn searches_preserve_casefold_and_character_ranges(
+    #[case] query: &str,
+    #[case] needle: &str,
+    #[case] start: usize,
+    #[case] end: usize,
+    #[case] matched: bool,
+) {
+    let original = format!("{}{needle}{}", "é".repeat(7998), "終".repeat(10000));
+    let (_server, workspace, _) = workspace(Arc::new(Mutex::new(original.clone()))).await;
+    let request: wire::EvidenceRequest = serde_json::from_value(
+        json!({"action":"search","query":query,"char_start":start,"char_end":end}),
+    )
+    .unwrap();
+    let response = workspace.respond(&request).await.unwrap();
+    assert_eq!(
+        response["parts"].as_array().unwrap().len(),
+        usize::from(matched)
+    );
+    if matched {
+        assert_eq!(
+            response["parts"][0]["content"],
+            original
+                .chars()
+                .skip(start)
+                .take(end - start)
+                .collect::<String>()
+        );
+        assert_eq!(response["parts"][0]["truncated"], true);
+    }
+}
+
+#[rstest]
+#[case::valid(vec!["alpha", "beta", "gamma", "delta"], true)]
+#[case::missing(vec!["alpha", "no such quote", "gamma"], false)]
+#[case::case_sensitive(vec!["ALPHA", "beta"], false)]
+#[case::empty_list(vec![], true)]
+#[case::omission(vec!["alpha", "startend"], false)]
+#[case::marker(vec!["alpha", "start\n[... content omitted ...]\nend"], false)]
+#[case::cross_page(vec!["alpha beta", "delta"], true)]
+#[tokio::test]
+async fn batched_citations_require_every_exact_quote(
+    #[case] quotes: Vec<&str>,
+    #[case] valid: bool,
+) {
+    let original = format!(
+        "{}alpha beta gamma delta\nstart\n[... content omitted ...]\nend",
+        "é".repeat(7996)
+    );
+    let (_server, workspace, _) = workspace(Arc::new(Mutex::new(original))).await;
+    let evidence: Vec<wire::Evidence> = quotes
+        .into_iter()
+        .map(|quote| {
+            serde_json::from_value(
+                json!({"execution_id":"run-test","span_id":"span-test","quote":quote}),
+            )
+            .unwrap()
+        })
+        .collect();
+    assert_eq!(workspace.valid_all(&evidence).await.unwrap(), valid);
+}
+
+#[rstest]
+#[case::wrong_execution("other", "span-test")]
+#[case::wrong_span("run-test", "other")]
+#[tokio::test]
+async fn batch_does_not_accept_a_quote_from_another_source(
+    #[case] execution_id: &str,
+    #[case] span_id: &str,
+) {
+    let (_server, workspace, _) = workspace(Arc::new(Mutex::new("alpha beta".into()))).await;
+    let evidence: Vec<wire::Evidence> = serde_json::from_value(json!([
+        {"execution_id":"run-test","span_id":"span-test","quote":"alpha"},
+        {"execution_id":execution_id,"span_id":span_id,"quote":"beta"}
+    ]))
+    .unwrap();
+    assert!(!workspace.valid_all(&evidence).await.unwrap());
+}
+
+#[rstest]
+#[tokio::test]
+async fn extraction_checks_all_quotes_in_one_span_pass() {
+    use litellm_lens::agent::Output;
+    let original = format!("{}alpha beta gamma delta", "x".repeat(39970));
+    let (server, workspace, _) = workspace(Arc::new(Mutex::new(original))).await;
+    let claim: wire::Claim = serde_json::from_str(include_str!("fixtures/claim.json")).unwrap();
+    let extraction: wire::Extraction = serde_json::from_value(json!({"observations":[{
+        "check_id":"refund", "kind":"issue", "summary":"Contradictory payment records",
+        "evidence":[
+            {"execution_id":"run-test","span_id":"span-test","quote":"alpha"},
+            {"execution_id":"run-test","span_id":"span-test","quote":"beta"},
+            {"execution_id":"run-test","span_id":"span-test","quote":"gamma"},
+            {"execution_id":"run-test","span_id":"span-test","quote":"delta"}
+        ]
+    }]}))
+    .unwrap();
+    assert_eq!(extraction.validate(&claim, &workspace).await.unwrap(), None);
+    assert_eq!(server.received_requests().await.unwrap().len(), 5);
+}

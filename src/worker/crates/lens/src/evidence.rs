@@ -1,4 +1,4 @@
-use crate::{Error, control::JobClient, wire};
+use crate::{Error, control::JobClient, evidence_match::Matcher, wire};
 use futures_util::{Stream, TryStreamExt, stream};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -203,50 +203,48 @@ impl Workspace {
         )
     }
 
-    async fn contains(&self, source: &Source, needle: &str, literal: bool) -> Result<bool, Error> {
-        if needle.is_empty() {
-            return Ok(!literal);
-        }
-        let needle = if literal {
-            needle.to_owned()
-        } else {
-            needle.case_fold().collect()
-        };
-        let marker = "\n[... content omitted ...]\n";
-        let delay = if literal { marker.len() - 1 } else { 0 };
-        let mut tail = String::new();
+    async fn searched(
+        &self,
+        source: &Source,
+        needle: &str,
+        start: usize,
+        end: Option<usize>,
+    ) -> Result<Option<wire::TracePart>, Error> {
+        let mut matcher = Matcher::new(needle, false);
+        let mut content = String::new();
+        let mut offset = 0;
+        let mut truncated = start > 0;
+        let mut range_done = false;
         let chunks = self.chunks(source, 0);
         futures_util::pin_mut!(chunks);
         while let Some(piece) = chunks.try_next().await? {
-            let text = tail
-                + &if literal {
-                    piece.content
+            matcher.push(&piece.content);
+            let size = piece.content.chars().count();
+            if !range_done {
+                if start <= offset && end.is_none_or(|end| end >= offset + size) {
+                    content.push_str(&piece.content);
                 } else {
-                    piece.content.case_fold().collect()
-                };
-            let segments: Vec<&str> = if literal {
-                text.split(marker).collect()
-            } else {
-                vec![&text]
-            };
-            if segments[..segments.len() - 1]
-                .iter()
-                .any(|s| s.contains(&needle))
-            {
-                return Ok(true);
+                    content.push_str(&character_range(
+                        &piece.content,
+                        start.saturating_sub(offset),
+                        end.map(|end| end.saturating_sub(offset)),
+                    ));
+                }
+                if end.is_some_and(|end| offset + size >= end) {
+                    truncated |= end.is_some_and(|end| offset + size > end) || piece.truncated;
+                    range_done = true;
+                }
             }
-            let last = segments[segments.len() - 1];
-            let count = last.chars().count();
-            if character_range(last, 0, Some(count.saturating_sub(delay))).contains(&needle) {
-                return Ok(true);
+            offset += size;
+            if matcher.matched() && range_done {
+                break;
             }
-            tail = character_range(
-                last,
-                count.saturating_sub(needle.chars().count() - 1 + delay),
-                None,
-            );
         }
-        Ok(tail.contains(&needle))
+        Ok(matcher.finish().then(|| wire::TracePart {
+            content,
+            truncated,
+            ..source.part.clone()
+        }))
     }
 
     async fn ranged(
@@ -279,30 +277,63 @@ impl Workspace {
     }
 
     pub async fn valid(&self, evidence: &wire::Evidence) -> Result<bool, Error> {
-        let Some(execution) = self
-            .executions
-            .iter()
-            .find(|e| e.id == evidence.execution_id)
-        else {
-            return Ok(false);
-        };
-        let selected = [evidence.span_id.clone()];
-        let sources = self.sources(execution, &selected);
-        futures_util::pin_mut!(sources);
-        while let Some(source) = sources.try_next().await? {
-            if self.contains(&source, &evidence.quote, true).await? {
-                if let Ok(mut previews) = self.previews.lock() {
+        self.valid_all(std::slice::from_ref(evidence)).await
+    }
+
+    pub async fn valid_all(&self, evidence: &[wire::Evidence]) -> Result<bool, Error> {
+        for group in
+            evidence.chunk_by(|a, b| a.execution_id == b.execution_id && a.span_id == b.span_id)
+        {
+            let first = &group[0];
+            let Some(execution) = self.executions.iter().find(|e| e.id == first.execution_id)
+            else {
+                return Ok(false);
+            };
+            let selected = [first.span_id.clone()];
+            let sources = self.sources(execution, &selected);
+            futures_util::pin_mut!(sources);
+            let mut matched = vec![false; group.len()];
+            while let Some(source) = sources.try_next().await? {
+                let mut matchers: Vec<_> = group
+                    .iter()
+                    .map(|quote| Matcher::new(&quote.quote, true))
+                    .collect();
+                let chunks = self.chunks(&source, 0);
+                futures_util::pin_mut!(chunks);
+                while let Some(piece) = chunks.try_next().await? {
+                    for matcher in &mut matchers {
+                        matcher.push(&piece.content);
+                    }
+                    if matched
+                        .iter()
+                        .zip(&matchers)
+                        .all(|(prior, matcher)| *prior || matcher.matched())
+                    {
+                        break;
+                    }
+                }
+                for (prior, matcher) in matched.iter_mut().zip(matchers) {
+                    *prior |= matcher.finish();
+                }
+                if matched[0]
+                    && let Ok(mut previews) = self.previews.lock()
+                {
                     let entries = previews.entry(execution.id.clone()).or_default();
                     if entries.len() < 8
                         && !entries.iter().any(|p| p.span_id == source.part.span_id)
                     {
-                        entries.push(serde_json::from_value(json!({"span_id": source.part.span_id, "name": character_range(&source.part.name, 0, Some(120)), "kind": character_range(&source.part.kind, 0, Some(40)), "preview": character_range(&evidence.quote, 0, Some(240)), "cited": true}))?);
+                        entries.push(serde_json::from_value(json!({"span_id": source.part.span_id, "name": character_range(&source.part.name, 0, Some(120)), "kind": character_range(&source.part.kind, 0, Some(40)), "preview": character_range(&first.quote, 0, Some(240)), "cited": true}))?);
                     }
                 }
-                return Ok(true);
+                if matched.iter().all(|matched| *matched) {
+                    break;
+                }
+            }
+            if matched.iter().any(|matched| !matched) {
+                return Ok(false);
             }
         }
-        Ok(false)
+        Ok(true)
     }
 
     pub async fn fingerprint(&self, execution: &wire::Execution) -> Result<String, Error> {
@@ -387,18 +418,27 @@ impl Workspace {
                     spans.push(span);
                     continue;
                 }
-                if request.action == A::Search
-                    && !self.contains(&source, &request.query, false).await?
-                {
-                    continue;
-                }
-                let part = self
-                    .ranged(
+                let part = if request.action == A::Search {
+                    let Some(part) = self
+                        .searched(
+                            &source,
+                            &request.query,
+                            request.char_start as usize,
+                            request.char_end.map(|n| n as usize),
+                        )
+                        .await?
+                    else {
+                        continue;
+                    };
+                    part
+                } else {
+                    self.ranged(
                         &source,
                         request.char_start as usize,
                         request.char_end.map(|n| n as usize),
                     )
-                    .await?;
+                    .await?
+                };
                 parts.push(part);
             }
             if request.action == A::Catalog {

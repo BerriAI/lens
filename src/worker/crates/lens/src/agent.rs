@@ -61,13 +61,11 @@ async fn evidence(
     if !quotes.iter().any(|q| q.role == wire::EvidenceRole::Support) {
         return Ok(Some("Each finding or observation needs at least one supporting quote from original evidence".into()));
     }
-    for quote in quotes {
-        match workspace.valid(quote).await {
+    match workspace.valid_all(quotes).await {
             Ok(true) => {},
             Ok(false) => return Ok(Some("Every evidence quote must exactly match the cited execution and span in the original recording".into())),
             Err(error) => return Ok(Some(format!("Could not verify a citation: {error}. Inspect other evidence and revise the citation."))),
         }
-    }
     Ok(None)
 }
 
