@@ -34,8 +34,8 @@ fn compare(path: &str, actual: &Value, expected: &Value) {
         (Value::Object(left), Value::Object(right)) => {
             if path != "/definitions" {
                 assert_eq!(
-                    left.keys().collect::<Vec<_>>(),
-                    right.keys().collect::<Vec<_>>(),
+                    left.keys().collect::<std::collections::BTreeSet<_>>(),
+                    right.keys().collect::<std::collections::BTreeSet<_>>(),
                     "{path}"
                 );
             }

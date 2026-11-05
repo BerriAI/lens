@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { mockAllIsIntersecting, setupIntersectionMocking } from "react-intersection-observer/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "../../../../tests/test-utils";
+import { chooseSelectOption, testQueryClient } from "../../../../tests/test-utils";
 import { renderWithLens as renderWithProviders, stubGateway } from "../../../../tests/lens-test-utils";
 import { MonitoringDialog } from "./MonitoringDialog";
 import { InvestigationSetup } from "./InvestigationSetup";
@@ -72,7 +72,7 @@ describe("Investigation setup", () => {
       return { eligible: body.selection.profile === category ? 1 : 11, selected: 1, executions: [] };
     });
     renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Profile" }), await screen.findByRole("option", { name: category }));
+    await chooseSelectOption(user, screen.getByRole("combobox", { name: "Profile" }), category);
     expect(await screen.findByText("1 matching run")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));

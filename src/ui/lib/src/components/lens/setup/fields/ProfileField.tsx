@@ -6,6 +6,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { useProfilesApi } from "../../data/LensServices";
 import type { InvestigationInput } from "../investigationSchema";
 import { useDebouncedValue } from "../useDebouncedValue";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 
 export function ProfileField() {
   const api = useProfilesApi();
@@ -27,6 +28,10 @@ export function ProfileField() {
       ...(selection.profile ? [selection.profile] : []),
     ]),
   ];
+  const items = [
+    { value: "", label: "All profiles" },
+    ...categories.map((category) => ({ value: category, label: category })),
+  ];
   if (selection.source === "requests") return null;
   return (
     <label className="grid gap-2 text-sm font-medium">
@@ -35,19 +40,22 @@ export function ProfileField() {
         control={control}
         name="selection.profile"
         render={({ field }) => (
-          <select
-            aria-label="Profile"
+          <Select
+            items={items}
             value={field.value ?? ""}
-            onChange={(event) => field.onChange(event.target.value || null)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            onValueChange={(value: string | null) => field.onChange(value || null)}
           >
-            <option value="">All profiles</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Profile" className="w-full bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       />
       <span className="text-xs font-normal text-muted-foreground">

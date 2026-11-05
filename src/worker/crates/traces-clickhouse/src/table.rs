@@ -9,4 +9,5 @@ pub enum TraceTable {
     OtelTraces,
     AgentTracesByKey,
     SpendLogs,
+    LensTaskProfiles,
 }

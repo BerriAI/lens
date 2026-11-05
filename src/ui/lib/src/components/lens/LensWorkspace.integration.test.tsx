@@ -982,7 +982,7 @@ it("opens a usage profile for the selected agent from workspace navigation", asy
   await user.click(screen.getByRole("tab", { name: "Profiles" }));
   expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
   expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
-  expect(screen.getByRole("combobox", { name: "Profile agent" })).toHaveValue("support_agent");
+  expect(screen.getByRole("combobox", { name: "Profile agent" })).toHaveTextContent("support_agent");
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));
   expect(network).not.toHaveBeenCalled();
 });
@@ -1002,7 +1002,7 @@ it("carries a pie chart profile into the real investigation setup and matching p
   await user.click(await screen.findByRole("button", { name: /^Coding/ }));
   await user.click(screen.getByRole("button", { name: "Investigate profile" }));
   expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
-  expect(screen.getByRole("combobox", { name: "Profile" })).toHaveValue("Coding");
+  expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Coding");
   expect(screen.getByRole("combobox", { name: "Agent (optional)" })).toHaveValue("assistant");
   expect(screen.getByRole("spinbutton", { name: "Review the last" })).toHaveValue(7);
   expect(await screen.findByText("10 matching runs")).toBeVisible();

@@ -257,3 +257,111 @@ async fn imported_finding_sources_must_belong_to_the_selected_profile(
     assert_eq!(!found.is_empty(), expected);
     Ok(())
 }
+
+#[rstest]
+#[tokio::test]
+async fn inferred_profiles_filter_runs_without_overriding_recorded_labels_or_other_keys(
+    #[future(awt)] profiled_database: TestResult<SeededDatabase>,
+    #[values(0, 1)] preview: u8,
+) -> TestResult {
+    let fixture = profiled_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let body = concat!(
+        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"key\",\"TraceId\":\"unclassified\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}\n",
+        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"key\",\"TraceId\":\"coding\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}\n",
+        "{\"TeamId\":\"team\",\"ApiKeyHash\":\"other-key\",\"TraceId\":\"workflows\",\"Category\":\"Inferred coding\",\"StartTs\":\"2026-09-21 00:00:00\",\"ComputedAt\":1,\"ResolutionVersion\":1}"
+    );
+    litellm_storage_clickhouse::insert_encoded_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        "lens_task_profiles",
+        "inferred-profile-fixture",
+        body,
+    )
+    .await?;
+    let rows = fetch::<LensSample>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &parameters("Inferred coding", preview),
+    )
+    .await?;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].trace_id, "unclassified");
+    let found = fetch::<LensFindingSource>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &LensFindingSourceParams {
+            profile: "Inferred coding".into(),
+            access: access(),
+            trace_id: "unclassified".into(),
+            trace_ref: rows[0].trace_ref.clone(),
+            agent_name: "assistant".into(),
+            selected_team: String::new(),
+            service: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
+        },
+    )
+    .await?;
+    assert_eq!(found.len(), 1);
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn background_projection_caches_recorded_profiles_without_loading_a_model(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    insert_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![row(
+            "recorded",
+            "root",
+            "",
+            0,
+            json!({}),
+            json!({"task_category":"Workflow diagrams"}),
+            ("team", "key"),
+        )],
+    )
+    .await?;
+    let cache = std::env::temp_dir().join(format!(
+        "lens-profile-no-model-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+    ));
+    let mut classifier = lens_profiles::Classifier::new(cache.clone());
+    assert!(
+        litellm_traces_clickhouse::profiles::project(
+            &fixture.database.client,
+            &config,
+            &mut classifier,
+        )
+        .await?
+    );
+    assert!(
+        !litellm_traces_clickhouse::profiles::project(
+            &fixture.database.client,
+            &config,
+            &mut classifier,
+        )
+        .await?
+    );
+    assert!(!cache.exists());
+    let rows = fetch::<LensSample>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &parameters("Workflow diagrams", 1),
+    )
+    .await?;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].trace_id, "recorded");
+    Ok(())
+}

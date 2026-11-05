@@ -2,9 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, CircleAlert, RefreshCw } from "lucide-react";
+import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { parseAsString, useQueryState } from "nuqs";
 import { Button } from "../../ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import { LoadingState } from "../../shared/LoadingState";
+import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
 import { timeWindow } from "../../shared/timeRange/timeRange";
 import { useRelativeRange } from "../../shared/timeRange/useRelativeRange";
@@ -16,7 +20,7 @@ import { LensPageHeader } from "../ui/LensPageHeader";
 import { useProfileRoute } from "../route";
 import { summarizeUsage, type UsageCategory } from "./usageProfile";
 
-const COLORS = ["#6366f1", "#0ea5e9", "#14b8a6", "#f59e0b", "#8b5cf6"];
+const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 const percent = (count: number, total: number) =>
   `${((count / total) * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
 
@@ -32,30 +36,48 @@ function UsageGraph({
   onSelect: (category: string) => void;
 }) {
   const color = (category: UsageCategory, index: number) =>
-    category.category === "Unclassified" ? "#94a3b8" : COLORS[index % COLORS.length];
-  const gradient = categories
-    .map((category, index) => {
-      const start = (categories.slice(0, index).reduce((sum, entry) => sum + entry.runs, 0) / total) * 100;
-      return `${color(category, index)} ${start}% ${start + (category.runs / total) * 100}%`;
-    })
-    .join(", ");
+    category.category === "Unclassified" ? "var(--muted-foreground)" : COLORS[index % COLORS.length];
+  const data = categories.map((category, index) => ({ ...category, fill: color(category, index) }));
   return (
     <figure aria-label="Agent usage by task category" className="space-y-7">
       <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <div
           role="img"
           aria-label={`Usage pie chart: ${categories.map((category) => `${category.category} ${percent(category.runs, total)}`).join(", ")}`}
-          className="mx-auto aspect-square w-full max-w-72 rounded-full shadow-sm"
-          style={{ background: `conic-gradient(${gradient})` }}
-        />
+          className="mx-auto h-72 w-full max-w-72"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart accessibilityLayer={false}>
+              <Pie
+                data={data}
+                dataKey="runs"
+                nameKey="category"
+                outerRadius="90%"
+                stroke="var(--card)"
+                strokeWidth={2}
+                isAnimationActive={false}
+                onClick={(_, index) => onSelect(categories[index].category)}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--popover)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
         <div className="space-y-2">
           {categories.map((category, index) => (
-            <button
+            <Button
               key={category.category}
               type="button"
               onClick={() => onSelect(category.category)}
               aria-pressed={selected === category.category}
-              className="flex w-full items-center justify-between gap-4 rounded-lg border border-transparent px-3 py-3 text-left text-sm hover:bg-muted/60 aria-pressed:border-primary/25 aria-pressed:bg-muted/60"
+              variant="ghost"
+              className="h-auto w-full justify-between gap-4 px-3 py-3 text-left font-normal aria-pressed:border-primary/25 aria-pressed:bg-muted/60"
             >
               <span className="flex min-w-0 items-center gap-2.5 font-medium">
                 <span
@@ -78,13 +100,13 @@ function UsageGraph({
                 aria-valuetext={`${category.runs} of ${total} runs, ${percent(category.runs, total)}`}
                 className="sr-only"
               />
-            </button>
+            </Button>
           ))}
         </div>
       </div>
       <figcaption className="border-t pt-4 text-xs leading-5 text-muted-foreground">
-        Each run is counted once across the full time range. Categories come from recorded task_category or
-        scenario metadata. Runs without either are Unclassified.
+        Each run is counted once. Lens groups similar tasks in the background. Your recorded categories take
+        precedence. Runs awaiting grouping appear as Unclassified. Automatic grouping currently supports English.
       </figcaption>
     </figure>
   );
@@ -116,6 +138,13 @@ export function ProfilesView({
     staleTime: 30_000,
   });
   const summary = summarizeUsage(query.data ?? []);
+  const agentOptions = [
+    { value: "", label: "All agents" },
+    ...(!agent || agents.list.agents.some((item) => item.name === agent)
+      ? []
+      : [{ value: agent, label: agent }]),
+    ...agents.list.agents.map((item) => ({ value: item.name, label: item.name })),
+  ];
   return (
     <section aria-label="Usage profiles" className="flex min-h-0 flex-1 flex-col">
       <LensPageHeader
@@ -149,41 +178,45 @@ export function ProfilesView({
       <div className="lens-page-body flex flex-col gap-6">
         <label className="grid max-w-sm gap-2 text-sm font-medium">
           Agent
-          <select
-            aria-label="Profile agent"
+          <Select
+            items={agentOptions}
             value={agent}
-            onChange={(event) => void setAgent(event.target.value)}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            onValueChange={(next: string | null) => next !== null && void setAgent(next)}
           >
-            <option value="">All agents</option>
-            {agent && !agents.list.agents.some((item) => item.name === agent) && (
-              <option value={agent}>{agent}</option>
-            )}
-            {agents.list.agents.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Profile agent" className="w-full bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {agentOptions.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         {query.isPending && (
-          <p role="status" className="py-12 text-center text-sm text-muted-foreground">
-            Loading usage profiles…
-          </p>
+          <LoadingState
+            title="Loading usage profiles…"
+            description="Fetching task categories for the selected agent and time range."
+          />
         )}
         {query.error && (
-          <div role="alert" className="rounded-xl border p-6 text-sm text-destructive">
-            Could not load usage profiles. {query.error.message}
-          </div>
+          <StateMessage
+            role="alert"
+            tone="destructive"
+            icon={<CircleAlert className="size-5" />}
+            title="Could not load usage profiles"
+            description={query.error.message}
+          />
         )}
         {!query.isPending && !query.error && summary.total === 0 && (
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-16 text-center">
-            <ChartNoAxesColumn aria-hidden="true" className="size-8 text-muted-foreground" />
-            <h3 className="font-medium">No runs in this time range</h3>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Choose another agent or a wider time range to see its task breakdown.
-            </p>
-          </div>
+          <StateMessage
+            role="status"
+            icon={<ChartNoAxesColumn className="size-5" />}
+            title="No runs in this time range"
+            description="Choose another agent or a wider time range to see its task breakdown."
+          />
         )}
         {!query.error && summary.total > 0 && (
           <div className="max-w-4xl rounded-xl border bg-card p-5 md:p-8">
@@ -211,15 +244,15 @@ export function ProfilesView({
             {canInvestigate && (
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
                 <p className="text-sm text-muted-foreground">
-                {zoom
-                  ? "Choose a relative time range to investigate this profile. Investigations review recent runs."
-                  : profile.profile
-                    ? `Review ${profile.profile} runs with Lens`
-                    : "Choose a task category to investigate its runs"}
+                  {zoom
+                    ? "Choose a relative time range to investigate this profile. Investigations review recent runs."
+                    : profile.profile
+                      ? `Review ${profile.profile} runs with Lens`
+                      : "Choose a task category to investigate its runs"}
                 </p>
                 <Button
                   disabled={
-                  !!zoom ||
+                    !!zoom ||
                     !profile.profile ||
                     !summary.categories.some((category) => category.category === profile.profile)
                   }
@@ -233,7 +266,7 @@ export function ProfilesView({
             )}
             {summary.classified === 0 && (
               <p className="mt-4 text-sm text-muted-foreground">
-                Record task_category or scenario on your traces to see Coding, Workflows, or your own task
+                Lens groups tasks automatically as runs arrive. You can also record your own task
                 categories here.
               </p>
             )}

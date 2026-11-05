@@ -196,12 +196,16 @@ impl QueryReaders {
 
 fn predicate(scope: &QueryScope, table: TraceTable) -> String {
     let team = match table {
-        TraceTable::OtelTraces | TraceTable::AgentTracesByKey => "TeamId",
+        TraceTable::OtelTraces | TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
+            "TeamId"
+        }
         TraceTable::SpendLogs => "team_id",
     };
     scoped(scope, team, |owner| match table {
         TraceTable::OtelTraces => format!("UserId = {owner}"),
-        TraceTable::AgentTracesByKey => format!("UserIds = [{owner}]"),
+        TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
+            format!("UserIds = [{owner}]")
+        }
         TraceTable::SpendLogs => format!("user = {owner}"),
     })
 }
@@ -234,9 +238,11 @@ fn scoped(scope: &QueryScope, team: &str, user_clause: impl Fn(&str) -> String) 
 fn eval_exclusion(database: &str, table: TraceTable) -> String {
     let source = format!("`{database}`.{EVAL_TRACES}");
     match table {
-        TraceTable::OtelTraces | TraceTable::AgentTracesByKey => format!(
-            "(TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM {source})"
-        ),
+        TraceTable::OtelTraces | TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
+            format!(
+                "(TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM {source})"
+            )
+        }
         TraceTable::SpendLogs => format!(
             "(team_id, api_key, response_id) NOT IN \
              (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds) FROM {source})"
@@ -264,6 +270,7 @@ mod tests {
     #[rstest]
     #[case::otel(TraceTable::OtelTraces, "TeamId", "UserId = ''")]
     #[case::agent(TraceTable::AgentTracesByKey, "TeamId", "UserIds = ['']")]
+    #[case::profiles(TraceTable::LensTaskProfiles, "TeamId", "UserIds = ['']")]
     #[case::spend(TraceTable::SpendLogs, "team_id", "user = ''")]
     fn predicates_preserve_scope_and_escape_values(
         #[case] table: TraceTable,

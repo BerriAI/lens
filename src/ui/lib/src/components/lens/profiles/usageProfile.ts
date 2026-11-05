@@ -5,12 +5,16 @@ export const USAGE_CATEGORY_KEYS = ["task_category", "scenario"] as const;
 
 const categorySchema = z.object({
   category: z.string(),
-  runs: z.union([z.number(), z.string().regex(/^\d+$/)]).transform(Number).pipe(z.number().int().nonnegative()),
+  runs: z
+    .union([z.number(), z.string().regex(/^\d+$/)])
+    .transform(Number)
+    .pipe(z.number().int().nonnegative()),
 });
 export const usageProfileSchema = z.object({ data: z.array(categorySchema) });
 export type UsageCategory = z.infer<typeof categorySchema>;
 
-const sqlString = (value: string): string => `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+const sqlString = (value: string): string =>
+  `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 
 export function usageProfileSql(window: TimeWindow, agent: string): string {
   const recorded = USAGE_CATEGORY_KEYS.flatMap((key) => [
@@ -35,21 +39,34 @@ export function usageProfileSql(window: TimeWindow, agent: string): string {
   FROM recorded
   GROUP BY TeamId, ApiKeyHash, TraceId
 )
-SELECT if(categories.task_category = '', 'Unclassified', categories.task_category) AS category, count() AS runs
+SELECT coalesce(nullIf(categories.task_category, ''), nullIf(inferred.Category, ''), 'Unclassified') AS category, count() AS runs
 FROM runs LEFT JOIN categories USING (TeamId, ApiKeyHash, TraceId)
+LEFT JOIN (
+  SELECT TeamId, ApiKeyHash, TraceId, argMax(Category, ComputedAt) AS Category
+  FROM lens_task_profiles
+  WHERE ResolutionVersion = 1
+    AND (TeamId, ApiKeyHash, TraceId) IN (SELECT TeamId, ApiKeyHash, TraceId FROM runs)
+  GROUP BY TeamId, ApiKeyHash, TraceId
+) AS inferred USING (TeamId, ApiKeyHash, TraceId)
 WHERE ${sqlString(agent)} = '' OR has(categories.agents, ${sqlString(agent)})
 GROUP BY category
 ORDER BY runs DESC, category`;
 }
 
-export function usageCategory(attributes: Readonly<Record<string, string>>): string | null {
-  return USAGE_CATEGORY_KEYS.map((key) => attributes[key]?.trim()).find(Boolean) ?? null;
+export function usageCategory(
+  attributes: Readonly<Record<string, string>>,
+): string | null {
+  return (
+    USAGE_CATEGORY_KEYS.map((key) => attributes[key]?.trim()).find(Boolean) ??
+    null
+  );
 }
 
 export function summarizeUsage(categories: readonly UsageCategory[]) {
   const total = categories.reduce((sum, category) => sum + category.runs, 0);
   const classified = categories.reduce(
-    (sum, category) => sum + (category.category === "Unclassified" ? 0 : category.runs),
+    (sum, category) =>
+      sum + (category.category === "Unclassified" ? 0 : category.runs),
     0,
   );
   return {

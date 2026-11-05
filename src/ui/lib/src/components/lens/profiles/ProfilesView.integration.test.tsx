@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
-import { testQueryClient } from "../../../../tests/test-utils";
+import { chooseSelectOption, testQueryClient } from "../../../../tests/test-utils";
 import type { LensAgents } from "../agents/AgentScoped";
 import { ProfilesView } from "./ProfilesView";
 
@@ -18,10 +18,40 @@ const agents: LensAgents = {
   },
 };
 
-beforeEach(() => testQueryClient.clear());
-afterEach(() => vi.restoreAllMocks());
+beforeEach(() => {
+  testQueryClient.clear();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        if (!target.closest('[aria-label="Agent usage by task category"]')) return;
+        const size = [{ inlineSize: 288, blockSize: 288 }];
+        this.callback(
+          [
+            {
+              target,
+              contentRect: new DOMRect(0, 0, 288, 288),
+              borderBoxSize: size,
+              contentBoxSize: size,
+              devicePixelContentBoxSize: size,
+            },
+          ],
+          this,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 it("shows full aggregate counts and shares, including unclassified, through the live query client", async () => {
+  const user = userEvent.setup();
   const proxy = stubGateway();
   proxy.post.mockResolvedValue({
     data: [
@@ -48,7 +78,11 @@ it("shows full aggregate counts and shares, including unclassified, through the 
     "aria-valuetext",
     "1 of 20 runs, 5%",
   );
-  expect(screen.getByRole("img", { name: /Usage pie chart/ })).toBeVisible();
+  const chart = screen.getByRole("img", { name: /Usage pie chart/ });
+  expect(chart).toBeVisible();
+  await waitFor(() => expect(chart.querySelectorAll(".recharts-pie-sector path")).toHaveLength(4));
+  fireEvent.click(chart.querySelectorAll(".recharts-pie-sector path")[1]);
+  expect(screen.getByRole("button", { name: /^Workflows/ })).toHaveAttribute("aria-pressed", "true");
   expect(proxy.post).toHaveBeenCalledWith(
     "/v1/traces/query",
     expect.objectContaining({
@@ -56,7 +90,7 @@ it("shows full aggregate counts and shares, including unclassified, through the 
     }),
   );
 
-  fireEvent.change(screen.getByRole("combobox", { name: "Profile agent" }), { target: { value: "" } });
+  await chooseSelectOption(user, screen.getByRole("combobox", { name: "Profile agent" }), "All agents");
   await waitFor(() => expect(onUrlUpdate).toHaveBeenCalled());
   await waitFor(() => expect(proxy.post).toHaveBeenCalledTimes(2));
 });
@@ -82,7 +116,7 @@ it("shows an empty state when the selected range has no runs", async () => {
   const proxy = stubGateway();
   proxy.post.mockResolvedValue({ data: [] });
   renderWithLens(<ProfilesView agents={agents} />);
-  expect(await screen.findByRole("heading", { name: "No runs in this time range" })).toBeVisible();
+  expect(await screen.findByText("No runs in this time range")).toBeVisible();
   expect(screen.queryByRole("figure")).not.toBeInTheDocument();
 });
 
@@ -99,7 +133,7 @@ it("lets a failed aggregate be retried without displaying fabricated counts", as
     "aria-valuetext",
     "2 of 2 runs, 100%",
   );
-  expect(screen.getByText(/Record task_category or scenario/)).toBeVisible();
+  expect(screen.getByText(/Lens groups tasks automatically as runs arrive/)).toBeVisible();
 });
 
 it("advances the full range on refresh and hides old counts if the refreshed query fails", async () => {

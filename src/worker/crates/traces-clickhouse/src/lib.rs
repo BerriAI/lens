@@ -15,6 +15,7 @@ mod cost_rows;
 pub mod datasets;
 mod error;
 mod insert;
+pub mod profiles;
 pub mod query;
 mod query_access;
 mod reads;

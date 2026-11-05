@@ -33,6 +33,8 @@ pub enum Error {
     #[error("trace ingestion task failed")]
     Task,
     #[error(transparent)]
+    Profiles(#[from] lens_profiles::Error),
+    #[error(transparent)]
     Storage(#[from] litellm_storage_clickhouse::Error),
     #[error(transparent)]
     Migration(#[from] sqlx::migrate::MigrateError),
