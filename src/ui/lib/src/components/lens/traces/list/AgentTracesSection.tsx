@@ -2,7 +2,7 @@
 
 import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
+import { ChartNoAxesColumn, ChartPie, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
 import { traceAgentNames } from "../utils";
 import { useId, useMemo, useState } from "react";
 
@@ -31,6 +31,7 @@ import { useTracesLive } from "../api";
 import { type AgentTracesResult, useAgentTraces, useTraceAvailability } from "./useAgentTraces";
 import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
 import styles from "../TraceAppearance.module.css";
+import { useLensRoute } from "../../route";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
 
@@ -106,6 +107,7 @@ export function AgentTracesSection({
   onConnectAgent,
 }: AgentTracesSectionProps) {
   const live = useTracesLive();
+  const route = useLensRoute();
   const {
     trace: openTrace,
     openTrace: openRun,
@@ -235,6 +237,14 @@ export function AgentTracesSection({
           range={zoom ?? window}
           busy={traces.isPlaceholder}
         >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-none border-l px-3 text-xs"
+            onClick={() => route.setTab("profiles")}
+          >
+            <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
+          </Button>
           <TracingSetupAction
             available={traces.traces.length > 0}
             live={live}

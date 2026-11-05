@@ -972,18 +972,25 @@ describe("Lens agent selector", () => {
   });
 });
 
-it("opens a usage profile for the selected agent from workspace navigation", async () => {
+it("discovers profiles from Traces and keeps the selected agent and time range in both directions", async () => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-    searchParams: "?demo=true&agent=support_agent&tab=traces",
+    searchParams: "?demo=true&agent=support_agent&tab=traces&hours=168",
     onUrlUpdate,
   });
-  await user.click(screen.getByRole("tab", { name: "Profiles" }));
+  await user.click(await screen.findByRole("button", { name: "Task profiles" }));
   expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
   expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
-  expect(screen.getByRole("combobox", { name: "Profile agent" })).toHaveTextContent("support_agent");
+  expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("support_agent"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("hours")).toBe("168"));
+  await user.click(screen.getByRole("button", { name: "View traces" }));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("traces"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("support_agent"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("hours")).toBe("168"));
   expect(network).not.toHaveBeenCalled();
 });
 

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
-import { chooseSelectOption, testQueryClient } from "../../../../tests/test-utils";
+import { testQueryClient } from "../../../../tests/test-utils";
 import type { LensAgents } from "../agents/AgentScoped";
 import { ProfilesView } from "./ProfilesView";
 
@@ -50,8 +50,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("waits for the navigation agent instead of querying all agents", async () => {
+  const proxy = stubGateway();
+  renderWithLens(<ProfilesView agents={{ ...agents, agent: null }} />);
+  expect(await screen.findByText("Select an agent to explore its tasks")).toBeVisible();
+  expect(proxy.post).not.toHaveBeenCalled();
+});
+
 it("shows full aggregate counts and shares, including unclassified, through the live query client", async () => {
-  const user = userEvent.setup();
   const proxy = stubGateway();
   proxy.post.mockResolvedValue({
     data: [
@@ -90,9 +96,7 @@ it("shows full aggregate counts and shares, including unclassified, through the 
     }),
   );
 
-  await chooseSelectOption(user, screen.getByRole("combobox", { name: "Profile agent" }), "All agents");
-  await waitFor(() => expect(onUrlUpdate).toHaveBeenCalled());
-  await waitFor(() => expect(proxy.post).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
 });
 
 it.each(["Coding", "Unclassified"])("opens investigation setup with the selected %s profile, agent and lookback", async (category) => {

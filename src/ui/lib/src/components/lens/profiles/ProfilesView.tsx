@@ -2,11 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, CircleAlert, RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, CircleAlert, List, RefreshCw } from "lucide-react";
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { parseAsString, useQueryState } from "nuqs";
 import { Button } from "../../ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { LoadingState } from "../../shared/LoadingState";
 import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
@@ -17,7 +15,7 @@ import type { LensAgents } from "../agents/AgentScoped";
 import { useProfilesApi } from "../data/LensServices";
 import { useTracesLive } from "../traces/api";
 import { LensPageHeader } from "../ui/LensPageHeader";
-import { useProfileRoute } from "../route";
+import { useLensRoute, useProfileRoute } from "../route";
 import { summarizeUsage, type UsageCategory } from "./usageProfile";
 
 const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
@@ -125,7 +123,8 @@ export function ProfilesView({
   const [refreshAt, setRefreshAt] = useState(Date.now);
   const [zoom, setZoom] = useZoomRouting();
   const profile = useProfileRoute();
-  const [agent, setAgent] = useQueryState("agent", parseAsString.withDefault(""));
+  const agent = agents.agent ?? "";
+  const route = useLensRoute();
   const anchorMs = Math.max(time.range.anchorMs ?? 0, refreshAt);
   const relativeWindow = useMemo(
     () => timeWindow({ hours: time.range.hours, anchorMs }, anchorMs),
@@ -135,16 +134,10 @@ export function ProfilesView({
   const query = useQuery({
     queryKey: ["lens", "usage-profile", api.scope, window, agent],
     queryFn: ({ signal }) => api.usage(window, agent, signal),
+    enabled: !!agent,
     staleTime: 30_000,
   });
   const summary = summarizeUsage(query.data ?? []);
-  const agentOptions = [
-    { value: "", label: "All agents" },
-    ...(!agent || agents.list.agents.some((item) => item.name === agent)
-      ? []
-      : [{ value: agent, label: agent }]),
-    ...agents.list.agents.map((item) => ({ value: item.name, label: item.name })),
-  ];
   return (
     <section aria-label="Usage profiles" className="flex min-h-0 flex-1 flex-col">
       <LensPageHeader
@@ -153,6 +146,9 @@ export function ProfilesView({
         description="Understand the different tasks your agents are used for"
         actions={
           <>
+            <Button variant="outline" size="sm" onClick={() => route.setTab("traces")}>
+              <List className="size-3.5" aria-hidden="true" /> View traces
+            </Button>
             <TimeRangeControls
               range={{ ...time.range, anchorMs }}
               zoom={zoom}
@@ -176,29 +172,18 @@ export function ProfilesView({
         }
       />
       <div className="lens-page-body flex flex-col gap-6">
-        <label className="grid max-w-sm gap-2 text-sm font-medium">
-          Agent
-          <Select
-            items={agentOptions}
-            value={agent}
-            onValueChange={(next: string | null) => next !== null && void setAgent(next)}
-          >
-            <SelectTrigger aria-label="Profile agent" className="w-full bg-background">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {agentOptions.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        {query.isPending && (
+        {((!!agent && query.isPending) || agents.list.isLoading) && (
           <LoadingState
             title="Loading usage profiles…"
             description="Fetching task categories for the selected agent and time range."
+          />
+        )}
+        {!agent && !agents.list.isLoading && (
+          <StateMessage
+            role="status"
+            icon={<ChartNoAxesColumn className="size-5" />}
+            title="Select an agent to explore its tasks"
+            description="Choose an agent from the navigation to see its task breakdown."
           />
         )}
         {query.error && (
