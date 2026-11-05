@@ -222,7 +222,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(_) => return Err("Set BENCH_PROVIDER explicitly before a paid run".into()),
             _ => panic!("BENCH_PROVIDER must be anthropic, openai or openai_compatible"),
         };
-        let key = std::env::var("BENCH_API_KEY").or_else(|_| std::env::var("ANTHROPIC_API_KEY"))?;
+        let key = std::env::var("BENCH_API_KEY")
+            .map_err(|_| "Set BENCH_API_KEY explicitly before a paid run")?;
         Some(AnalysisModels::new(
             lens_analysis::bundled_catalog()?,
             vec![Deployment {

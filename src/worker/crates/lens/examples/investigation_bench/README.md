@@ -42,7 +42,7 @@ The investigation context includes a fixed tool-use example for sessions with em
 
 Run the binary inside the approved environment. Set `BENCH_PROVIDER=openai_compatible`, `BENCH_API_BASE`, `BENCH_API_KEY` and `--model` to the approved deployment. Custom deployments also need `BENCH_INPUT_RATE` and `BENCH_OUTPUT_RATE` in dollars per token when the model has no catalog pricing. Rates of zero mean no inference billing is recorded, not that GPU compute is free. Never copy customer traces, credentials or result tapes off-prem
 
-Live mode otherwise uses `ANTHROPIC_API_KEY` or `BENCH_API_KEY`. Credentials remain in environment variables and are never included in tapes/reports. Tapes contain complete synthetic prompts and model outputs and should be treated as sensitive if this harness is adapted to approved sanitized data
+Paid modes require `BENCH_API_KEY` and never fall back to ambient provider credentials. Credentials remain in environment variables and are never included in tapes/reports. Tapes contain complete synthetic prompts and model outputs and should be treated as sensitive if this harness is adapted to approved sanitized data
 
 Paid modes require an explicit `BENCH_PROVIDER`. Set it to `anthropic` for the example commands above, or choose the provider matching the approved credential. For an OpenAI-compatible endpoint, also set `BENCH_API_BASE` explicitly. `BENCH_BASE_URL` is not a supported option. The runtime image supplies neither a provider nor a key, so it cannot silently choose a credential destination
 
