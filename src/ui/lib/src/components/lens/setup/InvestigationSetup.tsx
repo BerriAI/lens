@@ -1,6 +1,5 @@
 "use client";
 
-import { useRangeHoursRouting } from "../../shared/timeRange/routing";
 import { useRunFilterRouting } from "../traces/routing";
 import { FormProvider, useWatch, type UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
@@ -32,6 +31,7 @@ import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import type { Execution } from "./useMatchingActivity";
 import { durationLabel } from "../model/format";
 import { type Settings } from "../model/types";
+import { useProfileRoute } from "../route";
 
 type SetupMode = "new" | "edit" | "duplicate";
 
@@ -49,7 +49,7 @@ function saveLabelFor(mode: SetupMode, repeat: boolean): string {
 function activitySummary(selection: InvestigationInput["selection"]): string {
   const who = selection.agent_name || selection.service || "All activity";
   const conditions = selection.filters.length ? ` · ${selection.filters.length} conditions` : "";
-  return `${who} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
+  return `${who}${selection.profile ? ` · ${selection.profile}` : ""} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
 }
 
 function criteriaSummary(values: Pick<InvestigationInput, "context" | "watching" | "questions">): string {
@@ -71,13 +71,21 @@ interface SetupProps {
 /** Replaces the Investigations tab body: a three-step setup on the left, the activity it matches on the right. */
 export function InvestigationSetup(props: SetupProps) {
   const { initial, mode, defaultSource = "traces" } = props;
-  const { tags, agent } = useRunFilterRouting();
-  const [hours] = useRangeHoursRouting();
+  const { tags } = useRunFilterRouting();
+  const profile = useProfileRoute();
   const defaults = investigationDefaults(initial, mode, defaultSource);
   const form = useZodForm(investigationSchema, {
-    defaultValues: mode === "new" && tags.length
-      ? { ...defaults, selection: { ...defaults.selection, source: "traces", filters: tags, agent_name: agent, lookback_hours: hours } }
-      : defaults,
+    defaultValues: mode === "new" && (profile.profile || tags.length > 0) ? {
+      ...defaults,
+      selection: {
+        ...defaults.selection,
+        source: "traces",
+        filters: tags,
+        profile: profile.profile,
+        agent_name: profile.agent,
+        lookback_hours: profile.hours,
+      },
+    } : defaults,
     mode: "onChange",
   });
   return (
@@ -114,6 +122,7 @@ function SetupEditor({
           "selection.source",
           "selection.service",
           "selection.agent_name",
+          "selection.profile",
           "selection.filters",
           "selection.lookback_hours",
           "selection.team_id",

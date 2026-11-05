@@ -18,6 +18,7 @@ pub mod local;
 pub mod local_credentials;
 pub mod model;
 pub mod pipeline;
+pub mod profiles;
 pub mod sandbox;
 pub mod setup;
 pub mod signals;

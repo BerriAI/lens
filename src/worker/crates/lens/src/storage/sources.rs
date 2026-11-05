@@ -150,6 +150,11 @@ impl SourceReader {
         for source in sources {
             let rows = self
                 .read::<LensFindingSource>(&LensFindingSourceParams {
+                    profile: lens
+                        .settings
+                        .profile
+                        .as_ref()
+                        .map_or_else(String::new, |profile| profile.as_str().to_owned()),
                     access: access(&lens.scope),
                     trace_id: source.trace_id.clone(),
                     trace_ref: source.trace_ref.clone(),
@@ -238,6 +243,10 @@ fn sample_parameters(
 ) -> Result<LensSampleParams, Error> {
     let settings = request.selection;
     Ok(LensSampleParams {
+        profile: settings
+            .profile
+            .as_ref()
+            .map_or_else(String::new, |profile| profile.as_str().to_owned()),
         access: access(scope),
         source: match settings.source {
             LensSettingsSource::Traces => lens::ExecutionSource::Traces,
@@ -470,7 +479,7 @@ mod tests {
             trace_ref: "ref".into(),
         }
         .encode();
-        let selection:ActivitySelection=serde_json::from_value(json!({"source":"both","service":"service","agent_name":"agent","filters":[{"key":"version","value":"v1"}],"sample_size":5,"sample_percent":25,"team_id":"selected-team","execution_ids":[execution]})).unwrap();
+        let selection:ActivitySelection=serde_json::from_value(json!({"profile":"Coding","source":"both","service":"service","agent_name":"agent","filters":[{"key":"version","value":"v1"}],"sample_size":5,"sample_percent":25,"team_id":"selected-team","execution_ids":[execution]})).unwrap();
         let scope = Scope {
             all_teams: false,
             team_id: "scope-team".into(),
@@ -491,7 +500,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             serde_json::to_value(parameters).unwrap(),
-            json!({"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
+            json!({"profile":"Coding","all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
         );
     }
 

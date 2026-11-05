@@ -30,9 +30,23 @@ struct Target;
 impl Query for Target {
     type Params = TargetParams;
     type Row = TargetRow;
-    const SQL: &'static str = "SELECT TeamId AS team_id, ApiKeyHash AS key_hash,
-         arrayFilter(t -> t.1!='', groupUniqArray(64)(tag)) AS recorded
+    const SQL: &'static str = concat!(
+        "WITH tag_spans AS (
+            SELECT TeamId,ApiKeyHash,UserId,TraceId,SpanId,Timestamp,Duration,CallKeys,LiteLLMRequestId,ResourceAttributes,SpanAttributes
+            FROM otel_traces
+            WHERE TraceId={trace_id:String}
+              AND ({trace_ref:String}='' OR hex(SHA256(concat(TeamId,char(0),ApiKeyHash,char(0),TraceId)))={trace_ref:String})
+              AND ({all_teams:UInt8}=1 OR has({team_ids:Array(String)},TeamId)
+                   OR ({user_id:String}!='' AND UserId={user_id:String}))
+        ), ",
+        include_str!("../query/trace_tag_values.sql"),
+        "1 AS tag_scope
+         SELECT TeamId AS team_id, ApiKeyHash AS key_hash,
+         arraySlice(arrayDistinct(arrayConcat(
+             arrayMap(value -> tuple('tag',value), any(RequestTags)),
+             arrayFilter(t -> t.1!='', groupUniqArray(64)(tag)))),1,64) AS recorded
          FROM otel_traces
+         LEFT JOIN trace_request_tags USING (TeamId,ApiKeyHash,TraceId)
          LEFT ARRAY JOIN arrayFilter(t -> length(trimBoth(t.1))>0 AND length(t.1)<=256 AND length(trimBoth(t.2))>0 AND length(t.2)<=256,
            arrayZip(mapKeys(mapConcat(ResourceAttributes,SpanAttributes)),mapValues(mapConcat(ResourceAttributes,SpanAttributes)))) AS tag
          WHERE TraceId={trace_id:String}
@@ -40,7 +54,8 @@ impl Query for Target {
          GROUP BY TeamId,ApiKeyHash,TraceId
          HAVING {all_teams:UInt8}=1 OR has({team_ids:Array(String)},TeamId)
            OR ({user_id:String}!='' AND arraySort(groupUniqArrayIf(UserId, UserId!=''))=[{user_id:String}])
-         LIMIT 2";
+         LIMIT 2"
+    );
 }
 
 #[derive(Serialize)]

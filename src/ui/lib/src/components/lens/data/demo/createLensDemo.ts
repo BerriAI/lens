@@ -7,6 +7,7 @@ import type { LensServices } from "../LensServices";
 import type { LensApi } from "../service";
 import { demoDatasetsApi } from "./demoDatasets";
 import { createLensDemoData, type LensDemoData } from "./fixtures";
+import { usageCategory } from "../../profiles/usageProfile";
 
 const notInDemo = (): Promise<never> =>
   Promise.reject(new ApiError("This item is not in the demo", 404, { detail: "This item is not in the demo" }));
@@ -196,5 +197,35 @@ function demoTracesApi(data: LensDemoData): TracesApi {
 
 export function createLensDemo(now = Date.now()): LensServices {
   const data = createLensDemoData(now);
-  return { accessToken: "lens-demo", lens: demoLensApi(data), traces: demoTracesApi(data) };
+  return {
+    accessToken: "lens-demo",
+    lens: demoLensApi(data),
+    traces: demoTracesApi(data),
+    profiles: {
+      scope: "demo",
+      usage: async ({ startMs, endMs }, agent) => {
+        const counts = new Map<string, number>();
+        for (const run of data.runs) {
+          const trace = run.trace.summary;
+          const at = Date.parse(trace.start_time);
+          if (
+            at < startMs ||
+            at >= endMs ||
+            (agent && !traceAgentNames(trace).includes(agent))
+          )
+            continue;
+          const category =
+            run.details
+              .map((detail) => usageCategory(detail.attributes))
+              .find(Boolean) ?? "Unclassified";
+          counts.set(category, (counts.get(category) ?? 0) + 1);
+        }
+        return [...counts]
+          .map(([category, runs]) => ({ category, runs }))
+          .sort(
+            (a, b) => b.runs - a.runs || a.category.localeCompare(b.category),
+          );
+      },
+    },
+  };
 }

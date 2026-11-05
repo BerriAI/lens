@@ -3,11 +3,14 @@
 import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
 import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
+import { TIME_RANGE_PARSERS } from "../shared/timeRange/routing";
+import { isRangeHours } from "../shared/timeRange/timeRange";
 
 export const LENS_TABS = {
   home: "Home",
   agents: "Agents",
   traces: "Traces",
+  profiles: "Profiles",
   findings: "Findings",
   investigations: "Investigations",
   datasets: "Datasets",
@@ -53,6 +56,7 @@ const LEGACY_PARSERS = { dataset_tab: parseAsString };
 const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: parseAsString };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
+const PROFILE_PARSERS = { profile: parseAsString };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
@@ -78,6 +82,14 @@ const RESULT_PARSERS = {
 
 /** A dialog opened from a list row names its investigation in `target`; inside a detail view it acts on `lens`. */
 const DIALOG_PARSERS = { dialog: parseAsStringLiteral(LENS_DIALOGS), target: parseAsString };
+const PROFILE_ROUTE_PARSERS = {
+  ...PROFILE_PARSERS,
+  agent: RUN_FILTER_PARSERS.agent,
+  hours: TIME_RANGE_PARSERS.hours,
+  tab: LENS_PARSERS.tab,
+  ...DIALOG_PARSERS,
+  lens: LENS_PARSERS.lens,
+};
 
 const SESSION_PARSERS = {
   ...LENS_PARSERS,
@@ -85,6 +97,7 @@ const SESSION_PARSERS = {
   ...RUN_FILTER_PARSERS,
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
+  ...PROFILE_PARSERS,
   ...AGENT_LIST_PARSERS,
   ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
@@ -116,6 +129,7 @@ const CLEARED_AGENT_VIEW = {
   q: null,
   status: null,
   tags: null,
+  profile: null,
 } as const;
 
 export interface LensRoute {
@@ -260,6 +274,26 @@ export function useDialogRoute() {
   );
   const closeDialog = useCallback(() => void setParams({ dialog: null, target: null }), [setParams]);
   return { dialog, target, openDialog, closeDialog };
+}
+
+export function useProfileRoute() {
+  const [{ profile, agent, hours }, setParams] = useQueryStates(PROFILE_ROUTE_PARSERS, { history: "push" });
+  return {
+    profile,
+    agent,
+    hours,
+    selectProfile: (next: string | null) => void setParams({ profile: next }),
+    investigate: (next: string, selectedAgent: string, lookbackHours: number) =>
+      void setParams({
+        profile: next,
+        agent: selectedAgent,
+        hours: isRangeHours(lookbackHours) ? lookbackHours : 24,
+        tab: "findings",
+        dialog: "new",
+        target: null,
+        lens: null,
+      }),
+  };
 }
 
 const isResultTab = (tab: string): tab is ResultTab => (RESULT_TABS as readonly string[]).includes(tab);

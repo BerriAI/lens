@@ -21,6 +21,7 @@ lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
 lens-investigations = { path = "../investigations" }
 lens-inference = { path = "../inference" }
+lens-profiles = { path = "../profiles" }
 lens-analysis = { path = "../analysis" }
 lens-signals = { path = "../signals" }
 lens-decisions = { path = "../decisions" }

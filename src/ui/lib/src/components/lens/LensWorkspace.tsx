@@ -35,10 +35,11 @@ import {
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
-import { traceRefOf, useRunFilterRouting, useOpenTraceRouting, type TraceRef } from "./traces/routing";
+import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
+import { ProfilesView } from "./profiles/ProfilesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
@@ -108,7 +109,6 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
   const { dialog } = useDialogRoute();
-  const { tags } = useRunFilterRouting();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
@@ -332,11 +332,16 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         onConnectAgent={connectProject}
                       />
                     </TabsContent>
+                    <TabsContent value="profiles" className={PANEL}>
+                      <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} />
+                    </TabsContent>
                     <TabsContent value="findings" className={PANEL}>
                       {canViewInvestigations ? (
-                        dialog === "new" && tags.length > 0 && isAdmin && !readOnly
-                          ? <InvestigationsView readOnly={false} />
-                          : <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
+                        dialog === "new" && canConfigure && isAdmin ? (
+                          <InvestigationsView readOnly={false} />
+                        ) : (
+                          <FindingsView agent={agents.agent ?? undefined} readOnly={readOnly || !isAdmin} />
+                        )
                       ) : (
                         <p className="py-6 text-sm text-muted-foreground">
                           Findings require proxy administrator access.

@@ -15,6 +15,7 @@ import type { InvestigationInput } from "../investigationSchema";
 import type { ScopeOptions } from "../useMatchingActivity";
 
 import { MetadataFilters } from "./MetadataFilters";
+import { ProfileField } from "./ProfileField";
 
 const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
@@ -65,6 +66,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
           )}
         />
       </label>
+      <ProfileField />
       {selection.source !== "requests" && agentsError && (
         <p role="alert" className="text-sm text-destructive">
           Could not load agents.{" "}
@@ -92,6 +94,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
                   setValue("selection.service", "");
                   setValue("selection.agent_name", "");
                   setValue("selection.filters", []);
+                  setValue("selection.profile", null);
                 },
               })}
               className={selectClass}
@@ -102,7 +105,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
             </select>
           </label>
           <p className="text-xs leading-5 text-muted-foreground">
-            Match manual tags or recorded metadata, such as a user ID, environment, or skill. All conditions must match.
+            Match LiteLLM tags, Lens tags, or recorded metadata. All conditions must match.
           </p>
           <MetadataFilters attributes={attributes} keys={keys} />
           <label className="grid gap-2 text-sm">

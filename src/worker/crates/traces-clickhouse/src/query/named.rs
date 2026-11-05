@@ -247,7 +247,12 @@ impl Query for ListTraces {
     type Params = ListTracesParams;
     type Row = ListTracesRow;
 
-    const SQL: &'static str = include_str!("../../query/list_traces.sql");
+    const SQL: &'static str = concat!(
+        "WITH ",
+        include_str!("../../query/trace_tag_list_candidates.sql"),
+        include_str!("../../query/trace_tag_values.sql"),
+        include_str!("../../query/list_traces.sql")
+    );
 }
 
 #[derive(Deserialize, Serialize)]

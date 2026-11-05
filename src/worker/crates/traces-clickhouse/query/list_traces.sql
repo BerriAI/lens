@@ -1,4 +1,4 @@
-WITH page AS (
+page AS (
 SELECT TraceId AS trace_id,
        hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
        if(length(groupUniqArrayArray(UserIds)) = 1, arrayElement(groupUniqArrayArray(UserIds), 1), '') AS user_id, TeamId AS team_id, ApiKeyHash AS api_key_hash,
@@ -23,8 +23,9 @@ WHERE ({all_teams:UInt8} = 1
       LEFT JOIN (SELECT TeamId AS ManualTeamId, ApiKeyHash AS ManualKeyHash, TraceId AS ManualTraceId,
                                Tags AS ManualTags FROM lens_trace_tags FINAL) AS manual
       ON TeamId=ManualTeamId AND ApiKeyHash=ManualKeyHash AND TraceId=ManualTraceId
+      LEFT JOIN trace_request_tags USING (TeamId,ApiKeyHash,TraceId)
       WHERE Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
-        AND arrayAll((k, v) -> ResourceAttributes[k] = v OR SpanAttributes[k] = v OR ManualTags[k] = v,
+        AND arrayAll((k, v) -> matches_trace_tag(k,v,ResourceAttributes,SpanAttributes,ManualTags,RequestTags),
                      {filter_keys:Array(String)}, {filter_values:Array(String)})
   ))
   AND ({agent:String} = '' OR (TeamId, ApiKeyHash, TraceId) IN (

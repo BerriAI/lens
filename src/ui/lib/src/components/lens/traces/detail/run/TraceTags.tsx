@@ -88,6 +88,19 @@ export function TraceTags({
         <Tags className="size-3.5" /> Tags
       </div>
       <div className="flex flex-wrap gap-1.5">
+        {recorded
+          .filter((tag) => tag.key === "tag")
+          .map((tag) => (
+            <Button
+              key={`litellm:${tag.value}`}
+              variant="outline"
+              size="xs"
+              title="LiteLLM tag, click to filter traces"
+              onClick={() => filterByTag(tag)}
+            >
+              {tag.value}
+            </Button>
+          ))}
         {manual.map((tag) => (
           <span
             key={tag.key}
@@ -115,23 +128,26 @@ export function TraceTags({
           <p className="text-xs text-muted-foreground">No tags yet</p>
         )}
       </div>
-      {recorded.length > 0 && (
+      {recorded.some((tag) => tag.key !== "tag") && (
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground">
-            Recorded tags ({recorded.length})
+            Recorded metadata (
+            {recorded.filter((tag) => tag.key !== "tag").length})
           </summary>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {recorded.map((tag) => (
-              <Button
-                key={`recorded:${tag.key}:${tag.value}`}
-                size="xs"
-                variant="outline"
-                title="Recorded metadata, click to filter traces"
-                onClick={() => filterByTag(tag)}
-              >
-                {tag.key}: {tag.value}
-              </Button>
-            ))}
+            {recorded
+              .filter((tag) => tag.key !== "tag")
+              .map((tag) => (
+                <Button
+                  key={`recorded:${tag.key}:${tag.value}`}
+                  size="xs"
+                  variant="outline"
+                  title="Recorded metadata, click to filter traces"
+                  onClick={() => filterByTag(tag)}
+                >
+                  {tag.key}: {tag.value}
+                </Button>
+              ))}
           </div>
         </details>
       )}

@@ -97,6 +97,8 @@ jobs:
           src/components/lens/settings
           src/components/lens/investigations
           src/components/lens/traces
+          src/components/lens/profiles
+          src/components/lens/setup
           src/components/lens/LensNavigation.integration.test.tsx
           src/components/lens/LensSetup.integration.test.tsx
           src/components/lens/LensWorkspace.integration.test.tsx

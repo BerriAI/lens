@@ -49,19 +49,22 @@ fn main() -> Result<(), litellm_lens::Error> {
         return Ok(());
     }
     let compact = arguments.as_slice() == ["compact-state"];
-    if !arguments.is_empty() && !compact {
+    let profiles = arguments.as_slice() == ["task-profile-worker"];
+    if !arguments.is_empty() && !compact && !profiles {
         return Err(litellm_lens::Error::Configuration(
             "usage: litellm-lens [init [directory] | compact-state | --version]",
         ));
     }
     let _ = litellm_tracing::Logger::new(Diagnostics).install_global();
     let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .max_blocking_threads(4)
+        .worker_threads(if profiles { 1 } else { 2 })
+        .max_blocking_threads(if profiles { 1 } else { 4 })
         .enable_all()
         .build()?;
     let outcome = runtime.block_on(async {
-        if compact {
+        if profiles {
+            litellm_lens::profiles::work().await
+        } else if compact {
             compact_state().await
         } else {
             run().await
@@ -163,6 +166,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
     tasks.spawn(signals.serve());
     tasks.spawn(provision(state.clone()));
     tasks.spawn(litellm_lens::project_trace_summaries(state.clone()));
+    if litellm_lens::profiles::enabled()? {
+        tasks.spawn(litellm_lens::profiles::supervise(state.clone()));
+    }
     let routes = router(state).merge(application.router);
     let routes = if let Some(directory) = config.ui_directory {
         if !std::fs::metadata(directory.join("index.html"))?.is_file() {

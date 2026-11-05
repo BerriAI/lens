@@ -89,6 +89,8 @@ pub struct Job {
 #[serde(deny_unknown_fields)]
 #[schemars(extend("required" = ["name","model"]))]
 pub struct LensSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<UsageProfile>,
     #[serde(default)]
     #[schemars(extend("default" = ""))]
     pub agent_name: String,

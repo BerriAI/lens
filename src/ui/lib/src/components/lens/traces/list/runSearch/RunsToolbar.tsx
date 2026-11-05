@@ -3,12 +3,19 @@
 import type { TraceSummary } from "../../types";
 import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../../ui/select";
 import { useRunFilterRouting } from "../../routing";
 import { TraceTagFilters } from "./TraceTagFilters";
 import { RunSearch } from "./RunSearch";
 
 interface RunsToolbarProps {
+  accessToken?: string;
   canInvestigate?: boolean;
   query: string;
   onQueryChange: (value: string) => void;
@@ -21,7 +28,16 @@ interface RunsToolbarProps {
   children?: React.ReactNode;
 }
 
-export function RunsToolbar({ query, onQueryChange, runs, range, busy, children, canInvestigate }: RunsToolbarProps) {
+export function RunsToolbar({
+  accessToken,
+  query,
+  onQueryChange,
+  runs,
+  range,
+  busy,
+  children,
+  canInvestigate,
+}: RunsToolbarProps) {
   const { status, setStatus } = useRunFilterRouting();
   const statuses = [
     { value: "all", label: "All status" },
@@ -30,12 +46,20 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children,
   ];
   return (
     <div className="lens-toolbar flex min-w-0 shrink-0 flex-wrap items-stretch border-b border-border bg-card">
-      <RunSearch value={query} onChange={onQueryChange} runs={runs} range={range} busy={busy} />
+      <RunSearch
+        value={query}
+        onChange={onQueryChange}
+        runs={runs}
+        range={range}
+        busy={busy}
+      />
       <div className="flex h-10 shrink-0 items-center border-l border-border px-2">
         <Select
           items={statuses}
           value={status}
-          onValueChange={(value: "all" | "ok" | "error" | null) => value !== null && setStatus(value)}
+          onValueChange={(value: "all" | "ok" | "error" | null) =>
+            value !== null && setStatus(value)
+          }
         >
           <SelectTrigger
             size="sm"
@@ -53,7 +77,11 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children,
           </SelectContent>
         </Select>
       </div>
-      <TraceTagFilters canInvestigate={canInvestigate} />
+      <TraceTagFilters
+        accessToken={accessToken}
+        range={range}
+        canInvestigate={canInvestigate}
+      />
       {children && <div className="contents [&>*]:h-10">{children}</div>}
     </div>
   );

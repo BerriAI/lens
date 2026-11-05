@@ -62,6 +62,8 @@ impl Query for Page {
     type Row = PageRow;
     const SQL: &'static str = concat!(
         "WITH ",
+        include_str!("../query/trace_tag_list_candidates.sql"),
+        include_str!("../query/trace_tag_values.sql"),
         include_str!("../query/trace_summary_page.sql"),
         include_str!("../query/trace_summary_state.sql"),
         " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",

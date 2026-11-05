@@ -52,3 +52,39 @@ fn finding_counts_require_a_nullable_count(#[case] value: Value, #[case] valid: 
         assert_eq!(serde_json::to_value(parsed).unwrap(), value);
     }
 }
+
+#[rstest]
+#[case::coding(json!("Coding"))]
+#[case::unclassified(json!("Unclassified"))]
+#[case::unknown(json!("Not recorded"))]
+#[case::all(json!(null))]
+fn selected_profile_survives_saved_settings_and_activity_conversion(#[case] profile: Value) {
+    let settings: LensSettings =
+        serde_json::from_value(json!({"name":"Review","model":"analysis","profile":profile}))
+            .unwrap();
+    let selection = ActivitySelection::from(&settings);
+    assert_eq!(
+        serde_json::to_value(selection).unwrap().get("profile"),
+        if profile.is_null() {
+            None
+        } else {
+            Some(&profile)
+        }
+    );
+    let public = serde_json::to_value(lens_contract::investigations::Public(&settings)).unwrap();
+    assert_eq!(
+        public.get("profile"),
+        if profile.is_null() {
+            None
+        } else {
+            Some(&profile)
+        }
+    );
+}
+
+#[rstest]
+#[case::empty(json!(""))]
+#[case::number(json!(42))]
+fn invalid_profile_does_not_become_an_unfiltered_selection(#[case] profile: Value) {
+    assert!(serde_json::from_value::<ActivitySelection>(json!({"profile":profile})).is_err());
+}

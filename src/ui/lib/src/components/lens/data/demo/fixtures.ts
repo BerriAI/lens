@@ -120,6 +120,7 @@ function makeTrace(scene: Scenario, index: number, now: number) {
       demo: "true",
       skill: scene.agent === "support_agent" ? "orders" : scene.agent === "release_agent" ? "coding" : "research",
       department: scene.agent === "support_agent" ? "support" : "engineering",
+      ...(scene.taskCategory ? { task_category: scene.taskCategory } : {}),
       ...(scene.session ? { "session.id": scene.session } : {}),
       ...(span.model ? { "gen_ai.request.model": span.model } : {}),
     },

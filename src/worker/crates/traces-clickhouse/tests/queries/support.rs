@@ -30,6 +30,8 @@ pub async fn migrated_database(
         "spend_logs",
         "lens_call_costs",
         "lens_trace_summaries",
+        "lens_task_profiles",
+        "lens_task_clusters",
     ] {
         database
             .client

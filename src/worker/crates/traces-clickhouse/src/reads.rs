@@ -18,7 +18,9 @@ impl Query for RunCandidates {
     type Params = ListTracesParams;
     type Row = ListTracesRow;
     const SQL: &'static str = concat!(
-        "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (",
+        "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (WITH ",
+        include_str!("../query/trace_tag_list_candidates.sql"),
+        include_str!("../query/trace_tag_values.sql"),
         include_str!("../query/list_traces.sql"),
         ") ORDER BY start_ms DESC, trace_ref DESC"
     );

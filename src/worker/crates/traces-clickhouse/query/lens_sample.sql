@@ -12,12 +12,14 @@ SELECT *, selection_key FROM (
             argMin(SpanName, Timestamp)) AS name, concat(replaceOne(toString(toDateTime64(min(Timestamp), 3, 'UTC')), ' ', 'T'), 'Z') AS start_time,
         uniqExact(SpanId) AS span_count, countIf(ParentSpanId='') > 0 AS root_seen,
         argMin(ServiceName, Timestamp) AS service,
-        arrayZip(mapKeys(argMin(mapConcat(ResourceAttributes, SpanAttributes, ManualTags), tuple(ParentSpanId!='',Timestamp))),
-            mapValues(argMin(mapConcat(ResourceAttributes, SpanAttributes, ManualTags), tuple(ParentSpanId!='',Timestamp)))) AS attributes
+        arrayConcat(arrayZip(mapKeys(argMin(mapConcat(ResourceAttributes, SpanAttributes, ManualTags), tuple(ParentSpanId!='',Timestamp))),
+            mapValues(argMin(mapConcat(ResourceAttributes, SpanAttributes, ManualTags), tuple(ParentSpanId!='',Timestamp)))),
+            arrayMap(value -> tuple('tag',value), any(RequestTags))) AS attributes
     FROM otel_traces
     LEFT JOIN (SELECT TeamId AS ManualTeamId, ApiKeyHash AS ManualKeyHash, TraceId AS ManualTraceId,
                                Tags AS ManualTags FROM lens_trace_tags FINAL) AS manual
       ON TeamId=ManualTeamId AND ApiKeyHash=ManualKeyHash AND TraceId=ManualTraceId
+    LEFT JOIN trace_request_tags USING (TeamId,ApiKeyHash,TraceId)
     WHERE {source:String} IN ('traces','both')
       AND ({all_teams:UInt8}=1 OR TeamId={team:String})
       AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String})
@@ -35,11 +37,14 @@ SELECT *, selection_key FROM (
             AND if(EngineReceivedMs>0,toInt64(EngineReceivedMs),
                 toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) >= {start:UInt64}
       )
+      AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
+          SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles WHERE category={profile:String}
+      ))
     GROUP BY TeamId,ApiKeyHash,TraceId
     HAVING max(EngineReceivedMs) < {end:UInt64}
        AND max(toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) < {end:UInt64}
        AND ({agent_name:String}='' OR countIf(AgentName={agent_name:String}) > 0)
-       AND countIf((empty({filter_keys:Array(String)}) OR arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v OR ManualTags[k]=v,
+       AND countIf((empty({filter_keys:Array(String)}) OR arrayAll((k,v) -> matches_trace_tag(k,v,ResourceAttributes,SpanAttributes,ManualTags,RequestTags),
            {filter_keys:Array(String)},{filter_values:Array(String)}))
            AND ({service:String}='' OR ServiceName={service:String})) > 0
     UNION ALL
@@ -50,6 +55,7 @@ SELECT *, selection_key FROM (
             arrayMap(t -> tuple('tag', t), request_tags)) AS attributes
     FROM spend_logs FINAL
     WHERE {source:String} IN ('requests','both')
+      AND {profile:String}=''
       AND ({all_teams:UInt8}=1 OR team_id={team:String})
       AND ({key_hash:String}='' OR api_key={key_hash:String})
       AND spend_logs.start_time >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY

@@ -1290,6 +1290,17 @@
           "minLength": 1,
           "type": "string"
         },
+        "profile": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "sample_percent": {
           "default": 100,
           "exclusiveMinimum": 0,
