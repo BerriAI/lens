@@ -7,6 +7,7 @@ import type {
   TraceMessage,
   TraceQueryBody,
   UIMessage,
+  LogListRequest,
 } from "./types";
 
 test("trace messages accept API names while adapting tool calls", () => {
@@ -32,4 +33,19 @@ test("trace request aliases match the generated OpenAPI shapes", () => {
     cursor?: string | null;
   }>();
   expectTypeOf<TraceQueryBody>().toEqualTypeOf<{ sql: string }>();
+});
+
+test("log list query fields match the Rust contract", () => {
+  expectTypeOf<LogListRequest>().toEqualTypeOf<{
+    start_ms?: number | null;
+    end_ms?: number | null;
+    service?: string | null;
+    event?: string | null;
+    severity?: string | null;
+    trace_id?: string | null;
+    conversation_id?: string | null;
+    cursor?: string | null;
+    page_size?: number | null;
+    [k: string]: unknown;
+  }>();
 });

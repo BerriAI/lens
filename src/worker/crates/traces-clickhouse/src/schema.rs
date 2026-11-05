@@ -14,8 +14,9 @@ static MIGRATOR: Migrator = Migrator {
     ..sqlx::migrate!("./migrations")
 };
 
-const RETENTION: [(&str, &str); 7] = [
+const RETENTION: [(&str, &str); 8] = [
     ("otel_traces", "toDateTime(Timestamp)"),
+    ("otel_logs", "toDateTime(Timestamp)"),
     ("agent_traces_by_key", "toDateTime(StartTs)"),
     ("lens_eval_traces", "toDateTime(StartTs)"),
     ("spend_logs", "toDateTime(start_time)"),

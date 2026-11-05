@@ -12,10 +12,12 @@ pub struct DecodeLimits {
     pub depth: usize,
     pub nodes: usize,
     pub spans: usize,
+    pub logs: usize,
     pub attributes: usize,
     pub events: usize,
     pub links: usize,
     pub decoded_span_bytes: usize,
+    pub decoded_log_bytes: usize,
 }
 
 impl Default for DecodeLimits {
@@ -24,10 +26,12 @@ impl Default for DecodeLimits {
             depth: MAX_DECODE_DEPTH,
             nodes: 1_000_000,
             spans: 16_384,
+            logs: 16_384,
             attributes: 4096,
             events: 4096,
             links: 4096,
             decoded_span_bytes: 64 * 1024 * 1024,
+            decoded_log_bytes: 64 * 1024 * 1024,
         }
     }
 }
@@ -39,6 +43,7 @@ impl DecodeLimits {
             depth: env_limit("OTLP_MAX_DECODE_DEPTH", defaults.depth)?,
             nodes: env_limit("OTLP_MAX_DECODE_NODES", defaults.nodes)?,
             spans: env_limit("OTLP_MAX_SPANS", defaults.spans)?,
+            logs: env_limit("OTLP_MAX_LOG_RECORDS", defaults.logs)?,
             attributes: env_limit("OTLP_MAX_ATTRIBUTES", defaults.attributes)?,
             events: env_limit("OTLP_MAX_EVENTS", defaults.events)?,
             links: env_limit("OTLP_MAX_LINKS", defaults.links)?,
@@ -46,6 +51,7 @@ impl DecodeLimits {
                 "OTLP_MAX_DECODED_SPAN_BYTES",
                 defaults.decoded_span_bytes,
             )?,
+            decoded_log_bytes: env_limit("OTLP_MAX_DECODED_LOG_BYTES", defaults.decoded_log_bytes)?,
         })
     }
 }
@@ -259,8 +265,12 @@ pub(super) struct Budget {
 
 impl Budget {
     pub(super) fn new(limits: DecodeLimits) -> Self {
+        Self::with_bytes(limits, limits.decoded_span_bytes)
+    }
+
+    pub(super) fn with_bytes(limits: DecodeLimits, bytes: usize) -> Self {
         Self {
-            remaining: limits.decoded_span_bytes,
+            remaining: bytes,
             limits,
         }
     }

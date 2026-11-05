@@ -6,7 +6,7 @@ use axum::{
 };
 use flate2::read::MultiGzDecoder;
 use litellm_traces::Tenant;
-use litellm_traces_clickhouse::{InsertTable, insert_shared_rows, span_rows};
+use litellm_traces_clickhouse::{InsertTable, insert_shared_rows};
 use prost::Message;
 use std::{io::Read, sync::Arc, time::Duration};
 use tokio::sync::OwnedSemaphorePermit;
@@ -60,10 +60,11 @@ pub fn response(content_type: Option<&str>, outcome: Result<(), Error>) -> Respo
         _ => 2,
     };
     let protobuf = content_type.is_some_and(|value| {
-        value
-            .split(';')
-            .next()
-            .is_some_and(|value| value.trim() == "application/x-protobuf")
+        value.split(';').next().is_some_and(|value| {
+            ["application/x-protobuf", "application/protobuf"]
+                .iter()
+                .any(|media_type| value.trim().eq_ignore_ascii_case(media_type))
+        })
     });
     let (body, media_type) = if protobuf {
         (
@@ -158,16 +159,46 @@ async fn store(
     logs: bool,
     permit: OwnedSemaphorePermit,
 ) -> Result<(), Error> {
-    let (rows, _permit) = tokio::task::spawn_blocking(move || {
+    let (logs, spans, _permit) = tokio::task::spawn_blocking(move || {
         let payload = decompress(&payload, encoding.as_deref())?;
-        let decode = if logs {
-            litellm_traces::decode_otlp_logs
+        let (logs, spans) = if logs {
+            let batch = litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
+                .map_err(litellm_traces_clickhouse::Error::from)?;
+            (
+                litellm_traces_clickhouse::log_rows(batch.records, &tenant)?,
+                litellm_traces_clickhouse::span_rows(batch.claude_spans, &tenant),
+            )
         } else {
-            litellm_traces::decode_otlp
+            match litellm_traces::decode_otlp(&payload, content_type.as_deref()) {
+                Ok(spans) if !spans.is_empty() => (
+                    Vec::new(),
+                    litellm_traces_clickhouse::span_rows(spans, &tenant),
+                ),
+                trace_result => {
+                    if let Ok(batch) =
+                        litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
+                        && (!batch.claude_spans.is_empty()
+                            || batch
+                                .records
+                                .iter()
+                                .any(|record| record.codex.is_some()))
+                    {
+                        (
+                            litellm_traces_clickhouse::log_rows(batch.records, &tenant)?,
+                            litellm_traces_clickhouse::span_rows(batch.claude_spans, &tenant),
+                        )
+                    } else {
+                        let spans =
+                            trace_result.map_err(litellm_traces_clickhouse::Error::from)?;
+                        (
+                            Vec::new(),
+                            litellm_traces_clickhouse::span_rows(spans, &tenant),
+                        )
+                    }
+                }
+            }
         };
-        let spans = decode(&payload, content_type.as_deref())
-            .map_err(litellm_traces_clickhouse::Error::from)?;
-        Ok::<_, Error>((span_rows(spans, &tenant), permit))
+        Ok::<_, Error>((logs, spans, permit))
     })
     .await
     .map_err(|_| Error::Unavailable)??;
@@ -175,8 +206,16 @@ async fn store(
         &state.storage.client,
         state.storage.config.storage().writer(),
         state.storage.config.storage().database(),
+        InsertTable::OtelLogs,
+        logs,
+    )
+    .await?;
+    insert_shared_rows(
+        &state.storage.client,
+        state.storage.config.storage().writer(),
+        state.storage.config.storage().database(),
         InsertTable::OtelTraces,
-        rows,
+        spans,
     )
     .await?;
     Ok(())
@@ -247,6 +286,18 @@ mod tests {
                 serde_json::json!({"code": rpc_code, "message": message})
             );
         }
+    }
+
+    #[rstest]
+    #[case("application/protobuf")]
+    #[case("APPLICATION/PROTOBUF; charset=utf-8")]
+    #[tokio::test]
+    async fn protobuf_media_type_aliases_receive_protobuf_responses(#[case] content_type: &str) {
+        let reply = response(Some(content_type), Err(Error::InvalidRequest));
+        assert_eq!(reply.headers()["content-type"], "application/x-protobuf");
+        let body = to_bytes(reply.into_body(), 1024).await.unwrap();
+        let status = OtlpError::decode(body).unwrap();
+        assert_eq!(status.code, 3);
     }
 
     #[rstest]

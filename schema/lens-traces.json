@@ -1,4 +1,594 @@
 {
+  "LogListRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "LogListRequest",
+    "type": "object",
+    "properties": {
+      "start_ms": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64",
+        "default": null
+      },
+      "end_ms": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64",
+        "default": null
+      },
+      "service": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "event": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "severity": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 32,
+        "default": null
+      },
+      "trace_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 64,
+        "default": null
+      },
+      "conversation_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "cursor": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 128,
+        "default": null
+      },
+      "page_size": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint16",
+        "minimum": 1,
+        "maximum": 100,
+        "default": null
+      }
+    }
+  },
+  "OtelLogPage": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "OtelLogPage",
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/OtelLogSummary"
+        }
+      },
+      "next_cursor": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "data",
+      "next_cursor"
+    ],
+    "$defs": {
+      "OtelLogSummary": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "timestamp_ns": {
+            "type": "string"
+          },
+          "observed_timestamp_ns": {
+            "type": "string"
+          },
+          "severity_number": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          },
+          "severity_text": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "semantic_event_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope_name": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "span_id": {
+            "type": "string"
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "record_id",
+          "timestamp_ns",
+          "observed_timestamp_ns",
+          "severity_number",
+          "severity_text",
+          "event_name",
+          "semantic_event_name",
+          "scope_name",
+          "service_name",
+          "trace_id",
+          "span_id",
+          "conversation_id"
+        ]
+      }
+    }
+  },
+  "OtelLogRecord": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "OtelLogRecord",
+    "type": "object",
+    "properties": {
+      "record_id": {
+        "type": "string"
+      },
+      "timestamp_ns": {
+        "type": "string"
+      },
+      "raw_timestamp_ns": {
+        "type": "string"
+      },
+      "observed_timestamp_ns": {
+        "type": "string"
+      },
+      "severity_number": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": -2147483648,
+        "maximum": 2147483647
+      },
+      "severity_text": {
+        "type": "string"
+      },
+      "event_name": {
+        "type": "string"
+      },
+      "semantic_event_name": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "body": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LogValue"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "attributes": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/LogValue"
+        }
+      },
+      "resource_attributes": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/LogValue"
+        }
+      },
+      "resource_schema_url": {
+        "type": "string"
+      },
+      "scope_name": {
+        "type": "string"
+      },
+      "scope_version": {
+        "type": "string"
+      },
+      "scope_attributes": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/LogValue"
+        }
+      },
+      "scope_schema_url": {
+        "type": "string"
+      },
+      "trace_id": {
+        "type": "string"
+      },
+      "span_id": {
+        "type": "string"
+      },
+      "trace_flags": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0,
+        "maximum": 4294967295
+      },
+      "dropped_attributes_count": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0,
+        "maximum": 4294967295
+      },
+      "service_name": {
+        "type": "string"
+      },
+      "conversation_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "codex": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CodexProjection"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "record_id",
+      "timestamp_ns",
+      "raw_timestamp_ns",
+      "observed_timestamp_ns",
+      "severity_number",
+      "severity_text",
+      "event_name",
+      "semantic_event_name",
+      "body",
+      "attributes",
+      "resource_attributes",
+      "resource_schema_url",
+      "scope_name",
+      "scope_version",
+      "scope_attributes",
+      "scope_schema_url",
+      "trace_id",
+      "span_id",
+      "trace_flags",
+      "dropped_attributes_count",
+      "service_name",
+      "conversation_id",
+      "codex"
+    ],
+    "$defs": {
+      "LogValue": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "null"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "integer"
+              },
+              "value": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": -9223372036854775808,
+                "maximum": 9223372036854775807
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "double"
+              },
+              "value": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "bytes"
+              },
+              "value": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "uint8",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "array"
+              },
+              "value": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/LogValue"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "map"
+              },
+              "value": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/LogValue"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ]
+          }
+        ]
+      },
+      "CodexProjection": {
+        "type": "object",
+        "properties": {
+          "event_kind": {
+            "$ref": "#/$defs/CodexEventKind"
+          },
+          "message_role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CodexMessageRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_state": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CodexContentState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "item_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "call_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tool_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "success": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "duration_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "truncated": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "event_kind",
+          "message_role",
+          "content_state",
+          "content",
+          "conversation_id",
+          "turn_id",
+          "item_id",
+          "call_id",
+          "tool_name",
+          "success",
+          "duration_ms",
+          "truncated"
+        ]
+      },
+      "CodexEventKind": {
+        "type": "string",
+        "enum": [
+          "conversation_starts",
+          "startup_phase",
+          "user_prompt",
+          "agent_response",
+          "tool_result",
+          "tool_decision",
+          "sandbox_outcome",
+          "api_request",
+          "sse_event",
+          "turn_ttft",
+          "turn_cost",
+          "skill_invocation",
+          "guardian_assessment",
+          "websocket",
+          "plugin",
+          "other"
+        ]
+      },
+      "CodexMessageRole": {
+        "type": "string",
+        "enum": [
+          "user",
+          "assistant",
+          "tool"
+        ]
+      },
+      "CodexContentState": {
+        "type": "string",
+        "enum": [
+          "present",
+          "redacted",
+          "absent",
+          "malformed"
+        ]
+      }
+    }
+  },
   "TraceConversationPage": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "TraceConversationPage",

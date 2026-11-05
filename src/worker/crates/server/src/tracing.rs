@@ -10,10 +10,12 @@ use axum::{
 use chrono::{DateTime, Utc};
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
+    OtelLogPage, OtelLogRecord, QueryScope, SpanDetail, SpanErrorPage, Trace,
+    TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
     request::{
-        TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest,
+        LogListRequest, TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest,
+        TraceSpanRequest,
     },
 };
 use serde::Serialize;
@@ -48,6 +50,16 @@ pub trait TraceReader: Send + Sync {
         cursor: Option<String>,
         limit: u32,
     ) -> impl Future<Output = Result<TracePage, TraceReadError>> + Send;
+    fn logs(
+        &self,
+        scope: QueryScope,
+        request: LogListRequest,
+    ) -> impl Future<Output = Result<OtelLogPage, TraceReadError>> + Send;
+    fn log(
+        &self,
+        scope: QueryScope,
+        record_id: String,
+    ) -> impl Future<Output = Result<Option<OtelLogRecord>, TraceReadError>> + Send;
     fn agents(
         &self,
         scope: ReadAccessParams,
@@ -124,6 +136,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
 ) -> Router {
     Router::new()
         .public_route("/v1/traces", get(list::<R, B>))
+        .public_route("/v1/logs", get(logs::<R, B>))
+        .public_route("/v1/logs/{record_id}", get(log::<R, B>))
+        .public_route("/lens/logs", get(logs::<R, B>))
+        .public_route("/lens/logs/{record_id}", get(log::<R, B>))
         .public_route("/v1/traces/agents", get(agents::<R, B>))
         .public_route("/v1/traces/query", post(query::<R, B>))
         .public_route("/v1/traces/query/help", get(help::<R, B>))
@@ -205,6 +221,38 @@ async fn list<R: SessionRepository, B: TraceReader>(
         .await
         .map_err(|error| read_error(error, app.config))?;
     Ok(Json(page))
+}
+
+async fn logs<R: SessionRepository, B: TraceReader>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+    method: Method,
+    RawQuery(query): RawQuery,
+) -> Result<Json<OtelLogPage>, TraceHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let request = validation::logs(query.as_deref(), app.config)?;
+    let page = app
+        .reader
+        .logs(query_scope(&identity)?, request)
+        .await
+        .map_err(|error| read_error(error, app.config))?;
+    Ok(Json(page))
+}
+
+async fn log<R: SessionRepository, B: TraceReader>(
+    State(app): State<Arc<App<R, B>>>,
+    Path(record_id): Path<String>,
+    headers: HeaderMap,
+    method: Method,
+) -> Result<Json<OtelLogRecord>, TraceHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let value = app
+        .reader
+        .log(query_scope(&identity)?, record_id.clone())
+        .await
+        .map_err(|error| read_error(error, app.config))?
+        .ok_or(TraceHttpError::MissingLog(record_id))?;
+    Ok(Json(value))
 }
 
 async fn agents<R: SessionRepository, B: TraceReader>(

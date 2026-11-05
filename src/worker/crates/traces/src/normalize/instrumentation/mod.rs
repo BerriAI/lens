@@ -18,6 +18,7 @@ pub(super) mod hermes;
 pub(super) mod http_client;
 pub(super) mod langchain;
 pub(super) mod llama_index;
+pub(super) mod openai_codex;
 pub(super) mod pydantic_ai;
 
 pub(super) trait Rule: Sync {
@@ -87,8 +88,9 @@ impl Rule for OpenInference {
     }
 }
 
-const RULES: [&dyn Rule; 9] = [
+const RULES: [&dyn Rule; 10] = [
     &claude_code::ClaudeCode,
+    &openai_codex::OpenaiCodex,
     &hermes::Hermes,
     &OpenInference,
     &http_client::HttpClient,

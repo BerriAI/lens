@@ -80,7 +80,11 @@ struct RawMessage {
     kind: Option<String>,
     #[serde(default, deserialize_with = "present")]
     content: Option<Value>,
+    #[serde(default, deserialize_with = "present")]
+    output: Option<Value>,
+    arguments: Option<Value>,
     name: Option<String>,
+    call_id: Option<String>,
     tool_calls: Option<Vec<RawToolCall>>,
     kwargs: Option<Box<RawMessage>>,
 }
@@ -126,7 +130,7 @@ fn known_role(role: &str) -> Option<ChatRole> {
     match role {
         "human" | "user" => Some(ChatRole::User),
         "ai" | "assistant" => Some(ChatRole::Assistant),
-        "system" => Some(ChatRole::System),
+        "system" | "developer" => Some(ChatRole::System),
         "tool" => Some(ChatRole::Tool),
         _ => None,
     }
@@ -140,7 +144,22 @@ impl RawMessage {
         }
     }
 
+    fn is_hidden_item(&self) -> bool {
+        self.role.is_none()
+            && self
+                .kind
+                .as_deref()
+                .is_some_and(|kind| matches!(kind, "reasoning" | "thinking" | "redacted_thinking"))
+    }
+
     fn is_message(&self) -> bool {
+        if self.role.is_none() {
+            match self.kind.as_deref() {
+                Some("function_call") => return self.name.is_some(),
+                Some("function_call_output") => return self.output.is_some(),
+                _ => {}
+            }
+        }
         let has_role = self.role.is_some() || self.kind.as_deref().and_then(known_role).is_some();
         has_role
             && (self.content.is_some()
@@ -151,6 +170,30 @@ impl RawMessage {
     }
 
     fn into_ui(self) -> UiMessage {
+        if self.role.is_none() {
+            match self.kind.as_deref() {
+                Some("function_call") => {
+                    return UiMessage {
+                        role: ChatRole::Assistant,
+                        content: String::new(),
+                        name: None,
+                        tool_calls: Some(vec![UiToolCall {
+                            name: self.name.unwrap_or_default(),
+                            arguments: arguments_text(self.arguments),
+                        }]),
+                    };
+                }
+                Some("function_call_output") => {
+                    return UiMessage {
+                        role: ChatRole::Tool,
+                        content: content_text(self.output),
+                        name: self.name.or(self.call_id).filter(|name| !name.is_empty()),
+                        tool_calls: None,
+                    };
+                }
+                _ => {}
+            }
+        }
         let calls: Vec<UiToolCall> = self
             .tool_calls
             .unwrap_or_default()
@@ -227,10 +270,23 @@ fn content_text(content: Option<Value>) -> String {
 }
 
 fn messages(parsed: &Value) -> Option<Vec<UiMessage>> {
+    if let Some(choices) = parsed.get("choices").and_then(Value::as_array) {
+        let extracted: Vec<Value> = choices
+            .iter()
+            .filter_map(|choice| choice.get("message").cloned())
+            .collect();
+        if !extracted.is_empty() {
+            return messages(&Value::Array(extracted));
+        }
+    }
     let raw = MessagePayload::<RawMessage>::deserialize(parsed)
         .ok()?
         .into_messages();
-    let unwrapped: Vec<RawMessage> = raw.into_iter().map(RawMessage::unwrapped).collect();
+    let unwrapped: Vec<RawMessage> = raw
+        .into_iter()
+        .map(RawMessage::unwrapped)
+        .filter(|message| !message.is_hidden_item())
+        .collect();
     if unwrapped.is_empty() || !unwrapped.iter().all(RawMessage::is_message) {
         return None;
     }
@@ -447,6 +503,48 @@ mod tests {
     #[case::kwargs_not_a_message(r#"{"kwargs": [], "content": "x"}"#)]
     fn objects_that_are_not_messages_are_fields(#[case] raw: &str) {
         assert!(matches!(to_ui_content(raw), UiContent::Fields { .. }));
+    }
+
+    #[rstest]
+    fn responses_api_items_and_chat_completion_choices_become_messages() {
+        let input = json!([
+            {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "rules"}]},
+            {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "list files"}]},
+            {"type": "reasoning", "summary": [], "encrypted_content": "opaque"},
+            {"type": "function_call", "name": "exec_command", "arguments": "{\"cmd\":\"ls\"}", "call_id": "call_1"},
+            {"type": "function_call_output", "call_id": "call_1", "output": "README.md\n"},
+        ]);
+        assert_eq!(
+            to_ui_content(&input.to_string()),
+            UiContent::Messages {
+                messages: vec![
+                    message("system", "rules"),
+                    message("user", "list files"),
+                    UiMessage {
+                        tool_calls: Some(vec![call("exec_command", "{\"cmd\":\"ls\"}")]),
+                        ..message("assistant", "")
+                    },
+                    UiMessage {
+                        name: Some("call_1".into()),
+                        ..message("tool", "README.md\n")
+                    },
+                ]
+            }
+        );
+
+        let completion = json!({
+            "id": "resp_1",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": "Found README.md."}
+            }]
+        });
+        assert_eq!(
+            to_ui_content(&completion.to_string()),
+            UiContent::Messages {
+                messages: vec![message("assistant", "Found README.md.")]
+            }
+        );
     }
 
     #[rstest]

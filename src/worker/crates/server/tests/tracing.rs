@@ -7,7 +7,8 @@ use std::sync::{Arc, Mutex};
 use lens_contract::auth::{Identity, Role};
 use lens_server::tracing::{TraceAgent, TraceConfig, TraceReadError, TraceReader};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
+    LogListRequest, OtelLogPage, OtelLogRecord, QueryScope, SpanDetail, SpanErrorPage, Trace,
+    TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
     request::{
         TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceSpanRequest,
@@ -86,6 +87,38 @@ impl TraceReader for Reader {
             data: Vec::new(),
             next_cursor: None,
         })
+    }
+    async fn logs(
+        &self,
+        scope: QueryScope,
+        request: LogListRequest,
+    ) -> Result<OtelLogPage, TraceReadError> {
+        self.record(
+            read_scope(scope),
+            json!({
+                "start_ms":request.start_ms,
+                "end_ms":request.end_ms,
+                "service":request.service,
+                "event":request.event,
+                "severity":request.severity,
+                "trace_id":request.trace_id,
+                "conversation_id":request.conversation_id,
+                "cursor":request.cursor,
+                "page_size":request.page_size,
+            }),
+        )?;
+        Ok(OtelLogPage {
+            data: Vec::new(),
+            next_cursor: None,
+        })
+    }
+    async fn log(
+        &self,
+        scope: QueryScope,
+        record_id: String,
+    ) -> Result<Option<OtelLogRecord>, TraceReadError> {
+        self.record(read_scope(scope), json!({"record_id":record_id}))?;
+        Ok(None)
     }
     async fn agents(
         &self,
@@ -201,11 +234,23 @@ async fn unauthenticated_queries_enforce_body_limits_before_storage(
 
 #[rstest]
 #[case::list("GET", "/v1/traces", 200)]
+#[case::logs("GET", "/v1/logs", 200)]
+#[case::lens_logs("GET", "/lens/logs", 200)]
 #[case::agents("GET", "/v1/traces/agents", 200)]
 #[case::trace("GET", "/v1/traces/trace-id", 404)]
 #[case::conversation("GET", "/v1/traces/trace-id/conversation", 404)]
 #[case::span("GET", "/v1/traces/trace-id/spans/span-id", 404)]
 #[case::error("GET", "/v1/traces/trace-id/spans/span-id/error", 404)]
+#[case::log_detail(
+    "GET",
+    "/v1/logs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    404
+)]
+#[case::lens_log_detail(
+    "GET",
+    "/lens/logs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    404
+)]
 #[case::sql("POST", "/v1/traces/query", 200)]
 #[case::help("GET", "/v1/traces/query/help", 200)]
 #[tokio::test]
@@ -246,6 +291,8 @@ async fn public_reads_use_signed_identity_scope_and_ignore_browser_scope(
 
 #[rstest]
 #[case::list("GET", "/v1/traces", "Not allowed to view agent traces")]
+#[case::logs("GET", "/v1/logs", "Not allowed to view logs")]
+#[case::lens_logs("GET", "/lens/logs", "Not allowed to view logs")]
 #[case::conversation(
     "GET",
     "/v1/traces/id/conversation",

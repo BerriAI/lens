@@ -103,7 +103,13 @@ fn cache_key<E>(
 
 fn summary(row: &ListTracesRow, listed: Option<&ListedRun>) -> TraceSummary {
     match listed {
-        Some(ListedRun::Resolved(summary, _)) => (**summary).clone(),
+        Some(ListedRun::Resolved(summary, _)) => {
+            let mut summary = (**summary).clone();
+            if summary.input_preview.is_empty() && !row.input_preview.is_empty() {
+                summary.input_preview = row.input_preview.clone();
+            }
+            summary
+        }
         Some(ListedRun::Limited) | None => listed_summary(row),
     }
 }

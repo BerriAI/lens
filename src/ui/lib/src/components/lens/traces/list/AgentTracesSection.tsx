@@ -2,7 +2,14 @@
 
 import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
+import {
+  ChartNoAxesColumn,
+  ChevronDown,
+  ChevronUp,
+  List,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { traceAgentNames } from "../utils";
 import { useId, useMemo, useState } from "react";
 
@@ -18,23 +25,43 @@ import { useTraceSignals } from "./useTraceSignals";
 import { useOptionalLensApi } from "../../data/LensServices";
 import { lensKeys } from "../../data/queries";
 import { signalsConfigured } from "../../model/signals";
-import { type TraceRef, traceKey, traceRefOf, useOpenTraceRouting, useRunFilterRouting } from "../routing";
+import {
+  type TraceRef,
+  traceKey,
+  traceRefOf,
+  useOpenTraceRouting,
+  useRunFilterRouting,
+} from "../routing";
 import type { TraceSummary } from "../types";
 import { RunView } from "../detail/run/RunView";
 import { useZoomRouting } from "../../../shared/timeRange/routing";
-import { type RelativeRange, type TimeWindow, timeWindow } from "../../../shared/timeRange/timeRange";
+import {
+  isLive,
+  type RelativeRange,
+  type TimeWindow,
+  timeWindow,
+} from "../../../shared/timeRange/timeRange";
 import { TimeRangeControls } from "../../../shared/timeRange/TimeRangeControls";
 import type { RelativeRangeState } from "../../../shared/timeRange/useRelativeRange";
 import { TracesTimeline } from "./TracesTimeline";
+import { LogsTimeline } from "../logs/LogsTimeline";
+import { useLogTimelineRouting } from "../logs/routing";
 import { TracingSetupCard } from "../../onboarding/tracing/TracingSetupCard";
 import { useTracesLive } from "../api";
-import { type AgentTracesResult, useAgentTraces, useTraceAvailability } from "./useAgentTraces";
+import {
+  type AgentTracesResult,
+  useAgentTraces,
+  useTraceAvailability,
+} from "./useAgentTraces";
 import { WaitingForTraces } from "../../onboarding/WaitingForTraces";
 import styles from "../TraceAppearance.module.css";
 
 const DRAWER_WIDTH_KEY = "litellm.agentTraces.drawerWidth";
 
-const filterByWindow = (runs: TraceSummary[], range: TimeWindow): TraceSummary[] =>
+const filterByWindow = (
+  runs: TraceSummary[],
+  range: TimeWindow,
+): TraceSummary[] =>
   runs.filter((run) => {
     const t = moment(run.start_time).valueOf();
     return t >= range.startMs && t < range.endMs;
@@ -61,32 +88,61 @@ function useSignalSetup(enabled: boolean) {
     staleTime: 5000,
   });
   const loaded = enabled && config.data !== undefined;
-  return { on: loaded && signalsConfigured(config.data), missing: loaded && !signalsConfigured(config.data) };
+  return {
+    on: loaded && signalsConfigured(config.data),
+    missing: loaded && !signalsConfigured(config.data),
+  };
 }
 
-function useTracingSetup(traces: AgentTracesResult, isActive: boolean, rangeChanged: boolean) {
+function useTracingSetup(
+  traces: AgentTracesResult,
+  isActive: boolean,
+  rangeChanged: boolean,
+) {
   const [setupResult, setSetupResult] = useState<{
     detail: string | null;
   } | null>(null);
   const waitingForFirstTrace = traces.traces.length === 0 && !rangeChanged;
   const settledResponse = isActive && !traces.isFetching && !traces.error;
   const rememberSetup = waitingForFirstTrace || setupResult !== null;
-  if (settledResponse && rememberSetup && setupResult?.detail !== traces.notEnabledDetail) {
+  if (
+    settledResponse &&
+    rememberSetup &&
+    setupResult?.detail !== traces.notEnabledDetail
+  ) {
     setSetupResult({ detail: traces.notEnabledDetail });
   }
 
-  const disabledDetail = traces.notEnabledDetail ?? (traces.isFetching ? setupResult?.detail : null);
+  const disabledDetail =
+    traces.notEnabledDetail ?? (traces.isFetching ? setupResult?.detail : null);
   const loadingFirstPage = traces.isLoading && setupResult === null;
-  const isEmpty = !loadingFirstPage && !traces.error && traces.traces.length === 0;
-  return { disabledDetail, isEmpty, received: setupResult !== null && traces.traces.length > 0 };
+  const isEmpty =
+    !loadingFirstPage && !traces.error && traces.traces.length === 0;
+  return {
+    disabledDetail,
+    isEmpty,
+    received: setupResult !== null && traces.traces.length > 0,
+  };
 }
 
-function TraceHistoryError({ history }: { history: ReturnType<typeof useTraceAvailability> }) {
+function TraceHistoryError({
+  history,
+}: {
+  history: ReturnType<typeof useTraceAvailability>;
+}) {
   if (!history.error) return null;
   return (
-    <div role="alert" className="flex items-center justify-between gap-4 border-b px-3 py-3 text-sm">
+    <div
+      role="alert"
+      className="flex items-center justify-between gap-4 border-b px-3 py-3 text-sm"
+    >
       <p>Could not check earlier traces. {history.error.message}</p>
-      <Button variant="outline" size="sm" disabled={history.isFetching} onClick={() => void history.refetch()}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={history.isFetching}
+        onClick={() => void history.refetch()}
+      >
         Retry trace check
       </Button>
     </div>
@@ -117,14 +173,19 @@ export function AgentTracesSection({
   const { query, setQuery, agent, status } = useRunFilterRouting();
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
+  const logRouting = useLogTimelineRouting();
   const activityId = useId();
+  const logsId = useId();
   const [zoom, setZoom] = useZoomRouting();
   const [rangeChanged, setRangeChanged] = useState(false);
   const traceQuery = { accessToken, range, enabled: isActive, agent };
   const traces = useAgentTraces(traceQuery);
   const setup = useTracingSetup(traces, isActive, rangeChanged);
   const checkHistory = setup.isEmpty && !rangeChanged;
-  const history = useTraceAvailability(accessToken, isActive && checkHistory && setup.disabledDetail == null);
+  const history = useTraceAvailability(
+    accessToken,
+    isActive && checkHistory && setup.disabledDetail == null,
+  );
 
   const checkTraces = () => {
     traces.refetch();
@@ -133,24 +194,45 @@ export function AgentTracesSection({
 
   // A live range ends "now" (the list query uses Date.now() too); round to the minute so the histogram is stable.
   const minuteEndMs = moment().endOf("minute").valueOf();
-  const pickedWindow = useMemo(() => timeWindow(range, minuteEndMs), [range, minuteEndMs]);
+  const pickedWindow = useMemo(
+    () => timeWindow(range, minuteEndMs),
+    [range, minuteEndMs],
+  );
   // While the previous range's rows stay on screen, describe them with their own window.
-  const window = traces.isPlaceholder && traces.window ? traces.window : pickedWindow;
+  const window =
+    traces.isPlaceholder && traces.window ? traces.window : pickedWindow;
   const filtered = useMemo(
     () => filterRuns(traces.traces, query, { agent, status }),
     [traces.traces, query, agent, status],
   );
-  const runs = useMemo(() => (zoom ? filterByWindow(filtered, zoom) : filtered), [filtered, zoom]);
+  const runs = useMemo(
+    () => (zoom ? filterByWindow(filtered, zoom) : filtered),
+    [filtered, zoom],
+  );
   const feedback = useTraceFeedback(accessToken, runs, isActive);
   const runRefs = useMemo(() => runs.map(traceRefOf), [runs]);
-  const findings = useTraceFindings(accessToken, runs, isActive, canViewFindings);
+  const findings = useTraceFindings(
+    accessToken,
+    runs,
+    isActive,
+    canViewFindings,
+  );
   const signalSetup = useSignalSetup(isActive && canViewFindings !== false);
-  const signals = useTraceSignals(accessToken, runs, isActive && signalSetup.on);
+  const signals = useTraceSignals(
+    accessToken,
+    runs,
+    isActive && signalSetup.on,
+  );
 
   const changeRange = (hours: number, apply: (hours: number) => void) => {
     setZoom(null);
+    logRouting.reset();
     setRangeChanged(true);
     apply(hours);
+  };
+  const selectZoom = (selection: TimeWindow | null) => {
+    logRouting.reset();
+    setZoom(selection);
   };
 
   const openSentTrace = (trace: TraceSummary) => {
@@ -222,6 +304,7 @@ export function AgentTracesSection({
               traceRef={shown.traceRef}
               selection={selection}
               accessToken={accessToken}
+              logRange={zoom ?? window}
               onBack={() => openRun(null)}
               embedded
               showSignals={signalSetup.on}
@@ -255,7 +338,9 @@ export function AgentTracesSection({
             <TimeRangeControls
               range={range}
               zoom={zoom}
-              onHoursChange={(hours) => changeRange(hours, timeControls.setHours)}
+              onHoursChange={(hours) =>
+                changeRange(hours, timeControls.setHours)
+              }
               showLive={live}
               onLiveChange={timeControls.setLive}
             />
@@ -269,7 +354,7 @@ export function AgentTracesSection({
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => setZoom(null)}
+                onClick={() => selectZoom(null)}
                 aria-label="Clear time zoom"
               >
                 Zoomed <X className="size-3" />
@@ -285,12 +370,42 @@ export function AgentTracesSection({
             >
               <ChartNoAxesColumn className="size-3.5" />
               {showActivity ? "Hide activity" : "Show activity"}
-              {showActivity ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+              {showActivity ? (
+                <ChevronUp className="size-3" />
+              ) : (
+                <ChevronDown className="size-3" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+              aria-expanded={logRouting.open}
+              aria-controls={logsId}
+              onClick={() => logRouting.setOpen(!logRouting.open)}
+            >
+              <List className="size-3.5" />
+              {logRouting.open ? "Hide log events" : "Show log events"}
             </Button>
           </div>
         </div>
         <div id={activityId} hidden={!showActivity} className="shrink-0">
-          <TracesTimeline runs={filtered} range={window} selection={zoom} onSelect={setZoom} />
+          <TracesTimeline
+            runs={filtered}
+            range={window}
+            selection={zoom}
+            onSelect={selectZoom}
+          />
+        </div>
+        <div id={logsId} hidden={!logRouting.open} className="shrink-0">
+          {logRouting.open && (
+            <LogsTimeline
+              accessToken={accessToken}
+              enabled={isActive}
+              live={live && isLive(range) && zoom === null}
+              range={zoom ?? window}
+            />
+          )}
         </div>
         <AgentTracesTable
           traces={runs}
@@ -321,7 +436,10 @@ export function AgentTracesSection({
 function TracesReceived({ received }: { received: boolean }) {
   if (!received) return null;
   return (
-    <p role="status" className="border-b px-3 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+    <p
+      role="status"
+      className="border-b px-3 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+    >
       Traces received. Select a run to inspect it.
     </p>
   );
@@ -340,13 +458,23 @@ function TraceCounts({ runs }: { runs: readonly TraceSummary[] }) {
       </div>
       <div>
         <dt>Recorded steps</dt>
-        <dd>{runs.reduce((total, run) => total + run.span_count, 0).toLocaleString()}</dd>
+        <dd>
+          {runs
+            .reduce((total, run) => total + run.span_count, 0)
+            .toLocaleString()}
+        </dd>
       </div>
     </dl>
   );
 }
 
-function TraceFooter({ runs, hasMore }: { runs: readonly TraceSummary[]; hasMore: boolean }) {
+function TraceFooter({
+  runs,
+  hasMore,
+}: {
+  runs: readonly TraceSummary[];
+  hasMore: boolean;
+}) {
   return (
     <footer className="flex h-8 shrink-0 items-center border-t bg-muted/30 px-3 font-mono text-[11px] text-muted-foreground">
       {runs.length} {runs.length === 1 ? "run" : "runs"}
@@ -355,7 +483,15 @@ function TraceFooter({ runs, hasMore }: { runs: readonly TraceSummary[]; hasMore
   );
 }
 
-function TracingSetupAction({ available, live, onSetup }: { available: boolean; live: boolean; onSetup: () => void }) {
+function TracingSetupAction({
+  available,
+  live,
+  onSetup,
+}: {
+  available: boolean;
+  live: boolean;
+  onSetup: () => void;
+}) {
   if (!available) return null;
   return (
     <Button

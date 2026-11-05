@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, io::Write};
+use std::{collections::BTreeMap, io::Write, mem::size_of};
 
 use opentelemetry_proto::tonic::common::v1::{
     AnyValue, KeyValue, any_value::Value as AttributeValue,
@@ -8,6 +8,7 @@ use serde::{
     ser::{SerializeMap, SerializeSeq},
 };
 
+use super::LogValue;
 use super::limits::Budget;
 use crate::Error;
 
@@ -66,6 +67,94 @@ pub(super) fn attributes(
             Ok((entry.key, text))
         })
         .collect()
+}
+
+pub(super) fn log_attributes(
+    values: &[KeyValue],
+    budget: &mut Budget,
+) -> Result<BTreeMap<String, LogValue>, Error> {
+    log_attributes_at(values, budget, 0)
+}
+
+fn log_attributes_at(
+    values: &[KeyValue],
+    budget: &mut Budget,
+    depth: usize,
+) -> Result<BTreeMap<String, LogValue>, Error> {
+    if values.len() > budget.limits.attributes {
+        return Err(Error::TooLarge);
+    }
+    values
+        .iter()
+        .map(|entry| {
+            let bytes = entry
+                .key
+                .len()
+                .checked_add(size_of::<(String, LogValue)>())
+                .ok_or(Error::TooLarge)?;
+            budget.consume(bytes)?;
+            Ok((
+                entry.key.clone(),
+                log_value(entry.value.as_ref(), budget, depth)?,
+            ))
+        })
+        .collect()
+}
+
+pub(super) fn log_value(
+    value: Option<&AnyValue>,
+    budget: &mut Budget,
+    depth: usize,
+) -> Result<LogValue, Error> {
+    if depth > budget.limits.depth {
+        return Err(Error::TooLarge);
+    }
+    budget.consume(size_of::<LogValue>())?;
+    match value.and_then(|value| value.value.as_ref()) {
+        Some(AttributeValue::StringValue(value)) => {
+            budget.consume(value.len())?;
+            Ok(LogValue::String(value.clone()))
+        }
+        Some(AttributeValue::BoolValue(value)) => Ok(LogValue::Boolean(*value)),
+        Some(AttributeValue::IntValue(value)) => Ok(LogValue::Integer(*value)),
+        Some(AttributeValue::DoubleValue(value)) => Ok(LogValue::Double(*value)),
+        Some(AttributeValue::BytesValue(value)) => {
+            budget.consume(value.len())?;
+            Ok(LogValue::Bytes(value.clone()))
+        }
+        Some(AttributeValue::StringValueStrindex(value)) => {
+            Ok(LogValue::Integer(i64::from(*value)))
+        }
+        Some(AttributeValue::ArrayValue(value)) => {
+            let bytes = value
+                .values
+                .len()
+                .checked_mul(size_of::<LogValue>())
+                .ok_or(Error::TooLarge)?;
+            budget.consume(bytes)?;
+            Ok(LogValue::Array(
+                value
+                    .values
+                    .iter()
+                    .map(|value| log_value(Some(value), budget, depth + 1))
+                    .collect::<Result<_, _>>()?,
+            ))
+        }
+        Some(AttributeValue::KvlistValue(value)) => {
+            let bytes = value
+                .values
+                .len()
+                .checked_mul(size_of::<(String, LogValue)>())
+                .ok_or(Error::TooLarge)?;
+            budget.consume(bytes)?;
+            Ok(LogValue::Map(log_attributes_at(
+                &value.values,
+                budget,
+                depth + 1,
+            )?))
+        }
+        None => Ok(LogValue::Null),
+    }
 }
 
 struct AttributeJson<'a>(Option<&'a AnyValue>);
