@@ -51,7 +51,7 @@ export function OutcomesTrend({
       </div>
       <div
         role="img"
-        aria-label={`${selected.title}: ${outcomeValue(total, measure)} ${selected.unit} across ${data.length} days, segmented by agent`}
+        aria-label={`${selected.title}: ${outcomeValue(total, measure)} ${selected.unit} across ${data.length} daily buckets, segmented by agent`}
         className="h-[220px] w-full"
       >
         <ResponsiveContainer width="100%" height="100%">

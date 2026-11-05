@@ -231,7 +231,7 @@ describe("delivery trend and repository rollups", () => {
       session({ id: "follow-up" }),
     ];
     const trend = dailyOutcomeTrend(rows, 7, NOW);
-    expect(trend).toHaveLength(7);
+    expect(trend).toHaveLength(8);
     expect(trend.at(-1)).toEqual({
       date: "2026-11-05",
       sessions: 1,
@@ -247,6 +247,85 @@ describe("delivery trend and repository rollups", () => {
       costUSD: 10,
     });
   });
+
+  it.each([
+    [
+      "partial boundary days",
+      "2026-11-05T12:00:00Z",
+      8,
+      "2026-10-29",
+      "2026-11-05",
+    ],
+    ["midnight end", "2026-11-05T00:00:00Z", 7, "2026-10-29", "2026-11-04"],
+  ] as const)(
+    "keeps rolling-period spend and merge totals consistent for %s",
+    (_name, end, buckets, firstDate, lastDate) => {
+      const now = Date.parse(end);
+      const start = now - 7 * 24 * HOUR_MS;
+      const rows = filterOutcomeSessions(
+        [
+          session({
+            id: "first-partial-day",
+            startedAt: new Date(start + HOUR_MS).toISOString(),
+            finishedAt: new Date(start + 1.5 * HOUR_MS).toISOString(),
+            costUSD: 12,
+            pullRequest: {
+              id: 7,
+              title: "First-day fix",
+              status: "merged",
+              mergedAt: new Date(start + 2 * HOUR_MS).toISOString(),
+            },
+            issue: null,
+          }),
+          session({
+            id: "last-day",
+            startedAt: new Date(now - 3 * HOUR_MS).toISOString(),
+            finishedAt: new Date(now - 2.5 * HOUR_MS).toISOString(),
+            costUSD: 8,
+            pullRequest: {
+              id: 8,
+              title: "Last-day fix",
+              status: "merged",
+              mergedAt: new Date(now - HOUR_MS).toISOString(),
+            },
+            issue: null,
+          }),
+        ],
+        { days: 7, status: "all" },
+        now,
+      );
+      const summary = summarizeOutcomes(rows);
+      const daily = dailyOutcomeTrend(rows, 7, now);
+      expect(daily).toHaveLength(buckets);
+      expect(daily[0].date).toBe(firstDate);
+      expect(daily.at(-1)?.date).toBe(lastDate);
+      expect(daily[0]).toMatchObject({
+        sessions: 1,
+        costUSD: 12,
+        mergedPRs: 1,
+      });
+      expect(daily.reduce((total, day) => total + day.costUSD, 0)).toBe(
+        summary.totalCostUSD,
+      );
+      expect(daily.reduce((total, day) => total + day.mergedPRs, 0)).toBe(
+        summary.mergedPRs,
+      );
+      const spend = dailyAgentOutcomeTrend(rows, 7, now, "costUSD");
+      const merges = dailyAgentOutcomeTrend(rows, 7, now, "mergedPRs");
+      expect(spend[0].values.release_agent).toBe(12);
+      expect(merges[0].values.release_agent).toBe(1);
+      expect(
+        spend
+          .flatMap((day) => Object.values(day.values))
+          .reduce((total, value) => total + value, 0),
+      ).toBe(summary.totalCostUSD);
+      expect(
+        merges
+          .flatMap((day) => Object.values(day.values))
+          .reduce((total, value) => total + value, 0),
+      ).toBe(summary.mergedPRs);
+    },
+  );
 
   it("ranks repositories by spend and derives shares against all filtered spend", () => {
     const rows = [

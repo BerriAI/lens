@@ -269,11 +269,11 @@ export function dailyOutcomeTrend(
   days: number,
   now: number,
 ): OutcomeTrendPoint[] {
-  const lastDay = Math.floor(now / DAY_MS) * DAY_MS;
-  return Array.from({ length: days }, (_, index) => {
-    const date = new Date(lastDay - (days - index - 1) * DAY_MS)
-      .toISOString()
-      .slice(0, 10);
+  const firstDay = Math.floor((now - days * DAY_MS) / DAY_MS) * DAY_MS;
+  const lastDay = Math.floor((now - 1) / DAY_MS) * DAY_MS;
+  const bucketCount = (lastDay - firstDay) / DAY_MS + 1;
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const date = new Date(firstDay + index * DAY_MS).toISOString().slice(0, 10);
     const started = sessions.filter(
       (session) => session.startedAt.slice(0, 10) === date,
     );
@@ -338,7 +338,8 @@ export function createOutcomeDemo(now: number): OutcomeSession[] {
     const repository =
       DEMO_REPOSITORIES[Math.floor(group / 3) % DEMO_REPOSITORIES.length];
     const isLinked = group % 10 !== 9;
-    const merged = group % 10 < ([8, 5, 3] as const)[group % DEMO_AGENTS.length];
+    const merged =
+      group % 10 < ([8, 5, 3] as const)[group % DEMO_AGENTS.length];
     const pullRequest: OutcomePullRequest | null = isLinked
       ? {
           id: 480 + group,
