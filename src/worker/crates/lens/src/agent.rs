@@ -136,6 +136,7 @@ impl Output for wire::Findings {
 }
 
 pub struct Assignment<'a> {
+    pub execution_ids: Vec<String>,
     pub stage: &'a str,
     pub task: String,
     pub purpose: wire::ModelRequestPurpose,
@@ -163,8 +164,11 @@ pub async fn run<T: Output>(
             finding
         })
         .collect();
-    let initial =
-        json!({"evidence": [], "supplied": assignment.supplied, "existing_findings": existing});
+    let evidence = workspace
+        .initial(&assignment.execution_ids, 256 * 1024)
+        .await?;
+    let mut preloaded = !evidence.is_empty();
+    let initial = json!({"evidence": evidence, "supplied": assignment.supplied, "existing_findings": existing});
     let mut journal = Journal::new(&initial).await?;
     let prompt = json!({
         "stage": assignment.stage, "task": assignment.task,
@@ -178,7 +182,7 @@ pub async fn run<T: Output>(
     });
     let mut request = model::request(assignment.purpose, prompt)?;
     let task_message = model::message(wire::ModelMessageRole::System, request.prompt.to_string());
-    request.messages = vec![task_message.clone(), model::message(wire::ModelMessageRole::User, json!({"initial_evidence": [], "supplied": assignment.supplied, "existing_findings": existing}).to_string())];
+    request.messages = vec![task_message.clone(), model::message(wire::ModelMessageRole::User, json!({"initial_evidence": evidence, "supplied": assignment.supplied, "existing_findings": existing}).to_string())];
     let mut compacted = false;
     let mut rejected = 0;
     loop {
@@ -192,6 +196,11 @@ pub async fn run<T: Output>(
         }).await;
         tracker.change("model", false).await?;
         let (turn, responded) = match result {
+            Err(Error::Context(_)) if preloaded => {
+                preloaded = false;
+                request.messages = vec![task_message.clone(), model::message(wire::ModelMessageRole::User, json!({"initial_evidence": [], "supplied": assignment.supplied, "existing_findings": existing}).to_string())];
+                continue;
+            }
             Err(Error::Context(previous)) if !compacted => {
                 tracker.change("checkpoint", true).await?;
                 request.messages =
@@ -213,6 +222,7 @@ pub async fn run<T: Output>(
             result => result?,
         };
         compacted = false;
+        preloaded = false;
         if let Some(result) = turn.result {
             let Some(invalid) = result.validate(claim, workspace).await? else {
                 return Ok(result);

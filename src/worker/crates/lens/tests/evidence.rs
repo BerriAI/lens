@@ -109,3 +109,36 @@ async fn citations_cannot_join_across_omitted_content(#[case] quote: &str) {
     .unwrap();
     assert!(!workspace.valid(&citation).await.unwrap());
 }
+
+#[rstest]
+#[case::complete("run-test", 1_000_000, true)]
+#[case::over_budget("run-test", 32_000, false)]
+#[case::zero_budget("run-test", 0, false)]
+#[case::other_execution("different-run", 1_000_000, false)]
+#[tokio::test]
+async fn initial_evidence_is_complete_scoped_and_never_silently_truncated(
+    #[case] execution_id: &str,
+    #[case] limit: usize,
+    #[case] included: bool,
+) {
+    let original = format!("{}late material evidence", "é終".repeat(12000));
+    let (_server, workspace, _) = workspace(Arc::new(Mutex::new(original.clone()))).await;
+    let parts = workspace
+        .initial(&[execution_id.to_owned()], limit)
+        .await
+        .unwrap();
+    assert_eq!(parts.len(), usize::from(included));
+    if included {
+        assert_eq!(parts[0].content, original);
+        assert!(!parts[0].truncated);
+        assert_eq!(parts[0].execution_id, execution_id);
+        assert_eq!(parts[0].parent_span_id, "root");
+        assert_eq!(parts[0].end_time, "2026-10-03 10:00:00.200000019");
+    }
+    let request =
+        serde_json::from_value(json!({"action":"read", "execution_id":"run-test"})).unwrap();
+    assert_eq!(
+        workspace.respond(&request).await.unwrap()["parts"][0]["content"],
+        original
+    );
+}

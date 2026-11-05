@@ -329,6 +329,52 @@ impl Workspace {
         Ok(format!("{:x}", digest.finalize()))
     }
 
+    pub async fn initial(
+        &self,
+        execution_ids: &[String],
+        limit: usize,
+    ) -> Result<Vec<wire::TracePart>, Error> {
+        let mut parts = Vec::new();
+        let mut remaining = limit;
+        for execution in self
+            .executions
+            .iter()
+            .filter(|e| execution_ids.contains(&e.id))
+        {
+            let sources = self.sources(execution, &[]);
+            futures_util::pin_mut!(sources);
+            while let Some(source) = sources.try_next().await? {
+                let metadata = serde_json::to_vec(&wire::TracePart {
+                    content: String::new(),
+                    truncated: false,
+                    ..source.part.clone()
+                })?
+                .len();
+                let Some(left) = remaining.checked_sub(metadata) else {
+                    return Ok(Vec::new());
+                };
+                remaining = left;
+                let mut content = String::new();
+                let chunks = self.chunks(&source, 0);
+                futures_util::pin_mut!(chunks);
+                while let Some(piece) = chunks.try_next().await? {
+                    let encoded = serde_json::to_vec(&piece.content)?.len().saturating_sub(2);
+                    let Some(left) = remaining.checked_sub(encoded) else {
+                        return Ok(Vec::new());
+                    };
+                    remaining = left;
+                    content.push_str(&piece.content);
+                }
+                parts.push(wire::TracePart {
+                    content,
+                    truncated: false,
+                    ..source.part.clone()
+                });
+            }
+        }
+        Ok(parts)
+    }
+
     pub async fn respond(&self, request: &wire::EvidenceRequest) -> Result<Value, Error> {
         use wire::EvidenceRequestAction as A;
         if request.char_end.is_some_and(|end| end < request.char_start) {

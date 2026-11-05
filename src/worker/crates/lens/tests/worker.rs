@@ -34,6 +34,93 @@ fn client(server: &MockServer) -> JobClient {
     replay::client(&server.uri(), "lens-test", "job-test", 2)
 }
 
+#[rstest]
+#[case::fits(false)]
+#[case::smaller_model_context(true)]
+#[tokio::test]
+async fn complete_initial_evidence_avoids_read_turns_and_survives_context_fallback(
+    #[case] overflow: bool,
+) {
+    use litellm_lens::{activity::Tracker, agent, evidence::Workspace};
+    let server = MockServer::start().await;
+    let sample: wire::Sample = serde_json::from_str(include_str!("fixtures/sample.json")).unwrap();
+    let execution = sample.executions[0].clone();
+    Mock::given(method("GET")).and(path("/replay/lens-test/job-test/content"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"execution":execution,"parts":[{"execution_id":"run-test","span_id":"span-test","name":"tool","kind":"tool","content":QUOTE,"truncated":false}]})))
+        .mount(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/progress"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&server)
+        .await;
+    let count = Arc::new(AtomicUsize::new(0));
+    let calls = count.clone();
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(move |request: &Request| {
+            let request: wire::ModelRequest = request.body_json().unwrap();
+            assert_eq!(request.purpose, wire::ModelRequestPurpose::Extract);
+            let attempt = calls.fetch_add(1, Ordering::SeqCst);
+            let input: Value =
+                serde_json::from_str(&request.messages.last().unwrap().content).unwrap();
+            let response = match attempt {
+                0 => {
+                    assert_eq!(input["initial_evidence"][0]["content"], QUOTE);
+                    assert_eq!(input["initial_evidence"][0]["truncated"], false);
+                    if overflow {
+                        return ResponseTemplate::new(200).set_body_json(
+                            json!({"content":"", "cost":0,"context_exceeded":true}),
+                        );
+                    }
+                    json!({"result":{"observations":[]}})
+                }
+                1 if overflow => {
+                    assert_eq!(input["initial_evidence"], json!([]));
+                    json!({"tools":[{"action":"history", "include_initial":true, "turn_end":0}]})
+                }
+                2 if overflow => {
+                    let history: Value =
+                        serde_json::from_str(input["tool_results"][0].as_str().unwrap()).unwrap();
+                    assert_eq!(history["initial_context"]["evidence"][0]["content"], QUOTE);
+                    json!({"result":{"observations":[]}})
+                }
+                _ => panic!("Unexpected extra model call"),
+            };
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"content":response.to_string(),"cost":0}))
+        })
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    let workspace = Workspace::new(sample.executions, client.clone());
+    let tracker = Tracker::start(
+        &client,
+        "initial".into(),
+        wire::ActivityPhase::Review,
+        "Read original".into(),
+        vec![execution.id.clone()],
+    )
+    .await
+    .unwrap();
+    let claim: wire::Claim = serde_json::from_value(fixture()).unwrap();
+    let output: wire::Extraction = agent::run(
+        &claim,
+        &workspace,
+        agent::Assignment {
+            execution_ids: vec![execution.id],
+            stage: "test",
+            task: "Review original evidence".into(),
+            purpose: wire::ModelRequestPurpose::Extract,
+            supplied: json!({}),
+        },
+        &tracker,
+    )
+    .await
+    .unwrap();
+    assert!(output.observations.is_empty());
+    assert_eq!(count.load(Ordering::SeqCst), if overflow { 3 } else { 1 });
+}
+
 struct RetryingModel {
     calls: Mutex<Vec<tokio::time::Instant>>,
     retry_after: Option<u64>,
@@ -658,6 +745,7 @@ async fn checkpoint_history_preserves_only_the_supplied_finding_summary() {
         &claim,
         &workspace,
         agent::Assignment {
+            execution_ids: vec![],
             stage: "test",
             task: "Recover only supplied finding details".into(),
             purpose: wire::ModelRequestPurpose::Extract,
@@ -737,6 +825,7 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
         &claim,
         &workspace,
         agent::Assignment {
+            execution_ids: vec![],
             stage: "test",
             task: "Read two tools and recover the second from history".into(),
             purpose: wire::ModelRequestPurpose::Extract,

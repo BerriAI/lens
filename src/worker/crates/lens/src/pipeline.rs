@@ -100,6 +100,7 @@ async fn review(
             local_workspace.executions = vec![execution.clone()];
         }
         let result = agent::run::<wire::Extraction>(&local_claim, &local_workspace, Assignment {
+            execution_ids: vec![execution.id.clone()],
             stage: "context_review", purpose: wire::ModelRequestPurpose::Extract,
             task: format!("{}\nReview the assigned execution, including its recorded subagents. Original evidence is available through tools. Inspect actual trace evidence before concluding there are no issues; metadata alone is not enough. The result field follows the Extraction schema.", include_str!("../prompts/review.md")),
             supplied: json!({"execution": execution, "characters": null, "recorded_spans": execution.span_count, "partial": workspace.partial(execution)}),
@@ -400,9 +401,10 @@ pub async fn analyze(
             }
             let tracker = Tracker::start(client, format!("investigate:{index}"), wire::ActivityPhase::Investigate, candidate.title.clone(), candidate.execution_ids.clone()).await?;
             let result = agent::run::<wire::Findings>(claim, workspace, Assignment {
+                execution_ids: candidate.execution_ids.clone(),
                 stage: "context_investigation", purpose: wire::ModelRequestPurpose::Investigate,
-                task: format!("{}\nInvestigate the supplied candidate against original evidence, including counterexamples. Use read_reviews for the candidate sessions and search_reviews to compare other sessions. All sampled sessions and nested agents remain available. Finalize findings about this candidate's check and underlying causes. Unrelated successes are context or counterevidence, not additional findings. Preserve distinct supported causes if the candidate conflates them. Return every supported finding, or an empty findings list if unsupported.", include_str!("../prompts/findings.md")),
-                supplied: serde_json::to_value(candidate)?,
+                task: format!("{}\nInvestigate the supplied candidate against original evidence, including counterexamples. Compare supplied review_records first. Use read_reviews and search_reviews when more review context is needed. All sampled sessions and nested agents remain available. Finalize findings about this candidate's check and underlying causes. Unrelated successes are context or counterevidence, not additional findings. Preserve distinct supported causes if the candidate conflates them. Return every supported finding, or an empty findings list if unsupported.", include_str!("../prompts/findings.md")),
+                supplied: json!({"candidate": candidate, "review_records": if serde_json::to_vec(&workspace.reviews)?.len() <= 32 * 1024 { workspace.reviews.clone() } else { Vec::new() }}),
             }, &tracker).await;
             let result = match (&key, result) {
                 (Some(key), Ok(result)) if workspace.errors().is_empty() => {
