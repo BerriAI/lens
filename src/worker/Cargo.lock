@@ -2666,6 +2666,7 @@ dependencies = [
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.19",
+ "tiktoken-rs",
  "tokio",
  "tower",
  "tower-http",
