@@ -994,6 +994,22 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
   expect(network).not.toHaveBeenCalled();
 });
 
+it("opens an outcome trace with its merged PR and closed issue, then returns to the aggregate", async () => {
+  const user = userEvent.setup();
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: "?demo=true&tab=outcomes&agent=release_agent",
+  });
+  await user.click(await screen.findByRole("button", { name: "Open trace for demo-session-001" }));
+  const delivery = await screen.findByRole("region", { name: "Delivery outcomes" });
+  expect(within(delivery).getByText("PR #480 merged")).toBeVisible();
+  expect(within(delivery).getByText("Issue #210 closed")).toBeVisible();
+  expect(await screen.findByRole("tree", { name: "Spans in time order" })).toBeVisible();
+  await user.click(within(delivery).getByRole("button", { name: "Aggregate outcomes" }));
+  expect(screen.getByRole("tab", { name: "Outcomes", exact: true })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByRole("region", { name: "Top Agents" })).toBeVisible();
+  expect(network).not.toHaveBeenCalled();
+});
+
 it("carries a pie chart profile into the real investigation setup and matching preview", async () => {
   const user = userEvent.setup();
   network.mockImplementation(async (input, init) => {
