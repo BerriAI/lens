@@ -139,6 +139,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         key_hash: String::new(),
     };
     let sample = |source| LensSampleParams {
+        profile: String::new(),
         access: access(),
         source,
         start: (started_ms - 60_000) as u64,
@@ -230,6 +231,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         &fixture.database.client,
         &pacific,
         &LensFindingSourceParams {
+            profile: String::new(),
             access: access(),
             trace_id: trace.0.trace_id.clone(),
             trace_ref: trace.0.trace_ref.clone(),
@@ -897,6 +899,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         &fixture.database.client,
         &connection,
         &LensSampleParams {
+            profile: String::new(),
             access: LensAccessParams {
                 all_teams: false,
                 team: "team-lens".into(),

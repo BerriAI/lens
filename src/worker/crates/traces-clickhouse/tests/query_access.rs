@@ -114,6 +114,7 @@ async fn database() -> Result<Database, Box<dyn std::error::Error>> {
     for sql in [
         "INSERT INTO trace_test.otel_traces (TeamId, ApiKeyHash, TraceId, SpanId, Timestamp, SpanAttributes, UserId) VALUES ('team-a', 'key-a1', 'shared-trace', 'a1', now(), map('visible', 'a'), 'owner'), ('team-a', 'key-a2', 'shared-trace', 'a2', now(), map('visible', 'a'), 'other'), ('team-b', 'key-b', 'shared-trace', 'b', now(), map('secret-b', 'b'), 'owner'), ('team-c', 'key-a1', 'shared-trace', 'same-key-foreign', now(), map('visible', 'foreign'), 'other'), ('', 'key-teamless', 'shared-trace', 'teamless', now(), map('visible', 'teamless'), ''), ('', 'key-other', 'shared-trace', 'other-teamless', now(), map('visible', 'other'), '')",
         "INSERT INTO trace_test.spend_logs (team_id, api_key, request_id, start_time, end_time, metadata, user) VALUES ('team-a', 'key-a1', 'a1', now(), now(), '{\"visible\":1}', 'owner'), ('team-a', 'key-a2', 'a2', now(), now(), '{\"visible\":1}', 'other'), ('team-b', 'key-b', 'b', now(), now(), '{\"secret_b\":1}', 'owner'), ('team-c', 'key-a1', 'same-key-foreign', now(), now(), '{}', 'other'), ('', 'key-teamless', 'teamless', now(), now(), '{}', ''), ('', 'key-other', 'other-teamless', now(), now(), '{}', '')",
+        "INSERT INTO trace_test.lens_task_profiles (TeamId, ApiKeyHash, TraceId, UserIds, Category, StartTs, ComputedAt, ResolutionVersion) VALUES ('team-a', 'key-a1', 'shared-trace', ['owner'], 'a1', now(), 1, 1), ('team-a', 'key-a2', 'shared-trace', ['other'], 'a2', now(), 1, 1), ('team-b', 'key-b', 'shared-trace', ['owner'], 'b', now(), 1, 1), ('team-c', 'key-a1', 'shared-trace', ['other'], 'same-key-foreign', now(), 1, 1), ('', 'key-teamless', 'shared-trace', [''], 'teamless', now(), 1, 1), ('', 'key-other', 'shared-trace', [''], 'other-teamless', now(), 1, 1)",
         "CREATE TABLE trace_test.private_data (secret String) ENGINE = Memory",
         "INSERT INTO trace_test.private_data VALUES ('hidden')",
     ] {
@@ -155,6 +156,7 @@ async fn queries_and_help_are_scoped_by_the_database(
         "SELECT id FROM (SELECT SpanId AS id FROM otel_traces UNION DISTINCT SELECT SpanId AS id FROM trace_test.otel_traces) ORDER BY id",
         "SELECT t.SpanId AS id FROM otel_traces t INNER JOIN spend_logs s ON t.SpanId = s.request_id ORDER BY id",
         "SELECT request_id AS id FROM spend_logs FINAL ORDER BY id",
+        "SELECT Category AS id FROM lens_task_profiles FINAL ORDER BY id",
     ];
     for sql in queries {
         let body: Value = serde_json::from_str(&query_sql(&database.client, &reader, sql).await?)?;

@@ -7,8 +7,11 @@ WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
   AND hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId)))={trace_ref:String}
   AND (TeamId, ApiKeyHash, TraceId) NOT IN (
       SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces WHERE TraceId={trace_id:String})
+  AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
+      SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles WHERE category={profile:String}
+  ))
 GROUP BY TeamId, ApiKeyHash, TraceId
-HAVING countIf(AgentName={agent_name:String}) > 0
+HAVING ({agent_name:String}='' OR countIf(AgentName={agent_name:String}) > 0)
    AND countIf(arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v,
        {filter_keys:Array(String)}, {filter_values:Array(String)})
        AND ({service:String}='' OR ServiceName={service:String})) > 0

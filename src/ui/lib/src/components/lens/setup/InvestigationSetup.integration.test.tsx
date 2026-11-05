@@ -2,11 +2,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { mockAllIsIntersecting, setupIntersectionMocking } from "react-intersection-observer/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { testQueryClient } from "../../../../tests/test-utils";
+import { chooseSelectOption, testQueryClient } from "../../../../tests/test-utils";
 import { renderWithLens as renderWithProviders, stubGateway } from "../../../../tests/lens-test-utils";
 import { MonitoringDialog } from "./MonitoringDialog";
 import { InvestigationSetup } from "./InvestigationSetup";
 import { initialWatches, watchChecks } from "../model/watches";
+import { runTime } from "../model/format";
 import { type AnalysisModelInfo, type Settings } from "../model/types";
 
 let proxy = stubGateway();
@@ -62,6 +63,24 @@ beforeEach(() => {
   proxy.post.mockResolvedValue({ eligible: 1, selected: 1, executions: [] });
 });
 describe("Investigation setup", () => {
+  it.each(["Coding", "Unclassified"])("previews and saves the selected %s profile without converting it to metadata conditions", async (category) => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [{ category: "Coding", runs: 10 }, { category: "Unclassified", runs: 1 }] };
+      const body = options.body as { selection: Settings };
+      return { eligible: body.selection.profile === category ? 1 : 11, selected: 1, executions: [] };
+    });
+    renderWithProviders(<InvestigationSetup mode="edit" initial={settings} onClose={vi.fn()} onSave={save} />);
+    await chooseSelectOption(user, screen.getByRole("combobox", { name: "Profile" }), category);
+    expect(await screen.findByText("1 matching run")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: category, filters: [] }));
+  });
+
   it("preserves saved manual run selections when editing and lets the preview footer clear them", async () => {
     const user = userEvent.setup();
     proxy.post.mockResolvedValue({
@@ -158,7 +177,7 @@ describe("Investigation setup", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Run and monitor" })).toBeEnabled());
     expect(screen.getByText("1 matching run")).toBeInTheDocument();
     expect(screen.getByText("Research report")).toBeInTheDocument();
-    expect(screen.getByText(/2026-09-30/)).toBeInTheDocument();
+    expect(screen.getByText(`${runTime("2026-09-30 18:00:00.000")} · LLM request`)).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Monthly limit (USD)" })).not.toBeVisible();
     await user.click(screen.getByRole("button", { name: "Run and monitor" }));
     const expected = {
@@ -594,7 +613,7 @@ it("fetches one preview for two keystrokes inside the debounce window", async ()
     await user.click(screen.getByText("Advanced filters"));
     const previewsFor = (teamId: string) =>
       proxy.post.mock.calls.filter(
-        ([, options]) => (options?.body as { selection: Settings }).selection.team_id === teamId,
+        ([path, options]) => path === "/lens/preview/sample" && (options?.body as { selection: Settings }).selection.team_id === teamId,
       );
     await user.type(screen.getByRole("textbox", { name: "Team ID (optional)" }), "ab");
     expect(previewsFor("a")).toHaveLength(0);

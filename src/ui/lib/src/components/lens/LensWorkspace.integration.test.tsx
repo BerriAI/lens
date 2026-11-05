@@ -486,7 +486,7 @@ describe("Lens interactive demo", () => {
     await waitFor(() => expect(tab).toHaveAccessibleDescription(""));
   });
 
-  it("redirects legacy investigation setup links to Findings and edits analysis there", async () => {
+  it("opens investigation setup in Findings and returns to analysis settings when cancelled", async () => {
     const user = userEvent.setup();
     const saved = createLensDemoData().lenses[0];
     network.mockImplementation(async (input) => {
@@ -509,9 +509,10 @@ describe("Lens interactive demo", () => {
       searchParams: `?tab=investigations&dialog=new&agent=${saved.settings.agent_name}`,
     });
     const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
-    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
+    expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
     expect(tabs.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("region", { name: "New investigation" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Findings settings" }));
     expect(await screen.findByRole("dialog")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -925,10 +926,14 @@ describe("Lens agent selector", () => {
     const tabs = screen.getByRole("tablist", { name: "Lens" });
     expect(tabs).toHaveAttribute("aria-orientation", "vertical");
     const traces = within(tabs).getByRole("tab", { name: "Traces" });
+    const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
     const findings = within(tabs).getByRole("tab", { name: "Findings" });
     await user.click(traces);
     await user.keyboard("{ArrowDown}");
 
+    expect(profiles).toHaveFocus();
+    expect(profiles).toHaveAttribute("aria-selected", "false");
+    await user.keyboard("{ArrowDown}");
     expect(findings).toHaveFocus();
     expect(traces).toHaveAttribute("aria-selected", "true");
     expect(findings).toHaveAttribute("aria-selected", "false");
@@ -967,6 +972,54 @@ describe("Lens agent selector", () => {
   });
 });
 
+it("discovers profiles from Traces and keeps the selected agent and time range in both directions", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: "?demo=true&agent=support_agent&tab=traces&hours=168",
+    onUrlUpdate,
+  });
+  await user.click(await screen.findByRole("button", { name: "Task profiles" }));
+  expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
+  expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
+  expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("support_agent"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("hours")).toBe("168"));
+  await user.click(screen.getByRole("button", { name: "View traces" }));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("traces"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("support_agent"));
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("hours")).toBe("168"));
+  expect(network).not.toHaveBeenCalled();
+});
+
+it("carries a pie chart profile into the real investigation setup and matching preview", async () => {
+  const user = userEvent.setup();
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/v1/traces/query") return Response.json({ data: [{ category: "Coding", runs: 10 }, { category: "Workflows", runs: 6 }] });
+    if (request.path === "/lens/preview/sample") return Response.json({ eligible: 10, selected: 10, executions: [] });
+    if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (request.path === "/lens/agents") return Response.json(["assistant"]);
+    if (request.path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(request.path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { searchParams: "?tab=profiles&agent=assistant&hours=168" });
+  await user.click(await screen.findByRole("button", { name: /^Coding/ }));
+  await user.click(screen.getByRole("button", { name: "Investigate profile" }));
+  expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Coding");
+  expect(screen.getByRole("combobox", { name: "Agent (optional)" })).toHaveValue("assistant");
+  expect(screen.getByRole("spinbutton", { name: "Review the last" })).toHaveValue(7);
+  expect(await screen.findByText("10 matching runs")).toBeVisible();
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  expect(requests).toContainEqual(expect.objectContaining({
+    path: "/lens/preview/sample",
+    body: expect.objectContaining({ lookback_hours: 168, selection: expect.objectContaining({ profile: "Coding", agent_name: "assistant" }) }),
+  }));
+});
+
 it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();
@@ -986,8 +1039,11 @@ it("uses horizontal tabs in the embedded header and restores the selected view f
   expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
   const tabs = screen.getByRole("tablist", { name: "Lens" });
   const traces = within(tabs).getByRole("tab", { name: "Traces" });
+  const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
   const findings = within(tabs).getByRole("tab", { name: "Findings" });
   await user.click(traces);
+  await user.keyboard("{ArrowRight}");
+  expect(profiles).toHaveFocus();
   await user.keyboard("{ArrowRight}");
   expect(findings).toHaveFocus();
   expect(traces).toHaveAttribute("aria-selected", "true");

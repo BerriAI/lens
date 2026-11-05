@@ -36,6 +36,7 @@ impl Model {
                 ),
                 ("service", false, STRING),
                 ("agent_name", false, STRING),
+                ("profile", false, Kind::Optional(&Kind::String(1, None))),
                 (
                     "filters",
                     false,

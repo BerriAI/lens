@@ -1,4 +1,4 @@
-use crate::worker::{LensSettings, LensSettingsSource, MetadataFilter};
+use crate::worker::{LensSettings, LensSettingsSource, MetadataFilter, UsageProfile};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
@@ -6,6 +6,8 @@ use std::num::NonZeroU64;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ActivitySelection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<UsageProfile>,
     pub source: LensSettingsSource,
     pub service: String,
     pub agent_name: String,
@@ -23,6 +25,7 @@ impl Default for ActivitySelection {
             service: String::new(),
             agent_name: String::new(),
             filters: Vec::new(),
+            profile: None,
             sample_size: None,
             sample_percent: 100.0,
             team_id: String::new(),
@@ -38,6 +41,7 @@ impl From<&LensSettings> for ActivitySelection {
             service: settings.service.clone(),
             agent_name: settings.agent_name.clone(),
             filters: settings.filters.clone(),
+            profile: settings.profile.clone(),
             sample_size: settings.sample_size,
             sample_percent: settings.sample_percent,
             team_id: settings.team_id.clone(),

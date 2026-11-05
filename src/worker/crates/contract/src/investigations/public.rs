@@ -51,6 +51,13 @@ macro_rules! public_field {
     ($state:ident, $field:ident) => {
         $state.serialize_field(stringify!($field), $field)?;
     };
+    ($state:ident, $field:ident, optional) => {
+        if let Some(value) = $field {
+            $state.serialize_field(stringify!($field), value)?;
+        } else {
+            $state.skip_field(stringify!($field))?;
+        }
+    };
     ($state:ident, $field:ident, nested) => {
         $state.serialize_field(stringify!($field), &Public($field))?;
     };
@@ -70,6 +77,7 @@ macro_rules! public_record {
 }
 
 public_record!(LensSettings {
+    profile => optional,
     source,
     service,
     agent_name,

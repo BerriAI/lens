@@ -364,6 +364,7 @@ export interface LensSettings {
   model: string;
   monthly_budget?: number;
   name: string;
+  profile?: string | null;
   sample_percent?: number;
   sample_size?: number | null;
   service?: string;

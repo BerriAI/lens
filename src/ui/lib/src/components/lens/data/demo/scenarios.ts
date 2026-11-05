@@ -6,12 +6,14 @@ export type Scenario = {
   answer: string;
   failed?: boolean;
   session?: string;
+  taskCategory?: string;
 };
 
 export const scenarios: Scenario[] = [
   {
     agent: "support_agent",
     question: "Where is order #1042?",
+    taskCategory: "Workflows",
     session: "demo-order-thread",
     tool: "lookup_order",
     result: "Order service timed out",
@@ -21,6 +23,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "research_agent",
     question: "Which database should we use for analytics?",
+    taskCategory: "Research",
     tool: "search_docs",
     result: "Column stores are designed for analytical queries. No comparative benchmark is available.",
     answer: "The column store is 40% faster than the row store for your workload.",
@@ -28,6 +31,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "support_agent",
     question: "Can I return my headphones?",
+    taskCategory: "Workflows",
     tool: "lookup_return_policy",
     result: "Returns are accepted within 30 days. This order was delivered 10 days ago.",
     answer: "Yes. Your order is eligible for a return. I can help you start it.",
@@ -35,6 +39,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "release_agent",
     question: "Is the checkout release ready to ship?",
+    taskCategory: "Coding",
     tool: "read_test_results",
     result: "Checkout: 120 passed, 0 failed. Rollback plan approved.",
     answer: "All 120 checkout tests passed and the rollback plan is approved. The release is ready.",
@@ -42,6 +47,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "support_agent",
     question: "My order #1088 has not arrived",
+    taskCategory: "Workflows",
     tool: "lookup_order",
     result: "Order service timed out",
     answer: "I will check that for you.",
@@ -50,6 +56,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "research_agent",
     question: "How long do we retain audit logs?",
+    taskCategory: "Research",
     tool: "search_docs",
     result: "Audit log retention is 90 days on the current plan.",
     answer: "Audit logs are retained for 90 days, according to the plan documentation.",
@@ -57,6 +64,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "release_agent",
     question: "Review the search release",
+    taskCategory: "Coding",
     tool: "read_test_results",
     result: "Search: 117 passed, 3 failed. Cases 17, 63 and 104 returned empty results.",
     answer: "Hold the release. Three of 120 cases returned empty results. Review cases 17, 63 and 104 before shipping.",
@@ -64,6 +72,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "support_agent",
     question: "Update the address on order #1091",
+    taskCategory: "Workflows",
     tool: "lookup_order",
     result: "Order #1091 has not shipped. Address changes are allowed.",
     answer: "Your order has not shipped. Please confirm the new delivery address.",
@@ -71,6 +80,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "research_agent",
     question: "Can this plan store data in Europe?",
+    taskCategory: "Research",
     tool: "search_docs",
     result: "Regional availability is not documented for this plan.",
     answer: "I could not verify European data residency for this plan. Please confirm with support before choosing it.",
@@ -86,6 +96,7 @@ export const scenarios: Scenario[] = [
   {
     agent: "release_agent",
     question: "Summarize the authentication release checks",
+    taskCategory: "Workflows",
     tool: "read_test_results",
     result: "Authentication: 214 passed, 0 failed. Security review approved.",
     answer: "All 214 tests passed and the security review is approved.",

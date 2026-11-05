@@ -175,6 +175,8 @@ pub struct LensSample;
 #[derive(Debug)]
 #[serde(deny_unknown_fields)]
 pub struct LensSampleParams {
+    #[serde(default)]
+    pub profile: String,
     #[serde(flatten)]
     pub access: LensAccessParams,
     pub source: ExecutionSource,
@@ -258,6 +260,8 @@ impl Query for LensSample {
 
     const SQL: &'static str = concat!(
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/profile_sample_candidates.sql"),
+        include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql")
     );
 }
@@ -273,6 +277,8 @@ impl Query for LensSignalSample {
     const SQL: &'static str = concat!(
         "SELECT * EXCEPT(attributes) FROM (",
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/profile_sample_candidates.sql"),
+        include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
         ")"
     );
@@ -291,6 +297,8 @@ impl Query for LensSampleEligibility {
     const SQL: &'static str = concat!(
         "SELECT eligible FROM (",
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/profile_sample_candidates.sql"),
+        include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
         ")"
     );
@@ -346,6 +354,8 @@ pub struct LensFindingSource;
 #[derive(Debug)]
 #[serde(deny_unknown_fields)]
 pub struct LensFindingSourceParams {
+    #[serde(default)]
+    pub profile: String,
     #[serde(flatten)]
     pub access: LensAccessParams,
     pub trace_id: String,
@@ -368,7 +378,13 @@ impl Query for LensFindingSource {
     type Params = LensFindingSourceParams;
     type Row = LensFindingSourceRow;
 
-    const SQL: &'static str = include_str!("../../query/lens_finding_source.sql");
+    const SQL: &'static str = concat!(
+        "WITH ",
+        include_str!("../../query/profile_finding_candidates.sql"),
+        include_str!("../../query/trace_profiles.sql"),
+        "1 AS profile_scope ",
+        include_str!("../../query/lens_finding_source.sql")
+    );
 }
 
 pub struct LensEvidence;

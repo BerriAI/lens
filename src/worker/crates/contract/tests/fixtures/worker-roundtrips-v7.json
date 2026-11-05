@@ -3388,7 +3388,7 @@
       "unexpected": true
     },
     "result": {
-      "error": "unknown field `unexpected`, expected one of `agent_name`, `checks`, `concurrency`, `context`, `enabled`, `execution_ids`, `filters`, `interval_minutes`, `lookback_hours`, `model`, `monthly_budget`, `name`, `sample_percent`, `sample_size`, `service`, `source`, `team_id`"
+      "error": "unknown field `unexpected`, expected one of `profile`, `agent_name`, `checks`, `concurrency`, `context`, `enabled`, `execution_ids`, `filters`, `interval_minutes`, `lookback_hours`, `model`, `monthly_budget`, `name`, `sample_percent`, `sample_size`, `service`, `source`, `team_id`"
     }
   },
   {

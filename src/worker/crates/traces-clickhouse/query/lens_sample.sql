@@ -32,6 +32,9 @@ SELECT *, selection_key FROM (
             AND if(EngineReceivedMs>0,toInt64(EngineReceivedMs),
                 toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) >= {start:UInt64}
       )
+      AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
+          SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles WHERE category={profile:String}
+      ))
     GROUP BY TeamId,ApiKeyHash,TraceId
     HAVING max(EngineReceivedMs) < {end:UInt64}
        AND max(toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) < {end:UInt64}
@@ -47,6 +50,7 @@ SELECT *, selection_key FROM (
             arrayMap(t -> tuple('tag', t), request_tags)) AS attributes
     FROM spend_logs FINAL
     WHERE {source:String} IN ('requests','both')
+      AND {profile:String}=''
       AND ({all_teams:UInt8}=1 OR team_id={team:String})
       AND ({key_hash:String}='' OR api_key={key_hash:String})
       AND spend_logs.start_time >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY

@@ -30,6 +30,7 @@ import { FINDING_PANEL_WIDTH_KEY } from "../storage";
 import type { Execution } from "./useMatchingActivity";
 import { durationLabel } from "../model/format";
 import { type Settings } from "../model/types";
+import { useProfileRoute } from "../route";
 
 type SetupMode = "new" | "edit" | "duplicate";
 
@@ -47,7 +48,7 @@ function saveLabelFor(mode: SetupMode, repeat: boolean): string {
 function activitySummary(selection: InvestigationInput["selection"]): string {
   const who = selection.agent_name || selection.service || "All activity";
   const conditions = selection.filters.length ? ` · ${selection.filters.length} conditions` : "";
-  return `${who} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
+  return `${who}${selection.profile ? ` · ${selection.profile}` : ""} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
 }
 
 function criteriaSummary(values: Pick<InvestigationInput, "context" | "watching" | "questions">): string {
@@ -69,8 +70,19 @@ interface SetupProps {
 /** Replaces the Investigations tab body: a three-step setup on the left, the activity it matches on the right. */
 export function InvestigationSetup(props: SetupProps) {
   const { initial, mode, defaultSource = "traces" } = props;
+  const profile = useProfileRoute();
+  const defaults = investigationDefaults(initial, mode, defaultSource);
   const form = useZodForm(investigationSchema, {
-    defaultValues: investigationDefaults(initial, mode, defaultSource),
+    defaultValues: mode === "new" && profile.profile ? {
+      ...defaults,
+      selection: {
+        ...defaults.selection,
+        source: "traces",
+        profile: profile.profile,
+        agent_name: profile.agent,
+        lookback_hours: profile.hours,
+      },
+    } : defaults,
     mode: "onChange",
   });
   return (
@@ -107,6 +119,7 @@ function SetupEditor({
           "selection.source",
           "selection.service",
           "selection.agent_name",
+          "selection.profile",
           "selection.filters",
           "selection.lookback_hours",
           "selection.team_id",
