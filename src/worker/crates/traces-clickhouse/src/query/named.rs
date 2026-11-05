@@ -251,6 +251,8 @@ impl Query for ListTraces {
         "WITH ",
         include_str!("../../query/trace_tag_list_candidates.sql"),
         include_str!("../../query/trace_tag_values.sql"),
+        include_str!("../../query/list_traces_start.sql"),
+        include_str!("../../query/trace_tag_list_filter.sql"),
         include_str!("../../query/list_traces.sql")
     );
 }

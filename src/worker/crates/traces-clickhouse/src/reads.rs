@@ -12,18 +12,29 @@ use crate::{
     },
 };
 
-struct RunCandidates;
+struct RunCandidates<const TAGGED: bool>;
 
-impl Query for RunCandidates {
+impl<const TAGGED: bool> Query for RunCandidates<TAGGED> {
     type Params = ListTracesParams;
     type Row = ListTracesRow;
-    const SQL: &'static str = concat!(
-        "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (WITH ",
-        include_str!("../query/trace_tag_list_candidates.sql"),
-        include_str!("../query/trace_tag_values.sql"),
-        include_str!("../query/list_traces.sql"),
-        ") ORDER BY start_ms DESC, trace_ref DESC"
-    );
+    const SQL: &'static str = if TAGGED {
+        concat!(
+            "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (WITH ",
+            include_str!("../query/trace_tag_list_candidates.sql"),
+            include_str!("../query/trace_tag_values.sql"),
+            include_str!("../query/list_traces_start.sql"),
+            include_str!("../query/trace_tag_list_filter.sql"),
+            include_str!("../query/list_traces.sql"),
+            ") ORDER BY start_ms DESC, trace_ref DESC"
+        )
+    } else {
+        concat!(
+            "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (WITH ",
+            include_str!("../query/list_traces_start.sql"),
+            include_str!("../query/list_traces.sql"),
+            ") ORDER BY start_ms DESC, trace_ref DESC"
+        )
+    };
 }
 
 pub struct ClickHouseTraces {
@@ -78,7 +89,12 @@ impl TraceStore for ClickHouseTraces {
         params: &contracts::ListTracesParams,
     ) -> Result<Vec<contracts::ListTracesRow>, StoreError<Self::Error>> {
         let storage_params = ListTracesParams::from(params.clone());
-        match fetch::<RunCandidates>(&self.client, &self.connection, &storage_params).await {
+        let result = if params.filter_keys.is_empty() {
+            fetch::<RunCandidates<false>>(&self.client, &self.connection, &storage_params).await
+        } else {
+            fetch::<RunCandidates<true>>(&self.client, &self.connection, &storage_params).await
+        };
+        match result {
             Ok(rows) => Ok(rows.into_iter().map(|row| row.0).collect()),
             Err(StorageError::ResponseTooLarge) => Err(StoreError::TooLarge),
             Err(error) => Err(failed(error)),
