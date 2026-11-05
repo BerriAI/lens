@@ -121,7 +121,7 @@ pub async fn structured<T: DeserializeOwned>(
             request
                 .messages
                 .push(message(wire::ModelMessageRole::Assistant, response.content));
-            request.messages.push(message(wire::ModelMessageRole::System, json!({
+            request.messages.push(message(wire::ModelMessageRole::User, json!({
                 "instruction": "Your previous response did not match the required response contract. Generate a new response from the original evidence, correcting the validation errors. Follow the complete object structure in response_schema. If the schema allows tools, you may request them before finalizing.",
                 "validation_errors": detail,
                 "response_schema": schema(schema_name)?,
