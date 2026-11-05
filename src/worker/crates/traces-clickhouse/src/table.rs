@@ -7,6 +7,7 @@
 #[strum(serialize_all = "snake_case")]
 pub enum TraceTable {
     OtelTraces,
+    OtelLogs,
     AgentTracesByKey,
     SpendLogs,
     LensTaskProfiles,

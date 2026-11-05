@@ -81,6 +81,10 @@ pub fn request_schemas() -> BTreeMap<&'static str, Schema> {
             requested::<crate::request::TraceListRequest>(),
         ),
         (
+            "LogListRequest",
+            requested::<crate::request::LogListRequest>(),
+        ),
+        (
             "TraceDetailRequest",
             requested::<crate::request::TraceDetailRequest>(),
         ),
@@ -100,10 +104,18 @@ pub fn request_schemas() -> BTreeMap<&'static str, Schema> {
 }
 
 pub fn response_schemas() -> BTreeMap<&'static str, Schema> {
-    BTreeMap::from([(
-        "TraceSQLResponse",
-        emitted::<crate::response::TraceSQLResponse>(),
-    )])
+    BTreeMap::from([
+        (
+            "TraceSQLResponse",
+            emitted::<crate::response::TraceSQLResponse>(),
+        ),
+        (
+            "OtelLogSummary",
+            emitted::<crate::response::OtelLogSummary>(),
+        ),
+        ("OtelLogRecord", emitted::<crate::response::OtelLogRecord>()),
+        ("OtelLogPage", emitted::<crate::response::OtelLogPage>()),
+    ])
 }
 
 pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
@@ -116,5 +128,24 @@ pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
             "TraceConversationRequest",
             requested::<crate::request::TraceConversationRequest>(),
         ),
+    ])
+}
+
+pub fn ui_schemas() -> BTreeMap<&'static str, Schema> {
+    BTreeMap::from([
+        (
+            "TraceConversationPage",
+            emitted::<crate::TraceConversationPage>(),
+        ),
+        (
+            "TraceConversationRequest",
+            requested::<crate::request::TraceConversationRequest>(),
+        ),
+        (
+            "LogListRequest",
+            requested::<crate::request::LogListRequest>(),
+        ),
+        ("OtelLogPage", emitted::<crate::response::OtelLogPage>()),
+        ("OtelLogRecord", emitted::<crate::response::OtelLogRecord>()),
     ])
 }

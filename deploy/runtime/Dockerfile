@@ -9,6 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 COPY src/ui/lib/package.json src/ui/lib/package.json
 COPY src/ui/app/package.json src/ui/app/package.json
+RUN npm install -g npm@latest
 RUN npm ci
 COPY src/ui/ src/ui/
 RUN npm run build:ui
@@ -16,6 +17,7 @@ RUN npm run build:ui
 FROM $LENS_AGENT_BUILD_IMAGE AS agent-builder
 WORKDIR /app/agent
 COPY src/agent/package.json src/agent/package-lock.json ./
+RUN npm install -g npm@latest
 RUN npm ci --ignore-scripts
 COPY src/agent/ ./
 RUN npm run build
@@ -49,8 +51,8 @@ RUN cargo test --locked --release -p litellm-lens --test sandbox --no-run --mess
     chmod 755 /tmp/lens-sandbox-tests
 
 FROM $LENS_RUNTIME_IMAGE AS service
-ARG LENS_VERSION=0.1.0-dev.0
-RUN apk add --no-cache python-3.13 setpriv libgcc libstdc++ openssl ca-certificates curl
+ARG LENS_VERSION=0.1.0-dev.1
+RUN apk add --no-cache python-3.13 setpriv libgcc libstdc++ openssl ca-certificates curl libatomic
 ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui \
     LENS_PROFILE_MODEL_CACHE=/app/profile-model
 WORKDIR /app

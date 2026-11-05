@@ -80,6 +80,8 @@ pub(crate) enum TraceHttpError {
     Forbidden(&'static str),
     #[error("Trace {0} not found")]
     MissingTrace(String),
+    #[error("Log record {0} not found")]
+    MissingLog(String),
     #[error("Span {0} not found")]
     MissingSpan(String),
     #[error("Span diagnostic not found or no longer available")]
@@ -139,9 +141,10 @@ impl IntoResponse for TraceHttpError {
             Self::Authentication(error) => return SessionError::from(error).into_response(),
             Self::Validation(error) => return error.into_response(),
             error @ Self::Forbidden(_) => (StatusCode::FORBIDDEN, error.to_string()),
-            error @ (Self::MissingTrace(_) | Self::MissingSpan(_) | Self::MissingDiagnostic) => {
-                (StatusCode::NOT_FOUND, error.to_string())
-            }
+            error @ (Self::MissingTrace(_)
+            | Self::MissingLog(_)
+            | Self::MissingSpan(_)
+            | Self::MissingDiagnostic) => (StatusCode::NOT_FOUND, error.to_string()),
             Self::Read {
                 source,
                 retry_after_seconds,

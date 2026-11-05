@@ -9,6 +9,9 @@ import type {
   TraceDetailQuery,
   SpanQuery,
   SpanErrorQuery,
+  LogListRequest,
+  OtelLogPage,
+  OtelLogRecord,
 } from "../../components/lens/traces/types";
 
 export const getProxyBaseUrl = getRequestBaseUrl;
@@ -95,3 +98,42 @@ export const agentTraceSpanErrorCall = async (
       } satisfies SpanErrorQuery,
     },
   );
+
+export const logListCall = async ({
+  accessToken,
+  startMs,
+  endMs,
+  traceId,
+  cursor,
+  signal,
+}: {
+  accessToken: string;
+  startMs: number;
+  endMs: number;
+  traceId?: string;
+  cursor?: string | null;
+  signal?: AbortSignal;
+}): Promise<OtelLogPage> => {
+  const query = {
+    start_ms: startMs,
+    end_ms: endMs,
+    trace_id: traceId || undefined,
+    cursor: cursor ?? undefined,
+    page_size: 50,
+  } satisfies LogListRequest;
+  return apiClient.get<OtelLogPage>("/lens/logs", {
+    accessToken,
+    query,
+    signal,
+  });
+};
+
+export const logDetailCall = (
+  accessToken: string,
+  recordId: string,
+  signal?: AbortSignal,
+): Promise<OtelLogRecord> =>
+  apiClient.get<OtelLogRecord>(`/lens/logs/${encodeURIComponent(recordId)}`, {
+    accessToken,
+    signal,
+  });

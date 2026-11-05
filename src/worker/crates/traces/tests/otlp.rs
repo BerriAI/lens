@@ -1656,6 +1656,652 @@ fn log_request(
 }
 
 #[rstest]
+fn generic_logs_preserve_typed_records_for_unknown_scopes() {
+    use opentelemetry_proto::tonic::{
+        collector::logs::v1::ExportLogsServiceRequest,
+        common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
+        logs::v1::{LogRecord, ResourceLogs, ScopeLogs},
+        resource::v1::Resource,
+    };
+    use prost::Message;
+    let mut request = ExportLogsServiceRequest {
+        resource_logs: vec![ResourceLogs {
+            resource: Some(Resource {
+                attributes: vec![
+                    KeyValue {
+                        key: "service.name".to_owned(),
+                        value: Some(AnyValue {
+                            value: Some(Value::StringValue("codex_cli_rs".to_owned())),
+                        }),
+                        ..Default::default()
+                    },
+                    KeyValue {
+                        key: "service.version".to_owned(),
+                        value: Some(AnyValue {
+                            value: Some(Value::StringValue("0.166.0".to_owned())),
+                        }),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }),
+            schema_url: "resource-schema".to_owned(),
+            scope_logs: vec![ScopeLogs {
+                scope: Some(InstrumentationScope {
+                    name: "unknown.agent.events".to_owned(),
+                    version: "0.1.0".to_owned(),
+                    attributes: vec![KeyValue {
+                        key: "scope.attribute".to_owned(),
+                        value: Some(AnyValue {
+                            value: Some(Value::BoolValue(true)),
+                        }),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                schema_url: "scope-schema".to_owned(),
+                log_records: vec![LogRecord {
+                    time_unix_nano: 100,
+                    observed_time_unix_nano: 101,
+                    severity_number: 9,
+                    severity_text: "INFO".to_owned(),
+                    event_name: "source.rs:42".to_owned(),
+                    body: Some(AnyValue {
+                        value: Some(Value::BytesValue(vec![0xff, 0x00])),
+                    }),
+                    attributes: vec![
+                        KeyValue {
+                            key: "event.name".to_owned(),
+                            value: Some(AnyValue {
+                                value: Some(Value::StringValue("codex.user_prompt".to_owned())),
+                            }),
+                            ..Default::default()
+                        },
+                        KeyValue {
+                            key: "attempt".to_owned(),
+                            value: Some(AnyValue {
+                                value: Some(Value::IntValue(3)),
+                            }),
+                            ..Default::default()
+                        },
+                        KeyValue {
+                            key: "app.version".to_owned(),
+                            value: Some(AnyValue {
+                                value: Some(Value::StringValue("0.166.0".to_owned())),
+                            }),
+                            ..Default::default()
+                        },
+                    ],
+                    trace_id: vec![4; 16],
+                    span_id: vec![5; 8],
+                    flags: 1,
+                    dropped_attributes_count: 2,
+                }],
+            }],
+        }],
+    };
+    let binary = request.encode_to_vec();
+    let json = serde_json::to_vec(&request).unwrap();
+    let decoded_binary =
+        litellm_traces::decode_otlp_log_batch(&binary, Some("application/x-protobuf")).unwrap();
+    let decoded_json =
+        litellm_traces::decode_otlp_log_batch(&json, Some("application/json; charset=utf-8"))
+            .unwrap();
+    assert_eq!(
+        serde_json::to_value(&decoded_binary.records).unwrap(),
+        serde_json::to_value(&decoded_json.records).unwrap()
+    );
+    assert!(decoded_binary.claude_spans.is_empty());
+    let record = &decoded_binary.records[0];
+    assert_eq!(record.event_name, "source.rs:42");
+    assert_eq!(
+        record.semantic_event_name.as_deref(),
+        Some("codex.user_prompt")
+    );
+    assert_eq!(
+        record.body,
+        Some(litellm_traces::LogValue::Bytes(vec![0xff, 0x00]))
+    );
+    assert_eq!(
+        record.attributes["attempt"],
+        litellm_traces::LogValue::Integer(3)
+    );
+    assert_eq!(record.resource_schema_url, "resource-schema");
+    assert_eq!(record.scope_schema_url, "scope-schema");
+    assert_eq!(record.scope_name.as_str(), "unknown.agent.events");
+    assert_eq!(record.trace_id, vec![4; 16]);
+    assert_eq!(record.span_id, vec![5; 8]);
+    assert_eq!(record.trace_flags, 1);
+    assert_eq!(record.dropped_attributes_count, 2);
+    assert!(record.codex.is_none());
+    request.resource_logs[0].scope_logs[0]
+        .scope
+        .as_mut()
+        .unwrap()
+        .name = "codex_otel.log_only".to_owned();
+    let codex_record = litellm_traces::decode_otlp_log_batch(
+        &request.encode_to_vec(),
+        Some("application/x-protobuf"),
+    )
+    .unwrap()
+    .records
+    .remove(0);
+    let codex = codex_record.codex.as_ref().unwrap();
+    assert!(matches!(
+        &codex.event_kind,
+        litellm_traces::CodexEventKind::UserPrompt
+    ));
+    assert!(matches!(
+        codex.content_state.as_ref(),
+        Some(litellm_traces::CodexContentState::Absent)
+    ));
+    assert!(codex.content.is_none());
+}
+
+#[rstest]
+fn codex_prompt_response_and_sse_content_are_projected_by_event_kind() {
+    use litellm_traces::{CodexContentState, CodexEventKind};
+    use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value::Value};
+    use prost::Message;
+    let mut redacted = {
+        let mut request = log_request("repl_main_thread");
+        request.resource_logs[0].resource =
+            Some(opentelemetry_proto::tonic::resource::v1::Resource {
+                attributes: [
+                    ("service.name", "codex_cli_rs"),
+                    ("service.version", "0.166.0"),
+                ]
+                .into_iter()
+                .map(|(key, value)| KeyValue {
+                    key: key.to_owned(),
+                    value: Some(AnyValue {
+                        value: Some(Value::StringValue(value.to_owned())),
+                    }),
+                    ..Default::default()
+                })
+                .collect(),
+                ..Default::default()
+            });
+        request.resource_logs[0].scope_logs[0]
+            .scope
+            .as_mut()
+            .unwrap()
+            .name = "codex_otel.log_only".to_owned();
+        request.resource_logs[0].scope_logs[0].log_records[0].attributes = vec![
+            ("event.name", "codex.user_prompt"),
+            ("app.version", "0.166.0"),
+            ("prompt", "[REDACTED]"),
+        ]
+        .into_iter()
+        .map(|(key, value)| KeyValue {
+            key: key.to_owned(),
+            value: Some(AnyValue {
+                value: Some(Value::StringValue(value.to_owned())),
+            }),
+            ..Default::default()
+        })
+        .collect();
+        request
+    };
+    let mut prompt = redacted.resource_logs[0].scope_logs[0].log_records[0].clone();
+    prompt
+        .attributes
+        .iter_mut()
+        .find(|attribute| attribute.key == "prompt")
+        .unwrap()
+        .value = Some(AnyValue {
+        value: Some(Value::StringValue("captured prompt".to_owned())),
+    });
+    let mut sse = redacted.resource_logs[0].scope_logs[0].log_records[0].clone();
+    sse.attributes
+        .iter_mut()
+        .find(|attribute| attribute.key == "event.name")
+        .unwrap()
+        .value = Some(AnyValue {
+        value: Some(Value::StringValue("codex.sse_event".to_owned())),
+    });
+    sse.attributes.push(KeyValue {
+        key: "response".to_owned(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue("not an assistant message".to_owned())),
+        }),
+        ..Default::default()
+    });
+    let mut response = sse.clone();
+    response
+        .attributes
+        .iter_mut()
+        .find(|attribute| attribute.key == "event.name")
+        .unwrap()
+        .value = Some(AnyValue {
+        value: Some(Value::StringValue("codex.agent_response".to_owned())),
+    });
+    response.attributes.extend(
+        [
+            ("response", "final response"),
+            ("turn.id", "turn-one"),
+            ("item.id", "item-one"),
+        ]
+        .into_iter()
+        .map(|(key, value)| KeyValue {
+            key: key.to_owned(),
+            value: Some(AnyValue {
+                value: Some(Value::StringValue(value.to_owned())),
+            }),
+            ..Default::default()
+        }),
+    );
+    redacted.resource_logs[0].scope_logs[0]
+        .log_records
+        .push(prompt);
+    redacted.resource_logs[0].scope_logs[0]
+        .log_records
+        .push(sse);
+    redacted.resource_logs[0].scope_logs[0]
+        .log_records
+        .push(response);
+    let decoded = litellm_traces::decode_otlp_log_batch(&redacted.encode_to_vec(), None).unwrap();
+    let prompt = decoded.records[0].codex.as_ref().unwrap();
+    assert_eq!(prompt.content_state, Some(CodexContentState::Redacted));
+    assert!(prompt.content.is_none());
+    let prompt = decoded.records[1].codex.as_ref().unwrap();
+    assert_eq!(prompt.event_kind, CodexEventKind::UserPrompt);
+    assert_eq!(
+        prompt.message_role,
+        Some(litellm_traces::CodexMessageRole::User)
+    );
+    assert_eq!(prompt.content_state, Some(CodexContentState::Present));
+    assert_eq!(prompt.content.as_deref(), Some("captured prompt"));
+    let sse = decoded.records[2].codex.as_ref().unwrap();
+    assert_eq!(sse.event_kind, CodexEventKind::SseEvent);
+    assert!(sse.message_role.is_none());
+    assert!(sse.content_state.is_none());
+    assert!(sse.content.is_none());
+    let response = decoded.records[3].codex.as_ref().unwrap();
+    assert_eq!(
+        response.message_role,
+        Some(litellm_traces::CodexMessageRole::Assistant)
+    );
+    assert_eq!(response.content_state, Some(CodexContentState::Present));
+    assert_eq!(response.content.as_deref(), Some("final response"));
+    assert_eq!(response.turn_id.as_deref(), Some("turn-one"));
+    assert_eq!(response.item_id.as_deref(), Some("item-one"));
+    assert_eq!(decoded.claude_spans.len(), 3);
+    assert_eq!(decoded.claude_spans[1].name, "codex.user_prompt");
+    assert_eq!(
+        decoded.claude_spans[1].normalized.observation_type,
+        ObservationType::Agent
+    );
+    assert_eq!(
+        decoded.claude_spans[1].normalized.input,
+        r#"[{"role":"user","content":"captured prompt"}]"#
+    );
+    assert_eq!(decoded.claude_spans[2].name, "codex.agent_response");
+    assert_eq!(
+        decoded.claude_spans[2].parent_span_id,
+        decoded.claude_spans[1].span_id
+    );
+    assert_eq!(
+        decoded.claude_spans[2].normalized.output,
+        r#"[{"role":"assistant","content":"final response"}]"#
+    );
+}
+
+#[rstest]
+fn codex_trace_spans_filter_noise_propagate_usage_and_link_to_prompt_root() {
+    use opentelemetry_proto::tonic::{
+        collector::trace::v1::ExportTraceServiceRequest,
+        common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
+        resource::v1::Resource,
+        trace::v1::{ResourceSpans, ScopeSpans, Span},
+    };
+    use prost::Message;
+
+    let attr = |key: &str, value: &str| KeyValue {
+        key: key.to_owned(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(value.to_owned())),
+        }),
+        ..Default::default()
+    };
+    let int_attr = |key: &str, value: i64| KeyValue {
+        key: key.to_owned(),
+        value: Some(AnyValue {
+            value: Some(Value::IntValue(value)),
+        }),
+        ..Default::default()
+    };
+    let request = ExportTraceServiceRequest {
+        resource_spans: vec![ResourceSpans {
+            resource: Some(Resource {
+                attributes: vec![attr("service.name", "codex_cli_rs")],
+                ..Default::default()
+            }),
+            scope_spans: vec![ScopeSpans {
+                scope: Some(InstrumentationScope {
+                    name: "codex_cli_rs".to_owned(),
+                    ..Default::default()
+                }),
+                spans: vec![
+                    Span {
+                        trace_id: vec![0xaa; 16],
+                        span_id: vec![0x01; 8],
+                        name: "fs.get_metadata".to_owned(),
+                        start_time_unix_nano: 10,
+                        end_time_unix_nano: 20,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xbb; 16],
+                        span_id: vec![0x02; 8],
+                        name: "persist_rollout_items".to_owned(),
+                        start_time_unix_nano: 10,
+                        end_time_unix_nano: 20,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xbb; 16],
+                        span_id: vec![0x03; 8],
+                        name: "session_task.turn".to_owned(),
+                        start_time_unix_nano: 10,
+                        end_time_unix_nano: 30,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x10; 8],
+                        name: "append_items".to_owned(),
+                        start_time_unix_nano: 100,
+                        end_time_unix_nano: 110,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x11; 8],
+                        name: "session_task.turn".to_owned(),
+                        start_time_unix_nano: 100,
+                        end_time_unix_nano: 200,
+                        attributes: vec![attr("model", "gpt-5.4")],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x12; 8],
+                        parent_span_id: vec![0x99; 8],
+                        name: "model_client.stream_responses_api".to_owned(),
+                        start_time_unix_nano: 110,
+                        end_time_unix_nano: 190,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x14; 8],
+                        parent_span_id: vec![0x12; 8],
+                        name: "responses.stream_request".to_owned(),
+                        start_time_unix_nano: 111,
+                        end_time_unix_nano: 189,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x15; 8],
+                        parent_span_id: vec![0x14; 8],
+                        name: "endpoint_session.stream_encoded_json_with".to_owned(),
+                        start_time_unix_nano: 112,
+                        end_time_unix_nano: 188,
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x13; 8],
+                        name: "handle_responses".to_owned(),
+                        start_time_unix_nano: 115,
+                        end_time_unix_nano: 185,
+                        attributes: vec![
+                            int_attr("gen_ai.usage.input_tokens", 120),
+                            int_attr("gen_ai.usage.output_tokens", 45),
+                        ],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0xcc; 16],
+                        span_id: vec![0x16; 8],
+                        name: "exec_command".to_owned(),
+                        start_time_unix_nano: 191,
+                        end_time_unix_nano: 195,
+                        attributes: vec![
+                            attr("tool_name", "exec_command"),
+                            attr("call_id", "call_42"),
+                        ],
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+    };
+    let decoded = decode_otlp(&request.encode_to_vec(), None).unwrap();
+    assert_eq!(decoded.len(), 3);
+    let turn = decoded
+        .iter()
+        .find(|span| span.name == "session_task.turn")
+        .unwrap();
+    let llm = decoded
+        .iter()
+        .find(|span| span.name == "model_client.stream_responses_api")
+        .unwrap();
+    let tool = decoded
+        .iter()
+        .find(|span| span.name == "exec_command")
+        .unwrap();
+    assert_eq!(turn.trace_id, "cc".repeat(16));
+    assert_eq!(turn.normalized.observation_type, ObservationType::Agent);
+    assert!(!turn.parent_span_id.is_empty());
+    assert_eq!(llm.parent_span_id, turn.span_id);
+    assert_eq!(llm.span_id, "15".repeat(8));
+    assert_eq!(llm.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(llm.normalized.model.as_deref(), Some("gpt-5.4"));
+    assert_eq!(llm.normalized.input_tokens, 120);
+    assert_eq!(llm.normalized.output_tokens, 45);
+    assert_eq!(tool.parent_span_id, turn.span_id);
+    assert_eq!(tool.normalized.observation_type, ObservationType::Tool);
+    assert_eq!(tool.normalized.tool_call_id.as_deref(), Some("call_42"));
+}
+
+#[rstest]
+fn codex_app_server_filters_auth_noise_and_promotes_turn_start() {
+    use opentelemetry_proto::tonic::{
+        collector::trace::v1::ExportTraceServiceRequest,
+        common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
+        resource::v1::Resource,
+        trace::v1::{ResourceSpans, ScopeSpans, Span},
+    };
+    use prost::Message;
+
+    let attr = |key: &str, value: &str| KeyValue {
+        key: key.to_owned(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(value.to_owned())),
+        }),
+        ..Default::default()
+    };
+    let request = ExportTraceServiceRequest {
+        resource_spans: vec![ResourceSpans {
+            resource: Some(Resource {
+                attributes: vec![
+                    attr("service.name", "codex-app-server"),
+                    attr("service.version", "0.153.1"),
+                ],
+                ..Default::default()
+            }),
+            scope_spans: vec![ScopeSpans {
+                scope: Some(InstrumentationScope {
+                    name: "codex-app-server".to_owned(),
+                    ..Default::default()
+                }),
+                spans: vec![
+                    Span {
+                        trace_id: vec![0x11; 16],
+                        span_id: vec![0xa1; 8],
+                        name: "auth".to_owned(),
+                        start_time_unix_nano: 10,
+                        end_time_unix_nano: 20,
+                        attributes: vec![
+                            attr("code.file.path", "login/src/auth/manager.rs"),
+                            attr("code.module.name", "codex_login::auth::manager"),
+                            attr("gen_ai.agent.name", "codex-cli"),
+                            attr("service.name", "codex-cli"),
+                        ],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0x22; 16],
+                        span_id: vec![0xa2; 8],
+                        name: "initialize".to_owned(),
+                        start_time_unix_nano: 30,
+                        end_time_unix_nano: 40,
+                        attributes: vec![
+                            attr("rpc.method", "initialize"),
+                            attr("gen_ai.agent.name", "codex-cli"),
+                        ],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0x33; 16],
+                        span_id: vec![0xa3; 8],
+                        name: "list_models".to_owned(),
+                        start_time_unix_nano: 50,
+                        end_time_unix_nano: 60,
+                        attributes: vec![attr("gen_ai.agent.name", "codex-cli")],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0x44; 16],
+                        span_id: vec![0xb0; 8],
+                        name: "turn/start".to_owned(),
+                        start_time_unix_nano: 100,
+                        end_time_unix_nano: 300,
+                        attributes: vec![
+                            attr("gen_ai.agent.name", "codex-cli"),
+                            attr("model", "nemotron-3.5-bolt-e4b"),
+                        ],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0x44; 16],
+                        span_id: vec![0xb1; 8],
+                        parent_span_id: vec![0xb0; 8],
+                        name: "model_client.stream_responses_api".to_owned(),
+                        start_time_unix_nano: 110,
+                        end_time_unix_nano: 250,
+                        attributes: vec![attr("gen_ai.agent.name", "codex-cli")],
+                        ..Default::default()
+                    },
+                    Span {
+                        trace_id: vec![0x44; 16],
+                        span_id: vec![0xb2; 8],
+                        parent_span_id: vec![0xb0; 8],
+                        name: "exec_command".to_owned(),
+                        start_time_unix_nano: 260,
+                        end_time_unix_nano: 280,
+                        attributes: vec![
+                            attr("tool_name", "exec_command"),
+                            attr("call_id", "call_ide_99"),
+                        ],
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+    };
+    let decoded = decode_otlp(&request.encode_to_vec(), None).unwrap();
+    assert_eq!(decoded.len(), 3);
+    let turn = decoded
+        .iter()
+        .find(|span| span.name == "turn/start")
+        .unwrap();
+    let llm = decoded
+        .iter()
+        .find(|span| span.name == "model_client.stream_responses_api")
+        .unwrap();
+    let tool = decoded
+        .iter()
+        .find(|span| span.name == "exec_command")
+        .unwrap();
+    assert_eq!(turn.trace_id, "44".repeat(16));
+    assert_eq!(turn.normalized.observation_type, ObservationType::Agent);
+    assert_eq!(turn.normalized.agent_name.as_deref(), Some("codex-cli"));
+    assert!(!turn.parent_span_id.is_empty());
+    assert_eq!(llm.parent_span_id, turn.span_id);
+    assert_eq!(llm.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(llm.normalized.model.as_deref(), Some("nemotron-3.5-bolt-e4b"));
+    assert_eq!(tool.parent_span_id, turn.span_id);
+    assert_eq!(tool.normalized.observation_type, ObservationType::Tool);
+    assert_eq!(tool.normalized.tool_call_id.as_deref(), Some("call_ide_99"));
+}
+
+#[rstest]
+fn log_event_time_prefers_otlp_then_event_timestamp_then_observed_time() {
+    use opentelemetry_proto::tonic::{
+        collector::logs::v1::ExportLogsServiceRequest,
+        common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
+        logs::v1::{LogRecord, ResourceLogs, ScopeLogs},
+    };
+    use prost::Message;
+
+    let records = [
+        (99, 101, "2026-01-02T03:04:05.123456789Z"),
+        (0, 102, "2026-01-02T03:04:05.123456789Z"),
+        (0, 103, "invalid"),
+    ]
+    .into_iter()
+    .map(|(timestamp, observed, event_timestamp)| LogRecord {
+        time_unix_nano: timestamp,
+        observed_time_unix_nano: observed,
+        attributes: vec![KeyValue {
+            key: "event.timestamp".to_owned(),
+            value: Some(AnyValue {
+                value: Some(Value::StringValue(event_timestamp.to_owned())),
+            }),
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+    .collect();
+    let request = ExportLogsServiceRequest {
+        resource_logs: vec![ResourceLogs {
+            scope_logs: vec![ScopeLogs {
+                scope: Some(InstrumentationScope::default()),
+                log_records: records,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+    };
+
+    let decoded = litellm_traces::decode_otlp_log_batch(&request.encode_to_vec(), None).unwrap();
+    assert_eq!(
+        decoded
+            .records
+            .iter()
+            .map(|record| (
+                record.timestamp_ns,
+                record.effective_timestamp_ns,
+                record.observed_timestamp_ns
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (99, 99, 101),
+            (0, 1_767_323_045_123_456_789, 102),
+            (0, 103, 103)
+        ]
+    );
+}
+
+#[rstest]
 #[case::main("repl_main_thread", 1)]
 #[case::subagent("agent:builtin:general-purpose", 1)]
 #[case::title("generate_session_title", 0)]
@@ -1979,6 +2625,8 @@ fn absent_native_log_context_has_encoding_independent_identity(#[case] session: 
 #[case::nodes(litellm_traces::DecodeLimits { nodes: 4, ..Default::default() })]
 #[case::depth(litellm_traces::DecodeLimits { depth: 2, ..Default::default() })]
 #[case::bytes(litellm_traces::DecodeLimits { decoded_span_bytes: 20, ..Default::default() })]
+#[case::log_bytes(litellm_traces::DecodeLimits { decoded_log_bytes: 20, ..Default::default() })]
+#[case::record_count(litellm_traces::DecodeLimits { logs: 0, ..Default::default() })]
 #[case::attributes(litellm_traces::DecodeLimits { attributes: 2, ..Default::default() })]
 fn native_logs_enforce_budgets_for_both_encodings(#[case] limits: litellm_traces::DecodeLimits) {
     use prost::Message;

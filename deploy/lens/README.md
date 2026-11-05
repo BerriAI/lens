@@ -30,7 +30,7 @@ If your project already has a key, choose **Use an existing key**. **Manage trac
 
 Run one actual agent task. The coding agent verifies that exact trace arrived and gives you a link. Home watches for new traces sent with your selected key and offers **Open trace** when one arrives. With a shared existing key, check that the displayed agent is the one you just connected. For manual configuration, choose **Set up manually**. The **Demo data** switch shows examples; it does not verify your agent connection
 
-For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Authorization: Bearer <tracing-key>`. That address works for an agent running on the same host. An agent in another container or on another machine needs a Lens address reachable from there
+For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Authorization: Bearer <tracing-key>`. That address works for an agent running on the same host. An agent in another container or on another machine needs a Lens address reachable from there. For Codex CLI and IDE environments, follow [Codex telemetry](../../docs/codex-cli.md)
 
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 

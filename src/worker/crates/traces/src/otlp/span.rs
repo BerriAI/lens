@@ -1,8 +1,9 @@
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
+    common::v1::{KeyValue, any_value::Value},
     trace::v1::{ResourceSpans, ScopeSpans, Span, span::SpanKind, status::StatusCode},
 };
 
@@ -27,7 +28,13 @@ pub(super) fn flatten_with_budget(
     request: ExportTraceServiceRequest,
     limits: DecodeLimits,
 ) -> Result<(Vec<DecodedSpan>, Budget), Error> {
-    let mut budget = Budget::new(limits);
+    flatten_with_existing_budget(request, Budget::new(limits))
+}
+
+pub(super) fn flatten_with_existing_budget(
+    request: ExportTraceServiceRequest,
+    mut budget: Budget,
+) -> Result<(Vec<DecodedSpan>, Budget), Error> {
     let mut spans = Vec::new();
     for resource in request.resource_spans {
         append_resource(resource, &mut budget, &mut spans)?;
@@ -54,7 +61,7 @@ fn append_resource(
 }
 
 fn append_scope(
-    scope_spans: ScopeSpans,
+    mut scope_spans: ScopeSpans,
     resource: &Shared<BTreeMap<String, String>>,
     budget: &mut Budget,
     spans: &mut Vec<DecodedSpan>,
@@ -66,6 +73,9 @@ fn append_scope(
     budget.consume(scope.name.len() + scope.version.len())?;
     let scope_name: Shared<String> = scope.name.into();
     let scope_version: Shared<String> = scope.version.into();
+    if matches!(scope_name.as_str(), "codex_cli_rs" | "codex-app-server") {
+        preprocess_codex_spans(&mut scope_spans.spans);
+    }
     for span in scope_spans.spans {
         if spans.len() >= budget.limits.spans {
             return Err(Error::TooLarge);
@@ -90,6 +100,209 @@ fn append_scope(
         )?);
     }
     Ok(())
+}
+
+fn raw_attr<'a>(span: &'a Span, key: &str) -> Option<&'a str> {
+    span.attributes
+        .iter()
+        .rev()
+        .find(|entry| entry.key == key)
+        .and_then(|entry| entry.value.as_ref())
+        .and_then(|value| match value.value.as_ref()? {
+            Value::StringValue(text) => Some(text.as_str()),
+            _ => None,
+        })
+}
+
+fn clone_attr(span: &Span, key: &str) -> Option<KeyValue> {
+    span.attributes
+        .iter()
+        .rev()
+        .find(|entry| entry.key == key)
+        .cloned()
+}
+
+fn has_attr(span: &Span, key: &str) -> bool {
+    span.attributes.iter().any(|entry| entry.key == key)
+}
+
+fn preprocess_codex_spans(spans: &mut Vec<Span>) {
+    let persist_traces: HashSet<Vec<u8>> = spans
+        .iter()
+        .filter(|span| span.name == "persist_rollout_items")
+        .map(|span| span.trace_id.clone())
+        .collect();
+    let append_traces: HashSet<Vec<u8>> = spans
+        .iter()
+        .filter(|span| span.name == "append_items")
+        .map(|span| span.trace_id.clone())
+        .collect();
+    let temporary_traces: HashSet<Vec<u8>> = spans
+        .iter()
+        .filter(|span| {
+            span.name == "turn/start"
+                && raw_attr(span, "rpc.request_id")
+                    .is_some_and(|id| id.starts_with("temporary-structured-turn-"))
+        })
+        .map(|span| span.trace_id.clone())
+        .chain(persist_traces.difference(&append_traces).cloned())
+        .collect();
+    let active_traces: HashSet<Vec<u8>> = spans
+        .iter()
+        .filter(|span| !temporary_traces.contains(&span.trace_id))
+        .map(|span| span.trace_id.clone())
+        .collect();
+    for trace_id in &active_traces {
+        let stream_req_parent: BTreeMap<Vec<u8>, Vec<u8>> = spans
+            .iter()
+            .filter(|span| &span.trace_id == trace_id && span.name == "responses.stream_request")
+            .map(|span| (span.span_id.clone(), span.parent_span_id.clone()))
+            .collect();
+        let endpoint_by_model_call: BTreeMap<Vec<u8>, Vec<u8>> = spans
+            .iter()
+            .filter(|span| {
+                &span.trace_id == trace_id && span.name == "endpoint_session.stream_encoded_json_with"
+            })
+            .filter_map(|span| {
+                let model_call_id = stream_req_parent
+                    .get(&span.parent_span_id)
+                    .cloned()
+                    .unwrap_or_else(|| span.parent_span_id.clone());
+                (!model_call_id.is_empty()).then_some((model_call_id, span.span_id.clone()))
+            })
+            .collect();
+        for span in spans.iter_mut() {
+            if &span.trace_id == trace_id
+                && span.name == "model_client.stream_responses_api"
+                && let Some(endpoint_id) = endpoint_by_model_call.get(&span.span_id)
+            {
+                span.span_id = endpoint_id.clone();
+            }
+        }
+        let mut usage_spans: Vec<(u64, usize, Option<KeyValue>, Option<KeyValue>)> = spans
+            .iter()
+            .enumerate()
+            .filter(|(_, span)| &span.trace_id == trace_id && span.name == "handle_responses")
+            .filter_map(|(index, span)| {
+                let input = clone_attr(span, "gen_ai.usage.input_tokens");
+                let output = clone_attr(span, "gen_ai.usage.output_tokens");
+                (input.is_some() || output.is_some()).then_some((
+                    span.start_time_unix_nano,
+                    index,
+                    input,
+                    output,
+                ))
+            })
+            .collect();
+        usage_spans.sort_by_key(|(start, index, _, _)| (*start, *index));
+        let mut model_calls: Vec<(u64, usize)> = spans
+            .iter()
+            .enumerate()
+            .filter(|(_, span)| {
+                &span.trace_id == trace_id && span.name == "model_client.stream_responses_api"
+            })
+            .map(|(index, span)| (span.start_time_unix_nano, index))
+            .collect();
+        model_calls.sort_by_key(|(start, index)| (*start, *index));
+        let paired_count = model_calls.len().min(usage_spans.len());
+        for ((_, call_index), (_, _, input, output)) in model_calls
+            .into_iter()
+            .zip(usage_spans.iter().cloned())
+            .take(paired_count)
+        {
+            if let Some(input) = input
+                && !has_attr(&spans[call_index], "gen_ai.usage.input_tokens")
+            {
+                spans[call_index].attributes.push(input);
+            }
+            if let Some(output) = output
+                && !has_attr(&spans[call_index], "gen_ai.usage.output_tokens")
+            {
+                spans[call_index].attributes.push(output);
+            }
+        }
+        if let Some(model_kv) = spans
+            .iter()
+            .filter(|span| {
+                &span.trace_id == trace_id
+                    && matches!(
+                        span.name.as_str(),
+                        "session_task.turn" | "turn/start" | "model_client.stream_responses_api"
+                    )
+            })
+            .find_map(|span| clone_attr(span, "model"))
+        {
+            for span in spans.iter_mut() {
+                if &span.trace_id == trace_id
+                    && matches!(
+                        span.name.as_str(),
+                        "session_task.turn" | "turn/start" | "model_client.stream_responses_api"
+                    )
+                    && !has_attr(span, "model")
+                {
+                    span.attributes.push(model_kv.clone());
+                }
+            }
+        }
+    }
+    spans.retain(|span| {
+        let is_internal_tool = span.name == "dispatch_tool_call_with_state"
+            || span.name.starts_with("unified_exec.")
+            || span.name.starts_with("guardian_");
+        !temporary_traces.contains(&span.trace_id)
+            && !is_internal_tool
+            && (matches!(
+                span.name.as_str(),
+                "session_task.turn"
+                    | "turn/start"
+                    | "model_client.stream_responses_api"
+                    | "exec_command"
+            ) || has_attr(span, "call_id")
+                || has_attr(span, "tool_name")
+                || [
+                    "gen_ai.operation.name",
+                    "gen_ai.request.model",
+                    "gen_ai.input.messages",
+                    "gen_ai.output.messages",
+                ]
+                .into_iter()
+                .any(|key| has_attr(span, key)))
+    });
+    let root_turn_ids: BTreeMap<Vec<u8>, Vec<u8>> = spans
+        .iter()
+        .filter(|span| span.name == "turn/start")
+        .map(|span| (span.trace_id.clone(), span.span_id.clone()))
+        .collect();
+    let task_turn_ids: BTreeMap<Vec<u8>, Vec<u8>> = spans
+        .iter()
+        .filter(|span| span.name == "session_task.turn")
+        .map(|span| (span.trace_id.clone(), span.span_id.clone()))
+        .collect();
+    for span in spans.iter_mut() {
+        let root_id = codex_turn_root_span_id(&span.trace_id);
+        if span.name == "turn/start" {
+            span.parent_span_id = root_id;
+        } else if span.name == "session_task.turn" {
+            if let Some(turn_start_id) = root_turn_ids.get(&span.trace_id) {
+                span.parent_span_id = turn_start_id.clone();
+            } else {
+                span.parent_span_id = root_id;
+            }
+        } else if span.parent_span_id.is_empty() {
+            span.parent_span_id = task_turn_ids
+                .get(&span.trace_id)
+                .or_else(|| root_turn_ids.get(&span.trace_id))
+                .cloned()
+                .unwrap_or(root_id);
+        }
+    }
+}
+
+pub(super) fn codex_turn_root_span_id(trace_id: &[u8]) -> Vec<u8> {
+    let mut hash = Sha256::new();
+    hash.update(b"litellm.codex.turn.root.v1\0");
+    hash.update(trace_id);
+    hash.finalize()[..8].to_vec()
 }
 
 fn valid_id(value: &[u8], length: usize) -> bool {

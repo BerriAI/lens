@@ -107,7 +107,8 @@ impl QueryReaders {
             execution_seconds,
         } = READER_LIMITS;
         let settings = format!(
-            "readonly = 1 CONST, max_execution_time = {execution_seconds} CONST, \
+            "readonly = 1 CONST, default_format = 'JSON' CONST, \
+             max_execution_time = {execution_seconds} CONST, \
              max_result_rows = {result_rows} CONST, max_result_bytes = {result_bytes} CONST, \
              result_overflow_mode = 'throw' CONST, max_memory_usage = {memory_bytes} CONST, \
              max_threads = 2 CONST, max_concurrent_queries_for_user = 8 CONST"
@@ -170,7 +171,7 @@ impl QueryReaders {
             )
             .await?;
         }
-        Connection::configured(
+        Connection::configured_reader(
             &self.writer.url()[..url::Position::AfterPath],
             database,
             user,
@@ -196,13 +197,14 @@ impl QueryReaders {
 
 fn predicate(scope: &QueryScope, table: TraceTable) -> String {
     let team = match table {
-        TraceTable::OtelTraces | TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
-            "TeamId"
-        }
+        TraceTable::OtelTraces
+        | TraceTable::OtelLogs
+        | TraceTable::AgentTracesByKey
+        | TraceTable::LensTaskProfiles => "TeamId",
         TraceTable::SpendLogs => "team_id",
     };
     scoped(scope, team, |owner| match table {
-        TraceTable::OtelTraces => format!("UserId = {owner}"),
+        TraceTable::OtelTraces | TraceTable::OtelLogs => format!("UserId = {owner}"),
         TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
             format!("UserIds = [{owner}]")
         }
@@ -238,11 +240,12 @@ fn scoped(scope: &QueryScope, team: &str, user_clause: impl Fn(&str) -> String) 
 fn eval_exclusion(database: &str, table: TraceTable) -> String {
     let source = format!("`{database}`.{EVAL_TRACES}");
     match table {
-        TraceTable::OtelTraces | TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
-            format!(
-                "(TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM {source})"
-            )
-        }
+        TraceTable::OtelTraces
+        | TraceTable::OtelLogs
+        | TraceTable::AgentTracesByKey
+        | TraceTable::LensTaskProfiles => format!(
+            "(TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM {source})"
+        ),
         TraceTable::SpendLogs => format!(
             "(team_id, api_key, response_id) NOT IN \
              (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds) FROM {source})"
@@ -269,6 +272,7 @@ mod tests {
 
     #[rstest]
     #[case::otel(TraceTable::OtelTraces, "TeamId", "UserId = ''")]
+    #[case::logs(TraceTable::OtelLogs, "TeamId", "UserId = ''")]
     #[case::agent(TraceTable::AgentTracesByKey, "TeamId", "UserIds = ['']")]
     #[case::profiles(TraceTable::LensTaskProfiles, "TeamId", "UserIds = ['']")]
     #[case::spend(TraceTable::SpendLogs, "team_id", "user = ''")]

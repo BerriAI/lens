@@ -1,9 +1,10 @@
 use litellm_traces::{
-    CallEvidence, CallEvidenceKind, CallKey, DecodedSpan, ObservationType, decode_otlp,
+    CallEvidence, CallEvidenceKind, CallKey, DecodedSpan, Integration, ObservationType, decode_otlp,
 };
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
     common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value},
+    resource::v1::Resource,
     trace::v1::{ResourceSpans, ScopeSpans, Span, span::Event},
 };
 use prost::Message;
@@ -50,6 +51,16 @@ fn decode(
     attributes: &[(&str, &str)],
     events: Vec<Event>,
 ) -> Result<DecodedSpan, litellm_traces::Error> {
+    decode_with_resource(span, scope, None, attributes, events)
+}
+
+fn decode_with_resource(
+    span: Span,
+    scope: &str,
+    resource_attributes: Option<&[(&str, &str)]>,
+    attributes: &[(&str, &str)],
+    events: Vec<Event>,
+) -> Result<DecodedSpan, litellm_traces::Error> {
     let recorded = Span {
         attributes: recorded_attributes(attributes),
         events,
@@ -57,6 +68,10 @@ fn decode(
     };
     let request = ExportTraceServiceRequest {
         resource_spans: vec![ResourceSpans {
+            resource: resource_attributes.map(|attributes| Resource {
+                attributes: recorded_attributes(attributes),
+                ..Default::default()
+            }),
             scope_spans: vec![ScopeSpans {
                 scope: Some(InstrumentationScope {
                     name: scope.to_owned(),
@@ -72,6 +87,74 @@ fn decode(
         .into_iter()
         .next()
         .unwrap())
+}
+
+#[rstest]
+fn codex_source_attributes_use_generic_genai_normalization(span: Span) {
+    let decoded = decode_with_resource(
+        span,
+        "unrecognized-scope",
+        Some(&[
+            ("service.name", "codex_cli_rs"),
+            ("service.version", "0.166.0"),
+        ]),
+        &[
+            ("otel.name", "codex response"),
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.request.model", "fixture-model"),
+            (
+                "gen_ai.input.messages",
+                r#"[{"role":"user","content":"query"}]"#,
+            ),
+            (
+                "gen_ai.output.messages",
+                r#"[{"role":"assistant","content":"answer"}]"#,
+            ),
+            ("gen_ai.usage.input_tokens", "11"),
+            ("gen_ai.usage.output_tokens", "4"),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(Integration::OpenaiCodex));
+    assert_eq!(decoded.normalized.observation_type, ObservationType::Llm);
+    assert_eq!(decoded.normalized.model.as_deref(), Some("fixture-model"));
+    assert_eq!(decoded.normalized.input_preview, "query");
+    assert_eq!(decoded.normalized.input_tokens, 11);
+    assert_eq!(decoded.normalized.output_tokens, 4);
+    assert_eq!(decoded.normalized.calls.kind(), CallEvidenceKind::Unknown);
+}
+
+#[rstest]
+fn genai_span_from_other_service_is_not_classified_as_codex(span: Span) {
+    let decoded = decode_with_resource(
+        span,
+        "codex",
+        Some(&[("service.name", "unrelated-rust-service")]),
+        &[("gen_ai.operation.name", "chat")],
+        vec![],
+    )
+    .unwrap();
+
+    assert_ne!(decoded.normalized.framework, Some(Integration::OpenaiCodex));
+}
+
+#[rstest]
+fn codex_service_identity_without_codex_span_evidence_is_not_classified(span: Span) {
+    let decoded = decode_with_resource(
+        span,
+        "unrecognized-scope",
+        Some(&[
+            ("service.name", "codex_cli_rs"),
+            ("service.version", "0.166.0"),
+        ]),
+        &[],
+        vec![],
+    )
+    .unwrap();
+
+    assert_ne!(decoded.normalized.framework, Some(Integration::OpenaiCodex));
 }
 
 #[rstest]

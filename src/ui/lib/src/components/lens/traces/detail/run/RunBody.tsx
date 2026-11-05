@@ -5,17 +5,25 @@ import { useDefaultLayout } from "react-resizable-panels";
 import { useResizeObserver } from "usehooks-ts";
 
 import { useShortcut } from "../../../../shared/useShortcut";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../../ui/Resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "../../../../ui/Resizable";
 import { TabsContent } from "../../../../ui/tabs";
 
 import type { RunSelection } from "../../routing";
 import type { SignalFlag, Trace } from "../../types";
 import { SignalEvidence } from "../../ui/SignalEvidence";
-import { TraceThread, type ConversationTracePaging } from "../conversation/TraceThread";
+import {
+  TraceThread,
+  type ConversationTracePaging,
+} from "../conversation/TraceThread";
 import type { useEarlierConversation } from "../conversation/EarlierConversation";
 import { DetailPane } from "../span/DetailPane";
 import { SpanTree } from "../tree/SpanTree";
 import type { TreeLayout } from "../tree/TreeRows";
+import { LogsTimeline } from "../../logs/LogsTimeline";
 import { useRunTree } from "./useRunTree";
 
 const SPLIT_LAYOUT_ID = "litellm.lens.runSplit";
@@ -28,6 +36,8 @@ interface RunBodyProps {
   embedded: boolean;
   stale: boolean;
   conversationPaging: ConversationTracePaging;
+  logRange?: { startMs: number; endMs: number };
+  live: boolean;
   signal?: SignalFlag;
   earlierConversation: ReturnType<typeof useEarlierConversation>;
 }
@@ -40,18 +50,26 @@ export function RunBody({
   embedded,
   stale,
   conversationPaging,
+  logRange,
+  live,
   signal,
   earlierConversation,
 }: RunBodyProps) {
-  const { view, setView, stepQuery, setStepQuery, errorsOnly, setErrorsOnly } = selection;
+  const { view, setView, stepQuery, setStepQuery, errorsOnly, setErrorsOnly } =
+    selection;
   const tree = useRunTree(trace, selection);
   const evidence = signal?.evidence;
   const [detailOpen, setDetailOpen] = useState(true);
   const [layout, setLayout] = useState<TreeLayout>("tree");
   const splitRef = useRef<HTMLDivElement>(null);
-  const { width = SIDE_BY_SIDE_MIN_PX } = useResizeObserver({ ref: splitRef as RefObject<HTMLDivElement> });
+  const { width = SIDE_BY_SIDE_MIN_PX } = useResizeObserver({
+    ref: splitRef as RefObject<HTMLDivElement>,
+  });
   const orientation = width >= SIDE_BY_SIDE_MIN_PX ? "horizontal" : "vertical";
-  const saved = useDefaultLayout({ id: `${SPLIT_LAYOUT_ID}.${orientation}`, panelIds: ["steps", "detail"] });
+  const saved = useDefaultLayout({
+    id: `${SPLIT_LAYOUT_ID}.${orientation}`,
+    panelIds: ["steps", "detail"],
+  });
   const select = (id: string) => {
     tree.select(id);
     setDetailOpen(true);
@@ -61,11 +79,23 @@ export function RunBody({
   const pane = { layer: "pane", enabled: active } as const;
   useShortcut("down", () => tree.moveBy(1), { ...pane, description: "step" });
   useShortcut("up", () => tree.moveBy(-1), { ...pane, description: "step" });
-  useShortcut("j", () => tree.moveBy(1), { ...pane, enabled: active && !embedded, description: "move" });
-  useShortcut("k", () => tree.moveBy(-1), { ...pane, enabled: active && !embedded, description: "move" });
+  useShortcut("j", () => tree.moveBy(1), {
+    ...pane,
+    enabled: active && !embedded,
+    description: "move",
+  });
+  useShortcut("k", () => tree.moveBy(-1), {
+    ...pane,
+    enabled: active && !embedded,
+    description: "move",
+  });
   useShortcut("left", () => tree.fold(false), { ...pane, description: "fold" });
   useShortcut("right", () => tree.fold(true), { ...pane, description: "fold" });
-  useShortcut("escape", () => setDetailOpen(false), { ...pane, enabled: active && detailOpen, description: "close" });
+  useShortcut("escape", () => setDetailOpen(false), {
+    ...pane,
+    enabled: active && detailOpen,
+    description: "close",
+  });
 
   const openStep = (id: string) => {
     select(id);
@@ -86,14 +116,34 @@ export function RunBody({
     );
 
   return (
-    <TabsContent value="steps" ref={splitRef} className="flex min-h-0 flex-1">
+    <TabsContent
+      value="steps"
+      ref={splitRef}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {logRange && (
+        <LogsTimeline
+          key={`${trace.summary.trace_id}:${logRange.startMs}:${logRange.endMs}`}
+          accessToken={accessToken}
+          enabled
+          live={live}
+          range={logRange}
+          traceId={trace.summary.trace_id}
+        />
+      )}
       <ResizablePanelGroup
         key={orientation}
         orientation={orientation}
+        className="min-h-0 flex-1"
         defaultLayout={detailOpen ? saved.defaultLayout : undefined}
         onLayoutChanged={detailOpen ? saved.onLayoutChanged : undefined}
       >
-        <ResizablePanel id="steps" defaultSize="40%" minSize={orientation === "horizontal" ? 300 : 160} maxSize="65%">
+        <ResizablePanel
+          id="steps"
+          defaultSize="40%"
+          minSize={orientation === "horizontal" ? 300 : 160}
+          maxSize="65%"
+        >
           <SpanTree
             rows={tree.rows}
             summary={trace.summary}
@@ -121,16 +171,25 @@ export function RunBody({
         </ResizablePanel>
         {detailOpen && (
           <>
-            <ResizableHandle withHandle className="bg-border hover:bg-trace-chain" />
-            <ResizablePanel id="detail" minSize={orientation === "horizontal" ? 360 : 200} className="min-w-0">
+            <ResizableHandle
+              withHandle
+              className="bg-border hover:bg-trace-chain"
+            />
+            <ResizablePanel
+              id="detail"
+              minSize={orientation === "horizontal" ? 360 : 200}
+              className="min-w-0"
+            >
               <div className="flex h-full min-h-0 flex-col">
-                {signal && evidence && evidence.span_id === tree.selectedRow?.id && (
-                  <SignalEvidence
-                    name={signal.name}
-                    quote={evidence.quote}
-                    onDismiss={() => selection.selectSpan(evidence.span_id)}
-                  />
-                )}
+                {signal &&
+                  evidence &&
+                  evidence.span_id === tree.selectedRow?.id && (
+                    <SignalEvidence
+                      name={signal.name}
+                      quote={evidence.quote}
+                      onDismiss={() => selection.selectSpan(evidence.span_id)}
+                    />
+                  )}
                 <div className="min-h-0 flex-1">
                   <DetailPane
                     trace={trace}

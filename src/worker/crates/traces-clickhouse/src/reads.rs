@@ -2,6 +2,8 @@ use litellm_http::Client;
 use litellm_storage_clickhouse::{Error as StorageError, Query, fetch};
 use litellm_traces::query::named as contracts;
 use litellm_traces_cache::{StoreError, TraceStore};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::{
     Connection, Error,
@@ -11,6 +13,116 @@ use crate::{
         SpendByResponseIdsParams, TraceIdentity, TracePageSpansParams,
     },
 };
+
+#[derive(Serialize)]
+struct SpendLogInputPreviewParams {
+    trace_ids: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct SpendLogInputPreviewRow {
+    trace_id: String,
+    messages: String,
+}
+
+struct SpendLogInputPreviewFallback;
+
+impl Query for SpendLogInputPreviewFallback {
+    type Params = SpendLogInputPreviewParams;
+    type Row = SpendLogInputPreviewRow;
+    const SQL: &'static str = "SELECT trace_id, \
+        argMinIf(spend_logs.messages, toInt64(start_time), spend_logs.messages != '' AND spend_logs.messages != '[]') AS messages \
+        FROM spend_logs FINAL \
+        WHERE trace_id IN {trace_ids:Array(String)} \
+          AND spend_logs.messages != '' AND spend_logs.messages != '[]' \
+        GROUP BY trace_id";
+}
+
+fn extract_user_prompt_preview(messages: &str) -> Option<String> {
+    let parsed: serde_json::Value = serde_json::from_str(messages).ok()?;
+    let items = parsed.as_array()?;
+    let mut candidate_prompts = Vec::new();
+    for item in items {
+        if item.get("role").and_then(|r| r.as_str()) == Some("user") {
+            if let Some(content) = item.get("content").and_then(|c| c.as_str()) {
+                candidate_prompts.push(content.trim());
+            } else if let Some(parts) = item.get("content").and_then(|c| c.as_array()) {
+                for part in parts {
+                    let text = part
+                        .get("text")
+                        .and_then(|t| t.as_str())
+                        .or_else(|| part.get("content").and_then(|c| c.as_str()));
+                    if let Some(text) = text {
+                        candidate_prompts.push(text.trim());
+                    }
+                }
+            }
+        }
+    }
+    let meaningful = candidate_prompts
+        .iter()
+        .copied()
+        .filter(|prompt| {
+            !prompt.starts_with("<environment_context>")
+                && !prompt.starts_with("# AGENTS.md")
+        })
+        .map(|prompt| {
+            if let Some((_, user_part)) = prompt.split_once("User prompt:\n") {
+                user_part.trim()
+            } else if let Some((_, user_part)) = prompt.split_once("</system-reminder>\n\n") {
+                user_part.trim()
+            } else if let Some((_, user_part)) = prompt.split_once("</system-reminder>") {
+                user_part.trim()
+            } else {
+                prompt
+            }
+        })
+        .last();
+    let selected = meaningful.or_else(|| candidate_prompts.last().copied())?;
+    let single_line: String = selected
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let preview: String = single_line.chars().take(240).collect();
+    (!preview.is_empty()).then_some(preview)
+}
+
+#[derive(Deserialize)]
+struct SpendLogContentRow {
+    input: String,
+    output: String,
+}
+
+struct SpendLogContentFallback;
+
+impl Query for SpendLogContentFallback {
+    type Params = contracts::SpanDetailParams;
+    type Row = SpendLogContentRow;
+    const SQL: &'static str = "SELECT \
+        argMaxIf(s.messages, -toInt64(s.start_time), s.messages != '' AND s.messages != '[]') AS input, \
+        argMaxIf(s.response, toInt64(s.start_time), s.response != '' AND s.response != '{}') AS output \
+        FROM spend_logs AS s FINAL \
+        CROSS JOIN ( \
+            SELECT Timestamp, Duration, Model, ObservationType, ParentSpanId \
+            FROM otel_traces \
+            WHERE TraceId = {trace_id:String} AND SpanId = {span_id:String} \
+              AND (ObservationType = 'llm' OR (ObservationType = 'agent' AND ParentSpanId = '')) \
+            LIMIT 1 \
+        ) AS span \
+        WHERE ( \
+            (s.trace_id = {trace_id:String} AND s.span_id = {span_id:String}) \
+            OR (s.trace_id = {trace_id:String} AND s.span_id = '' AND span.ObservationType = 'llm') \
+            OR (s.trace_id = {trace_id:String} AND span.ObservationType = 'agent' AND span.ParentSpanId = '') \
+            OR ( \
+                s.trace_id = '' \
+                AND (span.Model = '' OR positionCaseInsensitive(s.model, span.Model) > 0) \
+                AND abs(dateDiff('millisecond', s.start_time, span.Timestamp)) <= 5000 \
+            ) \
+        ) \
+        AND (s.messages != '' OR s.response != '')";
+}
 
 struct RunCandidates;
 
@@ -76,11 +188,40 @@ impl TraceStore for ClickHouseTraces {
         params: &contracts::ListTracesParams,
     ) -> Result<Vec<contracts::ListTracesRow>, StoreError<Self::Error>> {
         let storage_params = ListTracesParams::from(params.clone());
-        match fetch::<RunCandidates>(&self.client, &self.connection, &storage_params).await {
-            Ok(rows) => Ok(rows.into_iter().map(|row| row.0).collect()),
-            Err(StorageError::ResponseTooLarge) => Err(StoreError::TooLarge),
-            Err(error) => Err(failed(error)),
+        let mut rows: Vec<contracts::ListTracesRow> =
+            match fetch::<RunCandidates>(&self.client, &self.connection, &storage_params).await {
+                Ok(rows) => rows.into_iter().map(|row| row.0).collect(),
+                Err(StorageError::ResponseTooLarge) => return Err(StoreError::TooLarge),
+                Err(error) => return Err(failed(error)),
+            };
+        let missing_preview_ids: Vec<String> = rows
+            .iter()
+            .filter(|row| row.input_preview.is_empty())
+            .map(|row| row.trace_id.clone())
+            .collect();
+        if !missing_preview_ids.is_empty() {
+            let fallback_params = SpendLogInputPreviewParams {
+                trace_ids: missing_preview_ids,
+            };
+            if let Ok(fallback_rows) =
+                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
+            {
+                let previews: HashMap<String, String> = fallback_rows
+                    .into_iter()
+                    .filter_map(|row| {
+                        extract_user_prompt_preview(&row.messages).map(|preview| (row.trace_id, preview))
+                    })
+                    .collect();
+                for row in &mut rows {
+                    if row.input_preview.is_empty()
+                        && let Some(preview) = previews.get(&row.trace_id)
+                    {
+                        row.input_preview = preview.clone();
+                    }
+                }
+            }
         }
+        Ok(rows)
     }
 
     async fn trace_spans(
@@ -88,8 +229,30 @@ impl TraceStore for ClickHouseTraces {
         params: &contracts::TraceSpansParams,
         snapshot_ms: u64,
     ) -> Result<Vec<contracts::TraceSpansRow>, StoreError<Self::Error>> {
-        crate::span_batches::read_spans(&self.client, &self.connection, params.clone(), snapshot_ms)
-            .await
+        let mut rows = crate::span_batches::read_spans(
+            &self.client,
+            &self.connection,
+            params.clone(),
+            snapshot_ms,
+        )
+        .await?;
+        if rows.iter().all(|row| row.input_preview.is_empty()) && !rows.is_empty() {
+            let fallback_params = SpendLogInputPreviewParams {
+                trace_ids: vec![params.trace_id.clone()],
+            };
+            if let Ok(fallback_rows) =
+                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
+                && let Some(fallback) = fallback_rows.into_iter().next()
+                && let Some(preview) = extract_user_prompt_preview(&fallback.messages)
+            {
+                if let Some(root_row) = rows.iter_mut().find(|r| r.parent_span_id.is_empty()) {
+                    root_row.input_preview = preview;
+                } else if let Some(first_row) = rows.first_mut() {
+                    first_row.input_preview = preview;
+                }
+            }
+        }
+        Ok(rows)
     }
 
     async fn run_spans(
@@ -97,13 +260,50 @@ impl TraceStore for ClickHouseTraces {
         params: &contracts::TracePageSpansParams,
         snapshot_ms: u64,
     ) -> Result<Vec<contracts::TraceSpansRow>, StoreError<Self::Error>> {
-        crate::span_batches::read_list_spans(
+        let mut rows = crate::span_batches::read_list_spans(
             &self.client,
             &self.connection,
             TracePageSpansParams::from(params.clone()),
             snapshot_ms,
         )
-        .await
+        .await?;
+        let mut empty_traces: HashMap<String, bool> = HashMap::new();
+        for row in &rows {
+            let entry = empty_traces.entry(row.trace_id.clone()).or_insert(true);
+            if !row.input_preview.is_empty() {
+                *entry = false;
+            }
+        }
+        let missing_preview_trace_ids: Vec<String> = empty_traces
+            .into_iter()
+            .filter_map(|(id, is_empty)| is_empty.then_some(id))
+            .collect();
+        if !missing_preview_trace_ids.is_empty() {
+            let fallback_params = SpendLogInputPreviewParams {
+                trace_ids: missing_preview_trace_ids,
+            };
+            if let Ok(fallback_rows) =
+                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
+            {
+                let previews: HashMap<String, String> = fallback_rows
+                    .into_iter()
+                    .filter_map(|row| {
+                        extract_user_prompt_preview(&row.messages).map(|preview| (row.trace_id, preview))
+                    })
+                    .collect();
+                for (trace_id, preview) in previews {
+                    if let Some(root_row) = rows
+                        .iter_mut()
+                        .find(|r| r.trace_id == trace_id && r.parent_span_id.is_empty())
+                    {
+                        root_row.input_preview = preview;
+                    } else if let Some(first_row) = rows.iter_mut().find(|r| r.trace_id == trace_id) {
+                        first_row.input_preview = preview;
+                    }
+                }
+            }
+        }
+        Ok(rows)
     }
 
     async fn spend(
@@ -122,10 +322,24 @@ impl TraceStore for ClickHouseTraces {
         &self,
         params: &contracts::SpanDetailParams,
     ) -> Result<Option<contracts::SpanDetailRow>, StoreError<Self::Error>> {
-        match fetch::<SpanDetailQuery>(&self.client, &self.connection, params).await {
-            Ok(rows) => Ok(rows.into_iter().next()),
-            Err(error) => Err(failed(error)),
+        let mut detail = match fetch::<SpanDetailQuery>(&self.client, &self.connection, params).await {
+            Ok(rows) => rows.into_iter().next(),
+            Err(error) => return Err(failed(error)),
+        };
+        if let Some(row) = detail.as_mut()
+            && (row.input.is_empty() || row.output.is_empty())
+            && let Ok(mut fallback) =
+                fetch::<SpendLogContentFallback>(&self.client, &self.connection, params).await
+            && let Some(content) = fallback.pop()
+        {
+            if row.input.is_empty() && !content.input.is_empty() {
+                row.input = content.input;
+            }
+            if row.output.is_empty() && !content.output.is_empty() {
+                row.output = content.output;
+            }
         }
+        Ok(detail)
     }
 
     async fn span_error(
@@ -163,4 +377,53 @@ impl TraceStore for ClickHouseTraces {
 
 fn failed(error: StorageError) -> StoreError<Error> {
     StoreError::Failed(Error::Storage(error))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_user_prompt_preview;
+
+    #[test]
+    fn extracts_direct_user_string_prompt() {
+        let messages = serde_json::json!([
+            {"role": "developer", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Write a rust CLI tool"}
+        ])
+        .to_string();
+        assert_eq!(
+            extract_user_prompt_preview(&messages),
+            Some("Write a rust CLI tool".to_owned())
+        );
+    }
+
+    #[test]
+    fn extracts_nested_input_text_and_strips_title_generation_preamble() {
+        let messages = serde_json::json!([
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": "<environment_context>\n2026-11-03\n</environment_context>"}]
+            },
+            {
+                "role": "user",
+                "content": [{
+                    "type": "input_text",
+                    "text": "Generate a concise title.\n\nUser prompt:\nWrite short summary for business_plan.md\n\nShow draft."
+                }]
+            }
+        ])
+        .to_string();
+        assert_eq!(
+            extract_user_prompt_preview(&messages),
+            Some("Write short summary for business_plan.md Show draft.".to_owned())
+        );
+    }
+
+    #[test]
+    fn caps_length_at_240_chars_and_flattens_whitespace() {
+        let long_prompt = "word ".repeat(100);
+        let messages = serde_json::json!([{"role": "user", "content": long_prompt}]).to_string();
+        let preview = extract_user_prompt_preview(&messages).unwrap();
+        assert!(preview.len() <= 240);
+        assert!(!preview.contains('\n'));
+    }
 }

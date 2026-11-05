@@ -32,12 +32,16 @@ pub use normalize::{
     ObservationType,
 };
 pub use otlp::{
-    DecodeLimits, DecodedEvent, DecodedSpan, decode_otlp, decode_otlp_logs,
+    CodexContentState, CodexEventKind, CodexMessageRole, CodexProjection, DecodeLimits,
+    DecodedEvent, DecodedLogBatch, DecodedLogRecord, DecodedSpan, LogValue, decode_otlp,
+    decode_otlp_log_batch, decode_otlp_log_batch_with_limits, decode_otlp_logs,
     decode_otlp_logs_with_limits, decode_otlp_with_limits,
 };
 pub use query::ReadQuery;
 pub use query_access::QueryScope;
+pub use request::LogListRequest;
 pub use resolve::{SpendLookup, iso_time, listed_summary, resolve_trace};
+pub use response::{OtelLogPage, OtelLogRecord, OtelLogSummary};
 pub use shared::{Shared, SharedIdentity};
 pub use tenant::Tenant;
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};

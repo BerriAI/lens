@@ -343,10 +343,10 @@ async fn concurrent_schema_setup_succeeds(
         &database,
         "SELECT count() AS tables FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'spend_logs', 'lens_feedback')",
+         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'spend_logs', 'lens_feedback')",
     )
     .await?;
-    assert_eq!(tables["data"][0]["tables"].as_u64(), Some(4));
+    assert_eq!(tables["data"][0]["tables"].as_u64(), Some(5));
     assert_eq!(
         migration_ledger_versions(&database).await?,
         migration_versions()
@@ -1054,6 +1054,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
             {"name": "lens_trace_summaries"},
+            {"name": "otel_logs"},
             {"name": "otel_traces"},
             {"name": "spend_logs"}
         ])
@@ -1154,7 +1155,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     let ttl_queries = ttl_queries["data"].as_array().expect("retention tables");
@@ -1169,6 +1170,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
             "lens_eval_traces",
             "lens_feedback",
             "lens_trace_summaries",
+            "otel_logs",
             "otel_traces",
             "spend_logs"
         ]
@@ -1188,7 +1190,7 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     for row in ttl_queries["data"].as_array().expect("retention tables") {
@@ -2001,7 +2003,12 @@ async fn query_help_discovers_live_schema_and_runs_its_examples(
     let writer = Connection::writer(&database.url)?;
     ensure_schema(&database.client, &writer, "trace_test", 7).await?;
     execute_write(&database, "CREATE USER help_reader").await?;
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "otel_logs",
+        "agent_traces_by_key",
+        "spend_logs",
+    ] {
         execute_write(
             &database,
             &format!("GRANT SELECT ON trace_test.{table} TO help_reader"),
@@ -2081,7 +2088,12 @@ async fn query_help_discovers_live_schema_and_runs_its_examples(
     );
     let guide = help["guide"].as_str().ok_or("missing rendered guide")?;
     assert!(guide.starts_with("Trace SQL query guide"));
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "otel_logs",
+        "agent_traces_by_key",
+        "spend_logs",
+    ] {
         let described = read_json(&database, &format!("DESCRIBE TABLE {table}")).await?;
         let schema = help["tables"]
             .as_array()
@@ -2266,7 +2278,12 @@ async fn query_help_preserves_schema_and_guide_when_discovery_hits_reader_limits
         "CREATE USER help_reader SETTINGS max_rows_to_read = 1",
     )
     .await?;
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "otel_logs",
+        "agent_traces_by_key",
+        "spend_logs",
+    ] {
         execute_write(
             &database,
             &format!("GRANT SELECT ON trace_test.{table} TO help_reader"),

@@ -25,6 +25,7 @@ use url::Url;
 #[derive(Clone)]
 pub struct Connection {
     url: Url,
+    restricted_reader: bool,
 }
 
 impl Connection {
@@ -33,7 +34,10 @@ impl Connection {
         if !matches!(url.scheme(), "http" | "https") || url.host().is_none() {
             return Err(Error::InvalidUrl);
         }
-        Ok(Self { url })
+        Ok(Self {
+            url,
+            restricted_reader: false,
+        })
     }
 
     pub fn configured(
@@ -64,6 +68,19 @@ impl Connection {
             .extend_pairs(pairs)
             .append_pair("database", database);
         Ok(connection)
+    }
+
+    pub fn configured_reader(
+        url: &str,
+        database: &str,
+        user: &str,
+        password: &str,
+    ) -> Result<Self, Error> {
+        let connection = Self::configured(url, database, user, password)?;
+        Ok(Self {
+            restricted_reader: true,
+            ..connection
+        })
     }
 
     pub fn writer(url: &str) -> Result<Self, Error> {
