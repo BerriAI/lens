@@ -1053,6 +1053,8 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_call_costs"},
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
+            {"name": "lens_task_clusters"},
+            {"name": "lens_task_profiles"},
             {"name": "lens_trace_summaries"},
             {"name": "otel_traces"},
             {"name": "spend_logs"}
@@ -2001,7 +2003,12 @@ async fn query_help_discovers_live_schema_and_runs_its_examples(
     let writer = Connection::writer(&database.url)?;
     ensure_schema(&database.client, &writer, "trace_test", 7).await?;
     execute_write(&database, "CREATE USER help_reader").await?;
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "agent_traces_by_key",
+        "spend_logs",
+        "lens_task_profiles",
+    ] {
         execute_write(
             &database,
             &format!("GRANT SELECT ON trace_test.{table} TO help_reader"),
@@ -2081,7 +2088,12 @@ async fn query_help_discovers_live_schema_and_runs_its_examples(
     );
     let guide = help["guide"].as_str().ok_or("missing rendered guide")?;
     assert!(guide.starts_with("Trace SQL query guide"));
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "agent_traces_by_key",
+        "spend_logs",
+        "lens_task_profiles",
+    ] {
         let described = read_json(&database, &format!("DESCRIBE TABLE {table}")).await?;
         let schema = help["tables"]
             .as_array()
@@ -2124,7 +2136,7 @@ async fn query_help_discovers_live_schema_and_runs_its_examples(
         !populated
     );
     let tables = help["tables"].as_array().ok_or("missing tables")?;
-    assert_eq!(tables.len(), 3);
+    assert_eq!(tables.len(), 4);
     let columns = tables[0]["columns"].as_array().ok_or("missing columns")?;
     for field in NORMALIZED_FIELD_DEFINITIONS {
         assert!(
@@ -2266,7 +2278,12 @@ async fn query_help_preserves_schema_and_guide_when_discovery_hits_reader_limits
         "CREATE USER help_reader SETTINGS max_rows_to_read = 1",
     )
     .await?;
-    for table in ["otel_traces", "agent_traces_by_key", "spend_logs"] {
+    for table in [
+        "otel_traces",
+        "agent_traces_by_key",
+        "spend_logs",
+        "lens_task_profiles",
+    ] {
         execute_write(
             &database,
             &format!("GRANT SELECT ON trace_test.{table} TO help_reader"),
@@ -2292,7 +2309,7 @@ async fn query_help_preserves_schema_and_guide_when_discovery_hits_reader_limits
     let help = serde_json::to_value(
         litellm_traces_clickhouse::query_help(&database.client, &reader).await?,
     )?;
-    assert_eq!(help["tables"].as_array().ok_or("tables")?.len(), 3);
+    assert_eq!(help["tables"].as_array().ok_or("tables")?.len(), 4);
     assert!(!help["examples"].as_array().ok_or("examples")?.is_empty());
     assert_eq!(
         help["normalized_fields"]

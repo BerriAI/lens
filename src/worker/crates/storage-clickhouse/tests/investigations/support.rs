@@ -302,10 +302,7 @@ pub async fn slow_lens_reads(
             let lens_read = request.url.query_pairs().any(|(name, query)| {
                 name == "query"
                     && query.starts_with("SELECT key, revision, digest FROM lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            }) && String::from_utf8_lossy(&request.body).contains("lens/");
             if lens_read && failed {
                 return ResponseTemplate::new(500)
                     .set_body_string("Code: 241. DB::Exception: Memory limit exceeded")
@@ -316,6 +313,12 @@ pub async fn slow_lens_reads(
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let (status, text) = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -324,6 +327,7 @@ pub async fn slow_lens_reads(
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()

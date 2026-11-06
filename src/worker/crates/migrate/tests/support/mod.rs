@@ -45,6 +45,23 @@ pub fn many_lenses(mut source: Value) -> Value {
     source
 }
 
+#[fixture]
+pub fn long_review_keys(mut source: Value) -> Value {
+    let original = source["reviews"][0].clone();
+    source["reviews"] = Value::Array(
+        (0..181)
+            .map(|index| {
+                let id = format!("execution-{index:03}-{}", "雪\\\"\n\t/?&=%".repeat(8));
+                let mut row = original.clone();
+                row["execution_id"] = json!(id);
+                row["data"]["execution_id"] = json!(id);
+                row
+            })
+            .collect(),
+    );
+    source
+}
+
 pub fn plan(source: Value) -> Result<lens_migrate::Plan, Error> {
     serde_json::from_value::<LegacySnapshot>(source)?.plan()
 }
