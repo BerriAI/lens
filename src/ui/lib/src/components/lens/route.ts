@@ -1,9 +1,10 @@
 "use client";
 
-import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import { createParser, parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
 import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
 import { TIME_RANGE_PARSERS } from "../shared/timeRange/routing";
+import { CODING_AGENTS, outcomeDateStart } from "./outcomes/outcomesModel";
 import { isRangeHours } from "../shared/timeRange/timeRange";
 
 export const LENS_TABS = {
@@ -11,6 +12,7 @@ export const LENS_TABS = {
   agents: "Agents",
   traces: "Traces",
   profiles: "Profiles",
+  outcomes: "Coding outcomes",
   findings: "Findings",
   investigations: "Investigations",
   datasets: "Datasets",
@@ -57,6 +59,27 @@ const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: pars
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
 const PROFILE_PARSERS = { profile: parseAsString };
+const outcomeDateParser = createParser({
+  parse: (value) => outcomeDateStart(value) === null ? null : value,
+  serialize: (value) => value,
+});
+const OUTCOME_PARSERS = {
+  outcome_scope: parseAsStringLiteral(["workspace", "agent"] as const).withDefault("workspace"),
+  outcome_repo: parseAsString.withDefault("all"),
+  outcome_state: parseAsStringLiteral(["all", "shipped", "in_progress", "unlinked"] as const).withDefault("all"),
+  outcome_days: parseAsStringLiteral(["7", "30", "90"] as const).withDefault("30"),
+  outcome_session: parseAsString,
+  outcome_team: parseAsString.withDefault("all"),
+  outcome_coding_agent: parseAsStringLiteral(["all", ...CODING_AGENTS.map((item) => item.value)] as const).withDefault("all"),
+  outcome_from: outcomeDateParser,
+  outcome_to: outcomeDateParser,
+};
+const OUTCOME_ROUTE_PARSERS = {
+  ...OUTCOME_PARSERS,
+  ...OPEN_TRACE_PARSERS,
+  tab: LENS_PARSERS.tab,
+  agent: RUN_FILTER_PARSERS.agent,
+};
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
@@ -98,6 +121,7 @@ const SESSION_PARSERS = {
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
   ...PROFILE_PARSERS,
+  ...OUTCOME_PARSERS,
   ...AGENT_LIST_PARSERS,
   ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
@@ -129,6 +153,7 @@ const CLEARED_AGENT_VIEW = {
   q: null,
   status: null,
   profile: null,
+  ...nulls(Object.keys(OUTCOME_PARSERS)),
 } as const;
 
 export interface LensRoute {
@@ -292,6 +317,36 @@ export function useProfileRoute() {
         target: null,
         lens: null,
       }),
+  };
+}
+
+export function useOutcomesRoute() {
+  const [state, setState] = useQueryStates(OUTCOME_ROUTE_PARSERS, { history: "push" });
+  return {
+    scope: state.outcome_scope,
+    setScope: (scope: typeof state.outcome_scope) => void setState({ outcome_scope: scope, outcome_session: null }),
+    repository: state.outcome_repo,
+    status: state.outcome_state,
+    days: state.outcome_days,
+    session: state.outcome_session,
+    team: state.outcome_team,
+    codingAgent: state.outcome_coding_agent,
+    from: state.outcome_from,
+    to: state.outcome_to,
+    setTeam: (team: string) => void setState({ outcome_team: team, outcome_session: null }),
+    setCodingAgent: (agent: typeof state.outcome_coding_agent) => void setState({ outcome_coding_agent: agent, outcome_session: null }),
+    setDateRange: (from: string, to: string) => void setState({ outcome_from: from, outcome_to: to, outcome_session: null }),
+    setRepository: (repository: string) => void setState({ outcome_repo: repository, outcome_session: null }),
+    setStatus: (status: typeof state.outcome_state) => void setState({ outcome_state: status, outcome_session: null }),
+    setDays: (days: typeof state.outcome_days) => void setState({ outcome_days: days, outcome_from: null, outcome_to: null, outcome_session: null }),
+    setSession: (session: string | null) => void setState({ outcome_session: session }),
+    openTrace: (traceId: string, agent: string) => {
+      void setState({ outcome_session: null, tab: "traces", agent, trace: traceId, trace_ref: null,
+        fullscreen: true, span: null, signal: null, view: null, span_tab: null, steps_q: null, errors: null });
+    },
+    showDashboard: () => void setState({ tab: "outcomes", trace: null, trace_ref: null, fullscreen: null, span: null,
+      signal: null, view: null, span_tab: null, steps_q: null, errors: null, outcome_session: null }),
+    reset: () => void setState({ outcome_repo: null, outcome_state: null, outcome_scope: null, outcome_team: null, outcome_coding_agent: null, outcome_from: null, outcome_to: null, outcome_session: null }),
   };
 }
 

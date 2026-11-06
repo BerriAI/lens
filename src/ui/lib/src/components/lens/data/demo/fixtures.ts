@@ -2,6 +2,8 @@ import type { Trace, Span, SpanDetail } from "../../traces/types";
 import type { Lens, Finding, Job, Settings } from "../../model/types";
 import { withReleaseCases } from "./lensDemoLongTrace";
 import { scenarios, type Scenario } from "./scenarios";
+import { createOutcomeDemo, type OutcomeSession } from "../../outcomes/outcomesModel";
+import { outcomeTraceId } from "../../outcomes/outcomeTrace";
 
 const executionId = (traceId: string) => btoa(JSON.stringify(["traces", "", traceId]));
 const iso = (time: number) => new Date(time).toISOString();
@@ -13,12 +15,12 @@ const demoSource = (scene: Scenario, index: number): NonNullable<Trace["summary"
   return {
     type: "slack",
     url: `https://acme.slack.com/archives/C0DEMO/p${1_700_000_000_000 + root}`,
-    title: scenarios[root].question,
+    title: scenarios[root]?.question ?? scene.question,
     user: DEMO_ASKERS[root % DEMO_ASKERS.length],
   };
 };
 
-function makeTrace(scene: Scenario, index: number, now: number) {
+export function makeTrace(scene: Scenario, index: number, now: number) {
   const traceId = (index + 1).toString(16).padStart(32, "0");
   const spanId = (step: number) => `${index + 1}${step}`.padStart(16, "0");
   const toolCount = scene.failed && index !== 9 ? 3 : 1;
@@ -126,9 +128,50 @@ function makeTrace(scene: Scenario, index: number, now: number) {
   return { trace, details };
 }
 
+function makeOutcomeTrace(session: OutcomeSession, index: number, now: number) {
+  const result = {
+    repository: session.repository,
+    ...(session.pullRequest ? { pull_request: { number: session.pullRequest.id, state: "open" } } : {}),
+    ...(session.issue ? { issue: { number: session.issue.id } } : {}),
+  };
+  const run = makeTrace({
+    agent: session.agent,
+    question: session.title,
+    tool: session.pullRequest ? "github.create_pull_request" : "repository.inspect",
+    result: JSON.stringify(result),
+    answer: session.pullRequest ? `Created PR #${session.pullRequest.id} for ${session.title}.` : "Inspected the task. No pull request or issue was linked to this session.",
+    taskCategory: session.taskCategory,
+  }, 1000 + index, now);
+  const duration = Date.parse(session.finishedAt) - Date.parse(session.startedAt);
+  run.trace.summary.trace_id = outcomeTraceId(session);
+  if (run.trace.summary.source) run.trace.summary.source.user = session.user;
+  run.trace.summary.start_time = session.startedAt;
+  run.trace.summary.spend = session.costUSD;
+  run.trace.summary.duration_ms = duration;
+  run.trace.agents[0].spend = session.costUSD;
+  run.trace.agents[0].duration_ms = duration;
+  run.trace.spans[0].duration_ms = duration;
+  const model = run.trace.spans.find((span) => span.type === "llm");
+  if (model) model.spend = session.costUSD;
+  for (const detail of run.details) {
+    detail.attributes["session.id"] = session.id;
+    detail.attributes["agent.source.user"] = session.user;
+    detail.attributes["coding.agent"] = session.codingAgent;
+    detail.attributes["team.name"] = session.team;
+    detail.attributes["github.repository"] = session.repository;
+    if (session.pullRequest) detail.attributes["github.pull_request.number"] = String(session.pullRequest.id);
+    if (session.issue) detail.attributes["github.issue.number"] = String(session.issue.id);
+    if (run.trace.spans.find((span) => span.span_id === detail.span_id)?.type === "tool") {
+      detail.input = JSON.stringify({ repository: session.repository, title: session.title, ...(session.issue ? { issue_number: session.issue.id } : {}) });
+    }
+  }
+  return run;
+}
+
 export type LensDemoData = ReturnType<typeof createLensDemoData>;
 
 export function createLensDemoData(now = Date.now()) {
+  const outcomeRuns = createOutcomeDemo(now).map((session, index) => makeOutcomeTrace(session, index, now));
   const runs = scenarios.map((scene, index) => {
     const run = makeTrace(scene, index, now);
     return index === 6 ? withReleaseCases(run) : run;
@@ -382,5 +425,5 @@ export function createLensDemoData(now = Date.now()) {
       jobs,
     };
   });
-  return { runs, lenses };
+  return { runs, lenses, outcomeRuns };
 }

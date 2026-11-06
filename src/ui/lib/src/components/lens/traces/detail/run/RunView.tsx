@@ -21,6 +21,7 @@ import { FeedbackPanel } from "../feedback/FeedbackPanel";
 import { flaggedSignals, useTraceSignalState } from "../../list/useTraceSignals";
 import { SignalEvidence } from "../../ui/SignalEvidence";
 import { EarlierConversationNotice, useEarlierConversation } from "../conversation/EarlierConversation";
+import { TraceDeliveryOutcome } from "../../../outcomes/TraceDeliveryOutcome";
 
 interface RunViewProps {
   traceId: string;
@@ -233,6 +234,7 @@ function LoadedRun({
         signals={signals}
         onSelectSignal={selection.selectSignal}
       />
+      <TraceDeliveryOutcome summary={trace.summary} live={traces.live} />
       <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
       {evidenceMissing && (
         <SignalEvidence

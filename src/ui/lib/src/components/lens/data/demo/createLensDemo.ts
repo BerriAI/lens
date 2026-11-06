@@ -87,7 +87,8 @@ const summariesIn = (data: LensDemoData, startMs: number, endMs: number) =>
     .filter((trace) => Date.parse(trace.start_time) >= startMs && Date.parse(trace.start_time) <= endMs);
 
 function demoTracesApi(data: LensDemoData): TracesApi {
-  const run = (traceId: string) => data.runs.find(({ trace }) => trace.summary.trace_id === traceId);
+  const outcomeRuns = new Map(data.outcomeRuns.map((run) => [run.trace.summary.trace_id, run]));
+  const run = (traceId: string) => data.runs.find(({ trace }) => trace.summary.trace_id === traceId) ?? outcomeRuns.get(traceId);
   const feedback = demoFeedback(data.runs);
   const feedbackFor = (traceId: string) => feedback.filter((entry) => entry.trace_id === traceId);
   return {

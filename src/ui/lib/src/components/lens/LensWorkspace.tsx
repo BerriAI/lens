@@ -40,6 +40,7 @@ import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
 import { AgentPicker } from "./agents/AgentPicker";
 import { ProfilesView } from "./profiles/ProfilesView";
+import { OutcomesView } from "./outcomes/OutcomesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
@@ -334,6 +335,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     </TabsContent>
                     <TabsContent value="profiles" className={PANEL}>
                       <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} />
+                    </TabsContent>
+                    <TabsContent value="outcomes" className={PANEL}>
+                      <OutcomesView agent={agents.agent} />
                     </TabsContent>
                     <TabsContent value="findings" className={PANEL}>
                       {canViewInvestigations ? (

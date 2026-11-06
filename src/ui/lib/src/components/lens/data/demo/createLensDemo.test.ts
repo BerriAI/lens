@@ -2,8 +2,63 @@ import { describe, expect, it, vi } from "vitest";
 import { createLensDemo } from "./createLensDemo";
 import { createLensDemoData } from "./fixtures";
 import { evidenceTarget } from "../../model/findings";
+import { createOutcomeDemo } from "../../outcomes/outcomesModel";
+import { outcomeForTrace, outcomeTraceId } from "../../outcomes/outcomeTrace";
 
 describe("Lens demo data", () => {
+  it("opens an outcome session as a full trace with consistent spend and explicit artifact tool evidence", async () => {
+    const now = Date.parse("2026-11-05T12:00:00Z");
+    const outcomes = createOutcomeDemo(now);
+    const outcome = outcomes[0];
+    const services = createLensDemo(now);
+    const trace = await services.traces.trace(outcomeTraceId(outcome));
+    expect(trace.summary.start_time).toBe(outcome.startedAt);
+    expect(trace.summary.spend).toBe(outcome.costUSD);
+    expect(trace.summary.input_preview).toBe(outcome.title);
+    expect(trace.summary.agent_names).toEqual([outcome.agent]);
+    expect(trace.summary.duration_ms).toBe(Date.parse(outcome.finishedAt) - Date.parse(outcome.startedAt));
+    const tool = trace.spans.find((span) => span.type === "tool");
+    expect(tool?.name).toBe("github.create_pull_request");
+    const detail = await services.traces.span(trace.summary.trace_id, tool!.span_id);
+    expect(JSON.parse(detail.output)).toMatchObject({
+      repository: outcome.repository,
+      pull_request: { number: outcome.pullRequest?.id, state: "open" },
+      issue: { number: outcome.issue?.id },
+    });
+    expect(detail.attributes["github.pull_request.number"]).toBe(String(outcome.pullRequest?.id));
+    expect(detail.attributes["github.issue.number"]).toBe(String(outcome.issue?.id));
+    expect(trace.spans.find((span) => span.type === "llm")?.spend).toBe(outcome.costUSD);
+    expect((await services.traces.conversation(trace.summary.trace_id)).turns).toEqual([]);
+    expect(services.traces.handoff(trace.summary.trace_id).text).toContain(outcome.repository);
+    expect(outcomeForTrace(trace.summary.trace_id, now + 60_000, trace.summary.start_time)).toEqual(outcome);
+    for (const session of outcomes) {
+      const sessionTrace = await services.traces.trace(outcomeTraceId(session));
+      expect(sessionTrace.summary.source?.user).toBe(session.user);
+      const root = await services.traces.span(sessionTrace.summary.trace_id, sessionTrace.spans[0].span_id);
+      expect(root.attributes).toMatchObject({
+        "agent.source.user": session.user,
+        task_category: session.taskCategory,
+        "coding.agent": session.codingAgent,
+        "team.name": session.team,
+      });
+    }
+  });
+
+  it("keeps supplemental outcome traces out of the ordinary demo list and agent totals", async () => {
+    const now = Date.now();
+    const services = createLensDemo(now);
+    const data = createLensDemoData(now);
+    const list = await services.traces.list({ startMs: 0, endMs: now }, "");
+    expect(list.data.map((trace) => trace.trace_id)).toEqual(data.runs.map((run) => run.trace.summary.trace_id));
+    const agents = await services.traces.agents({ startMs: 0, endMs: now });
+    expect(agents.find((agent) => agent.name === "release_agent")?.runs).toBe(
+      data.runs.filter((run) => run.trace.summary.agent_names.includes("release_agent")).length,
+    );
+    const unknown = (1000 + data.outcomeRuns.length + 1).toString(16).padStart(32, "0");
+    expect(outcomeForTrace(unknown, now)).toBeUndefined();
+    expect(outcomeForTrace(data.runs[0].trace.summary.trace_id, now)).toBeUndefined();
+    await expect(services.traces.trace(unknown)).rejects.toMatchObject({ status: 404 });
+  });
   it("shows the original order request before its follow-up without including later turns", async () => {
     const api = createLensDemo().traces;
     const history = await api.conversation("00000000000000000000000000000001");
