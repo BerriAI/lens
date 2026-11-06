@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use opentelemetry_proto::tonic::{
     collector::trace::v1::ExportTraceServiceRequest,
-    common::v1::{KeyValue, any_value::Value},
+    common::v1::{AnyValue, KeyValue, any_value::Value},
     trace::v1::{ResourceSpans, ScopeSpans, Span, span::SpanKind, status::StatusCode},
 };
 
@@ -127,6 +127,15 @@ fn has_attr(span: &Span, key: &str) -> bool {
 }
 
 fn preprocess_codex_spans(spans: &mut Vec<Span>) {
+    let parents: BTreeMap<_, _> = spans
+        .iter()
+        .map(|span| {
+            (
+                (span.trace_id.clone(), span.span_id.clone()),
+                span.parent_span_id.clone(),
+            )
+        })
+        .collect();
     let persist_traces: HashSet<Vec<u8>> = spans
         .iter()
         .filter(|span| span.name == "persist_rollout_items")
@@ -161,7 +170,8 @@ fn preprocess_codex_spans(spans: &mut Vec<Span>) {
         let endpoint_by_model_call: BTreeMap<Vec<u8>, Vec<u8>> = spans
             .iter()
             .filter(|span| {
-                &span.trace_id == trace_id && span.name == "endpoint_session.stream_encoded_json_with"
+                &span.trace_id == trace_id
+                    && span.name == "endpoint_session.stream_encoded_json_with"
             })
             .filter_map(|span| {
                 let model_call_id = stream_req_parent
@@ -278,23 +288,50 @@ fn preprocess_codex_spans(spans: &mut Vec<Span>) {
         .filter(|span| span.name == "session_task.turn")
         .map(|span| (span.trace_id.clone(), span.span_id.clone()))
         .collect();
+    let retained: HashSet<_> = spans
+        .iter()
+        .map(|span| (span.trace_id.clone(), span.span_id.clone()))
+        .collect();
     for span in spans.iter_mut() {
         let root_id = codex_turn_root_span_id(&span.trace_id);
-        if span.name == "turn/start" {
-            span.parent_span_id = root_id;
-        } else if span.name == "session_task.turn" {
-            if let Some(turn_start_id) = root_turn_ids.get(&span.trace_id) {
-                span.parent_span_id = turn_start_id.clone();
-            } else {
-                span.parent_span_id = root_id;
-            }
-        } else if span.parent_span_id.is_empty() {
-            span.parent_span_id = task_turn_ids
+        let original_root = task_turn_ids
+            .get(&span.trace_id)
+            .or_else(|| root_turn_ids.get(&span.trace_id));
+        if original_root == Some(&span.span_id) {
+            span.span_id = root_id;
+            span.parent_span_id.clear();
+            span.attributes.push(KeyValue {
+                key: "lens.codex.root".into(),
+                value: Some(AnyValue {
+                    value: Some(Value::StringValue("1".into())),
+                }),
+                ..Default::default()
+            });
+            continue;
+        }
+        let mut parent = span.parent_span_id.clone();
+        let mut visited = HashSet::new();
+        while !parent.is_empty()
+            && !retained.contains(&(span.trace_id.clone(), parent.clone()))
+            && visited.insert(parent.clone())
+        {
+            parent = parents
+                .get(&(span.trace_id.clone(), parent))
+                .cloned()
+                .unwrap_or_default();
+        }
+        if parent.is_empty() || parent == span.span_id {
+            parent = task_turn_ids
                 .get(&span.trace_id)
                 .or_else(|| root_turn_ids.get(&span.trace_id))
                 .cloned()
-                .unwrap_or(root_id);
+                .unwrap_or_else(|| root_id.clone());
         }
+        span.parent_span_id = if original_root == Some(&parent) {
+            root_id
+        } else {
+            parent
+        };
     }
 }
 

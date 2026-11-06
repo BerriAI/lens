@@ -178,18 +178,14 @@ async fn store(
                     if let Ok(batch) =
                         litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
                         && (!batch.claude_spans.is_empty()
-                            || batch
-                                .records
-                                .iter()
-                                .any(|record| record.codex.is_some()))
+                            || batch.records.iter().any(|record| record.codex.is_some()))
                     {
                         (
                             litellm_traces_clickhouse::log_rows(batch.records, &tenant)?,
                             litellm_traces_clickhouse::span_rows(batch.claude_spans, &tenant),
                         )
                     } else {
-                        let spans =
-                            trace_result.map_err(litellm_traces_clickhouse::Error::from)?;
+                        let spans = trace_result.map_err(litellm_traces_clickhouse::Error::from)?;
                         (
                             Vec::new(),
                             litellm_traces_clickhouse::span_rows(spans, &tenant),

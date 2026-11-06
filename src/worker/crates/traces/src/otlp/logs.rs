@@ -2,7 +2,7 @@ mod codex;
 
 use opentelemetry_proto::tonic::{
     collector::{logs::v1::ExportLogsServiceRequest, trace::v1::ExportTraceServiceRequest},
-    common::v1::{KeyValue, any_value::Value},
+    common::v1::{AnyValue, KeyValue, any_value::Value},
     logs::v1::LogRecord,
     resource::v1::Resource,
     trace::v1::{ResourceSpans, ScopeSpans, Span, Status},
@@ -170,14 +170,8 @@ fn duration_ns(attributes: &[KeyValue]) -> u64 {
     (ms * 1_000_000.0) as u64
 }
 
-fn is_codex_internal_title_prompt(prompt: &str) -> bool {
-    prompt.starts_with(
-        "You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title",
-    ) || prompt.starts_with("Generate a concise, single-line task title")
-}
-
-fn codex_message(record: LogRecord, timestamp: u64) -> (Span, LogContext) {
-    let event = text(&record.attributes, "event.name");
+fn codex_message(mut record: LogRecord, timestamp: u64) -> (Span, LogContext) {
+    let event = text(&record.attributes, "event.name").to_owned();
     let missing_trace = absent_id(&record.trace_id, 16);
     let missing_parent = absent_id(&record.span_id, 8);
     let mut hash = Sha256::new();
@@ -188,9 +182,11 @@ fn codex_message(record: LogRecord, timestamp: u64) -> (Span, LogContext) {
     if !missing_parent {
         hash.update(&record.span_id);
     }
-    hash.update(event);
+    hash.update(&event);
     hash.update(timestamp.to_be_bytes());
-    for key in ["call_id", "item.id", "turn.id", "prompt", "response", "output"] {
+    for key in [
+        "call_id", "item.id", "turn.id", "prompt", "response", "output",
+    ] {
         hash.update(text(&record.attributes, key));
     }
     let identity = hash.finalize();
@@ -210,6 +206,13 @@ fn codex_message(record: LogRecord, timestamp: u64) -> (Span, LogContext) {
     };
     let root_id = span::codex_turn_root_span_id(&trace_id);
     let (span_id, parent_span_id) = if event == "codex.user_prompt" {
+        record.attributes.push(KeyValue {
+            key: "lens.codex.root".into(),
+            value: Some(AnyValue {
+                value: Some(Value::StringValue("1".into())),
+            }),
+            ..Default::default()
+        });
         (root_id, Vec::new())
     } else {
         (identity[..8].to_vec(), root_id)
@@ -362,13 +365,10 @@ pub(super) fn decode(
                     decoded_records.push(decoded_record);
                     let event = text(&record.attributes, "event.name");
                     if is_codex {
-                        let keep = match event {
-                            "codex.user_prompt" => {
-                                !is_codex_internal_title_prompt(text(&record.attributes, "prompt"))
-                            }
-                            "codex.agent_response" | "codex.tool_result" => true,
-                            _ => false,
-                        };
+                        let keep = matches!(
+                            event,
+                            "codex.user_prompt" | "codex.agent_response" | "codex.tool_result"
+                        );
                         if !keep {
                             return Ok(None);
                         }

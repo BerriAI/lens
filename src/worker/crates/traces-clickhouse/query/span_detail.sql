@@ -33,4 +33,7 @@ WHERE o.TraceId = {trace_id:String} AND o.SpanId = {span_id:String}
        OR has({team_ids:Array(String)}, o.TeamId))
   AND ({trace_ref:String} = '' OR
        hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) = {trace_ref:String})
+ORDER BY (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['event.name'] = 'codex.user_prompt'),
+         if(o.SpanAttributes['lens.codex.root'] = '1', o.Duration, 0) DESC,
+         o.EngineReceivedMs DESC
 LIMIT 1

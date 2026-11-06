@@ -22,25 +22,26 @@ impl Rule for OpenaiCodex {
         ) {
             return true;
         }
-        let is_codex_resource = context
-            .resource_attributes
-            .get("service.name")
-            .is_some_and(|service| {
-                matches!(
-                    service.as_str(),
-                    SERVICE_NAME | CODEX_APP_SERVER_SERVICE | "codex-cli"
-                )
-            })
-            && (context
+        let is_codex_resource =
+            context
                 .resource_attributes
-                .get("service.version")
-                .is_some_and(|version| version == SERVICE_VERSION)
-                || context
+                .get("service.name")
+                .is_some_and(|service| {
+                    matches!(
+                        service.as_str(),
+                        SERVICE_NAME | CODEX_APP_SERVER_SERVICE | "codex-cli"
+                    )
+                })
+                && (context
                     .resource_attributes
-                    .get("service.name")
-                    .is_some_and(|service| {
-                        matches!(service.as_str(), CODEX_APP_SERVER_SERVICE | "codex-cli")
-                    }));
+                    .get("service.version")
+                    .is_some_and(|version| version == SERVICE_VERSION)
+                    || context
+                        .resource_attributes
+                        .get("service.name")
+                        .is_some_and(|service| {
+                            matches!(service.as_str(), CODEX_APP_SERVER_SERVICE | "codex-cli")
+                        }));
         is_codex_resource
             && ([
                 "otel.name",
@@ -103,7 +104,6 @@ impl Rule for OpenaiCodex {
                     } else {
                         (String::new(), None)
                     };
-                    display_name = Some("turn/start".to_owned());
                     SpanFacts {
                         role: Some(RoleEvidence::Declared(ObservationType::Agent)),
                         model: present(attributes, &["model", "slug"]).or(extraction.facts.model),
@@ -158,13 +158,19 @@ impl Rule for OpenaiCodex {
             };
         }
         let is_codex_trace = matches!(context.scope, CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE)
-            || context.attributes.get("service.name").is_some_and(|s| s == "codex-cli")
-            || context.resource_attributes.get("service.name").is_some_and(|s| {
-                matches!(
-                    s.as_str(),
-                    SERVICE_NAME | CODEX_APP_SERVER_SERVICE | "codex-cli"
-                )
-            });
+            || context
+                .attributes
+                .get("service.name")
+                .is_some_and(|s| s == "codex-cli")
+            || context
+                .resource_attributes
+                .get("service.name")
+                .is_some_and(|s| {
+                    matches!(
+                        s.as_str(),
+                        SERVICE_NAME | CODEX_APP_SERVER_SERVICE | "codex-cli"
+                    )
+                });
         if is_codex_trace {
             let facts = match context.name {
                 "session_task.turn" | "turn/start" => SpanFacts {
@@ -180,8 +186,22 @@ impl Rule for OpenaiCodex {
                     calls: CallEvidence::complete(CallKey::Transport),
                     ..extraction.facts
                 },
+                name if name == "exec_command"
+                    || !attr(attributes, "tool_name").is_empty()
+                    || !attr(attributes, "call_id").is_empty() =>
+                {
+                    SpanFacts {
+                        role: Some(RoleEvidence::Declared(ObservationType::Tool)),
+                        tool_call_id: present(attributes, &["call_id"])
+                            .or(extraction.facts.tool_call_id),
+                        ..extraction.facts
+                    }
+                }
                 _ => SpanFacts {
-                    role: Some(RoleEvidence::Declared(ObservationType::Framework)),
+                    role: extraction
+                        .facts
+                        .role
+                        .or(Some(RoleEvidence::Declared(ObservationType::Framework))),
                     ..extraction.facts
                 },
             };

@@ -9,7 +9,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 COPY src/ui/lib/package.json src/ui/lib/package.json
 COPY src/ui/app/package.json src/ui/app/package.json
-RUN npm install -g npm@latest
 RUN npm ci
 COPY src/ui/ src/ui/
 RUN npm run build:ui
@@ -17,7 +16,6 @@ RUN npm run build:ui
 FROM $LENS_AGENT_BUILD_IMAGE AS agent-builder
 WORKDIR /app/agent
 COPY src/agent/package.json src/agent/package-lock.json ./
-RUN npm install -g npm@latest
 RUN npm ci --ignore-scripts
 COPY src/agent/ ./
 RUN npm run build

@@ -210,7 +210,8 @@ describe("RunView", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("loads trace-correlated log events for Codex runs", async () => {
+  it("loads trace-correlated log events when expanded and restores room for steps when hidden", async () => {
+    const user = userEvent.setup();
     const codexTrace = {
       ...research,
       summary: { ...research.summary, frameworks: ["openai-codex"] },
@@ -226,6 +227,11 @@ describe("RunView", () => {
       />,
     );
 
+    const toggle = await screen.findByRole("button", {
+      name: "Show trace log events",
+    });
+    expect(logListCall).not.toHaveBeenCalled();
+    await user.click(toggle);
     await screen.findByRole("region", { name: "Log events for this trace" });
     await waitFor(() =>
       expect(logListCall).toHaveBeenCalledWith(
@@ -236,6 +242,12 @@ describe("RunView", () => {
         }),
       ),
     );
+    await user.click(
+      screen.getByRole("button", { name: "Hide trace log events" }),
+    );
+    expect(
+      screen.queryByRole("region", { name: "Log events for this trace" }),
+    ).not.toBeInTheDocument();
   });
 
   it("folds researcher ×12 in the span tree", async () => {
@@ -1035,19 +1047,16 @@ describe("RunView", () => {
   it("finds a step beyond a folded group's first page and reveals it after search clears", async () => {
     const user = userEvent.setup();
     const root = research.spans.find((span) => span.parent_span_id === null)!;
-    const children = Array.from(
-      { length: 45 },
-      (_, index): Span => ({
-        ...root,
-        span_id: `case-${index}`,
-        parent_span_id: root.span_id,
-        type: "tool",
-        name: "check_case",
-        input_preview: `Case ${index}`,
-        start_offset_ms: index + 1,
-        status: index === 44 ? "error" : "ok",
-      }),
-    );
+    const children = Array.from({ length: 45 }, (_, index): Span => ({
+      ...root,
+      span_id: `case-${index}`,
+      parent_span_id: root.span_id,
+      type: "tool",
+      name: "check_case",
+      input_preview: `Case ${index}`,
+      start_offset_ms: index + 1,
+      status: index === 44 ? "error" : "ok",
+    }));
     renderRun({ ...research, spans: [root, ...children] });
     const search = await screen.findByRole("textbox", { name: "Search steps" });
     fireEvent.change(search, { target: { value: "case 43" } });

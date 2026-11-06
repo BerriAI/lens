@@ -24,7 +24,7 @@ tests:
           content: {name: CLICKHOUSE_HOST, value: lens-clickhouse}
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/berriai/lens:0.1.0-dev.0
+          value: ghcr.io/berriai/lens:0.1.0-dev.1
       - equal:
           path: spec.template.spec.containers[0].securityContext
           value:

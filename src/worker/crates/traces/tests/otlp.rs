@@ -2097,7 +2097,7 @@ fn codex_trace_spans_filter_noise_propagate_usage_and_link_to_prompt_root() {
         .unwrap();
     assert_eq!(turn.trace_id, "cc".repeat(16));
     assert_eq!(turn.normalized.observation_type, ObservationType::Agent);
-    assert!(!turn.parent_span_id.is_empty());
+    assert!(turn.parent_span_id.is_empty());
     assert_eq!(llm.parent_span_id, turn.span_id);
     assert_eq!(llm.span_id, "15".repeat(8));
     assert_eq!(llm.normalized.observation_type, ObservationType::Llm);
@@ -2234,10 +2234,13 @@ fn codex_app_server_filters_auth_noise_and_promotes_turn_start() {
     assert_eq!(turn.trace_id, "44".repeat(16));
     assert_eq!(turn.normalized.observation_type, ObservationType::Agent);
     assert_eq!(turn.normalized.agent_name.as_deref(), Some("codex-cli"));
-    assert!(!turn.parent_span_id.is_empty());
+    assert!(turn.parent_span_id.is_empty());
     assert_eq!(llm.parent_span_id, turn.span_id);
     assert_eq!(llm.normalized.observation_type, ObservationType::Llm);
-    assert_eq!(llm.normalized.model.as_deref(), Some("nemotron-3.5-bolt-e4b"));
+    assert_eq!(
+        llm.normalized.model.as_deref(),
+        Some("nemotron-3.5-bolt-e4b")
+    );
     assert_eq!(tool.parent_span_id, turn.span_id);
     assert_eq!(tool.normalized.observation_type, ObservationType::Tool);
     assert_eq!(tool.normalized.tool_call_id.as_deref(), Some("call_ide_99"));
@@ -2826,5 +2829,122 @@ fn native_body_exports_do_not_replay_old_tool_results(#[case] final_message: ser
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&spans[0].normalized.output).unwrap(),
         serde_json::json!({"tool_results":[]})
+    );
+}
+
+#[rstest]
+#[case::cli("codex_cli_rs", "session_task.turn")]
+#[case::ide("codex-app-server", "turn/start")]
+fn codex_separate_exports_share_one_root(#[case] scope: &str, #[case] turn_name: &str) {
+    let trace_id = "a1".repeat(16);
+    let original_root = "b1".repeat(8);
+    let trace = serde_json::json!({"resourceSpans":[{"scopeSpans":[{
+        "scope":{"name":scope},"spans":[{
+            "traceId":trace_id,"spanId":original_root,"name":turn_name,
+            "startTimeUnixNano":"1700000000000000010","endTimeUnixNano":"1700000000000000100"
+        }]
+    }]}]});
+    let logs = serde_json::json!({"resourceLogs":[{"scopeLogs":[{
+        "scope":{"name":"codex_otel.log_only"},"logRecords":[{
+            "traceId":trace_id,"spanId":"c1".repeat(8),"timeUnixNano":"1700000000000000020",
+            "attributes":[
+                {"key":"event.name","value":{"stringValue":"codex.user_prompt"}},
+                {"key":"prompt","value":{"stringValue":"Find the requested result"}}
+            ]
+        }]
+    }]}]});
+    let child = serde_json::json!({"resourceSpans":[{"scopeSpans":[{
+        "scope":{"name":scope},"spans":[{
+            "traceId":trace_id,"spanId":"d1".repeat(8),"parentSpanId":original_root,
+            "name":"model_client.stream_responses_api",
+            "startTimeUnixNano":"1700000000000000030","endTimeUnixNano":"1700000000000000090"
+        }]
+    }]}]});
+    let roots = decode_otlp(
+        &serde_json::to_vec(&trace).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let prompt = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let children = decode_otlp(
+        &serde_json::to_vec(&child).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(roots.len(), 1);
+    assert_eq!(prompt.claude_spans.len(), 1);
+    assert_eq!(roots[0].span_id, prompt.claude_spans[0].span_id);
+    assert!(roots[0].parent_span_id.is_empty());
+    assert!(prompt.claude_spans[0].parent_span_id.is_empty());
+    assert_eq!(children[0].parent_span_id, roots[0].span_id);
+    assert_eq!(roots[0].normalized.observation_type, ObservationType::Agent);
+    assert_eq!(
+        prompt.claude_spans[0].normalized.input,
+        r#"[{"role":"user","content":"Find the requested result"}]"#
+    );
+}
+
+#[rstest]
+fn codex_turn_wrappers_never_parent_themselves() {
+    let trace = serde_json::json!({"resourceSpans":[{"scopeSpans":[{
+        "scope":{"name":"codex-app-server"},"spans":[
+            {"traceId":"a1".repeat(16),"spanId":"b1".repeat(8),"name":"turn/start",
+             "startTimeUnixNano":"10","endTimeUnixNano":"100"},
+            {"traceId":"a1".repeat(16),"spanId":"c1".repeat(8),"parentSpanId":"b1".repeat(8),"name":"session_task.turn",
+             "startTimeUnixNano":"20","endTimeUnixNano":"90"}
+        ]
+    }]}]});
+    let spans = decode_otlp(
+        &serde_json::to_vec(&trace).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let root = spans
+        .iter()
+        .find(|span| span.name == "session_task.turn")
+        .unwrap();
+    let task = spans.iter().find(|span| span.name == "turn/start").unwrap();
+    assert!(root.parent_span_id.is_empty());
+    assert_ne!(task.span_id, root.span_id);
+    assert_eq!(task.parent_span_id, root.span_id);
+}
+
+#[rstest]
+#[case::title_request("Generate a concise, single-line task title for this work")]
+#[case::title_system(
+    "You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title"
+)]
+fn codex_prompt_text_does_not_remove_half_a_turn(#[case] prompt: &str) {
+    let logs = serde_json::json!({"resourceLogs":[{"scopeLogs":[{
+        "scope":{"name":"codex_otel.log_only"},"logRecords":[
+            {"traceId":"a1".repeat(16),"spanId":"b1".repeat(8),"timeUnixNano":"1700000000000000010",
+             "attributes":[{"key":"event.name","value":{"stringValue":"codex.user_prompt"}},
+                           {"key":"prompt","value":{"stringValue":prompt}}]},
+            {"traceId":"a1".repeat(16),"spanId":"c1".repeat(8),"timeUnixNano":"1700000000000000020",
+             "attributes":[{"key":"event.name","value":{"stringValue":"codex.agent_response"}},
+                           {"key":"response","value":{"stringValue":"Task title"}}]}
+        ]
+    }]}]});
+    let decoded = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(decoded.claude_spans.len(), 2);
+    assert_eq!(
+        decoded.claude_spans[0].normalized.input,
+        serde_json::json!([{"role":"user","content":prompt}]).to_string()
+    );
+    assert_eq!(
+        decoded.claude_spans[1].parent_span_id,
+        decoded.claude_spans[0].span_id
+    );
+    assert_eq!(
+        decoded.claude_spans[1].normalized.output,
+        r#"[{"role":"assistant","content":"Task title"}]"#
     );
 }

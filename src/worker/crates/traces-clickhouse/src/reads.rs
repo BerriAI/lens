@@ -3,6 +3,7 @@ use litellm_storage_clickhouse::{Error as StorageError, Query, fetch};
 use litellm_traces::query::named as contracts;
 use litellm_traces_cache::{StoreError, TraceStore};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use crate::{
@@ -16,12 +17,14 @@ use crate::{
 
 #[derive(Serialize)]
 struct SpendLogInputPreviewParams {
-    trace_ids: Vec<String>,
+    #[serde(flatten)]
+    access: contracts::ReadAccessParams,
+    trace_refs: Vec<String>,
 }
 
 #[derive(Deserialize)]
 struct SpendLogInputPreviewRow {
-    trace_id: String,
+    trace_ref: String,
     messages: String,
 }
 
@@ -30,12 +33,21 @@ struct SpendLogInputPreviewFallback;
 impl Query for SpendLogInputPreviewFallback {
     type Params = SpendLogInputPreviewParams;
     type Row = SpendLogInputPreviewRow;
-    const SQL: &'static str = "SELECT trace_id, \
-        argMinIf(spend_logs.messages, toInt64(start_time), spend_logs.messages != '' AND spend_logs.messages != '[]') AS messages \
-        FROM spend_logs FINAL \
-        WHERE trace_id IN {trace_ids:Array(String)} \
-          AND spend_logs.messages != '' AND spend_logs.messages != '[]' \
-        GROUP BY trace_id";
+    const SQL: &'static str = "SELECT \
+        hex(SHA256(concat(s.team_id, char(0), s.api_key, char(0), s.trace_id))) AS trace_ref, \
+        argMinIf(s.messages, tuple(s.start_time, s.request_id), s.messages != '' AND s.messages != '[]') AS messages \
+        FROM spend_logs AS s FINAL \
+        WHERE s.trace_id != '' AND trace_ref IN {trace_refs:Array(String)} \
+          AND ({all_teams:UInt8} = 1 \
+               OR ({user_id:String} != '' AND s.user = {user_id:String}) \
+               OR has({team_ids:Array(String)}, s.team_id)) \
+          AND s.messages != '' AND s.messages != '[]' \
+        GROUP BY trace_ref";
+}
+
+fn span_trace_ref(row: &contracts::TraceSpansRow) -> String {
+    let identity = format!("{}\0{}\0{}", row.team_id, row.api_key_hash, row.trace_id);
+    format!("{:X}", Sha256::digest(identity.as_bytes()))
 }
 
 fn extract_user_prompt_preview(messages: &str) -> Option<String> {
@@ -63,8 +75,7 @@ fn extract_user_prompt_preview(messages: &str) -> Option<String> {
         .iter()
         .copied()
         .filter(|prompt| {
-            !prompt.starts_with("<environment_context>")
-                && !prompt.starts_with("# AGENTS.md")
+            !prompt.starts_with("<environment_context>") && !prompt.starts_with("# AGENTS.md")
         })
         .map(|prompt| {
             if let Some((_, user_part)) = prompt.split_once("User prompt:\n") {
@@ -77,7 +88,7 @@ fn extract_user_prompt_preview(messages: &str) -> Option<String> {
                 prompt
             }
         })
-        .last();
+        .next_back();
     let selected = meaningful.or_else(|| candidate_prompts.last().copied())?;
     let single_line: String = selected
         .lines()
@@ -101,27 +112,30 @@ impl Query for SpendLogContentFallback {
     type Params = contracts::SpanDetailParams;
     type Row = SpendLogContentRow;
     const SQL: &'static str = "SELECT \
-        argMaxIf(s.messages, -toInt64(s.start_time), s.messages != '' AND s.messages != '[]') AS input, \
-        argMaxIf(s.response, toInt64(s.start_time), s.response != '' AND s.response != '{}') AS output \
+        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 1) AS input, \
+        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 2) AS output \
         FROM spend_logs AS s FINAL \
         CROSS JOIN ( \
-            SELECT Timestamp, Duration, Model, ObservationType, ParentSpanId \
+            SELECT TraceId, SpanId, TeamId, ApiKeyHash, UserId, ObservationType, ParentSpanId \
             FROM otel_traces \
             WHERE TraceId = {trace_id:String} AND SpanId = {span_id:String} \
               AND (ObservationType = 'llm' OR (ObservationType = 'agent' AND ParentSpanId = '')) \
+              AND ({all_teams:UInt8} = 1 \
+                   OR ({user_id:String} != '' AND UserId = {user_id:String}) \
+                   OR has({team_ids:Array(String)}, TeamId)) \
+              AND ({trace_ref:String} = '' OR \
+                   hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) = {trace_ref:String}) \
             LIMIT 1 \
         ) AS span \
-        WHERE ( \
-            (s.trace_id = {trace_id:String} AND s.span_id = {span_id:String}) \
-            OR (s.trace_id = {trace_id:String} AND s.span_id = '' AND span.ObservationType = 'llm') \
-            OR (s.trace_id = {trace_id:String} AND span.ObservationType = 'agent' AND span.ParentSpanId = '') \
-            OR ( \
-                s.trace_id = '' \
-                AND (span.Model = '' OR positionCaseInsensitive(s.model, span.Model) > 0) \
-                AND abs(dateDiff('millisecond', s.start_time, span.Timestamp)) <= 5000 \
-            ) \
-        ) \
-        AND (s.messages != '' OR s.response != '')";
+        WHERE s.trace_id = span.TraceId AND s.trace_id != '' \
+          AND s.team_id = span.TeamId AND s.api_key = span.ApiKeyHash \
+          AND ({all_teams:UInt8} = 1 \
+               OR ({user_id:String} != '' AND s.user = {user_id:String}) \
+               OR has({team_ids:Array(String)}, s.team_id)) \
+          AND (s.span_id = span.SpanId \
+               OR (span.ObservationType = 'agent' AND span.ParentSpanId = '')) \
+          AND (s.messages != '' OR s.response != '') \
+        HAVING count() > 0";
 }
 
 struct RunCandidates;
@@ -197,24 +211,30 @@ impl TraceStore for ClickHouseTraces {
         let missing_preview_ids: Vec<String> = rows
             .iter()
             .filter(|row| row.input_preview.is_empty())
-            .map(|row| row.trace_id.clone())
+            .map(|row| row.trace_ref.clone())
             .collect();
         if !missing_preview_ids.is_empty() {
             let fallback_params = SpendLogInputPreviewParams {
-                trace_ids: missing_preview_ids,
+                access: params.access.clone(),
+                trace_refs: missing_preview_ids,
             };
-            if let Ok(fallback_rows) =
-                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
+            if let Ok(fallback_rows) = fetch::<SpendLogInputPreviewFallback>(
+                &self.client,
+                &self.connection,
+                &fallback_params,
+            )
+            .await
             {
                 let previews: HashMap<String, String> = fallback_rows
                     .into_iter()
                     .filter_map(|row| {
-                        extract_user_prompt_preview(&row.messages).map(|preview| (row.trace_id, preview))
+                        extract_user_prompt_preview(&row.messages)
+                            .map(|preview| (row.trace_ref, preview))
                     })
                     .collect();
                 for row in &mut rows {
                     if row.input_preview.is_empty()
-                        && let Some(preview) = previews.get(&row.trace_id)
+                        && let Some(preview) = previews.get(&row.trace_ref)
                     {
                         row.input_preview = preview.clone();
                     }
@@ -238,17 +258,25 @@ impl TraceStore for ClickHouseTraces {
         .await?;
         if rows.iter().all(|row| row.input_preview.is_empty()) && !rows.is_empty() {
             let fallback_params = SpendLogInputPreviewParams {
-                trace_ids: vec![params.trace_id.clone()],
+                access: params.access.clone(),
+                trace_refs: rows.iter().map(span_trace_ref).collect(),
             };
-            if let Ok(fallback_rows) =
-                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
-                && let Some(fallback) = fallback_rows.into_iter().next()
-                && let Some(preview) = extract_user_prompt_preview(&fallback.messages)
+            if let Ok(fallback_rows) = fetch::<SpendLogInputPreviewFallback>(
+                &self.client,
+                &self.connection,
+                &fallback_params,
+            )
+            .await
             {
-                if let Some(root_row) = rows.iter_mut().find(|r| r.parent_span_id.is_empty()) {
-                    root_row.input_preview = preview;
-                } else if let Some(first_row) = rows.first_mut() {
-                    first_row.input_preview = preview;
+                for fallback in fallback_rows {
+                    if let Some(preview) = extract_user_prompt_preview(&fallback.messages)
+                        && let Some(row) = rows
+                            .iter_mut()
+                            .filter(|row| span_trace_ref(row) == fallback.trace_ref)
+                            .min_by_key(|row| !row.parent_span_id.is_empty())
+                    {
+                        row.input_preview = preview;
+                    }
                 }
             }
         }
@@ -269,7 +297,7 @@ impl TraceStore for ClickHouseTraces {
         .await?;
         let mut empty_traces: HashMap<String, bool> = HashMap::new();
         for row in &rows {
-            let entry = empty_traces.entry(row.trace_id.clone()).or_insert(true);
+            let entry = empty_traces.entry(span_trace_ref(row)).or_insert(true);
             if !row.input_preview.is_empty() {
                 *entry = false;
             }
@@ -280,24 +308,32 @@ impl TraceStore for ClickHouseTraces {
             .collect();
         if !missing_preview_trace_ids.is_empty() {
             let fallback_params = SpendLogInputPreviewParams {
-                trace_ids: missing_preview_trace_ids,
+                access: params.access.clone(),
+                trace_refs: missing_preview_trace_ids,
             };
-            if let Ok(fallback_rows) =
-                fetch::<SpendLogInputPreviewFallback>(&self.client, &self.connection, &fallback_params).await
+            if let Ok(fallback_rows) = fetch::<SpendLogInputPreviewFallback>(
+                &self.client,
+                &self.connection,
+                &fallback_params,
+            )
+            .await
             {
                 let previews: HashMap<String, String> = fallback_rows
                     .into_iter()
                     .filter_map(|row| {
-                        extract_user_prompt_preview(&row.messages).map(|preview| (row.trace_id, preview))
+                        extract_user_prompt_preview(&row.messages)
+                            .map(|preview| (row.trace_ref, preview))
                     })
                     .collect();
-                for (trace_id, preview) in previews {
+                for (trace_ref, preview) in previews {
                     if let Some(root_row) = rows
                         .iter_mut()
-                        .find(|r| r.trace_id == trace_id && r.parent_span_id.is_empty())
+                        .find(|r| span_trace_ref(r) == trace_ref && r.parent_span_id.is_empty())
                     {
                         root_row.input_preview = preview;
-                    } else if let Some(first_row) = rows.iter_mut().find(|r| r.trace_id == trace_id) {
+                    } else if let Some(first_row) =
+                        rows.iter_mut().find(|r| span_trace_ref(r) == trace_ref)
+                    {
                         first_row.input_preview = preview;
                     }
                 }
@@ -322,10 +358,11 @@ impl TraceStore for ClickHouseTraces {
         &self,
         params: &contracts::SpanDetailParams,
     ) -> Result<Option<contracts::SpanDetailRow>, StoreError<Self::Error>> {
-        let mut detail = match fetch::<SpanDetailQuery>(&self.client, &self.connection, params).await {
-            Ok(rows) => rows.into_iter().next(),
-            Err(error) => return Err(failed(error)),
-        };
+        let mut detail =
+            match fetch::<SpanDetailQuery>(&self.client, &self.connection, params).await {
+                Ok(rows) => rows.into_iter().next(),
+                Err(error) => return Err(failed(error)),
+            };
         if let Some(row) = detail.as_mut()
             && (row.input.is_empty() || row.output.is_empty())
             && let Ok(mut fallback) =

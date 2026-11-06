@@ -27,7 +27,7 @@ Replace the endpoint with a Lens URL reachable from Codex. Keep the tracing key 
 
 Codex supplies `service.name` as resource metadata. Do not override it in `span_attributes`, which adds span-level data; use `gen_ai.agent.name` there when you need an agent label
 
-Lens correlates Codex prompt, response, tool execution, and API request records across both OTLP streams into unified turn traces in the Traces view. Both terminal Codex CLI (`codex_cli_rs`) and IDE integrations powered by `codex-app-server` (such as Xcode) are supported. When Codex sends requests through LiteLLM Gateway, Lens enriches turn and LLM spans with full message history and completion payloads from `spend_logs`. For IDE sessions where clients do not forward trace headers, Lens correlates assistant completions using model and timestamp window matching, while filtering internal lifecycle noise like auth and initialization spans. Both `exporter` and `trace_exporter` may point to `/v1/logs` and `/v1/traces` respectively, or both may point to `/v1/traces`
+Lens correlates Codex prompt, response, tool execution, and API request records across both OTLP streams into unified turn traces in the Traces view. Both terminal Codex CLI (`codex_cli_rs`) and IDE integrations powered by `codex-app-server` (such as Xcode) are supported. When Codex sends requests through LiteLLM Gateway, Lens enriches turn and LLM spans with full message history and completion payloads from `spend_logs`. Enrichment requires matching trace and call identifiers within the same workspace. When an IDE client does not forward correlation identifiers, Lens shows its recorded OTLP content without guessing which gateway completion belongs to it. Internal lifecycle spans such as auth and initialization are filtered from the trace view. Both `exporter` and `trace_exporter` may point to `/v1/logs` and `/v1/traces` respectively, or both may point to `/v1/traces`
 
 In Lens, open the trace workspace to inspect Codex turns, or select **Show log events** to inspect raw OTLP log records. Logs with a non-empty trace ID also appear in that trace's detail view. The `/lens/logs` read endpoint supports time, service, event, severity, trace ID, and conversation ID filters
 
@@ -36,8 +36,8 @@ To check for raw prompt log records independently of the trace view, query the l
 ```sh
 curl --fail-with-body --silent --show-error --get "$LENS_URL/lens/logs" \
   -H "Authorization: Bearer $LENS_TRACE_KEY" \
-  --data-urlencode "start_ms=$(($(date +%s%3N) - 86400000))" \
-  --data-urlencode "end_ms=$(date +%s%3N)" \
+  --data-urlencode "start_ms=$((($(date +%s) - 86400) * 1000))" \
+  --data-urlencode "end_ms=$(($(date +%s) * 1000))" \
   --data-urlencode "event=codex.user_prompt"
 ```
 

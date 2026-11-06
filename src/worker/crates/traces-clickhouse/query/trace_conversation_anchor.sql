@@ -21,7 +21,10 @@ FROM (
            OR ({user_id:String} != '' AND UserId = {user_id:String})
            OR has({team_ids:Array(String)}, TeamId))
       AND ({trace_ref:String} = '' OR trace_ref = {trace_ref:String})
-    ORDER BY TeamId, ApiKeyHash, SpanId, EngineReceivedMs DESC,
+    ORDER BY TeamId, ApiKeyHash, SpanId,
+             (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),
+             if(SpanAttributes['lens.codex.root'] = '1', Duration, 0) DESC,
+             EngineReceivedMs DESC,
              Timestamp DESC, ParentSpanId, ambiguous_session DESC, session
     LIMIT 1 BY TeamId, ApiKeyHash, SpanId
 )

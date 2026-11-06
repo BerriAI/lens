@@ -4,7 +4,11 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
        substringUTF8(o.StatusMessage, 1, 128) AS status_message,
        lengthUTF8(o.StatusMessage) > 128 AS error_truncated,
        toUnixTimestamp64Nano(o.Timestamp) AS start_ns, o.Duration AS duration_ns,
-       o.ServiceName AS service, o.InputPreview AS input_preview, o.Model AS model,
+       o.ServiceName AS service,
+       if(o.SpanAttributes['lens.codex.root'] = '1',
+          argMaxIf(o.InputPreview, o.EngineReceivedMs, o.InputPreview != '') OVER
+              (PARTITION BY o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId),
+          o.InputPreview) AS input_preview, o.Model AS model,
        o.InputTokens AS input_tokens, o.OutputTokens AS output_tokens,
        o.LiteLLMRequestId AS litellm_request_id,
        o.CallKeys AS call_keys, o.CallEvidence AS call_evidence,
@@ -22,5 +26,7 @@ WHERE o.TraceId = {trace_id:String}
        OR has({team_ids:Array(String)}, o.TeamId))
   AND ({trace_ref:String} = '' OR
        hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) = {trace_ref:String})
-ORDER BY o.Timestamp, o.EngineReceivedMs, o.StatusMessage
+ORDER BY (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['event.name'] = 'codex.user_prompt'),
+         if(o.SpanAttributes['lens.codex.root'] = '1', o.Duration, 0) DESC,
+         o.Timestamp, o.EngineReceivedMs, o.StatusMessage
 LIMIT 1 BY o.SpanId

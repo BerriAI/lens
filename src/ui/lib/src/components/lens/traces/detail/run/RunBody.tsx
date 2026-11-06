@@ -1,6 +1,7 @@
 "use client";
 
-import { type RefObject, useRef, useState } from "react";
+import { type RefObject, useId, useRef, useState } from "react";
+import { List } from "lucide-react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useResizeObserver } from "usehooks-ts";
 
@@ -11,6 +12,7 @@ import {
   ResizablePanelGroup,
 } from "../../../../ui/Resizable";
 import { TabsContent } from "../../../../ui/tabs";
+import { Button } from "../../../../ui/button";
 
 import type { RunSelection } from "../../routing";
 import type { SignalFlag, Trace } from "../../types";
@@ -60,6 +62,8 @@ export function RunBody({
   const tree = useRunTree(trace, selection);
   const evidence = signal?.evidence;
   const [detailOpen, setDetailOpen] = useState(true);
+  const [showLogs, setShowLogs] = useState(false);
+  const logsId = useId();
   const [layout, setLayout] = useState<TreeLayout>("tree");
   const splitRef = useRef<HTMLDivElement>(null);
   const { width = SIDE_BY_SIDE_MIN_PX } = useResizeObserver({
@@ -122,14 +126,31 @@ export function RunBody({
       className="flex min-h-0 flex-1 flex-col"
     >
       {logRange && (
-        <LogsTimeline
-          key={`${trace.summary.trace_id}:${logRange.startMs}:${logRange.endMs}`}
-          accessToken={accessToken}
-          enabled
-          live={live}
-          range={logRange}
-          traceId={trace.summary.trace_id}
-        />
+        <div className="shrink-0 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="m-1 h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+            aria-expanded={showLogs}
+            aria-controls={logsId}
+            onClick={() => setShowLogs(!showLogs)}
+          >
+            <List className="size-3.5" />
+            {showLogs ? "Hide trace log events" : "Show trace log events"}
+          </Button>
+          <div id={logsId} hidden={!showLogs}>
+            {showLogs && (
+              <LogsTimeline
+                key={`${trace.summary.trace_id}:${logRange.startMs}:${logRange.endMs}`}
+                accessToken={accessToken}
+                enabled
+                live={live}
+                range={logRange}
+                traceId={trace.summary.trace_id}
+              />
+            )}
+          </div>
+        </div>
       )}
       <ResizablePanelGroup
         key={orientation}
