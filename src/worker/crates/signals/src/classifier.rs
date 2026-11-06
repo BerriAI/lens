@@ -1,9 +1,15 @@
-use std::{collections::BTreeMap, future::Future, time::Duration};
+use std::{
+    collections::BTreeMap,
+    future::Future,
+    ops::Range,
+    time::{Duration, Instant},
+};
 
 use lens_contract::{
     investigations::Scope,
     signals::{
-        NoulAnswer, SignalAttempt, SignalAttemptStatus, SignalConfig, SignalEvidence, SignalStep,
+        NoulAnswer, SignalAttempt, SignalAttemptStatus, SignalConfig, SignalEvidence,
+        SignalFailure, SignalStep,
     },
     worker::Execution,
 };
@@ -13,6 +19,8 @@ use serde_json::Value;
 use crate::{DecisionsError, Error, SignalReader};
 
 const PASSAGE_CHARACTERS: usize = 600;
+// Choice supports 255 options including none: https://docs.typesafe.ai/primitives/choice (2026-11-06).
+const EVIDENCE_OPTIONS: usize = 254;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct SignalState {
@@ -192,16 +200,58 @@ enum EvidenceAnswer {
     Choice { choice: String, confidence: f64 },
 }
 
-fn selected_evidence(
-    value: &Value,
-    candidates: &BTreeMap<String, SignalEvidence>,
-) -> Option<SignalEvidence> {
+fn selected_choice(value: &Value) -> Option<String> {
     let EvidenceAnswer::Choice { choice, confidence } =
         serde_json::from_value(value.clone()).ok()?;
     if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
         return None;
     }
-    candidates.get(&choice).cloned()
+    Some(choice)
+}
+
+fn evidence_choices(range: Range<usize>) -> BTreeMap<String, Range<usize>> {
+    let width = range.len().div_ceil(EVIDENCE_OPTIONS).max(1);
+    range
+        .clone()
+        .step_by(width)
+        .map(|start| {
+            let end = start.saturating_add(width).min(range.end);
+            let name = if end == start + 1 {
+                format!("L{start:03}")
+            } else {
+                format!("L{start:03}..L{:03}", end - 1)
+            };
+            (name, start..end)
+        })
+        .collect()
+}
+
+fn evidence_question(question: &str, choices: &BTreeMap<String, Range<usize>>) -> Question {
+    let criteria = choices
+        .iter()
+        .map(|(name, range)| {
+            (
+                name.clone(),
+                (range.len() > 1).then(|| {
+                    format!(
+                        "All excerpts from [L{:03}] through [L{:03}], inclusive",
+                        range.start,
+                        range.end - 1
+                    )
+                }),
+            )
+        })
+        .chain([(
+            "none".into(),
+            Some("No excerpt directly supports a yes answer".into()),
+        )])
+        .collect();
+    Question::Choice {
+        instructions: format!(
+            "Which labeled excerpt or range contains the clearest direct evidence for a yes answer to this question? {question} Select none if no excerpt directly supports a yes answer. Judge the recorded text, not the labels or omission notices."
+        ),
+        criteria,
+    }
 }
 
 fn score(value: &Value) -> Option<f64> {
@@ -215,6 +265,12 @@ struct Output {
     answers: BTreeMap<String, Value>,
 }
 
+fn output(value: Value) -> Result<Output, Error> {
+    let object: serde_json::Map<String, Value> =
+        serde_json::from_value(value).map_err(Error::Response)?;
+    serde_json::from_value(Value::Object(object)).map_err(Error::Response)
+}
+
 async fn attempt(
     reader: &impl SignalReader,
     completion: &impl Decisions,
@@ -223,16 +279,15 @@ async fn attempt(
     config: &SignalConfig,
 ) -> Result<SignalAttempt, Error> {
     let prepared = evidence_state(source_steps(reader, scope, execution).await?);
-    let criteria = prepared
-        .candidates
-        .keys()
-        .map(|id| (id.clone(), None))
-        .chain([(
-            "none".into(),
-            Some("No excerpt directly supports a yes answer".into()),
-        )])
+    let choices = evidence_choices(0..prepared.candidates.len());
+    let mut pending = config
+        .signals
+        .iter()
+        .enumerate()
+        .filter(|_| !choices.is_empty())
+        .map(|(index, _)| (index, choices.clone()))
         .collect::<BTreeMap<_, _>>();
-    let request = DecisionRequest {
+    let mut request = DecisionRequest {
         model: config.model.clone(),
         state: prepared.state,
         questions: config
@@ -246,23 +301,20 @@ async fn attempt(
                         instructions: signal.question.clone(),
                     },
                 );
-                let evidence = (!prepared.candidates.is_empty()).then(|| (
-                    evidence_question_id(index),
-                    Question::Choice {
-                        instructions: format!("Which labeled excerpt provides the clearest direct evidence for a yes answer to this question? {} Select none if no excerpt directly supports a yes answer. Judge the recorded text, not the labels or omission notices.", signal.question),
-                        criteria: criteria.clone(),
-                    },
-                ));
+                let evidence = pending.get(&index).map(|choices| {
+                    (
+                        evidence_question_id(index),
+                        evidence_question(&signal.question, choices),
+                    )
+                });
                 std::iter::once(score).chain(evidence)
             })
             .collect(),
         timeout: Duration::from_secs(60),
         tags: vec!["litellm-lens-signals"],
     };
-    let response: serde_json::Map<String, Value> =
-        serde_json::from_value(completion.complete(&request).await?).map_err(Error::Response)?;
-    let response: Output =
-        serde_json::from_value(Value::Object(response)).map_err(Error::Response)?;
+    let started = Instant::now();
+    let mut response = output(completion.complete(&request).await?)?;
     let scores = config
         .signals
         .iter()
@@ -275,18 +327,45 @@ async fn attempt(
         })
         .collect::<BTreeMap<_, _>>();
     let complete = scores.len() == config.signals.len();
-    let evidence = config
-        .signals
-        .iter()
-        .enumerate()
-        .filter_map(|(index, signal)| {
-            response
+    let mut evidence = BTreeMap::new();
+    while !pending.is_empty() {
+        let mut next = BTreeMap::new();
+        for (index, choices) in pending {
+            let Some(range) = response
                 .answers
                 .get(&evidence_question_id(index))
-                .and_then(|answer| selected_evidence(answer, &prepared.candidates))
-                .map(|evidence| (signal.id.clone(), evidence))
-        })
-        .collect();
+                .and_then(selected_choice)
+                .and_then(|choice| choices.get(&choice).cloned())
+            else {
+                continue;
+            };
+            if range.len() == 1 {
+                if let Some(selected) = prepared.candidates.get(&format!("L{:03}", range.start)) {
+                    evidence.insert(config.signals[index].id.clone(), selected.clone());
+                }
+            } else {
+                next.insert(index, evidence_choices(range));
+            }
+        }
+        pending = next;
+        if pending.is_empty() || !complete {
+            break;
+        }
+        request.questions = pending
+            .iter()
+            .map(|(index, choices)| {
+                (
+                    evidence_question_id(*index),
+                    evidence_question(&config.signals[*index].question, choices),
+                )
+            })
+            .collect();
+        request.timeout = Duration::from_secs(60)
+            .checked_sub(started.elapsed())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or(DecisionsError::Timeout)?;
+        response = output(completion.complete(&request).await?)?;
+    }
     Ok(SignalAttempt {
         status: if complete {
             SignalAttemptStatus::Classified
@@ -301,6 +380,9 @@ async fn attempt(
         } else {
             "Decisions response omitted a configured noul answer".into()
         },
+        failure: (!complete).then_some(SignalFailure::Transient {
+            retry_after_seconds: None,
+        }),
     })
 }
 
@@ -319,6 +401,22 @@ pub async fn classify(
             evidence: BTreeMap::new(),
             model: config.model.clone(),
             error: error.to_string(),
+            failure: match error {
+                Error::Decisions(DecisionsError::Provider {
+                    status: 400 | 413 | 422,
+                    ..
+                }) => Some(SignalFailure::Permanent),
+                Error::Decisions(DecisionsError::Provider {
+                    retry_after_seconds,
+                    ..
+                }) => Some(SignalFailure::Transient {
+                    retry_after_seconds,
+                }),
+                Error::Decisions(_) | Error::Response(_) => Some(SignalFailure::Transient {
+                    retry_after_seconds: None,
+                }),
+                _ => None,
+            },
         },
     }
 }

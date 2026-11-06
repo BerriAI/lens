@@ -54,7 +54,7 @@ The UI's threshold controls which scores appear as flags. Configure questions th
 
 Click a signal in the trace list or run header to open the step containing its supporting text. Lens highlights the exact captured passage as a **Flagged excerpt**, so you can inspect what the classifier used to locate the issue
 
-Evidence selection runs alongside classification in the same Decisions request. Each signal keeps its yes/no score and adds a Choice question over identified passages, including a no-evidence option. This adds questions to the existing request rather than making a second model call. Lens accepts only passages from the trace content supplied to that request
+Evidence selection starts alongside classification in the same Decisions request. Each signal keeps its yes/no score and adds a Choice question over identified passages, including a no-evidence option. Each question contains at most 255 options. For more than 254 passages, Lens asks the model to choose a range, then narrows only the selected ranges until it identifies individual passages. Later passages remain selectable. Large traces can require additional model calls, sharing the original 60-second inference deadline. Lens accepts only passages from the trace content supplied to the model
 
 Signals inspect bounded excerpts, so a highlighted passage is a location to investigate rather than proof of a root cause. Captured text can differ from rendered Markdown or JSON; Lens shows the original excerpt without inventing line numbers for the formatted output. Older classifications and results without a usable passage show an evidence-unavailable message
 
@@ -77,3 +77,5 @@ If the model does not appear, confirm that the Lens process received `LENS_EVALU
 If Lens cannot load signal settings, check the service and ClickHouse logs. A failed settings request does not establish that the evaluation model is missing
 
 If a trace is unflagged, inspect the configured questions and threshold, confirm that the trace has captured content, and check the service logs for provider failures. An unflagged trace is not proof that every question was successfully evaluated
+
+Provider failures pause new work for the same signal configuration across workers. The pause starts at one minute and doubles after repeated failures, up to 30 minutes; a longer provider `Retry-After` is honored. Requests already in flight can finish, and a successful recovery resets the pause. Invalid-request and request-size refusals (HTTP 400, 413, or 422) are not retried for an unchanged trace and configuration. Correct the request or change the signal configuration before retrying those traces. Authentication and endpoint failures use the shared cooldown so workers can recover after their provider configuration is repaired

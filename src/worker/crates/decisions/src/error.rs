@@ -21,7 +21,10 @@ pub enum Error {
     #[error("Evaluation model request timed out")]
     Timeout,
     #[error("Evaluation provider returned HTTP {status}")]
-    Provider { status: u16 },
+    Provider {
+        status: u16,
+        retry_after_seconds: Option<u64>,
+    },
     #[error("Evaluation provider transport failed")]
     Transport(#[source] reqwest::Error),
     #[error("Evaluation HTTP client configuration failed")]

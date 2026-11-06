@@ -205,13 +205,13 @@ async fn duplicate_aliases_round_robin_without_retrying_a_failed_attempt(
     .unwrap();
     assert!(matches!(
         api.evaluate(&request).await,
-        Err(Error::Provider { status: 503 })
+        Err(Error::Provider { status: 503, .. })
     ));
     assert!(second.received_requests().await.unwrap().is_empty());
     assert_eq!(api.evaluate(&request).await.unwrap(), json!({"answers":{}}));
     assert!(matches!(
         api.evaluate(&request).await,
-        Err(Error::Provider { status: 503 })
+        Err(Error::Provider { status: 503, .. })
     ));
 }
 
@@ -476,7 +476,7 @@ async fn failures_are_sanitized_and_never_retried_or_redirected(
     )
     .unwrap();
     let error = api.evaluate(&request).await.unwrap_err();
-    assert!(matches!(error,Error::Provider{status:actual}if actual==status));
+    assert!(matches!(error,Error::Provider{status:actual,..}if actual==status));
     assert!(!error.to_string().contains("secret"));
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }
@@ -778,4 +778,34 @@ async fn configuration_failure_is_sanitized_by_the_decisions_trait(request: Deci
         lens_signals::DecisionsError::Unavailable(_)
     ));
     assert_eq!(result.to_string(), "Lens signal model request failed");
+}
+
+#[rstest]
+#[case::seconds("120", Some(120))]
+#[case::invalid("invalid", None)]
+#[case::past_date("Wed, 21 Oct 2015 07:28:00 GMT", Some(0))]
+#[tokio::test]
+async fn retry_after_is_preserved_without_replaying_the_request(
+    deployment: Deployment,
+    request: DecisionRequest,
+    #[case] header: &str,
+    #[case] expected: Option<u64>,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", header))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let api = models(
+        vec![Deployment {
+            api_base: Some(server.uri().parse().unwrap()),
+            ..deployment
+        }],
+        Default::default(),
+    )
+    .unwrap();
+    assert!(
+        matches!(api.evaluate(&request).await, Err(Error::Provider { status: 429, retry_after_seconds }) if retry_after_seconds == expected)
+    );
 }

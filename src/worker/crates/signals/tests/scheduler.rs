@@ -445,3 +445,36 @@ async fn completed_rows_match_full_trace_identity(
     .unwrap();
     assert_eq!(tick.claimed, claimed);
 }
+
+#[rstest]
+#[tokio::test]
+async fn refusal_stops_a_backlog_before_launching_the_next_batch(
+    reader: Reader,
+    repository: Repository,
+    completion: Completion,
+    now: DateTime<Utc>,
+) {
+    let reader = Reader {
+        samples: BTreeMap::from([("saved".into(), sample(100, Some("next")))]),
+        ..reader
+    };
+    let completion = Completion {
+        fail: true,
+        ..completion
+    };
+    let tick = run_signal_tick(
+        &reader,
+        Some(&repository),
+        Some(&completion),
+        &|| now,
+        true,
+        "saved",
+        BACKLOG_SWEEP,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tick.claimed, 8);
+    assert_eq!(tick.cursor, "saved");
+    assert_eq!(completion.calls.lock().unwrap().len(), 8);
+    assert_eq!(repository.stores.lock().unwrap().len(), 8);
+}

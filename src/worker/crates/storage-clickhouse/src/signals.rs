@@ -1,14 +1,14 @@
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use lens_contract::{
     feedback::TraceIdentity,
-    signals::{SignalAttempt, SignalConfig, StoredTraceSignal},
+    signals::{SignalAttempt, SignalAttemptStatus, SignalConfig, SignalFailure, StoredTraceSignal},
     worker::Execution,
 };
 use lens_signals::{RepositoryError, SignalRepository, claimable, config_key};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
 use crate::{
@@ -25,6 +25,75 @@ const KEY_ENCODING: &AsciiSet = &NON_ALPHANUMERIC
 
 #[derive(Clone)]
 pub struct Signals(pub ClickHouseState);
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+struct Cooldown {
+    failures: u32,
+    retry_at: Option<DateTime<Utc>>,
+}
+
+impl Cooldown {
+    fn active(&self, now: DateTime<Utc>) -> bool {
+        self.retry_at.is_some_and(|until| until > now)
+    }
+
+    fn after(&self, attempt: &SignalAttempt, now: DateTime<Utc>) -> Self {
+        if attempt.status == SignalAttemptStatus::Classified {
+            return if self.active(now) {
+                self.clone()
+            } else {
+                Self::default()
+            };
+        }
+        let Some(failure) = &attempt.failure else {
+            return self.clone();
+        };
+        let failures = if self.active(now) {
+            self.failures
+        } else {
+            self.failures.saturating_add(1)
+        };
+        let seconds = 60_u64
+            .saturating_mul(1_u64 << failures.saturating_sub(1).min(5))
+            .min(1800);
+        let requested = match failure {
+            SignalFailure::Transient {
+                retry_after_seconds,
+            } => retry_after_seconds.unwrap_or(0),
+            SignalFailure::Permanent => 0,
+        };
+        if self.active(now) && requested == 0 {
+            return self.clone();
+        }
+        let delay = if self.active(now) {
+            requested
+        } else {
+            seconds.max(requested)
+        };
+        let retry_at = now
+            .checked_add_signed(TimeDelta::seconds(delay.min(i64::MAX as u64 / 1000) as i64))
+            .unwrap_or(DateTime::<Utc>::MAX_UTC);
+        Self {
+            failures,
+            retry_at: Some(
+                self.retry_at
+                    .map_or(retry_at, |previous| previous.max(retry_at)),
+            ),
+        }
+    }
+}
+
+fn cooldown_key(config: &SignalConfig) -> String {
+    format!("signals/cooldown/{}", config_key(config))
+}
+
+fn cooldown(value: Value) -> Result<Cooldown, RepositoryError> {
+    if value.is_null() {
+        Ok(Cooldown::default())
+    } else {
+        decode(value)
+    }
+}
 
 fn failure(error: impl std::error::Error + Send + Sync + 'static) -> RepositoryError {
     RepositoryError::Unavailable(Box::new(error))
@@ -108,6 +177,10 @@ impl SignalRepository for Signals {
             data: json!({"status": "pending", "scores": {}, "model": config.model, "error": ""}),
         })?;
         for attempt in 0..40 {
+            let pause = self.0.read(&cooldown_key(config)).await.map_err(failure)?;
+            if cooldown(pause.value)?.active(now) {
+                return Ok(false);
+            }
             let previous = self.0.read(&key).await.map_err(failure)?;
             let existing = (!previous.value.is_null())
                 .then(|| decode(previous.value.clone()))
@@ -157,7 +230,17 @@ impl SignalRepository for Signals {
                 data: document(result)?,
                 ..existing
             })?;
-            match self.0.commit(vec![Change { previous, value }]).await {
+            let pause = self.0.read(&cooldown_key(config)).await.map_err(failure)?;
+            let before = cooldown(pause.value.clone())?;
+            let after = before.after(result, classified_at);
+            let mut changes = vec![Change { previous, value }];
+            if after != before {
+                changes.push(Change {
+                    previous: pause,
+                    value: document(after)?,
+                });
+            }
+            match self.0.commit(changes).await {
                 Ok(()) => return Ok(()),
                 Err(Error::StateConflict) => (),
                 Err(error) => return Err(failure(error)),
@@ -165,5 +248,58 @@ impl SignalRepository for Signals {
             backoff(attempt).await;
         }
         Err(failure(Error::StateConflict))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::first(0, 60)]
+    #[case::second(1, 120)]
+    #[case::fifth(4, 960)]
+    #[case::capped(5, 1800)]
+    #[case::saturating(u32::MAX, 1800)]
+    fn consecutive_outages_back_off_with_a_bounded_delay(
+        #[case] failures: u32,
+        #[case] seconds: i64,
+    ) {
+        let now = DateTime::from_timestamp(0, 0).unwrap();
+        let previous = Cooldown {
+            failures,
+            retry_at: Some(now),
+        };
+        let attempt: SignalAttempt = serde_json::from_value(json!({"status":"failed","model":"model","failure":{"kind":"transient","retry_after_seconds":null}})).unwrap();
+        assert_eq!(
+            previous.after(&attempt, now).retry_at,
+            Some(now + TimeDelta::seconds(seconds))
+        );
+    }
+
+    #[rstest]
+    fn a_later_retry_after_extends_the_existing_window_without_counting_another_outage() {
+        let now = DateTime::from_timestamp(0, 0).unwrap();
+        let previous = Cooldown {
+            failures: 1,
+            retry_at: Some(now + TimeDelta::seconds(60)),
+        };
+        let attempt: SignalAttempt = serde_json::from_value(json!({"status":"failed","model":"model","failure":{"kind":"transient","retry_after_seconds":600}})).unwrap();
+        let updated = previous.after(&attempt, now + TimeDelta::seconds(1));
+        assert_eq!(updated.failures, 1);
+        assert_eq!(updated.retry_at, Some(now + TimeDelta::seconds(601)));
+    }
+
+    #[rstest]
+    fn successful_recovery_resets_exponential_backoff() {
+        let now = DateTime::from_timestamp(0, 0).unwrap();
+        let previous = Cooldown {
+            failures: 5,
+            retry_at: Some(now),
+        };
+        let attempt: SignalAttempt =
+            serde_json::from_value(json!({"status":"classified","model":"model"})).unwrap();
+        assert_eq!(previous.after(&attempt, now), Cooldown::default());
     }
 }
