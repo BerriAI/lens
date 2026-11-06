@@ -670,12 +670,12 @@ async fn provider_cooldown_is_shared_and_survives_worker_recreation(
         ..execution.clone()
     };
     let independent = database.repository();
-    assert!(
-        !independent
+    assert!(matches!(
+        independent
             .claim(&other, &config, lease, now + Duration::seconds(delay - 1))
-            .await
-            .unwrap()
-    );
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
     let later = now + Duration::seconds(delay);
     assert!(
         independent
@@ -698,17 +698,17 @@ async fn provider_cooldown_is_shared_and_survives_worker_recreation(
         ..execution
     };
     let recovery = later + Duration::seconds(delay.max(120));
-    assert!(
-        !repository
+    assert!(matches!(
+        repository
             .claim(
                 &third,
                 &config,
                 recovery + Duration::minutes(5),
                 recovery - Duration::seconds(1)
             )
-            .await
-            .unwrap()
-    );
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
     assert!(
         repository
             .claim(&third, &config, recovery + Duration::minutes(5), recovery)
@@ -776,17 +776,56 @@ async fn concurrent_failures_share_one_backoff_window_and_success_does_not_clear
         trace_id: "blocked".into(),
         ..execution
     };
-    assert!(
-        !database
+    assert!(matches!(
+        database
             .repository()
             .claim(&other, &config, lease, now + Duration::seconds(59))
-            .await
-            .unwrap()
-    );
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
     assert!(
         database
             .repository()
             .claim(&other, &config, lease, now + Duration::seconds(60))
+            .await
+            .unwrap()
+    );
+}
+
+#[rstest]
+#[case::permanent(json!({"kind":"permanent"}))]
+#[case::incomplete(json!(null))]
+#[tokio::test]
+async fn trace_specific_failures_do_not_pause_unrelated_traces(
+    #[future(awt)] database: Database,
+    config: SignalConfig,
+    execution: Execution,
+    now: DateTime<Utc>,
+    #[case] failure: serde_json::Value,
+) {
+    let repository = database.repository();
+    let lease = now + Duration::minutes(5);
+    assert!(
+        repository
+            .claim(&execution, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    let attempt: SignalAttempt =
+        serde_json::from_value(json!({"status":"failed","model":config.model,"failure":failure}))
+            .unwrap();
+    repository
+        .store(&execution, &config, lease, now, &attempt)
+        .await
+        .unwrap();
+    let other = Execution {
+        trace_id: "unrelated".into(),
+        ..execution
+    };
+    assert!(
+        database
+            .repository()
+            .claim(&other, &config, lease, now)
             .await
             .unwrap()
     );

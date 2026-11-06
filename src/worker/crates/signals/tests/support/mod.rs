@@ -210,6 +210,7 @@ pub struct Repository {
     pub stores: Mutex<Vec<Store>>,
     pub allow_claim: bool,
     pub fail_claim: bool,
+    pub cooldown: bool,
     pub fail_store: bool,
     pub fail_config: bool,
     pub fail_rows: bool,
@@ -225,6 +226,7 @@ pub fn repository() -> Repository {
         stores: Mutex::default(),
         allow_claim: true,
         fail_claim: false,
+        cooldown: false,
         fail_store: false,
         fail_config: false,
         fail_rows: false,
@@ -269,6 +271,9 @@ impl SignalRepository for Repository {
         });
         if self.fail_claim {
             return Err(unavailable());
+        }
+        if self.cooldown {
+            return Err(RepositoryError::Cooldown);
         }
         Ok(self.allow_claim)
     }

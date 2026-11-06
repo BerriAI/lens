@@ -33,6 +33,8 @@ pub enum DecisionsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
+    #[error("Lens signal provider cooldown is active")]
+    Cooldown,
     #[error("Lens signal storage is unavailable")]
     Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

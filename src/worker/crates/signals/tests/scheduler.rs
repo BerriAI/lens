@@ -478,3 +478,36 @@ async fn refusal_stops_a_backlog_before_launching_the_next_batch(
     assert_eq!(completion.calls.lock().unwrap().len(), 8);
     assert_eq!(repository.stores.lock().unwrap().len(), 8);
 }
+
+#[rstest]
+#[tokio::test]
+async fn cooldown_preserves_the_scan_cursor_and_does_not_call_the_provider(
+    reader: Reader,
+    repository: Repository,
+    completion: Completion,
+    now: DateTime<Utc>,
+) {
+    let reader = Reader {
+        samples: BTreeMap::from([("saved".into(), sample(1, Some("next")))]),
+        ..reader
+    };
+    let repository = Repository {
+        cooldown: true,
+        ..repository
+    };
+    let tick = run_signal_tick(
+        &reader,
+        Some(&repository),
+        Some(&completion),
+        &|| now,
+        true,
+        "saved",
+        LIVE_SWEEP,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tick.cursor, "saved");
+    assert_eq!(tick.claimed, 0);
+    assert!(completion.calls.lock().unwrap().is_empty());
+    assert!(repository.stores.lock().unwrap().is_empty());
+}

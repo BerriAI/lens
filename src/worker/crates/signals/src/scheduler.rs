@@ -5,12 +5,13 @@ use futures_util::{StreamExt, stream};
 use lens_contract::{
     feedback::TraceIdentity,
     investigations::Scope,
-    signals::{SignalAttemptStatus, SignalConfig},
+    signals::{SignalAttemptStatus, SignalConfig, SignalFailure},
     worker::Execution,
 };
 
 use crate::{
-    Decisions, Error, SignalReader, SignalRepository, candidate, classify, config_key, enabled,
+    Decisions, Error, RepositoryError, SignalReader, SignalRepository, candidate, classify,
+    config_key, enabled,
 };
 
 pub const MAX_PER_TICK: usize = 50;
@@ -159,22 +160,26 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
                 match repository.claim(&execution, config, lease, now).await {
                     Ok(true) => (),
                     Ok(false) => return (0, false),
+                    Err(RepositoryError::Cooldown) => return (0, true),
                     Err(error) => {
                         tracing::error!(%error, "Lens signal claim failed");
-                        return (0, false);
+                        return (0, true);
                     }
                 }
                 let attempt = classify(reader, completion, scope, &execution, config).await;
                 if attempt.status == SignalAttemptStatus::Failed {
                     tracing::warn!(reason = %attempt.error, "Lens signal classification failed");
+                } else if !attempt.error.is_empty() {
+                    tracing::warn!(reason = %attempt.error, "Lens signal evidence lookup failed");
                 }
                 if let Err(error) = repository
                     .store(&execution, config, lease, clock(), &attempt)
                     .await
                 {
                     tracing::error!(%error, "Lens signal result could not be stored");
+                    return (1, true);
                 }
-                (1, attempt.status == SignalAttemptStatus::Failed)
+                (1, attempt.status == SignalAttemptStatus::Failed || matches!(attempt.failure, Some(SignalFailure::Transient { .. })))
             }
         })
         .buffer_unordered(8)

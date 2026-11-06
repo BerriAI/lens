@@ -228,6 +228,7 @@ async fn invalid_answers_preserve_partial_valid_scores(
     )
     .await;
     assert_eq!(result.status, SignalAttemptStatus::Failed);
+    assert!(result.failure.is_none());
     assert_eq!(result.scores, BTreeMap::from([("a".into(), 0.8)]));
     assert_eq!(
         result.error,
@@ -488,4 +489,67 @@ async fn unavailable_group_evidence_does_not_fan_out_or_discard_scores(
     assert!(result.evidence.is_empty());
     assert_eq!(result.scores.len(), config.signals.len());
     assert_eq!(completion.calls.lock().unwrap().len(), 1);
+}
+
+struct FollowupFailure(u16);
+impl Decisions for FollowupFailure {
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        if request.questions.contains_key("a") {
+            return Ok(json!({"answers":{
+                "a":{"type":"noul","noul":0.9}, "b":{"type":"noul","noul":0.2},
+                "__evidence_0":{"type":"choice","choice":"L000..L001","confidence":0.9},
+                "__evidence_1":{"type":"choice","choice":"L400","confidence":0.9}
+            }}));
+        }
+        match self.0 {
+            0 => Err(DecisionsError::Timeout),
+            1 => Ok(json!([])),
+            status => Err(DecisionsError::Provider {
+                status,
+                retry_after_seconds: Some(120),
+            }),
+        }
+    }
+}
+#[rstest]
+#[case::timeout(0, true)]
+#[case::malformed(1, false)]
+#[case::invalid(400, false)]
+#[case::large(413, false)]
+#[case::unprocessable(422, false)]
+#[case::rate_limited(429, true)]
+#[case::unavailable(503, true)]
+#[tokio::test]
+async fn evidence_followup_failure_keeps_completed_scores_and_evidence(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] failure: u16,
+    #[case] cooldown: bool,
+) {
+    let reader = Reader {
+        contents: BTreeMap::from([(
+            "".into(),
+            page((0..401).map(|_| part("Recorded request")).collect(), None),
+        )]),
+        ..reader
+    };
+    let result = classify(
+        &reader,
+        &FollowupFailure(failure),
+        &scope,
+        &execution,
+        &config,
+    )
+    .await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(
+        result.scores,
+        BTreeMap::from([("a".into(), 0.9), ("b".into(), 0.2)])
+    );
+    assert_eq!(result.evidence.len(), 1);
+    assert_eq!(result.evidence["b"].quote, "Recorded request");
+    assert!(!result.error.is_empty());
+    assert_eq!(result.failure.is_some(), cooldown);
 }

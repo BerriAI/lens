@@ -38,14 +38,17 @@ impl Cooldown {
     }
 
     fn after(&self, attempt: &SignalAttempt, now: DateTime<Utc>) -> Self {
-        if attempt.status == SignalAttemptStatus::Classified {
+        if attempt.status == SignalAttemptStatus::Classified && attempt.failure.is_none() {
             return if self.active(now) {
                 self.clone()
             } else {
                 Self::default()
             };
         }
-        let Some(failure) = &attempt.failure else {
+        let Some(SignalFailure::Transient {
+            retry_after_seconds,
+        }) = &attempt.failure
+        else {
             return self.clone();
         };
         let failures = if self.active(now) {
@@ -56,12 +59,7 @@ impl Cooldown {
         let seconds = 60_u64
             .saturating_mul(1_u64 << failures.saturating_sub(1).min(5))
             .min(1800);
-        let requested = match failure {
-            SignalFailure::Transient {
-                retry_after_seconds,
-            } => retry_after_seconds.unwrap_or(0),
-            SignalFailure::Permanent => 0,
-        };
+        let requested = retry_after_seconds.unwrap_or(0);
         if self.active(now) && requested == 0 {
             return self.clone();
         }
@@ -179,7 +177,7 @@ impl SignalRepository for Signals {
         for attempt in 0..40 {
             let pause = self.0.read(&cooldown_key(config)).await.map_err(failure)?;
             if cooldown(pause.value)?.active(now) {
-                return Ok(false);
+                return Err(RepositoryError::Cooldown);
             }
             let previous = self.0.read(&key).await.map_err(failure)?;
             let existing = (!previous.value.is_null())
@@ -301,5 +299,15 @@ mod tests {
         let attempt: SignalAttempt =
             serde_json::from_value(json!({"status":"classified","model":"model"})).unwrap();
         assert_eq!(previous.after(&attempt, now), Cooldown::default());
+    }
+
+    #[rstest]
+    fn evidence_outage_pauses_new_work_even_when_scores_are_complete() {
+        let now = DateTime::from_timestamp(0, 0).unwrap();
+        let attempt: SignalAttempt = serde_json::from_value(json!({"status":"classified","model":"model","scores":{"a":0.9},"failure":{"kind":"transient","retry_after_seconds":120}})).unwrap();
+        assert_eq!(
+            Cooldown::default().after(&attempt, now).retry_at,
+            Some(now + TimeDelta::seconds(120))
+        );
     }
 }

@@ -328,6 +328,7 @@ async fn attempt(
         .collect::<BTreeMap<_, _>>();
     let complete = scores.len() == config.signals.len();
     let mut evidence = BTreeMap::new();
+    let mut evidence_error = None;
     while !pending.is_empty() {
         let mut next = BTreeMap::new();
         for (index, choices) in pending {
@@ -360,11 +361,21 @@ async fn attempt(
                 )
             })
             .collect();
-        request.timeout = Duration::from_secs(60)
-            .checked_sub(started.elapsed())
-            .filter(|remaining| !remaining.is_zero())
-            .ok_or(DecisionsError::Timeout)?;
-        response = output(completion.complete(&request).await?)?;
+        let followup = async {
+            request.timeout = Duration::from_secs(60)
+                .checked_sub(started.elapsed())
+                .filter(|remaining| !remaining.is_zero())
+                .ok_or(DecisionsError::Timeout)?;
+            output(completion.complete(&request).await?)
+        }
+        .await;
+        match followup {
+            Ok(next) => response = next,
+            Err(error) => {
+                evidence_error = Some(error);
+                break;
+            }
+        }
     }
     Ok(SignalAttempt {
         status: if complete {
@@ -375,15 +386,39 @@ async fn attempt(
         scores,
         evidence,
         model: config.model.clone(),
-        error: if complete {
+        error: if let Some(error) = &evidence_error {
+            error.to_string()
+        } else if complete {
             String::new()
         } else {
             "Decisions response omitted a configured noul answer".into()
         },
-        failure: (!complete).then_some(SignalFailure::Transient {
-            retry_after_seconds: None,
-        }),
+        failure: evidence_error
+            .as_ref()
+            .and_then(provider_failure)
+            .filter(|failure| matches!(failure, SignalFailure::Transient { .. })),
     })
+}
+
+fn provider_failure(error: &Error) -> Option<SignalFailure> {
+    match error {
+        Error::Decisions(DecisionsError::Provider {
+            status: 400 | 413 | 422,
+            ..
+        }) => Some(SignalFailure::Permanent),
+        Error::Decisions(DecisionsError::Provider {
+            retry_after_seconds,
+            ..
+        }) => Some(SignalFailure::Transient {
+            retry_after_seconds: *retry_after_seconds,
+        }),
+        Error::Decisions(DecisionsError::Timeout | DecisionsError::Unavailable(_)) => {
+            Some(SignalFailure::Transient {
+                retry_after_seconds: None,
+            })
+        }
+        _ => None,
+    }
 }
 
 pub async fn classify(
@@ -401,22 +436,7 @@ pub async fn classify(
             evidence: BTreeMap::new(),
             model: config.model.clone(),
             error: error.to_string(),
-            failure: match error {
-                Error::Decisions(DecisionsError::Provider {
-                    status: 400 | 413 | 422,
-                    ..
-                }) => Some(SignalFailure::Permanent),
-                Error::Decisions(DecisionsError::Provider {
-                    retry_after_seconds,
-                    ..
-                }) => Some(SignalFailure::Transient {
-                    retry_after_seconds,
-                }),
-                Error::Decisions(_) | Error::Response(_) => Some(SignalFailure::Transient {
-                    retry_after_seconds: None,
-                }),
-                _ => None,
-            },
+            failure: provider_failure(&error),
         },
     }
 }
