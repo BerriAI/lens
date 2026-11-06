@@ -7,6 +7,7 @@ import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
+import { createOutcomeDemo } from "./outcomes/outcomesModel";
 import { LensHostProvider } from "../../host/LensHost";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
@@ -996,17 +997,20 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
 
 it("opens an outcome trace with its merged PR and closed issue, then returns to the aggregate", async () => {
   const user = userEvent.setup();
+  const session = createOutcomeDemo(Date.now())[0];
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
     searchParams: "?demo=true&tab=outcomes&agent=release_agent",
   });
-  await user.click(await screen.findByRole("button", { name: "Open trace for demo-session-001" }));
+  await user.click(await screen.findByRole("button", { name: `View sessions for ${session.user}` }));
+  const sessions = await screen.findByRole("dialog", { name: `Sessions for ${session.user}` });
+  await user.click(within(sessions).getByRole("button", { name: `Open trace for ${session.id}` }));
   const delivery = await screen.findByRole("region", { name: "Delivery outcomes" });
-  expect(within(delivery).getByText("PR #480 merged")).toBeVisible();
-  expect(within(delivery).getByText("Issue #210 closed")).toBeVisible();
+  expect(within(delivery).getByText(`PR #${session.pullRequest!.id} merged`)).toBeVisible();
+  expect(within(delivery).getByText(`Issue #${session.issue!.id} closed`)).toBeVisible();
   expect(await screen.findByRole("tree", { name: "Spans in time order" })).toBeVisible();
   await user.click(within(delivery).getByRole("button", { name: "Aggregate outcomes" }));
   expect(screen.getByRole("tab", { name: "Outcomes", exact: true })).toHaveAttribute("aria-selected", "true");
-  expect(await screen.findByRole("region", { name: "Top Agents" })).toBeVisible();
+  expect(await screen.findByRole("table", { name: "Usage by person" })).toBeVisible();
   expect(network).not.toHaveBeenCalled();
 });
 

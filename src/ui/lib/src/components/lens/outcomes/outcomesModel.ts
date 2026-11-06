@@ -1,5 +1,4 @@
 export type OutcomeStatus = "all" | "shipped" | "in_progress" | "unlinked";
-export type OutcomeMetric = "mergedPRs" | "closedIssues" | "costUSD";
 export type OutcomeRowStatus =
   | Exclude<OutcomeStatus, "all">
   | "closed_without_merge";
@@ -20,6 +19,8 @@ export interface OutcomeIssue {
 
 export interface OutcomeSession {
   id: string;
+  user: string;
+  taskCategory: string;
   agent: string;
   repository: string;
   title: string;
@@ -53,27 +54,75 @@ export interface OutcomeSummary {
   costPerMergedPR: number | null;
 }
 
-export interface RepositoryOutcomes extends OutcomeSummary {
-  repository: string;
-  spendShare: number;
-}
-
-export interface OutcomeTrendPoint {
-  date: string;
+export interface UserOutcomes {
+  user: string;
   sessions: number;
-  mergedPRs: number;
-  closedIssues: number;
-  costUSD: number;
-}
-
-export interface OutcomeAgentTrendPoint {
-  date: string;
-  values: Record<string, number>;
-}
-
-export interface AgentOutcomes extends OutcomeSummary {
-  agent: string;
+  totalCostUSD: number;
   spendShare: number;
+  prSessions: number;
+  prSpendUSD: number;
+  mergedPRs: number;
+  prCostPerMerge: number | null;
+  nonPRSessions: number;
+  nonPRSpendUSD: number;
+  nonPRShare: number;
+  nonPRTaskKinds: { kind: string; sessions: number; sessionShare: number }[];
+}
+
+export function userOutcomes(
+  sessions: readonly OutcomeSession[],
+): UserOutcomes[] {
+  const totalSpend = summarizeOutcomes(sessions).totalCostUSD;
+  return [...new Set(sessions.map((session) => session.user))]
+    .map((user) => {
+      const owned = sessions.filter((session) => session.user === user);
+      const prSessions = owned.filter(
+        (session) => session.pullRequest !== null,
+      );
+      const nonPRSessions = owned.filter(
+        (session) => session.pullRequest === null,
+      );
+      const totalCostUSD = summarizeOutcomes(owned).totalCostUSD;
+      const pr = summarizeOutcomes(prSessions);
+      const nonPRSpendUSD = summarizeOutcomes(nonPRSessions).totalCostUSD;
+      const nonPRTaskKinds = [
+        ...new Set(nonPRSessions.map((session) => session.taskCategory)),
+      ]
+        .map((kind) => {
+          const count = nonPRSessions.filter(
+            (session) => session.taskCategory === kind,
+          ).length;
+          return {
+            kind,
+            sessions: count,
+            sessionShare: count / nonPRSessions.length,
+          };
+        })
+        .sort(
+          (left, right) =>
+            right.sessions - left.sessions ||
+            left.kind.localeCompare(right.kind),
+        );
+      return {
+        user,
+        sessions: owned.length,
+        totalCostUSD,
+        spendShare: totalSpend ? totalCostUSD / totalSpend : 0,
+        prSessions: prSessions.length,
+        prSpendUSD: pr.totalCostUSD,
+        mergedPRs: pr.mergedPRs,
+        prCostPerMerge: pr.costPerMergedPR,
+        nonPRSessions: nonPRSessions.length,
+        nonPRSpendUSD,
+        nonPRShare: totalCostUSD ? nonPRSpendUSD / totalCostUSD : 0,
+        nonPRTaskKinds,
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.totalCostUSD - left.totalCostUSD ||
+        left.user.localeCompare(right.user),
+    );
 }
 
 const DAY_MS = 86_400_000;
@@ -82,97 +131,6 @@ const linked = (session: OutcomeSession) =>
   session.pullRequest !== null || session.issue !== null;
 const eventKey = (session: OutcomeSession, id: number) =>
   `${session.repository}#${id}`;
-
-function creditedEvents(
-  sessions: readonly OutcomeSession[],
-  metric: Exclude<OutcomeMetric, "costUSD">,
-) {
-  const events = new Map<string, { agent: string; at: string }>();
-  for (const session of sessions.toSorted(
-    (left, right) =>
-      left.startedAt.localeCompare(right.startedAt) ||
-      left.id.localeCompare(right.id),
-  )) {
-    const artifact =
-      metric === "mergedPRs" ? session.pullRequest : session.issue;
-    const occurred =
-      metric === "mergedPRs"
-        ? session.pullRequest?.mergedAt
-        : session.issue?.closedAt;
-    const completed =
-      metric === "mergedPRs"
-        ? artifact?.status === "merged"
-        : artifact?.status === "closed";
-    if (!artifact || !occurred || !completed) continue;
-    const key = eventKey(session, artifact.id);
-    if (!events.has(key))
-      events.set(key, { agent: session.agent, at: occurred });
-  }
-  return events;
-}
-
-export function agentOutcomes(
-  sessions: readonly OutcomeSession[],
-): AgentOutcomes[] {
-  const total = summarizeOutcomes(sessions).totalCostUSD;
-  const merged = [...creditedEvents(sessions, "mergedPRs").values()];
-  const closed = [...creditedEvents(sessions, "closedIssues").values()];
-  return [...new Set(sessions.map((session) => session.agent))]
-    .map((agent) => {
-      const summary = summarizeOutcomes(
-        sessions.filter((session) => session.agent === agent),
-      );
-      const mergedPRs = merged.filter((event) => event.agent === agent).length;
-      return {
-        ...summary,
-        agent,
-        mergedPRs,
-        closedIssues: closed.filter((event) => event.agent === agent).length,
-        costPerMergedPR: mergedPRs
-          ? money(summary.totalCostUSD / mergedPRs)
-          : null,
-        spendShare: total ? summary.totalCostUSD / total : 0,
-      };
-    })
-    .sort(
-      (left, right) =>
-        right.totalCostUSD - left.totalCostUSD ||
-        left.agent.localeCompare(right.agent),
-    );
-}
-
-export function dailyAgentOutcomeTrend(
-  sessions: readonly OutcomeSession[],
-  days: number,
-  now: number,
-  metric: OutcomeMetric,
-): OutcomeAgentTrendPoint[] {
-  const agents = [...new Set(sessions.map((session) => session.agent))].sort();
-  const events =
-    metric === "costUSD" ? [] : [...creditedEvents(sessions, metric).values()];
-  return dailyOutcomeTrend(sessions, days, now).map(({ date }) => ({
-    date,
-    values: Object.fromEntries(
-      agents.map((agent) => [
-        agent,
-        metric === "costUSD"
-          ? money(
-              sessions
-                .filter(
-                  (session) =>
-                    session.agent === agent &&
-                    session.startedAt.slice(0, 10) === date,
-                )
-                .reduce((sum, session) => sum + session.costUSD, 0),
-            )
-          : events.filter(
-              (event) =>
-                event.agent === agent && event.at.slice(0, 10) === date,
-            ).length,
-      ]),
-    ),
-  }));
-}
 
 export function outcomeStatus(session: OutcomeSession): OutcomeRowStatus {
   if (
@@ -242,69 +200,6 @@ export function summarizeOutcomes(
   };
 }
 
-export function repositoryOutcomes(
-  sessions: readonly OutcomeSession[],
-): RepositoryOutcomes[] {
-  const total = summarizeOutcomes(sessions).totalCostUSD;
-  return [...new Set(sessions.map((session) => session.repository))]
-    .map((repository) => {
-      const summary = summarizeOutcomes(
-        sessions.filter((session) => session.repository === repository),
-      );
-      return {
-        repository,
-        ...summary,
-        spendShare: total ? summary.totalCostUSD / total : 0,
-      };
-    })
-    .sort(
-      (left, right) =>
-        right.totalCostUSD - left.totalCostUSD ||
-        left.repository.localeCompare(right.repository),
-    );
-}
-
-export function dailyOutcomeTrend(
-  sessions: readonly OutcomeSession[],
-  days: number,
-  now: number,
-): OutcomeTrendPoint[] {
-  const firstDay = Math.floor((now - days * DAY_MS) / DAY_MS) * DAY_MS;
-  const lastDay = Math.floor((now - 1) / DAY_MS) * DAY_MS;
-  const bucketCount = (lastDay - firstDay) / DAY_MS + 1;
-  return Array.from({ length: bucketCount }, (_, index) => {
-    const date = new Date(firstDay + index * DAY_MS).toISOString().slice(0, 10);
-    const started = sessions.filter(
-      (session) => session.startedAt.slice(0, 10) === date,
-    );
-    const merged = new Set(
-      sessions.flatMap((session) =>
-        session.pullRequest?.status === "merged" &&
-        session.pullRequest.mergedAt?.slice(0, 10) === date
-          ? [eventKey(session, session.pullRequest.id)]
-          : [],
-      ),
-    );
-    const closed = new Set(
-      sessions.flatMap((session) =>
-        session.issue?.status === "closed" &&
-        session.issue.closedAt?.slice(0, 10) === date
-          ? [eventKey(session, session.issue.id)]
-          : [],
-      ),
-    );
-    return {
-      date,
-      sessions: started.length,
-      mergedPRs: merged.size,
-      closedIssues: closed.size,
-      costUSD: money(
-        started.reduce((sum, session) => sum + session.costUSD, 0),
-      ),
-    };
-  });
-}
-
 const DEMO_AGENTS = [
   "release_agent",
   "research_agent",
@@ -314,6 +209,23 @@ const DEMO_REPOSITORIES = [
   "acme/platform",
   "acme/console",
   "acme/services",
+] as const;
+const DEMO_USERS = [
+  "alex@example.test",
+  "jordan@example.test",
+  "sam@example.test",
+  "taylor@example.test",
+  "casey@example.test",
+  "morgan@example.test",
+  "avery@example.test",
+  "riley@example.test",
+] as const;
+const DEMO_NON_PR_TASKS = [
+  { kind: "Research", title: "Compare task queue designs" },
+  { kind: "Code review", title: "Review retry handling edge cases" },
+  { kind: "Documentation", title: "Draft release documentation" },
+  { kind: "Workflow automation", title: "Prepare a release checklist" },
+  { kind: "Debugging", title: "Investigate a flaky integration test" },
 ] as const;
 const DEMO_TASKS = [
   "Add webhook retry backoff",
@@ -334,10 +246,14 @@ export function createOutcomeDemo(now: number): OutcomeSession[] {
     const started = now - (3 + group * 12 - attempt * 0.35) * 3_600_000;
     const finished = started + (12 + (group % 19)) * 60_000;
     const occurred = now - (1 + group * 12) * 3_600_000;
-    const title = DEMO_TASKS[group % DEMO_TASKS.length];
+    const isLinked = group % 10 !== 9;
+    const nonPRTask =
+      DEMO_NON_PR_TASKS[Math.floor(group / 10) % DEMO_NON_PR_TASKS.length];
+    const title = isLinked
+      ? DEMO_TASKS[group % DEMO_TASKS.length]
+      : nonPRTask.title;
     const repository =
       DEMO_REPOSITORIES[Math.floor(group / 3) % DEMO_REPOSITORIES.length];
-    const isLinked = group % 10 !== 9;
     const merged =
       group % 10 < ([8, 5, 3] as const)[group % DEMO_AGENTS.length];
     const pullRequest: OutcomePullRequest | null = isLinked
@@ -397,6 +313,8 @@ export function createOutcomeDemo(now: number): OutcomeSession[] {
       });
     return {
       id: `demo-session-${String(index + 1).padStart(3, "0")}`,
+      user: DEMO_USERS[(group + Math.floor(group / 9)) % DEMO_USERS.length],
+      taskCategory: isLinked ? "Coding" : nonPRTask.kind,
       agent: DEMO_AGENTS[group % DEMO_AGENTS.length],
       repository,
       title: `${title}${attempt ? " · follow-up" : ""}`,

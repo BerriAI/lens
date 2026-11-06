@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  agentOutcomes,
+  userOutcomes,
   createOutcomeDemo,
-  dailyOutcomeTrend,
-  dailyAgentOutcomeTrend,
   filterOutcomeSessions,
   outcomeStatus,
-  repositoryOutcomes,
   summarizeOutcomes,
   type OutcomeSession,
 } from "./outcomesModel";
@@ -16,6 +13,8 @@ const HOUR_MS = 3_600_000;
 
 const session = (overrides: Partial<OutcomeSession> = {}): OutcomeSession => ({
   id: "session-1",
+  user: "alex@example.test",
+  taskCategory: "Coding",
   agent: "release_agent",
   repository: "acme/platform",
   title: "Fix webhook retries",
@@ -189,160 +188,7 @@ describe("outcome cohort filters", () => {
   );
 });
 
-describe("delivery trend and repository rollups", () => {
-  it("attributes shared artifacts once across agents while retaining each agent's actual spend", () => {
-    const rows = [
-      session({
-        id: "first",
-        startedAt: new Date(NOW - 3 * HOUR_MS).toISOString(),
-      }),
-      session({ id: "follow-up", agent: "research_agent", costUSD: 20 }),
-    ];
-    const agents = agentOutcomes(rows);
-    expect(
-      agents.find((agent) => agent.agent === "research_agent"),
-    ).toMatchObject({
-      mergedPRs: 0,
-      closedIssues: 0,
-      totalCostUSD: 20,
-      costPerMergedPR: null,
-    });
-    expect(
-      agents.find((agent) => agent.agent === "release_agent"),
-    ).toMatchObject({
-      mergedPRs: 1,
-      closedIssues: 1,
-      totalCostUSD: 10,
-      costPerMergedPR: 10,
-    });
-    expect(
-      dailyAgentOutcomeTrend(rows, 7, NOW, "mergedPRs").at(-1)?.values,
-    ).toEqual({ release_agent: 1, research_agent: 0 });
-    expect(
-      dailyAgentOutcomeTrend(rows, 7, NOW, "closedIssues").at(-1)?.values,
-    ).toEqual({ release_agent: 1, research_agent: 0 });
-    expect(
-      dailyAgentOutcomeTrend(rows, 7, NOW, "costUSD").at(-1)?.values,
-    ).toEqual({ release_agent: 10, research_agent: 20 });
-  });
-  it("counts merge and close events once on their event date, independently of session date", () => {
-    const rows = [
-      session({ startedAt: new Date(NOW - 26 * HOUR_MS).toISOString() }),
-      session({ id: "follow-up" }),
-    ];
-    const trend = dailyOutcomeTrend(rows, 7, NOW);
-    expect(trend).toHaveLength(8);
-    expect(trend.at(-1)).toEqual({
-      date: "2026-11-05",
-      sessions: 1,
-      mergedPRs: 1,
-      closedIssues: 1,
-      costUSD: 10,
-    });
-    expect(trend.at(-2)).toEqual({
-      date: "2026-11-04",
-      sessions: 1,
-      mergedPRs: 0,
-      closedIssues: 0,
-      costUSD: 10,
-    });
-  });
-
-  it.each([
-    [
-      "partial boundary days",
-      "2026-11-05T12:00:00Z",
-      8,
-      "2026-10-29",
-      "2026-11-05",
-    ],
-    ["midnight end", "2026-11-05T00:00:00Z", 7, "2026-10-29", "2026-11-04"],
-  ] as const)(
-    "keeps rolling-period spend and merge totals consistent for %s",
-    (_name, end, buckets, firstDate, lastDate) => {
-      const now = Date.parse(end);
-      const start = now - 7 * 24 * HOUR_MS;
-      const rows = filterOutcomeSessions(
-        [
-          session({
-            id: "first-partial-day",
-            startedAt: new Date(start + HOUR_MS).toISOString(),
-            finishedAt: new Date(start + 1.5 * HOUR_MS).toISOString(),
-            costUSD: 12,
-            pullRequest: {
-              id: 7,
-              title: "First-day fix",
-              status: "merged",
-              mergedAt: new Date(start + 2 * HOUR_MS).toISOString(),
-            },
-            issue: null,
-          }),
-          session({
-            id: "last-day",
-            startedAt: new Date(now - 3 * HOUR_MS).toISOString(),
-            finishedAt: new Date(now - 2.5 * HOUR_MS).toISOString(),
-            costUSD: 8,
-            pullRequest: {
-              id: 8,
-              title: "Last-day fix",
-              status: "merged",
-              mergedAt: new Date(now - HOUR_MS).toISOString(),
-            },
-            issue: null,
-          }),
-        ],
-        { days: 7, status: "all" },
-        now,
-      );
-      const summary = summarizeOutcomes(rows);
-      const daily = dailyOutcomeTrend(rows, 7, now);
-      expect(daily).toHaveLength(buckets);
-      expect(daily[0].date).toBe(firstDate);
-      expect(daily.at(-1)?.date).toBe(lastDate);
-      expect(daily[0]).toMatchObject({
-        sessions: 1,
-        costUSD: 12,
-        mergedPRs: 1,
-      });
-      expect(daily.reduce((total, day) => total + day.costUSD, 0)).toBe(
-        summary.totalCostUSD,
-      );
-      expect(daily.reduce((total, day) => total + day.mergedPRs, 0)).toBe(
-        summary.mergedPRs,
-      );
-      const spend = dailyAgentOutcomeTrend(rows, 7, now, "costUSD");
-      const merges = dailyAgentOutcomeTrend(rows, 7, now, "mergedPRs");
-      expect(spend[0].values.release_agent).toBe(12);
-      expect(merges[0].values.release_agent).toBe(1);
-      expect(
-        spend
-          .flatMap((day) => Object.values(day.values))
-          .reduce((total, value) => total + value, 0),
-      ).toBe(summary.totalCostUSD);
-      expect(
-        merges
-          .flatMap((day) => Object.values(day.values))
-          .reduce((total, value) => total + value, 0),
-      ).toBe(summary.mergedPRs);
-    },
-  );
-
-  it("ranks repositories by spend and derives shares against all filtered spend", () => {
-    const rows = [
-      session(),
-      session({ id: "follow-up" }),
-      session({ repository: "acme/console", costUSD: 25 }),
-    ];
-    const repos = repositoryOutcomes(rows);
-    expect(repos.map((repo) => repo.repository)).toEqual([
-      "acme/console",
-      "acme/platform",
-    ]);
-    expect(repos[0].spendShare).toBeCloseTo(25 / 45);
-    expect(repos[1].mergedPRs).toBe(1);
-    expect(repos[1].sessions).toBe(2);
-  });
-
+describe("sample outcome cohorts", () => {
   it("creates repeatable sample cohorts with valid timestamps across date ranges", () => {
     const rows = createOutcomeDemo(NOW);
     expect(rows).toEqual(createOutcomeDemo(NOW));
@@ -364,5 +210,114 @@ describe("delivery trend and repository rollups", () => {
     ).toBeLessThan(
       filterOutcomeSessions(rows, { days: 30, status: "all" }, NOW).length,
     );
+  });
+});
+
+describe("user spend and PR work", () => {
+  it("splits PR-linked and non-PR spend and counts shared merged PRs once within each user", () => {
+    const rows = [
+      session({ costUSD: 12 }),
+      session({ id: "follow-up", costUSD: 8 }),
+      session({
+        id: "draft",
+        costUSD: 10,
+        pullRequest: { id: 99, title: "Draft", status: "open" },
+        issue: null,
+      }),
+      session({
+        id: "research",
+        costUSD: 9,
+        taskCategory: "Research",
+        pullRequest: null,
+        issue: null,
+      }),
+      session({
+        id: "documentation",
+        costUSD: 6,
+        taskCategory: "Documentation",
+        pullRequest: null,
+        issue: null,
+      }),
+      session({
+        id: "review",
+        costUSD: 5,
+        taskCategory: "Research",
+        pullRequest: null,
+        issue: null,
+      }),
+      session({ id: "another-user", user: "sam@example.test", costUSD: 25 }),
+    ];
+    const users = userOutcomes(rows);
+    expect(users.map((user) => user.user)).toEqual([
+      "alex@example.test",
+      "sam@example.test",
+    ]);
+    expect(users[0]).toEqual({
+      user: "alex@example.test",
+      sessions: 6,
+      totalCostUSD: 50,
+      spendShare: 50 / 75,
+      prSessions: 3,
+      prSpendUSD: 30,
+      mergedPRs: 1,
+      prCostPerMerge: 30,
+      nonPRSessions: 3,
+      nonPRSpendUSD: 20,
+      nonPRShare: 0.4,
+      nonPRTaskKinds: [
+        { kind: "Research", sessions: 2, sessionShare: 2 / 3 },
+        { kind: "Documentation", sessions: 1, sessionShare: 1 / 3 },
+      ],
+    });
+    expect(users[1].mergedPRs).toBe(1);
+  });
+
+  it("keeps same-number merged PRs in different repositories distinct for a user", () => {
+    const [user] = userOutcomes([
+      session(),
+      session({ id: "other-repo", repository: "acme/console" }),
+    ]);
+    expect(user.mergedPRs).toBe(2);
+    expect(user.prCostPerMerge).toBe(10);
+  });
+
+  it("leaves PR cost per merge unavailable when a user has no merged PR", () => {
+    const [user] = userOutcomes([
+      session({
+        pullRequest: { id: 42, title: "Open", status: "open" },
+        issue: null,
+      }),
+      session({
+        id: "notes",
+        pullRequest: null,
+        issue: null,
+        taskCategory: "Documentation",
+        costUSD: 0,
+      }),
+    ]);
+    expect(user.prSessions).toBe(1);
+    expect(user.mergedPRs).toBe(0);
+    expect(user.prCostPerMerge).toBeNull();
+    expect(user.nonPRTaskKinds).toEqual([
+      { kind: "Documentation", sessions: 1, sessionShare: 1 },
+    ]);
+  });
+
+  it("counts issue-only sessions as non-PR work and handles zero spend without invalid shares", () => {
+    const [user] = userOutcomes([
+      session({ pullRequest: null, taskCategory: "Research", costUSD: 0 }),
+    ]);
+    expect(user).toMatchObject({
+      prSessions: 0,
+      prSpendUSD: 0,
+      nonPRSessions: 1,
+      nonPRSpendUSD: 0,
+      nonPRShare: 0,
+      spendShare: 0,
+    });
+    expect(user.nonPRTaskKinds).toEqual([
+      { kind: "Research", sessions: 1, sessionShare: 1 },
+    ]);
+    expect(userOutcomes([])).toEqual([]);
   });
 });

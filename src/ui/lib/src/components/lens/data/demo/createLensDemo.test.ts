@@ -8,7 +8,8 @@ import { outcomeForTrace, outcomeTraceId } from "../../outcomes/outcomeTrace";
 describe("Lens demo data", () => {
   it("opens an outcome session as a full trace with consistent spend and explicit artifact tool evidence", async () => {
     const now = Date.parse("2026-11-05T12:00:00Z");
-    const outcome = createOutcomeDemo(now)[0];
+    const outcomes = createOutcomeDemo(now);
+    const outcome = outcomes[0];
     const services = createLensDemo(now);
     const trace = await services.traces.trace(outcomeTraceId(outcome));
     expect(trace.summary.start_time).toBe(outcome.startedAt);
@@ -30,6 +31,15 @@ describe("Lens demo data", () => {
     expect((await services.traces.conversation(trace.summary.trace_id)).turns).toEqual([]);
     expect(services.traces.handoff(trace.summary.trace_id).text).toContain(outcome.repository);
     expect(outcomeForTrace(trace.summary.trace_id, now + 60_000, trace.summary.start_time)).toEqual(outcome);
+    for (const session of outcomes) {
+      const sessionTrace = await services.traces.trace(outcomeTraceId(session));
+      expect(sessionTrace.summary.source?.user).toBe(session.user);
+      const root = await services.traces.span(sessionTrace.summary.trace_id, sessionTrace.spans[0].span_id);
+      expect(root.attributes).toMatchObject({
+        "agent.source.user": session.user,
+        task_category: session.taskCategory,
+      });
+    }
   });
 
   it("keeps supplemental outcome traces out of the ordinary demo list and agent totals", async () => {

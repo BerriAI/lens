@@ -140,10 +140,11 @@ function makeOutcomeTrace(session: OutcomeSession, index: number, now: number) {
     tool: session.pullRequest ? "github.create_pull_request" : "repository.inspect",
     result: JSON.stringify(result),
     answer: session.pullRequest ? `Created PR #${session.pullRequest.id} for ${session.title}.` : "Inspected the task. No pull request or issue was linked to this session.",
-    taskCategory: "Coding",
+    taskCategory: session.taskCategory,
   }, 1000 + index, now);
   const duration = Date.parse(session.finishedAt) - Date.parse(session.startedAt);
   run.trace.summary.trace_id = outcomeTraceId(session);
+  if (run.trace.summary.source) run.trace.summary.source.user = session.user;
   run.trace.summary.start_time = session.startedAt;
   run.trace.summary.spend = session.costUSD;
   run.trace.summary.duration_ms = duration;
@@ -154,6 +155,7 @@ function makeOutcomeTrace(session: OutcomeSession, index: number, now: number) {
   if (model) model.spend = session.costUSD;
   for (const detail of run.details) {
     detail.attributes["session.id"] = session.id;
+    detail.attributes["agent.source.user"] = session.user;
     detail.attributes["github.repository"] = session.repository;
     if (session.pullRequest) detail.attributes["github.pull_request.number"] = String(session.pullRequest.id);
     if (session.issue) detail.attributes["github.issue.number"] = String(session.issue.id);
