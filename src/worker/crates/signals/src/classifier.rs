@@ -372,6 +372,7 @@ async fn attempt(
         match followup {
             Ok(next) => response = next,
             Err(error) => {
+                tracing::warn!(reason = %error, "Lens signal evidence lookup failed");
                 evidence_error = Some(error);
                 break;
             }
@@ -386,9 +387,7 @@ async fn attempt(
         scores,
         evidence,
         model: config.model.clone(),
-        error: if let Some(error) = &evidence_error {
-            error.to_string()
-        } else if complete {
+        error: if complete {
             String::new()
         } else {
             "Decisions response omitted a configured noul answer".into()

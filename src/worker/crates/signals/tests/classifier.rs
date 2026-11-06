@@ -550,6 +550,26 @@ async fn evidence_followup_failure_keeps_completed_scores_and_evidence(
     );
     assert_eq!(result.evidence.len(), 1);
     assert_eq!(result.evidence["b"].quote, "Recorded request");
-    assert!(!result.error.is_empty());
+    assert!(result.error.is_empty());
     assert_eq!(result.failure.is_some(), cooldown);
+    let identity = lens_contract::feedback::TraceIdentity {
+        trace_id: execution.trace_id.clone(),
+        trace_ref: execution.trace_ref.clone(),
+    };
+    let stored = lens_contract::signals::StoredTraceSignal {
+        trace_id: identity.trace_id.clone(),
+        trace_ref: identity.trace_ref.clone(),
+        config_key: lens_signals::config_key(&config),
+        span_count: execution.span_count,
+        claimed_until: None,
+        classified_at: Some(now()),
+        data: serde_json::to_value(&result).unwrap(),
+    };
+    let public = lens_signals::trace_signals(&identity, Some(&stored), &config).unwrap();
+    assert_eq!(
+        public.status,
+        lens_contract::signals::TraceSignalStatus::Classified
+    );
+    assert_eq!(public.flags.len(), 1);
+    assert_eq!(public.flags[0].score, 0.9);
 }

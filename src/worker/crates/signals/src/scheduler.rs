@@ -169,8 +169,6 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
                 let attempt = classify(reader, completion, scope, &execution, config).await;
                 if attempt.status == SignalAttemptStatus::Failed {
                     tracing::warn!(reason = %attempt.error, "Lens signal classification failed");
-                } else if !attempt.error.is_empty() {
-                    tracing::warn!(reason = %attempt.error, "Lens signal evidence lookup failed");
                 }
                 if let Err(error) = repository
                     .store(&execution, config, lease, clock(), &attempt)
