@@ -38,6 +38,8 @@ The agent name stays the same across runs. Use a new session ID for each run and
 
 Open **Lens → Traces** in the LiteLLM dashboard and select **support-agent**. Open the run to see its model calls, tokens, cost, and recorded inputs and outputs. The same headers work with OpenAI Responses and Anthropic Messages clients that send requests through LiteLLM.
 
+![A support-agent run showing its recorded model input, response, tokens and cost](images/spend-log-traces-after.jpg)
+
 If you already send LiteLLM request metadata, `metadata.agent_name` supplies the same label. An explicit agent name takes precedence over an `agent:<name>` tag and a key's registered agent. These labels describe traffic; they do not change permissions or the key's managed identity.
 
 LiteLLM must have Postgres spend logging enabled. Prompts and responses appear only when your deployment already records them, including `general_settings.store_prompts_in_spend_logs`. Enabling the agent name does not enable prompt storage. Existing logs keep the information originally recorded, so adding a name labels future requests. Tool results appear when they are present in subsequent recorded requests; local tool activity that never reaches LiteLLM is unavailable.

@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
 import { BookOpen, ChevronRight, Github, Loader2 } from "lucide-react";
-import { LensHostProvider, useLensHost } from "../../host/LensHost";
+import { useLensHost } from "../../host/LensHost";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
 import type { TraceSummary } from "./traces/types";
@@ -32,7 +32,6 @@ import {
   type LensDialog,
   type LensTab,
 } from "./route";
-import { useLensService } from "./onboarding/tracing/TracingSetupCard";
 import { LensGettingStarted } from "./onboarding/LensGettingStarted";
 import { useLensReadiness, type LensReadiness } from "./hooks/useLensReadiness";
 import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingContext";
@@ -53,38 +52,7 @@ type WorkspaceProps = {
 
 export function LensWorkspace(props: WorkspaceProps) {
   const { demo } = useLensRoute();
-  const host = useLensHost();
-  if (demo) return <SampleSession />;
-  return host.traces === "auto" ? <GatewaySession {...props} /> : <LiveSession {...props} />;
-}
-
-function GatewaySession(props: WorkspaceProps) {
-  const host = useLensHost();
-  const service = useLensService(props.accessToken, {
-    refetchInterval: 60_000,
-  });
-  if (service.isPending)
-    return (
-      <p role="status" className="p-6 text-sm">
-        Loading agent traces…
-      </p>
-    );
-  if (service.isError)
-    return (
-      <div role="alert" className="p-6 text-sm">
-        Could not check trace storage. <Button onClick={() => void service.refetch()}>Retry</Button>
-      </div>
-    );
-  return (
-    <LensHostProvider
-      host={{
-        ...host,
-        traces: service.data.configured ? "service" : "spend-logs",
-      }}
-    >
-      <LiveSession {...props} />
-    </LensHostProvider>
-  );
+  return demo ? <SampleSession /> : <LiveSession {...props} />;
 }
 
 function LiveSession(props: WorkspaceProps) {
@@ -217,8 +185,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const onboarding: Onboarding = {
     readOnly,
     canViewInvestigations,
-    canInvestigate: isAdmin,
-    canMintTracingKey: isAdmin,
+    canInvestigate: !spendLogs && isAdmin,
+    canMintTracingKey: !spendLogs && isAdmin,
     connect: showSettings,
     create: showFindings,
     openTrace: showSentTrace,
