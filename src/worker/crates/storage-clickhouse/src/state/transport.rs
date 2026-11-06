@@ -39,21 +39,32 @@ pub(super) async fn command(
         .append_pair("async_insert", "0")
         .append_pair("wait_end_of_query", "1")
         .append_pair("send_progress_in_http_headers", "0")
-        .append_pair("output_format_json_quote_64bit_integers", "0")
-        .extend_pairs(parameters.iter().map(|(key, value)| {
+        .append_pair("output_format_json_quote_64bit_integers", "0");
+    let parameters = parameters
+        .iter()
+        .map(|(key, value)| {
             (
                 format!("param_{key}"),
                 Parameter::Text(value.clone()).encoded(),
             )
-        }));
-    let mut response = client
-        .post(url)
-        .timeout(Duration::from_secs(30))
-        .header("Content-Length", body.len().to_string())
-        .body(body)
-        .send()
-        .await
-        .map_err(|_| Error::Transport)?;
+        })
+        .collect::<Vec<_>>();
+    let request = client.post(url).timeout(Duration::from_secs(30));
+    let request = if body.is_empty() && !parameters.is_empty() {
+        request.multipart(
+            parameters
+                .into_iter()
+                .fold(reqwest::multipart::Form::new(), |form, (key, value)| {
+                    form.text(key, value)
+                }),
+        )
+    } else {
+        request
+            .query(&parameters)
+            .header("Content-Length", body.len().to_string())
+            .body(body)
+    };
+    let mut response = request.send().await.map_err(|_| Error::Transport)?;
     let status = response.status();
     let code = response
         .headers()

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use litellm_traces::request::{
-    CONVERSATION_PAGE_SIZE_MAX, TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX,
-    TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest, TraceListRequest,
-    TraceSpanRequest,
+    CONVERSATION_PAGE_SIZE_MAX, LOG_FILTER_MAX_LENGTH, LOG_PAGE_SIZE_MAX, LogListRequest,
+    TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest,
+    TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
 };
 use serde_json::json;
 
@@ -96,6 +96,112 @@ pub(super) fn list(
         cursor,
         agent,
     })
+}
+
+pub(super) fn logs(
+    query: Option<&str>,
+    config: TraceConfig,
+) -> Result<LogListRequest, TraceHttpError> {
+    let params = parameters(query);
+    let mut errors = Vec::new();
+    let start = number(&params, "start_ms", &mut errors);
+    let end = number(&params, "end_ms", &mut errors);
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let retention_ms = config.retention_days.max(1).saturating_mul(86_400_000);
+    let start_ms = exact(start, config)?.unwrap_or(now_ms.saturating_sub(86_400_000));
+    let end_ms = exact(end, config)?.unwrap_or(now_ms);
+    if start_ms >= end_ms || start_ms < now_ms.saturating_sub(retention_ms) || end_ms > now_ms {
+        errors.push(failure(
+            "invalid_time_range",
+            &[json!("query")],
+            "Log time range must be ordered and within configured retention",
+            json!({"start_ms":start_ms,"end_ms":end_ms}),
+            None,
+        ));
+    }
+    let service = bounded_text(&params, "service", LOG_FILTER_MAX_LENGTH, &mut errors);
+    let event = bounded_text(&params, "event", LOG_FILTER_MAX_LENGTH, &mut errors);
+    let severity = bounded_text(&params, "severity", 32, &mut errors);
+    let trace_id = bounded_text(&params, "trace_id", 64, &mut errors);
+    let conversation_id = bounded_text(
+        &params,
+        "conversation_id",
+        LOG_FILTER_MAX_LENGTH,
+        &mut errors,
+    );
+    let cursor = params.get("cursor").cloned().filter(|value| {
+        if value.len() > 128 {
+            errors.push(failure(
+                "string_too_long",
+                &[json!("query"), json!("cursor")],
+                "String should have at most 128 characters",
+                json!(value),
+                Some(json!({"max_length":128})),
+            ));
+            false
+        } else {
+            true
+        }
+    });
+    let configured_page_size = config.list_limit.min(u32::from(LOG_PAGE_SIZE_MAX)).max(1) as u16;
+    let page_size =
+        number(&params, "page_size", &mut errors).map_or(Some(configured_page_size), |value| {
+            if value.negative() || value.exact().is_none_or(|value| value == 0) {
+                errors.push(failure(
+                    "greater_than_equal",
+                    &[json!("query"), json!("page_size")],
+                    "Input should be greater than or equal to 1",
+                    json!(params["page_size"]),
+                    Some(json!({"ge":1})),
+                ));
+                None
+            } else if value
+                .exact()
+                .is_none_or(|value| value > i64::from(LOG_PAGE_SIZE_MAX))
+            {
+                errors.push(failure(
+                    "less_than_equal",
+                    &[json!("query"), json!("page_size")],
+                    format!("Input should be less than or equal to {LOG_PAGE_SIZE_MAX}"),
+                    json!(params["page_size"]),
+                    Some(json!({"le":LOG_PAGE_SIZE_MAX})),
+                ));
+                None
+            } else {
+                value.exact().map(|value| value as u16)
+            }
+        });
+    finish(errors)?;
+    Ok(LogListRequest {
+        start_ms: Some(start_ms),
+        end_ms: Some(end_ms),
+        service,
+        event,
+        severity,
+        trace_id,
+        conversation_id,
+        cursor,
+        page_size,
+    })
+}
+
+fn bounded_text(
+    params: &HashMap<String, String>,
+    key: &str,
+    max_length: usize,
+    errors: &mut Vec<ValidationError>,
+) -> Option<String> {
+    let value = params.get(key)?;
+    if value.chars().count() > max_length {
+        errors.push(failure(
+            "string_too_long",
+            &[json!("query"), json!(key)],
+            format!("String should have at most {max_length} characters"),
+            json!(value),
+            Some(json!({"max_length":max_length})),
+        ));
+    }
+    Some(value.clone())
 }
 
 pub(super) fn agents(

@@ -7,7 +7,7 @@ use litellm_storage_clickhouse::state::{Change, Snapshot};
 use rstest::rstest;
 use serde_json::{Value, json};
 use storage_support::{Database, database};
-use support::{many_lenses, plan, source};
+use support::{long_review_keys, many_lenses, plan, source};
 
 impl Database {
     pub async fn seed(&self, key: &str, value: Value) {
@@ -78,6 +78,60 @@ async fn migration_and_resume_preserve_records_across_multiple_batches(
         database.values(plan.records().keys()).await,
         *plan.records()
     );
+}
+
+#[rstest]
+#[case::fresh(false)]
+#[case::unpublished_batch(true)]
+#[tokio::test]
+async fn long_review_keys_import_and_resume_without_changing_the_snapshot(
+    #[future(awt)] database: Database,
+    long_review_keys: Value,
+    #[case] interrupted: bool,
+) {
+    let plan = plan(long_review_keys).unwrap();
+    if interrupted {
+        database
+            .seed(
+                "migration/postgres",
+                json!({"report":plan.report(),"complete":false}),
+            )
+            .await;
+        database
+            .state
+            .prepare(
+                plan.records()
+                    .iter()
+                    .take(128)
+                    .map(|(key, value)| Change {
+                        previous: Snapshot::empty(key),
+                        value: value.clone(),
+                    })
+                    .collect(),
+            )
+            .await
+            .unwrap();
+    }
+    import(&database.state, &plan, &database.keeper)
+        .await
+        .unwrap();
+    let keys = plan
+        .records()
+        .keys()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let first = database.state.heads(&keys).await.unwrap();
+    import(&database.state, &plan, &database.keeper)
+        .await
+        .unwrap();
+    assert_eq!(database.state.heads(&keys).await.unwrap(), first);
+    assert_eq!(
+        database.values(plan.records().keys()).await,
+        *plan.records()
+    );
+    let checkpoint = database.state.read("migration/postgres").await.unwrap();
+    assert_eq!(checkpoint.value["complete"], true);
+    assert_eq!(checkpoint.value["report"], json!(plan.report()));
 }
 
 #[rstest]

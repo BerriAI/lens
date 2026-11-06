@@ -337,6 +337,7 @@ async fn visible(seeded: &Seeded, path: ReadPath, trace: Trace) -> TestResult<bo
         ReadPath::RawSql(table) => {
             let condition = match table {
                 TraceTable::OtelTraces
+                | TraceTable::OtelLogs
                 | TraceTable::AgentTracesByKey
                 | TraceTable::LensTaskProfiles => {
                     format!("TraceId = '{}'", trace.id)

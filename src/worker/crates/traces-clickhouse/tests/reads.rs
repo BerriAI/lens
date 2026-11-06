@@ -868,3 +868,190 @@ async fn native_cost_correlation_survives_session_grouping_and_excludes_other_ow
     );
     Ok(())
 }
+
+#[rstest]
+#[case::matching_call("team-a", "key-a", "content-trace", "llm-span", "llm", true)]
+#[case::foreign_team("team-b", "key-a", "content-trace", "llm-span", "llm", false)]
+#[case::foreign_key("team-a", "key-b", "content-trace", "llm-span", "llm", false)]
+#[case::unlinked_same_model_time("team-a", "key-a", "", "", "llm", false)]
+#[case::different_span("team-a", "key-a", "content-trace", "other-span", "llm", false)]
+#[case::tool_span("team-a", "key-a", "content-trace", "llm-span", "tool", false)]
+#[case::root_agent("team-a", "key-a", "content-trace", "child-span", "agent", true)]
+#[tokio::test]
+async fn spend_content_requires_the_authorized_trace_and_call(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] spend_team: &str,
+    #[case] spend_key: &str,
+    #[case] spend_trace: &str,
+    #[case] spend_span: &str,
+    #[case] kind: &str,
+    #[case] expected: bool,
+) -> TestResult {
+    use litellm_traces_cache::TraceStore;
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let now = 1_790_000_000_000_i64;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![serde_json::from_value(json!({
+            "Timestamp":now * 1_000_000,"TraceId":"content-trace","SpanId":"llm-span",
+            "ParentSpanId":if kind == "agent" { "" } else { "root" },"SpanName":"recorded call",
+            "ObservationType":kind,"TeamId":"team-a","ApiKeyHash":"key-a","UserId":"user-a",
+            "Model":"example-model","Input":"","Output":""
+        }))?],
+    )
+    .await?;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::SpendLogs,
+        vec![
+            serde_json::from_value(json!({
+                "request_id":"earlier","trace_id":spend_trace,"span_id":spend_span,
+                "team_id":spend_team,"api_key":spend_key,"user":"user-a","model":"example-model",
+                "start_time":now,"end_time":now + 10,
+                "messages":"earlier input","response":"earlier output"
+            }))?,
+            serde_json::from_value(json!({
+                "request_id":"later","trace_id":spend_trace,"span_id":spend_span,
+                "team_id":spend_team,"api_key":spend_key,"user":"user-a","model":"example-model",
+                "start_time":now + 20,"end_time":now + 30,
+                "messages":"later input","response":"later output"
+            }))?,
+        ],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(
+        client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    );
+    let detail = store
+        .span_detail(&litellm_traces::query::named::SpanDetailParams {
+            access: ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec!["team-a".into()],
+            },
+            trace_id: "content-trace".into(),
+            trace_ref: String::new(),
+            span_id: "llm-span".into(),
+        })
+        .await?
+        .ok_or("missing visible span")?;
+    assert_eq!(detail.input, if expected { "later input" } else { "" });
+    assert_eq!(detail.output, if expected { "later output" } else { "" });
+    Ok(())
+}
+
+#[rstest]
+#[case::matching_identity("team-a", "key-a", "user-a", false, true)]
+#[case::foreign_team("team-b", "key-a", "user-a", false, false)]
+#[case::foreign_key("team-a", "key-b", "user-a", false, false)]
+#[case::user_only_matching("team-a", "key-a", "user-a", true, true)]
+#[case::user_only_foreign_user("team-a", "key-a", "user-b", true, false)]
+#[tokio::test]
+async fn spend_input_preview_preserves_trace_ownership(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] spend_team: &str,
+    #[case] spend_key: &str,
+    #[case] spend_user: &str,
+    #[case] user_only: bool,
+    #[case] expected: bool,
+) -> TestResult {
+    use litellm_traces::query::named::{TracePageSpansParams, TraceSpansParams};
+    use litellm_traces_cache::TraceStore;
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let now = 1_790_000_000_000_i64;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![serde_json::from_value(json!({
+            "Timestamp":now * 1_000_000,"TraceId":"preview-trace","SpanId":"root",
+            "ParentSpanId":"","SpanName":"run","ObservationType":"agent",
+            "TeamId":"team-a","ApiKeyHash":"key-a","UserId":"user-a","Input":"","Output":""
+        }))?],
+    )
+    .await?;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::SpendLogs,
+        vec![serde_json::from_value(json!({
+            "request_id":"preview-call","trace_id":"preview-trace","team_id":spend_team,
+            "api_key":spend_key,"user":spend_user,"start_time":now,"end_time":now + 10,
+            "messages":"[{\"role\":\"user\",\"content\":\"a scoped prompt\"}]"
+        }))?],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(
+        client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    );
+    let access = ReadAccessParams {
+        all_teams: false,
+        user_id: if user_only {
+            "user-a".into()
+        } else {
+            String::new()
+        },
+        team_ids: if user_only {
+            Vec::new()
+        } else {
+            vec!["team-a".into()]
+        },
+    };
+    let rows = store
+        .list_runs(&litellm_traces::query::named::ListTracesParams {
+            access: access.clone(),
+            agent: String::new(),
+            start_ms: now - 1000,
+            end_ms: now + 1000,
+            cursor_ms: 0,
+            cursor_trace_id: String::new(),
+            limit: 10,
+        })
+        .await?;
+    assert_eq!(rows.len(), 1);
+    let expected_preview = if expected { "a scoped prompt" } else { "" };
+    assert_eq!(rows[0].input_preview, expected_preview, "list preview");
+    let spans = store
+        .trace_spans(
+            &TraceSpansParams {
+                access: access.clone(),
+                trace_id: "preview-trace".into(),
+                trace_ref: rows[0].trace_ref.clone(),
+            },
+            u64::MAX,
+        )
+        .await?;
+    assert_eq!(spans.len(), 1);
+    assert_eq!(spans[0].input_preview, expected_preview, "trace preview");
+    let page_spans = store
+        .run_spans(
+            &TracePageSpansParams {
+                access,
+                trace_refs: vec![rows[0].trace_ref.clone()],
+                trace_ids: vec!["preview-trace".into()],
+                start_ms: now - 1000,
+                end_ms: now + 1000,
+            },
+            u64::MAX,
+        )
+        .await?;
+    assert_eq!(page_spans.len(), 1);
+    assert_eq!(
+        page_spans[0].input_preview, expected_preview,
+        "page preview"
+    );
+    Ok(())
+}

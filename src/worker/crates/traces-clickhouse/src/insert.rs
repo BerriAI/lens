@@ -32,6 +32,7 @@ pub type InsertRow = BTreeMap<String, Shared<Value>>;
 
 pub enum InsertTable {
     OtelTraces,
+    OtelLogs,
     SpendLogs,
     LensFeedback,
 }
@@ -40,6 +41,7 @@ impl InsertTable {
     pub fn parse(value: &str) -> Result<Self, Error> {
         match value {
             "otel_traces" => Ok(Self::OtelTraces),
+            "otel_logs" => Ok(Self::OtelLogs),
             "spend_logs" => Ok(Self::SpendLogs),
             "lens_feedback" => Ok(Self::LensFeedback),
             _ => Err(Error::InvalidTable),
@@ -49,6 +51,7 @@ impl InsertTable {
     fn name(&self) -> &'static str {
         match self {
             Self::OtelTraces => "otel_traces",
+            Self::OtelLogs => "otel_logs",
             Self::SpendLogs => "spend_logs",
             Self::LensFeedback => "lens_feedback",
         }
@@ -84,7 +87,7 @@ pub async fn insert_shared_rows(
             received_ms,
             limit,
         )?),
-        InsertTable::OtelTraces | InsertTable::LensFeedback => None,
+        InsertTable::OtelTraces | InsertTable::OtelLogs | InsertTable::LensFeedback => None,
     };
     litellm_storage_clickhouse::insert_compressed_rows(
         client,
@@ -264,7 +267,7 @@ impl Serialize for EncodedRow<'_> {
 
 fn insert_value<'a>(name: &str, value: &'a Value) -> Result<Cow<'a, Value>, Error> {
     let multiplier = match name {
-        "Timestamp" => 1,
+        "Timestamp" | "RawTimestamp" | "ObservedTimestamp" => 1,
         "start_time" | "end_time" | "completion_start_time" => 1_000_000,
         _ => return Ok(Cow::Borrowed(value)),
     };
@@ -368,5 +371,15 @@ mod tests {
             super::prepare_insert(&rows, 1, 21),
             Err(Error::InsertTooLarge)
         ));
+    }
+
+    #[rstest]
+    fn raw_log_timestamp_uses_datetime64_serialization() {
+        assert_eq!(
+            super::insert_value("RawTimestamp", &json!(1_234_567_890))
+                .unwrap()
+                .as_ref(),
+            &json!("1970-01-01T00:00:01.23456789Z")
+        );
     }
 }

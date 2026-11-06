@@ -49,8 +49,8 @@ RUN cargo test --locked --release -p litellm-lens --test sandbox --no-run --mess
     chmod 755 /tmp/lens-sandbox-tests
 
 FROM $LENS_RUNTIME_IMAGE AS service
-ARG LENS_VERSION=0.1.0-dev.0
-RUN apk add --no-cache python-3.13 setpriv libgcc libstdc++ openssl ca-certificates curl
+ARG LENS_VERSION=0.1.0-dev.1
+RUN apk add --no-cache --upgrade python-3.13 setpriv libgcc libstdc++ openssl ca-certificates ca-certificates-bundle curl libatomic
 ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui \
     LENS_PROFILE_MODEL_CACHE=/app/profile-model
 WORKDIR /app

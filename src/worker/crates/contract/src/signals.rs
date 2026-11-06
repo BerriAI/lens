@@ -138,6 +138,15 @@ pub struct SignalData {
     pub model: String,
     #[serde(default)]
     pub error: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<SignalFailure>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SignalFailure {
+    Permanent,
+    Transient { retry_after_seconds: Option<u64> },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
@@ -158,6 +167,8 @@ pub struct SignalAttempt {
     pub model: String,
     #[serde(default)]
     pub error: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<SignalFailure>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]

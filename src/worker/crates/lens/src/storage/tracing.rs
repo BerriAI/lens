@@ -3,7 +3,8 @@ use std::sync::Arc;
 use chrono::DateTime;
 use lens_server::tracing::{TraceAgent, TraceReadError, TraceReader};
 use litellm_traces::{
-    QueryScope, SpanDetail, SpanErrorPage, Trace, TraceConversationPage, TracePage,
+    LogListRequest, OtelLogPage, OtelLogRecord, QueryScope, SpanDetail, SpanErrorPage, Trace,
+    TraceConversationPage, TracePage,
     query::named::ReadAccessParams,
     request::{
         CONVERSATION_PAGE_SIZE_DEFAULT, TraceConversationRequest, TraceDetailRequest,
@@ -66,6 +67,42 @@ impl TraceReader for TraceApi {
             )
             .await
             .map_err(read_error)
+    }
+
+    async fn logs(
+        &self,
+        scope: QueryScope,
+        request: LogListRequest,
+    ) -> Result<OtelLogPage, TraceReadError> {
+        let _permit = self.permit().await?;
+        let storage = &self.0.storage;
+        let _query = storage.query_readers.acquire().map_err(store_error)?;
+        let connection = storage
+            .query_readers
+            .connection(&storage.client, &scope, &storage.query_secret)
+            .await
+            .map_err(store_error)?;
+        litellm_traces_clickhouse::list_logs(&storage.client, &connection, request)
+            .await
+            .map_err(store_error)
+    }
+
+    async fn log(
+        &self,
+        scope: QueryScope,
+        record_id: String,
+    ) -> Result<Option<OtelLogRecord>, TraceReadError> {
+        let _permit = self.permit().await?;
+        let storage = &self.0.storage;
+        let _query = storage.query_readers.acquire().map_err(store_error)?;
+        let connection = storage
+            .query_readers
+            .connection(&storage.client, &scope, &storage.query_secret)
+            .await
+            .map_err(store_error)?;
+        litellm_traces_clickhouse::get_log(&storage.client, &connection, record_id)
+            .await
+            .map_err(store_error)
     }
 
     async fn agents(

@@ -39,7 +39,7 @@ jobs:
       - name: Check trace schema drift
         working-directory: src/worker
         run: |
-          cargo run --locked --quiet -p litellm-traces --features schema --bin export-traces-schema -- --conversation > "$RUNNER_TEMP/lens-traces.json"
+          cargo run --locked --quiet -p litellm-traces --features schema --bin export-traces-schema -- --ui > "$RUNNER_TEMP/lens-traces.json"
           diff -u ../../schema/lens-traces.json "$RUNNER_TEMP/lens-traces.json"
       - name: Start shared ClickHouse state fixture
         run: |

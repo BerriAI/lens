@@ -52,6 +52,11 @@ pub fn candidate(
     }
     status == Some("failed")
         && existing
+            .data
+            .pointer("/failure/kind")
+            .and_then(serde_json::Value::as_str)
+            != Some("permanent")
+        && existing
             .classified_at
             .is_some_and(|time| time < now - TimeDelta::minutes(30))
 }
@@ -81,6 +86,11 @@ pub fn claimable(
             .classified_at
             .is_some_and(|time| time < now - TimeDelta::minutes(5));
     let retry = status == Some("failed")
+        && existing
+            .data
+            .pointer("/failure/kind")
+            .and_then(serde_json::Value::as_str)
+            != Some("permanent")
         && existing
             .classified_at
             .is_some_and(|time| time < now - TimeDelta::minutes(30));

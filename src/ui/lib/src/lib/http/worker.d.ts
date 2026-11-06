@@ -5,13 +5,7 @@
  * via the `definition` "InvestigatorState".
  */
 export type InvestigatorState =
-  | "starting"
-  | "running"
-  | "scheduled"
-  | "stalled"
-  | "failed"
-  | "daily_limit"
-  | "unavailable";
+  "starting" | "running" | "scheduled" | "stalled" | "failed" | "daily_limit" | "unavailable";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".

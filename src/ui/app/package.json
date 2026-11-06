@@ -1,6 +1,6 @@
 {
   "name": "@litellm/lens-web",
-  "version": "0.1.0-dev.0",
+  "version": "0.1.0-dev.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,14 +10,14 @@
   },
   "dependencies": {
     "@litellm/lens-ui": "0.1.0-dev.1",
+    "@tanstack/react-query": "5.100.7",
+    "next": "^16.4.5",
+    "next-themes": "0.4.6",
+    "nuqs": "2.9.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "next": "16.3.8",
-    "@tanstack/react-query": "5.100.7",
-    "nuqs": "2.9.4",
-    "next-themes": "0.4.6",
-    "sonner": "2.0.8",
     "react-hotkeys-hook": "5.3.3",
-    "zod": "4.6.5"
+    "sonner": "2.0.8",
+    "zod": "^4.6.7"
   }
 }

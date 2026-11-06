@@ -4,7 +4,7 @@ use lens_contract::{
     signals::{SignalAttemptStatus, SignalConfig, SignalEvidence},
     worker::Execution,
 };
-use lens_signals::{Question, classify, signal_state};
+use lens_signals::{DecisionRequest, Decisions, DecisionsError, Question, classify, signal_state};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, time::Duration};
@@ -69,9 +69,13 @@ async fn classifier_sends_recorded_steps_questions_and_logging_tags(
 
 #[rstest]
 #[case::small(1)]
+#[case::last_direct_choice(251)]
+#[case::first_grouped_choice(252)]
 #[case::beyond_previous_limits(400)]
+#[case::reported_large(9050)]
+#[case::reported_extreme(120940)]
 #[tokio::test]
-async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_call(
+async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote(
     reader: Reader,
     completion: Completion,
     config: SignalConfig,
@@ -112,13 +116,9 @@ async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_
         ]),
         ..reader
     };
-    let completion = Completion {
-        response: json!({"answers":{
-            "a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2},
-            "__evidence_0":{"type":"choice","choice":choice,"confidence":0.9},
-            "__evidence_1":{"type":"choice","choice":"none","confidence":0.8}
-        }}),
-        ..completion
+    let completion = EvidenceCompletion {
+        target: preceding_steps + 2,
+        calls: completion.calls,
     };
     let result = classify(&reader, &completion, &scope, &execution, &config).await;
     assert_eq!(result.status, SignalAttemptStatus::Classified);
@@ -133,7 +133,16 @@ async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_
         )])
     );
     let calls = completion.calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
+    let mut expected_calls = 1;
+    let mut remaining = preceding_steps + 3;
+    while remaining > 254 {
+        let width = remaining.div_ceil(254);
+        remaining = (remaining - 1) % width + 1;
+        if remaining > 1 {
+            expected_calls += 1;
+        }
+    }
+    assert_eq!(calls.len(), expected_calls);
     assert_eq!(calls[0].state.steps.len(), preceding_steps + 3);
     assert_eq!(
         calls[0].state.steps[0].content,
@@ -146,8 +155,14 @@ async fn evidence_choice_resolves_to_the_recorded_span_and_literal_quote_in_one_
     let Question::Choice { criteria, .. } = &calls[0].questions["__evidence_0"] else {
         panic!("Expected an evidence choice");
     };
-    assert_eq!(criteria.len(), preceding_steps + 4);
-    assert!(criteria.contains_key(&choice));
+    assert!(criteria.len() <= 255);
+    let invalid = calls.iter().flat_map(|call| call.questions.values()).any(
+        |question| matches!(question, Question::Choice { criteria, .. } if criteria.len() > 255),
+    );
+    assert!(!invalid);
+    assert!(
+        matches!(&calls.last().unwrap().questions["__evidence_0"], Question::Choice { criteria, .. } if criteria.contains_key(&choice))
+    );
     assert_eq!(
         *reader.content_calls.lock().unwrap(),
         vec!["", "second", "third", "fourth"]
@@ -213,6 +228,7 @@ async fn invalid_answers_preserve_partial_valid_scores(
     )
     .await;
     assert_eq!(result.status, SignalAttemptStatus::Failed);
+    assert!(result.failure.is_none());
     assert_eq!(result.scores, BTreeMap::from([("a".into(), 0.8)]));
     assert_eq!(
         result.error,
@@ -354,4 +370,206 @@ async fn transcript_preserves_all_steps(
         format!("{:03}{}", count - 1, "雪".repeat(997))
     );
     assert_eq!(state.steps[15].content, format!("015{}", "雪".repeat(997)));
+}
+
+struct EvidenceCompletion {
+    target: usize,
+    calls: std::sync::Mutex<Vec<DecisionRequest>>,
+}
+
+impl Decisions for EvidenceCompletion {
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        self.calls.lock().unwrap().push(request.clone());
+        let answers = request
+            .questions
+            .iter()
+            .map(|(id, question)| {
+                let answer = match question {
+                    Question::Noul { .. } => json!({"type":"noul","noul":0.9}),
+                    Question::Choice { criteria, .. } => {
+                        assert!(criteria.len() <= 255);
+                        let choice = if id == "__evidence_0" {
+                            criteria
+                                .keys()
+                                .find(|key| {
+                                    let mut bounds = key.split("..").filter_map(|part| {
+                                        part.strip_prefix('L')?.parse::<usize>().ok()
+                                    });
+                                    let Some(start) = bounds.next() else {
+                                        return false;
+                                    };
+                                    let end = bounds.next().unwrap_or(start);
+                                    start <= self.target && self.target <= end
+                                })
+                                .map(String::as_str)
+                                .unwrap_or("none")
+                        } else {
+                            "none"
+                        };
+                        json!({"type":"choice","choice":choice,"confidence":0.9})
+                    }
+                };
+                (id.clone(), answer)
+            })
+            .collect::<serde_json::Map<_, _>>();
+        Ok(json!({"answers":answers}))
+    }
+}
+
+struct Refusal(u16);
+impl Decisions for Refusal {
+    async fn complete(&self, _: &DecisionRequest) -> Result<Value, DecisionsError> {
+        Err(DecisionsError::Provider {
+            status: self.0,
+            retry_after_seconds: Some(120),
+        })
+    }
+}
+
+#[rstest]
+#[case::invalid(400, true)]
+#[case::unauthorized(401, false)]
+#[case::forbidden(403, false)]
+#[case::unknown(404, false)]
+#[case::large(413, true)]
+#[case::unprocessable(422, true)]
+#[case::limited(429, false)]
+#[case::server(500, false)]
+#[case::unavailable(503, false)]
+#[tokio::test]
+async fn refusal_preserves_retry_policy(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] status: u16,
+    #[case] permanent: bool,
+) {
+    use lens_contract::signals::SignalFailure;
+    let attempt = classify(&reader, &Refusal(status), &scope, &execution, &config).await;
+    assert_eq!(
+        attempt.failure,
+        Some(if permanent {
+            SignalFailure::Permanent
+        } else {
+            SignalFailure::Transient {
+                retry_after_seconds: Some(120),
+            }
+        })
+    );
+}
+
+#[rstest]
+#[case::none("none", 0.9)]
+#[case::unoffered_leaf("L000", 0.9)]
+#[case::invalid_confidence("L000..L001", 1.1)]
+#[tokio::test]
+async fn unavailable_group_evidence_does_not_fan_out_or_discard_scores(
+    reader: Reader,
+    completion: Completion,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] choice: &str,
+    #[case] confidence: f64,
+) {
+    let reader = Reader {
+        contents: BTreeMap::from([(
+            "".into(),
+            page((0..400).map(|_| part("Recorded request")).collect(), None),
+        )]),
+        ..reader
+    };
+    let completion = Completion {
+        response: json!({"answers":{"a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2},"__evidence_0":{"type":"choice","choice":choice,"confidence":confidence}}}),
+        ..completion
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert!(result.evidence.is_empty());
+    assert_eq!(result.scores.len(), config.signals.len());
+    assert_eq!(completion.calls.lock().unwrap().len(), 1);
+}
+
+struct FollowupFailure(u16);
+impl Decisions for FollowupFailure {
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        if request.questions.contains_key("a") {
+            return Ok(json!({"answers":{
+                "a":{"type":"noul","noul":0.9}, "b":{"type":"noul","noul":0.2},
+                "__evidence_0":{"type":"choice","choice":"L000..L001","confidence":0.9},
+                "__evidence_1":{"type":"choice","choice":"L400","confidence":0.9}
+            }}));
+        }
+        match self.0 {
+            0 => Err(DecisionsError::Timeout),
+            1 => Ok(json!([])),
+            status => Err(DecisionsError::Provider {
+                status,
+                retry_after_seconds: Some(120),
+            }),
+        }
+    }
+}
+#[rstest]
+#[case::timeout(0, true)]
+#[case::malformed(1, false)]
+#[case::invalid(400, false)]
+#[case::large(413, false)]
+#[case::unprocessable(422, false)]
+#[case::rate_limited(429, true)]
+#[case::unavailable(503, true)]
+#[tokio::test]
+async fn evidence_followup_failure_keeps_completed_scores_and_evidence(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] failure: u16,
+    #[case] cooldown: bool,
+) {
+    let reader = Reader {
+        contents: BTreeMap::from([(
+            "".into(),
+            page((0..401).map(|_| part("Recorded request")).collect(), None),
+        )]),
+        ..reader
+    };
+    let result = classify(
+        &reader,
+        &FollowupFailure(failure),
+        &scope,
+        &execution,
+        &config,
+    )
+    .await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(
+        result.scores,
+        BTreeMap::from([("a".into(), 0.9), ("b".into(), 0.2)])
+    );
+    assert_eq!(result.evidence.len(), 1);
+    assert_eq!(result.evidence["b"].quote, "Recorded request");
+    assert!(result.error.is_empty());
+    assert_eq!(result.failure.is_some(), cooldown);
+    let identity = lens_contract::feedback::TraceIdentity {
+        trace_id: execution.trace_id.clone(),
+        trace_ref: execution.trace_ref.clone(),
+    };
+    let stored = lens_contract::signals::StoredTraceSignal {
+        trace_id: identity.trace_id.clone(),
+        trace_ref: identity.trace_ref.clone(),
+        config_key: lens_signals::config_key(&config),
+        span_count: execution.span_count,
+        claimed_until: None,
+        classified_at: Some(now()),
+        data: serde_json::to_value(&result).unwrap(),
+    };
+    let public = lens_signals::trace_signals(&identity, Some(&stored), &config).unwrap();
+    assert_eq!(
+        public.status,
+        lens_contract::signals::TraceSignalStatus::Classified
+    );
+    assert_eq!(public.flags.len(), 1);
+    assert_eq!(public.flags[0].score, 0.9);
 }

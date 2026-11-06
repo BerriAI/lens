@@ -578,6 +578,12 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let response = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -586,6 +592,7 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()
@@ -677,6 +684,12 @@ async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Dat
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let response = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -685,6 +698,7 @@ async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Dat
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()
@@ -698,10 +712,7 @@ async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Dat
             .unwrap();
             let publication = request.url.query_pairs().any(|(name, query)| {
                 name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            }) && String::from_utf8_lossy(&request.body).contains("lens/");
             let template = ResponseTemplate::new(response.0).set_body_string(response.1);
             if publication && count.fetch_add(1, Ordering::SeqCst) == 0 {
                 return template.set_delay(Duration::from_secs(15));
@@ -773,10 +784,7 @@ async fn delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence
         .respond_with(move |request: &Request| {
             let publication = request.url.query_pairs().any(|(name, query)| {
                 name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("review/"));
+            }) && String::from_utf8_lossy(&request.body).contains("review/");
             if publication {
                 signal.notify_one();
                 wait.lock()
@@ -789,6 +797,12 @@ async fn delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let response = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -797,6 +811,7 @@ async fn delayed_publication_is_fenced_by_takeover_and_can_finish_before_a_fence
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()
@@ -965,6 +980,12 @@ async fn unconfirmed_progress_replays_only_without_a_review(
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let response = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -973,6 +994,7 @@ async fn unconfirmed_progress_replays_only_without_a_review(
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()
@@ -986,10 +1008,7 @@ async fn unconfirmed_progress_replays_only_without_a_review(
             .unwrap();
             let publication = request.url.query_pairs().any(|(name, query)| {
                 name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("lens/"));
+            }) && String::from_utf8_lossy(&request.body).contains("lens/");
             let template = ResponseTemplate::new(response.0).set_body_string(response.1);
             if publication && (count.fetch_add(1, Ordering::SeqCst) == 0 || always_slow) {
                 return template.set_delay(Duration::from_secs(15));

@@ -22,6 +22,7 @@ serde_json.workspace = true
 serde_with.workspace = true
 sha2.workspace = true
 rand.workspace = true
+reqwest.workspace = true
 sqlx = { workspace = true, features = ["migrate"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

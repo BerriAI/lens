@@ -274,3 +274,33 @@ fn malformed_stored_data_fails_projection(
     };
     assert!(trace_signals(&identity, Some(&row), &config).is_err());
 }
+
+#[rstest]
+#[case::unchanged(false, false, false)]
+#[case::changed_content(true, false, true)]
+#[case::changed_config(false, true, true)]
+fn permanent_refusals_require_changed_input(
+    now: DateTime<Utc>,
+    config: SignalConfig,
+    execution: Execution,
+    #[case] grew: bool,
+    #[case] changed_config: bool,
+    #[case] expected: bool,
+) {
+    let key = config_key(&config);
+    let row = StoredTraceSignal {
+        trace_id: execution.trace_id.clone(),
+        trace_ref: execution.trace_ref.clone(),
+        config_key: if changed_config {
+            "old".into()
+        } else {
+            key.clone()
+        },
+        span_count: if grew { 1 } else { execution.span_count },
+        claimed_until: None,
+        classified_at: Some(now - TimeDelta::hours(1)),
+        data: json!({"status":"failed","failure":{"kind":"permanent"}}),
+    };
+    assert_eq!(candidate(&execution, Some(&row), &key, now), expected);
+    assert_eq!(claimable(&execution, Some(&row), &key, now), expected);
+}

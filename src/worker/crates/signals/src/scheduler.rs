@@ -5,12 +5,13 @@ use futures_util::{StreamExt, stream};
 use lens_contract::{
     feedback::TraceIdentity,
     investigations::Scope,
-    signals::{SignalAttemptStatus, SignalConfig},
+    signals::{SignalAttemptStatus, SignalConfig, SignalFailure},
     worker::Execution,
 };
 
 use crate::{
-    Decisions, Error, SignalReader, SignalRepository, candidate, classify, config_key, enabled,
+    Decisions, Error, RepositoryError, SignalReader, SignalRepository, candidate, classify,
+    config_key, enabled,
 };
 
 pub const MAX_PER_TICK: usize = 50;
@@ -131,6 +132,7 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
         team_id: String::new(),
         api_key_hash: String::new(),
     };
+    let starting_cursor = cursor.to_owned();
     let (executions, cursor) = Scan {
         reader,
         repository,
@@ -141,7 +143,14 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
     }
     .run(cursor.into())
     .await?;
-    let claimed = stream::iter(executions)
+    let mut claimed = 0;
+    let mut executions = executions.into_iter();
+    loop {
+        let batch = executions.by_ref().take(8).collect::<Vec<_>>();
+        if batch.is_empty() {
+            break;
+        }
+        let results = stream::iter(batch)
         .map(|execution| {
             let config = &config;
             let scope = &scope;
@@ -150,10 +159,11 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
                 let lease = now + TimeDelta::minutes(5);
                 match repository.claim(&execution, config, lease, now).await {
                     Ok(true) => (),
-                    Ok(false) => return 0,
+                    Ok(false) => return (0, false),
+                    Err(RepositoryError::Cooldown) => return (0, true),
                     Err(error) => {
                         tracing::error!(%error, "Lens signal claim failed");
-                        return 0;
+                        return (0, true);
                     }
                 }
                 let attempt = classify(reader, completion, scope, &execution, config).await;
@@ -165,12 +175,21 @@ pub async fn run_signal_tick<S: SignalReader, R: SignalRepository, D: Decisions>
                     .await
                 {
                     tracing::error!(%error, "Lens signal result could not be stored");
+                    return (1, true);
                 }
-                1
+                (1, attempt.status == SignalAttemptStatus::Failed || matches!(attempt.failure, Some(SignalFailure::Transient { .. })))
             }
         })
         .buffer_unordered(8)
-        .fold(0, |count, claimed| async move { count + claimed })
+        .collect::<Vec<_>>()
         .await;
+        claimed += results.iter().map(|(count, _)| count).sum::<usize>();
+        if results.iter().any(|(_, failed)| *failed) {
+            return Ok(SignalTick {
+                cursor: starting_cursor,
+                claimed,
+            });
+        }
+    }
     Ok(SignalTick { cursor, claimed })
 }

@@ -2,9 +2,20 @@
 
 import { useLensHost } from "../../../../../host/LensHost";
 
-import { QueryErrorResetBoundary, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
+import {
+  QueryErrorResetBoundary,
+  useQueryClient,
+  useSuspenseInfiniteQuery,
+} from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ErrorBoundary } from "react-error-boundary";
 
 import { LoadingState } from "../../../../shared/LoadingState";
@@ -13,16 +24,26 @@ import { Tabs } from "../../../../ui/tabs";
 import { cn } from "../../../../../lib/cva.config";
 
 import { useTracesApi } from "../../api";
-import { classifyTraceReadFailure, traceReadRetry, traceReadRetryDelay } from "../../list/traceReadFailure";
+import {
+  classifyTraceReadFailure,
+  traceReadRetry,
+  traceReadRetryDelay,
+} from "../../list/traceReadFailure";
 import { type RunSelection, traceKey } from "../../routing";
 import type { Trace } from "../../types";
 import { PagingBanner } from "./PagingBanner";
 import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
-import { flaggedSignals, useTraceSignalState } from "../../list/useTraceSignals";
+import {
+  flaggedSignals,
+  useTraceSignalState,
+} from "../../list/useTraceSignals";
 import { SignalEvidence } from "../../ui/SignalEvidence";
-import { EarlierConversationNotice, useEarlierConversation } from "../conversation/EarlierConversation";
+import {
+  EarlierConversationNotice,
+  useEarlierConversation,
+} from "../conversation/EarlierConversation";
 
 interface RunViewProps {
   traceId: string;
@@ -33,17 +54,33 @@ interface RunViewProps {
   /** Rendered inside the side drawer: the drawer owns closing and sizing. */
   embedded?: boolean;
   showSignals?: boolean;
+  logRange?: { startMs: number; endMs: number };
 }
 
 function selectedSpanMissing(trace: Trace, spanId: string | null): boolean {
-  return Boolean(spanId && !trace.spans.some((span) => span.span_id === spanId));
+  return Boolean(
+    spanId && !trace.spans.some((span) => span.span_id === spanId),
+  );
 }
 
 function RunLoading() {
-  return <LoadingState title="Loading trace…" description="Fetching this run and its steps." />;
+  return (
+    <LoadingState
+      title="Loading trace…"
+      description="Fetching this run and its steps."
+    />
+  );
 }
 
-function RunLoadError({ error, onBack, onRetry }: { error: unknown; onBack: () => void; onRetry: () => void }) {
+function RunLoadError({
+  error,
+  onBack,
+  onRetry,
+}: {
+  error: unknown;
+  onBack: () => void;
+  onRetry: () => void;
+}) {
   return (
     <div className="p-6 text-xs" data-testid="run-view-error">
       <button
@@ -54,7 +91,9 @@ function RunLoadError({ error, onBack, onRetry }: { error: unknown; onBack: () =
         <ArrowLeft className="size-3.5" /> Back to traces
       </button>
       <h1 className="mb-2 text-sm font-medium">Could not load trace</h1>
-      <span className="text-muted-foreground">{error instanceof Error ? error.message : "Unknown error"}</span>
+      <span className="text-muted-foreground">
+        {error instanceof Error ? error.message : "Unknown error"}
+      </span>
       <Button variant="outline" size="sm" className="ml-3" onClick={onRetry}>
         Retry
       </Button>
@@ -75,11 +114,21 @@ export function RunView(props: RunViewProps) {
           onReset={reset}
           resetKeys={[shownKey]}
           fallbackRender={({ error, resetErrorBoundary }) => (
-            <RunLoadError error={error} onBack={props.onBack} onRetry={resetErrorBoundary} />
+            <RunLoadError
+              error={error}
+              onBack={props.onBack}
+              onRetry={resetErrorBoundary}
+            />
           )}
         >
           <Suspense fallback={<RunLoading />}>
-            <LoadedRun key={shownKey} {...props} traceId={traceId} traceRef={traceRef} switching={switching} />
+            <LoadedRun
+              key={shownKey}
+              {...props}
+              traceId={traceId}
+              traceRef={traceRef}
+              switching={switching}
+            />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -95,6 +144,7 @@ function LoadedRun({
   onBack,
   embedded = false,
   showSignals = false,
+  logRange,
   switching,
 }: RunViewProps & { switching: boolean }) {
   const traces = useTracesApi(accessToken);
@@ -104,7 +154,8 @@ function LoadedRun({
   const queryKey = ["agentTrace", traceId, traceRef, accessToken];
   const traceQueryOptions = {
     queryKey,
-    queryFn: ({ pageParam }: { pageParam: string | null }) => traces.trace(traceId, traceRef, pageParam),
+    queryFn: ({ pageParam }: { pageParam: string | null }) =>
+      traces.trace(traceId, traceRef, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage: Trace) => lastPage.next_cursor ?? undefined,
     staleTime: 30_000,
@@ -116,8 +167,14 @@ function LoadedRun({
     retryDelay: traceReadRetryDelay,
   };
   const traceQuery = useSuspenseInfiniteQuery(traceQueryOptions);
-  const signalState = useTraceSignalState(accessToken, { trace_id: traceId, trace_ref: traceRef }, showSignals);
-  const signals = flaggedSignals(signalState?.status === "ready" ? signalState.signals : undefined);
+  const signalState = useTraceSignalState(
+    accessToken,
+    { trace_id: traceId, trace_ref: traceRef },
+    showSignals,
+  );
+  const signals = flaggedSignals(
+    signalState?.status === "ready" ? signalState.signals : undefined,
+  );
   const defaultSignalPending = useRef(true);
   useEffect(() => {
     if (switching || !showSignals || !defaultSignalPending.current) return;
@@ -142,14 +199,20 @@ function LoadedRun({
       defaultSignalPending.current = false;
     };
     document.addEventListener("keydown", cancelDefaultSignal, true);
-    return () => document.removeEventListener("keydown", cancelDefaultSignal, true);
+    return () =>
+      document.removeEventListener("keydown", cancelDefaultSignal, true);
   }, [selection, showSignals, signals, switching]);
-  const selectedSignal = signals.find((signal) => signal.signal_id === selection.signalId);
+  const selectedSignal = signals.find(
+    (signal) => signal.signal_id === selection.signalId,
+  );
   const focusedSelection = selection.signalId
     ? { ...selection, spanId: selectedSignal?.evidence?.span_id ?? null }
     : selection;
-  const refreshTrace = () => queryClient.resetQueries({ queryKey, exact: true });
-  const failure = traceQuery.isFetchNextPageError ? classifyTraceReadFailure(traceQuery.error) : null;
+  const refreshTrace = () =>
+    queryClient.resetQueries({ queryKey, exact: true });
+  const failure = traceQuery.isFetchNextPageError
+    ? classifyTraceReadFailure(traceQuery.error)
+    : null;
   const readManually = (read: () => Promise<unknown>) => {
     if (manualRead) return;
     setManualRead(true);
@@ -185,13 +248,16 @@ function LoadedRun({
     };
   }, [traceQuery.data]);
   const earlierConversation = useEarlierConversation(trace, accessToken);
-  const seekingSpan = !switching && selectedSpanMissing(trace, focusedSelection.spanId);
-  const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } = traceQuery;
+  const seekingSpan =
+    !switching && selectedSpanMissing(trace, focusedSelection.spanId);
+  const { hasNextPage, isFetching, isFetchNextPageError, fetchNextPage } =
+    traceQuery;
   const canSeek = seekingSpan && hasNextPage;
   useEffect(() => {
     if (canSeek && !isFetching && !isFetchNextPageError) void fetchNextPage();
   }, [canSeek, isFetching, isFetchNextPageError, fetchNextPage]);
-  const evidenceMissing = selection.signalId && (!selectedSignal?.evidence || seekingSpan);
+  const evidenceMissing =
+    selection.signalId && (!selectedSignal?.evidence || seekingSpan);
   const evidenceMessage =
     signalState?.status === "pending" || (canSeek && !isFetchNextPageError)
       ? "Loading signal evidence…"
@@ -214,11 +280,14 @@ function LoadedRun({
       onPointerDownCapture={() => {
         defaultSignalPending.current = false;
       }}
-      onValueChange={(value) => selection.setView(value as RunSelection["view"])}
+      onValueChange={(value) =>
+        selection.setView(value as RunSelection["view"])
+      }
       className={cn(
         "@container/trace flex flex-1 flex-col gap-0 overflow-hidden bg-background",
         embedded ? "min-h-0" : "min-h-[560px] border-y border-border",
-        switching && "opacity-60 transition-opacity delay-150 duration-150 motion-reduce:transition-none",
+        switching &&
+          "opacity-60 transition-opacity delay-150 duration-150 motion-reduce:transition-none",
       )}
       aria-busy={switching}
       inert={switching}
@@ -226,7 +295,11 @@ function LoadedRun({
     >
       <RunHeader
         trace={trace}
-        handoff={traces.handoff(trace.summary.trace_id, null, trace.summary.trace_ref)}
+        handoff={traces.handoff(
+          trace.summary.trace_id,
+          null,
+          trace.summary.trace_ref,
+        )}
         onBack={onBack}
         embedded={embedded}
         refreshing={manualRead || traceQuery.isFetching}
@@ -246,12 +319,23 @@ function LoadedRun({
         />
       )}
       {selection.view === "steps" && (
-        <EarlierConversationNotice history={earlierConversation} onOpen={() => selection.setView("thread")} />
+        <EarlierConversationNotice
+          history={earlierConversation}
+          onOpen={() => selection.setView("thread")}
+        />
       )}
       {traceQuery.isRefetchError && (
-        <div role="alert" className="flex items-center gap-3 border-b p-3 text-xs text-muted-foreground">
+        <div
+          role="alert"
+          className="flex items-center gap-3 border-b p-3 text-xs text-muted-foreground"
+        >
           Could not refresh this run. Previously received steps are still shown.
-          <Button variant="outline" size="sm" disabled={manualRead || traceQuery.isFetching} onClick={refreshRun}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={manualRead || traceQuery.isFetching}
+            onClick={refreshRun}
+          >
             Retry refresh
           </Button>
         </div>
@@ -271,6 +355,8 @@ function LoadedRun({
         trace={trace}
         accessToken={accessToken}
         selection={focusedSelection}
+        logRange={logRange}
+        live={live}
         signal={!seekingSpan ? selectedSignal : undefined}
         embedded={embedded}
         stale={switching}

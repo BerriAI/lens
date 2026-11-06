@@ -27,3 +27,5 @@ coverage-rust.xml
 **/test-results/
 **/playwright-report/
 **/*.storageState.json
+payloads/
+*-values.yaml

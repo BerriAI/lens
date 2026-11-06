@@ -100,15 +100,16 @@ pub async fn execute_read_with_limits(
         })
         .map(|(key, value)| (key.into_owned(), value.into_owned()))
         .collect();
-    url.query_pairs_mut()
-        .clear()
-        .extend_pairs(existing_pairs)
-        .append_pair("readonly", "1")
-        .append_pair("max_result_rows", &limits.result_rows.to_string())
-        .append_pair("result_overflow_mode", "throw")
-        .append_pair("max_execution_time", &limits.execution_seconds.to_string())
-        .append_pair("wait_end_of_query", "1")
-        .append_pair("default_format", "JSON");
+    url.query_pairs_mut().clear().extend_pairs(existing_pairs);
+    if !connection.restricted_reader {
+        url.query_pairs_mut()
+            .append_pair("readonly", "1")
+            .append_pair("max_result_rows", &limits.result_rows.to_string())
+            .append_pair("result_overflow_mode", "throw")
+            .append_pair("max_execution_time", &limits.execution_seconds.to_string())
+            .append_pair("wait_end_of_query", "1")
+            .append_pair("default_format", "JSON");
+    }
 
     url.query_pairs_mut().extend_pairs(
         parameters
