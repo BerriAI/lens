@@ -19,7 +19,10 @@ pub struct SourceError(#[source] pub Box<dyn std::error::Error + Send + Sync>);
 #[derive(Debug, thiserror::Error)]
 pub enum DecisionsError {
     #[error("Lens signal provider returned HTTP {status}")]
-    Provider { status: u16 },
+    Provider {
+        status: u16,
+        retry_after_seconds: Option<u64>,
+    },
     #[error("Lens signal model request timed out")]
     Timeout,
     #[error("Lens signal provider response exceeds the configured limit")]
@@ -30,6 +33,8 @@ pub enum DecisionsError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
+    #[error("Lens signal provider cooldown is active")]
+    Cooldown,
     #[error("Lens signal storage is unavailable")]
     Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

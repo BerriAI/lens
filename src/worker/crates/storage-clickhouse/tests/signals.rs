@@ -639,3 +639,194 @@ async fn configuration_and_results_survive_abrupt_restart(
         value(before)
     );
 }
+
+#[rstest]
+#[case::ordinary(None, 60)]
+#[case::retry_after(Some(600), 600)]
+#[tokio::test]
+async fn provider_cooldown_is_shared_and_survives_worker_recreation(
+    #[future(awt)] database: Database,
+    config: SignalConfig,
+    execution: Execution,
+    now: DateTime<Utc>,
+    #[case] retry_after: Option<u64>,
+    #[case] delay: i64,
+) {
+    let repository = database.repository();
+    let lease = now + Duration::minutes(5);
+    assert!(
+        repository
+            .claim(&execution, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    let failed: SignalAttempt = serde_json::from_value(json!({"status":"failed", "model":config.model,"failure":{"kind":"transient","retry_after_seconds":retry_after}})).unwrap();
+    repository
+        .store(&execution, &config, lease, now, &failed)
+        .await
+        .unwrap();
+    let other = Execution {
+        trace_id: "backlog".into(),
+        ..execution.clone()
+    };
+    let independent = database.repository();
+    assert!(matches!(
+        independent
+            .claim(&other, &config, lease, now + Duration::seconds(delay - 1))
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
+    let later = now + Duration::seconds(delay);
+    assert!(
+        independent
+            .claim(&other, &config, later + Duration::minutes(5), later)
+            .await
+            .unwrap()
+    );
+    independent
+        .store(
+            &other,
+            &config,
+            later + Duration::minutes(5),
+            later,
+            &failed,
+        )
+        .await
+        .unwrap();
+    let third = Execution {
+        trace_id: "remaining-backlog".into(),
+        ..execution
+    };
+    let recovery = later + Duration::seconds(delay.max(120));
+    assert!(matches!(
+        repository
+            .claim(
+                &third,
+                &config,
+                recovery + Duration::minutes(5),
+                recovery - Duration::seconds(1)
+            )
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
+    assert!(
+        repository
+            .claim(&third, &config, recovery + Duration::minutes(5), recovery)
+            .await
+            .unwrap()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn concurrent_failures_share_one_backoff_window_and_success_does_not_clear_it(
+    #[future(awt)] database: Database,
+    config: SignalConfig,
+    execution: Execution,
+    now: DateTime<Utc>,
+) {
+    let repository = database.repository();
+    let lease = now + Duration::minutes(5);
+    let second = Execution {
+        trace_id: "second".into(),
+        ..execution.clone()
+    };
+    let successful = Execution {
+        trace_id: "successful".into(),
+        ..execution.clone()
+    };
+    assert!(
+        repository
+            .claim(&execution, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    assert!(
+        repository
+            .claim(&second, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    assert!(
+        repository
+            .claim(&successful, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    let failed: SignalAttempt = serde_json::from_value(json!({"status":"failed","model":config.model,"failure":{"kind":"transient","retry_after_seconds":null}})).unwrap();
+    let (first, second_result) = tokio::join!(
+        repository.store(&execution, &config, lease, now, &failed),
+        repository.store(&second, &config, lease, now, &failed)
+    );
+    first.unwrap();
+    second_result.unwrap();
+    let success: SignalAttempt =
+        serde_json::from_value(json!({"status":"classified","model":config.model})).unwrap();
+    repository
+        .store(
+            &successful,
+            &config,
+            lease,
+            now + Duration::seconds(1),
+            &success,
+        )
+        .await
+        .unwrap();
+    let other = Execution {
+        trace_id: "blocked".into(),
+        ..execution
+    };
+    assert!(matches!(
+        database
+            .repository()
+            .claim(&other, &config, lease, now + Duration::seconds(59))
+            .await,
+        Err(lens_signals::RepositoryError::Cooldown)
+    ));
+    assert!(
+        database
+            .repository()
+            .claim(&other, &config, lease, now + Duration::seconds(60))
+            .await
+            .unwrap()
+    );
+}
+
+#[rstest]
+#[case::permanent(json!({"kind":"permanent"}))]
+#[case::incomplete(json!(null))]
+#[tokio::test]
+async fn trace_specific_failures_do_not_pause_unrelated_traces(
+    #[future(awt)] database: Database,
+    config: SignalConfig,
+    execution: Execution,
+    now: DateTime<Utc>,
+    #[case] failure: serde_json::Value,
+) {
+    let repository = database.repository();
+    let lease = now + Duration::minutes(5);
+    assert!(
+        repository
+            .claim(&execution, &config, lease, now)
+            .await
+            .unwrap()
+    );
+    let attempt: SignalAttempt =
+        serde_json::from_value(json!({"status":"failed","model":config.model,"failure":failure}))
+            .unwrap();
+    repository
+        .store(&execution, &config, lease, now, &attempt)
+        .await
+        .unwrap();
+    let other = Execution {
+        trace_id: "unrelated".into(),
+        ..execution
+    };
+    assert!(
+        database
+            .repository()
+            .claim(&other, &config, lease, now)
+            .await
+            .unwrap()
+    );
+}

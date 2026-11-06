@@ -232,6 +232,21 @@ impl EvaluationModels {
         };
         let mut response = builder.send().await.map_err(Error::Transport)?;
         let status = response.status();
+        let retry_after_seconds = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| {
+                value.parse().ok().or_else(|| {
+                    chrono::DateTime::parse_from_rfc2822(value)
+                        .ok()
+                        .map(|date| {
+                            (date.with_timezone(&chrono::Utc) - chrono::Utc::now())
+                                .num_seconds()
+                                .max(0) as u64
+                        })
+                })
+            });
         if response
             .content_length()
             .is_some_and(|length| length > self.limits.max_response_bytes as u64)
@@ -248,6 +263,7 @@ impl EvaluationModels {
         if !status.is_success() {
             return Err(Error::Provider {
                 status: status.as_u16(),
+                retry_after_seconds,
             });
         }
         let response: Value = serde_json::from_slice(&bytes)?;
@@ -267,7 +283,13 @@ impl EvaluationModels {
 impl Decisions for EvaluationModels {
     async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
         self.evaluate(request).await.map_err(|error| match error {
-            Error::Provider { status } => DecisionsError::Provider { status },
+            Error::Provider {
+                status,
+                retry_after_seconds,
+            } => DecisionsError::Provider {
+                status,
+                retry_after_seconds,
+            },
             Error::Timeout => DecisionsError::Timeout,
             Error::ResponseLimit => DecisionsError::ResponseLimit,
             error => DecisionsError::Unavailable(Box::new(error)),
