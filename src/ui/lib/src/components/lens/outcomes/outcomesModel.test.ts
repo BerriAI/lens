@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   userOutcomes,
+  taskBreakdown,
+  taskActivity,
+  CODING_AGENTS,
   createOutcomeDemo,
   filterOutcomeSessions,
   outcomeStatus,
@@ -14,6 +17,8 @@ const HOUR_MS = 3_600_000;
 const session = (overrides: Partial<OutcomeSession> = {}): OutcomeSession => ({
   id: "session-1",
   user: "alex@example.test",
+  team: "Platform",
+  codingAgent: "codex",
   taskCategory: "Coding",
   agent: "release_agent",
   repository: "acme/platform",
@@ -264,6 +269,12 @@ describe("user spend and PR work", () => {
       nonPRSessions: 3,
       nonPRSpendUSD: 20,
       nonPRShare: 0.4,
+      taskKinds: [
+        { kind: "Coding", sessions: 3, sessionShare: 0.5 },
+        { kind: "Research", sessions: 2, sessionShare: 2 / 6 },
+        { kind: "Documentation", sessions: 1, sessionShare: 1 / 6 },
+      ],
+      closedIssues: 1,
       nonPRTaskKinds: [
         { kind: "Research", sessions: 2, sessionShare: 2 / 3 },
         { kind: "Documentation", sessions: 1, sessionShare: 1 / 3 },
@@ -319,5 +330,192 @@ describe("user spend and PR work", () => {
       { kind: "Research", sessions: 1, sessionShare: 1 },
     ]);
     expect(userOutcomes([])).toEqual([]);
+  });
+});
+
+describe("coding agent, team and date scopes", () => {
+  it("intersects coding agent, team and exact date boundaries", () => {
+    const rows = [
+      session({ id: "start", startedAt: "2026-11-01T00:00:00Z" }),
+      session({ id: "end", startedAt: "2026-11-03T23:59:59.999Z" }),
+      session({ id: "before", startedAt: "2026-10-31T23:59:59.999Z" }),
+      session({ id: "after", startedAt: "2026-11-04T00:00:00Z" }),
+      session({
+        id: "other-team",
+        team: "Product",
+        startedAt: "2026-11-02T12:00:00Z",
+      }),
+      session({
+        id: "other-agent",
+        codingAgent: "claude_code",
+        startedAt: "2026-11-02T12:00:00Z",
+      }),
+    ];
+    expect(
+      filterOutcomeSessions(
+        rows,
+        {
+          days: 7,
+          status: "all",
+          team: "Platform",
+          codingAgent: "codex",
+          from: "2026-11-01",
+          to: "2026-11-03",
+        },
+        NOW,
+      ).map((row) => row.id),
+    ).toEqual(["start", "end"]);
+  });
+
+  it.each([
+    ["reversed", "2026-11-03", "2026-11-01"],
+    ["invalid calendar date", "2026-02-30", "2026-11-03"],
+    ["invalid format", "November 1", "2026-11-03"],
+  ])(
+    "keeps invalid %s ranges empty in filters and activity",
+    (_label, from, to) => {
+      expect(
+        filterOutcomeSessions(
+          [session()],
+          { days: 7, status: "all", from, to },
+          NOW,
+        ),
+      ).toEqual([]);
+      expect(taskActivity([session()], 7, NOW, from, to)).toEqual([]);
+    },
+  );
+
+  it("uses the selected end day for a rolling fallback when only to is supplied", () => {
+    const row = session({ startedAt: "2026-10-27T00:00:00Z" });
+    expect(
+      filterOutcomeSessions(
+        [row],
+        { days: 7, status: "all", to: "2026-11-02" },
+        NOW,
+      ),
+    ).toEqual([row]);
+    expect(
+      filterOutcomeSessions([row], { days: 7, status: "all" }, NOW),
+    ).toEqual([]);
+  });
+
+  it("keeps all work in each person's task mix and deduplicates closed issues", () => {
+    const rows = [
+      session({ taskCategory: "Bug fixes" }),
+      session({ id: "follow-up", taskCategory: "Testing" }),
+      session({
+        id: "notes",
+        taskCategory: "Docs & research",
+        pullRequest: null,
+        issue: null,
+      }),
+    ];
+    const [user] = userOutcomes(rows);
+    expect(user.closedIssues).toBe(1);
+    expect(user.mergedPRs).toBe(1);
+    expect(user.taskKinds).toEqual([
+      { kind: "Bug fixes", sessions: 1, sessionShare: 1 / 3 },
+      { kind: "Docs & research", sessions: 1, sessionShare: 1 / 3 },
+      { kind: "Testing", sessions: 1, sessionShare: 1 / 3 },
+    ]);
+    expect(taskBreakdown(rows)).toEqual(user.taskKinds);
+    expect(user.nonPRTaskKinds).toEqual([
+      { kind: "Docs & research", sessions: 1, sessionShare: 1 },
+    ]);
+  });
+
+  it("counts each session once in daily activity including partial boundary days", () => {
+    const start = NOW - 7 * 24 * HOUR_MS;
+    const rows = [
+      session({
+        id: "partial-first",
+        startedAt: new Date(start).toISOString(),
+        taskCategory: "Bug fixes",
+      }),
+      session({ id: "last-day", taskCategory: "Testing" }),
+      session({ id: "another-last-day", taskCategory: "Bug fixes" }),
+      session({ id: "outside", startedAt: new Date(start - 1).toISOString() }),
+    ];
+    const activity = taskActivity(rows, 7, NOW);
+    expect(activity).toHaveLength(8);
+    expect(activity[0]).toEqual({
+      date: "2026-10-29",
+      endDate: "2026-10-29",
+      counts: { "Bug fixes": 1, Testing: 0 },
+      sessions: 1,
+    });
+    expect(activity.at(-1)).toEqual({
+      date: "2026-11-05",
+      endDate: "2026-11-05",
+      counts: { "Bug fixes": 1, Testing: 1 },
+      sessions: 2,
+    });
+    expect(activity.reduce((sum, bucket) => sum + bucket.sessions, 0)).toBe(3);
+  });
+
+  it("bounds long-range activity without dropping selected sessions or task kinds", () => {
+    const rows = [
+      session({
+        id: "oldest",
+        startedAt: "2020-01-01T00:00:00Z",
+        taskCategory: "Bug fixes",
+      }),
+      session({
+        id: "middle",
+        startedAt: "2023-06-02T12:00:00Z",
+        taskCategory: "Features",
+      }),
+      session({ id: "newest", taskCategory: "Code review" }),
+    ];
+    const activity = taskActivity(rows, 7, NOW, "2020-01-01", "2026-11-05");
+    expect(activity.length).toBeLessThanOrEqual(366);
+    expect(activity[0].date).toBe("2020-01-01");
+    expect(activity.at(-1)?.endDate).toBe("2026-11-05");
+    expect(activity.reduce((sum, bucket) => sum + bucket.sessions, 0)).toBe(
+      rows.length,
+    );
+    expect(
+      activity
+        .flatMap((bucket) => Object.values(bucket.counts))
+        .reduce((sum, count) => sum + count, 0),
+    ).toBe(rows.length);
+  });
+
+  it("includes both coding agents and stable team membership in the sample cohort", () => {
+    const rows = createOutcomeDemo(NOW);
+    expect(rows.filter((row) => row.codingAgent === "codex").length).toBe(
+      rows.filter((row) => row.codingAgent === "claude_code").length,
+    );
+    expect(new Set(rows.map((row) => row.codingAgent))).toEqual(
+      new Set(CODING_AGENTS.map((agent) => agent.value)),
+    );
+    expect(new Set(rows.map((row) => row.team))).toEqual(
+      new Set(["Platform", "Product", "Developer experience"]),
+    );
+    expect(
+      new Set(
+        rows.filter((row) => row.user === rows[0].user).map((row) => row.team),
+      ).size,
+    ).toBe(1);
+    expect(new Set(rows.map((row) => row.taskCategory))).toEqual(
+      new Set([
+        "Bug fixes",
+        "Features",
+        "Testing",
+        "Code review",
+        "Docs & research",
+      ]),
+    );
+  });
+  it("keeps representative delivered and non-PR work in both coding-agent previews", () => {
+    const rows = createOutcomeDemo(NOW);
+    for (const agent of CODING_AGENTS) {
+      const selected = rows.filter((row) => row.codingAgent === agent.value);
+      expect(selected.some((row) => row.pullRequest?.status === "merged")).toBe(
+        true,
+      );
+      expect(selected.some((row) => row.issue?.status === "closed")).toBe(true);
+      expect(selected.some((row) => row.pullRequest === null)).toBe(true);
+    }
   });
 });

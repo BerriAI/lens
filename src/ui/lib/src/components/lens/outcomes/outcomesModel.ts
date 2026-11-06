@@ -1,3 +1,14 @@
+export const CODING_AGENTS = [
+  { value: "codex", label: "Codex" },
+  { value: "claude_code", label: "Claude Code" },
+] as const;
+export type CodingAgent = (typeof CODING_AGENTS)[number]["value"];
+export const OUTCOME_TEAMS = [
+  "Platform",
+  "Product",
+  "Developer experience",
+] as const;
+
 export type OutcomeStatus = "all" | "shipped" | "in_progress" | "unlinked";
 export type OutcomeRowStatus =
   | Exclude<OutcomeStatus, "all">
@@ -20,6 +31,8 @@ export interface OutcomeIssue {
 export interface OutcomeSession {
   id: string;
   user: string;
+  team: string;
+  codingAgent: CodingAgent;
   taskCategory: string;
   agent: string;
   repository: string;
@@ -38,6 +51,10 @@ export interface OutcomeSession {
 }
 
 export interface OutcomeFilters {
+  team?: string | null;
+  codingAgent?: CodingAgent | "all" | null;
+  from?: string | null;
+  to?: string | null;
   agent?: string | null;
   repository?: string | null;
   days: number;
@@ -54,6 +71,19 @@ export interface OutcomeSummary {
   costPerMergedPR: number | null;
 }
 
+export interface TaskKindSummary {
+  kind: string;
+  sessions: number;
+  sessionShare: number;
+}
+
+export interface TaskActivityPoint {
+  date: string;
+  endDate: string;
+  counts: Record<string, number>;
+  sessions: number;
+}
+
 export interface UserOutcomes {
   user: string;
   sessions: number;
@@ -66,7 +96,9 @@ export interface UserOutcomes {
   nonPRSessions: number;
   nonPRSpendUSD: number;
   nonPRShare: number;
-  nonPRTaskKinds: { kind: string; sessions: number; sessionShare: number }[];
+  nonPRTaskKinds: TaskKindSummary[];
+  taskKinds: TaskKindSummary[];
+  closedIssues: number;
 }
 
 export function userOutcomes(
@@ -82,27 +114,11 @@ export function userOutcomes(
       const nonPRSessions = owned.filter(
         (session) => session.pullRequest === null,
       );
-      const totalCostUSD = summarizeOutcomes(owned).totalCostUSD;
+      const summary = summarizeOutcomes(owned);
+      const totalCostUSD = summary.totalCostUSD;
       const pr = summarizeOutcomes(prSessions);
       const nonPRSpendUSD = summarizeOutcomes(nonPRSessions).totalCostUSD;
-      const nonPRTaskKinds = [
-        ...new Set(nonPRSessions.map((session) => session.taskCategory)),
-      ]
-        .map((kind) => {
-          const count = nonPRSessions.filter(
-            (session) => session.taskCategory === kind,
-          ).length;
-          return {
-            kind,
-            sessions: count,
-            sessionShare: count / nonPRSessions.length,
-          };
-        })
-        .sort(
-          (left, right) =>
-            right.sessions - left.sessions ||
-            left.kind.localeCompare(right.kind),
-        );
+      const nonPRTaskKinds = taskBreakdown(nonPRSessions);
       return {
         user,
         sessions: owned.length,
@@ -116,12 +132,30 @@ export function userOutcomes(
         nonPRSpendUSD,
         nonPRShare: totalCostUSD ? nonPRSpendUSD / totalCostUSD : 0,
         nonPRTaskKinds,
+        taskKinds: taskBreakdown(owned),
+        closedIssues: summary.closedIssues,
       };
     })
     .sort(
       (left, right) =>
         right.totalCostUSD - left.totalCostUSD ||
         left.user.localeCompare(right.user),
+    );
+}
+
+export function taskBreakdown(
+  sessions: readonly OutcomeSession[],
+): TaskKindSummary[] {
+  return [...new Set(sessions.map((session) => session.taskCategory))]
+    .map((kind) => {
+      const count = sessions.filter(
+        (session) => session.taskCategory === kind,
+      ).length;
+      return { kind, sessions: count, sessionShare: count / sessions.length };
+    })
+    .sort(
+      (left, right) =>
+        right.sessions - left.sessions || left.kind.localeCompare(right.kind),
     );
 }
 
@@ -146,26 +180,103 @@ export function outcomeStatus(session: OutcomeSession): OutcomeRowStatus {
   return linked(session) ? "closed_without_merge" : "unlinked";
 }
 
+export function outcomeDateStart(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = Date.parse(`${value}T00:00:00Z`);
+  if (
+    !Number.isFinite(parsed) ||
+    new Date(parsed).toISOString().slice(0, 10) !== value
+  )
+    return null;
+  return parsed;
+}
+
+function selectedWindow(
+  days: number,
+  now: number,
+  from?: string | null,
+  to?: string | null,
+) {
+  const toDay = to ? outcomeDateStart(to) : null;
+  const fromDay = from ? outcomeDateStart(from) : null;
+  if ((to && toDay === null) || (from && fromDay === null)) return null;
+  const endMs = toDay === null ? now : toDay + DAY_MS;
+  const startMs = fromDay === null ? endMs - days * DAY_MS : fromDay;
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs)
+    return null;
+  return { startMs, endMs };
+}
+
 export function filterOutcomeSessions(
   sessions: readonly OutcomeSession[],
   filters: OutcomeFilters,
   now: number,
 ): OutcomeSession[] {
-  const start = now - filters.days * DAY_MS;
+  const window = selectedWindow(filters.days, now, filters.from, filters.to);
+  if (!window) return [];
   return sessions.filter((session) => {
     const started = Date.parse(session.startedAt);
     return (
-      started >= start &&
-      started < now &&
+      started >= window.startMs &&
+      started < window.endMs &&
       (!filters.agent ||
         filters.agent === "all" ||
         session.agent === filters.agent) &&
       (!filters.repository ||
         filters.repository === "all" ||
         session.repository === filters.repository) &&
+      (!filters.team ||
+        filters.team === "all" ||
+        session.team === filters.team) &&
+      (!filters.codingAgent ||
+        filters.codingAgent === "all" ||
+        session.codingAgent === filters.codingAgent) &&
       (filters.status === "all" || outcomeStatus(session) === filters.status)
     );
   });
+}
+
+export function taskActivity(
+  sessions: readonly OutcomeSession[],
+  days: number,
+  now: number,
+  from?: string | null,
+  to?: string | null,
+): TaskActivityPoint[] {
+  const window = selectedWindow(days, now, from, to);
+  if (!window) return [];
+  const rows = sessions.filter((session) => {
+    const at = Date.parse(session.startedAt);
+    return at >= window.startMs && at < window.endMs;
+  });
+  const firstDay = Math.floor(window.startMs / DAY_MS) * DAY_MS;
+  const lastDay = Math.floor((window.endMs - 1) / DAY_MS) * DAY_MS;
+  const calendarDays = (lastDay - firstDay) / DAY_MS + 1;
+  const bucketDays = Math.ceil(calendarDays / 366);
+  const kinds = taskBreakdown(rows).map((task) => task.kind);
+  const buckets = Array.from(
+    { length: Math.ceil(calendarDays / bucketDays) },
+    (_, index) => ({
+      date: new Date(firstDay + index * bucketDays * DAY_MS)
+        .toISOString()
+        .slice(0, 10),
+      endDate: new Date(
+        Math.min(lastDay, firstDay + ((index + 1) * bucketDays - 1) * DAY_MS),
+      )
+        .toISOString()
+        .slice(0, 10),
+      counts: Object.fromEntries(kinds.map((kind) => [kind, 0])),
+      sessions: 0,
+    }),
+  );
+  for (const row of rows) {
+    const index = Math.floor(
+      (Date.parse(row.startedAt) - firstDay) / (bucketDays * DAY_MS),
+    );
+    buckets[index].counts[row.taskCategory] += 1;
+    buckets[index].sessions += 1;
+  }
+  return buckets;
 }
 
 export function summarizeOutcomes(
@@ -221,22 +332,22 @@ const DEMO_USERS = [
   "riley@example.test",
 ] as const;
 const DEMO_NON_PR_TASKS = [
-  { kind: "Research", title: "Compare task queue designs" },
+  { kind: "Docs & research", title: "Compare task queue designs" },
   { kind: "Code review", title: "Review retry handling edge cases" },
-  { kind: "Documentation", title: "Draft release documentation" },
-  { kind: "Workflow automation", title: "Prepare a release checklist" },
-  { kind: "Debugging", title: "Investigate a flaky integration test" },
+  { kind: "Docs & research", title: "Draft release documentation" },
+  { kind: "Features", title: "Prepare a release checklist" },
+  { kind: "Testing", title: "Investigate a flaky integration test" },
 ] as const;
 const DEMO_TASKS = [
-  "Add webhook retry backoff",
-  "Fix workspace permissions",
-  "Improve model routing fallback",
-  "Add trace search pagination",
-  "Resolve duplicate notification delivery",
-  "Refresh API client types",
-  "Improve cache key isolation",
-  "Fix task cancellation handling",
-  "Add request budget validation",
+  { kind: "Features", title: "Add webhook retry backoff" },
+  { kind: "Bug fixes", title: "Fix workspace permissions" },
+  { kind: "Features", title: "Improve model routing fallback" },
+  { kind: "Features", title: "Add trace search pagination" },
+  { kind: "Bug fixes", title: "Resolve duplicate notification delivery" },
+  { kind: "Testing", title: "Add API client contract tests" },
+  { kind: "Code review", title: "Review cache key isolation" },
+  { kind: "Bug fixes", title: "Fix task cancellation handling" },
+  { kind: "Docs & research", title: "Document request budget validation" },
 ] as const;
 
 export function createOutcomeDemo(now: number): OutcomeSession[] {
@@ -249,9 +360,9 @@ export function createOutcomeDemo(now: number): OutcomeSession[] {
     const isLinked = group % 10 !== 9;
     const nonPRTask =
       DEMO_NON_PR_TASKS[Math.floor(group / 10) % DEMO_NON_PR_TASKS.length];
-    const title = isLinked
-      ? DEMO_TASKS[group % DEMO_TASKS.length]
-      : nonPRTask.title;
+    const task = isLinked ? DEMO_TASKS[group % DEMO_TASKS.length] : nonPRTask;
+    const title = task.title;
+    const userIndex = (group + Math.floor(group / 9)) % DEMO_USERS.length;
     const repository =
       DEMO_REPOSITORIES[Math.floor(group / 3) % DEMO_REPOSITORIES.length];
     const merged =
@@ -313,8 +424,11 @@ export function createOutcomeDemo(now: number): OutcomeSession[] {
       });
     return {
       id: `demo-session-${String(index + 1).padStart(3, "0")}`,
-      user: DEMO_USERS[(group + Math.floor(group / 9)) % DEMO_USERS.length],
-      taskCategory: isLinked ? "Coding" : nonPRTask.kind,
+      user: DEMO_USERS[userIndex],
+      team: OUTCOME_TEAMS[userIndex % OUTCOME_TEAMS.length],
+      codingAgent:
+        CODING_AGENTS[Math.floor(group / 3) % CODING_AGENTS.length].value,
+      taskCategory: task.kind,
       agent: DEMO_AGENTS[group % DEMO_AGENTS.length],
       repository,
       title: `${title}${attempt ? " · follow-up" : ""}`,

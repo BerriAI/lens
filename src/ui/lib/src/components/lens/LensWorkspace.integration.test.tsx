@@ -995,11 +995,14 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
   expect(network).not.toHaveBeenCalled();
 });
 
-it("opens an outcome trace with its merged PR and closed issue, then returns to the aggregate", async () => {
+it("opens a coding outcome trace and returns to the filtered aggregate with its merged PR and closed issue", async () => {
   const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
   const session = createOutcomeDemo(Date.now())[0];
+  const date = session.startedAt.slice(0, 10);
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
-    searchParams: "?demo=true&tab=outcomes&agent=release_agent",
+    searchParams: `?demo=true&tab=outcomes&agent=${session.agent}&outcome_scope=agent&outcome_team=${encodeURIComponent(session.team)}&outcome_coding_agent=${session.codingAgent}&outcome_from=${date}&outcome_to=${date}&outcome_repo=${session.repository}`,
+    onUrlUpdate,
   });
   await user.click(await screen.findByRole("button", { name: `View sessions for ${session.user}` }));
   const sessions = await screen.findByRole("dialog", { name: `Sessions for ${session.user}` });
@@ -1008,9 +1011,19 @@ it("opens an outcome trace with its merged PR and closed issue, then returns to 
   expect(within(delivery).getByText(`PR #${session.pullRequest!.id} merged`)).toBeVisible();
   expect(within(delivery).getByText(`Issue #${session.issue!.id} closed`)).toBeVisible();
   expect(await screen.findByRole("tree", { name: "Spans in time order" })).toBeVisible();
-  await user.click(within(delivery).getByRole("button", { name: "Aggregate outcomes" }));
-  expect(screen.getByRole("tab", { name: "Outcomes", exact: true })).toHaveAttribute("aria-selected", "true");
+  await user.click(within(delivery).getByRole("button", { name: "View coding outcomes" }));
+  expect(screen.getByRole("tab", { name: "Coding outcomes", exact: true })).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("table", { name: "Usage by person" })).toBeVisible();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("outcomes"));
+  const url = lastUrl(onUrlUpdate);
+  expect(url.get("agent")).toBe(session.agent);
+  expect(url.get("outcome_team")).toBe(session.team);
+  expect(url.get("outcome_coding_agent")).toBe(session.codingAgent);
+  expect(url.get("outcome_from")).toBe(date);
+  expect(url.get("outcome_to")).toBe(date);
+  expect(url.get("outcome_repo")).toBe(session.repository);
+  expect(url.has("trace")).toBe(false);
+  expect(url.has("fullscreen")).toBe(false);
   expect(network).not.toHaveBeenCalled();
 });
 

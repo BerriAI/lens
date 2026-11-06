@@ -38,6 +38,8 @@ describe("Lens demo data", () => {
       expect(root.attributes).toMatchObject({
         "agent.source.user": session.user,
         task_category: session.taskCategory,
+        "coding.agent": session.codingAgent,
+        "team.name": session.team,
       });
     }
   });

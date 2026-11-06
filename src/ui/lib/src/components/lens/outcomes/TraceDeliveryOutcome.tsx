@@ -14,6 +14,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import type { TraceSummary } from "../traces/types";
 import { useOutcomesRoute } from "../route";
+import { CODING_AGENTS } from "./outcomesModel";
 import { outcomeForTrace } from "./outcomeTrace";
 
 export function TraceDeliveryOutcome({ summary, live }: { summary: TraceSummary; live: boolean }) {
@@ -23,6 +24,7 @@ export function TraceDeliveryOutcome({ summary, live }: { summary: TraceSummary;
     [live, summary.trace_id, summary.start_time],
   );
   if (!session) return null;
+  const codingAgent = CODING_AGENTS.find((agent) => agent.value === session.codingAgent)?.label;
   const pr = session.pullRequest;
   const issue = session.issue;
   const stages = [
@@ -57,9 +59,10 @@ export function TraceDeliveryOutcome({ summary, live }: { summary: TraceSummary;
           <Badge variant="outline" className="h-4 text-[10px]">
             Sample data
           </Badge>
+          <span className="text-[10px] text-muted-foreground">{codingAgent} · {session.team}</span>
         </div>
         <Button variant="ghost" size="xs" className="h-6 text-[11px] text-info" onClick={route.showDashboard}>
-          Aggregate outcomes <ArrowUpRight className="size-3" />
+          View coding outcomes <ArrowUpRight className="size-3" />
         </Button>
       </div>
       <ol className="grid grid-cols-2 divide-x border-y bg-muted/10 lg:grid-cols-4">

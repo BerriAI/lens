@@ -156,6 +156,8 @@ function makeOutcomeTrace(session: OutcomeSession, index: number, now: number) {
   for (const detail of run.details) {
     detail.attributes["session.id"] = session.id;
     detail.attributes["agent.source.user"] = session.user;
+    detail.attributes["coding.agent"] = session.codingAgent;
+    detail.attributes["team.name"] = session.team;
     detail.attributes["github.repository"] = session.repository;
     if (session.pullRequest) detail.attributes["github.pull_request.number"] = String(session.pullRequest.id);
     if (session.issue) detail.attributes["github.issue.number"] = String(session.issue.id);
