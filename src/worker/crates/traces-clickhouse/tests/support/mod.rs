@@ -11,7 +11,7 @@ const CLICKHOUSE_TAG: &str =
 pub type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
 pub struct ClickHouseDatabase {
-    _container: ContainerAsync<ClickHouse>,
+    _container: Option<ContainerAsync<ClickHouse>>,
     pub url: String,
     pub client: Client,
 }
@@ -22,17 +22,24 @@ pub async fn database() -> TestResult<ClickHouseDatabase> {
 }
 
 pub async fn database_in(timezone: &str) -> TestResult<ClickHouseDatabase> {
-    let container = ClickHouse::default()
-        .with_tag(CLICKHOUSE_TAG)
-        .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
-        .with_env_var("TZ", timezone)
-        .start()
-        .await?;
-    let url = format!(
-        "http://{}:{}",
-        container.get_host().await?,
-        container.get_host_port_ipv4(8123).await?
-    );
+    let (container, url) = match std::env::var("LENS_TEST_CLICKHOUSE_URL") {
+        Ok(url) => (None, url),
+        Err(std::env::VarError::NotPresent) => {
+            let container = ClickHouse::default()
+                .with_tag(CLICKHOUSE_TAG)
+                .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
+                .with_env_var("TZ", timezone)
+                .start()
+                .await?;
+            let url = format!(
+                "http://{}:{}",
+                container.get_host().await?,
+                container.get_host_port_ipv4(8123).await?
+            );
+            (Some(container), url)
+        }
+        Err(error) => return Err(Box::new(error)),
+    };
     Ok(ClickHouseDatabase {
         _container: container,
         url,

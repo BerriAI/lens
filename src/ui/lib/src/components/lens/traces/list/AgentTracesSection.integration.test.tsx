@@ -21,6 +21,8 @@ vi.mock("../../../../lib/http/requests", () => ({
   sendOtlpTraceCall: vi.fn(),
   agentTraceCall: vi.fn(),
   agentTraceSpanCall: vi.fn(),
+  logListCall: vi.fn(),
+  logDetailCall: vi.fn(),
   getProxyBaseUrl: () => "http://localhost:4000",
 }));
 
@@ -33,7 +35,11 @@ vi.mock("../detail/run/RunView", () => ({
   ),
 }));
 
-import { agentTraceListCall, apiClient } from "../../../../lib/http/requests";
+import {
+  agentTraceListCall,
+  apiClient,
+  logListCall,
+} from "../../../../lib/http/requests";
 
 const readyService = {
   configured: true,
@@ -115,6 +121,7 @@ describe("AgentTracesSection", () => {
     setupIntersectionMocking(vi.fn);
     testQueryClient.clear();
     vi.mocked(agentTraceListCall).mockReset();
+    vi.mocked(logListCall).mockReset();
     serveService(true);
     stubPost(async (traces) => traces.map((trace) => ({ ...trace, finding_count: null })));
   });
@@ -139,6 +146,43 @@ describe("AgentTracesSection", () => {
     expect(screen.queryByText(/No loaded runs/i)).not.toBeInTheDocument();
     expect(agentTraceListCall).toHaveBeenCalledOnce();
     expect(vi.mocked(agentTraceListCall).mock.calls[0][0]).toMatchObject({ agent });
+  });
+
+  it("loads log events only when their timeline is opened", async () => {
+    const user = userEvent.setup();
+    vi.mocked(agentTraceListCall).mockResolvedValue({
+      data: runs.slice(0, 1),
+      next_cursor: null,
+    });
+    vi.mocked(logListCall).mockResolvedValue({
+      data: [
+        {
+          record_id: "codex-record",
+          timestamp_ns: "1700000000000000000",
+          observed_timestamp_ns: "1700000000000000000",
+          severity_number: 0,
+          severity_text: "",
+          event_name: "codex.conversation_starts",
+          semantic_event_name: "codex.conversation_starts",
+          scope_name: "codex_otel.log_only",
+          service_name: "codex_cli_rs",
+          trace_id: "",
+          span_id: "",
+          conversation_id: "conversation-1",
+        },
+      ],
+      next_cursor: null,
+    });
+
+    renderSection();
+    expect(await screen.findByTestId("agent-trace-row")).toBeVisible();
+    expect(logListCall).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Show log events" }));
+    expect(await screen.findByText("codex.conversation_starts")).toBeVisible();
+    expect(logListCall).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: "sk-test" }),
+    );
   });
 
   it("loads the next page only once the list scrolls near its end, then stops at the last page", async () => {

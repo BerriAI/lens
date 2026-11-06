@@ -549,3 +549,175 @@ async fn prior_turn_limit_is_bounded_in_storage(
     assert_eq!(rows.len(), 51);
     Ok(())
 }
+
+#[rstest]
+#[case::prompt_first((100, 200, None), true, true)]
+#[case::prompt_last((200, 100, None), true, true)]
+#[case::title_first((150, 200, Some(100)), true, true)]
+#[case::title_last((100, 200, Some(250)), true, true)]
+#[case::logs_only_title_first((150, 200, Some(100)), true, false)]
+#[case::logs_only_title_last((100, 200, Some(250)), true, false)]
+#[case::title_only_with_trace((100, 200, Some(150)), false, true)]
+#[case::title_only_logs((100, 200, Some(150)), false, false)]
+#[tokio::test]
+async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    span: Span<'_>,
+    access: ReadAccessParams,
+    turns: TraceConversationTurnsParams,
+    #[case] received: (u64, u64, Option<u64>),
+    #[case] include_prompt: bool,
+    #[case] include_trace: bool,
+) -> TestResult {
+    use litellm_traces::query::named::{SpanDetailParams, TracePageSpansParams, TraceSpansParams};
+    let (prompt_received, trace_received, title_received) = received;
+    let fixture = migrated_database?;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let trace = Span {
+        trace: "prior-codex",
+        start: 1,
+        duration: 8,
+        received: trace_received,
+        input: "",
+        output: "",
+        ..span
+    };
+    let mut trace_row = trace.row();
+    trace_row.extend([
+        ("SpanName".into(), json!("session_task.turn")),
+        ("ObservationType".into(), json!("agent")),
+        (
+            "SpanAttributes".into(),
+            json!({"session.id":"session-a","lens.codex.root":"1"}),
+        ),
+        ("StatusCode".into(), json!("STATUS_CODE_ERROR")),
+        ("InputTokens".into(), json!(17)),
+    ]);
+    let mut prompt_row = Span {
+        start: 2,
+        duration: 0,
+        received: prompt_received,
+        input: "recorded prompt",
+        ..trace
+    }
+    .row();
+    prompt_row.extend([
+        ("SpanName".into(), json!("codex.user_prompt")),
+        ("ObservationType".into(), json!("agent")),
+        ("InputPreview".into(), json!("recorded prompt")),
+        ("SpanAttributes".into(), json!({"session.id":"session-a","lens.codex.root":"1","event.name":"codex.user_prompt"})),
+    ]);
+    let mut title_row = prompt_row.clone();
+    title_row.insert("Timestamp".into(), json!(START_NS));
+    title_row.insert("Input".into(), json!("title prompt"));
+    title_row.insert("InputPreview".into(), json!("title prompt"));
+    title_row.insert("SpanAttributes".into(), json!({"session.id":"session-a","lens.codex.root":"1","event.name":"codex.user_prompt","lens.codex.prompt_kind":"title"}));
+    let mut early_row = trace_row.clone();
+    early_row.insert("SpanName".into(), json!("turn/start"));
+    early_row.insert("Duration".into(), json!(1));
+    early_row.insert("StatusCode".into(), json!("STATUS_CODE_UNSET"));
+    early_row.insert("EngineReceivedMs".into(), json!(50));
+    let mut rows = Vec::new();
+    if include_trace {
+        rows.extend([early_row, trace_row]);
+    }
+    if include_prompt {
+        rows.push(prompt_row);
+    }
+    if let Some(received) = title_received {
+        title_row.insert("EngineReceivedMs".into(), json!(received));
+        rows.push(title_row);
+    }
+    let body = encode_rows(rows)?;
+    let expected_input = if include_prompt {
+        "recorded prompt"
+    } else {
+        "title prompt"
+    };
+    let expected_start = START_NS
+        + if include_trace {
+            1
+        } else if include_prompt {
+            2
+        } else {
+            0
+        };
+    let expected_duration = if include_trace { 8 } else { 0 };
+    fixture
+        .database
+        .client
+        .post(writer.url().clone())
+        .body(format!(
+            "INSERT INTO {DATABASE}.otel_traces FORMAT JSONEachRow\n{body}"
+        ))
+        .send()
+        .await?
+        .error_for_status()?;
+    let reader = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    );
+    let anchor = reader
+        .conversation_anchor(&TraceConversationAnchorParams {
+            access: access.clone(),
+            trace_id: trace.trace.into(),
+            trace_ref: String::new(),
+            snapshot_ms: 300,
+        })
+        .await?
+        .ok_or("missing anchor")?;
+    assert_eq!(anchor.start_ns, expected_start);
+    assert_eq!(anchor.session_id, "session-a");
+    let summary = reader
+        .trace_spans(
+            &TraceSpansParams {
+                access: access.clone(),
+                trace_id: trace.trace.into(),
+                trace_ref: anchor.trace_ref.clone(),
+            },
+            300,
+        )
+        .await?;
+    assert_eq!(summary.len(), 1);
+    assert_eq!(summary[0].input_preview, expected_input);
+    assert_eq!(summary[0].duration_ns, expected_duration);
+    assert_eq!(
+        summary[0].status,
+        if include_trace {
+            litellm_traces::SpanStatus::Error
+        } else {
+            litellm_traces::SpanStatus::Unset
+        }
+    );
+    assert_eq!(summary[0].input_tokens, if include_trace { 17 } else { 0 });
+    let page = reader
+        .run_spans(
+            &TracePageSpansParams {
+                access: access.clone(),
+                trace_refs: vec![anchor.trace_ref.clone()],
+                trace_ids: vec![trace.trace.into()],
+                start_ms: START_NS / 1_000_000,
+                end_ms: START_NS / 1_000_000 + 1,
+            },
+            300,
+        )
+        .await?;
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].input_preview, expected_input);
+    assert_eq!(page[0].duration_ns, expected_duration);
+    let detail = reader
+        .span_detail(&SpanDetailParams {
+            access,
+            trace_id: trace.trace.into(),
+            trace_ref: anchor.trace_ref,
+            span_id: trace.span.into(),
+        })
+        .await?
+        .ok_or("missing root content")?;
+    assert_eq!(detail.input, expected_input);
+    let previous = reader.conversation_turns(&turns).await?;
+    assert_eq!(previous.len(), 1);
+    assert_eq!(previous[0].input, expected_input);
+    assert_eq!(previous[0].start_ns, expected_start);
+    Ok(())
+}

@@ -103,6 +103,7 @@ fn assert_invariants(span: &DecodedSpan) {
 
 #[rstest]
 #[case::known("claude-code", Integration::ClaudeCode)]
+#[case::openai_codex("openai-codex", Integration::OpenaiCodex)]
 #[case::unknown("future-agent", Integration::Other("future-agent".to_owned()))]
 #[case::case_sensitive("Claude-Code", Integration::Other("Claude-Code".to_owned()))]
 #[case::empty("", Integration::Other(String::new()))]

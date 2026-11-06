@@ -15,6 +15,8 @@ mod cost_rows;
 pub mod datasets;
 mod error;
 mod insert;
+mod log_row;
+mod logs;
 pub mod profiles;
 pub mod query;
 mod query_access;
@@ -36,6 +38,8 @@ pub use insert::{
 };
 pub use litellm_storage_clickhouse::{Connection, Parameter};
 pub use litellm_traces::{QueryScope, ReadQuery};
+pub use log_row::log_rows;
+pub use logs::{get_log, list_logs};
 pub use query::evals;
 pub use query::{QueryHelp, execute_read, query_help, query_sql};
 pub use query_access::QueryReaders;

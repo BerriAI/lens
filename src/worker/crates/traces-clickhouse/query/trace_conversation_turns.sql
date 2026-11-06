@@ -13,10 +13,14 @@ WITH conversation_candidates AS (
       AND Timestamp < fromUnixTimestamp64Nano({before_ns:Int64})
 )
 SELECT TraceId AS trace_id, trace_ref, SpanId AS span_id, start_ns,
-       Input AS input,
+       root_input AS input,
        if(toInt128(start_ns) + toInt128(Duration) <= toInt128({before_ns:Int64}), Output, '') AS output
 FROM (
-    SELECT TraceId, SpanId, ParentSpanId, Input, Output, Duration,
+    SELECT TraceId, SpanId, ParentSpanId,
+           if(SpanAttributes['lens.codex.root'] = '1',
+              argMaxIf(Input, tuple(SpanAttributes['lens.codex.prompt_kind'] != 'title', EngineReceivedMs), Input != '') OVER
+                  (PARTITION BY TeamId, ApiKeyHash, TraceId, SpanId),
+              Input) AS root_input, Output, Duration,
            hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
            coalesce(nullIf(SpanAttributes['session.id'], ''), ResourceAttributes['session.id']) AS session,
            (SpanAttributes['session.id'] != '' AND ResourceAttributes['session.id'] != ''
@@ -30,7 +34,11 @@ FROM (
       AND ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserId = {user_id:String})
            OR has({team_ids:Array(String)}, TeamId))
-    ORDER BY TraceId, SpanId, EngineReceivedMs DESC,
+    ORDER BY TraceId, SpanId,
+             (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),
+             (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['lens.codex.prompt_kind'] = 'title'),
+             if(SpanAttributes['lens.codex.root'] = '1', Duration, 0) DESC,
+             EngineReceivedMs DESC,
              Timestamp DESC, ParentSpanId, ambiguous_session DESC, session,
              Input DESC, Output DESC, Duration DESC
     LIMIT 1 BY TraceId, SpanId
