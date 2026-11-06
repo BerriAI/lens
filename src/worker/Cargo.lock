@@ -2718,6 +2718,7 @@ dependencies = [
  "moka",
  "percent-encoding",
  "rand 0.8.7",
+ "reqwest 0.12.28",
  "rstest",
  "serde",
  "serde_json",

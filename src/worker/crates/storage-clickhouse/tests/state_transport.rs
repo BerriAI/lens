@@ -433,7 +433,7 @@ async fn unsafe_connection_settings_cannot_relax_state_consistency(
         .and(query_param("wait_end_of_query", "1"))
         .and(query_param("send_progress_in_http_headers", "0"))
         .and(query_param("database", "example"))
-        .and(query_param("param_keys", "[\"key\"]"))
+        .and(|request: &Request| String::from_utf8_lossy(&request.body).contains("[\"key\"]"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount(&service.server)
@@ -466,6 +466,35 @@ async fn transport_failure_is_not_a_conflict() {
     assert!(store.heads(&[]).await.unwrap().is_empty());
     assert!(store.read_many(&[]).await.unwrap().is_empty());
     assert!(store.resolve(&[]).await.unwrap().is_empty());
+}
+
+#[rstest]
+#[case::short(16)]
+#[case::beyond_uri_limit(70_000)]
+#[tokio::test]
+async fn state_keys_travel_in_the_request_body(
+    #[future(awt)] service: Service,
+    #[case] length: usize,
+) {
+    let key = "x".repeat(length);
+    let expected = serde_json::to_string(&[&key]).unwrap();
+    Mock::given(method("POST"))
+        .and(move |request: &Request| {
+            request.url.as_str().len() < 1024
+                && !request
+                    .url
+                    .query_pairs()
+                    .any(|(name, _)| name.starts_with("param_"))
+                && String::from_utf8_lossy(&request.body).contains(&expected)
+        })
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&service.server)
+        .await;
+    assert_eq!(
+        service.store.heads(&[&key]).await.unwrap(),
+        vec![Head::empty(key)]
+    );
 }
 
 #[rstest]

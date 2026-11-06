@@ -23,7 +23,10 @@ await withFixture("migration", process.argv[2], async (fixture) => {
   const source = {
     lenses: [{ id: "lens", version: 42, data: { ...publicFixture.filled_lens, settings: { ...publicFixture.filled_lens.settings, enabled: false } }, due_at: null }],
     runs: [{ id: "archive", lens_id: "lens", created_at: "2026-01-15T00:00:00", data: { ...publicFixture.job, id: "archive" } }],
-    reviews: [{ lens_id: "lens", criteria_key: "retained-review-key", execution_id: publicFixture.review.execution_id, data: publicFixture.review }],
+    reviews: Array.from({ length: 181 }, (_, index) => {
+      const execution_id = `${publicFixture.review.execution_id}-${index}-${"x".repeat(160)}`;
+      return { lens_id: "lens", criteria_key: "retained-review-key", execution_id, data: { ...publicFixture.review, execution_id } };
+    }),
     workers: [{ id: publicFixture.worker.id, token_hash: "retained-worker-hash", data: publicFixture.worker }],
     ingestion_keys: [{ id: "migrated-key", data: { id: "migrated-key", name: "Migrated tracing", tenant: { team_id: "alpha", user_id: "owner", org_id: "organization", api_key_hash: ingestionHash }, created_at: "2026-01-15T00:00:00Z", expires_at: Math.floor(Date.now() / 1000) + 3600 } }],
     datasets: [1, 2].map((revision) => ({ id: "dataset", revision, created_at: `2026-01-1${revision + 5}T00:00:00`, data: { ...dataset, revision } })),

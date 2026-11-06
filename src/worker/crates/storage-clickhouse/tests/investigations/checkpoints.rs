@@ -180,6 +180,12 @@ async fn unconfirmed_checkpoint_is_recovered_without_republishing(
                 .query_pairs_mut()
                 .extend_pairs(request.url.query_pairs());
             let body = request.body.clone();
+            let content_type = request
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("application/octet-stream")
+                .to_owned();
             let response = std::thread::spawn(move || {
                 tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -188,6 +194,7 @@ async fn unconfirmed_checkpoint_is_recovered_without_republishing(
                     .block_on(async {
                         let response = Client::no_redirect_for_test()
                             .post(target)
+                            .header("Content-Type", content_type)
                             .header("Content-Length", body.len().to_string())
                             .body(body)
                             .send()
@@ -201,10 +208,8 @@ async fn unconfirmed_checkpoint_is_recovered_without_republishing(
             .unwrap();
             let publication = request.url.query_pairs().any(|(name, query)| {
                 name == "query" && query.starts_with("ALTER TABLE lens_state_heads")
-            }) && request
-                .url
-                .query_pairs()
-                .any(|(name, keys)| name == "param_keys" && keys.contains("analysis-checkpoint/"));
+            }) && String::from_utf8_lossy(&request.body)
+                .contains("analysis-checkpoint/");
             let template = ResponseTemplate::new(response.0).set_body_string(response.1);
             if publication && count.fetch_add(1, Ordering::SeqCst) == 0 {
                 return template.set_delay(Duration::from_secs(15));
