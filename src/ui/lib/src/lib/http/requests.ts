@@ -31,12 +31,14 @@ export const agentTraceListCall = async ({
   cursor,
   agent,
   signal,
+  tags,
 }: {
   accessToken: string;
   startMs: number;
   endMs: number;
   cursor?: string | null;
   agent?: string;
+  tags?: readonly import("../../components/lens/traces/tags").TraceTag[];
   signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
@@ -44,6 +46,7 @@ export const agentTraceListCall = async ({
     end_ms: endMs,
     cursor: cursor ?? undefined,
     agent: agent || undefined,
+    tags: tags?.length ? JSON.stringify(tags) : undefined,
   } satisfies TraceListQuery;
   return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };

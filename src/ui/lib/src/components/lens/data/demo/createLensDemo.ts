@@ -97,8 +97,13 @@ function demoTracesApi(data: LensDemoData): TracesApi {
       const step = spanId ? found?.details.find((span) => span.span_id === spanId) : found;
       return { text: JSON.stringify(step, null, 2), copied: spanId ? "Step copied" : "Trace copied" };
     },
-    list: async ({ startMs, endMs }, agent) => ({
-      data: summariesIn(data, startMs, endMs).filter((trace) => !agent || traceAgentNames(trace).includes(agent)),
+    list: async ({ startMs, endMs }, agent, _signal, tags = []) => ({
+      data: summariesIn(data, startMs, endMs).filter((trace) =>
+        (!agent || traceAgentNames(trace).includes(agent)) &&
+        data.runs.find((run) => run.trace.summary.trace_id === trace.trace_id)?.details.some((detail) =>
+          tags.every((tag) => detail.attributes[tag.key] === tag.value),
+        ),
+      ),
       next_cursor: null,
     }),
     agents: async ({ startMs, endMs }) => rollUpAgents(summariesIn(data, startMs, endMs)),

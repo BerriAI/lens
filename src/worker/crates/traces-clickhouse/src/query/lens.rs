@@ -260,6 +260,8 @@ impl Query for LensSample {
 
     const SQL: &'static str = concat!(
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/trace_tag_sample_candidates.sql"),
+        include_str!("../../query/trace_tag_values.sql"),
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql")
@@ -277,6 +279,8 @@ impl Query for LensSignalSample {
     const SQL: &'static str = concat!(
         "SELECT * EXCEPT(attributes) FROM (",
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/trace_tag_sample_candidates.sql"),
+        include_str!("../../query/trace_tag_values.sql"),
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
@@ -297,6 +301,8 @@ impl Query for LensSampleEligibility {
     const SQL: &'static str = concat!(
         "SELECT eligible FROM (",
         include_str!("../../query/lens_eval_spend.sql"),
+        include_str!("../../query/trace_tag_sample_candidates.sql"),
+        include_str!("../../query/trace_tag_values.sql"),
         include_str!("../../query/profile_sample_candidates.sql"),
         include_str!("../../query/trace_profiles.sql"),
         include_str!("../../query/lens_sample.sql"),
@@ -381,6 +387,8 @@ impl Query for LensFindingSource {
     const SQL: &'static str = concat!(
         "WITH ",
         include_str!("../../query/profile_finding_candidates.sql"),
+        include_str!("../../query/trace_tag_finding_candidates.sql"),
+        include_str!("../../query/trace_tag_values.sql"),
         include_str!("../../query/trace_profiles.sql"),
         "1 AS profile_scope ",
         include_str!("../../query/lens_finding_source.sql")

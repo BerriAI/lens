@@ -87,6 +87,23 @@ impl TraceReader for Reader {
             next_cursor: None,
         })
     }
+    async fn tags(
+        &self,
+        scope: ReadAccessParams,
+        trace_id: String,
+        trace_ref: String,
+        update: Option<Vec<litellm_traces::request::TraceTag>>,
+    ) -> Result<Option<litellm_traces::request::TraceTags>, TraceReadError> {
+        self.record(
+            scope,
+            json!({"trace_id":trace_id,"trace_ref":trace_ref,"tags":update}),
+        )?;
+        Ok(Some(litellm_traces::request::TraceTags {
+            recorded: Vec::new(),
+            manual: update.unwrap_or_default(),
+            editable: false,
+        }))
+    }
     async fn agents(
         &self,
         scope: ReadAccessParams,
@@ -535,4 +552,53 @@ async fn trace_trailing_slashes_preserve_redirect_location(
         server.url.join(target).unwrap().as_str()
     );
     assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::admin(Role::ProxyAdmin, 200, true)]
+#[case::user(Role::InternalUser, 200, true)]
+#[case::viewer(Role::ProxyAdminViewer, 403, false)]
+#[case::internal_viewer(Role::InternalUserViewer, 403, false)]
+#[tokio::test]
+async fn trace_tag_writes_enforce_role_and_signed_scope(
+    #[future(awt)] database: Database,
+    #[case] role: Role,
+    #[case] status: u16,
+    #[case] reaches_store: bool,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let token = identity::delegated(Identity {
+        user_id: Some("owner".into()),
+        user_role: role,
+        log_team_ids: vec!["allowed-team".into()],
+        ..Identity::default()
+    });
+    let response = server
+        .client
+        .put(
+            server
+                .url
+                .join("/v1/traces/id/tags?all_teams=1&team_ids=foreign")
+                .unwrap(),
+        )
+        .bearer_auth(token)
+        .json(&json!({"tags":[{"key":"skill","value":"diagram"}]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), status);
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(!calls.is_empty(), reaches_store);
+    if reaches_store {
+        assert_eq!(calls[0].scope.all_teams, role == Role::ProxyAdmin);
+        assert_eq!(
+            calls[0].scope.team_ids,
+            if role == Role::ProxyAdmin {
+                Vec::<String>::new()
+            } else {
+                vec!["allowed-team".to_owned()]
+            }
+        );
+    }
 }

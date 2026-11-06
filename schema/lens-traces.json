@@ -221,5 +221,133 @@
         "default": null
       }
     }
+  },
+  "TraceListRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TraceListRequest",
+    "type": "object",
+    "properties": {
+      "tags": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "start_ms": {
+        "description": "Window start, unix ms. Default: 24h ago",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64",
+        "default": null
+      },
+      "end_ms": {
+        "description": "Window end, unix ms. Default: now",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64",
+        "default": null
+      },
+      "agent": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "cursor": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 512,
+        "default": null
+      }
+    }
+  },
+  "TraceTags": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TraceTags",
+    "type": "object",
+    "properties": {
+      "recorded": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/TraceTag"
+        }
+      },
+      "manual": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/TraceTag"
+        }
+      },
+      "editable": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "recorded",
+      "manual",
+      "editable"
+    ],
+    "$defs": {
+      "TraceTag": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    }
+  },
+  "TraceTagsUpdate": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TraceTagsUpdate",
+    "type": "object",
+    "properties": {
+      "tags": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/TraceTag"
+        }
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "tags"
+    ],
+    "$defs": {
+      "TraceTag": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    }
   }
 }

@@ -66,15 +66,39 @@ fn exact(value: Option<Revision>, config: TraceConfig) -> Result<Option<i64>, Tr
         .transpose()
 }
 
-pub(super) fn list(
-    query: Option<&str>,
-    config: TraceConfig,
-) -> Result<TraceListRequest, TraceHttpError> {
+pub(super) fn valid_tags(tags: &[litellm_traces::request::TraceTag]) -> bool {
+    tags.len() <= litellm_traces::request::TRACE_TAGS_MAX
+        && tags.iter().all(|tag| {
+            !tag.key.trim().is_empty()
+                && !tag.value.trim().is_empty()
+                && tag.key.chars().count() <= litellm_traces::request::TRACE_TAG_VALUE_MAX
+                && tag.value.chars().count() <= litellm_traces::request::TRACE_TAG_VALUE_MAX
+        })
+}
+
+pub(super) struct ListQuery {
+    pub request: TraceListRequest,
+    pub tags: Vec<litellm_traces::request::TraceTag>,
+}
+
+pub(super) fn list(query: Option<&str>, config: TraceConfig) -> Result<ListQuery, TraceHttpError> {
     let params = parameters(query);
     let mut errors = Vec::new();
     let start = number(&params, "start_ms", &mut errors);
     let end = number(&params, "end_ms", &mut errors);
     let cursor = cursor(&params, &mut errors);
+    let tags = params.get("tags").cloned();
+    let parsed_tags = tags
+        .as_deref()
+        .map(serde_json::from_str::<Vec<litellm_traces::request::TraceTag>>)
+        .transpose();
+    let parsed_tags = match parsed_tags {
+        Ok(tags) if valid_tags(tags.as_deref().unwrap_or_default()) => tags.unwrap_or_default(),
+        _ => {
+            errors.push(failure("value_error", &[json!("query"), json!("tags")], "Tags must be a JSON array of at most 8 nonempty key/value conditions, each at most 256 characters", json!(tags), None));
+            Vec::new()
+        }
+    };
     let agent = params.get("agent").cloned();
     let agent_error = agent
         .as_ref()
@@ -90,11 +114,15 @@ pub(super) fn list(
         });
     errors.extend(agent_error);
     finish(errors)?;
-    Ok(TraceListRequest {
-        start_ms: exact(start, config)?,
-        end_ms: exact(end, config)?,
-        cursor,
-        agent,
+    Ok(ListQuery {
+        tags: parsed_tags,
+        request: TraceListRequest {
+            tags,
+            start_ms: exact(start, config)?,
+            end_ms: exact(end, config)?,
+            cursor,
+            agent,
+        },
     })
 }
 
@@ -181,4 +209,23 @@ pub(super) fn error_page(query: Option<&str>) -> Result<TraceErrorPageRequest, T
         trace_ref: params.get("trace_ref").cloned().unwrap_or_default(),
         cursor,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::metadata("[{\"key\":\"skill\",\"value\":\"diagram\"}]", true)]
+    #[case::empty("[]", true)]
+    #[case::malformed("not-json", false)]
+    #[case::empty_key("[{\"key\":\" \",\"value\":\"diagram\"}]", false)]
+    #[case::unknown("[{\"key\":\"skill\",\"value\":\"diagram\",\"extra\":true}]", false)]
+    fn tag_conditions_are_validated_before_storage(#[case] tags: &str, #[case] valid: bool) {
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("tags", tags)
+            .finish();
+        assert_eq!(list(Some(&query), TraceConfig::default()).is_ok(), valid);
+    }
 }

@@ -68,6 +68,57 @@ impl TraceReader for TraceApi {
             .map_err(read_error)
     }
 
+    async fn tagged_list(
+        &self,
+        scope: ReadAccessParams,
+        request: litellm_traces::request::TraceListRequest,
+        tags: Vec<litellm_traces::request::TraceTag>,
+        limit: u32,
+    ) -> Result<TracePage, TraceReadError> {
+        let _permit = self.permit().await?;
+        let now = chrono::Utc::now().timestamp_millis();
+        self.0
+            .storage
+            .reader
+            .list_tagged_traces(
+                &self.traces(),
+                &scope,
+                &request.agent.unwrap_or_default(),
+                &tags,
+                request.start_ms.unwrap_or(now - 86_400_000),
+                request.end_ms.unwrap_or(now),
+                request.cursor.as_deref(),
+                limit,
+            )
+            .await
+            .map_err(read_error)
+    }
+
+    async fn tags(
+        &self,
+        scope: ReadAccessParams,
+        trace_id: String,
+        trace_ref: String,
+        update: Option<Vec<litellm_traces::request::TraceTag>>,
+    ) -> Result<Option<litellm_traces::request::TraceTags>, TraceReadError> {
+        let _permit = self.permit().await?;
+        let config = &self.0.storage.config;
+        let client = &self.0.storage.client;
+        match update {
+            Some(tags) => {
+                litellm_traces_clickhouse::tags::write(
+                    client, config, &scope, &trace_id, &trace_ref, &tags,
+                )
+                .await
+            }
+            None => {
+                litellm_traces_clickhouse::tags::read(client, config, &scope, &trace_id, &trace_ref)
+                    .await
+            }
+        }
+        .map_err(|_| TraceReadError::Unavailable)
+    }
+
     async fn agents(
         &self,
         scope: ReadAccessParams,

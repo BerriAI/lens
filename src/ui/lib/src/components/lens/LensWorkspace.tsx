@@ -19,8 +19,8 @@ import { createLensDemo } from "./data/demo/createLensDemo";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
 import { LensTabs } from "./LensTabs";
-import { FindingsView } from "./investigations/FindingsView";
 import { InvestigationsView } from "./investigations/InvestigationsView";
+import { FindingsView } from "./investigations/FindingsView";
 import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
 import {

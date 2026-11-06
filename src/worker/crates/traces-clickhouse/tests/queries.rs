@@ -204,6 +204,8 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
                 team_ids: vec!["team-lens".into()],
             },
             agent: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
             start_ms: started_ms - 60_000,
             end_ms: started_ms + 60_000,
             cursor_ms: 0,
@@ -403,6 +405,8 @@ async fn typed_queries_read_normalized_spans_and_keep_trace_identities_separate(
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -470,6 +474,8 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -516,6 +522,8 @@ async fn run_candidates_filter_agents_before_pagination(
     let params = contracts::ListTracesParams {
         access: access.clone(),
         agent: "A".into(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms,
         end_ms,
         cursor_ms: 0,
@@ -583,6 +591,8 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
     let list_params = ListTracesParams::from(contracts::ListTracesParams {
         access: params.access,
         agent: String::new(),
+        filter_keys: Vec::new(),
+        filter_values: Vec::new(),
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -940,6 +950,8 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         &ListTracesParams(contracts::ListTracesParams {
             access: access.clone(),
             agent: String::new(),
+            filter_keys: Vec::new(),
+            filter_values: Vec::new(),
             start_ms,
             end_ms,
             cursor_ms: 0,

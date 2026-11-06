@@ -22,7 +22,7 @@ import { traceDisplayName } from "../../utils";
 vi.mock("../../../../../lib/http/requests", () => ({
   apiClient: {
     get: vi.fn(async (path: string) =>
-      path.endsWith("/conversation") ? { turns: [], next_cursor: null } : { feedback: [] },
+      path.endsWith("/conversation") ? { turns: [], next_cursor: null } : path.endsWith("/tags") ? { recorded: [], manual: [], editable: false } : { feedback: [] },
     ),
   },
   agentTraceCall: vi.fn(),

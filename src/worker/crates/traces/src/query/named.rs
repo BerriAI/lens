@@ -20,6 +20,10 @@ pub struct ListTracesParams {
     #[serde(flatten)]
     pub access: ReadAccessParams,
     pub agent: String,
+    #[serde(default)]
+    pub filter_keys: Vec<String>,
+    #[serde(default)]
+    pub filter_values: Vec<String>,
     pub start_ms: i64,
     pub end_ms: i64,
     pub cursor_ms: i64,

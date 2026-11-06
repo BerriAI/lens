@@ -128,6 +128,7 @@ const CLEARED_AGENT_VIEW = {
   search: null,
   q: null,
   status: null,
+  tags: null,
   profile: null,
 } as const;
 

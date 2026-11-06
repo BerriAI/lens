@@ -9,6 +9,10 @@ import {
   apiClient,
   getProxyBaseUrl,
 } from "../../../lib/http/requests";
+import { traceTagSetSchema, type TraceTag } from "./tags";
+import { z } from "zod";
+import type { TraceQueryBody } from "./types";
+import type { TraceTags, TraceTagsUpdate } from "../../../lib/http/traces";
 import type { AgentSummary } from "../agents/agentRollup";
 import type {
   SpanDetail,
@@ -46,7 +50,10 @@ export interface TracesApi {
   /** False for a fixed snapshot: nothing new arrives, so live tail and tracing setup don't apply. */
   readonly live: boolean;
   handoff(traceId: string, spanId?: string | null, traceRef?: string): TraceHandoff;
-  list(window: TraceWindow, agent: string, signal?: AbortSignal): Promise<TracePage>;
+  list(window: TraceWindow, agent: string, signal?: AbortSignal, tags?: readonly TraceTag[]): Promise<TracePage>;
+  tags?(traceId: string, traceRef?: string): Promise<TraceTags>;
+  tagValues?(window: TraceWindow, signal?: AbortSignal): Promise<string[]>;
+  saveTags?(traceId: string, traceRef: string | undefined, tags: readonly TraceTag[]): Promise<TraceTags>;
   agents(window: TraceWindow, signal?: AbortSignal): Promise<AgentSummary[]>;
   findings(traces: TraceFindingsRequest["traces"]): Promise<TraceFindingCount[]>;
   signals(traces: TraceFindingsRequest["traces"]): Promise<TraceSignals[]>;
@@ -87,11 +94,38 @@ export const agentHandoffText = (traceId: string, spanId?: string | null, traceR
 export function liveTracesApi(accessToken: string): TracesApi {
   return {
     live: true,
+    tagValues: async (window, signal) => {
+      const response = await apiClient.post<unknown>("/v1/traces/query", {
+        accessToken,
+        signal,
+        body: {
+          sql: `SELECT arrayJoin(request_tags) AS tag FROM spend_logs FINAL
+WHERE start_time >= fromUnixTimestamp64Milli(${Math.trunc(window.startMs)})
+  AND start_time < fromUnixTimestamp64Milli(${Math.trunc(window.endMs)})
+  AND tag != '' AND lengthUTF8(tag) <= 256
+GROUP BY tag ORDER BY tag LIMIT 64`,
+        } satisfies TraceQueryBody,
+      });
+      return z.object({ data: z.array(z.object({ tag: z.string() })).max(64) }).parse(response).data.map((row) => row.tag);
+    },
     handoff: (traceId, spanId, traceRef) => ({
       text: agentHandoffText(traceId, spanId, traceRef),
       copied: "Command copied",
     }),
-    list: (window, agent, signal) => agentTraceListCall({ accessToken, ...window, agent, signal }),
+    list: (window, agent, signal, tags) => agentTraceListCall({ accessToken, ...window, agent, signal, tags }),
+    tags: async (traceId, traceRef) => traceTagSetSchema.parse(
+      await apiClient.get<unknown>(`/v1/traces/${encodeURIComponent(traceId)}/tags`, {
+        accessToken,
+        query: { trace_ref: traceRef } satisfies SpanQuery,
+      }),
+    ),
+    saveTags: async (traceId, traceRef, tags) => traceTagSetSchema.parse(
+      await apiClient.put<unknown>(`/v1/traces/${encodeURIComponent(traceId)}/tags`, {
+        accessToken,
+        query: { trace_ref: traceRef } satisfies SpanQuery,
+        body: { tags: [...tags] } satisfies TraceTagsUpdate,
+      }),
+    ),
     agents: async ({ startMs, endMs }, signal) => {
       const page = await apiClient.get<TraceAgentList>("/v1/traces/agents", {
         accessToken,

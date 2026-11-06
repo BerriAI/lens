@@ -100,7 +100,7 @@ describe("investigation validation", () => {
     expect(parse({ repeat: true, interval: 10080 }).success).toBe(true);
   });
 
-  it("omits blank checks and trims payload text without changing check identity or enabled state", () => {
+  it("omits blank checks and trims prose while preserving exact filter values and check identity", () => {
     const input = {
       ...defaults,
       name: " ",
@@ -119,7 +119,7 @@ describe("investigation validation", () => {
       context: "Expected behavior \n Keep sources",
       model: "analysis",
       concurrency: 8,
-      filters: [{ key: "swarm", value: "research=v2" }],
+      filters: [{ key: " swarm ", value: " research=v2 " }],
       checks: [
         ...watchChecks(new Set(["watch_invented"])),
         { id: "custom", instruction: "Find repetitive searches\nInclude retries", enabled: false },

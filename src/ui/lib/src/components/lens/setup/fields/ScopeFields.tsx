@@ -105,7 +105,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
             </select>
           </label>
           <p className="text-xs leading-5 text-muted-foreground">
-            Match any recorded metadata, such as a user ID, environment, or tag. All conditions must match.
+            Match LiteLLM tags, Lens tags, or recorded metadata. All conditions must match.
           </p>
           <MetadataFilters attributes={attributes} keys={keys} />
           <label className="grid gap-2 text-sm">

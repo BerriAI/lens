@@ -7,6 +7,9 @@ import { filterRuns, RUN_INDEX } from "./runQuery";
 const ids = (query: string) => filterRuns(runs, query).map((r) => r.trace_id);
 
 describe("filterRuns", () => {
+  it("keeps server-filtered tag results while applying the remaining local search", () => {
+    expect(ids("tag:skill:diagram REFUND")).toEqual(["aaa111"]);
+  });
   it("matches free text against input, name and trace id, but not agents or models", () => {
     expect(ids("REFUND")).toEqual(["aaa111"]);
     expect(ids("lead")).toEqual(["bbb222"]);
@@ -21,15 +24,22 @@ describe("filterRuns", () => {
     expect(ids("status:OK")).toEqual(["aaa111", "ccc333"]);
   });
 
-  it.each(["ok", "unset"] as const)("includes %s runs with step errors in error filters", (status) => {
-    const recovered = run({ status, error_count: 8 });
-    expect(filterRuns([recovered], "status:error")).toEqual([recovered]);
-    expect(filterRuns([recovered], "", { agent: "", status: "error" })).toEqual([recovered]);
-    expect(filterRuns([recovered], "status:ok")).toEqual([]);
-    expect(filterRuns([recovered], "", { agent: "", status: "ok" })).toEqual([]);
-    expect(filterRuns([recovered], "-status:error")).toEqual([]);
-    expect(fieldValues(RUN_INDEX, [recovered], "status")).toEqual(["error"]);
-  });
+  it.each(["ok", "unset"] as const)(
+    "includes %s runs with step errors in error filters",
+    (status) => {
+      const recovered = run({ status, error_count: 8 });
+      expect(filterRuns([recovered], "status:error")).toEqual([recovered]);
+      expect(
+        filterRuns([recovered], "", { agent: "", status: "error" }),
+      ).toEqual([recovered]);
+      expect(filterRuns([recovered], "status:ok")).toEqual([]);
+      expect(filterRuns([recovered], "", { agent: "", status: "ok" })).toEqual(
+        [],
+      );
+      expect(filterRuns([recovered], "-status:error")).toEqual([]);
+      expect(fieldValues(RUN_INDEX, [recovered], "status")).toEqual(["error"]);
+    },
+  );
 
   it("reads agents from the trace, falling back to the service, and models from the run", () => {
     expect(ids("agent:triage")).toEqual(["aaa111"]);
@@ -50,15 +60,27 @@ describe("filterRuns", () => {
 
 describe("RUN_INDEX values", () => {
   it("lists the loaded agents and statuses for autocomplete", () => {
-    expect(fieldValues(RUN_INDEX, runs, "agent")).toEqual(["billing-agent", "cron", "researcher", "triage"]);
+    expect(fieldValues(RUN_INDEX, runs, "agent")).toEqual([
+      "billing-agent",
+      "cron",
+      "researcher",
+      "triage",
+    ]);
     expect(fieldValues(RUN_INDEX, runs, "status")).toEqual(["error", "ok"]);
     expect(fieldValues(RUN_INDEX, [run({ models: [] })], "model")).toEqual([]);
   });
 });
 
 it("combines quick filters with search and treats agent names literally", () => {
-  const selected = filterRuns(runs, "vector", { agent: "researcher", status: "error" });
+  const selected = filterRuns(runs, "vector", {
+    agent: "researcher",
+    status: "error",
+  });
   expect(selected.map((run) => run.trace_id)).toEqual(["bbb222"]);
-  expect(filterRuns(runs, "vector", { agent: "triage", status: "all" })).toEqual([]);
-  expect(filterRuns(runs, "", { agent: "research*", status: "all" })).toEqual([]);
+  expect(
+    filterRuns(runs, "vector", { agent: "triage", status: "all" }),
+  ).toEqual([]);
+  expect(filterRuns(runs, "", { agent: "research*", status: "all" })).toEqual(
+    [],
+  );
 });

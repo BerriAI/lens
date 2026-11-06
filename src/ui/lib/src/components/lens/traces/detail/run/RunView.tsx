@@ -16,6 +16,7 @@ import { type RunSelection, traceKey } from "../../routing";
 import type { Trace } from "../../types";
 import { PagingBanner } from "./PagingBanner";
 import { RunBody } from "./RunBody";
+import { TraceTags } from "./TraceTags";
 import { RunHeader } from "./RunHeader";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
 import { flaggedSignals, useTraceSignalState } from "../../list/useTraceSignals";
@@ -233,6 +234,7 @@ function LoadedRun({
         signals={signals}
         onSelectSignal={selection.selectSignal}
       />
+      <TraceTags summary={trace.summary} accessToken={accessToken} />
       <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
       {evidenceMissing && (
         <SignalEvidence

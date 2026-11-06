@@ -20,6 +20,7 @@ use serde::Serialize;
 
 pub use crate::error::TraceReadError;
 use crate::{auth, error::TraceHttpError};
+mod tags;
 mod validation;
 
 #[derive(Clone, Debug, Serialize)]
@@ -48,6 +49,39 @@ pub trait TraceReader: Send + Sync {
         cursor: Option<String>,
         limit: u32,
     ) -> impl Future<Output = Result<TracePage, TraceReadError>> + Send;
+    fn tagged_list(
+        &self,
+        scope: ReadAccessParams,
+        request: litellm_traces::request::TraceListRequest,
+        tags: Vec<litellm_traces::request::TraceTag>,
+        limit: u32,
+    ) -> impl Future<Output = Result<TracePage, TraceReadError>> + Send {
+        async move {
+            if !tags.is_empty() {
+                return Err(TraceReadError::Unavailable);
+            }
+            let now = Utc::now().timestamp_millis();
+            self.list(
+                scope,
+                request.agent.unwrap_or_default(),
+                request.start_ms.unwrap_or(now - 86_400_000),
+                request.end_ms.unwrap_or(now),
+                request.cursor,
+                limit,
+            )
+            .await
+        }
+    }
+    fn tags(
+        &self,
+        _scope: ReadAccessParams,
+        _trace_id: String,
+        _trace_ref: String,
+        _update: Option<Vec<litellm_traces::request::TraceTag>>,
+    ) -> impl Future<Output = Result<Option<litellm_traces::request::TraceTags>, TraceReadError>> + Send
+    {
+        async { Err(TraceReadError::Unavailable) }
+    }
     fn agents(
         &self,
         scope: ReadAccessParams,
@@ -129,6 +163,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         .public_route("/v1/traces/query/help", get(help::<R, B>))
         .public_route("/v1/traces/{trace_id}", get(trace::<R, B>))
         .public_route(
+            "/v1/traces/{trace_id}/tags",
+            get(tags::read::<R, B>).put(tags::write::<R, B>),
+        )
+        .public_route(
             "/v1/traces/{trace_id}/conversation",
             get(conversation::<R, B>),
         )
@@ -191,15 +229,12 @@ async fn list<R: SessionRepository, B: TraceReader>(
 ) -> Result<Json<TracePage>, TraceHttpError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let request = validation::list(query.as_deref(), app.config)?;
-    let now = Utc::now().timestamp_millis();
     let page = app
         .reader
-        .list(
+        .tagged_list(
             scope(&identity)?,
-            request.agent.unwrap_or_default(),
-            request.start_ms.unwrap_or(now - 86_400_000),
-            request.end_ms.unwrap_or(now),
-            request.cursor,
+            request.request,
+            request.tags,
             app.config.list_limit,
         )
         .await

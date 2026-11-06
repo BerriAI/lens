@@ -116,13 +116,13 @@ export function AgentTracesSection({
     fullScreen,
     setFullScreen,
   } = useOpenTraceRouting();
-  const { query, setQuery, agent, status } = useRunFilterRouting();
+  const { query, setQuery, agent, status, tags } = useRunFilterRouting();
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
   const activityId = useId();
   const [zoom, setZoom] = useZoomRouting();
   const [rangeChanged, setRangeChanged] = useState(false);
-  const traceQuery = { accessToken, range, enabled: isActive, agent };
+  const traceQuery = { accessToken, range, enabled: isActive, agent, tags };
   const traces = useAgentTraces(traceQuery);
   const setup = useTracingSetup(traces, isActive, rangeChanged);
   const checkHistory = setup.isEmpty && !rangeChanged;
@@ -231,6 +231,8 @@ export function AgentTracesSection({
           )}
         </Inspector.Panel>
         <RunsToolbar
+          accessToken={accessToken}
+          canInvestigate={!readOnly && canViewFindings !== false}
           query={query}
           onQueryChange={setQuery}
           runs={traces.traces}

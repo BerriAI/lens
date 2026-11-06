@@ -1,5 +1,6 @@
 "use client";
 
+import { useRunFilterRouting } from "../traces/routing";
 import { FormProvider, useWatch, type UseFormReturn } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
@@ -70,14 +71,16 @@ interface SetupProps {
 /** Replaces the Investigations tab body: a three-step setup on the left, the activity it matches on the right. */
 export function InvestigationSetup(props: SetupProps) {
   const { initial, mode, defaultSource = "traces" } = props;
+  const { tags } = useRunFilterRouting();
   const profile = useProfileRoute();
   const defaults = investigationDefaults(initial, mode, defaultSource);
   const form = useZodForm(investigationSchema, {
-    defaultValues: mode === "new" && profile.profile ? {
+    defaultValues: mode === "new" && (profile.profile || tags.length > 0) ? {
       ...defaults,
       selection: {
         ...defaults.selection,
         source: "traces",
+        filters: tags,
         profile: profile.profile,
         agent_name: profile.agent,
         lookback_hours: profile.hours,

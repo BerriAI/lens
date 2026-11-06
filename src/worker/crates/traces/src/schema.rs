@@ -108,6 +108,15 @@ pub fn response_schemas() -> BTreeMap<&'static str, Schema> {
 
 pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
     BTreeMap::from([
+        ("TraceTags", emitted::<crate::request::TraceTags>()),
+        (
+            "TraceTagsUpdate",
+            requested::<crate::request::TraceTagsUpdate>(),
+        ),
+        (
+            "TraceListRequest",
+            requested::<crate::request::TraceListRequest>(),
+        ),
         (
             "TraceConversationPage",
             emitted::<crate::TraceConversationPage>(),

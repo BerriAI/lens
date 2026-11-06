@@ -40,7 +40,7 @@ impl Query for Summaries {
     );
 }
 
-struct Page;
+struct Page<const TAGGED: bool>;
 
 #[derive(Serialize)]
 struct PageParams {
@@ -57,17 +57,33 @@ struct PageRow {
     summary: String,
 }
 
-impl Query for Page {
+impl<const TAGGED: bool> Query for Page<TAGGED> {
     type Params = PageParams;
     type Row = PageRow;
-    const SQL: &'static str = concat!(
-        "WITH ",
-        include_str!("../query/trace_summary_page.sql"),
-        include_str!("../query/trace_summary_state.sql"),
-        " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
-        "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
-        "ORDER BY page.start_ms DESC, page.trace_ref DESC"
-    );
+    const SQL: &'static str = if TAGGED {
+        concat!(
+            "WITH ",
+            include_str!("../query/trace_tag_list_candidates.sql"),
+            include_str!("../query/trace_tag_values.sql"),
+            include_str!("../query/trace_summary_page_start.sql"),
+            include_str!("../query/trace_tag_list_filter.sql"),
+            include_str!("../query/trace_summary_page.sql"),
+            include_str!("../query/trace_summary_state.sql"),
+            " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
+            "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
+            "ORDER BY page.start_ms DESC, page.trace_ref DESC"
+        )
+    } else {
+        concat!(
+            "WITH ",
+            include_str!("../query/trace_summary_page_start.sql"),
+            include_str!("../query/trace_summary_page.sql"),
+            include_str!("../query/trace_summary_state.sql"),
+            " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
+            "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
+            "ORDER BY page.start_ms DESC, page.trace_ref DESC"
+        )
+    };
 }
 
 pub(crate) async fn page(
@@ -75,15 +91,15 @@ pub(crate) async fn page(
     connection: &Connection,
     params: &litellm_traces::query::named::ListTracesParams,
 ) -> Result<Option<SummaryPage>, Error> {
-    let rows = fetch::<Page>(
-        client,
-        connection,
-        &PageParams {
-            list: params.clone().into(),
-            resolution_version: RESOLUTION_VERSION,
-        },
-    )
-    .await?;
+    let page_params = PageParams {
+        list: params.clone().into(),
+        resolution_version: RESOLUTION_VERSION,
+    };
+    let rows = if params.filter_keys.is_empty() {
+        fetch::<Page<false>>(client, connection, &page_params).await?
+    } else {
+        fetch::<Page<true>>(client, connection, &page_params).await?
+    };
     if rows.iter().any(|row| row.summary.is_empty()) {
         return Ok(None);
     }

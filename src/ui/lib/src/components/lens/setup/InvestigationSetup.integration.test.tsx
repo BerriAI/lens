@@ -63,6 +63,38 @@ beforeEach(() => {
   proxy.post.mockResolvedValue({ eligible: 1, selected: 1, executions: [] });
 });
 describe("Investigation setup", () => {
+  it("previews and saves the intersection of URL tags and a task profile", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    proxy.post.mockImplementation(async (path, options) => {
+      if (path === "/v1/traces/query") return { data: [{ category: "Coding", runs: 10 }] };
+      const { selection, lookback_hours } = options.body as { selection: Settings; lookback_hours: number };
+      const matches = selection.profile === "Coding"
+        && selection.filters.some((filter) => filter.key === "tag" && filter.value === "workflow-diagrams")
+        && selection.agent_name === "code-agent"
+        && lookback_hours === 168;
+      return { eligible: matches ? 1 : 11, selected: 1, executions: [] };
+    });
+    renderWithProviders(
+      <InvestigationSetup mode="new" initial={settings} onClose={vi.fn()} onSave={save} />,
+      { searchParams: '?agent=code-agent&hours=168&profile=Coding&tags=[{"key":"tag","value":"workflow-diagrams"}]' },
+    );
+    expect(await screen.findByText("1 matching run")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Coding");
+    expect(screen.getByRole("combobox", { name: "Metadata key 1" })).toHaveValue("tag");
+    expect(screen.getByRole("combobox", { name: "Metadata value 1" })).toHaveValue("workflow-diagrams");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run and monitor" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run and monitor" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      profile: "Coding",
+      agent_name: "code-agent",
+      lookback_hours: 168,
+      filters: [{ key: "tag", value: "workflow-diagrams" }],
+    }));
+  });
+
   it.each(["Coding", "Unclassified"])("previews and saves the selected %s profile without converting it to metadata conditions", async (category) => {
     const user = userEvent.setup();
     const save = vi.fn().mockResolvedValue(undefined);

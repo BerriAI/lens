@@ -34,6 +34,7 @@ pub enum InsertTable {
     OtelTraces,
     SpendLogs,
     LensFeedback,
+    TraceTags,
 }
 
 impl InsertTable {
@@ -42,6 +43,7 @@ impl InsertTable {
             "otel_traces" => Ok(Self::OtelTraces),
             "spend_logs" => Ok(Self::SpendLogs),
             "lens_feedback" => Ok(Self::LensFeedback),
+            "lens_trace_tags" => Ok(Self::TraceTags),
             _ => Err(Error::InvalidTable),
         }
     }
@@ -51,6 +53,7 @@ impl InsertTable {
             Self::OtelTraces => "otel_traces",
             Self::SpendLogs => "spend_logs",
             Self::LensFeedback => "lens_feedback",
+            Self::TraceTags => "lens_trace_tags",
         }
     }
 }
@@ -84,7 +87,7 @@ pub async fn insert_shared_rows(
             received_ms,
             limit,
         )?),
-        InsertTable::OtelTraces | InsertTable::LensFeedback => None,
+        InsertTable::OtelTraces | InsertTable::LensFeedback | InsertTable::TraceTags => None,
     };
     litellm_storage_clickhouse::insert_compressed_rows(
         client,
