@@ -6,7 +6,7 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
        toUnixTimestamp64Nano(o.Timestamp) AS start_ns, o.Duration AS duration_ns,
        o.ServiceName AS service,
        if(o.SpanAttributes['lens.codex.root'] = '1',
-          argMaxIf(o.InputPreview, o.EngineReceivedMs, o.InputPreview != '') OVER
+          argMaxIf(o.InputPreview, tuple(o.SpanAttributes['lens.codex.prompt_kind'] != 'title', o.EngineReceivedMs), o.InputPreview != '') OVER
               (PARTITION BY o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId),
           o.InputPreview) AS input_preview, o.Model AS model,
        o.InputTokens AS input_tokens, o.OutputTokens AS output_tokens,
@@ -27,6 +27,7 @@ WHERE o.TraceId = {trace_id:String}
   AND ({trace_ref:String} = '' OR
        hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) = {trace_ref:String})
 ORDER BY (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['event.name'] = 'codex.user_prompt'),
+         (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['lens.codex.prompt_kind'] = 'title'),
          if(o.SpanAttributes['lens.codex.root'] = '1', o.Duration, 0) DESC,
          o.Timestamp, o.EngineReceivedMs, o.StatusMessage
 LIMIT 1 BY o.SpanId

@@ -551,18 +551,26 @@ async fn prior_turn_limit_is_bounded_in_storage(
 }
 
 #[rstest]
-#[case::prompt_first(100, 200)]
-#[case::prompt_last(200, 100)]
+#[case::prompt_first((100, 200, None), true, true)]
+#[case::prompt_last((200, 100, None), true, true)]
+#[case::title_first((150, 200, Some(100)), true, true)]
+#[case::title_last((100, 200, Some(250)), true, true)]
+#[case::logs_only_title_first((150, 200, Some(100)), true, false)]
+#[case::logs_only_title_last((100, 200, Some(250)), true, false)]
+#[case::title_only_with_trace((100, 200, Some(150)), false, true)]
+#[case::title_only_logs((100, 200, Some(150)), false, false)]
 #[tokio::test]
 async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
     #[future(awt)] migrated_database: TestResult<SeededDatabase>,
     span: Span<'_>,
     access: ReadAccessParams,
     turns: TraceConversationTurnsParams,
-    #[case] prompt_received: u64,
-    #[case] trace_received: u64,
+    #[case] received: (u64, u64, Option<u64>),
+    #[case] include_prompt: bool,
+    #[case] include_trace: bool,
 ) -> TestResult {
     use litellm_traces::query::named::{SpanDetailParams, TracePageSpansParams, TraceSpansParams};
+    let (prompt_received, trace_received, title_received) = received;
     let fixture = migrated_database?;
     let writer = Connection::writer(&fixture.database.url)?;
     let trace = Span {
@@ -599,12 +607,42 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
         ("InputPreview".into(), json!("recorded prompt")),
         ("SpanAttributes".into(), json!({"session.id":"session-a","lens.codex.root":"1","event.name":"codex.user_prompt"})),
     ]);
+    let mut title_row = prompt_row.clone();
+    title_row.insert("Timestamp".into(), json!(START_NS));
+    title_row.insert("Input".into(), json!("title prompt"));
+    title_row.insert("InputPreview".into(), json!("title prompt"));
+    title_row.insert("SpanAttributes".into(), json!({"session.id":"session-a","lens.codex.root":"1","event.name":"codex.user_prompt","lens.codex.prompt_kind":"title"}));
     let mut early_row = trace_row.clone();
     early_row.insert("SpanName".into(), json!("turn/start"));
     early_row.insert("Duration".into(), json!(1));
     early_row.insert("StatusCode".into(), json!("STATUS_CODE_UNSET"));
     early_row.insert("EngineReceivedMs".into(), json!(50));
-    let body = encode_rows(vec![early_row, trace_row, prompt_row])?;
+    let mut rows = Vec::new();
+    if include_trace {
+        rows.extend([early_row, trace_row]);
+    }
+    if include_prompt {
+        rows.push(prompt_row);
+    }
+    if let Some(received) = title_received {
+        title_row.insert("EngineReceivedMs".into(), json!(received));
+        rows.push(title_row);
+    }
+    let body = encode_rows(rows)?;
+    let expected_input = if include_prompt {
+        "recorded prompt"
+    } else {
+        "title prompt"
+    };
+    let expected_start = START_NS
+        + if include_trace {
+            1
+        } else if include_prompt {
+            2
+        } else {
+            0
+        };
+    let expected_duration = if include_trace { 8 } else { 0 };
     fixture
         .database
         .client
@@ -628,7 +666,7 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
         })
         .await?
         .ok_or("missing anchor")?;
-    assert_eq!(anchor.start_ns, START_NS + 1);
+    assert_eq!(anchor.start_ns, expected_start);
     assert_eq!(anchor.session_id, "session-a");
     let summary = reader
         .trace_spans(
@@ -641,10 +679,17 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
         )
         .await?;
     assert_eq!(summary.len(), 1);
-    assert_eq!(summary[0].input_preview, "recorded prompt");
-    assert_eq!(summary[0].duration_ns, 8);
-    assert_eq!(summary[0].status, litellm_traces::SpanStatus::Error);
-    assert_eq!(summary[0].input_tokens, 17);
+    assert_eq!(summary[0].input_preview, expected_input);
+    assert_eq!(summary[0].duration_ns, expected_duration);
+    assert_eq!(
+        summary[0].status,
+        if include_trace {
+            litellm_traces::SpanStatus::Error
+        } else {
+            litellm_traces::SpanStatus::Unset
+        }
+    );
+    assert_eq!(summary[0].input_tokens, if include_trace { 17 } else { 0 });
     let page = reader
         .run_spans(
             &TracePageSpansParams {
@@ -658,8 +703,8 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
         )
         .await?;
     assert_eq!(page.len(), 1);
-    assert_eq!(page[0].input_preview, "recorded prompt");
-    assert_eq!(page[0].duration_ns, 8);
+    assert_eq!(page[0].input_preview, expected_input);
+    assert_eq!(page[0].duration_ns, expected_duration);
     let detail = reader
         .span_detail(&SpanDetailParams {
             access,
@@ -669,10 +714,10 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
         })
         .await?
         .ok_or("missing root content")?;
-    assert_eq!(detail.input, "recorded prompt");
+    assert_eq!(detail.input, expected_input);
     let previous = reader.conversation_turns(&turns).await?;
     assert_eq!(previous.len(), 1);
-    assert_eq!(previous[0].input, "recorded prompt");
-    assert_eq!(previous[0].start_ns, START_NS + 1);
+    assert_eq!(previous[0].input, expected_input);
+    assert_eq!(previous[0].start_ns, expected_start);
     Ok(())
 }

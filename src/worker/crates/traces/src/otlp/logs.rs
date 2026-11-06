@@ -206,6 +206,21 @@ fn codex_message(mut record: LogRecord, timestamp: u64) -> (Span, LogContext) {
     };
     let root_id = span::codex_turn_root_span_id(&trace_id);
     let (span_id, parent_span_id) = if event == "codex.user_prompt" {
+        // Retain title activity, but do not let it replace the user's turn prompt.
+        let prompt = text(&record.attributes, "prompt").trim_start();
+        if prompt.starts_with("Generate a concise, single-line task title")
+            || prompt.starts_with(
+                "You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title",
+            )
+        {
+            record.attributes.push(KeyValue {
+                key: "lens.codex.prompt_kind".into(),
+                value: Some(AnyValue {
+                    value: Some(Value::StringValue("title".into())),
+                }),
+                ..Default::default()
+            });
+        }
         record.attributes.push(KeyValue {
             key: "lens.codex.root".into(),
             value: Some(AnyValue {

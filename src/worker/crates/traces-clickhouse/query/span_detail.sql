@@ -7,7 +7,7 @@ LEFT JOIN (
     SELECT TeamId, ApiKeyHash, TraceId,
            argMinIf(
                Input,
-               tuple(ObservationType != 'agent', Timestamp),
+               tuple(ObservationType != 'agent', SpanAttributes['lens.codex.prompt_kind'] = 'title', Timestamp),
                ObservationType IN ('agent', 'llm') AND Input != ''
            ) AS input,
            argMaxIf(
@@ -34,6 +34,7 @@ WHERE o.TraceId = {trace_id:String} AND o.SpanId = {span_id:String}
   AND ({trace_ref:String} = '' OR
        hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) = {trace_ref:String})
 ORDER BY (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['event.name'] = 'codex.user_prompt'),
+         (o.SpanAttributes['lens.codex.root'] = '1' AND o.SpanAttributes['lens.codex.prompt_kind'] = 'title'),
          if(o.SpanAttributes['lens.codex.root'] = '1', o.Duration, 0) DESC,
          o.EngineReceivedMs DESC
 LIMIT 1

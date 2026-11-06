@@ -18,7 +18,7 @@ SELECT TraceId AS trace_id, trace_ref, SpanId AS span_id, start_ns,
 FROM (
     SELECT TraceId, SpanId, ParentSpanId,
            if(SpanAttributes['lens.codex.root'] = '1',
-              argMaxIf(Input, EngineReceivedMs, Input != '') OVER
+              argMaxIf(Input, tuple(SpanAttributes['lens.codex.prompt_kind'] != 'title', EngineReceivedMs), Input != '') OVER
                   (PARTITION BY TeamId, ApiKeyHash, TraceId, SpanId),
               Input) AS root_input, Output, Duration,
            hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
@@ -36,6 +36,7 @@ FROM (
            OR has({team_ids:Array(String)}, TeamId))
     ORDER BY TraceId, SpanId,
              (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),
+             (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['lens.codex.prompt_kind'] = 'title'),
              if(SpanAttributes['lens.codex.root'] = '1', Duration, 0) DESC,
              EngineReceivedMs DESC,
              Timestamp DESC, ParentSpanId, ambiguous_session DESC, session,

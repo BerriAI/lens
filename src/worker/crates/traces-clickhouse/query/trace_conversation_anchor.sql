@@ -23,6 +23,7 @@ FROM (
       AND ({trace_ref:String} = '' OR trace_ref = {trace_ref:String})
     ORDER BY TeamId, ApiKeyHash, SpanId,
              (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),
+             (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['lens.codex.prompt_kind'] = 'title'),
              if(SpanAttributes['lens.codex.root'] = '1', Duration, 0) DESC,
              EngineReceivedMs DESC,
              Timestamp DESC, ParentSpanId, ambiguous_session DESC, session

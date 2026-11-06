@@ -2934,6 +2934,18 @@ fn codex_prompt_text_does_not_remove_half_a_turn(#[case] prompt: &str) {
         Some("application/json"),
     )
     .unwrap();
+    assert_eq!(decoded.records.len(), 2);
+    assert_eq!(
+        decoded.records[0].attributes["prompt"],
+        litellm_traces::LogValue::String(prompt.to_owned())
+    );
+    assert_eq!(
+        decoded.claude_spans[0]
+            .attributes
+            .get("lens.codex.prompt_kind")
+            .map(String::as_str),
+        Some("title")
+    );
     assert_eq!(decoded.claude_spans.len(), 2);
     assert_eq!(
         decoded.claude_spans[0].normalized.input,
