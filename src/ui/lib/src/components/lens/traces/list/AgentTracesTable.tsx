@@ -1,5 +1,7 @@
 "use client";
 
+import { useLensHost } from "../../../../host/LensHost";
+
 import { getCoreRowModel, useReactTable, type ColumnDef, type TableOptions } from "@tanstack/react-table";
 import { ArrowDown, ChevronRight, Plus, Star } from "lucide-react";
 import { createContext, useContext, useEffect } from "react";
@@ -46,7 +48,7 @@ interface AgentTracesTableProps {
   onRetry?: () => void;
   onLoadMore: () => void;
   rangeEmpty?: boolean;
-  onSetUpTracing: () => void;
+  onSetUpTracing?: () => void;
 }
 
 export const formatCost = (cost: number): string => {
@@ -55,7 +57,10 @@ export const formatCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
-type RunCost = { label: string; partial: { short: string; long: string } | null };
+type RunCost = {
+  label: string;
+  partial: { short: string; long: string } | null;
+};
 
 export const runCost = ({
   spend,
@@ -66,7 +71,10 @@ export const runCost = ({
   if (priced_calls >= llm_calls) return { label: formatCost(spend), partial: null };
   return {
     label: `≥ ${formatCost(spend)}`,
-    partial: { short: `${priced_calls}/${llm_calls} priced`, long: `${priced_calls} of ${llm_calls} calls priced` },
+    partial: {
+      short: `${priced_calls}/${llm_calls} priced`,
+      long: `${priced_calls} of ${llm_calls} calls priced`,
+    },
   };
 };
 
@@ -273,13 +281,20 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
       ),
     },
   },
-  { id: "input", header: "Input", cell: ({ row }) => <InputCell run={row.original} /> },
+  {
+    id: "input",
+    header: "Input",
+    cell: ({ row }) => <InputCell run={row.original} />,
+  },
   {
     id: "signals",
     size: 300,
     header: () => <SignalsHeader />,
     cell: ({ row }) => <SignalsCell run={row.original} />,
-    meta: { title: "Signals", renderSkeleton: () => <Skeleton className="h-3 w-16" /> },
+    meta: {
+      title: "Signals",
+      renderSkeleton: () => <Skeleton className="h-3 w-16" />,
+    },
   },
   {
     id: "agents",
@@ -329,7 +344,11 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     enableHiding: false,
     header: ({ table }) => <DataTableViewOptions table={table} label="Columns" iconOnly />,
     cell: () => <ChevronRight className="size-3 text-muted-foreground/60" />,
-    meta: { className: "px-0", headerClassName: "px-1", renderSkeleton: () => null },
+    meta: {
+      className: "px-0",
+      headerClassName: "px-1",
+      renderSkeleton: () => null,
+    },
   },
 ];
 
@@ -339,7 +358,10 @@ function PlaceholderRow({ index, rowRef }: { index: number; rowRef?: (node: Elem
 
 function LoadMoreRows({ isFetching, onLoadMore }: { isFetching: boolean; onLoadMore: () => void }) {
   const { scroller } = useInspectorTable();
-  const { ref: tailRef, inView: nearTail } = useInView({ root: scroller, rootMargin: PREFETCH_MARGIN });
+  const { ref: tailRef, inView: nearTail } = useInView({
+    root: scroller,
+    rootMargin: PREFETCH_MARGIN,
+  });
   useEffect(() => {
     if (nearTail && !isFetching) onLoadMore();
   }, [nearTail, isFetching, onLoadMore]);
@@ -348,23 +370,27 @@ function LoadMoreRows({ isFetching, onLoadMore }: { isFetching: boolean; onLoadM
   ));
 }
 
-function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetUpTracing: () => void }) {
+function EmptyRuns({ rangeEmpty, onSetUpTracing }: { rangeEmpty: boolean; onSetUpTracing?: () => void }) {
   if (!rangeEmpty)
     return (
       <div className="lens-empty-state flex items-center justify-center gap-3 py-16 text-xs text-muted-foreground">
         <span>No runs match these filters.</span>
-        <Button size="xs" variant="outline" onClick={onSetUpTracing}>
-          Connect project
-        </Button>
+        {onSetUpTracing && (
+          <Button size="xs" variant="outline" onClick={onSetUpTracing}>
+            Connect project
+          </Button>
+        )}
       </div>
     );
   return (
     <div className="lens-empty-state flex flex-col items-center gap-1 py-16 text-center">
       <p className="text-sm font-medium">No runs in this time range</p>
-      <p className="text-xs text-muted-foreground">Connect an agent to start sending traces.</p>
-      <Button size="sm" className="mt-3" onClick={onSetUpTracing}>
-        Connect project
-      </Button>
+      <p className="text-xs text-muted-foreground">Try a wider time range or send an agent request through LiteLLM.</p>
+      {onSetUpTracing && (
+        <Button size="sm" className="mt-3" onClick={onSetUpTracing}>
+          Connect project
+        </Button>
+      )}
     </div>
   );
 }
@@ -403,6 +429,7 @@ export function AgentTracesTable({
   rangeEmpty = false,
   onSetUpTracing,
 }: AgentTracesTableProps) {
+  const spendLogs = useLensHost().traces === "spend-logs";
   const settled = !isLoading && !error;
   const isEmpty = settled && !hasMore && traces.length === 0;
   const canContinue = settled && hasMore && !isPlaceholder;
@@ -411,7 +438,10 @@ export function AgentTracesTable({
   const tableOptions: TableOptions<TraceSummary> = {
     data: traces,
     columns: RUN_COLUMNS.filter(
-      (column) => (canViewFindings || column.id !== "findings") && (signalsColumn || column.id !== "signals"),
+      (column) =>
+        (canViewFindings || column.id !== "findings") &&
+        (signalsColumn || column.id !== "signals") &&
+        (!spendLogs || column.id !== "feedback"),
     ),
     defaultColumn: { size: undefined },
     getRowId: runKey,

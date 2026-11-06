@@ -1,5 +1,7 @@
 "use client";
 
+import { useLensHost } from "../../../../../host/LensHost";
+
 import { QueryErrorResetBoundary, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
@@ -163,7 +165,9 @@ function LoadedRun({
           queryKey: ["agentTraceSpan", traceId, contentRef],
           predicate: (query) => query.queryKey.at(-1) === accessToken,
         }),
-        queryClient.invalidateQueries({ queryKey: ["traceConversation", traceId, contentRef, accessToken] }),
+        queryClient.invalidateQueries({
+          queryKey: ["traceConversation", traceId, contentRef, accessToken],
+        }),
       ]);
     });
   const toggleLive = () => {
@@ -233,7 +237,7 @@ function LoadedRun({
         signals={signals}
         onSelectSignal={selection.selectSignal}
       />
-      <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
+      <RunFeedback summary={trace.summary} accessToken={accessToken} />
       {evidenceMissing && (
         <SignalEvidence
           name={selectedSignal?.name ?? "Signal evidence"}
@@ -279,4 +283,9 @@ function LoadedRun({
       />
     </Tabs>
   );
+}
+
+function RunFeedback(props: Parameters<typeof FeedbackPanel>[0]) {
+  const host = useLensHost();
+  return host.traces === "spend-logs" ? null : <FeedbackPanel {...props} />;
 }

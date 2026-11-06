@@ -31,6 +31,7 @@ export interface SpendLogDrawerProps {
 export interface LensHost {
   readonly surface?: "standalone" | "embedded";
   readonly analysis?: "deployment";
+  readonly traces?: "auto" | "service" | "spend-logs";
   readonly spendLogs?: {
     readonly lookup: (
       query: SpendLogLookup,

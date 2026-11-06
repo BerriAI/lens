@@ -1,5 +1,6 @@
 "use client";
 
+import { useLensHost } from "../../../../../host/LensHost";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import moment from "moment";
 
@@ -11,12 +12,14 @@ import { ConversationMessage } from "./ConversationParts";
 import { conversationMessages } from "./conversation";
 
 export function useEarlierConversation(trace: Trace, accessToken: string) {
+  const spendLogs = useLensHost().traces === "spend-logs";
   const api = useTracesApi(accessToken);
   const { trace_id, trace_ref } = trace.summary;
   return useInfiniteQuery({
     queryKey: ["traceConversation", trace_id, trace_ref, accessToken],
     queryFn: ({ pageParam }) => api.conversation(trace_id, trace_ref, pageParam),
     initialPageParam: null as string | null,
+    enabled: !spendLogs,
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     staleTime: 30_000,
     retry: traceReadRetry,

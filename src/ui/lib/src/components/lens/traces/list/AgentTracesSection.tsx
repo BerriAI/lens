@@ -1,5 +1,7 @@
 "use client";
 
+import { useLensHost } from "../../../../host/LensHost";
+
 import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { ChartNoAxesColumn, ChartPie, ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
@@ -62,7 +64,10 @@ function useSignalSetup(enabled: boolean) {
     staleTime: 5000,
   });
   const loaded = enabled && config.data !== undefined;
-  return { on: loaded && signalsConfigured(config.data), missing: loaded && !signalsConfigured(config.data) };
+  return {
+    on: loaded && signalsConfigured(config.data),
+    missing: loaded && !signalsConfigured(config.data),
+  };
 }
 
 function useTracingSetup(traces: AgentTracesResult, isActive: boolean, rangeChanged: boolean) {
@@ -79,7 +84,11 @@ function useTracingSetup(traces: AgentTracesResult, isActive: boolean, rangeChan
   const disabledDetail = traces.notEnabledDetail ?? (traces.isFetching ? setupResult?.detail : null);
   const loadingFirstPage = traces.isLoading && setupResult === null;
   const isEmpty = !loadingFirstPage && !traces.error && traces.traces.length === 0;
-  return { disabledDetail, isEmpty, received: setupResult !== null && traces.traces.length > 0 };
+  return {
+    disabledDetail,
+    isEmpty,
+    received: setupResult !== null && traces.traces.length > 0,
+  };
 }
 
 function TraceHistoryError({ history }: { history: ReturnType<typeof useTraceAvailability> }) {
@@ -117,6 +126,7 @@ export function AgentTracesSection({
     setFullScreen,
   } = useOpenTraceRouting();
   const { query, setQuery, agent, status } = useRunFilterRouting();
+  const spendLogs = useLensHost().traces === "spend-logs";
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
   const activityId = useId();
@@ -237,19 +247,23 @@ export function AgentTracesSection({
           range={zoom ?? window}
           busy={traces.isPlaceholder}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-none border-l px-3 text-xs"
-            onClick={() => route.setTab("profiles")}
-          >
-            <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
-          </Button>
-          <TracingSetupAction
-            available={traces.traces.length > 0}
-            live={live}
-            onSetup={onConnectAgent ?? (() => setShowSetup(true))}
-          />
+          {!spendLogs && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-none border-l px-3 text-xs"
+              onClick={() => route.setTab("profiles")}
+            >
+              <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
+            </Button>
+          )}
+          {!spendLogs && (
+            <TracingSetupAction
+              available={traces.traces.length > 0}
+              live={live}
+              onSetup={onConnectAgent ?? (() => setShowSetup(true))}
+            />
+          )}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -320,7 +334,7 @@ export function AgentTracesSection({
           onRetry={traces.hasMore ? traces.loadMore : traces.refetch}
           onLoadMore={traces.loadMore}
           rangeEmpty={traces.traces.length === 0}
-          onSetUpTracing={onConnectAgent ?? (() => setShowSetup(true))}
+          onSetUpTracing={spendLogs ? undefined : onConnectAgent ?? (() => setShowSetup(true))}
         />
         <TraceFooter runs={runs} hasMore={traces.hasMore} />
       </div>

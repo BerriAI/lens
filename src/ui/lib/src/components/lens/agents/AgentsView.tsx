@@ -1,5 +1,6 @@
 "use client";
 
+import { useLensHost } from "../../../host/LensHost";
 import { ArrowRight, Bot, Github, Plus, Search } from "lucide-react";
 
 import { useNow } from "../../../hooks/useNow";
@@ -26,6 +27,7 @@ export function AgentsView({
   onConnectProject?: () => void;
   onConnectGitHub?: (agent: string) => void;
 }) {
+  const spendLogs = useLensHost().traces === "spend-logs";
   const [search, setSearch] = useAgentSearchRoute();
   const now = useNow(30_000);
   const { agents: all, isLoading, error } = agents.list;
@@ -92,7 +94,9 @@ export function AgentsView({
             <div className="space-y-1">
               <h3 className="text-sm font-medium">No agents yet</h3>
               <p className="max-w-sm text-sm text-muted-foreground">
-                Agents appear here when Lens receives their traces
+                {spendLogs
+                  ? "Agents appear automatically from LiteLLM spend logs. Set x-litellm-agent-name on your model client to name your agent."
+                  : "Agents appear here when Lens receives their traces"}
               </p>
             </div>
           </div>

@@ -52,6 +52,9 @@ Set up Lens for this project using https://github.com/BerriAI/lens/blob/main/doc
 <br>
 
 **Run Lens on its own or open it inside LiteLLM.** Your traces stay in your own ClickHouse.<br>
+
+Already using LiteLLM? [Preview agent traces from existing spend logs](docs/spend-log-traces.md), with one agent-name header and no separate tracing service.
+
 Point Claude Code or Codex at them and let your agents improve your agents.
 
 <br>
