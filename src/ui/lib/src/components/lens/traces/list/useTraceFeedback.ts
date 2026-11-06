@@ -1,4 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
+import { useLensHost } from "../../../../host/LensHost";
 import { chunk } from "es-toolkit";
 
 import { useTracesApi } from "../api";
@@ -7,7 +8,10 @@ import type { TraceFeedbackSummary, TraceSummary } from "../types";
 export const LOW_SCORE = 4;
 
 export type TraceFeedbackState =
-  | { status: "ready"; summary: Pick<TraceFeedbackSummary, "count" | "average" | "lowest"> }
+  | {
+      status: "ready";
+      summary: Pick<TraceFeedbackSummary, "count" | "average" | "lowest">;
+    }
   | { status: "pending" }
   | { status: "error" };
 
@@ -18,8 +22,12 @@ export const isLowFeedback = (state: TraceFeedbackState | undefined): boolean =>
 
 export function useTraceFeedback(accessToken: string, runs: TraceSummary[], isActive: boolean) {
   const api = useTracesApi(accessToken);
+  const spendLogs = useLensHost().traces === "spend-logs";
   const batches = chunk(
-    runs.map(({ trace_id, trace_ref }) => ({ trace_id, trace_ref: trace_ref ?? "" })),
+    (spendLogs ? [] : runs).map(({ trace_id, trace_ref }) => ({
+      trace_id,
+      trace_ref: trace_ref ?? "",
+    })),
     500,
   );
   const queries = useQueries({

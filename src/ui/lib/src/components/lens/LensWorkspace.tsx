@@ -103,7 +103,9 @@ const PANEL =
   "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
-  const embedded = useLensHost().surface === "embedded";
+  const host = useLensHost();
+  const embedded = host.surface === "embedded";
+  const spendLogs = host.traces === "spend-logs";
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
@@ -112,7 +114,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const { issueKey } = useIssueRoute();
   const { trace, openTrace } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
-  const canViewInvestigations = isProxyAdminTierRole(userRole);
+  const canViewInvestigations = !spendLogs && isProxyAdminTierRole(userRole);
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
   const connectGitHub =
@@ -123,7 +125,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
   const requestedTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
-  const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
+  const activeTab =
+    spendLogs && requestedTab !== "agents" ? "traces" : requestedTab === "investigations" ? "findings" : requestedTab;
   useEffect(() => {
     if (requestedTab === "investigations") setTab("findings");
   }, [requestedTab, setTab]);
@@ -137,14 +140,15 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
     dialog,
     issueKey,
   };
-  const showSetup = !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
+  const showSetup = !spendLogs && !demo && (settingUp || (embedded && needsSetup(setupState, setupLocation)));
   const traceWorkspace = activeTab === "traces" && !showSetup;
-  const connectProject = !demo
-    ? () => {
-        setSetup(false);
-        setTab("home");
-      }
-    : undefined;
+  const connectProject =
+    !spendLogs && !demo
+      ? () => {
+          setSetup(false);
+          setTab("home");
+        }
+      : undefined;
   const { activity, list } = useLensOverview(
     canViewInvestigations,
     (canConfigure && activeTab === "settings") || settingUp,
@@ -181,8 +185,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const onboarding: Onboarding = {
     readOnly,
     canViewInvestigations,
-    canInvestigate: isAdmin,
-    canMintTracingKey: isAdmin,
+    canInvestigate: !spendLogs && isAdmin,
+    canMintTracingKey: !spendLogs && isAdmin,
     connect: showSettings,
     create: showFindings,
     openTrace: showSentTrace,
@@ -304,15 +308,17 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </TabsContent>
                 ) : (
                   <>
-                    <TabsContent value="home" keepMounted className={PANEL}>
-                      <LensHome
-                        key={accessToken}
-                        agents={agents}
-                        enabled={!demo && activeTab === "home"}
-                        onOpenAgents={() => navigate("agents")}
-                        onSetup={canConfigure ? startSetup : undefined}
-                      />
-                    </TabsContent>
+                    {!spendLogs && (
+                      <TabsContent value="home" keepMounted className={PANEL}>
+                        <LensHome
+                          key={accessToken}
+                          agents={agents}
+                          enabled={!demo && activeTab === "home"}
+                          onOpenAgents={() => navigate("agents")}
+                          onSetup={canConfigure ? startSetup : undefined}
+                        />
+                      </TabsContent>
+                    )}
                     <TabsContent value="agents" className={PANEL}>
                       <AgentsView
                         agents={agents}
@@ -326,7 +332,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         accessToken={accessToken}
                         isActive={activeTab === "traces"}
                         readOnly={readOnly}
-                        canMintTracingKey={isAdmin}
+                        canMintTracingKey={!spendLogs && isAdmin}
                         canViewFindings={canViewInvestigations}
                         onSetUpSignals={canConfigure ? showSettings : undefined}
                         onConnectAgent={connectProject}

@@ -1143,3 +1143,52 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
 });
+
+it("opens spend-log traces without service setup and keeps deferred features out of navigation", async () => {
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens/service") return defaultResponse(path, false);
+    if (path === "/v1/traces") return Response.json({ data: [], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    throw new Error(`Unexpected request ${path}`);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", traces: "spend-logs" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  expect(await screen.findByRole("heading", { name: "Your agent runs will appear here" })).toBeVisible();
+  const tabs = within(screen.getByRole("tablist", { name: "Lens" }));
+  expect(tabs.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Agents", "Traces"]);
+  expect(screen.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
+  expect(screen.getByText(/Lens reads your LiteLLM spend logs automatically/)).toBeVisible();
+  const paths = network.mock.calls.map(([input]) => requestPath(input));
+  expect(paths.every((path) => ["/v1/traces", "/v1/traces/agents"].includes(path))).toBe(true);
+});
+
+it("opens a spend-log run without fetching feedback, findings, or remote conversation history", async () => {
+  const user = userEvent.setup();
+  const run = createLensDemoData().runs[0];
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/public/litellm_model_cost_map") return Response.json({});
+    if (path === "/v1/traces") return Response.json({ data: [run.trace.summary], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    if (path === `/v1/traces/${run.trace.summary.trace_id}`) return Response.json(run.trace);
+    throw new Error(`Unexpected request ${path}`);
+  });
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", traces: "spend-logs" }}>
+      <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  await user.click(await screen.findByText(run.trace.summary.input_preview));
+  const details = await screen.findByRole("complementary", { name: "Trace details" });
+  expect(await within(details).findByRole("tab", { name: "Thread" })).toBeVisible();
+  expect(within(details).queryByRole("button", { name: /Add.*to dataset/ })).not.toBeInTheDocument();
+  await user.click(within(details).getByRole("tab", { name: "Thread" }));
+  expect(within(details).queryByRole("button", { name: /Add.*to dataset/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("columnheader", { name: /Feedback/ })).not.toBeInTheDocument();
+  const paths = network.mock.calls.map(([input]) => requestPath(input));
+  expect(paths.filter((path) => (!path.startsWith("/v1/traces") && path !== "/public/litellm_model_cost_map") || path.endsWith("/conversation"))).toEqual([]);
+});

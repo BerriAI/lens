@@ -1,5 +1,6 @@
 "use client";
 
+import { useLensHost } from "../../../host/LensHost";
 import { Activity, ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "../../ui/button";
 import { useConnectProjectRoute } from "../route";
@@ -15,6 +16,7 @@ export function WaitingForTraces({
   readonly checking: boolean;
   readonly detail?: string | null;
 }) {
+  const spendLogs = useLensHost().traces === "spend-logs";
   const [project] = useConnectProjectRoute();
   return (
     <section
@@ -30,10 +32,16 @@ export function WaitingForTraces({
           Waiting for traces
         </span>
         <h2 className="lens-page-title mt-5">
-          {project ? "Your first trace will appear here" : "Connect your project to see its traces"}
+          {spendLogs
+            ? "Your agent runs will appear here"
+            : project
+              ? "Your first trace will appear here"
+              : "Connect your project to see its traces"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {project ? (
+          {spendLogs ? (
+            "Lens reads your LiteLLM spend logs automatically. Send your agent requests through LiteLLM with the same session ID for each run. Set x-litellm-agent-name on your model client to give the agent a name. No tracing SDK is needed."
+          ) : project ? (
             <>
               Continue setup for <span className="break-all font-medium text-foreground">{project.name}</span> on Home.
               Lens checks the connection there automatically.
@@ -50,7 +58,9 @@ export function WaitingForTraces({
         )}
         {detail && (
           <p role="alert" className="mt-4 text-sm text-muted-foreground">
-            Trace storage is not configured yet. Check the live connection panel on Home.
+            {spendLogs
+              ? "Connect LiteLLM to its database and enable spend logging to see agent runs."
+              : "Trace storage is not configured yet. Check the live connection panel on Home."}
           </p>
         )}
         <div className="mt-4">

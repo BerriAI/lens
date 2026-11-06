@@ -1,5 +1,7 @@
 "use client";
 
+import { useLensHost } from "../../../../host/LensHost";
+
 import moment from "moment";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import {
@@ -174,6 +176,7 @@ export function AgentTracesSection({
     setFullScreen,
   } = useOpenTraceRouting();
   const { query, setQuery, agent, status } = useRunFilterRouting();
+  const spendLogs = useLensHost().traces === "spend-logs";
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
   const logRouting = useLogTimelineRouting();
@@ -321,19 +324,23 @@ export function AgentTracesSection({
           range={zoom ?? window}
           busy={traces.isPlaceholder}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-none border-l px-3 text-xs"
-            onClick={() => route.setTab("profiles")}
-          >
-            <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
-          </Button>
-          <TracingSetupAction
-            available={traces.traces.length > 0}
-            live={live}
-            onSetup={onConnectAgent ?? (() => setShowSetup(true))}
-          />
+          {!spendLogs && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-none border-l px-3 text-xs"
+              onClick={() => route.setTab("profiles")}
+            >
+              <ChartPie aria-hidden="true" className="size-3.5" /> Task profiles
+            </Button>
+          )}
+          {!spendLogs && (
+            <TracingSetupAction
+              available={traces.traces.length > 0}
+              live={live}
+              onSetup={onConnectAgent ?? (() => setShowSetup(true))}
+            />
+          )}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -436,7 +443,7 @@ export function AgentTracesSection({
           onRetry={traces.hasMore ? traces.loadMore : traces.refetch}
           onLoadMore={traces.loadMore}
           rangeEmpty={traces.traces.length === 0}
-          onSetUpTracing={onConnectAgent ?? (() => setShowSetup(true))}
+          onSetUpTracing={spendLogs ? undefined : onConnectAgent ?? (() => setShowSetup(true))}
         />
         <TraceFooter runs={runs} hasMore={traces.hasMore} />
       </div>
