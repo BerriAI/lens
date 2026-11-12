@@ -1,14 +1,49 @@
 import { apiClient } from "../../../lib/http/requests";
 import type { TimeWindow } from "../../shared/timeRange/timeRange";
 import type { TraceQueryBody } from "../traces/types";
+import {
+  detailSchema,
+  matrixSchema,
+  overviewSchema,
+  taxonomySchema,
+  taxonomyViewSchema,
+  type ProfileDetail,
+  type ProfilesMatrix,
+  type ProfilesOverview,
+  type TaskEdit,
+  type Taxonomy,
+  type TaxonomyView,
+} from "./schemas";
 import { usageProfileSchema, usageProfileSql, type UsageCategory } from "./usageProfile";
+
+export interface DiscoveryInput {
+  agent: string;
+  window: TimeWindow;
+  maxRuns: number;
+}
 
 export interface ProfilesApi {
   readonly scope: string;
   usage(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<UsageCategory[]>;
+  overview(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesOverview>;
+  matrix(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesMatrix>;
+  detail(window: TimeWindow, agent: string, profileId: string, signal?: AbortSignal): Promise<ProfileDetail>;
+  taxonomy(agent: string, signal?: AbortSignal): Promise<TaxonomyView>;
+  discover(input: DiscoveryInput): Promise<Taxonomy>;
+  editTask(agent: string, revision: number, taskId: string, edit: TaskEdit): Promise<Taxonomy>;
+  freeze(agent: string, revision: number): Promise<Taxonomy>;
+  reset(agent: string, revision: number): Promise<Taxonomy>;
 }
 
+const windowQuery = (window: TimeWindow, agent: string) => ({
+  agent,
+  start_ms: String(Math.trunc(window.startMs)),
+  end_ms: String(Math.trunc(window.endMs)),
+});
+
 export function liveProfilesApi(accessToken: string): ProfilesApi {
+  const get = async <T>(path: string, query: Record<string, string>, parse: (value: unknown) => T, signal?: AbortSignal) =>
+    parse(await apiClient.get<unknown>(path, { accessToken, query, signal }));
   return {
     scope: accessToken,
     usage: async (window, agent, signal) => {
@@ -19,5 +54,39 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
       });
       return usageProfileSchema.parse(response).data;
     },
+    overview: (window, agent, signal) =>
+      get("/lens/profiles/overview", windowQuery(window, agent), overviewSchema.parse, signal),
+    matrix: (window, agent, signal) =>
+      get("/lens/profiles/matrix", windowQuery(window, agent), matrixSchema.parse, signal),
+    detail: (window, agent, profileId, signal) =>
+      get(
+        "/lens/profiles/detail",
+        { ...windowQuery(window, agent), profile_id: profileId },
+        detailSchema.parse,
+        signal,
+      ),
+    taxonomy: (agent, signal) => get("/lens/profiles/taxonomy", { agent }, taxonomyViewSchema.parse, signal),
+    discover: async ({ agent, window, maxRuns }) =>
+      taxonomySchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/discovery", {
+          accessToken,
+          body: { agent, start_ms: Math.trunc(window.startMs), end_ms: Math.trunc(window.endMs), max_runs: maxRuns },
+        }),
+      ),
+    editTask: async (agent, revision, taskId, edit) =>
+      taxonomySchema.parse(
+        await apiClient.patch<unknown>(`/lens/profiles/taxonomy/tasks/${encodeURIComponent(taskId)}`, {
+          accessToken,
+          body: { agent, revision, ...edit },
+        }),
+      ),
+    freeze: async (agent, revision) =>
+      taxonomySchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/taxonomy/freeze", { accessToken, body: { agent, revision } }),
+      ),
+    reset: async (agent, revision) =>
+      taxonomySchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/taxonomy/reset", { accessToken, body: { agent, revision } }),
+      ),
   };
 }

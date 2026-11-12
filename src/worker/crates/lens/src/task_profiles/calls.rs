@@ -17,26 +17,11 @@ use litellm_traces_clickhouse::{
     ClickHouseTraces,
     query::profiles::{CallCostModels, CallCostModelsParams, CallCostModelsRow},
 };
-use sha2::{Digest, Sha256};
 
 const RUNS_PER_READ: usize = 32;
 const RUN_SPAN_MS: i64 = 6 * 3_600_000;
 const SPEND_MARGIN_MS: i64 = 30 * 60_000;
 const NANOS_PER_MS: i64 = 1_000_000;
-
-pub(super) fn trace_ref(run: &Run) -> String {
-    format!(
-        "{:X}",
-        Sha256::digest(
-            [
-                run.team_id.as_bytes(),
-                run.api_key_hash.as_bytes(),
-                run.trace_id.as_bytes()
-            ]
-            .join(&0)
-        )
-    )
-}
 
 fn now_ms() -> u64 {
     u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or_default()
@@ -63,7 +48,7 @@ pub(super) async fn resolve(
         };
         let params = TracePageSpansParams {
             access: scope.clone(),
-            trace_refs: batch.iter().map(trace_ref).collect(),
+            trace_refs: batch.iter().map(lens_server::profiles::aggregate::trace_ref).collect(),
             trace_ids: batch.iter().map(|run| run.trace_id.clone()).collect(),
             start_ms,
             end_ms: last_ms.saturating_add(RUN_SPAN_MS),

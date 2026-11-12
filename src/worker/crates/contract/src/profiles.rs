@@ -180,6 +180,7 @@ pub struct TaskDefinition {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 pub struct ProfileRunRef {
     pub trace_id: String,
+    pub trace_ref: String,
     pub start_ms: i64,
     pub input_preview: String,
     pub request_count: u64,

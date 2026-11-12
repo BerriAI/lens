@@ -67,6 +67,22 @@ pub const MULTIPLE_DEPLOYMENTS: &str = "multiple deployments";
 /// Resolved model calls per run; runs absent from the map were not resolved.
 pub type RunCalls = BTreeMap<(String, String, String), Vec<Call>>;
 
+/// The trace identity hash trace links use, so equal trace IDs from different teams stay apart.
+pub fn trace_ref(run: &Run) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:X}",
+        Sha256::digest(
+            [
+                run.team_id.as_bytes(),
+                run.api_key_hash.as_bytes(),
+                run.trace_id.as_bytes()
+            ]
+            .join(&0)
+        )
+    )
+}
+
 pub fn run_key(run: &Run) -> (String, String, String) {
     (
         run.team_id.clone(),
@@ -354,6 +370,7 @@ impl<'a> View<'a> {
                     .filter(|_| !requests.is_empty());
                 ProfileRunRef {
                     trace_id: run.trace_id.clone(),
+                    trace_ref: trace_ref(run),
                     start_ms: run.start_ms,
                     input_preview: run.input_preview.clone(),
                     request_count: requests.len() as u64,
