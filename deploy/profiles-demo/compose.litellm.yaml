@@ -6,6 +6,7 @@ services:
   lens:
     environment:
       LENS_GATEWAY_API_BASE: http://litellm:4000
+      LENS_GATEWAY_URL: http://litellm:4000
       LENS_GATEWAY_API_KEY: ${LITELLM_MASTER_KEY:?run demo.sh to create .env}
     logging: *logs
   clickhouse:
