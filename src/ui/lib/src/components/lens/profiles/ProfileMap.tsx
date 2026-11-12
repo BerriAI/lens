@@ -64,11 +64,11 @@ export function ProfileMap({
             <ZAxis zAxisId="points" type="number" dataKey="z" range={[14, 14]} />
             <ZAxis zAxisId="bubbles" type="number" dataKey="z" range={[220, 2600]} />
             <Scatter data={points} zAxisId="points" isAnimationActive={false} legendType="none">
-              {points.map((point) => {
+              {points.map((point, index) => {
                 const color = colors.get(point.profile_id) ?? MUTED;
                 return (
                   <Cell
-                    key={point.trace_id}
+                    key={`${index}:${point.trace_id}`}
                     fill={color}
                     fillOpacity={point.placement === "discovery" ? 0.55 : 0}
                     stroke={color}
