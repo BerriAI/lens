@@ -55,17 +55,17 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
       return usageProfileSchema.parse(response).data;
     },
     overview: (window, agent, signal) =>
-      get("/lens/profiles/overview", windowQuery(window, agent), overviewSchema.parse, signal),
+      get("/lens/profiles/overview", windowQuery(window, agent), (value) => overviewSchema.parse(value), signal),
     matrix: (window, agent, signal) =>
-      get("/lens/profiles/matrix", windowQuery(window, agent), matrixSchema.parse, signal),
+      get("/lens/profiles/matrix", windowQuery(window, agent), (value) => matrixSchema.parse(value), signal),
     detail: (window, agent, profileId, signal) =>
       get(
         "/lens/profiles/detail",
         { ...windowQuery(window, agent), profile_id: profileId },
-        detailSchema.parse,
+        (value) => detailSchema.parse(value),
         signal,
       ),
-    taxonomy: (agent, signal) => get("/lens/profiles/taxonomy", { agent }, taxonomyViewSchema.parse, signal),
+    taxonomy: (agent, signal) => get("/lens/profiles/taxonomy", { agent }, (value) => taxonomyViewSchema.parse(value), signal),
     discover: async ({ agent, window, maxRuns }) =>
       taxonomySchema.parse(
         await apiClient.post<unknown>("/lens/profiles/discovery", {

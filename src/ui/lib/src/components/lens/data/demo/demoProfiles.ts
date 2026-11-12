@@ -46,7 +46,7 @@ function summaries(runs: DemoRun[]): ProfileSummary[] {
   const groups = new Map<string, DemoRun[]>();
   for (const run of runs) groups.set(run.profileId, [...(groups.get(run.profileId) ?? []), run]);
   const ranked = [...groups.values()].sort((a, b) => b.length - a.length || a[0].profileId.localeCompare(b[0].profileId));
-  return ranked.map((group, rank) => {
+  return ranked.map((group, rank): ProfileSummary => {
     const priced = group.filter((run) => run.spend !== null);
     const angle = rank * 2.4;
     const radius = 34 * Math.sqrt((rank + 0.5) / ranked.length);
