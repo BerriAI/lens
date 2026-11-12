@@ -2,10 +2,35 @@
 
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "Capability".
+ */
+export type Capability = "function_calling" | "vision" | "reasoning" | "structured_output";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "CompatibilityStatus".
+ */
+export type CompatibilityStatus = "compatible" | "incompatible" | "unknown";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "InvestigatorState".
  */
 export type InvestigatorState =
   "starting" | "running" | "scheduled" | "stalled" | "failed" | "daily_limit" | "unavailable";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "MapPlacement".
+ */
+export type MapPlacement = "discovery" | "categorical";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSource".
+ */
+export type ProfileSource = "recorded" | "enhanced" | "pending" | "unknown" | "local" | "uncertain" | "unclassified";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomyStatus".
+ */
+export type TaxonomyStatus = "discovering" | "draft" | "frozen" | "failed" | "cleared";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".
@@ -388,6 +413,18 @@ export interface Clusters {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "Compatibility".
+ */
+export interface Compatibility {
+  column_key: string;
+  missing: Capability[];
+  profile_id: string;
+  status: CompatibilityStatus;
+  unknown: Capability[];
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "Coverage".
  */
 export interface Coverage1 {
@@ -404,6 +441,43 @@ export interface Coverage1 {
   screened?: number;
   selected?: number;
   unassessable?: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryJob".
+ */
+export interface DiscoveryJob {
+  attempts: number;
+  end_ms: number;
+  job_id: string;
+  lease_until?: string | null;
+  max_runs: number;
+  requested_at: string;
+  start_ms: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryPoint".
+ */
+export interface DiscoveryPoint {
+  api_key_hash: string;
+  task_id?: string | null;
+  team_id: string;
+  trace_id: string;
+  x: number;
+  y: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryRequest".
+ */
+export interface DiscoveryRequest {
+  agent: string;
+  end_ms: number;
+  max_runs: number;
+  start_ms: number;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
@@ -542,6 +616,71 @@ export interface InvestigatorStatus {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "MapPoint".
+ */
+export interface MapPoint {
+  placement: MapPlacement;
+  profile_id: string;
+  trace_id: string;
+  x: number;
+  y: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "MapPosition".
+ */
+export interface MapPosition {
+  x: number;
+  y: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "MatrixCell".
+ */
+export interface MatrixCell {
+  avg_cost_usd?: number | null;
+  column_key: string;
+  cost_observations: number;
+  eval_sample_count: number;
+  eval_success_rate?: number | null;
+  latency_observations: number;
+  p95_latency_ms?: number | null;
+  profile_id: string;
+  request_count: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ModelCapabilities".
+ */
+export interface ModelCapabilities {
+  function_calling?: boolean | null;
+  reasoning?: boolean | null;
+  structured_output?: boolean | null;
+  vision?: boolean | null;
+  [k: string]: unknown;
+}
+/**
+ * A matrix column. `model_config_id` is the gateway deployment ID recorded on the ledger
+ * row, or `None` when no matched ledger row carried one.
+ *
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ModelColumn".
+ */
+export interface ModelColumn {
+  capabilities: ModelCapabilities;
+  column_key: string;
+  configured: boolean;
+  model_config_id?: string | null;
+  model_group: string;
+  model_name: string;
+  provider: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "ModelMessage".
  */
 export interface ModelMessage {
@@ -566,6 +705,153 @@ export interface ModelResult {
   context_exceeded?: boolean;
   cost: number;
   finish_reason?: ("length" | "content_filter") | null;
+}
+/**
+ * How much of the window the figures rest on. When `truncated` is set, `runs_listed` is a
+ * lower bound and the request, cost and latency figures cover only `runs_resolved` runs.
+ *
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileCoverage".
+ */
+export interface ProfileCoverage {
+  runs_listed: number;
+  runs_resolved: number;
+  truncated: boolean;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileDetail".
+ */
+export interface ProfileDetail {
+  coverage: ProfileCoverage;
+  definition?: TaskDefinition | null;
+  models: MatrixCell[];
+  profile: ProfileSummary;
+  runs: ProfileRunRef[];
+  window: ProfileWindow;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaskDefinition".
+ */
+export interface TaskDefinition {
+  description: string;
+  example_trace_ids: string[];
+  exclusion_criteria: string;
+  inclusion_criteria: string;
+  name: string;
+  required_capabilities: Capability[];
+  task_id: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSummary".
+ */
+export interface ProfileSummary {
+  center: MapPosition;
+  cost_observations: number;
+  name: string;
+  profile_id: string;
+  request_count: number;
+  run_count: number;
+  share: number;
+  source: ProfileSource;
+  spend_usd?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileRunRef".
+ */
+export interface ProfileRunRef {
+  input_preview: string;
+  request_count: number;
+  spend_usd?: number | null;
+  start_ms: number;
+  trace_id: string;
+  trace_ref: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileWindow".
+ */
+export interface ProfileWindow {
+  agent: string;
+  end_ms: number;
+  start_ms: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileRef".
+ */
+export interface ProfileRef {
+  name: string;
+  profile_id: string;
+  /**
+   * `None` until a reviewed task definition states the requirements.
+   */
+  required_capabilities?: Capability[] | null;
+  source: ProfileSource;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileTotals".
+ */
+export interface ProfileTotals {
+  cost_observations: number;
+  matched_requests: number;
+  other_agent_requests: number;
+  requests: number;
+  runs: number;
+  shared_requests: number;
+  spend_usd?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfilesMatrix".
+ */
+export interface ProfilesMatrix {
+  cells: MatrixCell[];
+  compatibility: Compatibility[];
+  coverage: ProfileCoverage;
+  models: ModelColumn[];
+  other_agent_requests: number;
+  profiles: ProfileRef[];
+  window: ProfileWindow;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfilesOverview".
+ */
+export interface ProfilesOverview {
+  coverage: ProfileCoverage;
+  points: MapPoint[];
+  profiles: ProfileSummary[];
+  taxonomy?: TaxonomySummary | null;
+  totals: ProfileTotals;
+  window: ProfileWindow;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomySummary".
+ */
+export interface TaxonomySummary {
+  frozen_at?: string | null;
+  sample: boolean;
+  status: TaxonomyStatus;
+  task_count: number;
+  taxonomy_id: string;
+  version: number;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
@@ -634,6 +920,74 @@ export interface SignalFlag {
   name: string;
   score: number;
   signal_id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaskEdit".
+ */
+export interface TaskEdit {
+  agent: string;
+  description: string;
+  exclusion_criteria: string;
+  inclusion_criteria: string;
+  name: string;
+  required_capabilities: Capability[];
+  revision: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "Taxonomy".
+ */
+export interface Taxonomy {
+  agent: string;
+  discovered_at?: string | null;
+  error?: string | null;
+  frozen_at?: string | null;
+  job?: DiscoveryJob | null;
+  models: TaxonomyModels;
+  points: DiscoveryPoint[];
+  /**
+   * Changes on every write, so a stale browser edit is rejected.
+   */
+  revision: number;
+  sample: boolean;
+  status: TaxonomyStatus;
+  tasks: TaskDefinition[];
+  taxonomy_id: string;
+  /**
+   * Generation that assignments are keyed by; it only grows, even across resets.
+   */
+  version: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomyModels".
+ */
+export interface TaxonomyModels {
+  decision: string;
+  distill: string;
+  embedding: string;
+  synthesis: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomyRevisionRequest".
+ */
+export interface TaxonomyRevisionRequest {
+  agent: string;
+  revision: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomyView".
+ */
+export interface TaxonomyView {
+  can_write: boolean;
+  discovery_available: boolean;
+  taxonomy?: Taxonomy | null;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

@@ -133,6 +133,15 @@
       ],
       "type": "object"
     },
+    "Capability": {
+      "enum": [
+        "function_calling",
+        "vision",
+        "reasoning",
+        "structured_output"
+      ],
+      "type": "string"
+    },
     "CatalogEntry": {
       "additionalProperties": false,
       "properties": {
@@ -283,6 +292,47 @@
       },
       "type": "object"
     },
+    "Compatibility": {
+      "properties": {
+        "column_key": {
+          "type": "string"
+        },
+        "missing": {
+          "items": {
+            "$ref": "#/definitions/Capability"
+          },
+          "type": "array"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/CompatibilityStatus"
+        },
+        "unknown": {
+          "items": {
+            "$ref": "#/definitions/Capability"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "profile_id",
+        "column_key",
+        "status",
+        "missing",
+        "unknown"
+      ],
+      "type": "object"
+    },
+    "CompatibilityStatus": {
+      "enum": [
+        "compatible",
+        "incompatible",
+        "unknown"
+      ],
+      "type": "string"
+    },
     "Coverage": {
       "additionalProperties": false,
       "properties": {
@@ -342,6 +392,113 @@
           "type": "integer"
         }
       },
+      "type": "object"
+    },
+    "DiscoveryJob": {
+      "properties": {
+        "attempts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end_ms": {
+          "type": "integer"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "lease_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "requested_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "job_id",
+        "requested_at",
+        "attempts",
+        "max_runs",
+        "start_ms",
+        "end_ms"
+      ],
+      "type": "object"
+    },
+    "DiscoveryPoint": {
+      "properties": {
+        "api_key_hash": {
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "team_id": {
+          "type": "string"
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "team_id",
+        "api_key_hash",
+        "trace_id",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "DiscoveryRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "end_ms": {
+          "type": "integer"
+        },
+        "max_runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "start_ms",
+        "end_ms",
+        "max_runs"
+      ],
       "type": "object"
     },
     "Evidence": {
@@ -1342,6 +1499,120 @@
       ],
       "type": "object"
     },
+    "MapPlacement": {
+      "enum": [
+        "discovery",
+        "categorical"
+      ],
+      "type": "string"
+    },
+    "MapPoint": {
+      "properties": {
+        "placement": {
+          "$ref": "#/definitions/MapPlacement"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "trace_id",
+        "profile_id",
+        "x",
+        "y",
+        "placement"
+      ],
+      "type": "object"
+    },
+    "MapPosition": {
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "MatrixCell": {
+      "properties": {
+        "avg_cost_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "column_key": {
+          "type": "string"
+        },
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eval_sample_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eval_success_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latency_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "p95_latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile_id",
+        "column_key",
+        "request_count",
+        "cost_observations",
+        "latency_observations",
+        "eval_sample_count"
+      ],
+      "type": "object"
+    },
     "MetadataFilter": {
       "additionalProperties": false,
       "properties": {
@@ -1357,6 +1628,93 @@
       "required": [
         "key",
         "value"
+      ],
+      "type": "object"
+    },
+    "ModelCapabilities": {
+      "properties": {
+        "function_calling": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "structured_output": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vision": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ModelColumn": {
+      "description": "A matrix column. `model_config_id` is the gateway deployment ID recorded on the ledger\nrow, or `None` when no matched ledger row carried one.",
+      "properties": {
+        "capabilities": {
+          "$ref": "#/definitions/ModelCapabilities"
+        },
+        "column_key": {
+          "type": "string"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "model_config_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model_group": {
+          "type": "string"
+        },
+        "model_name": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "column_key",
+        "model_name",
+        "model_group",
+        "provider",
+        "configured",
+        "capabilities"
       ],
       "type": "object"
     },
@@ -1472,6 +1830,363 @@
       "required": [
         "check_id",
         "summary"
+      ],
+      "type": "object"
+    },
+    "ProfileCoverage": {
+      "description": "How much of the window the figures rest on. When `truncated` is set, `runs_listed` is a\nlower bound and the request, cost and latency figures cover only `runs_resolved` runs.",
+      "properties": {
+        "runs_listed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runs_resolved": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runs_listed",
+        "runs_resolved",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "ProfileDetail": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "definition": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TaskDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/MatrixCell"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/definitions/ProfileSummary"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/definitions/ProfileRunRef"
+          },
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "profile",
+        "runs",
+        "models"
+      ],
+      "type": "object"
+    },
+    "ProfileRef": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "required_capabilities": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/definitions/Capability"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`None` until a reviewed task definition states the requirements."
+        },
+        "source": {
+          "$ref": "#/definitions/ProfileSource"
+        }
+      },
+      "required": [
+        "profile_id",
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "ProfileRunRef": {
+      "properties": {
+        "input_preview": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_ms": {
+          "type": "integer"
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "trace_ref",
+        "start_ms",
+        "input_preview",
+        "request_count"
+      ],
+      "type": "object"
+    },
+    "ProfileSource": {
+      "enum": [
+        "recorded",
+        "enhanced",
+        "pending",
+        "unknown",
+        "local",
+        "uncertain",
+        "unclassified"
+      ],
+      "type": "string"
+    },
+    "ProfileSummary": {
+      "properties": {
+        "center": {
+          "$ref": "#/definitions/MapPosition"
+        },
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "run_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "share": {
+          "type": "number"
+        },
+        "source": {
+          "$ref": "#/definitions/ProfileSource"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "profile_id",
+        "name",
+        "source",
+        "run_count",
+        "share",
+        "request_count",
+        "cost_observations",
+        "center"
+      ],
+      "type": "object"
+    },
+    "ProfileTotals": {
+      "properties": {
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "matched_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "other_agent_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "shared_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs",
+        "requests",
+        "matched_requests",
+        "cost_observations",
+        "other_agent_requests",
+        "shared_requests"
+      ],
+      "type": "object"
+    },
+    "ProfileWindow": {
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "end_ms": {
+          "type": "integer"
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "start_ms",
+        "end_ms"
+      ],
+      "type": "object"
+    },
+    "ProfilesMatrix": {
+      "properties": {
+        "cells": {
+          "items": {
+            "$ref": "#/definitions/MatrixCell"
+          },
+          "type": "array"
+        },
+        "compatibility": {
+          "items": {
+            "$ref": "#/definitions/Compatibility"
+          },
+          "type": "array"
+        },
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/ModelColumn"
+          },
+          "type": "array"
+        },
+        "other_agent_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/definitions/ProfileRef"
+          },
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "profiles",
+        "models",
+        "cells",
+        "compatibility",
+        "other_agent_requests"
+      ],
+      "type": "object"
+    },
+    "ProfilesOverview": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/definitions/MapPoint"
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/definitions/ProfileSummary"
+          },
+          "type": "array"
+        },
+        "taxonomy": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TaxonomySummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "totals": {
+          "$ref": "#/definitions/ProfileTotals"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "totals",
+        "profiles",
+        "points"
       ],
       "type": "object"
     },
@@ -2067,6 +2782,302 @@
         "at",
         "kind",
         "label"
+      ],
+      "type": "object"
+    },
+    "TaskDefinition": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "example_trace_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "exclusion_criteria": {
+          "type": "string"
+        },
+        "inclusion_criteria": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "required_capabilities": {
+          "items": {
+            "$ref": "#/definitions/Capability"
+          },
+          "type": "array"
+        },
+        "task_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "name",
+        "description",
+        "inclusion_criteria",
+        "exclusion_criteria",
+        "required_capabilities",
+        "example_trace_ids"
+      ],
+      "type": "object"
+    },
+    "TaskEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "exclusion_criteria": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "inclusion_criteria": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "required_capabilities": {
+          "items": {
+            "$ref": "#/definitions/Capability"
+          },
+          "type": "array"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "revision",
+        "name",
+        "description",
+        "inclusion_criteria",
+        "exclusion_criteria",
+        "required_capabilities"
+      ],
+      "type": "object"
+    },
+    "Taxonomy": {
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "discovered_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frozen_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "job": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DiscoveryJob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "models": {
+          "$ref": "#/definitions/TaxonomyModels"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/definitions/DiscoveryPoint"
+          },
+          "type": "array"
+        },
+        "revision": {
+          "description": "Changes on every write, so a stale browser edit is rejected.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sample": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/TaxonomyStatus"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/definitions/TaskDefinition"
+          },
+          "type": "array"
+        },
+        "taxonomy_id": {
+          "type": "string"
+        },
+        "version": {
+          "description": "Generation that assignments are keyed by; it only grows, even across resets.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "taxonomy_id",
+        "agent",
+        "version",
+        "revision",
+        "status",
+        "sample",
+        "tasks",
+        "points",
+        "models"
+      ],
+      "type": "object"
+    },
+    "TaxonomyModels": {
+      "properties": {
+        "decision": {
+          "type": "string"
+        },
+        "distill": {
+          "type": "string"
+        },
+        "embedding": {
+          "type": "string"
+        },
+        "synthesis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "distill",
+        "embedding",
+        "synthesis",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "TaxonomyRevisionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "TaxonomyStatus": {
+      "enum": [
+        "discovering",
+        "draft",
+        "frozen",
+        "failed",
+        "cleared"
+      ],
+      "type": "string"
+    },
+    "TaxonomySummary": {
+      "properties": {
+        "frozen_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sample": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/TaxonomyStatus"
+        },
+        "task_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "taxonomy_id": {
+          "type": "string"
+        },
+        "version": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "taxonomy_id",
+        "version",
+        "status",
+        "sample",
+        "task_count"
+      ],
+      "type": "object"
+    },
+    "TaxonomyView": {
+      "properties": {
+        "can_write": {
+          "type": "boolean"
+        },
+        "discovery_available": {
+          "type": "boolean"
+        },
+        "taxonomy": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Taxonomy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "discovery_available",
+        "can_write"
       ],
       "type": "object"
     },
