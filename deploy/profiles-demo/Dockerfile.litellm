@@ -18,6 +18,8 @@ COPY --from=lensui src ./src
 COPY --from=lensui public ./public
 RUN npm pack --silent --pack-destination /src
 WORKDIR /src/litellm/ui/litellm-dashboard
+# The Lens UI targets ES2022 (src/ui/lib/tsconfig.json) and the pinned dashboard targets ES2017.
+RUN sed -i 's/"target": "ES2017"/"target": "ES2022"/' tsconfig.json && grep -q '"target": "ES2022"' tsconfig.json
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --prefer-offline
 # The pinned dashboard ships next 16.4.1 and this Lens UI needs ^16.4.5, so take the patch release it requires.
 ARG DASHBOARD_NEXT=16.4.5
