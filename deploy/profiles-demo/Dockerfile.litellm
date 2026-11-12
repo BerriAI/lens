@@ -19,7 +19,9 @@ COPY --from=lensui public ./public
 RUN npm pack --silent --pack-destination /src
 WORKDIR /src/litellm/ui/litellm-dashboard
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --prefer-offline
-RUN --mount=type=cache,target=/root/.npm npm install --no-save --ignore-scripts /src/litellm-lens-ui-*.tgz
+# The pinned dashboard ships next 16.4.1 and this Lens UI needs ^16.4.5, so take the patch release it requires.
+ARG DASHBOARD_NEXT=16.4.5
+RUN --mount=type=cache,target=/root/.npm npm install --no-save --ignore-scripts "next@$DASHBOARD_NEXT" /src/litellm-lens-ui-*.tgz
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 FROM $LITELLM_IMAGE

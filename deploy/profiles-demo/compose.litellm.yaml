@@ -1,8 +1,15 @@
+x-logs: &logs
+  driver: json-file
+  options: {max-size: 10m, max-file: "3"}
+
 services:
   lens:
     environment:
       LENS_GATEWAY_API_BASE: http://litellm:4000
       LENS_GATEWAY_API_KEY: ${LITELLM_MASTER_KEY:?run demo.sh to create .env}
+    logging: *logs
+  clickhouse:
+    logging: *logs
   litellm:
     image: lens-profiles-demo-litellm:local
     build:
@@ -31,9 +38,7 @@ services:
       timeout: 10s
       retries: 18
       start_period: 60s
-    logging:
-      driver: json-file
-      options: {max-size: 10m, max-file: "3"}
+    logging: *logs
   litellm-db:
     image: postgres:16
     environment:
@@ -47,9 +52,7 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
-    logging:
-      driver: json-file
-      options: {max-size: 10m, max-file: "3"}
+    logging: *logs
 
 volumes:
   litellm_postgres:

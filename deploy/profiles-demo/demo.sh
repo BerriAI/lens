@@ -6,7 +6,15 @@ root="$(cd -- "$here/../.." && pwd)"
 project="${LENS_DEMO_PROJECT:-lens-profiles-demo}"
 lens_port="${LENS_PORT:-4320}"
 litellm_port="${LITELLM_PORT:-4400}"
-image="${LENS_IMAGE:-lens:profiles-demo}"
+revision="$(git -C "$root" rev-parse HEAD 2>/dev/null)" || {
+  printf 'demo.sh: run the demo from a git checkout of Lens\n' >&2
+  exit 1
+}
+if [ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]; then
+  revision="$revision-dirty"
+fi
+provided_image="${LENS_IMAGE:-}"
+image="${LENS_IMAGE:-lens:profiles-demo-${revision:0:12}${revision#"${revision%-dirty}"}}"
 env_file="$here/.env"
 launcher="bash deploy/profiles-demo/demo.sh"
 export LENS_PORT="$lens_port" LITELLM_PORT="$litellm_port" LENS_PUBLIC_URL="http://localhost:$lens_port" LENS_IMAGE="$image"
@@ -46,6 +54,21 @@ ensure_env() {
   ensure_secret LENS_GATEWAY_SECRET "$(random_hex)"
 }
 
+image_revision() {
+  docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null
+}
+
+ensure_image() {
+  if [[ "$revision" != *-dirty ]] && [ "$(image_revision)" = "$revision" ]; then
+    return
+  fi
+  if [ -n "$provided_image" ]; then
+    fail "LENS_IMAGE=$provided_image was not built from this checkout ($revision). Unset LENS_IMAGE to build it, or pass an image labeled org.opencontainers.image.revision=$revision."
+  fi
+  printf 'Building %s from this checkout. The first build compiles the Lens Rust backend and UI, which takes a long time and several GB of memory.\n' "$image"
+  docker build --file "$root/deploy/runtime/Dockerfile" --label "org.opencontainers.image.revision=$revision" --tag "$image" "$root"
+}
+
 start() {
   for port in "$lens_port" "$litellm_port"; do
     [[ "$port" =~ ^[0-9]+$ ]] || fail "Ports must be numbers."
@@ -54,10 +77,7 @@ start() {
     port_busy "$lens_port" && fail "Port $lens_port is in use. Pick another, e.g. LENS_PORT=4330 $launcher"
     port_busy "$litellm_port" && fail "Port $litellm_port is in use. Pick another, e.g. LITELLM_PORT=4410 $launcher"
   fi
-  if ! docker image inspect "$image" >/dev/null 2>&1; then
-    printf 'Building %s from this checkout. The first build compiles the Lens Rust backend and UI, which takes a long time and several GB of memory.\n' "$image"
-    docker build --file "$root/deploy/runtime/Dockerfile" --tag "$image" "$root"
-  fi
+  ensure_image
   ensure_env
   printf 'Building the LiteLLM dashboard with this checkout'"'"'s Lens UI (Node only, a few minutes the first time).\n'
   "${compose[@]}" build litellm

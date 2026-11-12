@@ -46,7 +46,7 @@ export function ProfileTable({
           </button>
         ))}
       </div>
-      <Table>
+      <Table aria-label="Profiles ranked by runs or spend">
         <TableHeader>
           <TableRow>
             <TableHead>Profile</TableHead>

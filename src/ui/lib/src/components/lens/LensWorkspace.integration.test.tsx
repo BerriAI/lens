@@ -980,8 +980,10 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
     onUrlUpdate,
   });
   await user.click(await screen.findByRole("button", { name: "Task profiles" }));
-  expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
-  expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
+  const ranked = within(await screen.findByRole("table", { name: "Profiles ranked by runs or spend" }));
+  expect(ranked.getByRole("row", { name: /Workflows/ })).toHaveTextContent("66.7%");
+  expect(ranked.getByRole("row", { name: /Workflows/ })).toHaveTextContent("4");
+  expect(ranked.getByRole("row", { name: /Unclassified/ })).toHaveTextContent("33.3%");
   expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));

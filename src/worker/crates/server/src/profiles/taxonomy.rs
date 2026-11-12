@@ -42,7 +42,7 @@ pub trait TaxonomyStore: Send + Sync {
     ) -> impl Future<Output = Result<(), ProfileStoreError>> + Send;
 }
 
-#[derive(Debug, PartialEq, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum TransitionError {
     #[error("Discovery is already running for this agent")]
     Running,

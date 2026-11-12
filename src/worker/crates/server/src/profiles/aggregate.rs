@@ -312,8 +312,7 @@ impl<'a> View<'a> {
     /// Cells keyed by profile and canonical column key; a deployment keeps one cell even when
     /// its display labels changed between ledger rows.
     pub fn cells(&self, profile: Option<&str>) -> Vec<(Column, MatrixCell)> {
-        let mut grouped: BTreeMap<(String, String), (Column, Vec<(Option<f64>, f64)>)> =
-            BTreeMap::new();
+        let mut grouped: BTreeMap<(String, String), CellRequests> = BTreeMap::new();
         for request in self
             .own()
             .iter()
@@ -322,25 +321,32 @@ impl<'a> View<'a> {
             let column = request.column();
             grouped
                 .entry((request.run.profile_id.clone(), column.key()))
-                .or_insert_with(|| (column, Vec::new()))
-                .1
-                .push((request.spend(), request.duration_ms()));
+                .or_insert_with(|| CellRequests {
+                    column,
+                    readings: Vec::new(),
+                })
+                .readings
+                .push(Reading {
+                    spend: request.spend(),
+                    duration_ms: request.duration_ms(),
+                });
         }
         grouped
             .into_iter()
-            .map(|((profile_id, column_key), (column, requests))| {
-                let priced: Vec<f64> = requests.iter().filter_map(|(spend, _)| *spend).collect();
-                let latencies: Vec<f64> = requests
+            .map(|((profile_id, column_key), cell)| {
+                let priced: Vec<f64> = cell.readings.iter().filter_map(|reading| reading.spend).collect();
+                let latencies: Vec<f64> = cell
+                    .readings
                     .iter()
-                    .map(|(_, duration)| *duration)
+                    .map(|reading| reading.duration_ms)
                     .filter(|duration| duration.is_finite() && *duration > 0.0)
                     .collect();
                 (
-                    column,
+                    cell.column,
                     MatrixCell {
                         profile_id,
                         column_key,
-                        request_count: requests.len() as u64,
+                        request_count: cell.readings.len() as u64,
                         avg_cost_usd: finite_sum(priced.iter().copied().map(Some))
                             .filter(|_| !priced.is_empty())
                             .map(|total| total / priced.len() as f64),
@@ -379,6 +385,16 @@ impl<'a> View<'a> {
             })
             .collect()
     }
+}
+
+struct Reading {
+    spend: Option<f64>,
+    duration_ms: f64,
+}
+
+struct CellRequests {
+    column: Column,
+    readings: Vec<Reading>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

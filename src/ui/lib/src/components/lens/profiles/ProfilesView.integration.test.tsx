@@ -5,6 +5,8 @@ import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
 import type { LensAgents } from "../agents/AgentScoped";
 import { ProfilesView } from "./ProfilesView";
+
+const ranked = async () => within(await screen.findByRole("table", { name: "Profiles ranked by runs or spend" }));
 import type { ProfileDetail, ProfilesMatrix, ProfilesOverview, ProfileSummary } from "./schemas";
 
 const agents: LensAgents = {
@@ -132,13 +134,14 @@ it("shows run and spend figures, never a missing cost as zero, and selects a pro
   const onUrlUpdate = vi.fn();
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant", onUrlUpdate });
 
-  const unclassified = await screen.findByRole("row", { name: /Unclassified/ });
+  const table = await ranked();
+  const unclassified = table.getByRole("row", { name: /Unclassified/ });
   expect(unclassified).toHaveTextContent("No data");
   expect(unclassified).not.toHaveTextContent("$0");
   expect(screen.getByText("cost known for 12 of 18 requests")).toBeVisible();
   expect(proxy.get).toHaveBeenCalledWith("/lens/profiles/overview", expect.objectContaining({ query: expect.objectContaining({ agent: "assistant" }) }));
 
-  await user.click(within(screen.getByRole("row", { name: /Coding/ })).getByRole("button", { name: /Coding/ }));
+  await user.click(within(table.getByRole("row", { name: /Coding/ })).getByRole("button", { name: /Coding/ }));
 
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile")).toBe("recorded:Coding"));
 });
@@ -203,8 +206,8 @@ it("lets a failed overview be retried without showing stale figures", async () =
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not load usage profiles");
-  expect(screen.queryByRole("row", { name: /Coding/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("table", { name: "Profiles ranked by runs or spend" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Refresh usage profiles" }));
 
-  expect(await screen.findByRole("row", { name: /Coding/ })).toBeVisible();
+  expect((await ranked()).getByRole("row", { name: /Coding/ })).toBeVisible();
 });
