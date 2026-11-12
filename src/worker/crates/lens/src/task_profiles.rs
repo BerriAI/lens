@@ -2,6 +2,7 @@ mod bucketing;
 mod calls;
 mod discovery;
 mod gateway;
+pub mod seed;
 mod worker;
 
 use std::{

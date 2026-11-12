@@ -50,9 +50,10 @@ fn main() -> Result<(), litellm_lens::Error> {
     }
     let compact = arguments.as_slice() == ["compact-state"];
     let profiles = arguments.as_slice() == ["task-profile-worker"];
-    if !arguments.is_empty() && !compact && !profiles {
+    let seed = arguments.as_slice() == ["seed-profiles-demo"];
+    if !arguments.is_empty() && !compact && !profiles && !seed {
         return Err(litellm_lens::Error::Configuration(
-            "usage: litellm-lens [init [directory] | compact-state | --version]",
+            "usage: litellm-lens [init [directory] | compact-state | seed-profiles-demo | --version]",
         ));
     }
     let _ = litellm_tracing::Logger::new(Diagnostics).install_global();
@@ -66,12 +67,31 @@ fn main() -> Result<(), litellm_lens::Error> {
             litellm_lens::profiles::work().await
         } else if compact {
             compact_state().await
+        } else if seed {
+            seed_profiles().await
         } else {
             run().await
         }
     });
     runtime.shutdown_timeout(Duration::from_secs(10));
     outcome
+}
+
+async fn seed_profiles() -> Result<(), litellm_lens::Error> {
+    let config = Config::from_env()?;
+    let client = http_client()?;
+    let storage = config.storage.storage();
+    let state = litellm_storage_clickhouse::state::ClickHouseState::new(
+        client.clone(),
+        storage.reader().clone(),
+    );
+    state
+        .initialize(&format!("/lens/{}", storage.database()))
+        .await?;
+    let summary =
+        litellm_lens::task_profiles::seed::seed(&client, &config.storage, &state).await?;
+    println!("{summary}");
+    Ok(())
 }
 
 async fn compact_state() -> Result<(), litellm_lens::Error> {
