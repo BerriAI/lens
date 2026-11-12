@@ -169,6 +169,17 @@ const server = createServer(async (request, response) => {
     response.writeHead(200, { "Content-Type": "text/plain" }).end("Lens gateway demo");
     return;
   }
+  const page = new URL(request.url ?? "/", origin);
+  if (
+    request.method === "GET" &&
+    /^\/(?:ui\/)?lens\/?$/.test(page.pathname) &&
+    !request.headers.accept?.includes("application/json") &&
+    page.searchParams.get("demo") !== "true"
+  ) {
+    page.searchParams.set("demo", "true");
+    response.writeHead(307, { Location: `${page.pathname}${page.search}`, "Cache-Control": "no-store" }).end();
+    return;
+  }
   if (request.url === "/" || request.url === "/start" || request.url?.startsWith("/ui/demo/")) {
     try {
       const login = await fetch(`${backend}/v2/login`, {
