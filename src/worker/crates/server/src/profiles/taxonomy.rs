@@ -22,7 +22,7 @@ use crate::{auth, routing::PublicRoutes};
 pub const MIN_DISCOVERY_RUNS: u32 = 20;
 pub const MAX_DISCOVERY_RUNS: u32 = 500;
 pub const MAX_ATTEMPTS: u32 = 3;
-pub const LEASE: Duration = Duration::minutes(10);
+pub const LEASE: Duration = Duration::minutes(30);
 const NAME_LIMIT: usize = 80;
 const TEXT_LIMIT: usize = 600;
 

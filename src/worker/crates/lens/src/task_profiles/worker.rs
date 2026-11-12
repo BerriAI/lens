@@ -29,6 +29,7 @@ const BUCKET_BATCH: u32 = 20;
 const BUCKET_LOOKBACK_MS: i64 = 30 * 86_400_000;
 const TAXONOMY_PAGE: u32 = 100;
 const BUCKET_ATTEMPTS: u8 = 3;
+const DISCOVERY_BUDGET: Duration = Duration::from_secs(25 * 60);
 const BUCKET_LEASE: chrono::Duration = chrono::Duration::minutes(5);
 const BUCKET_PREFIX: &str = "profiles/bucketing/";
 
@@ -238,7 +239,8 @@ impl ProfilesWorker {
         if samples.len() < lens_profiles::clustering::MIN_POINTS {
             return Err(DiscoveryError::TooFewRuns);
         }
-        discovery::discover(
+        discovery::discover_within(
+            DISCOVERY_BUDGET,
             &GatewayLanguage(&self.models),
             &GatewayEmbeddings(&self.models),
             &taxonomy.models,
@@ -296,7 +298,7 @@ impl ProfilesWorker {
         };
         let evaluation = self.models.evaluation();
         for candidate in &candidates {
-            if !self.still_frozen(taxonomy).await {
+            if !self.still_frozen(taxonomy).await || !self.lease(taxonomy).await {
                 return true;
             }
             let decided = bucketing::decide(

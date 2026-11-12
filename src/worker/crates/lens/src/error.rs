@@ -254,6 +254,8 @@ pub enum DiscoveryError {
     Clustering,
     #[error("the {0} model is not configured on the gateway")]
     Unconfigured(&'static str),
+    #[error("discovery did not finish within its time budget")]
+    TimedOut,
     #[error(transparent)]
     Embedding(#[from] EmbedError),
 }

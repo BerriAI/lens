@@ -291,6 +291,21 @@ pub async fn discover(
     Ok((tasks, points))
 }
 
+/// Discovery must finish inside its claim's lease; a stalled provider fails the job instead of
+/// letting another replica start the same paid work.
+pub async fn discover_within(
+    budget: std::time::Duration,
+    language: &impl Language,
+    embeddings: &impl Embeddings,
+    models: &TaxonomyModels,
+    samples: &[Sample],
+    task_id: impl FnMut() -> String,
+) -> Result<(Vec<TaskDefinition>, Vec<DiscoveryPoint>), DiscoveryError> {
+    tokio::time::timeout(budget, discover(language, embeddings, models, samples, task_id))
+        .await
+        .map_err(|_| DiscoveryError::TimedOut)?
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +394,32 @@ mod tests {
         async fn embed(&self, _: &str, _: &[String]) -> Result<Vec<Vec<f32>>, DiscoveryError> {
             Ok(Vec::new())
         }
+    }
+
+    struct Stalled;
+
+    impl Language for Stalled {
+        async fn complete(&self, _: &str, _: String) -> Result<String, DiscoveryError> {
+            std::future::pending().await
+        }
+    }
+
+    #[rstest]
+    #[tokio::test(start_paused = true)]
+    async fn a_stalled_provider_fails_discovery_within_its_budget() {
+        let samples: Vec<Sample> = (0..20).map(|index| sample(&index.to_string())).collect();
+
+        let result = discover_within(
+            std::time::Duration::from_secs(60),
+            &Stalled,
+            &NoEmbeddings,
+            &TaxonomyModels::default(),
+            &samples,
+            || "id".into(),
+        )
+        .await;
+
+        assert_eq!(result, Err(DiscoveryError::TimedOut));
     }
 
     #[rstest]

@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+# LiteLLM's dashboard rebuilt with this checkout's @litellm/lens-ui, on the published image of the same LiteLLM commit.
+ARG LITELLM_IMAGE=ghcr.io/berriai/litellm@sha256:47350b93fa4e8590a6fea60055397afbed018764a845dbdda067f0a02672941e
+ARG NODE_IMAGE=node:24.19-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+
+FROM --platform=$BUILDPLATFORM $NODE_IMAGE AS dashboard
+ARG LITELLM_REF=07c72298956097565e1760fc89081aaf6122438b
+ENV NEXT_TELEMETRY_DISABLED=1 npm_config_fund=false npm_config_audit=false
+RUN apk add --no-cache git
+WORKDIR /src/litellm
+RUN git init -q && git remote add origin https://github.com/BerriAI/litellm.git \
+    && git sparse-checkout set ui/litellm-dashboard \
+    && git fetch -q --depth 1 --filter=blob:none origin "$LITELLM_REF" \
+    && git checkout -q FETCH_HEAD
+WORKDIR /src/lens-ui
+COPY --from=lensui package.json ./
+COPY --from=lensui src ./src
+COPY --from=lensui public ./public
+RUN npm pack --silent --pack-destination /src
+WORKDIR /src/litellm/ui/litellm-dashboard
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/root/.npm npm install --no-save --ignore-scripts /src/litellm-lens-ui-*.tgz
+RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
+
+FROM $LITELLM_IMAGE
+ARG SITE_PACKAGES=/app/.venv/lib/python3.13/site-packages
+RUN rm -rf ${SITE_PACKAGES}/litellm/proxy/_experimental/out
+COPY --from=dashboard /src/litellm/ui/litellm-dashboard/out/ ${SITE_PACKAGES}/litellm/proxy/_experimental/out/

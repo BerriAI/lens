@@ -1,0 +1,55 @@
+services:
+  lens:
+    environment:
+      LENS_GATEWAY_API_BASE: http://litellm:4000
+      LENS_GATEWAY_API_KEY: ${LITELLM_MASTER_KEY:?run demo.sh to create .env}
+  litellm:
+    image: lens-profiles-demo-litellm:local
+    build:
+      context: .
+      dockerfile: Dockerfile.litellm
+      additional_contexts:
+        lensui: ../../src/ui/lib
+    pull_policy: never
+    env_file: .env
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      DATABASE_URL: postgresql://litellm:litellm@litellm-db:5432/litellm
+      STORE_MODEL_IN_DB: "False"
+      LITELLM_LENS_URL: http://lens:4318
+      LITELLM_LENS_PUBLIC_URL: http://localhost:${LENS_PORT:-4320}
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:${LITELLM_PORT:-4400}:4000"
+    depends_on:
+      litellm-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  litellm-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+    volumes:
+      - litellm_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d litellm -U litellm"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
+volumes:
+  litellm_postgres:
