@@ -35,8 +35,17 @@ pub struct SampleRequest<'a> {
 }
 
 impl SourceReader {
-    /// The agent's frozen enhanced taxonomy, which only every-team scopes can use.
-    async fn taxonomy(&self, scope: &Scope, agent: &str) -> ProfileTaxonomyParams {
+    /// The agent's frozen enhanced taxonomy, which only every-team scopes can use. Without a
+    /// profile filter the taxonomy changes nothing, so it is not read.
+    async fn taxonomy(
+        &self,
+        scope: &Scope,
+        agent: &str,
+        profile: Option<&str>,
+    ) -> ProfileTaxonomyParams {
+        if profile.is_none_or(str::is_empty) {
+            return ProfileTaxonomyParams::default();
+        }
         let access = litellm_traces::query::named::ReadAccessParams {
             all_teams: scope.all_teams,
             user_id: String::new(),
@@ -66,7 +75,13 @@ impl SourceReader {
         request: &SampleRequest<'_>,
     ) -> Result<LensSampleParams, Error> {
         Ok(LensSampleParams {
-            taxonomy: self.taxonomy(scope, &request.selection.agent_name).await,
+            taxonomy: self
+                .taxonomy(
+                    scope,
+                    &request.selection.agent_name,
+                    request.selection.profile.as_deref().map(String::as_str),
+                )
+                .await,
             ..sample_parameters(scope, request)?
         })
     }
@@ -188,7 +203,13 @@ impl SourceReader {
         for source in sources {
             let rows = self
                 .read::<LensFindingSource>(&LensFindingSourceParams {
-                    taxonomy: self.taxonomy(&lens.scope, &lens.settings.agent_name).await,
+                    taxonomy: self
+                        .taxonomy(
+                            &lens.scope,
+                            &lens.settings.agent_name,
+                            lens.settings.profile.as_deref().map(String::as_str),
+                        )
+                        .await,
                     profile: lens
                         .settings
                         .profile
