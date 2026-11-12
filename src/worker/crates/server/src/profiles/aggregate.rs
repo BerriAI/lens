@@ -138,7 +138,7 @@ impl Request<'_> {
     }
 }
 
-fn finite_sum(values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
+fn finite_sum(mut values: impl Iterator<Item = Option<f64>>) -> Option<f64> {
     values
         .try_fold(0.0, |total, value| {
             let value = value.filter(|value| value.is_finite())?;
