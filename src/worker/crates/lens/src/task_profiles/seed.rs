@@ -6,18 +6,18 @@ use lens_contract::profiles::{
 };
 use litellm_storage_clickhouse::{
     execute_statement,
-    state::{Change, ClickHouseState},
+    state::{Change, ClickHouseState, Snapshot},
 };
 use litellm_traces::{Tenant, query::named::ReadAccessParams};
 use litellm_traces_clickhouse::{
     Config, InsertTable, insert_rows, insert_shared_rows,
-    profiles::{Assignment, AssignmentOutcome, BucketingCandidate, record_assignment},
+    profiles::{AssignmentOutcome, BucketingCandidate, TaskAssignment, record_assignment},
     span_rows,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use super::taxonomy_key;
+use super::{decode, taxonomy_key};
 use crate::Error;
 
 pub const TEAM: &str = "lens-profiles-demo";
@@ -58,8 +58,8 @@ struct Agent {
 
 const AGENTS: [Agent; 3] = [
     Agent {
-        name: "research-agent",
-        service: "research-service",
+        name: "lens-demo-research",
+        service: "lens-demo-research-service",
         recorded: Some("Literature review"),
         taxonomy: Some(TaxonomyStatus::Frozen),
         tasks: &[
@@ -98,8 +98,8 @@ const AGENTS: [Agent; 3] = [
         ],
     },
     Agent {
-        name: "coding-agent",
-        service: "coding-service",
+        name: "lens-demo-coding",
+        service: "lens-demo-coding-service",
         recorded: None,
         taxonomy: Some(TaxonomyStatus::Draft),
         tasks: &[
@@ -147,8 +147,8 @@ const AGENTS: [Agent; 3] = [
         ],
     },
     Agent {
-        name: "support-agent",
-        service: "support-service",
+        name: "lens-demo-support",
+        service: "lens-demo-support-service",
         recorded: Some("Billing question"),
         taxonomy: None,
         tasks: &[
@@ -353,7 +353,7 @@ fn runs(batch: &mut Batch, now: DateTime<Utc>) {
                 ));
             }
             batch.resources.push(resource(agent, &spans));
-            if agent.name == "research-agent" && index % 6 == 0 {
+            if agent.name == "lens-demo-research" && index % 6 == 0 {
                 let coder = &AGENTS[1];
                 let child = hex(&format!("{trace_id}-coder"), 16);
                 let child_spans = vec![
@@ -408,15 +408,7 @@ fn definition(task: &Task, examples: Vec<String>) -> TaskDefinition {
 }
 
 fn taxonomy(agent: &Agent, status: TaxonomyStatus, runs: &[SeededRun], now: DateTime<Utc>) -> Taxonomy {
-    let id = lens_server::profiles::taxonomy_id(
-        &ReadAccessParams {
-            all_teams: true,
-            user_id: String::new(),
-            team_ids: Vec::new(),
-        },
-        agent.name,
-    )
-    .unwrap_or_default();
+    let id = demo_taxonomy_id(agent.name);
     let own: Vec<&SeededRun> = runs.iter().filter(|run| run.agent == agent.name && !run.recorded).collect();
     let sampled: Vec<&&SeededRun> = own.iter().filter(|run| run.index < 24).collect();
     let center = |task_index: usize| {
@@ -492,8 +484,8 @@ async fn clear(client: &litellm_http::Client, config: &Config) -> Result<(), Err
     Ok(())
 }
 
-async fn store_taxonomy(state: &ClickHouseState, taxonomy: Option<&Taxonomy>, agent: &str) -> Result<(), Error> {
-    let id = lens_server::profiles::taxonomy_id(
+fn demo_taxonomy_id(agent: &str) -> String {
+    lens_server::profiles::taxonomy_id(
         &ReadAccessParams {
             all_teams: true,
             user_id: String::new(),
@@ -501,28 +493,45 @@ async fn store_taxonomy(state: &ClickHouseState, taxonomy: Option<&Taxonomy>, ag
         },
         agent,
     )
-    .unwrap_or_default();
-    let previous = state.read(&taxonomy_key(&id)).await?;
-    let value = match taxonomy {
-        Some(taxonomy) => serde_json::to_value(taxonomy)?,
-        None => serde_json::to_value(Taxonomy {
-            taxonomy_id: id,
-            agent: agent.into(),
-            version: 0,
-            revision: 1,
-            status: TaxonomyStatus::Cleared,
-            sample: true,
-            tasks: Vec::new(),
-            points: Vec::new(),
-            job: None,
-            discovered_at: None,
-            frozen_at: None,
-            error: None,
-            models: TaxonomyModels::default(),
-        })?,
-    };
-    state.commit(vec![Change { previous, value }]).await?;
-    Ok(())
+    .unwrap_or_default()
+}
+
+/// Only an absent or sample taxonomy may be replaced; anything else belongs to a real user.
+fn replaceable(existing: Option<&Taxonomy>) -> bool {
+    existing.is_none_or(|taxonomy| taxonomy.sample)
+}
+
+async fn guard(state: &ClickHouseState) -> Result<Vec<Snapshot>, Error> {
+    let mut snapshots = Vec::with_capacity(AGENTS.len());
+    for agent in &AGENTS {
+        let snapshot = state.read(&taxonomy_key(&demo_taxonomy_id(agent.name))).await?;
+        let existing = decode(&snapshot).map_err(|_| Error::Unavailable)?;
+        if !replaceable(existing.as_ref()) {
+            return Err(Error::Configuration(
+                "A demo agent already has a non-sample task taxonomy; the seed changed nothing",
+            ));
+        }
+        snapshots.push(snapshot);
+    }
+    Ok(snapshots)
+}
+
+fn placeholder(agent: &str) -> Taxonomy {
+    Taxonomy {
+        taxonomy_id: demo_taxonomy_id(agent),
+        agent: agent.into(),
+        version: 0,
+        revision: 1,
+        status: TaxonomyStatus::Cleared,
+        sample: true,
+        tasks: Vec::new(),
+        points: Vec::new(),
+        job: None,
+        discovered_at: None,
+        frozen_at: None,
+        error: None,
+        models: TaxonomyModels::default(),
+    }
 }
 
 /// Replaces the demo team's sample data with fresh timestamps. Only rows of the demo team and
@@ -535,6 +544,7 @@ pub async fn seed(
     let now = Utc::now();
     let mut batch = Batch::default();
     runs(&mut batch, now);
+    let snapshots = guard(state).await?;
     clear(client, config).await?;
     let payload = serde_json::to_vec(&json!({"resourceSpans": batch.resources}))?;
     let spans = litellm_traces::decode_otlp(&payload, Some("application/json"))
@@ -556,13 +566,20 @@ pub async fn seed(
     )
     .await?;
     let mut assignments = 0;
-    for agent in &AGENTS {
-        let Some(status) = agent.taxonomy else {
-            store_taxonomy(state, None, agent.name).await?;
-            continue;
+    for (agent, previous) in AGENTS.iter().zip(snapshots) {
+        let taxonomy = match agent.taxonomy {
+            Some(status) => taxonomy(agent, status, &batch.runs, now),
+            None => placeholder(agent.name),
         };
-        let taxonomy = taxonomy(agent, status, &batch.runs, now);
-        store_taxonomy(state, Some(&taxonomy), agent.name).await?;
+        state
+            .commit(vec![Change {
+                previous,
+                value: serde_json::to_value(&taxonomy)?,
+            }])
+            .await?;
+        if agent.taxonomy.is_none() {
+            continue;
+        }
         for run in batch.runs.iter().filter(|run| run.agent == agent.name && !run.recorded && run.index % 10 != 9) {
             let candidate = BucketingCandidate {
                 team_id: TEAM.into(),
@@ -577,7 +594,7 @@ pub async fn seed(
             record_assignment(
                 client,
                 config,
-                &Assignment {
+                &TaskAssignment {
                     candidate: &candidate,
                     agent: agent.name,
                     taxonomy_id: &taxonomy.taxonomy_id,
@@ -596,4 +613,23 @@ pub async fn seed(
         AGENTS.len(),
         assignments
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::absent(None, true)]
+    #[case::sample(Some(true), true)]
+    #[case::real(Some(false), false)]
+    fn the_seed_only_replaces_absent_or_sample_taxonomies(#[case] sample: Option<bool>, #[case] expected: bool) {
+        let existing = sample.map(|sample| Taxonomy {
+            sample,
+            ..placeholder("lens-demo-research")
+        });
+
+        assert_eq!(replaceable(existing.as_ref()), expected);
+    }
 }

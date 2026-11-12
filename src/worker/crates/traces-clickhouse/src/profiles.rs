@@ -369,7 +369,7 @@ struct AssignmentRow<'a> {
     computed_at: u64,
 }
 
-pub struct Assignment<'a> {
+pub struct TaskAssignment<'a> {
     pub candidate: &'a BucketingCandidate,
     pub agent: &'a str,
     pub taxonomy_id: &'a str,
@@ -381,7 +381,7 @@ pub struct Assignment<'a> {
 pub async fn record_assignment(
     client: &Client,
     config: &Config,
-    assignment: &Assignment<'_>,
+    assignment: &TaskAssignment<'_>,
 ) -> Result<(), Error> {
     let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
     insert(

@@ -9,7 +9,7 @@ use lens_contract::{
 use lens_server::profiles::taxonomy::{claim, complete};
 use litellm_storage_clickhouse::state::{Change, ClickHouseState};
 use litellm_traces_clickhouse::profiles::{
-    Assignment, AssignmentOutcome, BucketingParams, bucketing_candidates, discovery_samples,
+    AssignmentOutcome, BucketingParams, TaskAssignment, bucketing_candidates, discovery_samples,
     record_assignment,
 };
 
@@ -314,7 +314,7 @@ impl ProfilesWorker {
             let recorded = record_assignment(
                 &self.state.storage.client,
                 &self.state.storage.config,
-                &Assignment {
+                &TaskAssignment {
                     candidate,
                     agent: &taxonomy.agent,
                     taxonomy_id: &taxonomy.taxonomy_id,
