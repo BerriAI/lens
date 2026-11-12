@@ -17,6 +17,18 @@ model_list:
       api_key: os.environ/ANTHROPIC_API_KEY
     model_info:
       id: demo-claude-opus
+  - model_name: demo-text-only
+    litellm_params:
+      model: openai/demo-text-only
+      api_base: http://127.0.0.1:9/v1
+      api_key: demo-never-called
+    model_info:
+      id: demo-text-only
+      mode: chat
+      supports_function_calling: true
+      supports_vision: false
+      supports_reasoning: false
+      supports_response_schema: false
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
