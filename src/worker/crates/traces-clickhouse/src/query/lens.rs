@@ -177,6 +177,8 @@ pub struct LensSample;
 pub struct LensSampleParams {
     #[serde(default)]
     pub profile: String,
+    #[serde(flatten, default)]
+    pub taxonomy: super::profiles::ProfileTaxonomyParams,
     #[serde(flatten)]
     pub access: LensAccessParams,
     pub source: ExecutionSource,
@@ -356,6 +358,8 @@ pub struct LensFindingSource;
 pub struct LensFindingSourceParams {
     #[serde(default)]
     pub profile: String,
+    #[serde(flatten, default)]
+    pub taxonomy: super::profiles::ProfileTaxonomyParams,
     #[serde(flatten)]
     pub access: LensAccessParams,
     pub trace_id: String,

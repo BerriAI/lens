@@ -812,3 +812,41 @@ pub enum EvalCloserError {
     #[error("Stored eval run is incomplete")]
     InvalidRun,
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProfileStoreError {
+    #[error("Profile data is temporarily unavailable")]
+    Unavailable,
+    #[error("The taxonomy changed since it was loaded; reload and try again")]
+    Conflict,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProfileHttpError {
+    #[error(transparent)]
+    Authentication(#[from] lens_auth::Error),
+    #[error("{0}")]
+    Forbidden(&'static str),
+    #[error("{0}")]
+    Invalid(&'static str),
+    #[error("Profile not found in this agent and time range")]
+    NotFound,
+    #[error(transparent)]
+    Store(#[from] ProfileStoreError),
+}
+
+impl IntoResponse for ProfileHttpError {
+    fn into_response(self) -> Response {
+        use serde_json::json;
+        let detail = self.to_string();
+        let status = match self {
+            Self::Authentication(error) => return SessionError::from(error).into_response(),
+            Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::Invalid(_) => StatusCode::BAD_REQUEST,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Store(ProfileStoreError::Conflict) => StatusCode::CONFLICT,
+            Self::Store(ProfileStoreError::Unavailable) => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        (status, Json(json!({"detail": detail}))).into_response()
+    }
+}

@@ -170,6 +170,7 @@ fn access() -> LensAccessParams {
 }
 fn parameters(profile: &str, preview: u8) -> LensSampleParams {
     LensSampleParams {
+        taxonomy: Default::default(),
         profile: profile.into(),
         access: access(),
         source: ExecutionSource::Traces,
@@ -242,6 +243,7 @@ async fn imported_finding_sources_must_belong_to_the_selected_profile(
         &fixture.database.client,
         config.storage().reader(),
         &LensFindingSourceParams {
+            taxonomy: Default::default(),
             profile: profile.into(),
             access: access(),
             trace_id: "coding".into(),
@@ -292,6 +294,7 @@ async fn inferred_profiles_filter_runs_without_overriding_recorded_labels_or_oth
         &fixture.database.client,
         config.storage().reader(),
         &LensFindingSourceParams {
+            taxonomy: Default::default(),
             profile: "Inferred coding".into(),
             access: access(),
             trace_id: "unclassified".into(),

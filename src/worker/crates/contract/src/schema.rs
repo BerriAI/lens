@@ -1,4 +1,4 @@
-use crate::{eval, signals, worker};
+use crate::{eval, profiles, signals, worker};
 use schemars::generate::SchemaSettings;
 use serde_json::{Map, Value, json};
 
@@ -51,6 +51,13 @@ pub fn worker_contract() -> Value {
     let _ = generator.subschema_for::<worker::Step>();
     let _ = generator.subschema_for::<worker::ToolCount>();
     let _ = generator.subschema_for::<worker::TracePart>();
+    let _ = generator.subschema_for::<profiles::ProfilesOverview>();
+    let _ = generator.subschema_for::<profiles::ProfilesMatrix>();
+    let _ = generator.subschema_for::<profiles::ProfileDetail>();
+    let _ = generator.subschema_for::<profiles::TaxonomyView>();
+    let _ = generator.subschema_for::<profiles::DiscoveryRequest>();
+    let _ = generator.subschema_for::<profiles::TaskEdit>();
+    let _ = generator.subschema_for::<profiles::TaxonomyVersionRequest>();
     let mut schema = normalize(
         json!({
             "$schema": "http://json-schema.org/draft-07/schema#",

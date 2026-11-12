@@ -150,6 +150,7 @@ impl SourceReader {
         for source in sources {
             let rows = self
                 .read::<LensFindingSource>(&LensFindingSourceParams {
+                    taxonomy: Default::default(),
                     profile: lens
                         .settings
                         .profile
@@ -243,6 +244,7 @@ fn sample_parameters(
 ) -> Result<LensSampleParams, Error> {
     let settings = request.selection;
     Ok(LensSampleParams {
+        taxonomy: Default::default(),
         profile: settings
             .profile
             .as_ref()
