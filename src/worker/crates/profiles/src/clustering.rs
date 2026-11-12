@@ -97,11 +97,12 @@ fn reduce(
         },
         ..UmapConfig::default()
     };
-    // Optimizer::step_epochs reads neighbour positions from a snapshot taken when the call starts,
-    // so one epoch per call keeps attraction pointed at where the neighbours are now.
+    // umap-rs 0.4.5's specialized Euclidean layout divides by a*d^b*d2+1 instead of UMAP's a*d^b+1,
+    // which stalls points at large separation, so the generic layout runs with the Euclidean metric.
+    // step_epochs snapshots neighbour positions per call, hence one epoch per call.
     let embedding = catch_unwind(AssertUnwindSafe(|| {
         let manifold = Umap::new(config.clone()).learn_manifold(data.view(), indices.view(), distances.view());
-        let mut optimizer = Optimizer::new(manifold, init, EPOCHS, &config, MetricType::Euclidean);
+        let mut optimizer = Optimizer::new(manifold, init, EPOCHS, &config, MetricType::Generic);
         while optimizer.remaining_epochs() > 0 {
             optimizer.step_epochs(1, &EuclideanMetric);
         }
