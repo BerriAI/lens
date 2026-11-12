@@ -1,12 +1,23 @@
 "use client";
 
-import { Activity, Bot, ChartNoAxesColumn, Database, FlaskConical, House, Settings, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  ChartNoAxesColumn,
+  Database,
+  FlaskConical,
+  House,
+  Settings,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "../../lib/cva.config";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
 import type { InvestigationActivity } from "./model/status";
 import type { LensList } from "./model/types";
 import type { LensTab } from "./route";
+import { useLensRoute } from "./route";
 
 interface LensTabsProps {
   readonly activity: InvestigationActivity;
@@ -24,10 +35,16 @@ const NAVIGATION_ITEMS = [
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "datasets", label: "Datasets", icon: Database },
   { value: "evals", label: "Evals", icon: FlaskConical },
+  {
+    value: "optimizations",
+    label: "Model optimizations",
+    icon: ChartNoAxesColumn,
+  },
 ] as const;
 
 export function LensTabs({ activity, workers, onNavigate, orientation, collapsed = false }: LensTabsProps) {
   const connected = useWorkerConnected(workers);
+  const { demo } = useLensRoute();
   const vertical = orientation === "vertical";
   const item = (value: LensTab, label: string, Icon: LucideIcon, status?: string) => (
     <TabsTrigger
@@ -78,7 +95,9 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
           : "h-9 w-max justify-start gap-1",
       )}
     >
-      {NAVIGATION_ITEMS.map(({ value, label, icon }) => item(value, label, icon))}
+      {NAVIGATION_ITEMS.filter(({ value }) => value !== "optimizations" || demo).map(({ value, label, icon }) =>
+        item(value, label, icon),
+      )}
       {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
     </TabsList>
   );

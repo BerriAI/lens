@@ -66,7 +66,7 @@ describe("Lens demo data", () => {
     expect(run.details.at(-1)!.output).toContain("Hold the release");
   });
 
-  it("filters time windows locally and rejects writes or unknown reads without network access", async () => {
+  it("filters time windows and saves demo changes without network access", async () => {
     const network = vi.spyOn(globalThis, "fetch");
     const now = Date.now();
     const services = createLensDemo(now);
@@ -76,9 +76,16 @@ describe("Lens demo data", () => {
     expect(recent.data.length).toBeLessThan(all.data.length);
     expect(recent.data.every((trace) => Date.parse(trace.start_time) >= now - 3600_000)).toBe(true);
     const settings = services.lens.lenses().then((list) => list.lenses[0].settings);
-    await expect(services.lens.saveLens(undefined, await settings)).rejects.toMatchObject({ status: 403 });
+    const saved = await services.lens.saveLens(undefined, {
+      ...(await settings),
+      name: "Demo investigation",
+    });
+    expect(saved.settings.name).toBe("Demo investigation");
+    expect((await services.lens.lenses()).lenses.some((lens) => lens.id === saved.id)).toBe(true);
     await expect(services.lens.run("real-investigation", "job")).rejects.toMatchObject({ status: 404 });
-    await expect(services.traces.trace("missing")).rejects.toMatchObject({ status: 404 });
+    await expect(services.traces.trace("missing")).rejects.toMatchObject({
+      status: 404,
+    });
     expect(network).not.toHaveBeenCalled();
     network.mockRestore();
   });
@@ -92,6 +99,11 @@ it("serves review pages locally with the same cursor contract as live runs", asy
   const first = await api.reviews(owner.id, job.id, 0);
   expect(first.reviews).toHaveLength(job.reviewed);
   expect(first.reviews.some((review) => review.verdicts.some((verdict) => verdict.kind === "issue"))).toBe(true);
-  expect(await api.reviews(owner.id, job.id, first.reviewed)).toEqual({ reviews: [], reviewed: first.reviewed });
-  await expect(api.reviews(owner.id, "missing", 0)).rejects.toMatchObject({ status: 404 });
+  expect(await api.reviews(owner.id, job.id, first.reviewed)).toEqual({
+    reviews: [],
+    reviewed: first.reviewed,
+  });
+  await expect(api.reviews(owner.id, "missing", 0)).rejects.toMatchObject({
+    status: 404,
+  });
 });

@@ -1,12 +1,22 @@
 import { ApiError } from "../../../../lib/http/client";
+import { z } from "zod";
+import { demoDatasetId, optimizationRuns } from "./demoOptimizations";
+import { readDemoState, writeDemoState, type DemoStorage } from "./storage";
 import type { SpanDetail } from "../../traces/types";
 
 import { evidenceTarget } from "../../model/findings";
 import type { DatasetsApi } from "../../datasets/client";
 import type { BuildSource, CaseSource, Dataset, DatasetCase, DatasetMessage, SkippedCase } from "../../datasets/types";
 import type { LensDemoData } from "./fixtures";
+import { demoDatasetNames } from "../../optimizations/model";
 
-const NO_SOURCE: CaseSource = { trace_id: "", trace_ref: "", span_id: "", finding_id: "", lens_id: "" };
+const NO_SOURCE: CaseSource = {
+  trace_id: "",
+  trace_ref: "",
+  span_id: "",
+  finding_id: "",
+  lens_id: "",
+};
 const ROLES: ReadonlySet<string> = new Set(["system", "user", "assistant", "tool"]);
 
 type Candidate = DatasetCase | SkippedCase;
@@ -35,7 +45,16 @@ function parsedMessages(raw: string): DatasetMessage[] {
 function makeCase(messages: DatasetMessage[], reply: string, source: CaseSource): Candidate {
   if (messages.length === 0 && !reply) return { source, reason: "no_content" };
   const id = contentHash(JSON.stringify({ messages, reply }));
-  return { id, messages, reply, tool_calls: [], expected: "", included: true, source, agent_version: "" };
+  return {
+    id,
+    messages,
+    reply,
+    tool_calls: [],
+    expected: "",
+    included: true,
+    source,
+    agent_version: "",
+  };
 }
 
 function caseFromSpan(detail: SpanDetail, source: CaseSource): Candidate {
@@ -75,8 +94,74 @@ function textCases(text: string): Candidate[] {
 
 const isCase = (candidate: Candidate): candidate is DatasetCase => "id" in candidate;
 
-export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new Date()): DatasetsApi {
-  const revisions = new Map<string, Dataset[]>();
+const toolSchema = z.object({ name: z.string(), arguments: z.string() });
+const datasetSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  agent_name: z.string(),
+  team_id: z.string(),
+  created_at: z.string(),
+  revision: z.number(),
+  created_by: z.string(),
+  cases: z.array(
+    z.object({
+      id: z.string(),
+      reply: z.string(),
+      expected: z.string(),
+      included: z.boolean(),
+      agent_version: z.string(),
+      tool_calls: z.array(toolSchema),
+      messages: z.array(
+        z.object({
+          role: z.enum(["system", "user", "assistant", "tool"]),
+          content: z.string(),
+          name: z.string(),
+          tool_calls: z.array(toolSchema),
+        }),
+      ),
+      source: z.object({
+        trace_id: z.string(),
+        trace_ref: z.string(),
+        span_id: z.string(),
+        finding_id: z.string(),
+        lens_id: z.string(),
+      }),
+    }),
+  ),
+});
+
+export function demoDatasetsApi(
+  data: LensDemoData,
+  now: () => Date = () => new Date(),
+  storage?: DemoStorage,
+): DatasetsApi {
+  const seeds: [string, Dataset[]][] = Object.entries(demoDatasetNames).map(([agent, name]) => {
+    const cases = optimizationRuns(data, agent).flatMap(({ trace, details }) => {
+      const span = trace.spans.findLast((item) => item.type === "llm");
+      const detail = details.find((item) => item.span_id === span?.span_id);
+      if (!detail) return [];
+      const built = caseFromSpan(detail, {
+        ...NO_SOURCE,
+        trace_id: trace.summary.trace_id,
+        span_id: detail.span_id,
+      });
+      return isCase(built) ? [built] : [];
+    });
+    const dataset: Dataset = {
+      id: demoDatasetId(agent),
+      name,
+      agent_name: agent,
+      team_id: "",
+      created_at: now().toISOString(),
+      revision: 1,
+      created_by: "demo",
+      cases,
+    };
+    return [dataset.id, [dataset]];
+  });
+  const saved = z.array(z.tuple([z.string(), z.array(datasetSchema)])).safeParse(readDemoState(storage, "datasets"));
+  const revisions = new Map<string, Dataset[]>(saved.success ? saved.data : seeds);
+  const persist = () => writeDemoState(storage, "datasets", [...revisions]);
   const missing = () => Promise.reject(new ApiError("Dataset not found", 404, { detail: "Dataset not found" }));
   const latest = (id: string) => revisions.get(id)?.at(-1);
   const run = (traceId: string) => data.runs.find(({ trace }) => trace.summary.trace_id === traceId);
@@ -97,7 +182,12 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
         findings.flatMap((finding) =>
           finding.evidence.map((evidence) => {
             const traceId = evidenceTarget(evidence.execution_id)?.id ?? "";
-            const origin = { ...NO_SOURCE, trace_id: traceId, span_id: evidence.span_id, finding_id: finding.id };
+            const origin = {
+              ...NO_SOURCE,
+              trace_id: traceId,
+              span_id: evidence.span_id,
+              finding_id: finding.id,
+            };
             return [`${traceId}/${evidence.span_id}`, { ...origin, lens_id: source.lens_id }] as const;
           }),
         ),
@@ -142,6 +232,7 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
         cases: [],
       };
       revisions.set(dataset.id, [dataset]);
+      persist();
       return dataset;
     },
     build: async ({ sources, dataset_id }) => {
@@ -164,7 +255,9 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
       const current = latest(id);
       if (!current) return missing();
       if (current.revision !== base_revision)
-        throw new ApiError("Dataset changed, reload", 409, { detail: "Dataset changed, reload" });
+        throw new ApiError("Dataset changed, reload", 409, {
+          detail: "Dataset changed, reload",
+        });
       const saved: Dataset = {
         ...current,
         revision: current.revision + 1,
@@ -185,6 +278,7 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
         })),
       };
       revisions.get(id)!.push(saved);
+      persist();
       return saved;
     },
     exportJsonl: async (id, revision) => {
@@ -197,7 +291,11 @@ export function demoDatasetsApi(data: LensDemoData, now: () => Date = () => new 
     evalCases: async (id, revision) => {
       const found = revisions.get(id)?.find((item) => item.revision === revision);
       if (!found) return missing();
-      return { dataset_id: id, revision, cases: found.cases.filter((item) => item.included) };
+      return {
+        dataset_id: id,
+        revision,
+        cases: found.cases.filter((item) => item.included),
+      };
     },
   };
 }

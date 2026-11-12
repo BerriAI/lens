@@ -6,18 +6,25 @@ import { fetchClient } from "../../../lib/http/api";
 import { liveTracesApi, TracesApiContext, type TracesApi } from "../traces/api";
 import { liveLensApi, type LensApi } from "./service";
 import { liveProfilesApi, type ProfilesApi } from "../profiles/api";
+import type { OptimizationStore } from "./demo/demoOptimizations";
 
 export interface LensServices {
   readonly accessToken: string;
   readonly lens: LensApi;
   readonly traces: TracesApi;
   readonly profiles: ProfilesApi;
+  readonly optimizations?: OptimizationStore;
 }
 
 const LensServicesContext = createContext<LensServices | null>(null);
 
 export function liveLensServices(accessToken: string): LensServices {
-  return { accessToken, lens: liveLensApi(fetchClient, apiClient, accessToken), traces: liveTracesApi(accessToken), profiles: liveProfilesApi(accessToken) };
+  return {
+    accessToken,
+    lens: liveLensApi(fetchClient, apiClient, accessToken),
+    traces: liveTracesApi(accessToken),
+    profiles: liveProfilesApi(accessToken),
+  };
 }
 
 function useLensServices(): LensServices {
@@ -32,6 +39,7 @@ export const useOptionalLensApi = (): LensApi | null => useContext(LensServicesC
 
 export const useLensAccessToken = (): string => useLensServices().accessToken;
 export const useProfilesApi = (): ProfilesApi => useLensServices().profiles;
+export const useOptimizationStore = () => useLensServices().optimizations;
 
 export function useLiveLensServices(accessToken: string): LensServices {
   return useMemo(() => liveLensServices(accessToken), [accessToken]);
