@@ -137,9 +137,13 @@ pub fn edit_task(
     let name = edit.name.trim();
     if name.is_empty()
         || name.chars().count() > NAME_LIMIT
-        || [&edit.description, &edit.inclusion_criteria, &edit.exclusion_criteria]
-            .iter()
-            .any(|text| text.chars().count() > TEXT_LIMIT)
+        || [
+            &edit.description,
+            &edit.inclusion_criteria,
+            &edit.exclusion_criteria,
+        ]
+        .iter()
+        .any(|text| text.chars().count() > TEXT_LIMIT)
     {
         return Err(TransitionError::InvalidEdit);
     }
@@ -270,11 +274,19 @@ impl From<TransitionError> for ProfileHttpError {
             TransitionError::Running | TransitionError::Stale => {
                 ProfileHttpError::Store(ProfileStoreError::Conflict)
             }
-            TransitionError::NotDraft => ProfileHttpError::Invalid("Only a draft taxonomy can be edited or frozen"),
-            TransitionError::Empty => ProfileHttpError::Invalid("A draft needs at least one task before it can be frozen"),
+            TransitionError::NotDraft => {
+                ProfileHttpError::Invalid("Only a draft taxonomy can be edited or frozen")
+            }
+            TransitionError::Empty => {
+                ProfileHttpError::Invalid("A draft needs at least one task before it can be frozen")
+            }
             TransitionError::MissingTask => ProfileHttpError::NotFound,
-            TransitionError::InvalidEdit => ProfileHttpError::Invalid("Task names must be 1-80 characters and other fields at most 600"),
-            TransitionError::InvalidSize => ProfileHttpError::Invalid("Discovery reads between 20 and 500 runs"),
+            TransitionError::InvalidEdit => ProfileHttpError::Invalid(
+                "Task names must be 1-80 characters and other fields at most 600",
+            ),
+            TransitionError::InvalidSize => {
+                ProfileHttpError::Invalid("Discovery reads between 20 and 500 runs")
+            }
         }
     }
 }
@@ -303,8 +315,9 @@ async fn writer<R: SessionRepository, S>(
             "Only proxy admins can change task profiles",
         ));
     }
-    taxonomy_id(&scope(&identity)?, agent)
-        .ok_or(ProfileHttpError::Forbidden("Only proxy admins can change task profiles"))
+    taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(
+        "Only proxy admins can change task profiles",
+    ))
 }
 
 async fn discover<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
@@ -314,10 +327,9 @@ async fn discover<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
     Json(request): Json<DiscoveryRequest>,
 ) -> Result<Json<Taxonomy>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
-    let models = app
-        .discovery
-        .clone()
-        .ok_or(ProfileHttpError::Invalid("Enhanced discovery is not configured on this Lens deployment"))?;
+    let models = app.discovery.clone().ok_or(ProfileHttpError::Invalid(
+        "Enhanced discovery is not configured on this Lens deployment",
+    ))?;
     let (current, head) = app.store.read(&id).await?;
     let next = start_discovery(
         current.as_ref(),
@@ -402,7 +414,14 @@ mod tests {
     }
 
     fn start(current: Option<&Taxonomy>, job_id: &str) -> Result<Taxonomy, TransitionError> {
-        start_discovery(current, "tax", &request(100), &TaxonomyModels::default(), job_id.into(), now())
+        start_discovery(
+            current,
+            "tax",
+            &request(100),
+            &TaxonomyModels::default(),
+            job_id.into(),
+            now(),
+        )
     }
 
     fn revision(taxonomy: &Taxonomy) -> TaxonomyRevisionRequest {
@@ -432,12 +451,22 @@ mod tests {
     #[fixture]
     fn drafted(discovering: Taxonomy) -> Taxonomy {
         let claimed = claim(&discovering, now()).expect("claim");
-        complete(Some(claimed), "job", 1, Ok((vec![task("a")], Vec::new())), now()).expect("draft")
+        complete(
+            Some(claimed),
+            "job",
+            1,
+            Ok((vec![task("a")], Vec::new())),
+            now(),
+        )
+        .expect("draft")
     }
 
     #[rstest]
     fn a_second_discovery_is_refused_while_one_is_running(discovering: Taxonomy) {
-        assert_eq!(start(Some(&discovering), "job-2"), Err(TransitionError::Running));
+        assert_eq!(
+            start(Some(&discovering), "job-2"),
+            Err(TransitionError::Running)
+        );
     }
 
     #[rstest]
@@ -456,7 +485,14 @@ mod tests {
     #[case::too_small(19)]
     #[case::too_large(501)]
     fn discovery_size_is_bounded(#[case] max_runs: u32) {
-        let result = start_discovery(None, "tax", &request(max_runs), &TaxonomyModels::default(), "job".into(), now());
+        let result = start_discovery(
+            None,
+            "tax",
+            &request(max_runs),
+            &TaxonomyModels::default(),
+            "job".into(),
+            now(),
+        );
 
         assert_eq!(result, Err(TransitionError::InvalidSize));
     }
@@ -471,9 +507,18 @@ mod tests {
 
     #[rstest]
     fn a_stale_browser_edit_cannot_overwrite_a_newer_one(drafted: Taxonomy) {
-        let first = edit_task(Some(drafted.clone()), "a", &rename(&drafted, "Fix flaky tests")).expect("first edit");
+        let first = edit_task(
+            Some(drafted.clone()),
+            "a",
+            &rename(&drafted, "Fix flaky tests"),
+        )
+        .expect("first edit");
 
-        let stale = edit_task(Some(first.clone()), "a", &rename(&drafted, "Something else"));
+        let stale = edit_task(
+            Some(first.clone()),
+            "a",
+            &rename(&drafted, "Something else"),
+        );
         let stale_freeze = freeze(Some(first.clone()), &revision(&drafted), now());
 
         assert_eq!(stale, Err(TransitionError::Stale));
@@ -520,18 +565,39 @@ mod tests {
         let first = claim(&discovering, now()).expect("first claim");
         let second = claim(&first, now() + LEASE + Duration::seconds(1)).expect("reclaim");
 
-        let late = complete(Some(second.clone()), "job", 1, Ok((vec![task("a")], Vec::new())), now());
-        let current = complete(Some(second), "job", 2, Ok((vec![task("a")], Vec::new())), now());
+        let late = complete(
+            Some(second.clone()),
+            "job",
+            1,
+            Ok((vec![task("a")], Vec::new())),
+            now(),
+        );
+        let current = complete(
+            Some(second),
+            "job",
+            2,
+            Ok((vec![task("a")], Vec::new())),
+            now(),
+        );
 
         assert_eq!(late, Err(TransitionError::Stale));
-        assert_eq!(current.map(|taxonomy| taxonomy.status), Ok(TaxonomyStatus::Draft));
+        assert_eq!(
+            current.map(|taxonomy| taxonomy.status),
+            Ok(TaxonomyStatus::Draft)
+        );
     }
 
     #[rstest]
     fn a_result_from_a_replaced_job_is_dropped(discovering: Taxonomy) {
         let claimed = claim(&discovering, now()).expect("claim");
 
-        let result = complete(Some(claimed), "older-job", 1, Ok((vec![task("a")], Vec::new())), now());
+        let result = complete(
+            Some(claimed),
+            "older-job",
+            1,
+            Ok((vec![task("a")], Vec::new())),
+            now(),
+        );
 
         assert_eq!(result, Err(TransitionError::Stale));
     }

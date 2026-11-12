@@ -117,7 +117,11 @@ impl Request<'_> {
 
     /// A retry that crossed deployments is a whole-request cost, not one deployment's price.
     fn column(&self) -> Column {
-        let columns: BTreeSet<String> = self.charges.values().map(|charge| charge.column.key()).collect();
+        let columns: BTreeSet<String> = self
+            .charges
+            .values()
+            .map(|charge| charge.column.key())
+            .collect();
         if columns.len() > 1 {
             return Column::UnknownDeployment {
                 model_group: MULTIPLE_DEPLOYMENTS.into(),
@@ -222,7 +226,13 @@ impl<'a> View<'a> {
                 let runs: BTreeSet<(&str, &str, &str)> = request
                     .calls
                     .iter()
-                    .map(|(run, _)| (run.team_id.as_str(), run.api_key_hash.as_str(), run.trace_id.as_str()))
+                    .map(|(run, _)| {
+                        (
+                            run.team_id.as_str(),
+                            run.api_key_hash.as_str(),
+                            run.trace_id.as_str(),
+                        )
+                    })
                     .collect();
                 let own = request
                     .calls
@@ -334,7 +344,11 @@ impl<'a> View<'a> {
         grouped
             .into_iter()
             .map(|((profile_id, column_key), cell)| {
-                let priced: Vec<f64> = cell.readings.iter().filter_map(|reading| reading.spend).collect();
+                let priced: Vec<f64> = cell
+                    .readings
+                    .iter()
+                    .filter_map(|reading| reading.spend)
+                    .collect();
                 let latencies: Vec<f64> = cell
                     .readings
                     .iter()
@@ -417,7 +431,10 @@ pub fn p95(values: &[f64]) -> Option<f64> {
 }
 
 pub fn source(profile_id: &str) -> ProfileSource {
-    match profile_id.split_once(':').map_or(profile_id, |(kind, _)| kind) {
+    match profile_id
+        .split_once(':')
+        .map_or(profile_id, |(kind, _)| kind)
+    {
         "recorded" => ProfileSource::Recorded,
         "task" => ProfileSource::Enhanced,
         "cluster" => ProfileSource::Local,
@@ -535,7 +552,11 @@ mod tests {
         let calls = resolved(
             &runs[0],
             vec![
-                call("wrapper", "agent", vec![charge("a", Some(1.0)), charge("b", Some(2.0))]),
+                call(
+                    "wrapper",
+                    "agent",
+                    vec![charge("a", Some(1.0)), charge("b", Some(2.0))],
+                ),
                 call("attempt", "agent", vec![charge("a", Some(1.0))]),
             ],
         );
@@ -569,7 +590,11 @@ mod tests {
         let runs = vec![run("t1", "cluster:a", 1)];
         let calls = resolved(
             &runs[0],
-            vec![call("s1", "agent", vec![charge("a", Some(1.0)), charge("b", None)])],
+            vec![call(
+                "s1",
+                "agent",
+                vec![charge("a", Some(1.0)), charge("b", None)],
+            )],
         );
 
         let view = view(&runs, &calls, "agent");
@@ -585,7 +610,10 @@ mod tests {
     #[rstest]
     fn unmatched_calls_count_as_requests_without_cost() {
         let runs = vec![run("t1", "unclassified", 1)];
-        let calls = resolved(&runs[0], vec![call("s1", "agent", vec![]), call("s1", "agent", vec![])]);
+        let calls = resolved(
+            &runs[0],
+            vec![call("s1", "agent", vec![]), call("s1", "agent", vec![])],
+        );
 
         let view = view(&runs, &calls, "agent");
         let totals = view.totals();
@@ -639,7 +667,10 @@ mod tests {
     #[rstest]
     fn unresolved_runs_are_reported_in_coverage_not_as_zero_requests() {
         let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:a", 1)];
-        let calls = resolved(&runs[0], vec![call("s1", "agent", vec![charge("a", Some(1.0))])]);
+        let calls = resolved(
+            &runs[0],
+            vec![call("s1", "agent", vec![charge("a", Some(1.0))])],
+        );
         let view = View {
             runs: &runs,
             calls: &calls,
@@ -681,8 +712,14 @@ mod tests {
     fn a_ledger_row_matched_from_two_runs_is_shared_not_given_to_the_first() {
         let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:b", 1)];
         let calls: RunCalls = [
-            (run_key(&runs[0]), vec![call("s1", "agent", vec![charge("a", Some(1.0))])]),
-            (run_key(&runs[1]), vec![call("s2", "agent", vec![charge("a", Some(1.0))])]),
+            (
+                run_key(&runs[0]),
+                vec![call("s1", "agent", vec![charge("a", Some(1.0))])],
+            ),
+            (
+                run_key(&runs[1]),
+                vec![call("s2", "agent", vec![charge("a", Some(1.0))])],
+            ),
         ]
         .into_iter()
         .collect();
@@ -703,7 +740,11 @@ mod tests {
         };
         let calls = resolved(
             &runs[0],
-            vec![call("s1", "agent", vec![charge("a", Some(1.0)), fallback_attempt])],
+            vec![call(
+                "s1",
+                "agent",
+                vec![charge("a", Some(1.0)), fallback_attempt],
+            )],
         );
 
         let cells = view(&runs, &calls, "agent").cells(None);

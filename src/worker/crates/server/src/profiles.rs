@@ -8,9 +8,9 @@ use axum::{
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
-    Capability, Compatibility, CompatibilityStatus, ModelCapabilities, ModelColumn,
-    ProfileDetail, ProfileRef, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
-    Taxonomy, TaxonomyModels, TaxonomyView,
+    Capability, Compatibility, CompatibilityStatus, ModelCapabilities, ModelColumn, ProfileDetail,
+    ProfileRef, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview, Taxonomy,
+    TaxonomyModels, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -79,7 +79,10 @@ struct App<R, S> {
     discovery: Option<TaxonomyModels>,
 }
 
-pub fn router<R: SessionRepository + 'static, S: ProfileStore + taxonomy::TaxonomyStore + 'static>(
+pub fn router<
+    R: SessionRepository + 'static,
+    S: ProfileStore + taxonomy::TaxonomyStore + 'static,
+>(
     authentication: Arc<Authentication<R>>,
     store: S,
     discovery: Option<TaxonomyModels>,
@@ -139,7 +142,9 @@ fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, P
             user_id,
             team_ids,
         }),
-        None => Err(ProfileHttpError::Forbidden("Not allowed to view agent traces")),
+        None => Err(ProfileHttpError::Forbidden(
+            "Not allowed to view agent traces",
+        )),
     }
 }
 
@@ -168,7 +173,10 @@ impl Loaded {
             .map(|(profile_id, figures)| (profile_id.to_owned(), figures))
             .collect();
         ranked.sort_by(|(left_id, left), (right_id, right)| {
-            right.runs.cmp(&left.runs).then_with(|| left_id.cmp(right_id))
+            right
+                .runs
+                .cmp(&left.runs)
+                .then_with(|| left_id.cmp(right_id))
         });
         ranked
     }
@@ -243,7 +251,8 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
                 agent: query.agent.clone(),
                 start_ms: query.start_ms,
                 end_ms: query.end_ms,
-                taxonomy_id: frozen.map_or_else(String::new, |taxonomy| taxonomy.taxonomy_id.clone()),
+                taxonomy_id: frozen
+                    .map_or_else(String::new, |taxonomy| taxonomy.taxonomy_id.clone()),
                 taxonomy_version: frozen.map_or(0, |taxonomy| taxonomy.version),
                 limit: MAX_RUNS + 1,
             },
@@ -351,15 +360,18 @@ async fn detail<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
         .find(|profile| profile.profile_id == requested || profile.name == requested)
         .ok_or(ProfileHttpError::NotFound)?;
     let view = loaded.view(&query.agent);
-    let definition = profile.profile_id.strip_prefix("task:").and_then(|task_id| {
-        loaded
-            .taxonomy
-            .as_ref()?
-            .tasks
-            .iter()
-            .find(|task| task.task_id == task_id)
-            .cloned()
-    });
+    let definition = profile
+        .profile_id
+        .strip_prefix("task:")
+        .and_then(|task_id| {
+            loaded
+                .taxonomy
+                .as_ref()?
+                .tasks
+                .iter()
+                .find(|task| task.task_id == task_id)
+                .cloned()
+        });
     Ok(Json(ProfileDetail {
         window: query.window(),
         coverage: view.coverage(),
@@ -571,14 +583,25 @@ mod tests {
         let models = columns(&configured, observed.iter());
 
         assert_eq!(models.len(), 2);
-        assert!(models.iter().any(|model| model.model_config_id.as_deref() == Some("idle") && model.configured));
-        assert!(models.iter().any(|model| model.model_config_id.is_none() && !model.configured));
+        assert!(
+            models
+                .iter()
+                .any(|model| model.model_config_id.as_deref() == Some("idle") && model.configured)
+        );
+        assert!(
+            models
+                .iter()
+                .any(|model| model.model_config_id.is_none() && !model.configured)
+        );
     }
 
     #[rstest]
     #[case::admin(true, true)]
     #[case::scoped(false, false)]
-    fn only_every_team_scopes_get_an_enhanced_taxonomy(#[case] all_teams: bool, #[case] visible: bool) {
+    fn only_every_team_scopes_get_an_enhanced_taxonomy(
+        #[case] all_teams: bool,
+        #[case] visible: bool,
+    ) {
         let scope = ReadAccessParams {
             all_teams,
             user_id: "user".into(),
@@ -604,7 +627,10 @@ mod tests {
 
     #[rstest]
     fn a_reviewed_definition_with_no_requirements_is_compatible() {
-        let result = compatibility(&profile(Some(Vec::new())), &column(ModelCapabilities::default()));
+        let result = compatibility(
+            &profile(Some(Vec::new())),
+            &column(ModelCapabilities::default()),
+        );
 
         assert_eq!(result.status, CompatibilityStatus::Compatible);
     }
@@ -612,11 +638,20 @@ mod tests {
     struct Inventory;
 
     impl ProfileStore for Inventory {
-        async fn runs(&self, _: ReadAccessParams, _: RunQuery) -> Result<Vec<Run>, ProfileStoreError> {
+        async fn runs(
+            &self,
+            _: ReadAccessParams,
+            _: RunQuery,
+        ) -> Result<Vec<Run>, ProfileStoreError> {
             Ok(Vec::new())
         }
 
-        async fn calls(&self, _: ReadAccessParams, _: Vec<Run>, _: usize) -> Result<RunCalls, ProfileStoreError> {
+        async fn calls(
+            &self,
+            _: ReadAccessParams,
+            _: Vec<Run>,
+            _: usize,
+        ) -> Result<RunCalls, ProfileStoreError> {
             Ok(RunCalls::new())
         }
 

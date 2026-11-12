@@ -257,7 +257,15 @@ struct Call<'a> {
     deployment: &'a Deployment,
 }
 
-fn spend_row(call: &Call<'_>, request: &str, response: &str, litellm_call: &str, spend: Option<f64>, status: &str, model_id: &str) -> serde_json::Map<String, Value> {
+fn spend_row(
+    call: &Call<'_>,
+    request: &str,
+    response: &str,
+    litellm_call: &str,
+    spend: Option<f64>,
+    status: &str,
+    model_id: &str,
+) -> serde_json::Map<String, Value> {
     let row = json!({
         "request_id": request, "response_id": response, "litellm_call_id": litellm_call,
         "team_id": TEAM, "api_key": KEY, "user": USER,
@@ -275,12 +283,24 @@ fn spend_row(call: &Call<'_>, request: &str, response: &str, litellm_call: &str,
 fn call(batch: &mut Batch, call: Call<'_>) -> Span {
     let span_id = hex(&format!("{}-span", call.seed), 16);
     let response = format!("resp-{}", hex(&call.seed, 20));
-    let price = if call.deployment.id == SONNET.id { 0.012 } else { 0.002 };
+    let price = if call.deployment.id == SONNET.id {
+        0.012
+    } else {
+        0.002
+    };
     let spend = Some(price * (1.0 + (call.index % 5) as f64 * 0.15));
     let retry = call.index % 11 == 3;
     let unmatched = call.index % 17 == 7;
-    let model_id = if call.index % 7 == 6 { "" } else { call.deployment.id };
-    let duration_ns = if call.index % 19 == 2 { 0 } else { 400_000_000 + (call.index % 9) as i64 * 350_000_000 };
+    let model_id = if call.index % 7 == 6 {
+        ""
+    } else {
+        call.deployment.id
+    };
+    let duration_ns = if call.index % 19 == 2 {
+        0
+    } else {
+        400_000_000 + (call.index % 9) as i64 * 350_000_000
+    };
     let litellm_call = format!("call-{}", hex(&call.seed, 20));
     let mut pairs = vec![
         ("gen_ai.operation.name", json!("chat")),
@@ -290,13 +310,37 @@ fn call(batch: &mut Batch, call: Call<'_>) -> Span {
     ];
     if retry {
         pairs.push(("litellm.call_id", json!(litellm_call)));
-        batch.spend.push(spend_row(&call, &format!("{litellm_call}-1"), "", &litellm_call, Some(price * 0.25), "failure", model_id));
-        batch.spend.push(spend_row(&call, &format!("{litellm_call}-2"), "", &litellm_call, spend, "success", model_id));
+        batch.spend.push(spend_row(
+            &call,
+            &format!("{litellm_call}-1"),
+            "",
+            &litellm_call,
+            Some(price * 0.25),
+            "failure",
+            model_id,
+        ));
+        batch.spend.push(spend_row(
+            &call,
+            &format!("{litellm_call}-2"),
+            "",
+            &litellm_call,
+            spend,
+            "success",
+            model_id,
+        ));
     } else {
         pairs.push(("gen_ai.response.id", json!(response)));
         if !unmatched {
             let cost = if call.index % 13 == 5 { None } else { spend };
-            batch.spend.push(spend_row(&call, &format!("req-{}", hex(&call.seed, 20)), &response, &litellm_call, cost, "success", model_id));
+            batch.spend.push(spend_row(
+                &call,
+                &format!("req-{}", hex(&call.seed, 20)),
+                &response,
+                &litellm_call,
+                cost,
+                "success",
+                model_id,
+            ));
         }
     }
     Span {
@@ -339,7 +383,11 @@ fn runs(batch: &mut Batch, now: DateTime<Utc>) {
                 attributes: attributes(&root_pairs),
             }];
             for position in 0..calls {
-                let deployment = if (index + position) % 3 == 0 { &SONNET } else { &HAIKU };
+                let deployment = if (index + position) % 3 == 0 {
+                    &SONNET
+                } else {
+                    &HAIKU
+                };
                 spans.push(call(
                     batch,
                     Call {
@@ -407,9 +455,17 @@ fn definition(task: &Task, examples: Vec<String>) -> TaskDefinition {
     }
 }
 
-fn taxonomy(agent: &Agent, status: TaxonomyStatus, runs: &[SeededRun], now: DateTime<Utc>) -> Taxonomy {
+fn taxonomy(
+    agent: &Agent,
+    status: TaxonomyStatus,
+    runs: &[SeededRun],
+    now: DateTime<Utc>,
+) -> Taxonomy {
     let id = demo_taxonomy_id(agent.name);
-    let own: Vec<&SeededRun> = runs.iter().filter(|run| run.agent == agent.name && !run.recorded).collect();
+    let own: Vec<&SeededRun> = runs
+        .iter()
+        .filter(|run| run.agent == agent.name && !run.recorded)
+        .collect();
     let sampled: Vec<&&SeededRun> = own.iter().filter(|run| run.index < 24).collect();
     let center = |task_index: usize| {
         let angle = task_index as f64 * 2.1;
@@ -418,7 +474,11 @@ fn taxonomy(agent: &Agent, status: TaxonomyStatus, runs: &[SeededRun], now: Date
     let points = sampled
         .iter()
         .map(|run| {
-            let task_index = agent.tasks.iter().position(|task| task.id == run.task_id).unwrap_or_default();
+            let task_index = agent
+                .tasks
+                .iter()
+                .position(|task| task.id == run.task_id)
+                .unwrap_or_default();
             let (x, y) = center(task_index);
             DiscoveryPoint {
                 team_id: TEAM.into(),
@@ -448,7 +508,11 @@ fn taxonomy(agent: &Agent, status: TaxonomyStatus, runs: &[SeededRun], now: Date
         taxonomy_id: id,
         agent: agent.name.into(),
         version: 1,
-        revision: if status == TaxonomyStatus::Frozen { 3 } else { 2 },
+        revision: if status == TaxonomyStatus::Frozen {
+            3
+        } else {
+            2
+        },
         status,
         sample: true,
         tasks,
@@ -504,7 +568,9 @@ fn replaceable(existing: Option<&Taxonomy>) -> bool {
 async fn guard(state: &ClickHouseState) -> Result<Vec<Snapshot>, Error> {
     let mut snapshots = Vec::with_capacity(AGENTS.len());
     for agent in &AGENTS {
-        let snapshot = state.read(&taxonomy_key(&demo_taxonomy_id(agent.name))).await?;
+        let snapshot = state
+            .read(&taxonomy_key(&demo_taxonomy_id(agent.name)))
+            .await?;
         let existing = decode(&snapshot).map_err(|_| Error::Unavailable)?;
         if !replaceable(existing.as_ref()) {
             return Err(Error::Configuration(
@@ -556,13 +622,24 @@ pub async fn seed(
         user_id: USER.into(),
     };
     let database = config.storage().database();
-    insert_shared_rows(client, config.storage().writer(), database, InsertTable::OtelTraces, span_rows(spans, &tenant)).await?;
+    insert_shared_rows(
+        client,
+        config.storage().writer(),
+        database,
+        InsertTable::OtelTraces,
+        span_rows(spans, &tenant),
+    )
+    .await?;
     insert_rows(
         client,
         config.storage().writer(),
         database,
         InsertTable::SpendLogs,
-        batch.spend.into_iter().map(|row| row.into_iter().collect()).collect(),
+        batch
+            .spend
+            .into_iter()
+            .map(|row| row.into_iter().collect())
+            .collect(),
     )
     .await?;
     let mut assignments = 0;
@@ -580,7 +657,11 @@ pub async fn seed(
         if agent.taxonomy.is_none() {
             continue;
         }
-        for run in batch.runs.iter().filter(|run| run.agent == agent.name && !run.recorded && run.index % 10 != 9) {
+        for run in batch
+            .runs
+            .iter()
+            .filter(|run| run.agent == agent.name && !run.recorded && run.index % 10 != 9)
+        {
             let candidate = BucketingCandidate {
                 team_id: TEAM.into(),
                 api_key_hash: KEY.into(),
@@ -600,7 +681,11 @@ pub async fn seed(
                     taxonomy_id: &taxonomy.taxonomy_id,
                     taxonomy_version: taxonomy.version,
                     task_id: if unknown { "" } else { run.task_id },
-                    outcome: if unknown { AssignmentOutcome::Unknown } else { AssignmentOutcome::Assigned },
+                    outcome: if unknown {
+                        AssignmentOutcome::Unknown
+                    } else {
+                        AssignmentOutcome::Assigned
+                    },
                 },
             )
             .await?;
@@ -624,7 +709,10 @@ mod tests {
     #[case::absent(None, true)]
     #[case::sample(Some(true), true)]
     #[case::real(Some(false), false)]
-    fn the_seed_only_replaces_absent_or_sample_taxonomies(#[case] sample: Option<bool>, #[case] expected: bool) {
+    fn the_seed_only_replaces_absent_or_sample_taxonomies(
+        #[case] sample: Option<bool>,
+        #[case] expected: bool,
+    ) {
         let existing = sample.map(|sample| Taxonomy {
             sample,
             ..placeholder("lens-demo-research")

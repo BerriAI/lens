@@ -64,8 +64,7 @@ pub fn points(
                     point.team_id == run.team_id
                         && point.api_key_hash == run.api_key_hash
                         && point.trace_id == run.trace_id
-                        && point.task_id.as_deref()
-                            == run.profile_id.strip_prefix("task:")
+                        && point.task_id.as_deref() == run.profile_id.strip_prefix("task:")
                 })
             });
             Some(match discovered {
@@ -100,7 +99,8 @@ fn offset(run: &Run) -> (f64, f64) {
         ]
         .join(&0),
     );
-    let unit = |index: usize| f64::from(u16::from_be_bytes([digest[index], digest[index + 1]])) / 65_535.0;
+    let unit =
+        |index: usize| f64::from(u16::from_be_bytes([digest[index], digest[index + 1]])) / 65_535.0;
     (unit(0) * std::f64::consts::TAU, 1.5 + unit(2) * 5.0)
 }
 
@@ -187,9 +187,6 @@ mod tests {
         let runs = [run("t1", "cluster:a")];
         let centers = centers(&["cluster:a"], None);
 
-        assert_eq!(
-            points(&runs, &centers, None),
-            points(&runs, &centers, None)
-        );
+        assert_eq!(points(&runs, &centers, None), points(&runs, &centers, None));
     }
 }

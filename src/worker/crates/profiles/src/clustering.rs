@@ -55,7 +55,14 @@ fn neighbors(vectors: &[Vec<f32>], count: usize) -> (Array2<u32>, Array2<f32>) {
             .enumerate()
             .map(|(column, other)| {
                 let similarity: f32 = vector.iter().zip(other).map(|(a, b)| a * b).sum();
-                (column, if column == row { 0.0 } else { (1.0 - similarity).max(0.0) })
+                (
+                    column,
+                    if column == row {
+                        0.0
+                    } else {
+                        (1.0 - similarity).max(0.0)
+                    },
+                )
             })
             .collect();
         ranked.sort_by(|left, right| {
@@ -101,7 +108,8 @@ fn reduce(
     // which stalls points at large separation, so the generic layout runs with the Euclidean metric.
     // step_epochs snapshots neighbour positions per call, hence one epoch per call.
     let embedding = catch_unwind(AssertUnwindSafe(|| {
-        let manifold = Umap::new(config.clone()).learn_manifold(data.view(), indices.view(), distances.view());
+        let manifold =
+            Umap::new(config.clone()).learn_manifold(data.view(), indices.view(), distances.view());
         let mut optimizer = Optimizer::new(manifold, init, EPOCHS, &config, MetricType::Generic);
         while optimizer.remaining_epochs() > 0 {
             optimizer.step_epochs(1, &EuclideanMetric);
@@ -117,7 +125,11 @@ fn reduce(
 
 fn scaled(display: &Array2<f32>) -> Vec<(f64, f64)> {
     let axis = |column: usize| {
-        let values: Vec<f64> = display.column(column).iter().map(|value| f64::from(*value)).collect();
+        let values: Vec<f64> = display
+            .column(column)
+            .iter()
+            .map(|value| f64::from(*value))
+            .collect();
         let low = values.iter().copied().fold(f64::INFINITY, f64::min);
         let high = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let span = if high > low { high - low } else { 1.0 };
@@ -189,10 +201,12 @@ mod tests {
         assert_ne!(first, second);
         assert!(layout.labels[..15].iter().all(|label| *label == first));
         assert!(layout.labels[15..].iter().all(|label| *label == second));
-        assert!(layout
-            .points
-            .iter()
-            .all(|(x, y)| (5.0..=95.0).contains(x) && (5.0..=95.0).contains(y)));
+        assert!(
+            layout
+                .points
+                .iter()
+                .all(|(x, y)| (5.0..=95.0).contains(x) && (5.0..=95.0).contains(y))
+        );
     }
 
     #[rstest]

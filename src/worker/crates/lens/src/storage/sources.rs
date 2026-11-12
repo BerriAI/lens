@@ -42,7 +42,9 @@ impl SourceReader {
             user_id: String::new(),
             team_ids: Vec::new(),
         };
-        let Some(id) = lens_server::profiles::taxonomy_id(&access, agent).filter(|_| !agent.is_empty()) else {
+        let Some(id) =
+            lens_server::profiles::taxonomy_id(&access, agent).filter(|_| !agent.is_empty())
+        else {
             return ProfileTaxonomyParams::default();
         };
         let store = litellm_storage_clickhouse::state::ClickHouseState::new(

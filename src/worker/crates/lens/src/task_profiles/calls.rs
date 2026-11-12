@@ -48,7 +48,10 @@ pub(super) async fn resolve(
         };
         let params = TracePageSpansParams {
             access: scope.clone(),
-            trace_refs: batch.iter().map(lens_server::profiles::aggregate::trace_ref).collect(),
+            trace_refs: batch
+                .iter()
+                .map(lens_server::profiles::aggregate::trace_ref)
+                .collect(),
             trace_ids: batch.iter().map(|run| run.trace_id.clone()).collect(),
             start_ms,
             end_ms: last_ms.saturating_add(RUN_SPAN_MS),
@@ -61,12 +64,18 @@ pub(super) async fn resolve(
             break;
         }
         spans.sort_by(|left, right| {
-            (&left.team_id, &left.api_key_hash, &left.trace_id, left.start_ns).cmp(&(
-                &right.team_id,
-                &right.api_key_hash,
-                &right.trace_id,
-                right.start_ns,
-            ))
+            (
+                &left.team_id,
+                &left.api_key_hash,
+                &left.trace_id,
+                left.start_ns,
+            )
+                .cmp(&(
+                    &right.team_id,
+                    &right.api_key_hash,
+                    &right.trace_id,
+                    right.start_ns,
+                ))
         });
         let spend = spend(traces, scope, &spans).await?;
         let models = ledger_models(client, reader, scope, &spend).await?;
@@ -248,7 +257,9 @@ mod tests {
     #[rstest]
     fn a_ledger_row_with_a_deployment_id_names_its_column() {
         let only = request("only");
-        let ledger: Ledger = [(only.clone(), row(&only, "dep-1", "sonnet"))].into_iter().collect();
+        let ledger: Ledger = [(only.clone(), row(&only, "dep-1", "sonnet"))]
+            .into_iter()
+            .collect();
 
         assert_eq!(ledger_column(&only, &ledger).key(), "id:dep-1");
     }
@@ -256,7 +267,9 @@ mod tests {
     #[rstest]
     fn a_historical_ledger_row_without_a_deployment_id_is_not_given_one() {
         let only = request("only");
-        let ledger: Ledger = [(only.clone(), row(&only, "", "sonnet"))].into_iter().collect();
+        let ledger: Ledger = [(only.clone(), row(&only, "", "sonnet"))]
+            .into_iter()
+            .collect();
 
         assert_eq!(
             ledger_column(&only, &ledger),

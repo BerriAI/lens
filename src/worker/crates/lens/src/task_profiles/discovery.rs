@@ -99,7 +99,13 @@ async fn distill(
     let mut intents = Vec::with_capacity(texts.len());
     for batch in texts.chunks(DISTILL_BATCH) {
         let reply = language
-            .complete(model, format!("{DISTILL_PROMPT}{}", numbered(batch.iter().map(String::as_str))))
+            .complete(
+                model,
+                format!(
+                    "{DISTILL_PROMPT}{}",
+                    numbered(batch.iter().map(String::as_str))
+                ),
+            )
             .await?;
         let parsed = serde_json::from_str::<Intents>(json_object(&reply))
             .ok()
@@ -249,7 +255,10 @@ pub async fn discover(
     }
     let mut ranked: Vec<(usize, Vec<usize>)> = groups.into_iter().collect();
     ranked.sort_by(|(left_label, left), (right_label, right)| {
-        right.len().cmp(&left.len()).then(left_label.cmp(right_label))
+        right
+            .len()
+            .cmp(&left.len())
+            .then(left_label.cmp(right_label))
     });
     ranked.truncate(MAX_TASKS);
     let mut tasks = Vec::with_capacity(ranked.len());
@@ -301,9 +310,12 @@ pub async fn discover_within(
     samples: &[Sample],
     task_id: impl FnMut() -> String,
 ) -> Result<(Vec<TaskDefinition>, Vec<DiscoveryPoint>), DiscoveryError> {
-    tokio::time::timeout(budget, discover(language, embeddings, models, samples, task_id))
-        .await
-        .map_err(|_| DiscoveryError::TimedOut)?
+    tokio::time::timeout(
+        budget,
+        discover(language, embeddings, models, samples, task_id),
+    )
+    .await
+    .map_err(|_| DiscoveryError::TimedOut)?
 }
 
 #[cfg(test)]
@@ -355,7 +367,10 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn a_distillation_reply_with_the_wrong_count_keeps_the_excerpts() {
-        let texts = vec!["fix the flaky login test".to_owned(), "explain this module".to_owned()];
+        let texts = vec![
+            "fix the flaky login test".to_owned(),
+            "explain this module".to_owned(),
+        ];
 
         let intents = distill(&Reply(r#"{"intents": ["only one"]}"#), "distill", &texts)
             .await
@@ -367,7 +382,10 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn a_matching_distillation_reply_replaces_the_excerpts() {
-        let texts = vec!["fix the flaky login test".to_owned(), "explain this module".to_owned()];
+        let texts = vec![
+            "fix the flaky login test".to_owned(),
+            "explain this module".to_owned(),
+        ];
 
         let intents = distill(
             &Reply(r#"{"intents": ["Fix a failing test", "Explain code"]}"#),
@@ -427,7 +445,14 @@ mod tests {
     async fn a_provider_error_stops_discovery_instead_of_inventing_tasks() {
         let samples: Vec<Sample> = (0..20).map(|index| sample(&index.to_string())).collect();
 
-        let result = discover(&Failing, &NoEmbeddings, &TaxonomyModels::default(), &samples, || "id".into()).await;
+        let result = discover(
+            &Failing,
+            &NoEmbeddings,
+            &TaxonomyModels::default(),
+            &samples,
+            || "id".into(),
+        )
+        .await;
 
         assert_eq!(result, Err(DiscoveryError::Provider("synthesis")));
     }

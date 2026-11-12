@@ -32,7 +32,11 @@ const MODEL_CACHE: Duration = Duration::from_secs(60);
 pub(crate) const TAXONOMY_PREFIX: &str = "profiles/taxonomy/";
 
 pub fn discovery_models(read: impl Fn(&str) -> Option<String>) -> Option<TaxonomyModels> {
-    let value = |name: &str| read(name).map(|value| value.trim().to_owned()).filter(|value| !value.is_empty());
+    let value = |name: &str| {
+        read(name)
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+    };
     Some(TaxonomyModels {
         distill: value("LENS_PROFILE_DISTILL_MODEL")?,
         embedding: value("LENS_PROFILE_EMBEDDING_MODEL")?,
@@ -209,7 +213,10 @@ impl ProfileStore for ProfilesApi {
 impl TaxonomyStore for ProfilesApi {
     type Head = Snapshot;
 
-    async fn read(&self, taxonomy_id: &str) -> Result<(Option<Taxonomy>, Snapshot), ProfileStoreError> {
+    async fn read(
+        &self,
+        taxonomy_id: &str,
+    ) -> Result<(Option<Taxonomy>, Snapshot), ProfileStoreError> {
         read_taxonomy(&self.store, taxonomy_id).await
     }
 

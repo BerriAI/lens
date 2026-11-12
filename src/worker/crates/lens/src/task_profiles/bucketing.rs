@@ -50,7 +50,11 @@ fn definitions(taxonomy: &Taxonomy) -> String {
         .join(" ")
 }
 
-pub fn request(model: &str, taxonomy: &Taxonomy, input: &str) -> Result<DecisionRequest, DiscoveryError> {
+pub fn request(
+    model: &str,
+    taxonomy: &Taxonomy,
+    input: &str,
+) -> Result<DecisionRequest, DiscoveryError> {
     if taxonomy.tasks.is_empty() || taxonomy.tasks.len() > MAX_OPTIONS {
         return Err(DiscoveryError::InvalidReply("taxonomy"));
     }
@@ -59,7 +63,10 @@ pub fn request(model: &str, taxonomy: &Taxonomy, input: &str) -> Result<Decision
         .iter()
         .enumerate()
         .map(|(index, task)| (option(index), Some(criterion(task))))
-        .chain([(NONE.to_owned(), Some("No listed task definition fits this request".to_owned()))])
+        .chain([(
+            NONE.to_owned(),
+            Some("No listed task definition fits this request".to_owned()),
+        )])
         .collect();
     Ok(DecisionRequest {
         model: model.to_owned(),

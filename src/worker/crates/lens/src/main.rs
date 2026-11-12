@@ -88,8 +88,7 @@ async fn seed_profiles() -> Result<(), litellm_lens::Error> {
     state
         .initialize(&format!("/lens/{}", storage.database()))
         .await?;
-    let summary =
-        litellm_lens::task_profiles::seed::seed(&client, &config.storage, &state).await?;
+    let summary = litellm_lens::task_profiles::seed::seed(&client, &config.storage, &state).await?;
     println!("{summary}");
     Ok(())
 }

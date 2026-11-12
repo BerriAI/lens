@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use lens_contract::{
     profiles::{Taxonomy, TaxonomyStatus},
     worker::{ModelRequest, ModelRequestPrompt, ModelRequestPurpose},
@@ -12,6 +11,7 @@ use litellm_traces_clickhouse::profiles::{
     AssignmentOutcome, BucketingParams, TaskAssignment, bucketing_candidates, discovery_samples,
     record_assignment,
 };
+use serde::{Deserialize, Serialize};
 
 use super::{
     TAXONOMY_PREFIX,
@@ -132,7 +132,10 @@ impl ProfilesWorker {
         let mut found = Vec::new();
         let mut after = String::new();
         loop {
-            let keys = self.store.keys(TAXONOMY_PREFIX, &after, TAXONOMY_PAGE).await?;
+            let keys = self
+                .store
+                .keys(TAXONOMY_PREFIX, &after, TAXONOMY_PAGE)
+                .await?;
             let Some(last) = keys.last().cloned() else {
                 return Ok(found);
             };
@@ -170,7 +173,10 @@ impl ProfilesWorker {
         let Some(claimed) = claim(&current, Utc::now()) else {
             return false;
         };
-        if write_taxonomy(&self.store, head, Some(&claimed)).await.is_err() {
+        if write_taxonomy(&self.store, head, Some(&claimed))
+            .await
+            .is_err()
+        {
             return false;
         }
         let Some(job) = claimed.job.clone() else {
@@ -204,7 +210,13 @@ impl ProfilesWorker {
     async fn run(
         &self,
         taxonomy: &Taxonomy,
-    ) -> Result<(Vec<lens_contract::profiles::TaskDefinition>, Vec<lens_contract::profiles::DiscoveryPoint>), DiscoveryError> {
+    ) -> Result<
+        (
+            Vec<lens_contract::profiles::TaskDefinition>,
+            Vec<lens_contract::profiles::DiscoveryPoint>,
+        ),
+        DiscoveryError,
+    > {
         if !self.decision_supported(&taxonomy.models.decision) {
             return Err(DiscoveryError::Unconfigured("Jev decision"));
         }
@@ -258,13 +270,17 @@ impl ProfilesWorker {
             return false;
         };
         let current: Option<BucketLease> = serde_json::from_value(previous.value.clone()).ok();
-        let Some(next) = take_lease(current.as_ref(), &self.owner, taxonomy.version, Utc::now()) else {
+        let Some(next) = take_lease(current.as_ref(), &self.owner, taxonomy.version, Utc::now())
+        else {
             return false;
         };
         let Ok(value) = serde_json::to_value(next) else {
             return false;
         };
-        self.store.commit(vec![Change { previous, value }]).await.is_ok()
+        self.store
+            .commit(vec![Change { previous, value }])
+            .await
+            .is_ok()
     }
 
     async fn still_frozen(&self, taxonomy: &Taxonomy) -> bool {
@@ -351,14 +367,22 @@ mod tests {
         let renewed = take_lease(Some(&first), "replica-a", 2, now());
 
         assert_eq!(second, None);
-        assert_eq!(renewed.map(|lease| lease.owner), Some("replica-a".to_owned()));
+        assert_eq!(
+            renewed.map(|lease| lease.owner),
+            Some("replica-a".to_owned())
+        );
     }
 
     #[rstest]
     fn a_lapsed_lease_can_be_taken_over() {
         let first = take_lease(None, "replica-a", 2, now()).expect("first");
 
-        let taken = take_lease(Some(&first), "replica-b", 2, now() + BUCKET_LEASE + chrono::Duration::seconds(1));
+        let taken = take_lease(
+            Some(&first),
+            "replica-b",
+            2,
+            now() + BUCKET_LEASE + chrono::Duration::seconds(1),
+        );
 
         assert_eq!(taken.map(|lease| lease.owner), Some("replica-b".to_owned()));
     }

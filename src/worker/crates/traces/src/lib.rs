@@ -41,7 +41,8 @@ pub use query::ReadQuery;
 pub use query_access::QueryScope;
 pub use request::LogListRequest;
 pub use resolve::{
-    LedgerRequest, MatchedRequest, ModelCall, SpendLookup, iso_time, listed_summary, model_calls, resolve_trace,
+    LedgerRequest, MatchedRequest, ModelCall, SpendLookup, iso_time, listed_summary, model_calls,
+    resolve_trace,
 };
 pub use response::{OtelLogPage, OtelLogRecord, OtelLogSummary};
 pub use shared::{Shared, SharedIdentity};

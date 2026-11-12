@@ -114,7 +114,10 @@ fn ordered(reply: EmbeddingResponse, expected: usize) -> Result<Vec<Vec<f32>>, E
     let mut data = reply.data;
     data.sort_by_key(|item| item.index);
     let valid = data.len() == expected
-        && data.iter().enumerate().all(|(position, item)| item.index == position)
+        && data
+            .iter()
+            .enumerate()
+            .all(|(position, item)| item.index == position)
         && data.iter().all(|item| {
             !item.embedding.is_empty()
                 && item.embedding.len() == data[0].embedding.len()
