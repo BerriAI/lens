@@ -269,3 +269,17 @@ export function recommendedModel(run: Optimization) {
   if (rows[0].scored < 30) return undefined;
   return rows.filter((row) => !row.isBaseline && row.qualifies && row.savings > 0).sort((a, b) => a.cost - b.cost)[0];
 }
+
+export function paretoFrontier<T extends { cost: number; quality: number }>(points: readonly T[]): T[] {
+  return points
+    .filter(
+      (point) =>
+        !points.some(
+          (other) =>
+            other.cost <= point.cost &&
+            other.quality >= point.quality &&
+            (other.cost < point.cost || other.quality > point.quality),
+        ),
+    )
+    .toSorted((a, b) => a.cost - b.cost || b.quality - a.quality);
+}

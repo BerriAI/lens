@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { ArrowLeft, ChevronRight, Download, Pause, Play, RotateCcw } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { useOpenSourceTrace } from "../route";
 import { Choice } from "./NewOptimization";
+import { CostQualityPlot } from "./CostQualityPlot";
 import {
   baselineFor,
   comparisonRows,
@@ -258,7 +258,7 @@ export function OptimizationDetail({
                 : `Judge: gpt-6-astra${run.config.mode === "live" ? ` · ${run.config.baselineSampling}% baseline / ${run.config.candidateSampling}% test traffic` : " · blind comparison"}`}
             </p>
           </div>
-          {run.seed && <QualityTrend run={run} />}
+          {observed && <CostQualityPlot run={run} unit={unit} />}
           {observed && (
             <section className="grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -386,72 +386,6 @@ export function OptimizationDetail({
           )}
         </DialogContent>
       </Dialog>
-    </section>
-  );
-}
-
-function QualityTrend({ run }: { run: Optimization }) {
-  const best = recommendedModel(run);
-  const baseline = comparisonRows(run)[0];
-  const days = Array.from({ length: 7 }, (_, index) => ({
-    date: new Date(run.createdAt + index * 86400_000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    baseline: Number((baseline.quality + [0.02, -0.04, 0.01, 0.03, -0.02, 0, 0][index]).toFixed(2)),
-    candidate: Number(
-      ((best?.quality ?? baseline.quality) + [0.01, -0.02, 0.04, -0.01, 0.02, -0.01, 0][index]).toFixed(2),
-    ),
-  }));
-  if (run.config.mode === "offline") return null;
-  return (
-    <section className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">Quality over 7 days</h3>
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>Current model</span>
-          <span className="text-primary">{best?.id ?? "Candidate"}</span>
-        </div>
-      </div>
-      <div className="h-40 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={days} margin={{ left: -25, right: 12, top: 10, bottom: 0 }}>
-            <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[8, 10]}
-              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--popover)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-            />
-            <Line
-              name="Current model"
-              dataKey="baseline"
-              stroke="var(--muted-foreground)"
-              strokeDasharray="4 4"
-              dot={false}
-              strokeWidth={1.5}
-            />
-            <Line
-              name={best?.id ?? "Candidate"}
-              dataKey="candidate"
-              stroke="var(--primary)"
-              dot={{ r: 3 }}
-              strokeWidth={2}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
     </section>
   );
 }
