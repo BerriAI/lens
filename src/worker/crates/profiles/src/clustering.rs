@@ -4,8 +4,9 @@ use hdbscan::{Hdbscan, HdbscanHyperParams};
 use ndarray::Array2;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use umap_rs::{
-    Umap, UmapConfig,
+    EuclideanMetric, Optimizer, Umap, UmapConfig,
     config::{GraphParams, ManifoldParams},
+    metric::MetricType,
 };
 
 use crate::Error;
@@ -15,6 +16,7 @@ pub const MAX_POINTS: usize = 500;
 const NEIGHBORS: usize = 15;
 const CLUSTER_DIMENSIONS: usize = 10;
 const SEED: u64 = 42;
+const EPOCHS: usize = 500;
 const MAP_SPAN: f64 = 100.0;
 
 /// Cluster labels (`None` for noise) and a 0-100 display position per input.
@@ -95,10 +97,15 @@ fn reduce(
         },
         ..UmapConfig::default()
     };
+    // Optimizer::step_epochs reads neighbour positions from a snapshot taken when the call starts,
+    // so one epoch per call keeps attraction pointed at where the neighbours are now.
     let embedding = catch_unwind(AssertUnwindSafe(|| {
-        Umap::new(config)
-            .fit(data.view(), indices.view(), distances.view(), init.view())
-            .into_embedding()
+        let manifold = Umap::new(config.clone()).learn_manifold(data.view(), indices.view(), distances.view());
+        let mut optimizer = Optimizer::new(manifold, init, EPOCHS, &config, MetricType::Euclidean);
+        while optimizer.remaining_epochs() > 0 {
+            optimizer.step_epochs(1, &EuclideanMetric);
+        }
+        optimizer.embedding().to_owned()
     }))
     .map_err(|_| Error::Clustering)?;
     if embedding.iter().any(|value| !value.is_finite()) {
@@ -131,7 +138,8 @@ pub fn cluster(vectors: &[Vec<f32>]) -> Result<Layout, Error> {
     let vectors = normalized(vectors)?;
     let count = NEIGHBORS.min(vectors.len() - 1);
     let (indices, distances) = neighbors(&vectors, count);
-    let dimensions = CLUSTER_DIMENSIONS.min(vectors.len() - 2).max(2);
+    let width = vectors[0].len();
+    let dimensions = CLUSTER_DIMENSIONS.min(vectors.len() - 2).min(width).max(2);
     let reduced = reduce(&vectors, &indices, &distances, dimensions, 0.0)?;
     let display = reduce(&vectors, &indices, &distances, 2, 0.3)?;
     let rows: Vec<Vec<f32>> = reduced.rows().into_iter().map(|row| row.to_vec()).collect();
