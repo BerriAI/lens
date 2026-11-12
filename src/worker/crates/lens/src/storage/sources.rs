@@ -17,6 +17,8 @@ use litellm_traces_clickhouse::query::lens::{
     LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
 };
 
+use litellm_traces_clickhouse::query::profiles::ProfileTaxonomyParams;
+
 use crate::{Error, State, wait_for_read_slot};
 
 #[derive(Clone)]
@@ -33,6 +35,40 @@ pub struct SampleRequest<'a> {
 }
 
 impl SourceReader {
+    /// The agent's frozen enhanced taxonomy, which only every-team scopes can use.
+    async fn taxonomy(&self, scope: &Scope, agent: &str) -> ProfileTaxonomyParams {
+        let access = litellm_traces::query::named::ReadAccessParams {
+            all_teams: scope.all_teams,
+            user_id: String::new(),
+            team_ids: Vec::new(),
+        };
+        let Some(id) = lens_server::profiles::taxonomy_id(&access, agent).filter(|_| !agent.is_empty()) else {
+            return ProfileTaxonomyParams::default();
+        };
+        let store = litellm_storage_clickhouse::state::ClickHouseState::new(
+            self.0.storage.client.clone(),
+            self.0.storage.config.storage().reader().clone(),
+        );
+        match crate::task_profiles::read_taxonomy(&store, &id).await {
+            Ok((Some(taxonomy), _)) if taxonomy.frozen_at.is_some() => ProfileTaxonomyParams {
+                taxonomy_id: taxonomy.taxonomy_id,
+                taxonomy_version: taxonomy.version,
+            },
+            _ => ProfileTaxonomyParams::default(),
+        }
+    }
+
+    async fn sample_parameters(
+        &self,
+        scope: &Scope,
+        request: &SampleRequest<'_>,
+    ) -> Result<LensSampleParams, Error> {
+        Ok(LensSampleParams {
+            taxonomy: self.taxonomy(scope, &request.selection.agent_name).await,
+            ..sample_parameters(scope, request)?
+        })
+    }
+
     async fn read<Q: Query>(&self, parameters: &Q::Params) -> Result<Vec<Q::Row>, Error> {
         self.0.require_storage()?;
         let _permit = wait_for_read_slot(self.0.read_slots.clone().acquire_owned()).await?;
@@ -70,7 +106,7 @@ impl SourceReader {
     }
 
     pub async fn sample(&self, scope: &Scope, request: SampleRequest<'_>) -> Result<Sample, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSample>(&parameters).await?;
         sample_page(rows, &request)
     }
@@ -80,7 +116,7 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<Sample, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSignalSample>(&parameters).await?;
         sample_page(rows, &request)
     }
@@ -90,7 +126,7 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<u64, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSampleEligibility>(&parameters).await?;
         Ok(rows.first().map_or(0, |row| row.eligible))
     }
@@ -150,7 +186,7 @@ impl SourceReader {
         for source in sources {
             let rows = self
                 .read::<LensFindingSource>(&LensFindingSourceParams {
-                    taxonomy: Default::default(),
+                    taxonomy: self.taxonomy(&lens.scope, &lens.settings.agent_name).await,
                     profile: lens
                         .settings
                         .profile

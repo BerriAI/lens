@@ -44,10 +44,10 @@ pub struct ProfileTotals {
     pub runs: u64,
     pub requests: u64,
     pub matched_requests: u64,
-    pub deliveries: Option<u64>,
     pub cost_observations: u64,
     pub spend_usd: Option<f64>,
     pub other_agent_requests: u64,
+    pub shared_requests: u64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -151,7 +151,8 @@ pub struct ProfileRef {
     pub profile_id: String,
     pub name: String,
     pub source: ProfileSource,
-    pub required_capabilities: Vec<Capability>,
+    /// `None` until a reviewed task definition states the requirements.
+    pub required_capabilities: Option<Vec<Capability>>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -202,6 +203,7 @@ pub enum TaxonomyStatus {
     Draft,
     Frozen,
     Failed,
+    Cleared,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -247,7 +249,10 @@ pub struct TaxonomyModels {
 pub struct Taxonomy {
     pub taxonomy_id: String,
     pub agent: String,
+    /// Generation that assignments are keyed by; it only grows, even across resets.
     pub version: u32,
+    /// Changes on every write, so a stale browser edit is rejected.
+    pub revision: u32,
     pub status: TaxonomyStatus,
     pub sample: bool,
     pub tasks: Vec<TaskDefinition>,
@@ -292,7 +297,7 @@ pub struct DiscoveryRequest {
 #[serde(deny_unknown_fields)]
 pub struct TaskEdit {
     pub agent: String,
-    pub version: u32,
+    pub revision: u32,
     #[schemars(length(min = 1, max = 80))]
     pub name: String,
     #[schemars(length(max = 600))]
@@ -306,7 +311,7 @@ pub struct TaskEdit {
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct TaxonomyVersionRequest {
+pub struct TaxonomyRevisionRequest {
     pub agent: String,
-    pub version: u32,
+    pub revision: u32,
 }

@@ -39,11 +39,8 @@ pub struct ProfileRunsRow {
     pub trace_id: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
-    pub recorded: String,
-    pub cluster_id: String,
-    pub cluster_label: String,
-    pub task_id: String,
-    pub outcome: String,
+    pub profile_id: String,
+    pub category: String,
     pub input_preview: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     #[cfg_attr(
@@ -57,7 +54,11 @@ impl Query for ProfileRuns {
     type Params = ProfileRunsParams;
     type Row = ProfileRunsRow;
 
-    const SQL: &'static str = include_str!("../../query/profile_runs.sql");
+    const SQL: &'static str = concat!(
+        include_str!("../../query/profile_runs_head.sql"),
+        include_str!("../../query/trace_profiles.sql"),
+        include_str!("../../query/profile_runs.sql")
+    );
 }
 
 pub struct CallCostModels;

@@ -128,6 +128,7 @@ mod tests {
             taxonomy_id: "tax".into(),
             agent: "agent".into(),
             version: 1,
+            revision: 1,
             status: TaxonomyStatus::Frozen,
             sample: false,
             tasks: Vec::new(),

@@ -43,6 +43,13 @@ impl GatewayConfig {
         base.set_path(&path);
         Ok(Self { base, key })
     }
+    pub(crate) fn endpoint(&self, path: &str) -> String {
+        format!("{}{path}", self.base.as_str().trim_end_matches('/'))
+    }
+
+    pub(crate) fn key(&self) -> &str {
+        &self.key
+    }
 }
 
 struct Snapshot {
@@ -107,6 +114,14 @@ impl Models {
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
+    }
+
+    pub(crate) fn connection(&self) -> Option<GatewayConfig> {
+        self.0.connection.clone()
+    }
+
+    pub(crate) fn client(&self) -> reqwest::Client {
+        self.0.client.clone()
     }
 
     pub fn analysis(&self) -> Arc<AnalysisModels> {

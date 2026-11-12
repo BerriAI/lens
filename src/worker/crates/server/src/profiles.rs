@@ -203,18 +203,24 @@ impl Loaded {
             .collect()
     }
 
-    fn required(&self, profile_id: &str) -> Vec<Capability> {
-        profile_id
-            .strip_prefix("task:")
-            .and_then(|task_id| {
-                self.taxonomy
-                    .as_ref()?
-                    .tasks
-                    .iter()
-                    .find(|task| task.task_id == task_id)
-                    .map(|task| task.required_capabilities.clone())
-            })
-            .unwrap_or_default()
+    fn required(&self, profile_id: &str) -> Option<Vec<Capability>> {
+        let task_id = profile_id.strip_prefix("task:")?;
+        self.taxonomy
+            .as_ref()?
+            .tasks
+            .iter()
+            .find(|task| task.task_id == task_id)
+            .map(|task| task.required_capabilities.clone())
+    }
+}
+
+/// Idle configured deployments reveal the gateway's inventory, so only callers who can read every
+/// team see them; scoped callers see the columns their own traffic used.
+async fn inventory<S: ProfileStore>(store: &S, scope: &ReadAccessParams) -> Vec<ConfiguredModel> {
+    if scope.all_teams {
+        store.configured_models().await
+    } else {
+        Vec::new()
     }
 }
 
@@ -291,7 +297,7 @@ async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
     let scope = scope(&identity)?;
     let query = query.validate()?;
     let loaded = load(&app.store, &scope, &query).await?;
-    let configured = app.store.configured_models().await;
+    let configured = inventory(&app.store, &scope).await;
     let view = loaded.view(&query.agent);
     let cells = view.cells(None);
     let profiles: Vec<ProfileRef> = loaded
@@ -470,14 +476,21 @@ fn supports(capabilities: &ModelCapabilities, capability: Capability) -> Option<
 }
 
 fn compatibility(profile: &ProfileRef, model: &ModelColumn) -> Compatibility {
-    let missing: Vec<Capability> = profile
-        .required_capabilities
+    let Some(required) = &profile.required_capabilities else {
+        return Compatibility {
+            profile_id: profile.profile_id.clone(),
+            column_key: model.column_key.clone(),
+            status: CompatibilityStatus::Unknown,
+            missing: Vec::new(),
+            unknown: Vec::new(),
+        };
+    };
+    let missing: Vec<Capability> = required
         .iter()
         .copied()
         .filter(|capability| supports(&model.capabilities, *capability) == Some(false))
         .collect();
-    let unknown: Vec<Capability> = profile
-        .required_capabilities
+    let unknown: Vec<Capability> = required
         .iter()
         .copied()
         .filter(|capability| supports(&model.capabilities, *capability).is_none())
@@ -516,7 +529,7 @@ mod tests {
         }
     }
 
-    fn profile(required: Vec<Capability>) -> ProfileRef {
+    fn profile(required: Option<Vec<Capability>>) -> ProfileRef {
         ProfileRef {
             profile_id: "task:a".into(),
             name: "Task".into(),
@@ -538,7 +551,7 @@ mod tests {
             ..ModelCapabilities::default()
         });
 
-        let result = compatibility(&profile(vec![Capability::Vision]), &model);
+        let result = compatibility(&profile(Some(vec![Capability::Vision])), &model);
 
         assert_eq!(result.status, expected);
     }
@@ -573,5 +586,64 @@ mod tests {
         };
 
         assert_eq!(taxonomy_id(&scope, "agent").is_some(), visible);
+    }
+
+    #[rstest]
+    fn a_profile_without_a_reviewed_definition_has_unknown_compatibility() {
+        let model = column(ModelCapabilities {
+            vision: Some(true),
+            function_calling: Some(true),
+            reasoning: Some(true),
+            structured_output: Some(true),
+        });
+
+        let result = compatibility(&profile(None), &model);
+
+        assert_eq!(result.status, CompatibilityStatus::Unknown);
+    }
+
+    #[rstest]
+    fn a_reviewed_definition_with_no_requirements_is_compatible() {
+        let result = compatibility(&profile(Some(Vec::new())), &column(ModelCapabilities::default()));
+
+        assert_eq!(result.status, CompatibilityStatus::Compatible);
+    }
+
+    struct Inventory;
+
+    impl ProfileStore for Inventory {
+        async fn runs(&self, _: ReadAccessParams, _: RunQuery) -> Result<Vec<Run>, ProfileStoreError> {
+            Ok(Vec::new())
+        }
+
+        async fn calls(&self, _: ReadAccessParams, _: Vec<Run>, _: usize) -> Result<RunCalls, ProfileStoreError> {
+            Ok(RunCalls::new())
+        }
+
+        async fn configured_models(&self) -> Vec<ConfiguredModel> {
+            vec![ConfiguredModel {
+                model_id: "idle".into(),
+                model_group: "idle-model".into(),
+                provider: "openai".into(),
+                capabilities: ModelCapabilities::default(),
+            }]
+        }
+    }
+
+    #[rstest]
+    #[case::every_team(true, 1)]
+    #[case::scoped(false, 0)]
+    #[tokio::test]
+    async fn idle_gateway_deployments_are_listed_only_for_every_team_scopes(
+        #[case] all_teams: bool,
+        #[case] expected: usize,
+    ) {
+        let scope = ReadAccessParams {
+            all_teams,
+            user_id: "user".into(),
+            team_ids: vec!["team".into()],
+        };
+
+        assert_eq!(inventory(&Inventory, &scope).await.len(), expected);
     }
 }

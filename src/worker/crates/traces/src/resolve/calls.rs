@@ -12,7 +12,15 @@ pub struct ModelCall {
     pub model: String,
     pub duration_ns: u64,
     pub state: Option<SpendMatch>,
-    pub requests: Vec<LedgerRequest>,
+    /// Ledger rows tied to the call; empty unless strict matching settled on them.
+    pub requests: Vec<MatchedRequest>,
+    /// The call's total charge, known only when every matched ledger row is priced.
+    pub spend: Option<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MatchedRequest {
+    pub identity: LedgerRequest,
     pub spend: Option<f64>,
 }
 
@@ -34,7 +42,9 @@ pub fn model_calls(rows: &[TraceSpansRow], spend: &[SpendRow]) -> Vec<ModelCall>
         .map(|call| {
             let row = resolution.row(*call);
             let matched = resolution.call_match(*call);
+            let state = matched.map(|matched| matched.state);
             let requests = matched
+                .filter(|matched| matched.state == SpendMatch::Matched)
                 .and_then(|matched| matched.requests.clone())
                 .unwrap_or_default();
             ModelCall {
@@ -42,7 +52,7 @@ pub fn model_calls(rows: &[TraceSpansRow], spend: &[SpendRow]) -> Vec<ModelCall>
                 agent: resolution.owner(*call).to_owned(),
                 model: row.model.clone(),
                 duration_ns: row.duration_ns,
-                state: matched.map(|matched| matched.state),
+                state,
                 spend: if requests.is_empty() {
                     None
                 } else {
@@ -50,10 +60,13 @@ pub fn model_calls(rows: &[TraceSpansRow], spend: &[SpendRow]) -> Vec<ModelCall>
                 },
                 requests: requests
                     .iter()
-                    .map(|request| LedgerRequest {
-                        team_id: request.team_id.clone(),
-                        start_ms: request.start_ms,
-                        request_id: request.request_id.clone(),
+                    .map(|request| MatchedRequest {
+                        identity: LedgerRequest {
+                            team_id: request.team_id.clone(),
+                            start_ms: request.start_ms,
+                            request_id: request.request_id.clone(),
+                        },
+                        spend: request.spend.filter(|spend| spend.is_finite()),
                     })
                     .collect(),
             }

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS {database}.lens_task_profile_assignments
     TaxonomyVersion UInt32,
     TaskId String,
     Outcome LowCardinality(String),
+    Attempts UInt8,
     StartTs DateTime64(3),
     ComputedAt UInt64
 )

@@ -276,6 +276,136 @@ pub async fn project(
     Ok(true)
 }
 
+#[derive(Serialize)]
+pub struct BucketingParams {
+    pub agent: String,
+    pub taxonomy_id: String,
+    pub taxonomy_version: u32,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub max_attempts: u8,
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct BucketingCandidate {
+    pub team_id: String,
+    pub api_key_hash: String,
+    pub trace_id: String,
+    pub user_ids: Vec<String>,
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    pub start_ms: i64,
+    pub input_preview: String,
+    #[serde(default, deserialize_with = "crate::query::number::deserialize")]
+    pub attempts: u8,
+}
+
+struct BucketingCandidates;
+
+impl Query for BucketingCandidates {
+    type Params = BucketingParams;
+    type Row = BucketingCandidate;
+    const READ_LIMITS: ReadLimits = ReadLimits {
+        result_rows: 101,
+        response_bytes: 512 * 1024,
+        execution_seconds: 10,
+    };
+    const SQL: &'static str = include_str!("../query/profile_bucketing_candidates.sql");
+}
+
+struct DiscoverySamples;
+
+impl Query for DiscoverySamples {
+    type Params = BucketingParams;
+    type Row = BucketingCandidate;
+    const READ_LIMITS: ReadLimits = ReadLimits {
+        result_rows: 501,
+        response_bytes: 2 * 1024 * 1024,
+        execution_seconds: 20,
+    };
+    const SQL: &'static str = include_str!("../query/profile_bucketing_candidates.sql");
+}
+
+/// Unrecorded runs of the agent in the discovery window, newest first.
+pub async fn discovery_samples(
+    client: &Client,
+    config: &Config,
+    params: &BucketingParams,
+) -> Result<Vec<BucketingCandidate>, Error> {
+    Ok(fetch::<DiscoverySamples>(client, config.storage().reader(), params).await?)
+}
+
+/// Unrecorded runs of the agent that this taxonomy version has not settled yet, newest first.
+pub async fn bucketing_candidates(
+    client: &Client,
+    config: &Config,
+    params: &BucketingParams,
+) -> Result<Vec<BucketingCandidate>, Error> {
+    Ok(fetch::<BucketingCandidates>(client, config.storage().reader(), params).await?)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssignmentOutcome {
+    Assigned,
+    Unknown,
+    Failed,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct AssignmentRow<'a> {
+    team_id: &'a str,
+    api_key_hash: &'a str,
+    trace_id: &'a str,
+    user_ids: &'a [String],
+    agent_name: &'a str,
+    taxonomy_id: &'a str,
+    taxonomy_version: u32,
+    task_id: &'a str,
+    outcome: AssignmentOutcome,
+    attempts: u8,
+    start_ts: String,
+    computed_at: u64,
+}
+
+pub struct Assignment<'a> {
+    pub candidate: &'a BucketingCandidate,
+    pub agent: &'a str,
+    pub taxonomy_id: &'a str,
+    pub taxonomy_version: u32,
+    pub task_id: &'a str,
+    pub outcome: AssignmentOutcome,
+}
+
+pub async fn record_assignment(
+    client: &Client,
+    config: &Config,
+    assignment: &Assignment<'_>,
+) -> Result<(), Error> {
+    let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
+    insert(
+        client,
+        config,
+        "lens_task_profile_assignments",
+        &AssignmentRow {
+            team_id: &assignment.candidate.team_id,
+            api_key_hash: &assignment.candidate.api_key_hash,
+            trace_id: &assignment.candidate.trace_id,
+            user_ids: &assignment.candidate.user_ids,
+            agent_name: assignment.agent,
+            taxonomy_id: assignment.taxonomy_id,
+            taxonomy_version: assignment.taxonomy_version,
+            task_id: assignment.task_id,
+            outcome: assignment.outcome,
+            attempts: assignment.candidate.attempts.saturating_add(1),
+            start_ts: litellm_traces::iso_time(assignment.candidate.start_ms),
+            computed_at: now,
+        },
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::{TaskInput, descriptor, ownership_hash};

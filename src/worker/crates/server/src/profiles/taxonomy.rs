@@ -12,7 +12,7 @@ use lens_contract::{
     auth::{Identity, Role},
     profiles::{
         DiscoveryJob, DiscoveryPoint, DiscoveryRequest, TaskDefinition, TaskEdit, Taxonomy,
-        TaxonomyModels, TaxonomyStatus, TaxonomyVersionRequest,
+        TaxonomyModels, TaxonomyRevisionRequest, TaxonomyStatus,
     },
 };
 
@@ -67,6 +67,13 @@ fn active_job(taxonomy: &Taxonomy, now: DateTime<Utc>) -> bool {
         })
 }
 
+fn next(taxonomy: Taxonomy) -> Taxonomy {
+    Taxonomy {
+        revision: taxonomy.revision.saturating_add(1),
+        ..taxonomy
+    }
+}
+
 pub fn start_discovery(
     current: Option<&Taxonomy>,
     taxonomy_id: &str,
@@ -87,6 +94,7 @@ pub fn start_discovery(
         taxonomy_id: taxonomy_id.to_owned(),
         agent: request.agent.clone(),
         version: current.map_or(1, |taxonomy| taxonomy.version.saturating_add(1)),
+        revision: current.map_or(1, |taxonomy| taxonomy.revision.saturating_add(1)),
         status: TaxonomyStatus::Discovering,
         sample: false,
         tasks: Vec::new(),
@@ -107,11 +115,14 @@ pub fn start_discovery(
     })
 }
 
-fn draft(current: Option<Taxonomy>, version: u32) -> Result<Taxonomy, TransitionError> {
-    let taxonomy = current.ok_or(TransitionError::Stale)?;
-    if taxonomy.version != version {
-        return Err(TransitionError::Stale);
-    }
+fn current_revision(current: Option<Taxonomy>, revision: u32) -> Result<Taxonomy, TransitionError> {
+    current
+        .filter(|taxonomy| taxonomy.revision == revision)
+        .ok_or(TransitionError::Stale)
+}
+
+fn draft(current: Option<Taxonomy>, revision: u32) -> Result<Taxonomy, TransitionError> {
+    let taxonomy = current_revision(current, revision)?;
     if taxonomy.status != TaxonomyStatus::Draft {
         return Err(TransitionError::NotDraft);
     }
@@ -132,7 +143,7 @@ pub fn edit_task(
     {
         return Err(TransitionError::InvalidEdit);
     }
-    let mut taxonomy = draft(current, edit.version)?;
+    let mut taxonomy = draft(current, edit.revision)?;
     let task = taxonomy
         .tasks
         .iter_mut()
@@ -147,33 +158,42 @@ pub fn edit_task(
         required_capabilities: edit.required_capabilities.clone(),
         example_trace_ids: task.example_trace_ids.clone(),
     };
-    Ok(taxonomy)
+    Ok(next(taxonomy))
 }
 
 pub fn freeze(
     current: Option<Taxonomy>,
-    request: &TaxonomyVersionRequest,
+    request: &TaxonomyRevisionRequest,
     now: DateTime<Utc>,
 ) -> Result<Taxonomy, TransitionError> {
-    let taxonomy = draft(current, request.version)?;
+    let taxonomy = draft(current, request.revision)?;
     if taxonomy.tasks.is_empty() {
         return Err(TransitionError::Empty);
     }
-    Ok(Taxonomy {
+    Ok(next(Taxonomy {
         status: TaxonomyStatus::Frozen,
         frozen_at: Some(now),
         ..taxonomy
-    })
+    }))
 }
 
+/// Clears the taxonomy but keeps its generation, so a later discovery never reuses a version
+/// whose assignments are still stored.
 pub fn reset(
-    current: Option<&Taxonomy>,
-    request: &TaxonomyVersionRequest,
-) -> Result<(), TransitionError> {
-    match current {
-        Some(taxonomy) if taxonomy.version == request.version => Ok(()),
-        _ => Err(TransitionError::Stale),
-    }
+    current: Option<Taxonomy>,
+    request: &TaxonomyRevisionRequest,
+) -> Result<Taxonomy, TransitionError> {
+    let taxonomy = current_revision(current, request.revision)?;
+    Ok(next(Taxonomy {
+        status: TaxonomyStatus::Cleared,
+        tasks: Vec::new(),
+        points: Vec::new(),
+        job: None,
+        discovered_at: None,
+        frozen_at: None,
+        error: None,
+        ..taxonomy
+    }))
 }
 
 /// The worker's lease on a queued or abandoned discovery job. `None` when there is nothing to
@@ -186,37 +206,42 @@ pub fn claim(current: &Taxonomy, now: DateTime<Utc>) -> Option<Taxonomy> {
         return None;
     }
     if job.attempts >= MAX_ATTEMPTS {
-        return Some(Taxonomy {
+        return Some(next(Taxonomy {
             status: TaxonomyStatus::Failed,
             error: Some("Discovery stopped after repeated failures".into()),
             job: None,
             ..current.clone()
-        });
+        }));
     }
-    Some(Taxonomy {
+    Some(next(Taxonomy {
         job: Some(DiscoveryJob {
             lease_until: Some(now + LEASE),
             attempts: job.attempts + 1,
             ..job.clone()
         }),
         ..current.clone()
-    })
+    }))
 }
 
-/// Stores a finished discovery only if the job is still the one this version started.
+/// Stores a finished discovery only if the attempt that ran it still holds the job; a reclaimed
+/// job's older attempt cannot overwrite the newer one.
 pub fn complete(
     current: Option<Taxonomy>,
     job_id: &str,
+    attempt: u32,
     outcome: Result<(Vec<TaskDefinition>, Vec<DiscoveryPoint>), String>,
     now: DateTime<Utc>,
 ) -> Result<Taxonomy, TransitionError> {
     let taxonomy = current.ok_or(TransitionError::Stale)?;
     if taxonomy.status != TaxonomyStatus::Discovering
-        || taxonomy.job.as_ref().is_none_or(|job| job.job_id != job_id)
+        || taxonomy
+            .job
+            .as_ref()
+            .is_none_or(|job| job.job_id != job_id || job.attempts != attempt)
     {
         return Err(TransitionError::Stale);
     }
-    Ok(match outcome {
+    Ok(next(match outcome {
         Ok((tasks, points)) => Taxonomy {
             status: TaxonomyStatus::Draft,
             tasks,
@@ -232,7 +257,7 @@ pub fn complete(
             error: Some(error),
             ..taxonomy
         },
-    })
+    }))
 }
 
 pub fn can_write(identity: &Identity) -> bool {
@@ -324,7 +349,7 @@ async fn freeze_route<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
     State(app): State<Arc<App<R, S>>>,
     headers: HeaderMap,
     method: Method,
-    Json(request): Json<TaxonomyVersionRequest>,
+    Json(request): Json<TaxonomyRevisionRequest>,
 ) -> Result<Json<Taxonomy>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
     let (current, head) = app.store.read(&id).await?;
@@ -337,13 +362,13 @@ async fn reset_route<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
     State(app): State<Arc<App<R, S>>>,
     headers: HeaderMap,
     method: Method,
-    Json(request): Json<TaxonomyVersionRequest>,
-) -> Result<Json<serde_json::Value>, ProfileHttpError> {
+    Json(request): Json<TaxonomyRevisionRequest>,
+) -> Result<Json<Taxonomy>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
     let (current, head) = app.store.read(&id).await?;
-    reset(current.as_ref(), &request)?;
-    app.store.write(head, None).await?;
-    Ok(Json(serde_json::json!({"reset": true})))
+    let next = reset(current, &request)?;
+    app.store.write(head, Some(next.clone())).await?;
+    Ok(Json(next))
 }
 
 #[cfg(test)]
@@ -376,111 +401,104 @@ mod tests {
         }
     }
 
+    fn start(current: Option<&Taxonomy>, job_id: &str) -> Result<Taxonomy, TransitionError> {
+        start_discovery(current, "tax", &request(100), &TaxonomyModels::default(), job_id.into(), now())
+    }
+
+    fn revision(taxonomy: &Taxonomy) -> TaxonomyRevisionRequest {
+        TaxonomyRevisionRequest {
+            agent: "agent".into(),
+            revision: taxonomy.revision,
+        }
+    }
+
+    fn rename(taxonomy: &Taxonomy, name: &str) -> TaskEdit {
+        TaskEdit {
+            agent: "agent".into(),
+            revision: taxonomy.revision,
+            name: name.into(),
+            description: String::new(),
+            inclusion_criteria: String::new(),
+            exclusion_criteria: String::new(),
+            required_capabilities: Vec::new(),
+        }
+    }
+
     #[fixture]
     fn discovering() -> Taxonomy {
-        start_discovery(None, "tax", &request(100), &TaxonomyModels::default(), "job".into(), now())
-            .expect("start")
+        start(None, "job").expect("start")
     }
 
     #[fixture]
     fn drafted(discovering: Taxonomy) -> Taxonomy {
-        complete(Some(discovering), "job", Ok((vec![task("a")], Vec::new())), now()).expect("draft")
-    }
-
-    fn version(taxonomy: &Taxonomy) -> TaxonomyVersionRequest {
-        TaxonomyVersionRequest {
-            agent: "agent".into(),
-            version: taxonomy.version,
-        }
+        let claimed = claim(&discovering, now()).expect("claim");
+        complete(Some(claimed), "job", 1, Ok((vec![task("a")], Vec::new())), now()).expect("draft")
     }
 
     #[rstest]
     fn a_second_discovery_is_refused_while_one_is_running(discovering: Taxonomy) {
-        let result = start_discovery(
-            Some(&discovering),
-            "tax",
-            &request(100),
-            &TaxonomyModels::default(),
-            "job-2".into(),
-            now(),
-        );
-
-        assert_eq!(result, Err(TransitionError::Running));
+        assert_eq!(start(Some(&discovering), "job-2"), Err(TransitionError::Running));
     }
 
     #[rstest]
-    fn rediscovery_bumps_the_version_so_old_assignments_stop_applying(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &version(&drafted), now()).expect("freeze");
+    fn reset_then_rediscovery_never_reuses_a_generation_with_stored_assignments(drafted: Taxonomy) {
+        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
+        let cleared = reset(Some(frozen.clone()), &revision(&frozen)).expect("reset");
 
-        let next = start_discovery(
-            Some(&frozen),
-            "tax",
-            &request(100),
-            &TaxonomyModels::default(),
-            "job-2".into(),
-            now(),
-        )
-        .expect("rediscover");
+        let rediscovered = start(Some(&cleared), "job-2").expect("rediscover");
 
-        assert_eq!(next.version, frozen.version + 1);
-        assert_eq!(next.frozen_at, None);
+        assert_eq!(cleared.status, TaxonomyStatus::Cleared);
+        assert_eq!(cleared.frozen_at, None);
+        assert!(rediscovered.version > frozen.version);
     }
 
     #[rstest]
     #[case::too_small(19)]
     #[case::too_large(501)]
     fn discovery_size_is_bounded(#[case] max_runs: u32) {
-        let result = start_discovery(
-            None,
-            "tax",
-            &request(max_runs),
-            &TaxonomyModels::default(),
-            "job".into(),
-            now(),
-        );
+        let result = start_discovery(None, "tax", &request(max_runs), &TaxonomyModels::default(), "job".into(), now());
 
         assert_eq!(result, Err(TransitionError::InvalidSize));
     }
 
     #[rstest]
     fn a_running_discovery_cannot_be_frozen(discovering: Taxonomy) {
-        let result = freeze(Some(discovering.clone()), &version(&discovering), now());
-
-        assert_eq!(result, Err(TransitionError::NotDraft));
+        assert_eq!(
+            freeze(Some(discovering.clone()), &revision(&discovering), now()),
+            Err(TransitionError::NotDraft)
+        );
     }
 
     #[rstest]
-    fn freezing_an_older_version_is_rejected_as_stale(drafted: Taxonomy) {
-        let stale = TaxonomyVersionRequest {
-            agent: "agent".into(),
-            version: drafted.version + 1,
-        };
+    fn a_stale_browser_edit_cannot_overwrite_a_newer_one(drafted: Taxonomy) {
+        let first = edit_task(Some(drafted.clone()), "a", &rename(&drafted, "Fix flaky tests")).expect("first edit");
 
-        assert_eq!(freeze(Some(drafted), &stale, now()), Err(TransitionError::Stale));
+        let stale = edit_task(Some(first.clone()), "a", &rename(&drafted, "Something else"));
+        let stale_freeze = freeze(Some(first.clone()), &revision(&drafted), now());
+
+        assert_eq!(stale, Err(TransitionError::Stale));
+        assert_eq!(stale_freeze, Err(TransitionError::Stale));
+        assert_eq!(first.tasks[0].name, "Fix flaky tests");
+        assert!(first.revision > drafted.revision);
     }
 
     #[rstest]
     fn freezing_a_draft_records_when(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &version(&drafted), now()).expect("freeze");
+        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
 
         assert_eq!(frozen.status, TaxonomyStatus::Frozen);
         assert_eq!(frozen.frozen_at, Some(now()));
+        assert_eq!(frozen.version, drafted.version);
     }
 
     #[rstest]
     fn a_frozen_taxonomy_cannot_be_edited(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &version(&drafted), now()).expect("freeze");
-        let edit = TaskEdit {
-            agent: "agent".into(),
-            version: frozen.version,
-            name: "Renamed".into(),
-            description: String::new(),
-            inclusion_criteria: String::new(),
-            exclusion_criteria: String::new(),
-            required_capabilities: Vec::new(),
-        };
+        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
 
-        assert_eq!(edit_task(Some(frozen), "a", &edit), Err(TransitionError::NotDraft));
+        assert_eq!(
+            edit_task(Some(frozen.clone()), "a", &rename(&frozen, "Renamed")),
+            Err(TransitionError::NotDraft)
+        );
     }
 
     #[rstest]
@@ -491,39 +509,42 @@ mod tests {
         #[case] name: &str,
         #[case] expected: Result<&str, TransitionError>,
     ) {
-        let edit = TaskEdit {
-            agent: "agent".into(),
-            version: drafted.version,
-            name: name.into(),
-            description: String::new(),
-            inclusion_criteria: String::new(),
-            exclusion_criteria: String::new(),
-            required_capabilities: Vec::new(),
-        };
-
-        let result = edit_task(Some(drafted), "a", &edit).map(|taxonomy| taxonomy.tasks[0].name.clone());
+        let result = edit_task(Some(drafted.clone()), "a", &rename(&drafted, name))
+            .map(|taxonomy| taxonomy.tasks[0].name.clone());
 
         assert_eq!(result.as_deref().map_err(Clone::clone), expected);
     }
 
     #[rstest]
-    fn a_stale_job_result_does_not_overwrite_a_newer_discovery(discovering: Taxonomy) {
-        let result = complete(Some(discovering), "older-job", Ok((vec![task("a")], Vec::new())), now());
+    fn an_older_attempt_cannot_finish_a_reclaimed_job(discovering: Taxonomy) {
+        let first = claim(&discovering, now()).expect("first claim");
+        let second = claim(&first, now() + LEASE + Duration::seconds(1)).expect("reclaim");
+
+        let late = complete(Some(second.clone()), "job", 1, Ok((vec![task("a")], Vec::new())), now());
+        let current = complete(Some(second), "job", 2, Ok((vec![task("a")], Vec::new())), now());
+
+        assert_eq!(late, Err(TransitionError::Stale));
+        assert_eq!(current.map(|taxonomy| taxonomy.status), Ok(TaxonomyStatus::Draft));
+    }
+
+    #[rstest]
+    fn a_result_from_a_replaced_job_is_dropped(discovering: Taxonomy) {
+        let claimed = claim(&discovering, now()).expect("claim");
+
+        let result = complete(Some(claimed), "older-job", 1, Ok((vec![task("a")], Vec::new())), now());
 
         assert_eq!(result, Err(TransitionError::Stale));
     }
 
     #[rstest]
-    fn an_abandoned_job_is_reclaimed_until_its_attempts_run_out(discovering: Taxonomy) {
+    fn a_held_lease_is_not_reclaimed_and_exhausted_jobs_fail(discovering: Taxonomy) {
         let first = claim(&discovering, now()).expect("first claim");
-        let held = claim(&first, now());
-        let expired = now() + LEASE + Duration::seconds(1);
-        let second = claim(&first, expired).expect("reclaim");
-        let third = claim(&second, expired + LEASE + Duration::seconds(1)).expect("third");
-        let exhausted = claim(&third, expired + LEASE * 3).expect("exhausted");
+        let later = |leases: i32| now() + LEASE * leases + Duration::seconds(1);
+        let second = claim(&first, later(1)).expect("second");
+        let third = claim(&second, later(2)).expect("third");
+        let exhausted = claim(&third, later(3)).expect("exhausted");
 
-        assert_eq!(held, None);
-        assert_eq!(second.job.as_ref().map(|job| job.attempts), Some(2));
+        assert_eq!(claim(&first, now()), None);
         assert_eq!(exhausted.status, TaxonomyStatus::Failed);
     }
 }
