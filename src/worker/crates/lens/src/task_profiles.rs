@@ -41,12 +41,17 @@ pub fn discovery_models(read: impl Fn(&str) -> Option<String>) -> Option<Taxonom
     })
 }
 
+struct CachedModels {
+    fetched: Instant,
+    models: Vec<ConfiguredModel>,
+}
+
 #[derive(Clone)]
 pub struct ProfilesApi {
     state: Arc<State>,
     store: ClickHouseState,
     models: Option<Models>,
-    configured: Arc<Mutex<Option<(Instant, Vec<ConfiguredModel>)>>>,
+    configured: Arc<Mutex<Option<CachedModels>>>,
 }
 
 impl ProfilesApi {
@@ -185,15 +190,18 @@ impl ProfileStore for ProfilesApi {
             return Vec::new();
         };
         let mut cached = self.configured.lock().await;
-        if let Some((at, models)) = cached.as_ref()
-            && at.elapsed() < MODEL_CACHE
+        if let Some(cached) = cached.as_ref()
+            && cached.fetched.elapsed() < MODEL_CACHE
         {
-            return models.clone();
+            return cached.models.clone();
         }
         let fresh = gateway::configured_models(&models.client(), &connection)
             .await
             .unwrap_or_default();
-        *cached = Some((Instant::now(), fresh.clone()));
+        *cached = Some(CachedModels {
+            fetched: Instant::now(),
+            models: fresh.clone(),
+        });
         fresh
     }
 }
