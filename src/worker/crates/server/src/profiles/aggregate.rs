@@ -198,7 +198,7 @@ impl<'a> View<'a> {
                 for other in linked.iter().skip(1) {
                     if let Some(merged) = groups[*other].take() {
                         for identity in merged.charges.keys() {
-                            by_charge.insert(identity, target);
+                            by_charge.insert(*identity, target);
                         }
                         if let Some(group) = groups[target].as_mut() {
                             group.calls.extend(merged.calls);
