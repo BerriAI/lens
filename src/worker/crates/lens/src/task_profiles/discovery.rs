@@ -12,21 +12,21 @@ const KEPT_EXAMPLES: usize = 3;
 const INPUT_CHARACTERS: usize = 1_500;
 const FALLBACK_CHARACTERS: usize = 300;
 
-const DISTILL_PROMPT: &str = "Each numbered item is a request a developer sent to a coding agent.
+const DISTILL_PROMPT: &str = "Each numbered item is a request someone sent to an AI agent.
 For every item write one short sentence, at most 15 words, saying what kind of work it asks for.
-Leave out repository, product, company, person, file and variable names.
+Leave out product, company, person, repository, file and other proper names.
 
 Reply with only a JSON object {\"intents\": [...]} holding one string per item, in the same order.
 
 Items:
 ";
 
-const SYNTHESIS_PROMPT: &str = "You are naming one group of requests that developers sent to coding agents.
+const SYNTHESIS_PROMPT: &str = "You are naming one group of requests that people sent to an AI agent.
 Read the numbered requests and describe the kind of work they share.
 
 Rules:
-- Name the task type, such as \"Debug failing tests\", in at most 6 words.
-- Never use repository, product, company, person or file names. Describe the work, not the codebase.
+- Name the kind of work, such as \"Summarize documents\" or \"Debug failing tests\", in at most 6 words.
+- Never use product, company, person, repository or file names. Describe the work, not the subject it was done for.
 - inclusion_criteria says what a request must ask for to belong. exclusion_criteria names the nearest kinds of work that do not belong.
 - required_capabilities lists only what every request needs from a model, chosen from function_calling, vision, reasoning and structured_output. Leave it empty when unsure.
 - example_indices lists up to 3 request numbers that best represent the group.
@@ -89,7 +89,7 @@ struct Intents {
     intents: Vec<String>,
 }
 
-/// One-line intents, after LLooM's distillation step, so codebase vocabulary does not drive the
+/// One-line intents, after LLooM's distillation step, so domain vocabulary does not drive the
 /// clusters. A batch whose reply does not parse keeps its own excerpts instead.
 async fn distill(
     language: &impl Language,

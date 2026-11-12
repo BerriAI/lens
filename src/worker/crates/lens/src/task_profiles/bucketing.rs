@@ -64,7 +64,7 @@ pub fn request(model: &str, taxonomy: &Taxonomy, input: &str) -> Result<Decision
     Ok(DecisionRequest {
         model: model.to_owned(),
         state: SignalState {
-            task: "A request a developer sent to a coding agent. Judge only the request text.",
+            task: "A request someone sent to an AI agent. Judge only the request text.",
             steps: vec![SignalStep {
                 kind: "user".into(),
                 name: "request".into(),
