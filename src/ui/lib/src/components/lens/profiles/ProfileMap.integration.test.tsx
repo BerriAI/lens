@@ -202,3 +202,20 @@ it("opens details for a run group that has no position", async () => {
 
   expect(onOpenDetails).toHaveBeenCalledWith("recorded:Refunds");
 });
+
+it("starts a newly chosen group in the full view after an earlier zoom was cleared", async () => {
+  const user = userEvent.setup();
+  render(discovered);
+  const billing = await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" });
+  await user.click(billing);
+  await user.click(screen.getByRole("button", { name: "Zoom to selection" }));
+  expect(screen.queryByRole("button", { name: "Reset a forgotten password, 2 runs on the map" })).not.toBeInTheDocument();
+
+  await user.click(billing);
+  const groups = within(screen.getByRole("region", { name: "Groups on the map" }));
+  await user.click(groups.getByRole("button", { name: /Reset a forgotten password/ }));
+
+  expect(screen.getByRole("button", { name: "Zoom to selection" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "Answer billing questions, 3 runs on the map" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" })).toHaveAttribute("aria-pressed", "true");
+});
