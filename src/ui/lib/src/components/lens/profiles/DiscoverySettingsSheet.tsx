@@ -118,6 +118,8 @@ function SettingsForm({
   const lens = useLensApi();
   const queryClient = useQueryClient();
   const switchId = useId();
+  const helpId = useId();
+  const labelId = useId();
   const startId = useId();
   const endId = useId();
   const sizeId = useId();
@@ -178,16 +180,19 @@ function SettingsForm({
           {saved.enabled ? "Task discovery is on for this agent" : "Task discovery is off for this agent"}
         </p>
         <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
-          <label htmlFor={switchId} className="space-y-1">
-            <span className="block text-sm font-medium">Use paid models for {agent}</span>
-            <span className="block text-xs text-muted-foreground">
+          <div className="space-y-1">
+            <label id={labelId} htmlFor={switchId} className="block text-sm font-medium">
+              Use paid models for {agent}
+            </label>
+            <p id={helpId} className="text-xs text-muted-foreground">
               Saving never calls a model. Model calls only happen when you start a discovery or activate classification.
               Saving this off stops both and keeps existing results.
-            </span>
-          </label>
+            </p>
+          </div>
           <Switch
             id={switchId}
-            aria-label={`Use paid models for ${agent}`}
+            aria-labelledby={labelId}
+            aria-describedby={helpId}
             checked={enabled}
             onCheckedChange={(checked) => setEnabled(checked)}
             disabled={!write || busy}
