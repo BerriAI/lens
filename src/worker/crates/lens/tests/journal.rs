@@ -182,3 +182,23 @@ async fn history_page_preserves_the_explicit_upper_bound() {
     assert_eq!(second["excerpt"].as_str().unwrap().chars().count(), 852);
     assert!(second["next_request"].is_null());
 }
+
+#[rstest]
+#[tokio::test]
+async fn history_catalog_lists_the_archive_without_reading_turn_content() {
+    let mut journal = Journal::new(&json!({"task":"fixture"})).await.unwrap();
+    journal
+        .push(&Turn {
+            response: "archived response".into(),
+            tool_results: vec!["evidence".into()],
+            validation_error: String::new(),
+        })
+        .await
+        .unwrap();
+    let request = serde_json::from_value(json!({"action":"history","turn_end":0})).unwrap();
+    let catalog = journal.page(&request, 2048).await.unwrap();
+    assert_eq!(catalog["total_turns"], 1);
+    assert_eq!(catalog["turn_characters"], json!(journal.turns));
+    assert_eq!(catalog["turns"], json!([]));
+    assert!(catalog["initial_context"].is_null());
+}

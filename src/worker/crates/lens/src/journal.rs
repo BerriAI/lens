@@ -95,6 +95,9 @@ impl Journal {
         request: &wire::EvidenceRequest,
         characters: u64,
     ) -> Result<Value, Error> {
+        if request.turn_end == Some(0) && !request.include_initial {
+            return self.reply(request).await;
+        }
         let mut bounded = request.clone();
         let snapshot = request
             .turn_end
