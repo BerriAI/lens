@@ -115,7 +115,7 @@ it("starts discovery only after confirming the agent, range, sample and models",
   await screen.findByText(/Why was I charged twice\?/);
   await user.click(screen.getByRole("button", { name: "Discover tasks" }));
 
-  const summary = within(screen.getByRole("alertdialog", { name: "Confirm discovery" }));
+  const summary = within(screen.getByRole("region", { name: "Confirm discovery" }));
   expect(summary.getByText("assistant")).toBeVisible();
   expect(summary.getByText("140 of 140 eligible runs")).toBeVisible();
   expect(summary.getByText("claude-haiku, qwen-embed, typesafe/jev-latest")).toBeVisible();
@@ -165,7 +165,7 @@ it("cannot start a confirmed discovery once its settings stop matching what was 
 
   await screen.findByText(/Why was I charged twice\?/);
   await user.click(screen.getByRole("button", { name: "Discover tasks" }));
-  const start = within(screen.getByRole("alertdialog", { name: "Confirm discovery" })).getByRole("button", {
+  const start = within(screen.getByRole("region", { name: "Confirm discovery" })).getByRole("button", {
     name: "Start discovery",
   });
   expect(start).toBeEnabled();
@@ -209,4 +209,24 @@ it("keeps the chosen range and sample size after saving settings", async () => {
   expect(await screen.findByText("Task discovery is on for this agent")).toBeVisible();
   expect(screen.getByLabelText("Sample size")).toHaveValue(120);
   expect(screen.getByLabelText("From")).toHaveValue("2020-01-01");
+});
+
+it("moves keyboard focus into the confirmation and back to Discover tasks on Escape", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, enabled);
+  render();
+
+  await screen.findByText(/Why was I charged twice\?/);
+  const discover = screen.getByRole("button", { name: "Discover tasks" });
+  discover.focus();
+  await user.keyboard("{Enter}");
+
+  expect(screen.getByRole("button", { name: "Start discovery" })).toHaveFocus();
+  expect(discover).toHaveAttribute("aria-expanded", "true");
+  await user.keyboard("{Escape}");
+
+  expect(screen.queryByRole("region", { name: "Confirm discovery" })).not.toBeInTheDocument();
+  expect(discover).toHaveFocus();
+  expect(discoveryCalls(proxy)).toEqual([]);
 });

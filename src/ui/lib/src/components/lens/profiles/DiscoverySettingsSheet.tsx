@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { SearchSelect } from "../../shared/SearchSelect";
@@ -130,6 +130,17 @@ function SettingsForm({
   const [end, setEnd] = useState(() => toDateInput(window.endMs - 1));
   const [size, setSize] = useState(String(DEFAULT_SAMPLE));
   const [confirming, setConfirming] = useState(false);
+  const confirmId = useId();
+  const discoverRef = useRef<HTMLButtonElement>(null);
+  const closeConfirm = () => {
+    setConfirming(false);
+    discoverRef.current?.focus();
+  };
+  const escapeConfirm = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    closeConfirm();
+  };
   const [nowMs] = useState(Date.now);
   const dirty = enabled !== saved.enabled || !sameModels(models, saved.models);
   const range = rangeFromDates(start, end, nowMs);
@@ -303,13 +314,25 @@ function SettingsForm({
           )}
         </div>
         {write && blocker && blocker !== "previewing" && <p className="text-xs text-muted-foreground">{BLOCKER_TEXT[blocker]}</p>}
-        {write && !confirming && (
-          <Button size="sm" variant="outline" disabled={blocker !== null || busy} onClick={() => setConfirming(true)}>
+        {write && (
+          <Button
+            ref={discoverRef}
+            size="sm"
+            variant="outline"
+            aria-expanded={confirming}
+            aria-controls={confirmId}
+            disabled={blocker !== null || busy}
+            onClick={() => setConfirming(true)}
+          >
             Discover tasks
           </Button>
         )}
         {confirming && range && runs !== null && preview.data && (
-          <div role="alertdialog" aria-label="Confirm discovery" className="space-y-3 rounded-lg border border-dashed p-3">
+          <section
+            id={confirmId}
+            aria-label="Confirm discovery"
+            className="space-y-3 rounded-lg border border-dashed p-3"
+          >
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
               <dt className="text-muted-foreground">Agent</dt>
               <dd className="break-words">{agent}</dd>
@@ -331,6 +354,8 @@ function SettingsForm({
             <div className="flex gap-2">
               <Button
                 size="sm"
+                autoFocus
+                onKeyDown={escapeConfirm}
                 disabled={busy || blocker !== null}
                 onClick={() => {
                   setConfirming(false);
@@ -339,11 +364,11 @@ function SettingsForm({
               >
                 Start discovery
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+              <Button size="sm" variant="ghost" onKeyDown={escapeConfirm} onClick={closeConfirm}>
                 Cancel
               </Button>
             </div>
-          </div>
+          </section>
         )}
         {discover.error && (
           <p role="alert" className="text-sm text-destructive">
