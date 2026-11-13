@@ -61,13 +61,55 @@ async fn runs(
         DATABASE,
         InsertTable::OtelTraces,
         vec![
-            span("first", 0, "Fix the login bug", json!({}), team, "assistant"),
-            span("second", 10, "Write release notes", json!({}), team, "assistant"),
-            span("third", 20, "Summarize this PR", json!({}), team, "assistant"),
-            span("first", 30, "Same trace id, other team", json!({}), ("other", "key"), "assistant"),
-            span("recorded", 5, "Billing question", json!({"task_category": "Billing"}), team, "assistant"),
+            span(
+                "first",
+                0,
+                "Fix the login bug",
+                json!({}),
+                team,
+                "assistant",
+            ),
+            span(
+                "second",
+                10,
+                "Write release notes",
+                json!({}),
+                team,
+                "assistant",
+            ),
+            span(
+                "third",
+                20,
+                "Summarize this PR",
+                json!({}),
+                team,
+                "assistant",
+            ),
+            span(
+                "first",
+                30,
+                "Same trace id, other team",
+                json!({}),
+                ("other", "key"),
+                "assistant",
+            ),
+            span(
+                "recorded",
+                5,
+                "Billing question",
+                json!({"task_category": "Billing"}),
+                team,
+                "assistant",
+            ),
             span("silent", 15, "", json!({}), team, "assistant"),
-            span("elsewhere", 25, "Not this agent", json!({}), team, "planner"),
+            span(
+                "elsewhere",
+                25,
+                "Not this agent",
+                json!({}),
+                team,
+                "planner",
+            ),
         ],
     )
     .await?;
@@ -163,7 +205,8 @@ async fn classification_skips_runs_its_version_settled_while_rediscovery_still_s
     .await?;
 
     let settled = bucketing_candidates(&fixture.database.client, &config, &classify(1)).await?;
-    let next_version = bucketing_candidates(&fixture.database.client, &config, &classify(2)).await?;
+    let next_version =
+        bucketing_candidates(&fixture.database.client, &config, &classify(2)).await?;
     let rediscovery = discovery_eligible(
         &fixture.database.client,
         &config,
@@ -173,7 +216,13 @@ async fn classification_skips_runs_its_version_settled_while_rediscovery_still_s
 
     assert_eq!(
         traces(&before),
-        vec!["other/first", "team/third", "team/silent", "team/second", "team/first"]
+        vec![
+            "other/first",
+            "team/third",
+            "team/silent",
+            "team/second",
+            "team/first"
+        ]
     );
     assert_eq!(
         traces(&settled),
@@ -218,6 +267,9 @@ async fn only_unassigned_runs_inside_a_window_are_pending(
     assert_eq!(profile("team", "third").as_deref(), Some("pending"));
     assert_eq!(profile("other", "first").as_deref(), Some("pending"));
     assert_eq!(profile("team", "second").as_deref(), Some("unclassified"));
-    assert_eq!(profile("team", "recorded").as_deref(), Some("recorded:Billing"));
+    assert_eq!(
+        profile("team", "recorded").as_deref(),
+        Some("recorded:Billing")
+    );
     Ok(())
 }

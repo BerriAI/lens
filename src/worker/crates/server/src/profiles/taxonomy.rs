@@ -69,7 +69,9 @@ impl AgentState {
     }
 
     pub fn enabled(&self) -> bool {
-        self.settings.as_ref().is_some_and(|settings| settings.enabled)
+        self.settings
+            .as_ref()
+            .is_some_and(|settings| settings.enabled)
     }
 
     pub fn models(&self) -> Option<TaxonomyModels> {
@@ -226,7 +228,10 @@ fn cleared(taxonomy: &Taxonomy) -> Taxonomy {
 }
 
 fn open(taxonomy: &Taxonomy) -> bool {
-    taxonomy.windows.iter().any(|window| window.end_ms.is_none())
+    taxonomy
+        .windows
+        .iter()
+        .any(|window| window.end_ms.is_none())
 }
 
 /// Writes a changed active taxonomy, moving one still stored the old way into its own document.
@@ -392,7 +397,9 @@ pub fn activate(
     };
     let revision = state
         .active()
-        .map_or(taxonomy.revision, |active| active.revision.max(taxonomy.revision))
+        .map_or(taxonomy.revision, |active| {
+            active.revision.max(taxonomy.revision)
+        })
         .saturating_add(1);
     Ok(Changes {
         working: Some(cleared(&taxonomy)),
@@ -604,7 +611,10 @@ pub fn can_write(identity: &Identity) -> bool {
 }
 
 fn can_read(identity: &Identity) -> bool {
-    matches!(identity.user_role, Role::ProxyAdmin | Role::ProxyAdminViewer)
+    matches!(
+        identity.user_role,
+        Role::ProxyAdmin | Role::ProxyAdminViewer
+    )
 }
 
 impl From<TransitionError> for ProfileHttpError {
@@ -704,7 +714,8 @@ async fn reader<R: SessionRepository, S>(
     if !can_read(&identity) {
         return Err(ProfileHttpError::Forbidden(READERS_ONLY));
     }
-    let id = taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(READERS_ONLY))?;
+    let id =
+        taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(READERS_ONLY))?;
     Ok((id, identity))
 }
 
@@ -866,10 +877,12 @@ async fn reset_route<R: SessionRepository, S: TaxonomyStore>(
     Ok(Json(view(&state)))
 }
 
-pub(super) fn taxonomy_view(state: &AgentState, identity: &Identity) -> lens_contract::profiles::TaxonomyView {
+pub(super) fn taxonomy_view(
+    state: &AgentState,
+    identity: &Identity,
+) -> lens_contract::profiles::TaxonomyView {
     lens_contract::profiles::TaxonomyView {
         can_write: can_write(identity),
         ..view(state)
     }
 }
-

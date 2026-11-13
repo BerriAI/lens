@@ -91,13 +91,19 @@ async fn profiles() -> ProfilesApi {
     )
     .await
     .expect("database");
-    let store = ClickHouseState::new(client.clone(), Connection::reader(&url, &database).expect("connection"));
+    let store = ClickHouseState::new(
+        client.clone(),
+        Connection::reader(&url, &database).expect("connection"),
+    );
     store
         .initialize(&format!("/lens-profile-state-test/{database}"))
         .await
         .expect("state tables");
     let config = Config::new(database, &url, 14).expect("config");
-    let state = Arc::new(State::connected(Storage::new(config, client, SECRET.into()), SECRET.into()));
+    let state = Arc::new(State::connected(
+        Storage::new(config, client, SECRET.into()),
+        SECRET.into(),
+    ));
     ProfilesApi::new(state, store, None)
 }
 
@@ -123,7 +129,12 @@ async fn seeded(profiles: &ProfilesApi, working: Option<Taxonomy>, active: Optio
 async fn turning_discovery_off_wins_over_a_concurrent_first_activation(
     #[future(awt)] profiles: ProfilesApi,
 ) {
-    seeded(&profiles, Some(taxonomy(TaxonomyStatus::Draft, Vec::new())), None).await;
+    seeded(
+        &profiles,
+        Some(taxonomy(TaxonomyStatus::Draft, Vec::new())),
+        None,
+    )
+    .await;
     let (browser, browser_heads) = profiles.load("tax").await.expect("load");
     let (switch, switch_heads) = profiles.load("tax").await.expect("load");
     let request = ActivationRequest {
@@ -132,9 +143,16 @@ async fn turning_discovery_off_wins_over_a_concurrent_first_activation(
         backfill: false,
     };
 
-    profiles.save("tax", switch_heads, disable(&switch)).await.expect("disable");
+    profiles
+        .save("tax", switch_heads, disable(&switch))
+        .await
+        .expect("disable");
     let activation = profiles
-        .save("tax", browser_heads, activate(&browser, &request, now()).expect("activate"))
+        .save(
+            "tax",
+            browser_heads,
+            activate(&browser, &request, now()).expect("activate"),
+        )
         .await;
 
     let (after, _) = profiles.load("tax").await.expect("load");
@@ -162,13 +180,23 @@ async fn turning_discovery_off_wins_over_a_concurrent_resume(#[future(awt)] prof
         revision: 1,
     };
 
-    profiles.save("tax", switch_heads, disable(&switch)).await.expect("disable");
+    profiles
+        .save("tax", switch_heads, disable(&switch))
+        .await
+        .expect("disable");
     let resumed = profiles
-        .save("tax", browser_heads, resume(&browser, &request, now()).expect("resume"))
+        .save(
+            "tax",
+            browser_heads,
+            resume(&browser, &request, now()).expect("resume"),
+        )
         .await;
 
     let (after, _) = profiles.load("tax").await.expect("load");
     assert_eq!(resumed, Err(ProfileStoreError::Conflict));
-    assert_eq!(after.active().map(|active| active.windows.clone()), Some(paused.windows));
+    assert_eq!(
+        after.active().map(|active| active.windows.clone()),
+        Some(paused.windows)
+    );
     assert!(!after.enabled());
 }

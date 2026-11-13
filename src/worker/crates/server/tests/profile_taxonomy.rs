@@ -112,10 +112,17 @@ fn activated(state: &AgentState, backfill: bool) -> AgentState {
     )
 }
 
-fn update(state: &AgentState, enabled: bool, models: DiscoveryModelChoice) -> ProfileSettingsUpdate {
+fn update(
+    state: &AgentState,
+    enabled: bool,
+    models: DiscoveryModelChoice,
+) -> ProfileSettingsUpdate {
     ProfileSettingsUpdate {
         agent: "agent".into(),
-        revision: state.settings.as_ref().map_or(0, |settings| settings.revision),
+        revision: state
+            .settings
+            .as_ref()
+            .map_or(0, |settings| settings.revision),
         enabled,
         models,
     }
@@ -247,16 +254,29 @@ fn a_sample_draft_activates_without_opting_in_and_never_classifies() {
             status: TaxonomyStatus::Draft,
             sample: true,
             tasks: vec![task("a")],
-            ..finish(&start(&AgentState { settings: Some(settings(true)), ..AgentState::default() }, "job").expect("start"), "job")
-                .working
-                .expect("working")
+            ..finish(
+                &start(
+                    &AgentState {
+                        settings: Some(settings(true)),
+                        ..AgentState::default()
+                    },
+                    "job",
+                )
+                .expect("start"),
+                "job",
+            )
+            .working
+            .expect("working")
         }),
         ..AgentState::default()
     };
 
     let active = activated(&state, false);
 
-    assert_eq!(active.active().map(|taxonomy| taxonomy.windows.len()), Some(0));
+    assert_eq!(
+        active.active().map(|taxonomy| taxonomy.windows.len()),
+        Some(0)
+    );
     assert!(!active.enabled());
 }
 
@@ -271,7 +291,10 @@ fn the_active_taxonomy_keeps_rendering_while_a_new_draft_is_discovered(active: A
         rediscovering.under_review().map(|working| working.status),
         Some(TaxonomyStatus::Discovering)
     );
-    assert!(rediscovering.under_review().map(|working| working.version) > before.map(|taxonomy| taxonomy.version));
+    assert!(
+        rediscovering.under_review().map(|working| working.version)
+            > before.map(|taxonomy| taxonomy.version)
+    );
 }
 
 #[rstest]
@@ -287,9 +310,13 @@ fn a_taxonomy_frozen_before_activation_existed_is_read_as_active_and_moved_on_re
         ..drafted.clone()
     };
 
-    let changes = start_discovery(&legacy, "tax", &request(100), "job-2".into(), now()).expect("start");
+    let changes =
+        start_discovery(&legacy, "tax", &request(100), "job-2".into(), now()).expect("start");
 
-    assert_eq!(legacy.active().map(|taxonomy| taxonomy.status), Some(TaxonomyStatus::Frozen));
+    assert_eq!(
+        legacy.active().map(|taxonomy| taxonomy.status),
+        Some(TaxonomyStatus::Frozen)
+    );
     assert_eq!(changes.active.as_ref(), legacy.active());
     assert_eq!(applied(&legacy, changes).active(), legacy.active());
 }
@@ -299,11 +326,19 @@ fn turning_discovery_off_closes_classification_and_cancels_a_running_job(active:
     let rediscovering = start(&active, "job-2").expect("rediscover");
     let off = applied(
         &rediscovering,
-        update_settings(&rediscovering, &update(&rediscovering, false, choice()), &DiscoveryModelOptions::default(), later(5))
-            .expect("disable"),
+        update_settings(
+            &rediscovering,
+            &update(&rediscovering, false, choice()),
+            &DiscoveryModelOptions::default(),
+            later(5),
+        )
+        .expect("disable"),
     );
     let working = off.working.clone().expect("working");
-    let claimed_before = rediscovering.working.clone().and_then(|working| claim(&working, now()));
+    let claimed_before = rediscovering
+        .working
+        .clone()
+        .and_then(|working| claim(&working, now()));
 
     assert!(!off.enabled());
     assert_eq!(
@@ -315,7 +350,15 @@ fn turning_discovery_off_closes_classification_and_cancels_a_running_job(active:
     );
     assert_eq!(working.status, TaxonomyStatus::Failed);
     assert_eq!(
-        complete(Some(working), "job-2", claimed_before.and_then(|claimed| claimed.job).map_or(1, |job| job.attempts), Ok((vec![task("late")], Vec::new())), later(6)),
+        complete(
+            Some(working),
+            "job-2",
+            claimed_before
+                .and_then(|claimed| claimed.job)
+                .map_or(1, |job| job.attempts),
+            Ok((vec![task("late")], Vec::new())),
+            later(6)
+        ),
         Err(TransitionError::Stale)
     );
 }
@@ -324,12 +367,18 @@ fn turning_discovery_off_closes_classification_and_cancels_a_running_job(active:
 fn turning_discovery_back_on_leaves_classification_paused_until_resumed(active: AgentState) {
     let off = applied(
         &active,
-        update_settings(&active, &update(&active, false, choice()), &DiscoveryModelOptions::default(), later(5))
-            .expect("disable"),
+        update_settings(
+            &active,
+            &update(&active, false, choice()),
+            &DiscoveryModelOptions::default(),
+            later(5),
+        )
+        .expect("disable"),
     );
     let on = applied(
         &off,
-        update_settings(&off, &update(&off, true, choice()), &options(), later(30)).expect("enable"),
+        update_settings(&off, &update(&off, true, choice()), &options(), later(30))
+            .expect("enable"),
     );
 
     let resumed = applied(
@@ -394,10 +443,19 @@ fn turning_discovery_off_works_without_a_model_catalog(enabled: AgentState) {
         ..choice()
     };
 
-    let off = update_settings(&enabled, &update(&enabled, false, gone), &DiscoveryModelOptions::default(), now())
-        .expect("disable");
+    let off = update_settings(
+        &enabled,
+        &update(&enabled, false, gone),
+        &DiscoveryModelOptions::default(),
+        now(),
+    )
+    .expect("disable");
 
-    assert_eq!(off.settings.map(|settings| (settings.enabled, settings.revision)), Some((false, 5)));
+    assert_eq!(
+        off.settings
+            .map(|settings| (settings.enabled, settings.revision)),
+        Some((false, 5))
+    );
 }
 
 #[rstest]
@@ -408,12 +466,16 @@ fn saving_settings_trims_aliases_and_rejects_a_stale_form(enabled: AgentState) {
     };
     let saved = applied(
         &enabled,
-        update_settings(&enabled, &update(&enabled, true, padded), &options(), now()).expect("save"),
+        update_settings(&enabled, &update(&enabled, true, padded), &options(), now())
+            .expect("save"),
     );
 
     let stale = update_settings(&saved, &update(&enabled, true, choice()), &options(), now());
 
-    assert_eq!(saved.settings.map(|settings| settings.models), Some(choice()));
+    assert_eq!(
+        saved.settings.map(|settings| settings.models),
+        Some(choice())
+    );
     assert_eq!(stale, Err(TransitionError::Stale));
 }
 
@@ -429,7 +491,10 @@ fn removing_the_active_taxonomy_never_reuses_its_generation(active: AgentState) 
     let rediscovered = start(&removed, "job-2").expect("rediscover");
 
     assert_eq!(removed.active(), None);
-    assert!(rediscovered.working.map(|working| working.version) > active.active().map(|taxonomy| taxonomy.version));
+    assert!(
+        rediscovered.working.map(|working| working.version)
+            > active.active().map(|taxonomy| taxonomy.version)
+    );
 }
 
 #[rstest]
@@ -437,7 +502,10 @@ fn discarding_a_draft_keeps_the_active_taxonomy(active: AgentState) {
     let drafted = finish(&start(&active, "job-2").expect("rediscover"), "job-2");
     let request = ResetRequest {
         agent: "agent".into(),
-        revision: drafted.working.as_ref().map_or(0, |working| working.revision),
+        revision: drafted
+            .working
+            .as_ref()
+            .map_or(0, |working| working.revision),
         target: TaxonomyTarget::Draft,
     };
 
@@ -473,8 +541,12 @@ fn draft_edits_trim_and_validate_names(
     #[case] name: &str,
     #[case] expected: Result<&str, TransitionError>,
 ) {
-    let result = edit_task(&drafted, "a", &rename(&drafted, name))
-        .map(|changes| changes.working.map(|working| working.tasks[0].name.clone()).unwrap_or_default());
+    let result = edit_task(&drafted, "a", &rename(&drafted, name)).map(|changes| {
+        changes
+            .working
+            .map(|working| working.tasks[0].name.clone())
+            .unwrap_or_default()
+    });
 
     assert_eq!(result.as_deref().map_err(Clone::clone), expected);
 }
@@ -492,8 +564,14 @@ fn a_finished_discovery_records_its_range_and_actual_sample(enabled: AgentState)
         y: 0.0,
     };
 
-    let done = complete(Some(claimed), "job", 1, Ok((vec![task("a")], vec![point.clone(), point])), now())
-        .expect("draft");
+    let done = complete(
+        Some(claimed),
+        "job",
+        1,
+        Ok((vec![task("a")], vec![point.clone(), point])),
+        now(),
+    )
+    .expect("draft");
 
     assert_eq!(
         done.discovery,
@@ -512,11 +590,26 @@ fn an_older_attempt_cannot_finish_a_reclaimed_job(enabled: AgentState) {
     let first = claim(started.working.as_ref().expect("working"), now()).expect("first claim");
     let second = claim(&first, now() + LEASE + Duration::seconds(1)).expect("reclaim");
 
-    let late = complete(Some(second.clone()), "job", 1, Ok((vec![task("a")], Vec::new())), now());
-    let current = complete(Some(second), "job", 2, Ok((vec![task("a")], Vec::new())), now());
+    let late = complete(
+        Some(second.clone()),
+        "job",
+        1,
+        Ok((vec![task("a")], Vec::new())),
+        now(),
+    );
+    let current = complete(
+        Some(second),
+        "job",
+        2,
+        Ok((vec![task("a")], Vec::new())),
+        now(),
+    );
 
     assert_eq!(late, Err(TransitionError::Stale));
-    assert_eq!(current.map(|taxonomy| taxonomy.status), Ok(TaxonomyStatus::Draft));
+    assert_eq!(
+        current.map(|taxonomy| taxonomy.status),
+        Ok(TaxonomyStatus::Draft)
+    );
 }
 
 #[rstest]

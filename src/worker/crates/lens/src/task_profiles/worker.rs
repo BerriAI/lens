@@ -269,7 +269,13 @@ impl ProfilesWorker {
         if !discovery_current(&latest, &job.job_id, job.attempts) {
             return true;
         }
-        if let Ok(finished) = complete(latest.working, &job.job_id, job.attempts, outcome, Utc::now()) {
+        if let Ok(finished) = complete(
+            latest.working,
+            &job.job_id,
+            job.attempts,
+            outcome,
+            Utc::now(),
+        ) {
             let changes = Changes {
                 working: Some(finished),
                 ..Changes::default()
@@ -507,7 +513,10 @@ mod tests {
             ..taxonomy(TaxonomyStatus::Frozen, windows)
         };
 
-        assert_eq!(classifiable(&state(enabled, None, Some(active))).is_some(), expected);
+        assert_eq!(
+            classifiable(&state(enabled, None, Some(active))).is_some(),
+            expected
+        );
     }
 
     #[rstest]
@@ -518,9 +527,18 @@ mod tests {
             ..snapshot.clone()
         };
 
-        assert!(classification_current(&state(true, None, Some(snapshot.clone())), &snapshot));
-        assert!(!classification_current(&state(true, None, Some(paused_and_resumed)), &snapshot));
-        assert!(!classification_current(&state(false, None, Some(snapshot.clone())), &snapshot));
+        assert!(classification_current(
+            &state(true, None, Some(snapshot.clone())),
+            &snapshot
+        ));
+        assert!(!classification_current(
+            &state(true, None, Some(paused_and_resumed)),
+            &snapshot
+        ));
+        assert!(!classification_current(
+            &state(false, None, Some(snapshot.clone())),
+            &snapshot
+        ));
     }
 
     #[rstest]

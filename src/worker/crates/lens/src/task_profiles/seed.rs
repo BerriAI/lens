@@ -660,8 +660,16 @@ pub async fn seed(
         };
         let frozen = taxonomy.status == TaxonomyStatus::Frozen;
         let changes = Changes {
-            working: Some(if frozen { placeholder(agent.name) } else { taxonomy.clone() }),
-            active: Some(if frozen { taxonomy.clone() } else { placeholder(agent.name) }),
+            working: Some(if frozen {
+                placeholder(agent.name)
+            } else {
+                taxonomy.clone()
+            }),
+            active: Some(if frozen {
+                taxonomy.clone()
+            } else {
+                placeholder(agent.name)
+            }),
             settings: None,
         };
         save_state(state, heads, changes)
@@ -732,9 +740,15 @@ mod tests {
             ..placeholder("lens-demo-research")
         });
         let state = if active {
-            AgentState { active: existing, ..AgentState::default() }
+            AgentState {
+                active: existing,
+                ..AgentState::default()
+            }
         } else {
-            AgentState { working: existing, ..AgentState::default() }
+            AgentState {
+                working: existing,
+                ..AgentState::default()
+            }
         };
 
         assert_eq!(replaceable(&state), expected);

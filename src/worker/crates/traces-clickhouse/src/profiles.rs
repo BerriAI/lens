@@ -382,10 +382,12 @@ pub async fn discovery_eligible(
     config: &Config,
     params: &BucketingParams,
 ) -> Result<u64, Error> {
-    Ok(fetch::<DiscoveryEligible>(client, config.storage().reader(), params)
-        .await?
-        .first()
-        .map_or(0, |row| row.eligible_runs))
+    Ok(
+        fetch::<DiscoveryEligible>(client, config.storage().reader(), params)
+            .await?
+            .first()
+            .map_or(0, |row| row.eligible_runs),
+    )
 }
 
 /// Unrecorded runs of the agent in the discovery window, newest first.

@@ -40,7 +40,11 @@ const PREVIEW_RUNS: usize = 3;
 
 /// Suggested aliases for the settings form; they never turn discovery on.
 pub fn discovery_defaults(read: impl Fn(&str) -> Option<String>) -> DiscoveryModelChoice {
-    let value = |name: &str| read(name).map(|value| value.trim().to_owned()).unwrap_or_default();
+    let value = |name: &str| {
+        read(name)
+            .map(|value| value.trim().to_owned())
+            .unwrap_or_default()
+    };
     DiscoveryModelChoice {
         discovery: value("LENS_PROFILE_DISCOVERY_MODEL"),
         embedding: value("LENS_PROFILE_EMBEDDING_MODEL"),
@@ -141,7 +145,10 @@ pub(crate) async fn load_state(
     ))
 }
 
-fn change<T: serde::Serialize>(previous: Snapshot, next: Option<T>) -> Result<Change, ProfileStoreError> {
+fn change<T: serde::Serialize>(
+    previous: Snapshot,
+    next: Option<T>,
+) -> Result<Change, ProfileStoreError> {
     let value = match next {
         Some(value) => serde_json::to_value(value).map_err(|_| ProfileStoreError::Unavailable)?,
         None => previous.value.clone(),
@@ -274,7 +281,10 @@ impl DiscoveryCatalog for ProfilesApi {
             .unwrap_or_default()
     }
 
-    async fn preview(&self, request: DiscoveryRequest) -> Result<DiscoveryPreview, ProfileStoreError> {
+    async fn preview(
+        &self,
+        request: DiscoveryRequest,
+    ) -> Result<DiscoveryPreview, ProfileStoreError> {
         let _permit = self.permit().await?;
         let params = BucketingParams::windows(
             &request.agent,
@@ -286,12 +296,20 @@ impl DiscoveryCatalog for ProfilesApi {
         let eligible = discovery_eligible(client, config, &params)
             .await
             .map_err(|_| ProfileStoreError::Unavailable)?;
-        let sampled = discovery_samples(client, config, &BucketingParams { limit: 50, ..params })
-            .await
-            .map_err(|_| ProfileStoreError::Unavailable)?;
+        let sampled = discovery_samples(
+            client,
+            config,
+            &BucketingParams {
+                limit: 50,
+                ..params
+            },
+        )
+        .await
+        .map_err(|_| ProfileStoreError::Unavailable)?;
         Ok(DiscoveryPreview {
             eligible_runs: eligible,
-            sample_runs: u32::try_from(eligible.min(u64::from(request.max_runs))).unwrap_or(request.max_runs),
+            sample_runs: u32::try_from(eligible.min(u64::from(request.max_runs)))
+                .unwrap_or(request.max_runs),
             previews: sampled
                 .into_iter()
                 .filter(|run| !run.input_preview.trim().is_empty())
