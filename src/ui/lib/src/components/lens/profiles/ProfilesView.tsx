@@ -17,11 +17,17 @@ import { LensPageHeader } from "../ui/LensPageHeader";
 import { useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
+import { ProfileBreakdown } from "./ProfileBreakdown";
 import { ProfileMap } from "./ProfileMap";
-import { ProfileTable } from "./ProfileTable";
+import { SegmentedControl } from "./SegmentedControl";
 import { TaxonomyPanel } from "./TaxonomyPanel";
 import { formatCount, formatUsd, profileColors, selectedProfileId } from "./profilesData";
 import type { ProfilesOverview } from "./schemas";
+
+const VIEW_OPTIONS = [
+  { value: "breakdown", label: "Breakdown" },
+  { value: "similarity", label: "Similarity map" },
+] as const;
 
 function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: string; live: boolean }) {
   const { totals, coverage } = overview;
@@ -163,21 +169,22 @@ export function ProfilesView({
         {overview.data && overview.data.totals.runs > 0 && (
           <>
             <Totals overview={overview.data} agent={agent} live={live} />
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              <div className="rounded-xl border bg-card p-5">
-                <h3 className="mb-3 text-base font-medium">Profile map</h3>
+            <div className="rounded-xl border bg-card p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-medium">Profiles</h3>
+                <SegmentedControl label="Profile view" options={VIEW_OPTIONS} value={profile.view} onChange={profile.setView} />
+              </div>
+              {profile.view === "breakdown" ? (
+                <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
+              ) : (
                 <ProfileMap overview={overview.data} colors={colors} selected={selected} onSelect={profile.selectProfile} />
-              </div>
-              <div className="rounded-xl border bg-card p-5">
-                <h3 className="mb-3 text-base font-medium">Profiles by runs and spend</h3>
-                <ProfileTable profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
-              </div>
+              )}
             </div>
             <div className="rounded-xl border bg-card p-5">
               <h3 className="mb-3 text-base font-medium">Profiles by model deployment</h3>
               {matrix.error && <p role="alert" className="text-sm text-destructive">{matrix.error.message}</p>}
               {matrix.isPending && <p className="text-sm text-muted-foreground">Loading model figures…</p>}
-              {matrix.data && <ProfileHeatmap matrix={matrix.data} selected={selected} onSelect={profile.selectProfile} />}
+              {matrix.data && <ProfileHeatmap matrix={matrix.data} colors={colors} selected={selected} onSelect={profile.selectProfile} />}
             </div>
           </>
         )}

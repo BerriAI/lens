@@ -980,10 +980,10 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
     onUrlUpdate,
   });
   await user.click(await screen.findByRole("button", { name: "Task profiles" }));
-  const ranked = within(await screen.findByRole("table", { name: "Profiles ranked by runs or spend" }));
-  expect(ranked.getByRole("row", { name: /Workflows/ })).toHaveTextContent("66.7%");
-  expect(ranked.getByRole("row", { name: /Workflows/ })).toHaveTextContent("4");
-  expect(ranked.getByRole("row", { name: /Unclassified/ })).toHaveTextContent("33.3%");
+  const ranked = within(await screen.findByRole("list", { name: "Profiles ranked by runs" }));
+  expect(ranked.getByRole("button", { name: /Workflows/ })).toHaveTextContent("66.7%");
+  expect(ranked.getByRole("button", { name: /Workflows/ })).toHaveTextContent("4 runs");
+  expect(ranked.getByRole("button", { name: /Unclassified/ })).toHaveTextContent("33.3%");
   expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));

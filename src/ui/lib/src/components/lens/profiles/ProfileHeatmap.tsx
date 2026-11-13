@@ -2,29 +2,32 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "../../../lib/cva.config";
+import { SegmentedControl } from "./SegmentedControl";
 import {
   cellReading,
   compatibilityNote,
   formatCount,
   formatReading,
-  HEAT_METRICS,
   heatIntensity,
   type HeatMetric,
+  NEUTRAL,
 } from "./profilesData";
 import type { ProfilesMatrix } from "./schemas";
 
-const METRIC_LABELS: Record<HeatMetric, string> = {
-  requests: "Requests",
-  cost: "Avg cost",
-  latency: "p95 latency",
-};
+const METRIC_OPTIONS: readonly { value: HeatMetric; label: string }[] = [
+  { value: "requests", label: "Requests" },
+  { value: "cost", label: "Avg cost" },
+  { value: "latency", label: "p95 latency" },
+];
 
 export function ProfileHeatmap({
   matrix,
+  colors,
   selected,
   onSelect,
 }: {
   matrix: ProfilesMatrix;
+  colors: ReadonlyMap<string, string>;
   selected: string | null;
   onSelect: (profileId: string) => void;
 }) {
@@ -41,23 +44,7 @@ export function ProfileHeatmap({
   if (matrix.profiles.length === 0) return null;
   return (
     <div className="flex flex-col gap-3">
-      <div role="radiogroup" aria-label="Heatmap metric" className="flex w-fit rounded-lg bg-muted p-1">
-        {HEAT_METRICS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={metric === option}
-            className={cn(
-              "rounded-md px-3 py-1 text-xs transition-colors",
-              metric === option ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => setMetric(option)}
-          >
-            {METRIC_LABELS[option]}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl label="Heatmap metric" options={METRIC_OPTIONS} value={metric} onChange={setMetric} />
       <div className="overflow-x-auto">
         <table className="w-full border-separate border-spacing-1 text-xs">
           <caption className="sr-only">Requests, average cost and p95 latency per profile and model deployment</caption>
@@ -79,9 +66,22 @@ export function ProfileHeatmap({
           </thead>
           <tbody>
             {matrix.profiles.map((profile) => (
-              <tr key={profile.profile_id}>
+              <tr
+                key={profile.profile_id}
+                className={cn(
+                  "transition-opacity duration-150 motion-reduce:transition-none",
+                  selected !== null && selected !== profile.profile_id && "opacity-55",
+                )}
+              >
                 <th scope="row" className="max-w-48 text-left font-medium break-words">
-                  {profile.name}
+                  <span className="flex items-start gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="mt-1 size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: colors.get(profile.profile_id) ?? NEUTRAL }}
+                    />
+                    {profile.name}
+                  </span>
                 </th>
                 {matrix.models.map((model) => {
                   const key = `${profile.profile_id}\u0000${model.column_key}`;

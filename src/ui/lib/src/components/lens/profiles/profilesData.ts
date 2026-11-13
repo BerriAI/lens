@@ -1,11 +1,12 @@
-import type { Capability, MatrixCell, ProfileSource, ProfileSummary } from "./schemas";
+import type { Capability, MatrixCell, ProfilesOverview, ProfileSource, ProfileSummary } from "./schemas";
 
 export const HEAT_METRICS = ["requests", "cost", "latency"] as const;
 export type HeatMetric = (typeof HEAT_METRICS)[number];
 
-const PALETTE = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
-export const MUTED = "var(--muted-foreground)";
-const MUTED_SOURCES: readonly ProfileSource[] = ["pending", "unknown", "uncertain", "unclassified"];
+export const RANKS = ["runs", "spend"] as const;
+export type Rank = (typeof RANKS)[number];
+
+const OUTSIDE_GROUPS: readonly ProfileSource[] = ["pending", "unknown", "uncertain", "unclassified"];
 
 export const SOURCE_LABELS: Record<ProfileSource, string> = {
   recorded: "Recorded category",
@@ -17,14 +18,81 @@ export const SOURCE_LABELS: Record<ProfileSource, string> = {
   unclassified: "Not grouped yet",
 };
 
-export function profileColors(profiles: readonly Pick<ProfileSummary, "profile_id" | "source">[]) {
-  let next = 0;
-  return new Map(
-    profiles.map((profile) => [
-      profile.profile_id,
-      MUTED_SOURCES.includes(profile.source) ? MUTED : PALETTE[next++ % PALETTE.length],
-    ]),
+export const isOutsideGroups = (source: ProfileSource) => OUTSIDE_GROUPS.includes(source);
+
+const TOKENS = [1, 2, 3, 4, 5].map((index) => `var(--chart-${index})`);
+const PALETTE = [...TOKENS, ...TOKENS.map((token) => `color-mix(in oklab, ${token} 62%, var(--foreground))`)];
+export const NEUTRAL = "var(--muted-foreground)";
+
+const hash = (text: string) => [...text].reduce((value, char) => Math.imul(value ^ (char.codePointAt(0) ?? 0), 16777619) >>> 0, 2166136261);
+
+export const profileColor = (profile: Pick<ProfileSummary, "profile_id" | "source">) =>
+  isOutsideGroups(profile.source) ? NEUTRAL : PALETTE[hash(profile.profile_id) % PALETTE.length];
+
+export function profileColors(profiles: readonly Pick<ProfileSummary, "profile_id" | "source">[]): ReadonlyMap<string, string> {
+  return new Map(profiles.map((profile) => [profile.profile_id, profileColor(profile)]));
+}
+
+export interface RankedProfile {
+  profile: ProfileSummary;
+  value: number | null;
+  fraction: number;
+}
+
+export function rankProfiles(profiles: readonly ProfileSummary[], rank: Rank): RankedProfile[] {
+  const valued = profiles.map((profile) => ({
+    profile,
+    value: rank === "runs" ? profile.run_count : profile.spend_usd,
+  }));
+  const top = Math.max(0, ...valued.map((entry) => entry.value ?? 0));
+  return valued
+    .map((entry) => ({ ...entry, fraction: top > 0 && entry.value !== null ? entry.value / top : 0 }))
+    .sort(
+      (a, b) =>
+        Number(a.value === null) - Number(b.value === null) ||
+        (b.value ?? 0) - (a.value ?? 0) ||
+        a.profile.name.localeCompare(b.profile.name),
+    );
+}
+
+export interface SimilarityGroup {
+  profile: ProfileSummary;
+  points: { key: string; x: number; y: number }[];
+}
+
+export interface Similarity {
+  groups: SimilarityGroup[];
+  unplaced: { profile: ProfileSummary; runs: number }[];
+  placed: number;
+  total: number;
+}
+
+/** Draws only positions computed from discovery embeddings; every other run is counted beside the map. */
+export function similarity(overview: ProfilesOverview): Similarity {
+  const groupable = new Set(
+    overview.profiles.filter((profile) => !isOutsideGroups(profile.source)).map((profile) => profile.profile_id),
   );
+  const genuine = overview.points
+    .map((point, index) => ({ ...point, key: `${index}:${point.trace_id}` }))
+    .filter((point) => point.placement === "discovery" && groupable.has(point.profile_id));
+  const groups = overview.profiles
+    .map((profile) => ({
+      profile,
+      points: genuine
+        .filter((point) => point.profile_id === profile.profile_id)
+        .map(({ key, x, y }) => ({ key, x, y })),
+    }))
+    .filter((group) => group.points.length > 0);
+  const placedBy = new Map(groups.map((group) => [group.profile.profile_id, group.points.length]));
+  return {
+    groups,
+    unplaced: overview.profiles
+      .map((profile) => ({ profile, runs: Math.max(profile.run_count - (placedBy.get(profile.profile_id) ?? 0), 0) }))
+      .filter((entry) => entry.runs > 0)
+      .sort((a, b) => b.runs - a.runs || a.profile.name.localeCompare(b.profile.name)),
+    placed: genuine.length,
+    total: overview.totals.runs,
+  };
 }
 
 /** Older links name a profile by its label; resolve them within the agent's current profiles. */

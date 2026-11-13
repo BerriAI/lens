@@ -5,11 +5,13 @@ import {
   formatLatency,
   formatUsd,
   heatIntensity,
-  MUTED,
+  NEUTRAL,
   profileColors,
+  rankProfiles,
   selectedProfileId,
+  similarity,
 } from "./profilesData";
-import type { MatrixCell } from "./schemas";
+import type { MatrixCell, ProfilesOverview, ProfileSummary } from "./schemas";
 
 const cell = (overrides: Partial<MatrixCell>): MatrixCell => ({
   profile_id: "p",
@@ -43,19 +45,132 @@ describe("selectedProfileId", () => {
   });
 });
 
-describe("profileColors", () => {
-  it("keeps placeholder profiles muted without spending palette colors on them", () => {
-    const colors = profileColors([
-      { profile_id: "pending", source: "pending" },
-      { profile_id: "task:a", source: "enhanced" },
-      { profile_id: "unclassified", source: "unclassified" },
-      { profile_id: "task:b", source: "enhanced" },
-    ]);
+const profile = (profile_id: string, overrides: Partial<ProfileSummary> = {}): ProfileSummary => ({
+  profile_id,
+  name: profile_id,
+  source: "enhanced",
+  run_count: 1,
+  share: 0,
+  request_count: 1,
+  cost_observations: 1,
+  spend_usd: 1,
+  center: { x: 0, y: 0 },
+  ...overrides,
+});
 
-    expect(colors.get("pending")).toBe(MUTED);
-    expect(colors.get("unclassified")).toBe(MUTED);
-    expect(colors.get("task:a")).toBe("var(--chart-1)");
-    expect(colors.get("task:b")).toBe("var(--chart-2)");
+describe("profileColors", () => {
+  const profiles = [
+    profile("pending", { source: "pending", run_count: 9 }),
+    profile("task:a", { run_count: 3 }),
+    profile("unknown", { source: "unknown", run_count: 8 }),
+    profile("recorded:Billing", { source: "recorded", run_count: 5 }),
+    profile("task:b", { run_count: 3 }),
+  ];
+
+  it("keeps placeholder profiles neutral and colors every real group from the chart tokens", () => {
+    const colors = profileColors(profiles);
+
+    expect(colors.get("pending")).toBe(NEUTRAL);
+    expect(colors.get("unknown")).toBe(NEUTRAL);
+    expect(["recorded:Billing", "task:a", "task:b"].map((id) => colors.get(id))).toEqual([
+      expect.stringContaining("var(--chart-"),
+      expect.stringContaining("var(--chart-"),
+      expect.stringContaining("var(--chart-"),
+    ]);
+  });
+
+  it("keeps a profile's color when order, traffic or the other profiles change", () => {
+    const before = profileColors(profiles).get("task:a");
+    const after = profileColors([profile("task:z", { run_count: 50 }), profile("task:a", { run_count: 1 })]).get("task:a");
+
+    expect(after).toBe(before);
+    expect(profileColors([...profiles].reverse())).toEqual(profileColors(profiles));
+  });
+
+  it("spreads many groups across the palette", () => {
+    const colors = profileColors(Array.from({ length: 40 }, (_, index) => profile(`cluster:${index}`)));
+
+    expect(new Set(colors.values()).size).toBeGreaterThan(5);
+  });
+});
+
+describe("rankProfiles", () => {
+  it("ranks by the chosen figure, breaks ties by name and scales bars to the largest", () => {
+    const ranked = rankProfiles(
+      [profile("b", { run_count: 2 }), profile("c", { run_count: 4 }), profile("a", { run_count: 2 })],
+      "runs",
+    );
+
+    expect(ranked.map((entry) => [entry.profile.name, entry.fraction])).toEqual([
+      ["c", 1],
+      ["a", 0.5],
+      ["b", 0.5],
+    ]);
+  });
+
+  it("puts unknown spend last with an empty bar instead of ranking it as zero", () => {
+    const ranked = rankProfiles(
+      [profile("missing", { spend_usd: null }), profile("free", { spend_usd: 0 }), profile("paid", { spend_usd: 2 })],
+      "spend",
+    );
+
+    expect(ranked.map((entry) => [entry.profile.name, entry.value, entry.fraction])).toEqual([
+      ["paid", 2, 1],
+      ["free", 0, 0],
+      ["missing", null, 0],
+    ]);
+  });
+});
+
+describe("similarity", () => {
+  const overview = (points: ProfilesOverview["points"], profiles: ProfileSummary[]): ProfilesOverview => ({
+    window: { agent: "a", start_ms: 0, end_ms: 1 },
+    coverage: { runs_listed: 7, runs_resolved: 7, truncated: false },
+    totals: { runs: 7, requests: 7, matched_requests: 7, cost_observations: 7, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
+    profiles,
+    points,
+    taxonomy: null,
+  });
+
+  it("draws only discovery positions of real groups and counts every other run beside the map", () => {
+    const data = similarity(
+      overview(
+        [
+          { trace_id: "t1", profile_id: "task:a", x: 1, y: 1, placement: "discovery" },
+          { trace_id: "t2", profile_id: "task:a", x: 2, y: 1, placement: "categorical" },
+          { trace_id: "t3", profile_id: "unknown", x: 3, y: 3, placement: "discovery" },
+          { trace_id: "t4", profile_id: "recorded:Billing", x: 4, y: 4, placement: "categorical" },
+        ],
+        [
+          profile("task:a", { run_count: 3 }),
+          profile("unknown", { source: "unknown", run_count: 2 }),
+          profile("recorded:Billing", { source: "recorded", run_count: 2 }),
+        ],
+      ),
+    );
+
+    expect(data.groups.map((group) => [group.profile.profile_id, group.points.length])).toEqual([["task:a", 1]]);
+    expect(data.unplaced.map((entry) => [entry.profile.profile_id, entry.runs])).toEqual([
+      ["task:a", 2],
+      ["recorded:Billing", 2],
+      ["unknown", 2],
+    ]);
+    expect(data.placed).toBe(1);
+    expect(data.placed + data.unplaced.reduce((sum, entry) => sum + entry.runs, 0)).toBe(data.total);
+  });
+
+  it("keys runs that share a trace id in different teams apart", () => {
+    const data = similarity(
+      overview(
+        [
+          { trace_id: "same", profile_id: "task:a", x: 1, y: 1, placement: "discovery" },
+          { trace_id: "same", profile_id: "task:a", x: 2, y: 2, placement: "discovery" },
+        ],
+        [profile("task:a", { run_count: 2 })],
+      ),
+    );
+
+    expect(new Set(data.groups[0].points.map((point) => point.key)).size).toBe(2);
   });
 });
 

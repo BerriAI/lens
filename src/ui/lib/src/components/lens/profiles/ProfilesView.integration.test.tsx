@@ -6,7 +6,7 @@ import { testQueryClient } from "../../../../tests/test-utils";
 import type { LensAgents } from "../agents/AgentScoped";
 import { ProfilesView } from "./ProfilesView";
 
-const ranked = async () => within(await screen.findByRole("table", { name: "Profiles ranked by runs or spend" }));
+const ranked = async (by = "runs") => within(await screen.findByRole("list", { name: `Profiles ranked by ${by}` }));
 import type { ProfileDetail, ProfilesMatrix, ProfilesOverview, ProfileSummary } from "./schemas";
 
 const agents: LensAgents = {
@@ -134,14 +134,14 @@ it("shows run and spend figures, never a missing cost as zero, and selects a pro
   const onUrlUpdate = vi.fn();
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant", onUrlUpdate });
 
-  const table = await ranked();
-  const unclassified = table.getByRole("row", { name: /Unclassified/ });
-  expect(unclassified).toHaveTextContent("No data");
+  const list = await ranked();
+  const unclassified = list.getByRole("button", { name: /Unclassified/ });
+  expect(unclassified).toHaveTextContent("no cost data");
   expect(unclassified).not.toHaveTextContent("$0");
   expect(screen.getByText("cost known for 12 of 18 requests")).toBeVisible();
   expect(proxy.get).toHaveBeenCalledWith("/lens/profiles/overview", expect.objectContaining({ query: expect.objectContaining({ agent: "assistant" }) }));
 
-  await user.click(within(table.getByRole("row", { name: /Coding/ })).getByRole("button", { name: /Coding/ }));
+  await user.click(list.getByRole("button", { name: /Coding/ }));
 
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile")).toBe("recorded:Coding"));
 });
@@ -206,8 +206,71 @@ it("lets a failed overview be retried without showing stale figures", async () =
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not load usage profiles");
-  expect(screen.queryByRole("table", { name: "Profiles ranked by runs or spend" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("list", { name: "Profiles ranked by runs" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Refresh usage profiles" }));
 
-  expect((await ranked()).getByRole("row", { name: /Coding/ })).toBeVisible();
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toBeVisible();
+});
+
+it("ranks by spend with unknown cost last instead of as zero", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, {
+    overview: overview({
+      profiles: [
+        summary("unclassified", "Unclassified", { spend_usd: null, cost_observations: 0, request_count: 6 }),
+        summary("recorded:Free", "Free tier", { spend_usd: 0 }),
+        summary("recorded:Coding", "Coding", { spend_usd: 1.5, cost_observations: 4, request_count: 12 }),
+      ],
+    }),
+  });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  await user.click(await screen.findByRole("radio", { name: "Spend" }));
+
+  const rows = (await ranked("spend")).getAllByRole("button");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    expect.stringContaining("Coding"),
+    expect.stringContaining("Free tier"),
+    expect.stringContaining("Unclassified"),
+  ]);
+  expect(rows[0]).toHaveTextContent("cost known for 4 of 12 requests");
+  expect(rows[1]).toHaveTextContent("$0.00");
+  expect(rows[2]).toHaveTextContent("No cost data");
+});
+
+it("switches between the breakdown and the similarity map through the URL", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  const onUrlUpdate = vi.fn();
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant", onUrlUpdate });
+
+  await user.click(await screen.findByRole("radio", { name: "Similarity map" }));
+
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile_view")).toBe("similarity"));
+  expect(await screen.findByText("No similarity positions in this range")).toBeVisible();
+  expect(screen.queryByRole("list", { name: "Profiles ranked by runs" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("radio", { name: "Breakdown" }));
+
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("profile_view")).toBe(false));
+  expect(await ranked()).toBeTruthy();
+});
+
+it("opens the similarity map from a shared link", async () => {
+  const proxy = stubGateway();
+  routes(proxy, {
+    overview: overview({
+      points: [
+        { trace_id: "t1", profile_id: "recorded:Coding", x: 1, y: 1, placement: "discovery" },
+        { trace_id: "t2", profile_id: "unclassified", x: 2, y: 2, placement: "discovery" },
+      ],
+    }),
+  });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant&profile_view=similarity" });
+
+  expect(await screen.findByText(/1 of 20 runs on the map/)).toBeVisible();
+  expect(screen.getByRole("radio", { name: "Similarity map" })).toHaveAttribute("aria-checked", "true");
+  expect(within(screen.getByRole("region", { name: "Runs not on the map" })).getByRole("button", { name: /Unclassified/ })).toHaveTextContent("10");
 });
