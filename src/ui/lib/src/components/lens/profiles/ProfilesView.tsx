@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, CircleAlert, List, RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, CircleAlert, List, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "../../ui/button";
 import { LoadingState } from "../../shared/LoadingState";
 import { StateMessage } from "../../shared/StateMessage";
@@ -17,6 +17,7 @@ import { LensPageHeader } from "../ui/LensPageHeader";
 import { useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
+import { DiscoverySettingsSheet } from "./DiscoverySettingsSheet";
 import { ProfileBreakdown } from "./ProfileBreakdown";
 import { ProfileMap } from "./ProfileMap";
 import { SegmentedControl } from "./SegmentedControl";
@@ -100,6 +101,12 @@ export function ProfilesView({
     enabled: !!agent,
     staleTime: 30_000,
   });
+  const taxonomy = useQuery({
+    queryKey: ["lens", "profile-taxonomy", api.scope, agent],
+    queryFn: ({ signal }) => api.taxonomy(agent, signal),
+    enabled: !!agent,
+  });
+  const [configuring, setConfiguring] = useState(false);
   const profiles = overview.data?.profiles ?? [];
   const colors = useMemo(() => profileColors(profiles), [profiles]);
   const selected = selectedProfileId(profiles, profile.profile);
@@ -112,6 +119,11 @@ export function ProfilesView({
         description="Understand the different tasks your agents are used for"
         actions={
           <>
+            {taxonomy.data?.can_write && (
+              <Button variant="outline" size="sm" onClick={() => setConfiguring(true)}>
+                <Sparkles className="size-3.5" aria-hidden="true" /> Configure task discovery
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => route.setTab("traces")}>
               <List className="size-3.5" aria-hidden="true" /> View traces
             </Button>
@@ -188,8 +200,11 @@ export function ProfilesView({
             </div>
           </>
         )}
-        {!!agent && <TaxonomyPanel agent={agent} window={window} />}
+        {!!agent && <TaxonomyPanel agent={agent} onConfigure={() => setConfiguring(true)} />}
       </div>
+      {!!agent && (
+        <DiscoverySettingsSheet agent={agent} window={window} open={configuring} onOpenChange={setConfiguring} />
+      )}
       <ProfileDetailSheet
         agent={agent}
         window={window}

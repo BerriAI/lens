@@ -166,10 +166,19 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
         models: cells(own),
       };
     },
-    taxonomy: async () => ({ taxonomy: null, discovery_available: false, can_write: false }),
+    taxonomy: async () => ({ taxonomy: null, active: null, discovery_available: false, can_write: false }),
+    settings: async (agent) => ({
+      settings: { agent, enabled: false, models: { discovery: "", embedding: "", classification: "" }, revision: 0, updated_at: null },
+      defaults: { discovery: "", embedding: "", classification: "" },
+      options: { discovery: [], embedding: [], classification: [] },
+      can_write: false,
+    }),
+    saveSettings: readOnly,
+    preview: readOnly,
     discover: readOnly,
     editTask: readOnly,
-    freeze: readOnly,
+    activate: readOnly,
+    resume: readOnly,
     reset: readOnly,
   };
 }

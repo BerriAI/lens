@@ -172,12 +172,44 @@ export const taxonomySchema = z.object({
   frozen_at: z.string().nullable(),
   error: z.string().nullable(),
   models: z.object({ distill: z.string(), embedding: z.string(), synthesis: z.string(), decision: z.string() }),
+  discovery: z
+    .object({ start_ms: z.number(), end_ms: z.number(), requested_runs: count, sampled_runs: count })
+    .nullable(),
+  windows: z.array(z.object({ start_ms: z.number(), end_ms: z.number().nullable() })),
 });
 
 export const taxonomyViewSchema = z.object({
   taxonomy: taxonomySchema.nullable(),
+  active: taxonomySchema.nullable(),
   discovery_available: z.boolean(),
   can_write: z.boolean(),
+});
+
+const modelChoiceSchema = z.object({ discovery: z.string(), embedding: z.string(), classification: z.string() });
+
+export const settingsSchema = z.object({
+  agent: z.string(),
+  enabled: z.boolean(),
+  models: modelChoiceSchema,
+  revision: count,
+  updated_at: z.string().nullable(),
+});
+
+export const settingsViewSchema = z.object({
+  settings: settingsSchema,
+  defaults: modelChoiceSchema,
+  options: z.object({
+    discovery: z.array(z.string()),
+    embedding: z.array(z.string()),
+    classification: z.array(z.string()),
+  }),
+  can_write: z.boolean(),
+});
+
+export const previewSchema = z.object({
+  eligible_runs: count,
+  sample_runs: count,
+  previews: z.array(z.object({ trace_id: z.string(), start_ms: z.number(), input_preview: z.string() })),
 });
 
 export type Capability = (typeof capabilities)[number];
@@ -190,4 +222,8 @@ export type ProfileDetail = z.infer<typeof detailSchema>;
 export type TaskDefinition = z.infer<typeof taskDefinitionSchema>;
 export type Taxonomy = z.infer<typeof taxonomySchema>;
 export type TaxonomyView = z.infer<typeof taxonomyViewSchema>;
+export type ModelChoice = z.infer<typeof modelChoiceSchema>;
+export type ProfileSettings = z.infer<typeof settingsSchema>;
+export type ProfileSettingsView = z.infer<typeof settingsViewSchema>;
+export type DiscoveryPreview = z.infer<typeof previewSchema>;
 export type TaskEdit = Pick<TaskDefinition, "name" | "description" | "inclusion_criteria" | "exclusion_criteria" | "required_capabilities">;

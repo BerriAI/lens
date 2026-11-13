@@ -94,12 +94,19 @@ const detail = (profileId: string): ProfileDetail => ({
   models: [],
 });
 
-function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview } = {}) {
+function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview; admin?: boolean } = {}) {
   proxy.get.mockImplementation(async (path, request) => {
     if (path === "/lens/profiles/overview") return data.overview ?? overview();
     if (path === "/lens/profiles/matrix") return matrix;
     if (path === "/lens/profiles/detail") return detail(String(request.query.profile_id));
-    if (path === "/lens/profiles/taxonomy") return { taxonomy: null, discovery_available: false, can_write: false };
+    if (path === "/lens/profiles/taxonomy") return { taxonomy: null, active: null, discovery_available: false, can_write: data.admin ?? false };
+    if (path === "/lens/profiles/settings")
+      return {
+        settings: { agent: "assistant", enabled: false, models: { discovery: "", embedding: "", classification: "" }, revision: 0, updated_at: null },
+        defaults: { discovery: "", embedding: "", classification: "" },
+        options: { discovery: [], embedding: [], classification: [] },
+        can_write: true,
+      };
     throw new Error(`unexpected ${path}`);
   });
 }
@@ -328,4 +335,31 @@ it("lets the map focus and zoom a group without a modal in the way, and opens de
     "/lens/profiles/detail",
     expect.objectContaining({ query: expect.objectContaining({ profile_id: "task:billing" }) }),
   );
+});
+
+it("opens task discovery settings from the header for admins without calling a model", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, { admin: true });
+  proxy.post.mockResolvedValue({ eligible_runs: 0, sample_runs: 0, previews: [] });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  await user.click(await screen.findByRole("button", { name: "Configure task discovery" }));
+
+  expect(await screen.findByRole("dialog", { name: "Task discovery" })).toBeVisible();
+  expect(await screen.findByRole("switch", { name: "Use paid models for assistant" })).not.toBeChecked();
+  expect(proxy.post.mock.calls.map(([path]) => path).filter((path) => path !== "/lens/profiles/discovery/preview")).toEqual([]);
+  expect(proxy.put).not.toHaveBeenCalled();
+});
+
+it("hides task discovery settings from callers who cannot change them", async () => {
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  expect(await ranked()).toBeTruthy();
+  await waitFor(() =>
+    expect(testQueryClient.getQueryState(["lens", "profile-taxonomy", "test", "assistant"])?.status).toBe("success"),
+  );
+  expect(screen.queryByRole("button", { name: "Configure task discovery" })).not.toBeInTheDocument();
 });

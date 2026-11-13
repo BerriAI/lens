@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TimeWindow } from "../../shared/timeRange/timeRange";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { useProfilesApi } from "../data/LensServices";
-import type { Capability, TaskDefinition, TaskEdit, Taxonomy } from "./schemas";
-
-const MAX_RUNS = 300;
+import type { TaxonomyTarget } from "./api";
+import { classification, classificationText, formatRange } from "./discoveryForm";
+import { formatCount } from "./profilesData";
+import type { Capability, TaskDefinition, TaskEdit, Taxonomy, TaxonomyView } from "./schemas";
 
 const CAPABILITY_OPTIONS: readonly { value: Capability; label: string }[] = [
   { value: "function_calling", label: "Function calling" },
@@ -73,97 +73,198 @@ function TaskEditor({ task, onSave, saving }: { task: TaskDefinition; onSave: (e
   );
 }
 
-function statusText(taxonomy: Taxonomy | null): string {
-  switch (taxonomy?.status) {
-    case "discovering":
-      return "Discovery is running. Draft tasks appear here when it finishes.";
-    case "draft":
-      return "Review the draft tasks, rename them if needed, then freeze to start classifying runs.";
-    case "frozen":
-      return "Runs are classified against these reviewed tasks. Recorded categories always take precedence.";
-    case "failed":
-      return `Discovery failed: ${taxonomy.error ?? "unknown error"}`;
-    default:
-      return "Profiles come from recorded categories and free automatic grouping.";
-  }
+const TaskList = ({ tasks }: { tasks: readonly TaskDefinition[] }) => (
+  <ul className="flex flex-wrap gap-2 text-sm">
+    {tasks.map((task) => (
+      <li key={task.task_id} className="rounded-md border px-2 py-1">
+        {task.name}
+      </li>
+    ))}
+  </ul>
+);
+
+function ActiveTasks({
+  active,
+  view,
+  busy,
+  onResume,
+  onRemove,
+}: {
+  active: Taxonomy;
+  view: TaxonomyView;
+  busy: boolean;
+  onResume: () => void;
+  onRemove: () => void;
+}) {
+  const state = classification(active);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-sm font-medium">
+          Active tasks
+          <Badge variant={active.sample ? "secondary" : "outline"}>{active.sample ? "Sample data" : "Live"}</Badge>
+        </h4>
+        {view.can_write && (
+          <div className="flex flex-wrap gap-2">
+            {state.kind === "paused" && (
+              <Button size="sm" disabled={busy || !view.discovery_available} onClick={onResume}>
+                Resume classification for new runs
+              </Button>
+            )}
+            <Button size="sm" variant="outline" disabled={busy} onClick={onRemove}>
+              Remove active tasks
+            </Button>
+          </div>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">{classificationText(state)}</p>
+      {state.kind === "paused" && view.can_write && !view.discovery_available && (
+        <p className="text-xs text-muted-foreground">Turn on task discovery for this agent to resume classification.</p>
+      )}
+      <TaskList tasks={active.tasks} />
+    </div>
+  );
 }
 
-export function TaxonomyPanel({ agent, window }: { agent: string; window: TimeWindow }) {
+function DraftTasks({
+  agent,
+  draft,
+  view,
+  hasActive,
+  busy,
+  onEdit,
+  onActivate,
+  onDiscard,
+}: {
+  agent: string;
+  draft: Taxonomy;
+  view: TaxonomyView;
+  hasActive: boolean;
+  busy: boolean;
+  onEdit: (taskId: string, edit: TaskEdit) => void;
+  onActivate: (backfill: boolean) => void;
+  onDiscard: () => void;
+}) {
+  const api = useProfilesApi();
+  const [backfill, setBackfill] = useState(false);
+  const range = draft.discovery;
+  const backfillCount = useQuery({
+    queryKey: ["lens", "profile-preview", api.scope, agent, range?.start_ms, range?.end_ms, 500],
+    queryFn: ({ signal }) =>
+      api.preview({ agent, window: { startMs: range?.start_ms ?? 0, endMs: range?.end_ms ?? 0 }, maxRuns: 500 }, signal),
+    enabled: !draft.sample && draft.status === "draft" && !!range && view.can_write,
+    staleTime: 30_000,
+  });
+  const write = view.can_write && !busy;
+  return (
+    <div className="space-y-3 rounded-lg border border-dashed p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-sm font-medium">
+          {draft.status === "discovering" ? "Discovering tasks" : draft.status === "failed" ? "Discovery failed" : "Draft to review"}
+          {draft.sample && <Badge variant="secondary">Sample data</Badge>}
+        </h4>
+        {view.can_write && (
+          <Button size="sm" variant="outline" disabled={!write} onClick={onDiscard}>
+            {draft.status === "discovering" ? "Cancel discovery" : "Discard draft"}
+          </Button>
+        )}
+      </div>
+      {draft.status === "discovering" && (
+        <p className="text-sm text-muted-foreground">
+          Discovery is running{draft.job ? ` on up to ${formatCount(draft.job.max_runs)} runs from ${formatRange(draft.job.start_ms, draft.job.end_ms)}` : ""}.
+          {hasActive ? " The active tasks keep classifying until you activate the new draft." : " The draft appears here when it finishes."}
+        </p>
+      )}
+      {draft.status === "failed" && (
+        <p role="alert" className="text-sm text-destructive">
+          {draft.error ?? "Discovery failed"}
+        </p>
+      )}
+      {draft.status === "draft" && range && (
+        <p className="text-xs text-muted-foreground">
+          {draft.sample ? "Sample draft. " : ""}Discovered from {formatCount(range.sampled_runs)} runs, {formatRange(range.start_ms, range.end_ms)}
+          {draft.sample ? "" : `, with ${draft.models.distill}, ${draft.models.embedding} and ${draft.models.decision}`}.
+        </p>
+      )}
+      {draft.status === "draft" && view.can_write && (
+        <ul className="space-y-2">
+          {draft.tasks.map((task) => (
+            <TaskEditor
+              key={`${task.task_id}:${draft.revision}`}
+              task={task}
+              saving={!write}
+              onSave={(edit) => onEdit(task.task_id, edit)}
+            />
+          ))}
+        </ul>
+      )}
+      {draft.status === "draft" && !view.can_write && <TaskList tasks={draft.tasks} />}
+      {draft.status === "draft" && view.can_write && (
+        <div className="space-y-2 border-t pt-3">
+          {!draft.sample && range && (
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={backfill} onChange={(event) => setBackfill(event.target.checked)} />
+              <span>
+                Also classify earlier runs from {formatRange(range.start_ms, range.end_ms)}
+                <span className="block text-xs text-muted-foreground">
+                  {backfillCount.data
+                    ? `At least ${formatCount(backfillCount.data.eligible_runs)} runs, one paid Jev call each.`
+                    : "Counting runs in this range…"}
+                </span>
+              </span>
+            </label>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {draft.sample
+              ? "Activating sample tasks uses their precomputed assignments and makes no model calls."
+              : `Activating starts one paid ${draft.models.decision} call for each new run of this agent, until you turn task discovery off.`}
+          </p>
+          <Button
+            size="sm"
+            disabled={!write || (!draft.sample && !view.discovery_available)}
+            onClick={() => onActivate(!draft.sample && backfill)}
+          >
+            {draft.sample ? "Activate sample (no model calls)" : "Activate and classify new runs"}
+          </Button>
+          {!draft.sample && !view.discovery_available && (
+            <p className="text-xs text-muted-foreground">Turn on task discovery for this agent to activate a live draft.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TaxonomyPanel({ agent, onConfigure }: { agent: string; onConfigure: () => void }) {
   const api = useProfilesApi();
   const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
   const query = useQuery({
     queryKey: ["lens", "profile-taxonomy", api.scope, agent],
     queryFn: ({ signal }) => api.taxonomy(agent, signal),
     enabled: !!agent,
     refetchInterval: (current) => (current.state.data?.taxonomy?.status === "discovering" ? 10_000 : false),
   });
-  const refresh = () =>
-    queryClient.invalidateQueries({ predicate: (entry) => String(entry.queryKey[1]).startsWith("profile") });
   const mutation = useMutation({
-    mutationFn: (action: () => Promise<Taxonomy>) => action(),
-    onSuccess: refresh,
+    mutationFn: (action: () => Promise<TaxonomyView>) => action(),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (entry) => String(entry.queryKey[1]).startsWith("profile") }),
   });
   const view = query.data;
-  const taxonomy = view?.taxonomy && view.taxonomy.status !== "cleared" ? view.taxonomy : null;
-  if (!view || (!taxonomy && !view.discovery_available && !view.taxonomy?.sample)) return null;
-  const write = view.can_write && !mutation.isPending;
+  if (!view || (!view.active && !view.taxonomy && !view.can_write)) return null;
+  const busy = mutation.isPending;
+  const reset = (taxonomy: Taxonomy, target: TaxonomyTarget) =>
+    mutation.mutate(() => api.reset(agent, taxonomy.revision, target));
   return (
-    <section aria-label="Reviewed tasks" className="space-y-3 rounded-xl border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-base font-medium">
-          Reviewed tasks
-          {view.taxonomy?.sample && <Badge variant="secondary">Sample data</Badge>}
-          {taxonomy && <Badge variant="outline">{taxonomy.status}</Badge>}
-        </h3>
-        {view.can_write && (
-          <div className="flex flex-wrap gap-2">
-            {taxonomy?.status === "draft" && (
-              <Button size="sm" disabled={!write} onClick={() => mutation.mutate(() => api.freeze(agent, taxonomy.revision))}>
-                {taxonomy.sample ? "Freeze sample (no model calls)" : "Freeze and classify"}
-              </Button>
-            )}
-            {taxonomy && (
-              <Button size="sm" variant="outline" disabled={!write} onClick={() => mutation.mutate(() => api.reset(agent, taxonomy.revision))}>
-                {taxonomy.status === "discovering" ? "Cancel discovery" : "Reset"}
-              </Button>
-            )}
-            {view.discovery_available && taxonomy?.status !== "discovering" && !confirming && (
-              <Button size="sm" variant="outline" disabled={!write} onClick={() => setConfirming(true)}>
-                Discover tasks
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-      <p className="text-sm text-muted-foreground">{statusText(taxonomy)}</p>
-      {taxonomy?.status === "draft" && !taxonomy.sample && view.can_write && (
-        <p className="text-sm text-muted-foreground">
-          Freezing starts ongoing Jev classification calls for this agent&apos;s existing and new runs. Jev compares each run
-          with the definitions below, and model compatibility uses the requirements you set.
-        </p>
-      )}
-      {confirming && (
-        <div role="alertdialog" aria-label="Confirm discovery" className="space-y-2 rounded-md border border-dashed p-3 text-sm">
-          <p>
-            Discovery calls your configured models on up to {MAX_RUNS} recent runs of {agent} in this range. This makes
-            paid model calls through the gateway.
+    <section aria-label="Reviewed tasks" className="space-y-4 rounded-xl border bg-card p-5">
+      <h3 className="text-base font-medium">Reviewed tasks</h3>
+      {!view.active && !view.taxonomy && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Profiles come from recorded categories and free automatic grouping. Task discovery can propose reviewed tasks
+            with paid models once you turn it on for this agent.
           </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={!write}
-              onClick={() => {
-                setConfirming(false);
-                mutation.mutate(() => api.discover({ agent, window, maxRuns: MAX_RUNS }));
-              }}
-            >
-              Start discovery
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
-              Cancel
-            </Button>
-          </div>
+          <Button size="sm" variant="outline" onClick={onConfigure}>
+            Set up task discovery
+          </Button>
         </div>
       )}
       {mutation.error && (
@@ -171,26 +272,39 @@ export function TaxonomyPanel({ agent, window }: { agent: string; window: TimeWi
           {mutation.error.message}
         </p>
       )}
-      {taxonomy?.status === "draft" && view.can_write && (
-        <ul className="space-y-2">
-          {taxonomy.tasks.map((task) => (
-            <TaskEditor
-              key={`${task.task_id}:${taxonomy.revision}`}
-              task={task}
-              saving={!write}
-              onSave={(edit) => mutation.mutate(() => api.editTask(agent, taxonomy.revision, task.task_id, edit))}
-            />
-          ))}
-        </ul>
+      {view.active && (
+        <ActiveTasks
+          active={view.active}
+          view={view}
+          busy={busy}
+          onResume={() => {
+            const active = view.active;
+            if (active) mutation.mutate(() => api.resume(agent, active.revision));
+          }}
+          onRemove={() => {
+            if (view.active) reset(view.active, "active");
+          }}
+        />
       )}
-      {taxonomy && (taxonomy.status === "frozen" || (taxonomy.status === "draft" && !view.can_write)) && (
-        <ul className="flex flex-wrap gap-2 text-sm">
-          {taxonomy.tasks.map((task) => (
-            <li key={task.task_id} className="rounded-md border px-2 py-1">
-              {task.name}
-            </li>
-          ))}
-        </ul>
+      {view.taxonomy && (
+        <DraftTasks
+          agent={agent}
+          draft={view.taxonomy}
+          view={view}
+          hasActive={!!view.active}
+          busy={busy}
+          onEdit={(taskId, edit) => {
+            const draft = view.taxonomy;
+            if (draft) mutation.mutate(() => api.editTask(agent, draft.revision, taskId, edit));
+          }}
+          onActivate={(backfill) => {
+            const draft = view.taxonomy;
+            if (draft) mutation.mutate(() => api.activate(agent, draft.revision, backfill));
+          }}
+          onDiscard={() => {
+            if (view.taxonomy) reset(view.taxonomy, "draft");
+          }}
+        />
       )}
     </section>
   );
