@@ -1,6 +1,28 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "ActivationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "backfill": {
+          "default": false,
+          "description": "Also classify the draft's discovery range, not only runs that start after activation.",
+          "type": "boolean"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "revision"
+      ],
+      "type": "object"
+    },
     "Activity": {
       "additionalProperties": false,
       "properties": {
@@ -279,6 +301,28 @@
       ],
       "type": "object"
     },
+    "ClassificationWindow": {
+      "description": "Runs whose start falls in `[start_ms, end_ms)` are classified; an open window has no end.",
+      "properties": {
+        "end_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_ms"
+      ],
+      "type": "object"
+    },
     "Clusters": {
       "additionalProperties": false,
       "properties": {
@@ -439,6 +483,54 @@
       ],
       "type": "object"
     },
+    "DiscoveryModelChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "type": "string"
+        },
+        "discovery": {
+          "type": "string"
+        },
+        "embedding": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "discovery",
+        "embedding",
+        "classification"
+      ],
+      "type": "object"
+    },
+    "DiscoveryModelOptions": {
+      "properties": {
+        "classification": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "discovery": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "embedding": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "discovery",
+        "embedding",
+        "classification"
+      ],
+      "type": "object"
+    },
     "DiscoveryPoint": {
       "properties": {
         "api_key_hash": {
@@ -476,6 +568,49 @@
       ],
       "type": "object"
     },
+    "DiscoveryPreview": {
+      "properties": {
+        "eligible_runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "previews": {
+          "items": {
+            "$ref": "#/definitions/DiscoveryPreviewRun"
+          },
+          "type": "array"
+        },
+        "sample_runs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "eligible_runs",
+        "sample_runs",
+        "previews"
+      ],
+      "type": "object"
+    },
+    "DiscoveryPreviewRun": {
+      "properties": {
+        "input_preview": {
+          "type": "string"
+        },
+        "start_ms": {
+          "type": "integer"
+        },
+        "trace_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "start_ms",
+        "input_preview"
+      ],
+      "type": "object"
+    },
     "DiscoveryRequest": {
       "additionalProperties": false,
       "properties": {
@@ -498,6 +633,31 @@
         "start_ms",
         "end_ms",
         "max_runs"
+      ],
+      "type": "object"
+    },
+    "DiscoveryRun": {
+      "properties": {
+        "end_ms": {
+          "type": "integer"
+        },
+        "requested_runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sampled_runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_ms",
+        "end_ms",
+        "requested_runs",
+        "sampled_runs"
       ],
       "type": "object"
     },
@@ -1969,6 +2129,89 @@
       ],
       "type": "object"
     },
+    "ProfileSettings": {
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "models": {
+          "$ref": "#/definitions/DiscoveryModelChoice"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "agent",
+        "enabled",
+        "models",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "ProfileSettingsUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "models": {
+          "$ref": "#/definitions/DiscoveryModelChoice"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "revision",
+        "enabled",
+        "models"
+      ],
+      "type": "object"
+    },
+    "ProfileSettingsView": {
+      "properties": {
+        "can_write": {
+          "type": "boolean"
+        },
+        "defaults": {
+          "$ref": "#/definitions/DiscoveryModelChoice"
+        },
+        "options": {
+          "$ref": "#/definitions/DiscoveryModelOptions"
+        },
+        "settings": {
+          "$ref": "#/definitions/ProfileSettings"
+        }
+      },
+      "required": [
+        "settings",
+        "defaults",
+        "options",
+        "can_write"
+      ],
+      "type": "object"
+    },
     "ProfileSource": {
       "enum": [
         "recorded",
@@ -2360,6 +2603,27 @@
       "required": [
         "action",
         "code"
+      ],
+      "type": "object"
+    },
+    "ResetRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target": {
+          "$ref": "#/definitions/TaxonomyTarget",
+          "default": "draft"
+        }
+      },
+      "required": [
+        "agent",
+        "revision"
       ],
       "type": "object"
     },
@@ -2887,6 +3151,16 @@
             }
           ]
         },
+        "discovery": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DiscoveryRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "error": {
           "anyOf": [
             {
@@ -2951,6 +3225,13 @@
           "description": "Generation that assignments are keyed by; it only grows, even across resets.",
           "minimum": 0,
           "type": "integer"
+        },
+        "windows": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/ClassificationWindow"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -3056,8 +3337,26 @@
       ],
       "type": "object"
     },
+    "TaxonomyTarget": {
+      "enum": [
+        "draft",
+        "active"
+      ],
+      "type": "string"
+    },
     "TaxonomyView": {
       "properties": {
+        "active": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Taxonomy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The activated taxonomy that runs resolve against."
+        },
         "can_write": {
           "type": "boolean"
         },
@@ -3072,7 +3371,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The discovery job, draft or failure under review."
         }
       },
       "required": [
