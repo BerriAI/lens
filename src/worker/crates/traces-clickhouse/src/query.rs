@@ -22,6 +22,7 @@ mod guide;
 pub mod lens;
 pub mod named;
 pub(crate) mod number;
+pub mod profiles;
 
 const SAMPLE_ROWS: usize = 200;
 const MAX_FIELDS: usize = 200;
