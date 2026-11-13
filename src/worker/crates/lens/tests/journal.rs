@@ -100,3 +100,85 @@ async fn small_unicode_excerpts_are_readable_from_history_over_32_mib(
         full_excerpt["characters"].as_u64().unwrap() - 1
     );
 }
+
+#[rstest]
+#[case::initial(true)]
+#[case::turn(false)]
+#[tokio::test]
+async fn bounded_history_pages_keep_offsets_stable_while_the_journal_grows(#[case] initial: bool) {
+    let text = "é終🦀".repeat(10_000);
+    let mut journal = Journal::new(&json!({"task": if initial { &text } else { "fixture" }}))
+        .await
+        .unwrap();
+    journal
+        .push(&Turn {
+            response: "first".into(),
+            tool_results: vec![if initial { "fixture".into() } else { text }],
+            validation_error: String::new(),
+        })
+        .await
+        .unwrap();
+    let request: wire::EvidenceRequest = serde_json::from_value(
+        json!({"action":"history", "include_initial":initial, "turn_end":1}),
+    )
+    .unwrap();
+    let original = journal.reply(&request).await.unwrap().to_string();
+    let first = journal.page(&request, 2048).await.unwrap();
+    let next: wire::EvidenceRequest =
+        serde_json::from_value(first["next_request"].clone()).unwrap();
+    journal
+        .push(&Turn {
+            response: "newly appended".into(),
+            tool_results: Vec::new(),
+            validation_error: String::new(),
+        })
+        .await
+        .unwrap();
+    let second = journal.page(&next, 2048).await.unwrap();
+    assert_eq!(first["excerpt"].as_str().unwrap().chars().count(), 2048);
+    assert_eq!(
+        second["excerpt"],
+        original.chars().skip(2048).take(2048).collect::<String>()
+    );
+    assert_eq!(second["characters"], original.chars().count());
+    assert_eq!(second["total_turns"], 1);
+    assert_eq!(second["next_request"]["char_start"], 4096);
+    let reference: serde_json::Value =
+        serde_json::from_str(&journal.reference(&next).unwrap()).unwrap();
+    assert_eq!(reference["kind"], "history_reference");
+    assert_eq!(reference["request"]["char_start"], 2048);
+}
+
+#[rstest]
+#[tokio::test]
+async fn explicit_history_ranges_stop_at_the_requested_end() {
+    let journal = Journal::new(&json!({"task":"x".repeat(50_000)}))
+        .await
+        .unwrap();
+    let request: wire::EvidenceRequest = serde_json::from_value(
+        json!({"action":"history", "include_initial":true, "char_start":100, "char_end":200}),
+    )
+    .unwrap();
+    let reply = journal.page(&request, 2048).await.unwrap();
+    assert_eq!(reply["excerpt"].as_str().unwrap().chars().count(), 100);
+    assert!(reply["next_request"].is_null());
+    assert!(reply["characters"].as_u64().unwrap() > 50_000);
+}
+
+#[rstest]
+#[tokio::test]
+async fn history_page_preserves_the_explicit_upper_bound() {
+    let journal = Journal::new(&json!({"task":"x".repeat(5000)}))
+        .await
+        .unwrap();
+    let request = serde_json::from_value(
+        json!({"action":"history", "include_initial":true, "char_start":100, "char_end":3000}),
+    )
+    .unwrap();
+    let first = journal.page(&request, 2048).await.unwrap();
+    let next = serde_json::from_value(first["next_request"].clone()).unwrap();
+    let second = journal.page(&next, 2048).await.unwrap();
+    assert_eq!(second["request"]["char_end"], 3000);
+    assert_eq!(second["excerpt"].as_str().unwrap().chars().count(), 852);
+    assert!(second["next_request"].is_null());
+}

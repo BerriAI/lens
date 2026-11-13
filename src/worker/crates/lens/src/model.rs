@@ -134,7 +134,7 @@ pub async fn structured<T: DeserializeOwned>(
     })
 }
 
-fn visible_journal(messages: &[wire::ModelMessage]) -> usize {
+fn history_resume(messages: &[wire::ModelMessage]) -> Result<wire::EvidenceRequest, Error> {
     let positions: Vec<Value> = messages
         .iter()
         .filter(|m| m.role == wire::ModelMessageRole::User)
@@ -145,11 +145,83 @@ fn visible_journal(messages: &[wire::ModelMessage]) -> usize {
         .filter_map(|p| p["journal_turns"].as_u64())
         .max()
         .unwrap_or_default();
-    positions
+    let checkpoint = positions
         .iter()
-        .filter_map(|p| p["resume_history_from_turn"].as_u64())
-        .min()
-        .unwrap_or(visible) as usize
+        .rposition(|p| p["resume_history_from_turn"].is_u64());
+    let Some(index) = checkpoint else {
+        return Ok(serde_json::from_value(
+            json!({"action":"history", "turn_start":visible, "include_initial":true}),
+        )?);
+    };
+    let position = &positions[index];
+    let archived = position["journal_turns"].as_u64().unwrap_or_default();
+    let mut cursor: wire::EvidenceRequest = serde_json::from_value(position["resume_history_request"].clone())
+        .or_else(|_| serde_json::from_value(json!({"action":"history", "turn_start":position["resume_history_from_turn"], "include_initial":position["initial_context_archived"].as_bool().unwrap_or(true)})))?;
+    for position in &positions[index + 1..] {
+        let Some(results) = position["tool_results"].as_array() else {
+            continue;
+        };
+        for result in results {
+            let Some(reply) = result
+                .as_str()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+            else {
+                continue;
+            };
+            let Ok(request) =
+                serde_json::from_value::<wire::EvidenceRequest>(reply["request"].clone())
+            else {
+                continue;
+            };
+            if request.action != wire::EvidenceRequestAction::History
+                || reply.get("error").is_some()
+            {
+                continue;
+            }
+            let end = request
+                .turn_end
+                .or_else(|| reply["total_turns"].as_u64())
+                .unwrap_or_default();
+            let continues = if cursor.char_start == 0 {
+                request.char_start == 0
+                    && request.turn_start <= cursor.turn_start
+                    && end >= cursor.turn_start
+                    && (!cursor.include_initial || request.include_initial)
+            } else {
+                request.turn_start == cursor.turn_start
+                    && request.turn_end == cursor.turn_end
+                    && request.include_initial == cursor.include_initial
+                    && request.char_start <= cursor.char_start
+                    && request.char_end.is_some_and(|end| end >= cursor.char_start)
+            };
+            if !continues {
+                continue;
+            }
+            if let Ok(next) =
+                serde_json::from_value::<wire::EvidenceRequest>(reply["next_request"].clone())
+            {
+                cursor = next;
+            } else if request.char_end.is_none()
+                || reply["characters"]
+                    .as_u64()
+                    .is_some_and(|total| request.char_end.is_some_and(|end| end >= total))
+            {
+                cursor.turn_start = end;
+                cursor.turn_end = None;
+                cursor.char_start = 0;
+                cursor.char_end = None;
+                cursor.include_initial &= !request.include_initial;
+            } else if let Some(end) = request.char_end {
+                cursor = request;
+                cursor.char_start = end;
+                cursor.char_end = None;
+            }
+        }
+    }
+    if !cursor.include_initial && cursor.char_start == 0 && cursor.turn_start >= archived {
+        cursor.turn_start = cursor.turn_start.max(visible);
+    }
+    Ok(cursor)
 }
 
 pub async fn compact(
@@ -157,7 +229,7 @@ pub async fn compact(
     mut request: wire::ModelRequest,
     journal_turns: usize,
 ) -> Result<Vec<wire::ModelMessage>, Error> {
-    let instruction = message(wire::ModelMessageRole::System, json!({ "task": include_str!("../prompts/compact.md"), "response_schema": schema("Checkpoint")? }).to_string());
+    let instruction = message(wire::ModelMessageRole::User, json!({ "task": include_str!("../prompts/compact.md"), "response_schema": schema("Checkpoint")? }).to_string());
     if request.messages.is_empty() {
         request.messages.push(message(
             wire::ModelMessageRole::System,
@@ -169,6 +241,7 @@ pub async fn compact(
         summarize.messages.push(instruction.clone());
         match structured::<wire::Checkpoint>(client, summarize, "Checkpoint", |_| None).await {
             Ok((notes, _)) => {
+                let resume = history_resume(&request.messages)?;
                 return Ok(vec![
                     request.messages[0].clone(),
                     message(
@@ -176,8 +249,9 @@ pub async fn compact(
                         json!({
                             "working_notes": notes.working_notes,
                             "journal_turns": journal_turns,
-                            "resume_history_from_turn": visible_journal(&request.messages),
-                            "initial_context_archived": true,
+                            "resume_history_from_turn": resume.turn_start,
+                            "initial_context_archived": resume.include_initial,
+                            "resume_history_request": resume,
                         })
                         .to_string(),
                     ),

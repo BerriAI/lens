@@ -87,6 +87,60 @@ impl Journal {
     }
 
     pub async fn reply(&self, request: &wire::EvidenceRequest) -> Result<Value, Error> {
+        self.reply_at(request, self.turns.len()).await
+    }
+
+    pub async fn page(
+        &self,
+        request: &wire::EvidenceRequest,
+        characters: u64,
+    ) -> Result<Value, Error> {
+        let mut bounded = request.clone();
+        let snapshot = request
+            .turn_end
+            .unwrap_or(self.turns.len() as u64)
+            .min(self.turns.len() as u64);
+        bounded.turn_end = Some(snapshot);
+        bounded.char_end = Some(
+            request
+                .char_end
+                .unwrap_or(u64::MAX)
+                .min(request.char_start.saturating_add(characters.max(1))),
+        );
+        let mut reply = self.reply_at(&bounded, snapshot as usize).await?;
+        let Some(total) = reply["characters"].as_u64() else {
+            return Ok(reply);
+        };
+        if request.char_start > total {
+            return Ok(
+                json!({"request": request, "error": "Choose a valid journal character range"}),
+            );
+        }
+        let end = bounded.char_end.unwrap_or(total).min(total);
+        bounded.char_end = Some(end);
+        if request.char_start == 0 && end == total {
+            let mut full = bounded.clone();
+            full.char_end = None;
+            reply = self.reply_at(&full, snapshot as usize).await?;
+        }
+        reply["request"] = serde_json::to_value(&bounded)?;
+        reply["characters"] = json!(total);
+        reply["next_request"] = if end < total.min(request.char_end.unwrap_or(u64::MAX)) {
+            let mut next = bounded;
+            next.char_start = end;
+            next.char_end = request.char_end;
+            serde_json::to_value(next)?
+        } else {
+            Value::Null
+        };
+        Ok(reply)
+    }
+
+    async fn reply_at(
+        &self,
+        request: &wire::EvidenceRequest,
+        snapshot: usize,
+    ) -> Result<Value, Error> {
         let start = request.turn_start as usize;
         let end = request
             .turn_end
@@ -99,7 +153,7 @@ impl Journal {
             );
         }
         if request.char_start != 0 || request.char_end.is_some() {
-            return self.excerpt(request, start, end).await;
+            return self.excerpt(request, start, end, snapshot).await;
         }
         let mut turns = Vec::<Value>::new();
         for index in start..end {
@@ -114,7 +168,7 @@ impl Journal {
         let mut normalized = request.clone();
         normalized.char_start = 0;
         normalized.char_end = None;
-        let reply = json!({"request": normalized, "total_turns": self.turns.len(), "initial_context": initial, "turns": turns, "turn_characters": self.turns});
+        let reply = json!({"request": normalized, "total_turns": snapshot, "initial_context": initial, "turns": turns, "turn_characters": &self.turns[..snapshot]});
         Ok(reply)
     }
 
@@ -123,11 +177,12 @@ impl Journal {
         request: &wire::EvidenceRequest,
         start: usize,
         end: usize,
+        snapshot: usize,
     ) -> Result<Value, Error> {
         let mut normalized = request.clone();
         normalized.char_start = 0;
         normalized.char_end = None;
-        let document = json!({"request": normalized, "total_turns": self.turns.len(), "initial_context": null, "turns": [], "turn_characters": self.turns});
+        let document = json!({"request": normalized, "total_turns": snapshot, "initial_context": null, "turns": [], "turn_characters": &self.turns[..snapshot]});
         let mut excerpt = Excerpt {
             start: request.char_start as usize,
             end: request
@@ -172,14 +227,13 @@ impl Journal {
         }
         excerpt.append("}")?;
         Ok(
-            json!({"request": request, "total_turns": self.turns.len(), "excerpt": excerpt.text, "characters": excerpt.characters}),
+            json!({"request": request, "total_turns": snapshot, "excerpt": excerpt.text, "characters": excerpt.characters}),
         )
     }
 
     pub fn reference(&self, request: &wire::EvidenceRequest) -> Option<String> {
         if request.action != wire::EvidenceRequestAction::History
-            || request.char_start != 0
-            || request.char_end.is_some()
+            || request.char_end.is_some_and(|end| end < request.char_start)
             || request.turn_start as usize > self.turns.len()
             || request.turn_end.is_some_and(|n| n < request.turn_start)
         {
