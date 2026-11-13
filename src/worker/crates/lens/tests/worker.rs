@@ -499,6 +499,120 @@ async fn model_contract_rejects_malformed_findings_and_repairs(#[case] change: V
 }
 
 #[rstest]
+#[case::malformed("{", None)]
+#[case::schema_invalid("{}", None)]
+#[case::unfinished(r#"{"working_notes":"unfinished"}"#, Some("length"))]
+#[tokio::test]
+async fn structured_retry_requests_a_complete_answer_after_provider_normalization(
+    #[case] rejected: &'static str,
+    #[case] finish_reason: Option<&'static str>,
+    #[values(
+        lens_analysis::Provider::Anthropic,
+        lens_analysis::Provider::OpenAiCompatible
+    )]
+    provider: lens_analysis::Provider,
+    #[values(false, true)] conversation: bool,
+) {
+    let server = MockServer::start().await;
+    let count = AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(move |_: &Request| {
+            let first = count.fetch_add(1, Ordering::SeqCst) == 0;
+            ResponseTemplate::new(200).set_body_json(json!({
+                "content": if first { rejected } else { r#"{"working_notes":"repaired"}"# },
+                "cost": 0,
+                "finish_reason": if first { finish_reason } else { None },
+            }))
+        })
+        .expect(2)
+        .mount(&server)
+        .await;
+    let mut request = model::request(
+        wire::ModelRequestPurpose::Extract,
+        json!({"task":"Inspect evidence"}),
+    )
+    .unwrap();
+    if conversation {
+        request.messages = vec![
+            model::message(wire::ModelMessageRole::System, "Inspect evidence"),
+            model::message(wire::ModelMessageRole::User, "Recorded evidence"),
+        ];
+    }
+    let (result, _) =
+        model::structured::<wire::Checkpoint>(&client(&server), request, "Checkpoint", |_| None)
+            .await
+            .unwrap();
+    assert_eq!(result.working_notes.to_string(), "repaired");
+    let requests = server.received_requests().await.unwrap();
+    let retry: wire::ModelRequest = requests[1].body_json().unwrap();
+    let endpoint = if provider == lens_analysis::Provider::Anthropic {
+        "/messages"
+    } else {
+        "/chat/completions"
+    };
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(move |request: &Request| {
+            let body: Value = request.body_json().unwrap();
+            if provider == lens_analysis::Provider::Anthropic
+                && body["messages"].as_array().unwrap().last().unwrap()["role"] != "user" {
+                return ResponseTemplate::new(400);
+            }
+            let content = r#"{"working_notes":"replacement, not a continuation"}"#;
+            let response = if provider == lens_analysis::Provider::Anthropic {
+                json!({"model":"fixture","content":[{"type":"text","text":content}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":10}})
+            } else {
+                json!({"model":"fixture","choices":[{"message":{"content":content},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":10}})
+            };
+            ResponseTemplate::new(200).set_body_json(response)
+        })
+        .expect(1)
+        .mount(&server)
+        .await;
+    let catalog = Arc::new(lens_analysis::Catalog::parse(
+        br#"{"fixture":{"mode":"chat","litellm_provider":"openai","input_cost_per_token":0.0,"output_cost_per_token":0.0,"max_input_tokens":100000,"max_output_tokens":10000}}"#,
+        Default::default(),
+    ).unwrap());
+    let models = lens_analysis::AnalysisModels::new(
+        catalog,
+        vec![lens_analysis::Deployment {
+            name: "fixture".into(),
+            model: "fixture".into(),
+            provider,
+            api_base: Some(server.uri().parse().unwrap()),
+            api_key: lens_analysis::Secret::new("fixture-key"),
+            input_cost_per_token: None,
+            output_cost_per_token: None,
+            capacity: Default::default(),
+            output_limits: Default::default(),
+        }],
+        Default::default(),
+    )
+    .unwrap();
+    let response = models
+        .complete(&models.prepare("fixture", &retry).await.unwrap())
+        .await
+        .unwrap();
+    let replacement: wire::Checkpoint = serde_json::from_str(&response.result.content).unwrap();
+    assert_eq!(
+        replacement.working_notes.to_string(),
+        "replacement, not a continuation"
+    );
+    assert_eq!(retry.messages[retry.messages.len() - 2].content, rejected);
+    let correction: Value = serde_json::from_str(&retry.messages.last().unwrap().content).unwrap();
+    assert!(
+        correction["validation_errors"]
+            .as_str()
+            .is_some_and(|detail| !detail.is_empty())
+    );
+    assert_eq!(
+        correction["response_schema"],
+        model::schema("Checkpoint").unwrap()
+    );
+}
+
+#[rstest]
 #[tokio::test]
 async fn proxy_prefix_is_preserved_for_every_control_request() {
     let server = MockServer::start().await;
