@@ -1,6 +1,6 @@
 # Task discovery QA runbook
 
-Tested commit `dc0a714f5f63d5b960141656ac112b02f05378b9` on `joshua-berri/lens:litellm_lens_task_profiles`, compared with `main` at `5109b59b5575a00d752a8dd3134211c573560069`. Later commits add regression tests, formatting, this runbook and its screenshots, and leave production behavior unchanged. The images in the parent folder belong to an earlier pull request and are not evidence for this one
+Tested commit `dc0a714f5f63d5b960141656ac112b02f05378b9` on `joshua-berri/lens:litellm_lens_task_profiles`, compared with `main` at `5109b59b5575a00d752a8dd3134211c573560069`. The sections up to Limitations describe that commit. Three review fixes at `8e5c820b1b0795abc323576be6f6872bb9dbfbf8` changed production code afterwards, and [Review fixes](#review-fixes) records their checks and the current limitations. The images in the parent folder belong to an earlier pull request and are not evidence for this one
 
 ## Reproduce
 
@@ -85,7 +85,7 @@ The vitest command line is reconstructed from the run log, which recorded the ma
 
 ## Broader checks for reviewers
 
-These were not all run for this report. CI runs the full set on the pull request:
+These were not all run locally for this report. CI runs them on the pull request, and at `8e5c820` workspace-wide clippy and the full test suite passed there:
 
 ```bash
 cd src/worker
@@ -95,7 +95,7 @@ cargo test --locked --workspace --no-fail-fast -- --test-threads=2
 cd ../.. && npm run check:worker-contract && npm run check:trace-contract && npm run typecheck:ui
 ```
 
-## Coverage
+## Coverage through `08d5c09`
 
 Coverage counts only production lines this branch changed against `main`, with test modules and test files excluded. Rust is measured with LLVM line coverage
 
@@ -109,6 +109,55 @@ The Rust totals combine the tested commit with the two tests added in `3a0666d`,
 
 The live run reaches the worker's discovery and classification loops, which have no separate unit harness. Their guards are tested directly. Most remaining uncovered lines are storage or provider error fall-throughs. Two closing lines of the request merge in `aggregate.rs` stay unreached by construction, because merging moves every charge of a merged request onto the surviving one, so neither a merged-away request nor a missing target can be found. In `sources.rs` the taxonomy load error and the fallback for an agent without an active taxonomy are not exercised
 
-## Limitations
+## Review fixes
 
-Rust branch coverage is not measured. The Docker `smoke` target, workspace-wide clippy and the full workspace test suite are left to CI. No Codecov report is available for this branch, and the checks that actually run will be read from the pull request once it is open. Grouping quality has not been measured against human labels
+Bugbot found three problems at `08d5c09`. Commit `5c74e04` adds the regression tests alone, `f38d5d1` fixes the code, and `8e5c820` formats a test and removes one comment. Bugbot found no further issues at `8e5c820`
+
+Span reads for a run used to stop six hours after the run started, so later calls were never counted. They now run to the run's recorded end. A failed span read used to end resolution early and return a partial result with status 200, and it now returns 503 like a failed spend read. On the similarity map, choosing another group after clearing a zoomed one used to open zoomed, and it now opens in the full view until **Zoom to selection** is pressed
+
+### Live checks
+
+The before column ran the retained image built from `7f73d7c`, whose production source is identical to `08d5c09`. The after column ran a Lens binary built from source at `8e5c820`. Both used the same ClickHouse 26.9.6.6 with the admin token, synthetic data and no model calls
+
+| Case | Before | After |
+| --- | --- | --- |
+| Long run: two runs posted over OTLP, run A with calls 5 minutes and 7 hours after its start, run B with calls at 5 minutes and 5 hours, then the overview for that agent | 200, 2 runs resolved, 3 requests | 200, 2 runs resolved, 4 requests |
+| Span read fault: the same overview with ClickHouse behind a proxy that returns 500 only for the span page query | 200, 0 of 2 runs resolved, reported as truncated | 503 `{"detail":"Profile data is temporarily unavailable"}` |
+| Map: select a group, zoom, clear it, then select another group | the new group opens zoomed | the new group opens in the full view |
+
+Neither synthetic run had gateway ledger rows, so spend stayed unknown on both sides. The proxy forwarded every ClickHouse request except a POST whose body contained both `LIMIT {page_size:UInt32}` and `request_id`, which is the span page query. The overview request was:
+
+```bash
+curl -s -H "Authorization: Bearer $LENS_ADMIN_TOKEN" \
+  "http://localhost:<lens-port>/lens/profiles/overview?agent=lens-longrun&start_ms=<now - 10.5h>&end_ms=<now + 1m>"
+```
+
+The map runs used a database seeded with `litellm-lens seed-profiles-demo` (96 runs across 3 agents, 55 sample assignments, no model calls) and the `lens-demo-research` agent. The before screenshot comes from the LiteLLM dashboard that embeds Lens, and the after screenshot from the standalone Lens UI built at `8e5c820`. Both render the same Profiles component over the same seeded database. The after run signed in by posting the admin token to `/auth/session` instead of using the sign-in form
+
+![Map after clearing a zoomed group, before the fix](map-zoom-before-08d5c09.png)
+
+![Map after clearing a zoomed group, with the fix](map-zoom-after-8e5c820.png)
+
+### Tests and CI
+
+These results come from the verification runs at each named commit and from the pull request's CI. The full run logs contain credentials and are not published
+
+At `5c74e04` the new long-run test failed with 1 request instead of 2, and the new map test failed because the map had zoomed. At `8e5c820` the long-run test passed, `litellm-lens` lib passed 293 tests including the new span read failure test, and the UI tests passed 163 with typecheck and build clean. The full CI Rust job passed the whole workspace with 4,992 tests passed and 15 ignored, and no warnings
+
+The scoped suites were rerun at `8e5c820` and all passed: `lens-server` lib 350 and `profile_routes` 42, `litellm-lens` lib 293, `profile_calls` 1, `profile_demo` 6 and `profile_state` 2, and `litellm-traces-clickhouse` `profile_selection` 6 and `profiles` 16
+
+### Coverage of the review fixes
+
+This covers only the production lines changed from `08d5c09` to `8e5c820`, measured at `8e5c820` with LLVM line coverage for Rust and vitest coverage for the UI. Every executable changed line is covered by the tests alone. The full-branch figures in [Coverage through `08d5c09`](#coverage-through-08d5c09) still describe the earlier production code and were not recomputed over these lines
+
+| File | Executable changed lines | Covered by tests |
+| --- | --- | --- |
+| `lens/src/task_profiles/calls.rs` | 22 | 22 |
+| `lens/src/task_profiles.rs` | 1 | 1 |
+| `src/ui/lib/src/components/lens/profiles/ProfileMap.tsx` | 3 | 3 |
+
+The other changed lines are a struct field and its serde attribute in `traces-clickhouse/src/query/profiles.rs`, a struct field in `server/src/profiles/aggregate.rs` and two lines of `profile_runs.sql`, which have no executable lines of their own. The query change is exercised by reading run rows in the tests above and by the live overview. The long-run and span read fault containers were removed before their coverage was flushed, so those two cases are evidenced by the HTTP responses above rather than by line counts
+
+## Limitations at `8e5c820`
+
+Both container jobs, x86 and ARM, built their native image and then failed the image scan on CVE-2026-84243 in the glibc 2.44-r6 packages of the Wolfi base image, which this branch does not change, so the qualification steps after the scans were skipped rather than passed. The Docker `smoke` qualification was not run. Rust branch coverage is not measured. No Codecov or Greptile report is visible on the pull request. Grouping quality has not been measured against human labels
