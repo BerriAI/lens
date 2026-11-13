@@ -151,8 +151,8 @@ describe("similarity", () => {
 
     expect(data.groups.map((group) => [group.profile.profile_id, group.points.length])).toEqual([["task:a", 1]]);
     expect(data.unplaced.map((entry) => [entry.profile.profile_id, entry.runs])).toEqual([
-      ["task:a", 2],
       ["recorded:Billing", 2],
+      ["task:a", 2],
       ["unknown", 2],
     ]);
     expect(data.placed).toBe(1);
