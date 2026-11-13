@@ -33,12 +33,29 @@ export type ProfileSource = "recorded" | "enhanced" | "pending" | "unknown" | "l
 export type TaxonomyStatus = "discovering" | "draft" | "frozen" | "failed" | "cleared";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TaxonomyTarget".
+ */
+export type TaxonomyTarget = "draft" | "active";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".
  */
 export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
 
 export interface LensWorker {
   [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ActivationRequest".
+ */
+export interface ActivationRequest {
+  agent: string;
+  /**
+   * Also classify the draft's discovery range, not only runs that start after activation.
+   */
+  backfill?: boolean;
+  revision: number;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
@@ -405,6 +422,17 @@ export interface Step {
   purpose?: string;
 }
 /**
+ * Runs whose start falls in `[start_ms, end_ms)` are classified; an open window has no end.
+ *
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ClassificationWindow".
+ */
+export interface ClassificationWindow {
+  end_ms?: number | null;
+  start_ms: number;
+  [k: string]: unknown;
+}
+/**
  * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "Clusters".
  */
@@ -458,6 +486,25 @@ export interface DiscoveryJob {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryModelChoice".
+ */
+export interface DiscoveryModelChoice {
+  classification: string;
+  discovery: string;
+  embedding: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryModelOptions".
+ */
+export interface DiscoveryModelOptions {
+  classification: string[];
+  discovery: string[];
+  embedding: string[];
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "DiscoveryPoint".
  */
 export interface DiscoveryPoint {
@@ -471,6 +518,26 @@ export interface DiscoveryPoint {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryPreview".
+ */
+export interface DiscoveryPreview {
+  eligible_runs: number;
+  previews: DiscoveryPreviewRun[];
+  sample_runs: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryPreviewRun".
+ */
+export interface DiscoveryPreviewRun {
+  input_preview: string;
+  start_ms: number;
+  trace_id: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "DiscoveryRequest".
  */
 export interface DiscoveryRequest {
@@ -478,6 +545,17 @@ export interface DiscoveryRequest {
   end_ms: number;
   max_runs: number;
   start_ms: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "DiscoveryRun".
+ */
+export interface DiscoveryRun {
+  end_ms: number;
+  requested_runs: number;
+  sampled_runs: number;
+  start_ms: number;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
@@ -801,6 +879,39 @@ export interface ProfileRef {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSettings".
+ */
+export interface ProfileSettings {
+  agent: string;
+  enabled: boolean;
+  models: DiscoveryModelChoice;
+  revision: number;
+  updated_at?: string | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSettingsUpdate".
+ */
+export interface ProfileSettingsUpdate {
+  agent: string;
+  enabled: boolean;
+  models: DiscoveryModelChoice;
+  revision: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSettingsView".
+ */
+export interface ProfileSettingsView {
+  can_write: boolean;
+  defaults: DiscoveryModelChoice;
+  options: DiscoveryModelOptions;
+  settings: ProfileSettings;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "ProfileTotals".
  */
 export interface ProfileTotals {
@@ -894,6 +1005,15 @@ export interface PythonAgentTurnFindings {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ResetRequest".
+ */
+export interface ResetRequest {
+  agent: string;
+  revision: number;
+  target?: "draft" | "active";
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "Result".
  */
 export interface Result {
@@ -941,6 +1061,7 @@ export interface TaskEdit {
 export interface Taxonomy {
   agent: string;
   discovered_at?: string | null;
+  discovery?: DiscoveryRun | null;
   error?: string | null;
   frozen_at?: string | null;
   job?: DiscoveryJob | null;
@@ -958,6 +1079,7 @@ export interface Taxonomy {
    * Generation that assignments are keyed by; it only grows, even across resets.
    */
   version: number;
+  windows?: ClassificationWindow[];
   [k: string]: unknown;
 }
 /**
@@ -984,8 +1106,15 @@ export interface TaxonomyRevisionRequest {
  * via the `definition` "TaxonomyView".
  */
 export interface TaxonomyView {
+  /**
+   * The activated taxonomy that runs resolve against.
+   */
+  active?: Taxonomy | null;
   can_write: boolean;
   discovery_available: boolean;
+  /**
+   * The discovery job, draft or failure under review.
+   */
   taxonomy?: Taxonomy | null;
   [k: string]: unknown;
 }
