@@ -49,7 +49,7 @@ pub fn model_calls(rows: &[TraceSpansRow], spend: &[SpendRow]) -> Vec<ModelCall>
                 .unwrap_or_default();
             ModelCall {
                 span_id: row.span_id.clone(),
-                agent: resolution.owner(*call).to_owned(),
+                agent: resolution.agent(*call).to_owned(),
                 model: row.model.clone(),
                 duration_ns: row.duration_ns,
                 state,
