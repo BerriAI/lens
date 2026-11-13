@@ -980,8 +980,10 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
     onUrlUpdate,
   });
   await user.click(await screen.findByRole("button", { name: "Task profiles" }));
-  expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
-  expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
+  const ranked = within(await screen.findByRole("list", { name: "Profiles ranked by runs" }));
+  expect(ranked.getByRole("button", { name: /Workflows/ })).toHaveTextContent("66.7%");
+  expect(ranked.getByRole("button", { name: /Workflows/ })).toHaveTextContent("4 runs");
+  expect(ranked.getByRole("button", { name: /Unclassified/ })).toHaveTextContent("33.3%");
   expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));
@@ -994,11 +996,33 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
   expect(network).not.toHaveBeenCalled();
 });
 
-it("carries a pie chart profile into the real investigation setup and matching preview", async () => {
+it("carries a selected profile id into the real investigation setup and matching preview", async () => {
   const user = userEvent.setup();
+  const coding = {
+    profile_id: "recorded:Coding",
+    name: "Coding",
+    source: "recorded",
+    run_count: 10,
+    share: 1,
+    request_count: 10,
+    cost_observations: 10,
+    spend_usd: 1,
+  };
+  const window = { agent: "assistant", start_ms: 0, end_ms: 1 };
+  const coverage = { runs_listed: 10, runs_resolved: 10, truncated: false };
   network.mockImplementation(async (input, init) => {
     const request = await readRequest(input, init);
-    if (request.path === "/v1/traces/query") return Response.json({ data: [{ category: "Coding", runs: 10 }, { category: "Workflows", runs: 6 }] });
+    if (request.path === "/lens/profiles/overview")
+      return Response.json({
+        window,
+        coverage,
+        totals: { runs: 10, requests: 10, matched_requests: 10, cost_observations: 10, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
+        profiles: [coding],
+      });
+    if (request.path === "/lens/profiles/matrix")
+      return Response.json({ window, coverage, profiles: [], models: [], cells: [], other_agent_requests: 0 });
+    if (request.path === "/lens/profiles/detail")
+      return Response.json({ window, coverage, profile: coding, runs: [], models: [] });
     if (request.path === "/lens/preview/sample") return Response.json({ eligible: 10, selected: 10, executions: [] });
     if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
     if (request.path === "/lens/agents") return Response.json(["assistant"]);
@@ -1007,16 +1031,16 @@ it("carries a pie chart profile into the real investigation setup and matching p
   });
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { searchParams: "?tab=profiles&agent=assistant&hours=168" });
   await user.click(await screen.findByRole("button", { name: /^Coding/ }));
-  await user.click(screen.getByRole("button", { name: "Investigate profile" }));
+  await user.click(await screen.findByRole("button", { name: "Investigate profile" }));
   expect(await screen.findByRole("region", { name: "New investigation" })).toBeVisible();
-  expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Coding");
+  expect(await screen.findByRole("combobox", { name: "Profile" })).toHaveTextContent("Coding");
   expect(screen.getByRole("combobox", { name: "Agent (optional)" })).toHaveValue("assistant");
   expect(screen.getByRole("spinbutton", { name: "Review the last" })).toHaveValue(7);
   expect(await screen.findByText("10 matching runs")).toBeVisible();
   const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
   expect(requests).toContainEqual(expect.objectContaining({
     path: "/lens/preview/sample",
-    body: expect.objectContaining({ lookback_hours: 168, selection: expect.objectContaining({ profile: "Coding", agent_name: "assistant" }) }),
+    body: expect.objectContaining({ lookback_hours: 168, selection: expect.objectContaining({ profile: "recorded:Coding", agent_name: "assistant" }) }),
   }));
 });
 

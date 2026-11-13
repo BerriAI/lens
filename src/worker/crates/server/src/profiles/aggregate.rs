@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use lens_contract::profiles::{MatrixCell, ProfileCoverage, ProfileRunRef, ProfileTotals};
+use lens_contract::profiles::{
+    MatrixCell, ProfileCoverage, ProfileRunRef, ProfileSource, ProfileTotals,
+};
 use litellm_traces::LedgerRequest;
 
 /// A run in the selected agent's view, with the profile the shared SQL resolver gave it.
@@ -429,6 +431,18 @@ pub fn p95(values: &[f64]) -> Option<f64> {
     sorted.get(rank.saturating_sub(1)).copied()
 }
 
+pub fn source(profile_id: &str) -> ProfileSource {
+    match profile_id
+        .split_once(':')
+        .map_or(profile_id, |(kind, _)| kind)
+    {
+        "recorded" => ProfileSource::Recorded,
+        "cluster" => ProfileSource::Local,
+        "uncertain" => ProfileSource::Uncertain,
+        _ => ProfileSource::Unclassified,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -801,5 +815,14 @@ mod tests {
     #[case::twenty(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0], Some(19.0))]
     fn p95_uses_the_nearest_rank(#[case] values: &[f64], #[case] expected: Option<f64>) {
         assert_eq!(p95(values), expected);
+    }
+
+    #[rstest]
+    #[case::recorded("recorded:Coding", ProfileSource::Recorded)]
+    #[case::local("cluster:abc", ProfileSource::Local)]
+    #[case::uncertain("uncertain", ProfileSource::Uncertain)]
+    #[case::unclassified("unclassified", ProfileSource::Unclassified)]
+    fn profile_ids_map_to_their_source(#[case] profile_id: &str, #[case] expected: ProfileSource) {
+        assert_eq!(source(profile_id), expected);
     }
 }

@@ -196,6 +196,8 @@ fn parameters(profile: &str, preview: u8) -> LensSampleParams {
 #[case::workflows("Workflows",vec!["workflows"])]
 #[case::unclassified("Unclassified",vec!["unclassified"])]
 #[case::unknown("Not recorded",vec![])]
+#[case::recorded_id("recorded:Coding",vec!["coding","earliest","resource-priority"])]
+#[case::unclassified_id("unclassified",vec!["unclassified"])]
 #[tokio::test]
 async fn preview_and_actual_sampling_use_profile_precedence_and_tenant_identity(
     #[future(awt)] profiled_database: TestResult<SeededDatabase>,
@@ -223,6 +225,8 @@ async fn preview_and_actual_sampling_use_profile_precedence_and_tenant_identity(
 #[case::matches("Coding", true)]
 #[case::different("Workflows", false)]
 #[case::unknown("Not recorded", false)]
+#[case::recorded_id("recorded:Coding", true)]
+#[case::other_id("recorded:Workflows", false)]
 #[tokio::test]
 async fn imported_finding_sources_must_belong_to_the_selected_profile(
     #[future(awt)] profiled_database: TestResult<SeededDatabase>,

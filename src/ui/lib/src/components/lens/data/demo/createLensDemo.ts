@@ -8,6 +8,7 @@ import type { LensApi } from "../service";
 import { demoDatasetsApi } from "./demoDatasets";
 import { createLensDemoData, type LensDemoData } from "./fixtures";
 import { usageCategory } from "../../profiles/usageProfile";
+import { demoProfilesApi } from "./demoProfiles";
 
 const notInDemo = (): Promise<never> =>
   Promise.reject(new ApiError("This item is not in the demo", 404, { detail: "This item is not in the demo" }));
@@ -196,9 +197,7 @@ export function createLensDemo(now = Date.now()): LensServices {
     accessToken: "lens-demo",
     lens: demoLensApi(data),
     traces: demoTracesApi(data),
-    profiles: {
-      scope: "demo",
-      usage: async ({ startMs, endMs }, agent) => {
+    profiles: demoProfilesApi(data, async ({ startMs, endMs }, agent) => {
         const counts = new Map<string, number>();
         for (const run of data.runs) {
           const trace = run.trace.summary;
@@ -220,7 +219,6 @@ export function createLensDemo(now = Date.now()): LensServices {
           .sort(
             (a, b) => b.runs - a.runs || a.category.localeCompare(b.category),
           );
-      },
-    },
+    }),
   };
 }
