@@ -322,8 +322,8 @@ pub struct BucketingCandidate {
     pub attempts: u8,
 }
 
-/// Assignments expire with their run's start like every trace table, so runs that are about to
-/// expire are never sampled or classified; an assignment for one would vanish and be paid for again.
+/// Assignments expire with their run's start like every trace table, so runs past retention are
+/// never sampled or classified; an assignment for one would vanish and be paid for again.
 #[derive(Serialize)]
 struct Retained {
     #[serde(flatten)]

@@ -59,16 +59,14 @@ pub(crate) fn ranges(windows: &[ClassificationWindow], open_end: i64) -> Vec<(i6
         .collect()
 }
 
-const RETENTION_MARGIN_MS: i64 = 60 * 60 * 1000;
-
-/// Ranges whose unassigned runs still count as pending. Runs too close to retention are never
-/// classified, so they keep their automatic group instead of staying pending until they expire.
+/// Ranges whose unassigned runs still count as pending. Runs past retention are never classified,
+/// so they keep their automatic group until they are deleted instead of staying pending.
 pub(crate) fn pending_ranges(
     windows: &[ClassificationWindow],
     retention_days: u32,
     now_ms: i64,
 ) -> (Vec<i64>, Vec<i64>) {
-    let cutoff = now_ms - i64::from(retention_days) * 86_400_000 + RETENTION_MARGIN_MS;
+    let cutoff = now_ms - i64::from(retention_days) * 86_400_000;
     ranges(windows, i64::MAX)
         .into_iter()
         .map(|(start, end)| (start.max(cutoff), end))
@@ -355,7 +353,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::open_window_reaching_past_retention(window(80 * DAY, None), (vec![93 * DAY + RETENTION_MARGIN_MS], vec![i64::MAX]))]
+    #[case::open_window_reaching_past_retention(window(80 * DAY, None), (vec![93 * DAY], vec![i64::MAX]))]
     #[case::backfill_entirely_past_retention(window(80 * DAY, Some(90 * DAY)), (vec![], vec![]))]
     #[case::recent_backfill(window(95 * DAY, Some(96 * DAY)), (vec![95 * DAY], vec![96 * DAY]))]
     fn runs_past_retention_are_never_left_pending(

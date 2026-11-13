@@ -20,7 +20,7 @@ GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
    AND max(EndTs) < now() - INTERVAL 30 SECOND
-   AND min(StartTs) > now() - toIntervalDay({retention_days:UInt32}) + INTERVAL 1 HOUR
+   AND min(StartTs) > now() - toIntervalDay({retention_days:UInt32})
 )
 WHERE arrayExists((s, e) -> start_ms >= s AND start_ms < e,
                   {window_starts:Array(Int64)}, {window_ends:Array(Int64)})

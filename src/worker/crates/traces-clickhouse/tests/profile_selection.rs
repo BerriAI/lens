@@ -122,7 +122,7 @@ async fn runs(
             ),
             span(
                 "expiring",
-                -(7 * 24 * 60) + 6 * 60 + 30,
+                -(7 * 24 * 60) + 5 * 60 + 30,
                 "Older than the retention allows",
                 json!({}),
                 team,
@@ -294,7 +294,7 @@ async fn only_unassigned_runs_inside_a_window_are_pending(
 
 #[rstest]
 #[tokio::test]
-async fn runs_at_the_edge_of_retention_are_never_sampled_or_classified(
+async fn runs_past_retention_are_never_sampled_or_classified(
     #[future(awt)] runs: TestResult<SeededDatabase>,
 ) -> TestResult {
     let fixture = runs?;
@@ -309,10 +309,29 @@ async fn runs_at_the_edge_of_retention_are_never_sampled_or_classified(
         ..BucketingParams::windows("assistant", &since_last_week, 20)
     };
 
+    let stored = fetch::<ProfileRuns>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &ProfileRunsParams {
+            all_teams: true,
+            user_id: String::new(),
+            team_ids: Vec::new(),
+            agent: "assistant".into(),
+            start_ms: since_last_week[0].0,
+            end_ms: since_last_week[0].1,
+            taxonomy_id: String::new(),
+            taxonomy_version: 0,
+            window_starts: Vec::new(),
+            window_ends: Vec::new(),
+            limit: 100,
+        },
+    )
+    .await?;
     let eligible = discovery_eligible(&fixture.database.client, &config, &discovery).await?;
     let sample = discovery_samples(&fixture.database.client, &config, &discovery).await?;
     let candidates = bucketing_candidates(&fixture.database.client, &config, &classify).await?;
 
+    assert!(stored.iter().any(|row| row.trace_id == "expiring"));
     assert_eq!(eligible, 4);
     assert!(!traces(&sample).contains(&"team/expiring".to_owned()));
     assert!(!traces(&candidates).contains(&"team/expiring".to_owned()));
