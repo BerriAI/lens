@@ -1475,6 +1475,308 @@
       ],
       "type": "object"
     },
+    "OptimizationAssignment": {
+      "properties": {
+        "baseline": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "string"
+        },
+        "optimizationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "traceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "traceId",
+        "model",
+        "baseline"
+      ],
+      "type": "object"
+    },
+    "OptimizationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "baseline": {
+          "type": "string"
+        },
+        "baselineSampling": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "candidateSampling": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "datasetId": {
+          "type": "string"
+        },
+        "datasetName": {
+          "type": "string"
+        },
+        "judge": {
+          "$ref": "#/definitions/OptimizationJudge"
+        },
+        "judgeModel": {
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/definitions/OptimizationMode"
+        },
+        "models": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "rubric": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/definitions/OptimizationScope"
+        },
+        "teamId": {
+          "type": "string"
+        },
+        "tolerance": {
+          "type": "number"
+        },
+        "traffic": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "agent",
+        "baseline",
+        "models",
+        "teamId",
+        "traffic",
+        "judge",
+        "judgeModel",
+        "rubric",
+        "baselineSampling",
+        "candidateSampling",
+        "datasetId",
+        "datasetName",
+        "revision",
+        "scope",
+        "tolerance"
+      ],
+      "type": "object"
+    },
+    "OptimizationJudge": {
+      "enum": [
+        "feedback",
+        "llm"
+      ],
+      "type": "string"
+    },
+    "OptimizationMode": {
+      "enum": [
+        "live",
+        "shadow",
+        "offline"
+      ],
+      "type": "string"
+    },
+    "OptimizationResult": {
+      "properties": {
+        "completedAt": {
+          "type": "integer"
+        },
+        "costUsd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "original": {
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scoreError": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "servedModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "type": "string"
+        },
+        "spanId": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "model",
+        "sourceId",
+        "traceId",
+        "spanId",
+        "input",
+        "expected",
+        "original",
+        "completedAt"
+      ],
+      "type": "object"
+    },
+    "OptimizationRun": {
+      "properties": {
+        "config": {
+          "$ref": "#/definitions/OptimizationConfig"
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "pending": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/definitions/OptimizationResult"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/definitions/OptimizationStatus"
+        }
+      },
+      "required": [
+        "id",
+        "config",
+        "status",
+        "createdAt",
+        "results",
+        "pending"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "final",
+        "agent"
+      ],
+      "type": "string"
+    },
+    "OptimizationStatus": {
+      "enum": [
+        "running",
+        "paused",
+        "completed"
+      ],
+      "type": "string"
+    },
     "Progress": {
       "additionalProperties": false,
       "properties": {
@@ -1645,6 +1947,24 @@
       "required": [
         "action",
         "code"
+      ],
+      "type": "object"
+    },
+    "ReplayRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "messages": {
+          "items": true,
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "default": {},
+          "type": "object"
+        }
+      },
+      "required": [
+        "messages"
       ],
       "type": "object"
     },

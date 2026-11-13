@@ -9,7 +9,7 @@ use axum::{
 
 use crate::ApiError;
 
-pub(crate) async fn identity<R: lens_auth::SessionRepository>(
+pub async fn identity<R: lens_auth::SessionRepository>(
     auth: &lens_auth::Authentication<R>,
     headers: &HeaderMap,
     method: &Method,

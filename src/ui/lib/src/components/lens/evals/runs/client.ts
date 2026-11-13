@@ -3,6 +3,7 @@ import type { ApiClient } from "../../../../lib/http/client";
 import type { EvalDefinition, EvalRun, EvalRunFilter, EvalSpec, RunCase, RunCaseSummary } from "./types";
 
 export interface EvalRunsApi {
+  runDemo?(name: string): Promise<void>;
   list(filter: EvalRunFilter): Promise<readonly EvalRun[]>;
   get(runId: string): Promise<EvalRun>;
   cases(runId: string): Promise<readonly RunCaseSummary[]>;

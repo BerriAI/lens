@@ -2,6 +2,7 @@ import type { Trace, Span, SpanDetail } from "../../traces/types";
 import type { Lens, Finding, Job, Settings } from "../../model/types";
 import { withReleaseCases } from "./lensDemoLongTrace";
 import { scenarios, type Scenario } from "./scenarios";
+import { baselineFor } from "../../optimizations/model";
 
 const executionId = (traceId: string) => btoa(JSON.stringify(["traces", "", traceId]));
 const iso = (time: number) => new Date(time).toISOString();
@@ -61,7 +62,7 @@ function makeTrace(scene: Scenario, index: number, now: number) {
     parent_span_id: base.span_id,
     name: "Generate response",
     type: "llm",
-    model: "demo-chat-model",
+    model: baselineFor(scene.agent),
     start_offset_ms: toolCount * 1600,
     duration_ms: 1200,
     input_tokens: 520 + index * 41,
@@ -87,7 +88,7 @@ function makeTrace(scene: Scenario, index: number, now: number) {
       span_count: toolCount + 2,
       spend: model.spend,
       priced_calls: 1,
-      start_time: iso(now - (index + 1) * 35 * 60_000),
+      start_time: iso(now - (index + 1) * 10 * 60_000),
       status: scene.failed ? "error" : "ok",
       tool_calls: toolCount,
       trace_id: traceId,
@@ -112,7 +113,19 @@ function makeTrace(scene: Scenario, index: number, now: number) {
     input:
       span.type === "tool"
         ? JSON.stringify({ query: scene.question })
-        : JSON.stringify([{ role: "user", content: scene.question }]),
+        : JSON.stringify(
+            span.type === "llm"
+              ? [
+                  {
+                    role: "system",
+                    content:
+                      "Answer using the recorded tool result. Preserve policy requirements and explain any limitations.",
+                  },
+                  { role: "user", content: scene.question },
+                  { role: "tool", name: scene.tool, content: scene.result },
+                ]
+              : [{ role: "user", content: scene.question }],
+          ),
     output: span.type === "tool" ? scene.result : JSON.stringify([{ role: "assistant", content: scene.answer }]),
     attributes: {
       "gen_ai.agent.name": scene.agent,
@@ -256,7 +269,13 @@ export function createLensDemoData(now = Date.now()) {
       name: definition.name,
       agent_name: definition.agent,
       context: definition.context,
-      checks: [{ id: definition.check, instruction: definition.instruction, enabled: true }],
+      checks: [
+        {
+          id: definition.check,
+          instruction: definition.instruction,
+          enabled: true,
+        },
+      ],
       source: "traces",
       service: "",
       filters: [],
@@ -335,7 +354,11 @@ export function createLensDemoData(now = Date.now()) {
           tool_calls: [],
           verdicts: snapshot
             .filter((finding) => finding.occurrences.includes(execution.id))
-            .map((finding) => ({ check_id: finding.check_id, kind: finding.kind, summary: finding.title })),
+            .map((finding) => ({
+              check_id: finding.check_id,
+              kind: finding.kind,
+              summary: finding.title,
+            })),
         })),
         reviewed: sample.length,
         reading: [],
@@ -364,7 +387,11 @@ export function createLensDemoData(now = Date.now()) {
         finished_at: iso(now - 300_000 - day * 60_000),
         start: iso(now - 86_400_000),
         end: iso(now - 300_000 - day * 60_000),
-        sample: { eligible: sample.length, selected: sample.length, executions: sample },
+        sample: {
+          eligible: sample.length,
+          selected: sample.length,
+          executions: sample,
+        },
       };
     });
     return {

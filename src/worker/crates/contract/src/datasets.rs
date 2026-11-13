@@ -44,6 +44,8 @@ pub struct CaseSource {
 pub struct DatasetCase {
     pub id: String,
     pub messages: Vec<DatasetMessage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<Box<crate::optimizations::ReplayRequest>>,
     #[serde(default)]
     pub reply: String,
     #[serde(default)]

@@ -46,7 +46,7 @@ describe("recorded task categories", () => {
     const runs = await services.traces.list(window, "release_agent");
     expect(summarizeUsage(profile).total).toBe(runs.data.length);
     expect(profile).toEqual([
-      { category: "Coding", runs: 2 },
+      { category: "Coding", runs: 34 },
       { category: "Workflows", runs: 1 },
     ]);
     expect(await services.profiles.usage({ startMs: now, endMs: now + 86400000 }, "release_agent")).toEqual(
