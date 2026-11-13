@@ -121,10 +121,47 @@ pub(crate) async fn read(
         .collect()
 }
 
+const CANDIDATE_PAGE: usize = 256;
+
+#[derive(Clone, Default, Deserialize)]
+pub struct ProjectionCursor {
+    team_id: String,
+    api_key_hash: String,
+    trace_id: String,
+}
+
+impl ProjectionCursor {
+    fn key(&self) -> (&str, &str, &str) {
+        (&self.team_id, &self.api_key_hash, &self.trace_id)
+    }
+}
+
+struct CandidatePage;
+
+#[derive(Serialize)]
+struct CandidatePageParams {
+    team_id: String,
+    api_key_hash: String,
+    trace_id: String,
+    limit: usize,
+}
+
+impl Query for CandidatePage {
+    type Params = CandidatePageParams;
+    type Row = ProjectionCursor;
+    const SQL: &'static str = "SELECT TeamId AS team_id, ApiKeyHash AS api_key_hash, TraceId AS trace_id
+        FROM agent_traces_by_key
+        WHERE (TeamId, ApiKeyHash, TraceId) > ({team_id:String}, {api_key_hash:String}, {trace_id:String})
+        GROUP BY TeamId, ApiKeyHash, TraceId
+        ORDER BY TeamId, ApiKeyHash, TraceId LIMIT {limit:UInt32}";
+}
+
 struct Candidates;
 
 #[derive(Serialize)]
 struct CandidateParams {
+    keys: String,
+    trace_refs: Vec<String>,
     resolution_version: u32,
     retry_before_ms: u64,
     limit: u32,
@@ -217,18 +254,69 @@ fn projection<'a>(
     })
 }
 
-pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usize, Error> {
-    let candidates = fetch::<Candidates>(
+pub async fn project(
+    client: &Client,
+    config: &Config,
+    limit: u32,
+    cursor: &mut Option<ProjectionCursor>,
+) -> Result<usize, Error> {
+    let limit = limit.min(16);
+    if limit == 0 {
+        return Ok(0);
+    }
+    let mut url = config.storage().reader().url().clone();
+    let parameters = url
+        .query_pairs()
+        .filter(|(key, _)| {
+            !matches!(
+                key.as_ref(),
+                "max_threads" | "optimize_aggregation_in_order"
+            )
+        })
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect::<Vec<_>>();
+    url.query_pairs_mut()
+        .clear()
+        .extend_pairs(parameters)
+        .append_pair("max_threads", "1")
+        .append_pair("optimize_aggregation_in_order", "1");
+    let connection = Connection::parse(url.as_str())?;
+    let after = cursor.clone().unwrap_or_default();
+    let page = fetch::<CandidatePage>(
         client,
-        config.storage().reader(),
-        &CandidateParams {
-            resolution_version: RESOLUTION_VERSION,
-            retry_before_ms: now_ms().saturating_sub(RETRY_DELAY_MS),
-            limit: limit.min(16),
+        &connection,
+        &CandidatePageParams {
+            team_id: after.team_id,
+            api_key_hash: after.api_key_hash,
+            trace_id: after.trace_id,
+            limit: CANDIDATE_PAGE,
         },
     )
     .await?;
-    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    if page.is_empty() {
+        *cursor = None;
+        return Ok(0);
+    }
+    let keys = page.iter().map(ProjectionCursor::key).collect::<Vec<_>>();
+    let trace_refs = keys
+        .iter()
+        .map(|(team, key, trace)| {
+            format!("{:X}", Sha256::digest(format!("{team}\0{key}\0{trace}")))
+        })
+        .collect();
+    let candidates = fetch::<Candidates>(
+        client,
+        &connection,
+        &CandidateParams {
+            keys: serde_json::to_string(&keys).map_err(|_| Error::InvalidRow)?,
+            trace_refs,
+            resolution_version: RESOLUTION_VERSION,
+            retry_before_ms: now_ms().saturating_sub(RETRY_DELAY_MS),
+            limit,
+        },
+    )
+    .await?;
+    let store = ClickHouseTraces::new(client.clone(), connection.clone());
     let mut projections = Vec::new();
     for candidate in &candidates {
         let snapshot_ms = now_ms();
@@ -268,6 +356,17 @@ pub async fn project(client: &Client, config: &Config, limit: u32) -> Result<usi
         )
         .await?;
     }
+    *cursor = if candidates.len() == limit as usize {
+        candidates.last().map(|candidate| ProjectionCursor {
+            team_id: candidate.team_id.clone(),
+            api_key_hash: candidate.api_key_hash.clone(),
+            trace_id: candidate.trace_id.clone(),
+        })
+    } else if page.len() == CANDIDATE_PAGE {
+        page.last().cloned()
+    } else {
+        None
+    };
     Ok(candidates.len())
 }
 

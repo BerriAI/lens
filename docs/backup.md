@@ -54,6 +54,25 @@ The command reports `Compacted N state records; current values and revision fenc
 
 Check a known dataset export and completed investigation after maintenance. Compaction bounds the number of stored payload versions per existing record; storage still grows as you create new records. Include both ClickHouse data and Keeper memory in capacity monitoring.
 
+### Distinguish state keys from old versions
+
+A count of rows in `lens_state_blobs` includes historical payload versions. Before sizing a cleanup, run this query in the Lens database using your authenticated ClickHouse SQL client. The bundled deployment uses database `lens`
+
+```sql
+SELECT splitByChar('/', key)[1] AS prefix,
+       count() AS payload_versions,
+       uniqExact(key) AS distinct_keys
+FROM lens.lens_state_blobs
+GROUP BY prefix
+ORDER BY payload_versions DESC;
+```
+
+Compare the two counts before and after the compaction procedure above. A large gap indicates old versions that compaction can reclaim. `lens-writer/` records belong to a lens and `worker/` records belong to a worker identity; row counts alone do not establish one key per historical job
+
+There is no supported automatic deletion of obsolete coordination keys. Keep their revision fences: deleting rows directly from `lens_state_heads`, or adding a TTL to coordination records, can allow a stale worker to publish against a reused revision. Compaction preserves these fences and current product data
+
+Trace retention and analysis lookback serve different purposes. A 365-day retention period keeps those traces available; it is not a tested automatic-analysis capacity guarantee. Size storage and Keeper memory for retained data, and measure query duration and rows read with the intended analysis sample and concurrency. For an external database, use the [supported single-server ClickHouse topology](../helm/lens/README.md#use-existing-clickhouse)
+
 ## Diagnose a failed backup or restore
 
 | Result | Action |

@@ -313,25 +313,39 @@ pub async fn provision(state: Arc<State>) {
 }
 
 pub async fn project_trace_summaries(state: Arc<State>) {
+    let mut cursor = None;
+    let mut failures = 0_u32;
     loop {
         let delay = if state.schema_ready.load(Ordering::Acquire) {
             let background = Arc::clone(&state);
             let runtime = tokio::runtime::Handle::current();
+            let mut next_cursor = cursor.clone();
             let result = tokio::task::spawn_blocking(move || {
-                runtime.block_on(litellm_traces_clickhouse::summaries::project(
-                    &background.storage.client,
-                    &background.storage.config,
-                    16,
-                ))
+                runtime
+                    .block_on(litellm_traces_clickhouse::summaries::project(
+                        &background.storage.client,
+                        &background.storage.config,
+                        16,
+                        &mut next_cursor,
+                    ))
+                    .map(|count| (count, next_cursor))
             })
             .await
             .unwrap_or(Err(litellm_traces_clickhouse::Error::Task));
             match result {
-                Ok(16) => Duration::from_millis(250),
-                Ok(_) => Duration::from_secs(1),
+                Ok((count, next)) => {
+                    cursor = next;
+                    failures = 0;
+                    if count == 16 {
+                        Duration::from_millis(250)
+                    } else {
+                        Duration::from_secs(1)
+                    }
+                }
                 Err(error) => {
                     tracing::warn!(%error, "trace summary projection unavailable");
-                    Duration::from_secs(5)
+                    failures = failures.saturating_add(1);
+                    Duration::from_secs(5 * (1_u64 << failures.saturating_sub(1).min(4)))
                 }
             }
         } else {
