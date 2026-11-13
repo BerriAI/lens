@@ -274,14 +274,22 @@ mod tests {
     #[rstest]
     #[tokio::test]
     async fn a_gateway_that_drops_the_connection_is_a_connection_error() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("listener");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("listener");
         let address = listener.local_addr().expect("address");
-        std::thread::spawn(move || listener.incoming().for_each(drop));
+        let closer = tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                drop(stream);
+            }
+        });
         let connection = GatewayConfig::new(&format!("http://{address}"), "fixture-key".into())
             .expect("connection");
 
         let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
+        closer.abort();
 
+        assert!(closer.await.is_err_and(|error| error.is_cancelled()));
         assert_eq!(result, Err(EmbedError::Connection));
     }
 
