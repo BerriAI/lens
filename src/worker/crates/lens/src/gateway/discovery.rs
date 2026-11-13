@@ -80,6 +80,7 @@ pub(super) async fn fetch(
                     name: model.model_group.clone(),
                     model: model.model_group,
                     provider: lens_decisions::Provider::DecisionsCompatible,
+                    max_input_tokens: model.max_input_tokens.and_then(capacity),
                     api_base: Some(connection.base.clone()),
                     api_key: Some(lens_decisions::Secret::new(connection.key.clone())),
                 };

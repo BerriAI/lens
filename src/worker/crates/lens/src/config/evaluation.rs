@@ -13,6 +13,8 @@ struct Model {
     api_key_env: Option<String>,
     #[serde(default)]
     api_base: Option<String>,
+    #[serde(default)]
+    max_input_tokens: Option<std::num::NonZeroU64>,
 }
 
 pub(super) fn read(read: &impl Fn(&str) -> Option<String>) -> Result<Vec<Deployment>, Error> {
@@ -34,7 +36,7 @@ pub(super) fn read(read: &impl Fn(&str) -> Option<String>) -> Result<Vec<Deploym
             None => return Err(Error::Configuration("Evaluation deployments require api_key_env")),
         };
         let api_base = model.api_base.as_deref().map(url::Url::parse).transpose().map_err(|_| Error::Configuration("Evaluation api_base must be a valid URL"))?;
-        Ok(Deployment { name:model.name, model:model.model, provider:model.provider, api_base, api_key })
+        Ok(Deployment { name:model.name, model:model.model, provider:model.provider, max_input_tokens:model.max_input_tokens, api_base, api_key })
     }).collect()
 }
 

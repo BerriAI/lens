@@ -573,3 +573,94 @@ async fn evidence_followup_failure_keeps_completed_scores_and_evidence(
     assert_eq!(public.flags.len(), 1);
     assert_eq!(public.flags[0].score, 0.9);
 }
+
+struct ContextLimited {
+    calls: std::sync::Mutex<Vec<DecisionRequest>>,
+    state_limit: usize,
+}
+
+impl Decisions for ContextLimited {
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        self.calls.lock().unwrap().push(request.clone());
+        if request
+            .questions
+            .values()
+            .any(|q| matches!(q, Question::Choice { .. }))
+            || serde_json::to_vec(&request.state).unwrap().len() > self.state_limit
+        {
+            return Err(DecisionsError::Context);
+        }
+        Ok(json!({"answers":{"a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2}}}))
+    }
+}
+
+#[rstest]
+#[case::questions_only("small trace".into(), false)]
+#[case::large_unicode("Начало 🦀 ".repeat(4000), true)]
+#[tokio::test]
+async fn context_refusal_drops_evidence_then_reduces_state_without_losing_scores(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] content: String,
+    #[case] partial: bool,
+) {
+    let reader = Reader {
+        contents: BTreeMap::from([("".into(), page(vec![part(content)], None))]),
+        ..reader
+    };
+    let completion = ContextLimited {
+        calls: Default::default(),
+        state_limit: 2048,
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(result.scores["a"], 0.9);
+    assert_eq!(result.partial, partial);
+    assert!(result.evidence.is_empty());
+    assert!(result.failure.is_none());
+    let calls = completion.calls.lock().unwrap();
+    assert_eq!(calls[0].state, calls[1].state);
+    assert!(
+        calls[1]
+            .questions
+            .values()
+            .all(|q| matches!(q, Question::Noul { .. }))
+    );
+    assert!(calls.len() < 16);
+    assert!(
+        calls
+            .windows(2)
+            .all(|pair| pair[1].timeout <= pair[0].timeout)
+    );
+    if partial {
+        assert!(calls.last().unwrap().state.task.starts_with("Partial"));
+        assert!(
+            calls.last().unwrap().state.steps[0]
+                .content
+                .contains("Начало")
+        );
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn irreducible_context_refusals_stop_and_remain_retryable(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    let completion = ContextLimited {
+        calls: Default::default(),
+        state_limit: 1,
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Failed);
+    assert!(matches!(
+        result.failure,
+        Some(lens_contract::signals::SignalFailure::Transient { .. })
+    ));
+    assert_eq!(completion.calls.lock().unwrap().len(), 2);
+}

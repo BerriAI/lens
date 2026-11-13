@@ -156,6 +156,7 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
             until,
             now,
             &SignalAttempt {
+                partial: false,
                 status: SignalAttemptStatus::Classified,
                 model: "actual-model".into(),
                 error: String::new(),

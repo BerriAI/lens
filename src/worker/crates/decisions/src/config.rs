@@ -52,6 +52,7 @@ pub struct Deployment {
     pub name: String,
     pub model: String,
     pub provider: Provider,
+    pub max_input_tokens: Option<std::num::NonZeroU64>,
     pub api_base: Option<Url>,
     pub api_key: Option<Secret>,
 }

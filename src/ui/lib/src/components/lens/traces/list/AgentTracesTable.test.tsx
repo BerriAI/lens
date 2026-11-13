@@ -341,6 +341,39 @@ describe("AgentTracesTable signals", () => {
     expect(within(rows[2]).getByText("Checking")).toBeInTheDocument();
   });
 
+  it.each([
+    [],
+    [{ signal_id: "user_frustration", name: "Frustration", score: 0.9 }],
+  ])("labels partial checks even when no signals are flagged", (flags) => {
+    const partial = result(flaggedRun, "classified", flags);
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={[flaggedRun]}
+          findings={new Map()}
+          signals={
+            new Map([
+              [
+                key(flaggedRun),
+                { ...partial, signals: { ...partial.signals, partial: true } },
+              ],
+            ])
+          }
+          showSignals
+          signalsColumn
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          rangeEmpty={false}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+    expect(screen.getByText("Partial check")).toBeInTheDocument();
+    expect(screen.queryByTitle("No signals detected")).not.toBeInTheDocument();
+  });
+
   it("keeps the signals column with a setup link until signals are configured", async () => {
     const onSetUpSignals = vi.fn();
     renderTable(false, onSetUpSignals);
