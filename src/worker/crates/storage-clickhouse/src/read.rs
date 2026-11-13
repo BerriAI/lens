@@ -31,6 +31,7 @@ pub enum Parameter {
     Unsigned(u64),
     Float(f64),
     Strings(Vec<String>),
+    Integers(Vec<i64>),
 }
 
 impl Parameter {
@@ -45,6 +46,14 @@ impl Parameter {
                 values
                     .iter()
                     .map(|value| format!("'{}'", escaped(value).replace('\'', "\\'")))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            Self::Integers(values) => format!(
+                "[{}]",
+                values
+                    .iter()
+                    .map(i64::to_string)
                     .collect::<Vec<_>>()
                     .join(",")
             ),
@@ -205,4 +214,28 @@ fn decode_rows<T: DeserializeOwned>(body: &str) -> Result<Vec<T>, Error> {
     serde_json::from_str::<Rows<T>>(body)
         .map(|rows| rows.data)
         .map_err(|_| Error::InvalidResponse)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[derive(Serialize)]
+    struct Windows {
+        starts: Vec<i64>,
+        names: Vec<String>,
+    }
+
+    #[rstest]
+    fn integer_arrays_bind_as_clickhouse_arrays() {
+        let bound = parameters(&Windows {
+            starts: vec![1_700_000_000_000, -5],
+            names: vec!["it's".into()],
+        })
+        .expect("parameters");
+
+        assert_eq!(bound["starts"].encoded(), "[1700000000000,-5]");
+        assert_eq!(bound["names"].encoded(), "['it\\'s']");
+    }
 }

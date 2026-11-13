@@ -242,6 +242,21 @@ pub struct DiscoveryJob {
     pub end_ms: i64,
 }
 
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct DiscoveryRun {
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub requested_runs: u32,
+    pub sampled_runs: u32,
+}
+
+/// Runs whose start falls in `[start_ms, end_ms)` are classified; an open window has no end.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct ClassificationWindow {
+    pub start_ms: i64,
+    pub end_ms: Option<i64>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 pub struct TaxonomyModels {
     pub distill: String,
@@ -267,6 +282,10 @@ pub struct Taxonomy {
     pub frozen_at: Option<DateTime<Utc>>,
     pub error: Option<String>,
     pub models: TaxonomyModels,
+    #[serde(default)]
+    pub discovery: Option<DiscoveryRun>,
+    #[serde(default)]
+    pub windows: Vec<ClassificationWindow>,
 }
 
 impl Taxonomy {
@@ -284,9 +303,67 @@ impl Taxonomy {
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 pub struct TaxonomyView {
+    /// The discovery job, draft or failure under review.
     pub taxonomy: Option<Taxonomy>,
+    /// The activated taxonomy that runs resolve against.
+    pub active: Option<Taxonomy>,
     pub discovery_available: bool,
     pub can_write: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryModelChoice {
+    pub discovery: String,
+    pub embedding: String,
+    pub classification: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct ProfileSettings {
+    pub agent: String,
+    pub enabled: bool,
+    pub models: DiscoveryModelChoice,
+    pub revision: u32,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct DiscoveryModelOptions {
+    pub discovery: Vec<String>,
+    pub embedding: Vec<String>,
+    pub classification: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct ProfileSettingsView {
+    pub settings: ProfileSettings,
+    pub defaults: DiscoveryModelChoice,
+    pub options: DiscoveryModelOptions,
+    pub can_write: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProfileSettingsUpdate {
+    pub agent: String,
+    pub revision: u32,
+    pub enabled: bool,
+    pub models: DiscoveryModelChoice,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct DiscoveryPreviewRun {
+    pub trace_id: String,
+    pub start_ms: i64,
+    pub input_preview: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+pub struct DiscoveryPreview {
+    pub eligible_runs: u64,
+    pub sample_runs: u32,
+    pub previews: Vec<DiscoveryPreviewRun>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -319,4 +396,31 @@ pub struct TaskEdit {
 pub struct TaxonomyRevisionRequest {
     pub agent: String,
     pub revision: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActivationRequest {
+    pub agent: String,
+    pub revision: u32,
+    /// Also classify the draft's discovery range, not only runs that start after activation.
+    #[serde(default)]
+    pub backfill: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaxonomyTarget {
+    #[default]
+    Draft,
+    Active,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResetRequest {
+    pub agent: String,
+    pub revision: u32,
+    #[serde(default)]
+    pub target: TaxonomyTarget,
 }

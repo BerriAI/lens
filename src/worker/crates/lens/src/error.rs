@@ -256,6 +256,8 @@ pub enum DiscoveryError {
     Unconfigured(&'static str),
     #[error("discovery did not finish within its time budget")]
     TimedOut,
+    #[error("discovery was cancelled or replaced")]
+    Cancelled,
     #[error(transparent)]
     Embedding(#[from] EmbedError),
 }

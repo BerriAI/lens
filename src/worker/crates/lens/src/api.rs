@@ -147,7 +147,7 @@ impl Application {
     pub fn with_profiles(
         mut self,
         state: Arc<State>,
-        discovery: Option<lens_contract::profiles::TaxonomyModels>,
+        defaults: lens_contract::profiles::DiscoveryModelChoice,
     ) -> Self {
         let store = self.authentication.sessions.0.clone();
         let models = self
@@ -160,7 +160,7 @@ impl Application {
         self.router = self.router.merge(lens_server::profiles::router(
             self.authentication.clone(),
             crate::task_profiles::ProfilesApi::new(state.clone(), store.clone(), models.clone()),
-            discovery,
+            defaults,
         ));
         self.profiles_worker =
             models.map(|models| crate::task_profiles::ProfilesWorker::new(state, store, models));

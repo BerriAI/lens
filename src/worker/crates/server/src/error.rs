@@ -813,11 +813,11 @@ pub enum EvalCloserError {
     InvalidRun,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub enum ProfileStoreError {
     #[error("Profile data is temporarily unavailable")]
     Unavailable,
-    #[error("The taxonomy changed since it was loaded; reload and try again")]
+    #[error("Task discovery changed since it was loaded; reload and try again")]
     Conflict,
 }
 

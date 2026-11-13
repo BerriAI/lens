@@ -162,7 +162,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     .with_evaluations()?
     .with_profiles(
         state.clone(),
-        litellm_lens::task_profiles::discovery_models(|name| std::env::var(name).ok()),
+        litellm_lens::task_profiles::discovery_defaults(|name| std::env::var(name).ok()),
     )
     .with_service(state.clone(), config.ingestion_url, config.release);
     let eval_task = application.evals.start();

@@ -283,8 +283,30 @@ pub struct BucketingParams {
     pub taxonomy_version: u32,
     pub start_ms: i64,
     pub end_ms: i64,
+    pub window_starts: Vec<i64>,
+    pub window_ends: Vec<i64>,
+    pub require_input: u8,
     pub max_attempts: u8,
     pub limit: u32,
+}
+
+impl BucketingParams {
+    /// Unrecorded runs of `agent` with an input, starting in any `[start, end)` window, newest
+    /// first. The discovery preview count and the discovery sample both select runs this way.
+    pub fn windows(agent: &str, windows: &[(i64, i64)], limit: u32) -> Self {
+        Self {
+            agent: agent.to_owned(),
+            taxonomy_id: String::new(),
+            taxonomy_version: 0,
+            start_ms: windows.iter().map(|window| window.0).min().unwrap_or(0),
+            end_ms: windows.iter().map(|window| window.1).max().unwrap_or(0),
+            window_starts: windows.iter().map(|window| window.0).collect(),
+            window_ends: windows.iter().map(|window| window.1).collect(),
+            require_input: 1,
+            max_attempts: 0,
+            limit,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -310,7 +332,10 @@ impl Query for BucketingCandidates {
         response_bytes: 512 * 1024,
         execution_seconds: 10,
     };
-    const SQL: &'static str = include_str!("../query/profile_bucketing_candidates.sql");
+    const SQL: &'static str = concat!(
+        include_str!("../query/profile_selection.sql"),
+        include_str!("../query/profile_bucketing_candidates.sql")
+    );
 }
 
 struct DiscoverySamples;
@@ -323,7 +348,44 @@ impl Query for DiscoverySamples {
         response_bytes: 2 * 1024 * 1024,
         execution_seconds: 20,
     };
-    const SQL: &'static str = include_str!("../query/profile_bucketing_candidates.sql");
+    const SQL: &'static str = concat!(
+        include_str!("../query/profile_selection.sql"),
+        include_str!("../query/profile_bucketing_candidates.sql")
+    );
+}
+
+#[derive(Deserialize)]
+struct EligibleRuns {
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    eligible_runs: u64,
+}
+
+struct DiscoveryEligible;
+
+impl Query for DiscoveryEligible {
+    type Params = BucketingParams;
+    type Row = EligibleRuns;
+    const READ_LIMITS: ReadLimits = ReadLimits {
+        result_rows: 1,
+        response_bytes: 4 * 1024,
+        execution_seconds: 20,
+    };
+    const SQL: &'static str = concat!(
+        include_str!("../query/profile_selection.sql"),
+        include_str!("../query/profile_selection_count.sql")
+    );
+}
+
+/// How many runs discovery could sample with these parameters, ignoring the limit.
+pub async fn discovery_eligible(
+    client: &Client,
+    config: &Config,
+    params: &BucketingParams,
+) -> Result<u64, Error> {
+    Ok(fetch::<DiscoveryEligible>(client, config.storage().reader(), params)
+        .await?
+        .first()
+        .map_or(0, |row| row.eligible_runs))
 }
 
 /// Unrecorded runs of the agent in the discovery window, newest first.

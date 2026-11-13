@@ -35,7 +35,7 @@ pub struct SampleRequest<'a> {
 }
 
 impl SourceReader {
-    /// The agent's frozen enhanced taxonomy, which only every-team scopes can use. Without a
+    /// The agent's active enhanced taxonomy, which only every-team scopes can use. Without a
     /// profile filter the taxonomy changes nothing, so it is not read.
     async fn taxonomy(
         &self,
@@ -60,12 +60,18 @@ impl SourceReader {
             self.0.storage.client.clone(),
             self.0.storage.config.storage().reader().clone(),
         );
-        match crate::task_profiles::read_taxonomy(&store, &id).await {
-            Ok((Some(taxonomy), _)) if taxonomy.frozen_at.is_some() => ProfileTaxonomyParams {
-                taxonomy_id: taxonomy.taxonomy_id,
-                taxonomy_version: taxonomy.version,
-            },
-            _ => ProfileTaxonomyParams::default(),
+        let Ok((state, _)) = crate::task_profiles::load_state(&store, &id).await else {
+            return ProfileTaxonomyParams::default();
+        };
+        let Some(taxonomy) = state.active() else {
+            return ProfileTaxonomyParams::default();
+        };
+        let windows = crate::task_profiles::ranges(&taxonomy.windows, i64::MAX);
+        ProfileTaxonomyParams {
+            taxonomy_id: taxonomy.taxonomy_id.clone(),
+            taxonomy_version: taxonomy.version,
+            window_starts: windows.iter().map(|window| window.0).collect(),
+            window_ends: windows.iter().map(|window| window.1).collect(),
         }
     }
 
@@ -561,7 +567,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             serde_json::to_value(parameters).unwrap(),
-            json!({"profile":"Coding","taxonomy_id":"","taxonomy_version":0,"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
+            json!({"profile":"Coding","taxonomy_id":"","taxonomy_version":0,"window_starts":[],"window_ends":[],"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
         );
     }
 

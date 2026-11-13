@@ -10,16 +10,20 @@ use std::{
     time::{Duration, Instant},
 };
 
-use lens_contract::profiles::{Taxonomy, TaxonomyModels};
+use lens_contract::profiles::{
+    ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions, DiscoveryPreview,
+    DiscoveryPreviewRun, DiscoveryRequest, ProfileSettings, Taxonomy,
+};
 use lens_server::profiles::{
     ConfiguredModel, ProfileStore, ProfileStoreError, RunQuery,
     aggregate::{Run, RunCalls},
-    taxonomy::TaxonomyStore,
+    taxonomy::{AgentState, Changes, DiscoveryCatalog, TaxonomyStore},
 };
 use litellm_storage_clickhouse::state::{Change, ClickHouseState, Snapshot};
 use litellm_traces::query::named::ReadAccessParams;
 use litellm_traces_clickhouse::{
     ClickHouseTraces,
+    profiles::{BucketingParams, discovery_eligible, discovery_samples},
     query::profiles::{ProfileRuns, ProfileRunsParams},
 };
 use tokio::sync::Mutex;
@@ -30,19 +34,25 @@ use crate::{State, gateway::Models, wait_for_read_slot};
 
 const MODEL_CACHE: Duration = Duration::from_secs(60);
 pub(crate) const TAXONOMY_PREFIX: &str = "profiles/taxonomy/";
+pub(crate) const ACTIVE_PREFIX: &str = "profiles/active/";
+const SETTINGS_PREFIX: &str = "profiles/settings/";
+const PREVIEW_RUNS: usize = 3;
 
-pub fn discovery_models(read: impl Fn(&str) -> Option<String>) -> Option<TaxonomyModels> {
-    let value = |name: &str| {
-        read(name)
-            .map(|value| value.trim().to_owned())
-            .filter(|value| !value.is_empty())
-    };
-    Some(TaxonomyModels {
-        distill: value("LENS_PROFILE_DISTILL_MODEL")?,
-        embedding: value("LENS_PROFILE_EMBEDDING_MODEL")?,
-        synthesis: value("LENS_PROFILE_SYNTHESIS_MODEL")?,
-        decision: value("LENS_PROFILE_DECISION_MODEL")?,
-    })
+/// Suggested aliases for the settings form; they never turn discovery on.
+pub fn discovery_defaults(read: impl Fn(&str) -> Option<String>) -> DiscoveryModelChoice {
+    let value = |name: &str| read(name).map(|value| value.trim().to_owned()).unwrap_or_default();
+    DiscoveryModelChoice {
+        discovery: value("LENS_PROFILE_DISCOVERY_MODEL"),
+        embedding: value("LENS_PROFILE_EMBEDDING_MODEL"),
+        classification: value("LENS_PROFILE_CLASSIFICATION_MODEL"),
+    }
+}
+
+pub(crate) fn ranges(windows: &[ClassificationWindow], open_end: i64) -> Vec<(i64, i64)> {
+    windows
+        .iter()
+        .map(|window| (window.start_ms, window.end_ms.unwrap_or(open_end)))
+        .collect()
 }
 
 struct CachedModels {
@@ -85,11 +95,9 @@ impl ProfilesApi {
     }
 }
 
-pub(crate) fn taxonomy_key(taxonomy_id: &str) -> String {
-    format!("{TAXONOMY_PREFIX}{taxonomy_id}")
-}
-
-pub(crate) fn decode(snapshot: &Snapshot) -> Result<Option<Taxonomy>, ProfileStoreError> {
+pub(crate) fn decode<T: serde::de::DeserializeOwned>(
+    snapshot: &Snapshot,
+) -> Result<Option<T>, ProfileStoreError> {
     if snapshot.value.is_null() {
         return Ok(None);
     }
@@ -98,35 +106,65 @@ pub(crate) fn decode(snapshot: &Snapshot) -> Result<Option<Taxonomy>, ProfileSto
         .map_err(|_| ProfileStoreError::Unavailable)
 }
 
-pub(crate) async fn read_taxonomy(
-    store: &ClickHouseState,
-    taxonomy_id: &str,
-) -> Result<(Option<Taxonomy>, Snapshot), ProfileStoreError> {
-    let snapshot = store
-        .read(&taxonomy_key(taxonomy_id))
-        .await
-        .map_err(|_| ProfileStoreError::Unavailable)?;
-    Ok((decode(&snapshot)?, snapshot))
+pub struct Heads {
+    working: Snapshot,
+    active: Snapshot,
+    settings: Snapshot,
 }
 
-pub(crate) async fn write_taxonomy(
+pub(crate) async fn load_state(
     store: &ClickHouseState,
-    previous: Snapshot,
-    next: Option<&Taxonomy>,
-) -> Result<(), ProfileStoreError> {
-    let value = match next {
-        Some(taxonomy) => {
-            serde_json::to_value(taxonomy).map_err(|_| ProfileStoreError::Unavailable)?
-        }
-        None => serde_json::Value::Null,
-    };
-    store
-        .commit(vec![Change { previous, value }])
+    taxonomy_id: &str,
+) -> Result<(AgentState, Heads), ProfileStoreError> {
+    let keys = [
+        format!("{TAXONOMY_PREFIX}{taxonomy_id}"),
+        format!("{ACTIVE_PREFIX}{taxonomy_id}"),
+        format!("{SETTINGS_PREFIX}{taxonomy_id}"),
+    ];
+    let [working, active, settings]: [Snapshot; 3] = store
+        .read_many(&keys.each_ref().map(String::as_str))
         .await
-        .map_err(|error| match error {
-            litellm_storage_clickhouse::Error::StateConflict => ProfileStoreError::Conflict,
-            _ => ProfileStoreError::Unavailable,
-        })
+        .map_err(|_| ProfileStoreError::Unavailable)?
+        .try_into()
+        .map_err(|_| ProfileStoreError::Unavailable)?;
+    Ok((
+        AgentState {
+            working: decode::<Taxonomy>(&working)?,
+            active: decode::<Taxonomy>(&active)?,
+            settings: decode::<ProfileSettings>(&settings)?,
+        },
+        Heads {
+            working,
+            active,
+            settings,
+        },
+    ))
+}
+
+fn change<T: serde::Serialize>(previous: Snapshot, next: Option<T>) -> Result<Change, ProfileStoreError> {
+    let value = match next {
+        Some(value) => serde_json::to_value(value).map_err(|_| ProfileStoreError::Unavailable)?,
+        None => previous.value.clone(),
+    };
+    Ok(Change { previous, value })
+}
+
+/// Commits all three documents against the revisions they were loaded at, rewriting unchanged
+/// ones as they were, so a transition never lands on settings or taxonomies that moved since.
+pub(crate) async fn save_state(
+    store: &ClickHouseState,
+    heads: Heads,
+    changes: Changes,
+) -> Result<(), ProfileStoreError> {
+    let writes = vec![
+        change(heads.working, changes.working)?,
+        change(heads.active, changes.active)?,
+        change(heads.settings, changes.settings)?,
+    ];
+    store.commit(writes).await.map_err(|error| match error {
+        litellm_storage_clickhouse::Error::StateConflict => ProfileStoreError::Conflict,
+        _ => ProfileStoreError::Unavailable,
+    })
 }
 
 impl ProfileStore for ProfilesApi {
@@ -148,6 +186,12 @@ impl ProfileStore for ProfilesApi {
                 end_ms: query.end_ms,
                 taxonomy_id: query.taxonomy_id,
                 taxonomy_version: query.taxonomy_version,
+                window_starts: query.windows.iter().map(|window| window.start_ms).collect(),
+                window_ends: query
+                    .windows
+                    .iter()
+                    .map(|window| window.end_ms.unwrap_or(i64::MAX))
+                    .collect(),
                 limit: query.limit,
             },
         )
@@ -211,16 +255,53 @@ impl ProfileStore for ProfilesApi {
 }
 
 impl TaxonomyStore for ProfilesApi {
-    type Head = Snapshot;
+    type Heads = Heads;
 
-    async fn read(
-        &self,
-        taxonomy_id: &str,
-    ) -> Result<(Option<Taxonomy>, Snapshot), ProfileStoreError> {
-        read_taxonomy(&self.store, taxonomy_id).await
+    async fn load(&self, taxonomy_id: &str) -> Result<(AgentState, Heads), ProfileStoreError> {
+        load_state(&self.store, taxonomy_id).await
     }
 
-    async fn write(&self, head: Snapshot, next: Option<Taxonomy>) -> Result<(), ProfileStoreError> {
-        write_taxonomy(&self.store, head, next.as_ref()).await
+    async fn save(&self, _: &str, heads: Heads, changes: Changes) -> Result<(), ProfileStoreError> {
+        save_state(&self.store, heads, changes).await
+    }
+}
+
+impl DiscoveryCatalog for ProfilesApi {
+    async fn options(&self) -> DiscoveryModelOptions {
+        self.models
+            .as_ref()
+            .map(worker::model_options)
+            .unwrap_or_default()
+    }
+
+    async fn preview(&self, request: DiscoveryRequest) -> Result<DiscoveryPreview, ProfileStoreError> {
+        let _permit = self.permit().await?;
+        let params = BucketingParams::windows(
+            &request.agent,
+            &[(request.start_ms, request.end_ms)],
+            request.max_runs,
+        );
+        let client = &self.state.storage.client;
+        let config = &self.state.storage.config;
+        let eligible = discovery_eligible(client, config, &params)
+            .await
+            .map_err(|_| ProfileStoreError::Unavailable)?;
+        let sampled = discovery_samples(client, config, &BucketingParams { limit: 50, ..params })
+            .await
+            .map_err(|_| ProfileStoreError::Unavailable)?;
+        Ok(DiscoveryPreview {
+            eligible_runs: eligible,
+            sample_runs: u32::try_from(eligible.min(u64::from(request.max_runs))).unwrap_or(request.max_runs),
+            previews: sampled
+                .into_iter()
+                .filter(|run| !run.input_preview.trim().is_empty())
+                .take(PREVIEW_RUNS)
+                .map(|run| DiscoveryPreviewRun {
+                    trace_id: run.trace_id,
+                    start_ms: run.start_ms,
+                    input_preview: run.input_preview.chars().take(300).collect(),
+                })
+                .collect(),
+        })
     }
 }

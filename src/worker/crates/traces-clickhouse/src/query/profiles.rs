@@ -26,6 +26,8 @@ pub struct ProfileRunsParams {
     pub taxonomy_id: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub taxonomy_version: u32,
+    pub window_starts: Vec<i64>,
+    pub window_ends: Vec<i64>,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub limit: u32,
 }
@@ -113,4 +115,9 @@ pub struct ProfileTaxonomyParams {
     pub taxonomy_id: String,
     #[serde(default, deserialize_with = "super::number::deserialize")]
     pub taxonomy_version: u32,
+    /// Run start ranges the taxonomy classifies; outside them an unassigned run is not pending.
+    #[serde(default)]
+    pub window_starts: Vec<i64>,
+    #[serde(default)]
+    pub window_ends: Vec<i64>,
 }

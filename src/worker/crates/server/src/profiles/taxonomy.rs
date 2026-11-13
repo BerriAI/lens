@@ -2,19 +2,23 @@ use std::{future::Future, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, Method},
-    routing::{patch, post},
+    routing::{get, patch, post},
 };
 use chrono::{DateTime, Duration, Utc};
 use lens_auth::SessionRepository;
 use lens_contract::{
     auth::{Identity, Role},
     profiles::{
-        DiscoveryJob, DiscoveryPoint, DiscoveryRequest, TaskDefinition, TaskEdit, Taxonomy,
-        TaxonomyModels, TaxonomyRevisionRequest, TaxonomyStatus,
+        ActivationRequest, ClassificationWindow, DiscoveryJob, DiscoveryModelChoice,
+        DiscoveryModelOptions, DiscoveryPoint, DiscoveryPreview, DiscoveryRequest, DiscoveryRun,
+        ProfileSettings, ProfileSettingsUpdate, ProfileSettingsView, ResetRequest, TaskDefinition,
+        TaskEdit, Taxonomy, TaxonomyModels, TaxonomyRevisionRequest, TaxonomyStatus,
+        TaxonomyTarget,
     },
 };
+use serde::Deserialize;
 
 use super::{App, ProfileHttpError, ProfileStore, ProfileStoreError, scope, taxonomy_id};
 use crate::{auth, routing::PublicRoutes};
@@ -25,39 +29,172 @@ pub const MAX_ATTEMPTS: u32 = 3;
 pub const LEASE: Duration = Duration::minutes(30);
 const NAME_LIMIT: usize = 80;
 const TEXT_LIMIT: usize = 600;
+const CANCELLED: &str = "Discovery was cancelled because task discovery was turned off";
+
+/// The three stored documents of one agent's enhanced profiles.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AgentState {
+    pub working: Option<Taxonomy>,
+    pub active: Option<Taxonomy>,
+    pub settings: Option<ProfileSettings>,
+}
+
+/// Documents to replace together; untouched documents stay `None`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Changes {
+    pub working: Option<Taxonomy>,
+    pub active: Option<Taxonomy>,
+    pub settings: Option<ProfileSettings>,
+}
+
+impl AgentState {
+    /// Taxonomies frozen before activation had its own document are still read as active.
+    pub fn active(&self) -> Option<&Taxonomy> {
+        match &self.active {
+            Some(active) => (active.status == TaxonomyStatus::Frozen).then_some(active),
+            None => self
+                .working
+                .as_ref()
+                .filter(|working| working.status == TaxonomyStatus::Frozen),
+        }
+    }
+
+    pub fn under_review(&self) -> Option<&Taxonomy> {
+        self.working.as_ref().filter(|working| {
+            matches!(
+                working.status,
+                TaxonomyStatus::Discovering | TaxonomyStatus::Draft | TaxonomyStatus::Failed
+            )
+        })
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.settings.as_ref().is_some_and(|settings| settings.enabled)
+    }
+
+    pub fn models(&self) -> Option<TaxonomyModels> {
+        let choice = &self.settings.as_ref()?.models;
+        complete_choice(choice).then(|| TaxonomyModels {
+            distill: choice.discovery.clone(),
+            embedding: choice.embedding.clone(),
+            synthesis: choice.discovery.clone(),
+            decision: choice.classification.clone(),
+        })
+    }
+
+    fn generation(&self) -> u32 {
+        [&self.working, &self.active]
+            .into_iter()
+            .flatten()
+            .map(|taxonomy| taxonomy.version)
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn legacy(&self) -> bool {
+        self.active.is_none() && self.active().is_some()
+    }
+}
 
 pub trait TaxonomyStore: Send + Sync {
-    type Head: Send;
+    type Heads: Send;
 
-    fn read(
+    fn load(
         &self,
         taxonomy_id: &str,
-    ) -> impl Future<Output = Result<(Option<Taxonomy>, Self::Head), ProfileStoreError>> + Send;
+    ) -> impl Future<Output = Result<(AgentState, Self::Heads), ProfileStoreError>> + Send;
 
-    /// Replaces the document only if it is still at `head`; otherwise `Conflict`.
-    fn write(
+    /// Replaces the changed documents only if none of the agent's documents moved since
+    /// `heads`, including unchanged ones a transition depended on; otherwise `Conflict`.
+    fn save(
         &self,
-        head: Self::Head,
-        next: Option<Taxonomy>,
+        taxonomy_id: &str,
+        heads: Self::Heads,
+        changes: Changes,
     ) -> impl Future<Output = Result<(), ProfileStoreError>> + Send;
+}
+
+pub trait DiscoveryCatalog: Send + Sync {
+    fn options(&self) -> impl Future<Output = DiscoveryModelOptions> + Send;
+
+    fn preview(
+        &self,
+        request: DiscoveryRequest,
+    ) -> impl Future<Output = Result<DiscoveryPreview, ProfileStoreError>> + Send;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ModelRole {
+    Discovery,
+    Embedding,
+    Classification,
 }
 
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum TransitionError {
     #[error("Discovery is already running for this agent")]
     Running,
-    #[error("The taxonomy changed since it was loaded; reload and try again")]
+    #[error("Task discovery changed since it was loaded; reload and try again")]
     Stale,
-    #[error("Only a draft taxonomy can be edited or frozen")]
+    #[error("Only a draft taxonomy can be edited or activated")]
     NotDraft,
-    #[error("A draft needs at least one task before it can be frozen")]
+    #[error("A draft needs at least one task before it can be activated")]
     Empty,
     #[error("Task not found in this draft")]
     MissingTask,
     #[error("Task names must be 1-80 characters and other fields at most 600")]
     InvalidEdit,
-    #[error("Discovery reads between 20 and 500 runs")]
+    #[error("Discovery reads between 20 and 500 runs from a non-empty range")]
     InvalidSize,
+    #[error("Turn on task discovery for this agent first")]
+    Disabled,
+    #[error("Choose a model for each step before turning on task discovery")]
+    Unconfigured,
+    #[error("A chosen model is not available on the gateway")]
+    UnavailableModel(ModelRole),
+    #[error("This agent has no active taxonomy")]
+    NotActive,
+    #[error("Classification is already running for new runs")]
+    AlreadyClassifying,
+    #[error("This draft has no discovery range to classify")]
+    NoRange,
+}
+
+fn complete_choice(choice: &DiscoveryModelChoice) -> bool {
+    [&choice.discovery, &choice.embedding, &choice.classification]
+        .iter()
+        .all(|alias| !alias.trim().is_empty())
+}
+
+fn trimmed(choice: &DiscoveryModelChoice) -> DiscoveryModelChoice {
+    DiscoveryModelChoice {
+        discovery: choice.discovery.trim().to_owned(),
+        embedding: choice.embedding.trim().to_owned(),
+        classification: choice.classification.trim().to_owned(),
+    }
+}
+
+pub fn validate_models(
+    choice: &DiscoveryModelChoice,
+    options: &DiscoveryModelOptions,
+) -> Result<(), TransitionError> {
+    if !complete_choice(choice) {
+        return Err(TransitionError::Unconfigured);
+    }
+    [
+        (ModelRole::Discovery, &choice.discovery, &options.discovery),
+        (ModelRole::Embedding, &choice.embedding, &options.embedding),
+        (
+            ModelRole::Classification,
+            &choice.classification,
+            &options.classification,
+        ),
+    ]
+    .into_iter()
+    .find(|(_, alias, available)| !available.contains(alias))
+    .map_or(Ok(()), |(role, _, _)| {
+        Err(TransitionError::UnavailableModel(role))
+    })
 }
 
 fn active_job(taxonomy: &Taxonomy, now: DateTime<Utc>) -> bool {
@@ -74,27 +211,67 @@ fn next(taxonomy: Taxonomy) -> Taxonomy {
     }
 }
 
+fn cleared(taxonomy: &Taxonomy) -> Taxonomy {
+    next(Taxonomy {
+        status: TaxonomyStatus::Cleared,
+        tasks: Vec::new(),
+        points: Vec::new(),
+        job: None,
+        discovered_at: None,
+        frozen_at: None,
+        error: None,
+        windows: Vec::new(),
+        ..taxonomy.clone()
+    })
+}
+
+fn open(taxonomy: &Taxonomy) -> bool {
+    taxonomy.windows.iter().any(|window| window.end_ms.is_none())
+}
+
+/// Writes a changed active taxonomy, moving one still stored the old way into its own document.
+fn with_active(state: &AgentState, active: Taxonomy) -> Changes {
+    Changes {
+        working: state
+            .legacy()
+            .then(|| state.working.as_ref().map(cleared))
+            .flatten(),
+        active: Some(active),
+        settings: None,
+    }
+}
+
 pub fn start_discovery(
-    current: Option<&Taxonomy>,
+    state: &AgentState,
     taxonomy_id: &str,
     request: &DiscoveryRequest,
-    models: &TaxonomyModels,
     job_id: String,
     now: DateTime<Utc>,
-) -> Result<Taxonomy, TransitionError> {
+) -> Result<Changes, TransitionError> {
     if !(MIN_DISCOVERY_RUNS..=MAX_DISCOVERY_RUNS).contains(&request.max_runs)
         || request.end_ms <= request.start_ms
     {
         return Err(TransitionError::InvalidSize);
     }
-    if current.is_some_and(|taxonomy| active_job(taxonomy, now)) {
+    if !state.enabled() {
+        return Err(TransitionError::Disabled);
+    }
+    let models = state.models().ok_or(TransitionError::Unconfigured)?;
+    if state
+        .working
+        .as_ref()
+        .is_some_and(|working| active_job(working, now))
+    {
         return Err(TransitionError::Running);
     }
-    Ok(Taxonomy {
+    let working = Taxonomy {
         taxonomy_id: taxonomy_id.to_owned(),
         agent: request.agent.clone(),
-        version: current.map_or(1, |taxonomy| taxonomy.version.saturating_add(1)),
-        revision: current.map_or(1, |taxonomy| taxonomy.revision.saturating_add(1)),
+        version: state.generation().saturating_add(1),
+        revision: state
+            .working
+            .as_ref()
+            .map_or(1, |working| working.revision.saturating_add(1)),
         status: TaxonomyStatus::Discovering,
         sample: false,
         tasks: Vec::new(),
@@ -111,18 +288,23 @@ pub fn start_discovery(
         discovered_at: None,
         frozen_at: None,
         error: None,
-        models: models.clone(),
+        models,
+        discovery: None,
+        windows: Vec::new(),
+    };
+    Ok(Changes {
+        working: Some(working),
+        active: state.legacy().then(|| state.active().cloned()).flatten(),
+        settings: None,
     })
 }
 
-fn current_revision(current: Option<Taxonomy>, revision: u32) -> Result<Taxonomy, TransitionError> {
-    current
+fn draft(state: &AgentState, revision: u32) -> Result<Taxonomy, TransitionError> {
+    let taxonomy = state
+        .working
+        .clone()
         .filter(|taxonomy| taxonomy.revision == revision)
-        .ok_or(TransitionError::Stale)
-}
-
-fn draft(current: Option<Taxonomy>, revision: u32) -> Result<Taxonomy, TransitionError> {
-    let taxonomy = current_revision(current, revision)?;
+        .ok_or(TransitionError::Stale)?;
     if taxonomy.status != TaxonomyStatus::Draft {
         return Err(TransitionError::NotDraft);
     }
@@ -130,10 +312,10 @@ fn draft(current: Option<Taxonomy>, revision: u32) -> Result<Taxonomy, Transitio
 }
 
 pub fn edit_task(
-    current: Option<Taxonomy>,
+    state: &AgentState,
     task_id: &str,
     edit: &TaskEdit,
-) -> Result<Taxonomy, TransitionError> {
+) -> Result<Changes, TransitionError> {
     let name = edit.name.trim();
     if name.is_empty()
         || name.chars().count() > NAME_LIMIT
@@ -147,57 +329,203 @@ pub fn edit_task(
     {
         return Err(TransitionError::InvalidEdit);
     }
-    let mut taxonomy = draft(current, edit.revision)?;
-    let task = taxonomy
+    let taxonomy = draft(state, edit.revision)?;
+    if !taxonomy.tasks.iter().any(|task| task.task_id == task_id) {
+        return Err(TransitionError::MissingTask);
+    }
+    let tasks = taxonomy
         .tasks
-        .iter_mut()
-        .find(|task| task.task_id == task_id)
-        .ok_or(TransitionError::MissingTask)?;
-    *task = TaskDefinition {
-        task_id: task.task_id.clone(),
-        name: name.to_owned(),
-        description: edit.description.trim().to_owned(),
-        inclusion_criteria: edit.inclusion_criteria.trim().to_owned(),
-        exclusion_criteria: edit.exclusion_criteria.trim().to_owned(),
-        required_capabilities: edit.required_capabilities.clone(),
-        example_trace_ids: task.example_trace_ids.clone(),
-    };
-    Ok(next(taxonomy))
+        .iter()
+        .map(|task| {
+            if task.task_id != task_id {
+                return task.clone();
+            }
+            TaskDefinition {
+                task_id: task.task_id.clone(),
+                name: name.to_owned(),
+                description: edit.description.trim().to_owned(),
+                inclusion_criteria: edit.inclusion_criteria.trim().to_owned(),
+                exclusion_criteria: edit.exclusion_criteria.trim().to_owned(),
+                required_capabilities: edit.required_capabilities.clone(),
+                example_trace_ids: task.example_trace_ids.clone(),
+            }
+        })
+        .collect();
+    Ok(Changes {
+        working: Some(next(Taxonomy { tasks, ..taxonomy })),
+        ..Changes::default()
+    })
 }
 
-pub fn freeze(
-    current: Option<Taxonomy>,
-    request: &TaxonomyRevisionRequest,
+/// Publishes the reviewed draft. Live taxonomies classify runs that start from now on, plus the
+/// draft's own discovery range when `backfill` is set; sample taxonomies never classify.
+pub fn activate(
+    state: &AgentState,
+    request: &ActivationRequest,
     now: DateTime<Utc>,
-) -> Result<Taxonomy, TransitionError> {
-    let taxonomy = draft(current, request.revision)?;
+) -> Result<Changes, TransitionError> {
+    let taxonomy = draft(state, request.revision)?;
     if taxonomy.tasks.is_empty() {
         return Err(TransitionError::Empty);
     }
-    Ok(next(Taxonomy {
-        status: TaxonomyStatus::Frozen,
-        frozen_at: Some(now),
-        ..taxonomy
-    }))
+    if !taxonomy.sample && !state.enabled() {
+        return Err(TransitionError::Disabled);
+    }
+    let backfill = match (request.backfill, &taxonomy.discovery) {
+        (false, _) => None,
+        (true, Some(run)) => Some(ClassificationWindow {
+            start_ms: run.start_ms,
+            end_ms: Some(run.end_ms),
+        }),
+        (true, None) => return Err(TransitionError::NoRange),
+    };
+    let windows = if taxonomy.sample {
+        Vec::new()
+    } else {
+        backfill
+            .into_iter()
+            .chain([ClassificationWindow {
+                start_ms: now.timestamp_millis(),
+                end_ms: None,
+            }])
+            .collect()
+    };
+    let revision = state
+        .active()
+        .map_or(taxonomy.revision, |active| active.revision.max(taxonomy.revision))
+        .saturating_add(1);
+    Ok(Changes {
+        working: Some(cleared(&taxonomy)),
+        active: Some(Taxonomy {
+            status: TaxonomyStatus::Frozen,
+            frozen_at: Some(now),
+            job: None,
+            windows,
+            revision,
+            ..taxonomy
+        }),
+        settings: None,
+    })
 }
 
-/// Clears the taxonomy but keeps its generation, so a later discovery never reuses a version
-/// whose assignments are still stored.
-pub fn reset(
-    current: Option<Taxonomy>,
+pub fn resume(
+    state: &AgentState,
     request: &TaxonomyRevisionRequest,
-) -> Result<Taxonomy, TransitionError> {
-    let taxonomy = current_revision(current, request.revision)?;
-    Ok(next(Taxonomy {
-        status: TaxonomyStatus::Cleared,
-        tasks: Vec::new(),
-        points: Vec::new(),
-        job: None,
-        discovered_at: None,
-        frozen_at: None,
-        error: None,
-        ..taxonomy
-    }))
+    now: DateTime<Utc>,
+) -> Result<Changes, TransitionError> {
+    if !state.enabled() {
+        return Err(TransitionError::Disabled);
+    }
+    let active = state
+        .active()
+        .filter(|active| !active.sample)
+        .ok_or(TransitionError::NotActive)?;
+    if active.revision != request.revision {
+        return Err(TransitionError::Stale);
+    }
+    if open(active) {
+        return Err(TransitionError::AlreadyClassifying);
+    }
+    let windows = active
+        .windows
+        .iter()
+        .cloned()
+        .chain([ClassificationWindow {
+            start_ms: now.timestamp_millis(),
+            end_ms: None,
+        }])
+        .collect();
+    Ok(with_active(
+        state,
+        next(Taxonomy {
+            windows,
+            ..active.clone()
+        }),
+    ))
+}
+
+pub fn reset(state: &AgentState, request: &ResetRequest) -> Result<Changes, TransitionError> {
+    match request.target {
+        TaxonomyTarget::Draft => {
+            let working = state
+                .under_review()
+                .filter(|working| working.revision == request.revision)
+                .ok_or(TransitionError::Stale)?;
+            Ok(Changes {
+                working: Some(cleared(working)),
+                ..Changes::default()
+            })
+        }
+        TaxonomyTarget::Active => {
+            let active = state
+                .active()
+                .filter(|active| active.revision == request.revision)
+                .ok_or(TransitionError::Stale)?;
+            Ok(with_active(state, cleared(active)))
+        }
+    }
+}
+
+/// Saving never starts model calls. Turning discovery off stops classification of new runs and
+/// cancels a running discovery; turning it on again leaves both stopped until asked.
+pub fn update_settings(
+    state: &AgentState,
+    update: &ProfileSettingsUpdate,
+    options: &DiscoveryModelOptions,
+    now: DateTime<Utc>,
+) -> Result<Changes, TransitionError> {
+    let current = state.settings.clone().unwrap_or_default();
+    if current.revision != update.revision {
+        return Err(TransitionError::Stale);
+    }
+    let models = trimmed(&update.models);
+    if update.enabled {
+        validate_models(&models, options)?;
+    }
+    let settings = ProfileSettings {
+        agent: update.agent.clone(),
+        enabled: update.enabled,
+        models,
+        revision: current.revision.saturating_add(1),
+        updated_at: Some(now),
+    };
+    if update.enabled {
+        return Ok(Changes {
+            settings: Some(settings),
+            ..Changes::default()
+        });
+    }
+    let closed = state.active().filter(|active| open(active)).map(|active| {
+        next(Taxonomy {
+            windows: active
+                .windows
+                .iter()
+                .map(|window| ClassificationWindow {
+                    start_ms: window.start_ms,
+                    end_ms: Some(window.end_ms.unwrap_or_else(|| now.timestamp_millis())),
+                })
+                .collect(),
+            ..active.clone()
+        })
+    });
+    let cancelled = state
+        .working
+        .as_ref()
+        .filter(|working| working.status == TaxonomyStatus::Discovering)
+        .map(|working| {
+            next(Taxonomy {
+                status: TaxonomyStatus::Failed,
+                job: None,
+                error: Some(CANCELLED.into()),
+                ..working.clone()
+            })
+        });
+    let moved = closed.map(|active| with_active(state, active));
+    Ok(Changes {
+        working: cancelled.or_else(|| moved.as_ref().and_then(|changes| changes.working.clone())),
+        active: moved.and_then(|changes| changes.active),
+        settings: Some(settings),
+    })
 }
 
 /// The worker's lease on a queued or abandoned discovery job. `None` when there is nothing to
@@ -227,8 +555,8 @@ pub fn claim(current: &Taxonomy, now: DateTime<Utc>) -> Option<Taxonomy> {
     }))
 }
 
-/// Stores a finished discovery only if the attempt that ran it still holds the job; a reclaimed
-/// job's older attempt cannot overwrite the newer one.
+/// Stores a finished discovery only if the attempt that ran it still holds the job; a reclaimed,
+/// replaced or cancelled job's result is dropped.
 pub fn complete(
     current: Option<Taxonomy>,
     job_id: &str,
@@ -237,17 +565,24 @@ pub fn complete(
     now: DateTime<Utc>,
 ) -> Result<Taxonomy, TransitionError> {
     let taxonomy = current.ok_or(TransitionError::Stale)?;
-    if taxonomy.status != TaxonomyStatus::Discovering
-        || taxonomy
-            .job
-            .as_ref()
-            .is_none_or(|job| job.job_id != job_id || job.attempts != attempt)
-    {
-        return Err(TransitionError::Stale);
-    }
+    let job = taxonomy
+        .job
+        .clone()
+        .filter(|job| {
+            taxonomy.status == TaxonomyStatus::Discovering
+                && job.job_id == job_id
+                && job.attempts == attempt
+        })
+        .ok_or(TransitionError::Stale)?;
     Ok(next(match outcome {
         Ok((tasks, points)) => Taxonomy {
             status: TaxonomyStatus::Draft,
+            discovery: Some(DiscoveryRun {
+                start_ms: job.start_ms,
+                end_ms: job.end_ms,
+                requested_runs: job.max_runs,
+                sampled_runs: u32::try_from(points.len()).unwrap_or(u32::MAX),
+            }),
             tasks,
             points,
             job: None,
@@ -268,6 +603,10 @@ pub fn can_write(identity: &Identity) -> bool {
     identity.user_role == Role::ProxyAdmin
 }
 
+fn can_read(identity: &Identity) -> bool {
+    matches!(identity.user_role, Role::ProxyAdmin | Role::ProxyAdminViewer)
+}
+
 impl From<TransitionError> for ProfileHttpError {
     fn from(error: TransitionError) -> Self {
         match error {
@@ -275,33 +614,72 @@ impl From<TransitionError> for ProfileHttpError {
                 ProfileHttpError::Store(ProfileStoreError::Conflict)
             }
             TransitionError::NotDraft => {
-                ProfileHttpError::Invalid("Only a draft taxonomy can be edited or frozen")
+                ProfileHttpError::Invalid("Only a draft taxonomy can be edited or activated")
             }
-            TransitionError::Empty => {
-                ProfileHttpError::Invalid("A draft needs at least one task before it can be frozen")
-            }
-            TransitionError::MissingTask => ProfileHttpError::NotFound,
+            TransitionError::Empty => ProfileHttpError::Invalid(
+                "A draft needs at least one task before it can be activated",
+            ),
+            TransitionError::MissingTask | TransitionError::NotActive => ProfileHttpError::NotFound,
             TransitionError::InvalidEdit => ProfileHttpError::Invalid(
                 "Task names must be 1-80 characters and other fields at most 600",
             ),
-            TransitionError::InvalidSize => {
-                ProfileHttpError::Invalid("Discovery reads between 20 and 500 runs")
+            TransitionError::InvalidSize => ProfileHttpError::Invalid(
+                "Discovery reads between 20 and 500 runs from a non-empty range",
+            ),
+            TransitionError::Disabled => {
+                ProfileHttpError::Invalid("Turn on task discovery for this agent first")
+            }
+            TransitionError::Unconfigured => ProfileHttpError::Invalid(
+                "Choose a model for each step before turning on task discovery",
+            ),
+            TransitionError::UnavailableModel(ModelRole::Discovery) => ProfileHttpError::Invalid(
+                "The task discovery model is not an available chat model on the gateway",
+            ),
+            TransitionError::UnavailableModel(ModelRole::Embedding) => ProfileHttpError::Invalid(
+                "The embedding model is not an available embedding model on the gateway",
+            ),
+            TransitionError::UnavailableModel(ModelRole::Classification) => {
+                ProfileHttpError::Invalid(
+                    "The classification model is not an available Jev decisions model on the gateway",
+                )
+            }
+            TransitionError::AlreadyClassifying => {
+                ProfileHttpError::Invalid("Classification is already running for new runs")
+            }
+            TransitionError::NoRange => {
+                ProfileHttpError::Invalid("This draft has no discovery range to classify")
             }
         }
     }
 }
 
-pub(super) fn router<R: SessionRepository + 'static, S: ProfileStore + TaxonomyStore + 'static>()
--> Router<Arc<App<R, S>>> {
+type Profiles<R, S> = State<Arc<App<R, S>>>;
+
+pub(super) fn router<
+    R: SessionRepository + 'static,
+    S: ProfileStore + TaxonomyStore + DiscoveryCatalog + 'static,
+>() -> Router<Arc<App<R, S>>> {
     Router::new()
+        .public_route(
+            "/lens/profiles/settings",
+            get(settings_view::<R, S>).put(settings_update::<R, S>),
+        )
+        .public_route("/lens/profiles/discovery/preview", post(preview::<R, S>))
         .public_route("/lens/profiles/discovery", post(discover::<R, S>))
         .public_route(
             "/lens/profiles/taxonomy/tasks/{task_id}",
             patch(edit::<R, S>),
         )
-        .public_route("/lens/profiles/taxonomy/freeze", post(freeze_route::<R, S>))
+        .public_route(
+            "/lens/profiles/taxonomy/activate",
+            post(activate_route::<R, S>),
+        )
+        .public_route("/lens/profiles/taxonomy/resume", post(resume_route::<R, S>))
         .public_route("/lens/profiles/taxonomy/reset", post(reset_route::<R, S>))
 }
+
+const ADMINS_ONLY: &str = "Only proxy admins who can read every team can change task discovery";
+const READERS_ONLY: &str = "Only proxy admins who can read every team can view task discovery";
 
 async fn writer<R: SessionRepository, S>(
     app: &App<R, S>,
@@ -311,306 +689,187 @@ async fn writer<R: SessionRepository, S>(
 ) -> Result<String, ProfileHttpError> {
     let identity = auth::identity(&app.authentication, headers, method).await?;
     if !can_write(&identity) {
-        return Err(ProfileHttpError::Forbidden(
-            "Only proxy admins can change task profiles",
-        ));
+        return Err(ProfileHttpError::Forbidden(ADMINS_ONLY));
     }
-    taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(
-        "Only proxy admins can change task profiles",
-    ))
+    taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(ADMINS_ONLY))
 }
 
-async fn discover<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
-    State(app): State<Arc<App<R, S>>>,
+async fn reader<R: SessionRepository, S>(
+    app: &App<R, S>,
+    headers: &HeaderMap,
+    method: &Method,
+    agent: &str,
+) -> Result<(String, Identity), ProfileHttpError> {
+    let identity = auth::identity(&app.authentication, headers, method).await?;
+    if !can_read(&identity) {
+        return Err(ProfileHttpError::Forbidden(READERS_ONLY));
+    }
+    let id = taxonomy_id(&scope(&identity)?, agent).ok_or(ProfileHttpError::Forbidden(READERS_ONLY))?;
+    Ok((id, identity))
+}
+
+async fn apply<R, S: TaxonomyStore>(
+    app: &App<R, S>,
+    id: &str,
+    transition: impl FnOnce(&AgentState) -> Result<Changes, TransitionError>,
+) -> Result<AgentState, ProfileHttpError> {
+    let (state, heads) = app.store.load(id).await?;
+    let changes = transition(&state)?;
+    app.store.save(id, heads, changes.clone()).await?;
+    Ok(AgentState {
+        working: changes.working.or(state.working),
+        active: changes.active.or(state.active),
+        settings: changes.settings.or(state.settings),
+    })
+}
+
+fn view(state: &AgentState) -> lens_contract::profiles::TaxonomyView {
+    lens_contract::profiles::TaxonomyView {
+        taxonomy: state.under_review().cloned(),
+        active: state.active().cloned(),
+        discovery_available: state.enabled() && state.models().is_some(),
+        can_write: true,
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentQuery {
+    agent: String,
+}
+
+async fn settings_view<R: SessionRepository, S: TaxonomyStore + DiscoveryCatalog>(
+    State(app): Profiles<R, S>,
+    headers: HeaderMap,
+    method: Method,
+    Query(query): Query<AgentQuery>,
+) -> Result<Json<ProfileSettingsView>, ProfileHttpError> {
+    let (id, identity) = reader(&app, &headers, &method, &query.agent).await?;
+    let (state, _) = app.store.load(&id).await?;
+    Ok(Json(ProfileSettingsView {
+        settings: state.settings.unwrap_or_else(|| ProfileSettings {
+            agent: query.agent,
+            ..ProfileSettings::default()
+        }),
+        defaults: app.defaults.clone(),
+        options: app.store.options().await,
+        can_write: can_write(&identity),
+    }))
+}
+
+async fn settings_update<R: SessionRepository, S: TaxonomyStore + DiscoveryCatalog>(
+    State(app): Profiles<R, S>,
+    headers: HeaderMap,
+    method: Method,
+    Json(update): Json<ProfileSettingsUpdate>,
+) -> Result<Json<ProfileSettings>, ProfileHttpError> {
+    let id = writer(&app, &headers, &method, &update.agent).await?;
+    let options = if update.enabled {
+        app.store.options().await
+    } else {
+        DiscoveryModelOptions::default()
+    };
+    let saved = apply(&app, &id, |state| {
+        update_settings(state, &update, &options, Utc::now())
+    })
+    .await?;
+    saved
+        .settings
+        .map(Json)
+        .ok_or(ProfileHttpError::Store(ProfileStoreError::Unavailable))
+}
+
+async fn preview<R: SessionRepository, S: DiscoveryCatalog>(
+    State(app): Profiles<R, S>,
     headers: HeaderMap,
     method: Method,
     Json(request): Json<DiscoveryRequest>,
-) -> Result<Json<Taxonomy>, ProfileHttpError> {
-    let id = writer(&app, &headers, &method, &request.agent).await?;
-    let models = app.discovery.clone().ok_or(ProfileHttpError::Invalid(
-        "Enhanced discovery is not configured on this Lens deployment",
-    ))?;
-    let (current, head) = app.store.read(&id).await?;
-    let next = start_discovery(
-        current.as_ref(),
-        &id,
-        &request,
-        &models,
-        uuid::Uuid::new_v4().to_string(),
-        Utc::now(),
-    )?;
-    app.store.write(head, Some(next.clone())).await?;
-    Ok(Json(next))
+) -> Result<Json<DiscoveryPreview>, ProfileHttpError> {
+    reader(&app, &headers, &method, &request.agent).await?;
+    if !(MIN_DISCOVERY_RUNS..=MAX_DISCOVERY_RUNS).contains(&request.max_runs)
+        || request.end_ms <= request.start_ms
+    {
+        return Err(TransitionError::InvalidSize.into());
+    }
+    Ok(Json(app.store.preview(request).await?))
 }
 
-async fn edit<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
-    State(app): State<Arc<App<R, S>>>,
+async fn discover<R: SessionRepository, S: TaxonomyStore + DiscoveryCatalog>(
+    State(app): Profiles<R, S>,
+    headers: HeaderMap,
+    method: Method,
+    Json(request): Json<DiscoveryRequest>,
+) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
+    let id = writer(&app, &headers, &method, &request.agent).await?;
+    let options = app.store.options().await;
+    let state = apply(&app, &id, |state| {
+        let models = state
+            .settings
+            .as_ref()
+            .filter(|settings| settings.enabled)
+            .ok_or(TransitionError::Disabled)?;
+        validate_models(&models.models, &options)?;
+        start_discovery(
+            state,
+            &id,
+            &request,
+            uuid::Uuid::new_v4().to_string(),
+            Utc::now(),
+        )
+    })
+    .await?;
+    Ok(Json(view(&state)))
+}
+
+async fn edit<R: SessionRepository, S: TaxonomyStore>(
+    State(app): Profiles<R, S>,
     Path(task_id): Path<String>,
     headers: HeaderMap,
     method: Method,
     Json(request): Json<TaskEdit>,
-) -> Result<Json<Taxonomy>, ProfileHttpError> {
+) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
-    let (current, head) = app.store.read(&id).await?;
-    let next = edit_task(current, &task_id, &request)?;
-    app.store.write(head, Some(next.clone())).await?;
-    Ok(Json(next))
+    let state = apply(&app, &id, |state| edit_task(state, &task_id, &request)).await?;
+    Ok(Json(view(&state)))
 }
 
-async fn freeze_route<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
-    State(app): State<Arc<App<R, S>>>,
+async fn activate_route<R: SessionRepository, S: TaxonomyStore>(
+    State(app): Profiles<R, S>,
+    headers: HeaderMap,
+    method: Method,
+    Json(request): Json<ActivationRequest>,
+) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
+    let id = writer(&app, &headers, &method, &request.agent).await?;
+    let state = apply(&app, &id, |state| activate(state, &request, Utc::now())).await?;
+    Ok(Json(view(&state)))
+}
+
+async fn resume_route<R: SessionRepository, S: TaxonomyStore>(
+    State(app): Profiles<R, S>,
     headers: HeaderMap,
     method: Method,
     Json(request): Json<TaxonomyRevisionRequest>,
-) -> Result<Json<Taxonomy>, ProfileHttpError> {
+) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
-    let (current, head) = app.store.read(&id).await?;
-    let next = freeze(current, &request, Utc::now())?;
-    app.store.write(head, Some(next.clone())).await?;
-    Ok(Json(next))
+    let state = apply(&app, &id, |state| resume(state, &request, Utc::now())).await?;
+    Ok(Json(view(&state)))
 }
 
-async fn reset_route<R: SessionRepository, S: ProfileStore + TaxonomyStore>(
-    State(app): State<Arc<App<R, S>>>,
+async fn reset_route<R: SessionRepository, S: TaxonomyStore>(
+    State(app): Profiles<R, S>,
     headers: HeaderMap,
     method: Method,
-    Json(request): Json<TaxonomyRevisionRequest>,
-) -> Result<Json<Taxonomy>, ProfileHttpError> {
+    Json(request): Json<ResetRequest>,
+) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
-    let (current, head) = app.store.read(&id).await?;
-    let next = reset(current, &request)?;
-    app.store.write(head, Some(next.clone())).await?;
-    Ok(Json(next))
+    let state = apply(&app, &id, |state| reset(state, &request)).await?;
+    Ok(Json(view(&state)))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rstest::{fixture, rstest};
-
-    fn now() -> DateTime<Utc> {
-        DateTime::from_timestamp(1_800_000_000, 0).expect("time")
-    }
-
-    fn request(max_runs: u32) -> DiscoveryRequest {
-        DiscoveryRequest {
-            agent: "agent".into(),
-            start_ms: 0,
-            end_ms: 1,
-            max_runs,
-        }
-    }
-
-    fn task(task_id: &str) -> TaskDefinition {
-        TaskDefinition {
-            task_id: task_id.into(),
-            name: "Debug failing tests".into(),
-            description: String::new(),
-            inclusion_criteria: String::new(),
-            exclusion_criteria: String::new(),
-            required_capabilities: Vec::new(),
-            example_trace_ids: vec!["trace".into()],
-        }
-    }
-
-    fn start(current: Option<&Taxonomy>, job_id: &str) -> Result<Taxonomy, TransitionError> {
-        start_discovery(
-            current,
-            "tax",
-            &request(100),
-            &TaxonomyModels::default(),
-            job_id.into(),
-            now(),
-        )
-    }
-
-    fn revision(taxonomy: &Taxonomy) -> TaxonomyRevisionRequest {
-        TaxonomyRevisionRequest {
-            agent: "agent".into(),
-            revision: taxonomy.revision,
-        }
-    }
-
-    fn rename(taxonomy: &Taxonomy, name: &str) -> TaskEdit {
-        TaskEdit {
-            agent: "agent".into(),
-            revision: taxonomy.revision,
-            name: name.into(),
-            description: String::new(),
-            inclusion_criteria: String::new(),
-            exclusion_criteria: String::new(),
-            required_capabilities: Vec::new(),
-        }
-    }
-
-    #[fixture]
-    fn discovering() -> Taxonomy {
-        start(None, "job").expect("start")
-    }
-
-    #[fixture]
-    fn drafted(discovering: Taxonomy) -> Taxonomy {
-        let claimed = claim(&discovering, now()).expect("claim");
-        complete(
-            Some(claimed),
-            "job",
-            1,
-            Ok((vec![task("a")], Vec::new())),
-            now(),
-        )
-        .expect("draft")
-    }
-
-    #[rstest]
-    fn a_second_discovery_is_refused_while_one_is_running(discovering: Taxonomy) {
-        assert_eq!(
-            start(Some(&discovering), "job-2"),
-            Err(TransitionError::Running)
-        );
-    }
-
-    #[rstest]
-    fn reset_then_rediscovery_never_reuses_a_generation_with_stored_assignments(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
-        let cleared = reset(Some(frozen.clone()), &revision(&frozen)).expect("reset");
-
-        let rediscovered = start(Some(&cleared), "job-2").expect("rediscover");
-
-        assert_eq!(cleared.status, TaxonomyStatus::Cleared);
-        assert_eq!(cleared.frozen_at, None);
-        assert!(rediscovered.version > frozen.version);
-    }
-
-    #[rstest]
-    #[case::too_small(19)]
-    #[case::too_large(501)]
-    fn discovery_size_is_bounded(#[case] max_runs: u32) {
-        let result = start_discovery(
-            None,
-            "tax",
-            &request(max_runs),
-            &TaxonomyModels::default(),
-            "job".into(),
-            now(),
-        );
-
-        assert_eq!(result, Err(TransitionError::InvalidSize));
-    }
-
-    #[rstest]
-    fn a_running_discovery_cannot_be_frozen(discovering: Taxonomy) {
-        assert_eq!(
-            freeze(Some(discovering.clone()), &revision(&discovering), now()),
-            Err(TransitionError::NotDraft)
-        );
-    }
-
-    #[rstest]
-    fn a_stale_browser_edit_cannot_overwrite_a_newer_one(drafted: Taxonomy) {
-        let first = edit_task(
-            Some(drafted.clone()),
-            "a",
-            &rename(&drafted, "Fix flaky tests"),
-        )
-        .expect("first edit");
-
-        let stale = edit_task(
-            Some(first.clone()),
-            "a",
-            &rename(&drafted, "Something else"),
-        );
-        let stale_freeze = freeze(Some(first.clone()), &revision(&drafted), now());
-
-        assert_eq!(stale, Err(TransitionError::Stale));
-        assert_eq!(stale_freeze, Err(TransitionError::Stale));
-        assert_eq!(first.tasks[0].name, "Fix flaky tests");
-        assert!(first.revision > drafted.revision);
-    }
-
-    #[rstest]
-    fn freezing_a_draft_records_when(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
-
-        assert_eq!(frozen.status, TaxonomyStatus::Frozen);
-        assert_eq!(frozen.frozen_at, Some(now()));
-        assert_eq!(frozen.version, drafted.version);
-    }
-
-    #[rstest]
-    fn a_frozen_taxonomy_cannot_be_edited(drafted: Taxonomy) {
-        let frozen = freeze(Some(drafted.clone()), &revision(&drafted), now()).expect("freeze");
-
-        assert_eq!(
-            edit_task(Some(frozen.clone()), "a", &rename(&frozen, "Renamed")),
-            Err(TransitionError::NotDraft)
-        );
-    }
-
-    #[rstest]
-    #[case::blank("  ", Err(TransitionError::InvalidEdit))]
-    #[case::renamed(" Fix flaky tests ", Ok("Fix flaky tests"))]
-    fn draft_edits_trim_and_validate_names(
-        drafted: Taxonomy,
-        #[case] name: &str,
-        #[case] expected: Result<&str, TransitionError>,
-    ) {
-        let result = edit_task(Some(drafted.clone()), "a", &rename(&drafted, name))
-            .map(|taxonomy| taxonomy.tasks[0].name.clone());
-
-        assert_eq!(result.as_deref().map_err(Clone::clone), expected);
-    }
-
-    #[rstest]
-    fn an_older_attempt_cannot_finish_a_reclaimed_job(discovering: Taxonomy) {
-        let first = claim(&discovering, now()).expect("first claim");
-        let second = claim(&first, now() + LEASE + Duration::seconds(1)).expect("reclaim");
-
-        let late = complete(
-            Some(second.clone()),
-            "job",
-            1,
-            Ok((vec![task("a")], Vec::new())),
-            now(),
-        );
-        let current = complete(
-            Some(second),
-            "job",
-            2,
-            Ok((vec![task("a")], Vec::new())),
-            now(),
-        );
-
-        assert_eq!(late, Err(TransitionError::Stale));
-        assert_eq!(
-            current.map(|taxonomy| taxonomy.status),
-            Ok(TaxonomyStatus::Draft)
-        );
-    }
-
-    #[rstest]
-    fn a_result_from_a_replaced_job_is_dropped(discovering: Taxonomy) {
-        let claimed = claim(&discovering, now()).expect("claim");
-
-        let result = complete(
-            Some(claimed),
-            "older-job",
-            1,
-            Ok((vec![task("a")], Vec::new())),
-            now(),
-        );
-
-        assert_eq!(result, Err(TransitionError::Stale));
-    }
-
-    #[rstest]
-    fn a_held_lease_is_not_reclaimed_and_exhausted_jobs_fail(discovering: Taxonomy) {
-        let first = claim(&discovering, now()).expect("first claim");
-        let later = |leases: i32| now() + LEASE * leases + Duration::seconds(1);
-        let second = claim(&first, later(1)).expect("second");
-        let third = claim(&second, later(2)).expect("third");
-        let exhausted = claim(&third, later(3)).expect("exhausted");
-
-        assert_eq!(claim(&first, now()), None);
-        assert_eq!(exhausted.status, TaxonomyStatus::Failed);
+pub(super) fn taxonomy_view(state: &AgentState, identity: &Identity) -> lens_contract::profiles::TaxonomyView {
+    lens_contract::profiles::TaxonomyView {
+        can_write: can_write(identity),
+        ..view(state)
     }
 }
+

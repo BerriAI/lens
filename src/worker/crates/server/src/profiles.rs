@@ -8,9 +8,9 @@ use axum::{
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
-    Capability, Compatibility, CompatibilityStatus, ModelCapabilities, ModelColumn, ProfileDetail,
-    ProfileRef, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview, Taxonomy,
-    TaxonomyModels, TaxonomyView,
+    Capability, ClassificationWindow, Compatibility, CompatibilityStatus, DiscoveryModelChoice,
+    ModelCapabilities, ModelColumn, ProfileDetail, ProfileRef, ProfileSummary, ProfileWindow,
+    ProfilesMatrix, ProfilesOverview, Taxonomy, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -36,6 +36,7 @@ pub struct RunQuery {
     pub end_ms: i64,
     pub taxonomy_id: String,
     pub taxonomy_version: u32,
+    pub windows: Vec<ClassificationWindow>,
     pub limit: u32,
 }
 
@@ -76,16 +77,16 @@ pub fn taxonomy_id(scope: &ReadAccessParams, agent: &str) -> Option<String> {
 struct App<R, S> {
     authentication: Arc<Authentication<R>>,
     store: S,
-    discovery: Option<TaxonomyModels>,
+    defaults: DiscoveryModelChoice,
 }
 
 pub fn router<
     R: SessionRepository + 'static,
-    S: ProfileStore + taxonomy::TaxonomyStore + 'static,
+    S: ProfileStore + taxonomy::TaxonomyStore + taxonomy::DiscoveryCatalog + 'static,
 >(
     authentication: Arc<Authentication<R>>,
     store: S,
-    discovery: Option<TaxonomyModels>,
+    defaults: DiscoveryModelChoice,
 ) -> Router {
     Router::new()
         .public_route("/lens/profiles/overview", get(overview::<R, S>))
@@ -96,7 +97,7 @@ pub fn router<
         .with_state(Arc::new(App {
             authentication,
             store,
-            discovery,
+            defaults,
         }))
 }
 
@@ -238,12 +239,10 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
     query: &WindowQuery,
 ) -> Result<Loaded, ProfileHttpError> {
     let taxonomy = match taxonomy_id(scope, &query.agent) {
-        Some(id) => store.read(&id).await?.0,
+        Some(id) => store.load(&id).await?.0.active().cloned(),
         None => None,
     };
-    let frozen = taxonomy
-        .as_ref()
-        .filter(|taxonomy| taxonomy.frozen_at.is_some());
+    let frozen = taxonomy.as_ref();
     let mut runs = store
         .runs(
             scope.clone(),
@@ -254,6 +253,7 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
                 taxonomy_id: frozen
                     .map_or_else(String::new, |taxonomy| taxonomy.taxonomy_id.clone()),
                 taxonomy_version: frozen.map_or(0, |taxonomy| taxonomy.version),
+                windows: frozen.map_or_else(Vec::new, |taxonomy| taxonomy.windows.clone()),
                 limit: MAX_RUNS + 1,
             },
         )
@@ -403,15 +403,13 @@ async fn taxonomy_view<R: SessionRepository, S: ProfileStore + taxonomy::Taxonom
     let Some(id) = taxonomy_id(&scope, &query.agent) else {
         return Ok(Json(TaxonomyView {
             taxonomy: None,
+            active: None,
             discovery_available: false,
             can_write: false,
         }));
     };
-    Ok(Json(TaxonomyView {
-        taxonomy: app.store.read(&id).await?.0,
-        discovery_available: app.discovery.is_some(),
-        can_write: taxonomy::can_write(&identity),
-    }))
+    let (state, _) = app.store.load(&id).await?;
+    Ok(Json(taxonomy::taxonomy_view(&state, &identity)))
 }
 
 fn columns<'a>(

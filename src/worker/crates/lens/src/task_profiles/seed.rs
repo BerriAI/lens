@@ -2,12 +2,11 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use lens_contract::profiles::{
-    Capability, DiscoveryPoint, TaskDefinition, Taxonomy, TaxonomyModels, TaxonomyStatus,
+    Capability, DiscoveryPoint, DiscoveryRun, TaskDefinition, Taxonomy, TaxonomyModels,
+    TaxonomyStatus,
 };
-use litellm_storage_clickhouse::{
-    execute_statement,
-    state::{Change, ClickHouseState, Snapshot},
-};
+use lens_server::profiles::taxonomy::{AgentState, Changes};
+use litellm_storage_clickhouse::{execute_statement, state::ClickHouseState};
 use litellm_traces::{Tenant, query::named::ReadAccessParams};
 use litellm_traces_clickhouse::{
     Config, InsertTable, insert_rows, insert_shared_rows,
@@ -17,7 +16,7 @@ use litellm_traces_clickhouse::{
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use super::{decode, taxonomy_key};
+use super::{Heads, load_state, save_state};
 use crate::Error;
 
 pub const TEAM: &str = "lens-profiles-demo";
@@ -471,7 +470,7 @@ fn taxonomy(
         let angle = task_index as f64 * 2.1;
         (50.0 + 28.0 * angle.cos(), 50.0 + 28.0 * angle.sin())
     };
-    let points = sampled
+    let points: Vec<DiscoveryPoint> = sampled
         .iter()
         .map(|run| {
             let task_index = agent
@@ -516,12 +515,19 @@ fn taxonomy(
         status,
         sample: true,
         tasks,
-        points,
         job: None,
         discovered_at: Some(now - chrono::Duration::hours(3)),
         frozen_at: (status == TaxonomyStatus::Frozen).then(|| now - chrono::Duration::hours(2)),
         error: None,
         models: TaxonomyModels::default(),
+        discovery: Some(DiscoveryRun {
+            start_ms: (now - chrono::Duration::days(7)).timestamp_millis(),
+            end_ms: (now - chrono::Duration::hours(3)).timestamp_millis(),
+            requested_runs: 300,
+            sampled_runs: u32::try_from(points.len()).unwrap_or(u32::MAX),
+        }),
+        points,
+        windows: Vec::new(),
     }
 }
 
@@ -560,26 +566,28 @@ fn demo_taxonomy_id(agent: &str) -> String {
     .unwrap_or_default()
 }
 
-/// Only an absent or sample taxonomy may be replaced; anything else belongs to a real user.
-fn replaceable(existing: Option<&Taxonomy>) -> bool {
-    existing.is_none_or(|taxonomy| taxonomy.sample)
+/// Only absent or sample taxonomies may be replaced; anything else belongs to a real user.
+fn replaceable(existing: &AgentState) -> bool {
+    [&existing.working, &existing.active]
+        .into_iter()
+        .flatten()
+        .all(|taxonomy| taxonomy.sample)
 }
 
-async fn guard(state: &ClickHouseState) -> Result<Vec<Snapshot>, Error> {
-    let mut snapshots = Vec::with_capacity(AGENTS.len());
+async fn guard(state: &ClickHouseState) -> Result<Vec<Heads>, Error> {
+    let mut heads = Vec::with_capacity(AGENTS.len());
     for agent in &AGENTS {
-        let snapshot = state
-            .read(&taxonomy_key(&demo_taxonomy_id(agent.name)))
-            .await?;
-        let existing = decode(&snapshot).map_err(|_| Error::Unavailable)?;
-        if !replaceable(existing.as_ref()) {
+        let (existing, snapshot) = load_state(state, &demo_taxonomy_id(agent.name))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        if !replaceable(&existing) {
             return Err(Error::Configuration(
                 "A demo agent already has a non-sample task taxonomy; the seed changed nothing",
             ));
         }
-        snapshots.push(snapshot);
+        heads.push(snapshot);
     }
-    Ok(snapshots)
+    Ok(heads)
 }
 
 fn placeholder(agent: &str) -> Taxonomy {
@@ -597,6 +605,8 @@ fn placeholder(agent: &str) -> Taxonomy {
         frozen_at: None,
         error: None,
         models: TaxonomyModels::default(),
+        discovery: None,
+        windows: Vec::new(),
     }
 }
 
@@ -643,17 +653,20 @@ pub async fn seed(
     )
     .await?;
     let mut assignments = 0;
-    for (agent, previous) in AGENTS.iter().zip(snapshots) {
+    for (agent, heads) in AGENTS.iter().zip(snapshots) {
         let taxonomy = match agent.taxonomy {
             Some(status) => taxonomy(agent, status, &batch.runs, now),
             None => placeholder(agent.name),
         };
-        state
-            .commit(vec![Change {
-                previous,
-                value: serde_json::to_value(&taxonomy)?,
-            }])
-            .await?;
+        let frozen = taxonomy.status == TaxonomyStatus::Frozen;
+        let changes = Changes {
+            working: Some(if frozen { placeholder(agent.name) } else { taxonomy.clone() }),
+            active: Some(if frozen { taxonomy.clone() } else { placeholder(agent.name) }),
+            settings: None,
+        };
+        save_state(state, heads, changes)
+            .await
+            .map_err(|_| Error::Unavailable)?;
         if agent.taxonomy.is_none() {
             continue;
         }
@@ -712,12 +725,18 @@ mod tests {
     fn the_seed_only_replaces_absent_or_sample_taxonomies(
         #[case] sample: Option<bool>,
         #[case] expected: bool,
+        #[values(false, true)] active: bool,
     ) {
         let existing = sample.map(|sample| Taxonomy {
             sample,
             ..placeholder("lens-demo-research")
         });
+        let state = if active {
+            AgentState { active: existing, ..AgentState::default() }
+        } else {
+            AgentState { working: existing, ..AgentState::default() }
+        };
 
-        assert_eq!(replaceable(existing.as_ref()), expected);
+        assert_eq!(replaceable(&state), expected);
     }
 }

@@ -155,6 +155,8 @@ mod tests {
             frozen_at: None,
             error: None,
             models: TaxonomyModels::default(),
+            discovery: None,
+            windows: Vec::new(),
         }
     }
 
