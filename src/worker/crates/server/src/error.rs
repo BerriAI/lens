@@ -817,6 +817,8 @@ pub enum EvalCloserError {
 pub enum ProfileStoreError {
     #[error("Profile data is temporarily unavailable")]
     Unavailable,
+    #[error("Task discovery changed since it was loaded; reload and try again")]
+    Conflict,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -842,6 +844,7 @@ impl IntoResponse for ProfileHttpError {
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::Invalid(_) => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Store(ProfileStoreError::Conflict) => StatusCode::CONFLICT,
             Self::Store(ProfileStoreError::Unavailable) => StatusCode::SERVICE_UNAVAILABLE,
         };
         (status, Json(json!({"detail": detail}))).into_response()

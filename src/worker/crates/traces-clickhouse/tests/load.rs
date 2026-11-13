@@ -245,6 +245,7 @@ async fn readiness_counts_without_reading_trace_payloads(
         sample_parameters(now_ms - 86_400_000, now_ms + 60_000),
     )?)?;
     let parameters = LensSampleParams {
+        taxonomy: Default::default(),
         limit: 1,
         preview: 1,
         ..parameters
@@ -314,6 +315,7 @@ async fn readiness_counts_preserve_metadata_filters_and_scope(
         sample_parameters(now_ms - 86_400_000, now_ms + 60_000),
     )?)?;
     let parameters = LensSampleParams {
+        taxonomy: Default::default(),
         access: litellm_traces_clickhouse::query::lens::LensAccessParams {
             team: team.into(),
             ..parameters.access
@@ -476,6 +478,7 @@ async fn signal_discovery_avoids_unused_trace_attributes(
         sample_parameters(now_ms - 86_400_000, now_ms + 60_000),
     )?)?;
     let parameters = LensSampleParams {
+        taxonomy: Default::default(),
         limit: 100,
         ..parameters
     };

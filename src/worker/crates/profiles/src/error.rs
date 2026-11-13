@@ -6,4 +6,6 @@ pub enum Error {
     InvalidClusters,
     #[error("task embedding model returned an invalid embedding")]
     InvalidEmbedding,
+    #[error("task clustering failed on this sample")]
+    Clustering,
 }

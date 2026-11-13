@@ -74,6 +74,7 @@ function overview(runs: DemoRun[], window: TimeWindow, agent: string): ProfilesO
       shared_requests: 0,
     },
     profiles: summaries(runs),
+    points: [],
   };
 }
 
@@ -116,6 +117,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           profile_id: profile.profile_id,
           name: profile.name,
           source: profile.source,
+          required_capabilities: null,
         })),
         models: models.map((model) => ({
           column_key: `group:${model}`,
@@ -127,6 +129,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           capabilities: { function_calling: null, vision: null, reasoning: null, structured_output: null },
         })),
         cells: cells(runs),
+        compatibility: [],
         other_agent_requests: 0,
       };
     },
@@ -139,6 +142,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
         window: { agent, start_ms: window.startMs, end_ms: window.endMs },
         coverage: { runs_listed: runs.length, runs_resolved: runs.length, truncated: false },
         profile,
+        definition: null,
         runs: own.map((run) => ({
           trace_id: run.traceId,
           trace_ref: "",

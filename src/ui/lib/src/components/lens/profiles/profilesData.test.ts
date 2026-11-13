@@ -58,6 +58,9 @@ const profile = (profile_id: string, overrides: Partial<ProfileSummary> = {}): P
 describe("profileColors", () => {
   const profiles = [
     profile("uncertain", { source: "uncertain", run_count: 9 }),
+    profile("pending", { source: "pending", run_count: 7 }),
+    profile("task:a", { source: "enhanced", run_count: 6 }),
+    profile("unknown", { source: "unknown", run_count: 6 }),
     profile("cluster:a", { run_count: 3 }),
     profile("unclassified", { source: "unclassified", run_count: 8 }),
     profile("recorded:Billing", { source: "recorded", run_count: 5 }),
@@ -69,7 +72,10 @@ describe("profileColors", () => {
 
     expect(colors.get("uncertain")).toBe(NEUTRAL);
     expect(colors.get("unclassified")).toBe(NEUTRAL);
-    expect(["recorded:Billing", "cluster:a", "cluster:b"].map((id) => colors.get(id))).toEqual([
+    expect(colors.get("pending")).toBe(NEUTRAL);
+    expect(colors.get("unknown")).toBe(NEUTRAL);
+    expect(["recorded:Billing", "task:a", "cluster:a", "cluster:b"].map((id) => colors.get(id))).toEqual([
+      expect.stringContaining("var(--chart-"),
       expect.stringContaining("var(--chart-"),
       expect.stringContaining("var(--chart-"),
       expect.stringContaining("var(--chart-"),

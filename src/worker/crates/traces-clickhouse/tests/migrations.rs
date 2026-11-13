@@ -1054,6 +1054,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
             {"name": "lens_task_clusters"},
+            {"name": "lens_task_profile_assignments"},
             {"name": "lens_task_profiles"},
             {"name": "lens_trace_summaries"},
             {"name": "otel_logs"},

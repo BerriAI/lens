@@ -141,7 +141,10 @@ async fn run() -> Result<(), litellm_lens::Error> {
     )
     .await?
     .with_evaluations()?
-    .with_profiles(state.clone())
+    .with_profiles(
+        state.clone(),
+        litellm_lens::task_profiles::discovery_defaults(|name| std::env::var(name).ok()),
+    )
     .with_service(state.clone(), config.ingestion_url, config.release);
     let eval_task = application.evals.start();
     let mut tasks = tokio::task::JoinSet::new();
@@ -165,6 +168,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .clone()
         .ok_or(litellm_lens::Error::Unavailable)?;
     tasks.spawn(signals.serve());
+    if let Some(profiles) = application.profiles_worker.clone() {
+        tasks.spawn(profiles.serve());
+    }
     tasks.spawn(provision(state.clone()));
     tasks.spawn(litellm_lens::project_trace_summaries(state.clone()));
     if litellm_lens::profiles::enabled()? {

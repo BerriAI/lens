@@ -235,3 +235,33 @@ impl IntoResponse for Error {
         response
     }
 }
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum EmbedError {
+    #[error("the embedding model could not be reached")]
+    Connection,
+    #[error("the embedding model rejected the request with status {0}")]
+    Rejected(u16),
+    #[error("the embedding model returned an invalid reply")]
+    InvalidReply,
+}
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum DiscoveryError {
+    #[error("the {0} model call failed")]
+    Provider(&'static str),
+    #[error("the {0} model returned an unusable reply")]
+    InvalidReply(&'static str),
+    #[error("too few runs to discover tasks; at least 20 unrecorded runs are needed")]
+    TooFewRuns,
+    #[error("clustering failed on this sample")]
+    Clustering,
+    #[error("the {0} model is not configured on the gateway")]
+    Unconfigured(&'static str),
+    #[error("discovery did not finish within its time budget")]
+    TimedOut,
+    #[error("discovery was cancelled or replaced")]
+    Cancelled,
+    #[error(transparent)]
+    Embedding(#[from] EmbedError),
+}
