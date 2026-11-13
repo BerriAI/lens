@@ -4,7 +4,6 @@ import type { DiscoveryPreview, ModelChoice, ProfileSettings, Taxonomy } from ".
 export const DEFAULT_SAMPLE = 300;
 export const MIN_SAMPLE = 20;
 export const MAX_SAMPLE = 500;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -13,19 +12,20 @@ export const toDateInput = (ms: number) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
-const localMidnight = (value: string) => {
+const localMidnight = (value: string, dayOffset = 0) => {
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return null;
-  const date = new Date(year, month - 1, day);
+  const date = new Date(year, month - 1, day + dayOffset);
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 };
 
-/** Both dates are inclusive whole days in the browser's time zone. */
+/** Both dates are inclusive whole days in the browser's time zone, cut off at the present. */
 export function rangeFromDates(start: string, end: string, nowMs: number): TimeWindow | null {
   const from = localMidnight(start);
-  const through = localMidnight(end);
-  if (from === null || through === null || through < from) return null;
-  return { startMs: from, endMs: Math.min(through + DAY_MS, nowMs) };
+  const after = localMidnight(end, 1);
+  if (from === null || after === null) return null;
+  const endMs = Math.min(after, nowMs);
+  return endMs > from ? { startMs: from, endMs } : null;
 }
 
 export function sampleSize(input: string): number | null {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   classification,
   discoveryBlocker,
@@ -47,6 +47,8 @@ const active = (overrides: Partial<Taxonomy>): Taxonomy => ({
   ...overrides,
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("rangeFromDates", () => {
   it("covers both chosen days in full", () => {
     const range = rangeFromDates("2026-11-01", "2026-11-02", Number.MAX_SAFE_INTEGER);
@@ -68,6 +70,21 @@ describe("rangeFromDates", () => {
     ["incomplete", "", "2026-11-02"],
   ])("rejects a %s range", (_, start, end) => {
     expect(rangeFromDates(start, end, Number.MAX_SAFE_INTEGER)).toBeNull();
+  });
+
+  it("rejects a range that starts in the future", () => {
+    const now = new Date(2026, 10, 13, 12).getTime();
+
+    expect(rangeFromDates("2026-11-20", "2026-11-21", now)).toBeNull();
+  });
+
+  it("ends a daylight saving day at the next calendar midnight, not after 24 hours", () => {
+    vi.stubEnv("TZ", "America/New_York");
+
+    const range = rangeFromDates("2026-03-08", "2026-03-08", Number.MAX_SAFE_INTEGER);
+
+    expect(range).toEqual({ startMs: new Date(2026, 2, 8).getTime(), endMs: new Date(2026, 2, 9).getTime() });
+    expect((range?.endMs ?? 0) - (range?.startMs ?? 0)).toBe(23 * 60 * 60 * 1000);
   });
 });
 
