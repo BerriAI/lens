@@ -62,6 +62,7 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
             name: "signals".into(),
             model: "typesafe/jev-latest".into(),
             provider: Provider::Typesafe,
+            max_input_tokens: None,
             api_base: Some(provider.uri().parse().unwrap()),
             api_key: Some(Secret::new("synthetic-key")),
         }],
@@ -195,4 +196,136 @@ async fn ingested_trace_is_classified_and_durable_without_a_gateway(
         0
     );
     assert_eq!(provider.received_requests().await.unwrap().len(), 1);
+}
+
+#[rstest]
+#[case::provider_refusal(None)]
+#[case::advertised_capacity(std::num::NonZeroU64::new(4096))]
+#[tokio::test]
+async fn oversized_gateway_trace_keeps_durable_scores_and_reports_partial_coverage(
+    #[future(awt)] database: Database,
+    #[case] capacity: Option<std::num::NonZeroU64>,
+) {
+    let server = database.serve(false).await;
+    let now = Utc::now();
+    let at = (now - chrono::TimeDelta::seconds(60))
+        .timestamp_nanos_opt()
+        .unwrap();
+    let content = format!(
+        "{} Please fix the repeated failure",
+        "Запрос пользователя 🦀 ".repeat(2000)
+    );
+    let payload = json!({"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"b1112222333344445555666677778888","spanId":"1111222233334444","name":"Large agent run","startTimeUnixNano":at.to_string(),"endTimeUnixNano":(at+1_000_000).to_string(),"attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"invoke_agent"}},{"key":"gen_ai.input.messages","value":{"stringValue":json!([{"role":"user","content":content}]).to_string()}}],"status":{"code":1}}]}]}]});
+    let http = reqwest::Client::new();
+    assert_eq!(
+        http.post(format!("{}/v1/traces", server.url))
+            .bearer_auth(INGEST)
+            .json(&payload)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    let provider = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v1/decisions"))
+        .respond_with(|request: &wiremock::Request| {
+            if request.body.len() > 3000 {
+                ResponseTemplate::new(400).set_body_json(json!({"detail":{"error_type":"max_tokens_exceeded"}}))
+            } else {
+                ResponseTemplate::new(200).set_body_json(json!({"answers":[{"name":"frustration","type":"predicate","probability":0.9}]}))
+            }
+        }).expect(1..16).up_to_n_times(16).mount(&provider).await;
+    let models = EvaluationModels::new(
+        lens_analysis::bundled_catalog().unwrap(),
+        vec![Deployment {
+            name: "signals".into(),
+            model: "test-evaluation-alias".into(),
+            provider: Provider::DecisionsCompatible,
+            max_input_tokens: capacity,
+            api_base: Some(provider.uri().parse().unwrap()),
+            api_key: Some(Secret::new("synthetic-key")),
+        }],
+        Default::default(),
+    )
+    .unwrap();
+    let config: SignalConfig = serde_json::from_value(json!({"model":"signals","signals":[{"id":"frustration","name":"Frustration","question":"Is the user frustrated?"}]})).unwrap();
+    let repository = Signals(server.store.clone());
+    repository.save_config(&config).await.unwrap();
+    let settled = now + chrono::TimeDelta::seconds(30);
+    let tick = run_signal_tick(
+        &server.sources,
+        Some(&repository),
+        Some(&models),
+        &|| settled,
+        true,
+        "",
+        LIVE_SWEEP,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tick.claimed, 1);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let read_url = format!("http://{}", listener.local_addr().unwrap());
+    let authentication = std::sync::Arc::new(lens_auth::Authentication {
+        settings: lens_auth::Settings::new(datasets::support::ADMIN, None, &read_url).unwrap(),
+        sessions: litellm_storage_clickhouse::sessions::Sessions(server.store.clone()),
+    });
+    let routes = lens_server::signals::router(
+        authentication,
+        Signals(server.store.clone()),
+        vec!["signals".into()],
+    );
+    let read_task = tokio::spawn(async move { axum::serve(listener, routes).await.unwrap() });
+    let sample = SignalReader::sample(
+        &server.sources,
+        &Scope {
+            all_teams: true,
+            ..Default::default()
+        },
+        (now - chrono::TimeDelta::minutes(15)).timestamp_millis(),
+        settled.timestamp_millis(),
+        100,
+        "",
+    )
+    .await
+    .unwrap();
+    let execution = &sample.executions[0];
+    let traces =
+        json!({"traces":[{"trace_id":execution.trace_id,"trace_ref":execution.trace_ref}]});
+    let response = http
+        .post(format!("{read_url}/lens/traces/signals"))
+        .bearer_auth(datasets::support::ADMIN)
+        .json(&traces)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let data: Value = response.json().await.unwrap();
+    read_task.abort();
+    assert_eq!(data[0]["status"], "classified");
+    assert_eq!(data[0]["partial"], true);
+    assert_eq!(data[0]["flags"][0]["score"], 0.9);
+    assert!(data[0]["flags"][0].get("evidence").is_none());
+    let requests = provider.received_requests().await.unwrap();
+    assert!(requests.last().unwrap().body.len() <= 3000);
+    if capacity.is_none() {
+        assert!(requests[0].body.len() > 3000);
+        assert!(requests.len() > 2);
+    }
+    assert_eq!(
+        run_signal_tick(
+            &server.sources,
+            Some(&repository),
+            Some(&models),
+            &|| settled,
+            true,
+            "",
+            LIVE_SWEEP
+        )
+        .await
+        .unwrap()
+        .claimed,
+        0
+    );
 }

@@ -271,6 +271,76 @@ fn output(value: Value) -> Result<Output, Error> {
     serde_json::from_value(Value::Object(object)).map_err(Error::Response)
 }
 
+fn shrink_state(state: &mut SignalState) -> bool {
+    let previous = state.steps.clone();
+    let characters: usize = state
+        .steps
+        .iter()
+        .map(|step| {
+            step.content.chars().count() + step.name.chars().count() + step.kind.chars().count()
+        })
+        .sum();
+    if characters > state.steps.len() * 64 {
+        for step in &mut state.steps {
+            for text in [&mut step.content, &mut step.name, &mut step.kind] {
+                let count = text.chars().count();
+                if count > 64 {
+                    let head = text.chars().take(count / 4).collect::<String>();
+                    let tail = text.chars().skip(count - count / 4).collect::<String>();
+                    *text = format!("{head}\n[... omitted ...]\n{tail}");
+                }
+            }
+        }
+    }
+    if state.steps == previous && state.steps.len() > 1 {
+        let keep = state.steps.len().div_ceil(2);
+        let last = state.steps.pop().expect("nonempty steps");
+        state.steps = state.steps.drain(..).step_by(2).take(keep - 1).collect();
+        state.steps.push(last);
+    }
+    let changed = state.steps != previous;
+    if changed {
+        state.task = "Partial AI agent trace: content or steps were omitted to fit the model context. Judge only the supplied text; missing evidence does not demonstrate absence of a problem.";
+    }
+    changed
+}
+
+async fn score_response(
+    completion: &impl Decisions,
+    request: &mut DecisionRequest,
+    started: Instant,
+) -> Result<(Output, bool, bool), Error> {
+    let mut scores_only = false;
+    let mut partial = false;
+    loop {
+        match completion.complete(request).await {
+            Ok(value) => return Ok((output(value)?, scores_only, partial)),
+            Err(DecisionsError::Context) => {
+                if !scores_only
+                    && request
+                        .questions
+                        .values()
+                        .any(|question| matches!(question, Question::Choice { .. }))
+                {
+                    request
+                        .questions
+                        .retain(|_, question| matches!(question, Question::Noul { .. }));
+                    scores_only = true;
+                } else if shrink_state(&mut request.state) {
+                    partial = true;
+                } else {
+                    return Err(DecisionsError::Context.into());
+                }
+                request.timeout = Duration::from_secs(60)
+                    .checked_sub(started.elapsed())
+                    .filter(|remaining| !remaining.is_zero())
+                    .ok_or(DecisionsError::Timeout)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
 async fn attempt(
     reader: &impl SignalReader,
     completion: &impl Decisions,
@@ -314,7 +384,11 @@ async fn attempt(
         tags: vec!["litellm-lens-signals"],
     };
     let started = Instant::now();
-    let mut response = output(completion.complete(&request).await?)?;
+    let (mut response, scores_only, partial) =
+        score_response(completion, &mut request, started).await?;
+    if scores_only {
+        pending.clear();
+    }
     let scores = config
         .signals
         .iter()
@@ -379,6 +453,7 @@ async fn attempt(
         }
     }
     Ok(SignalAttempt {
+        partial,
         status: if complete {
             SignalAttemptStatus::Classified
         } else {
@@ -430,6 +505,7 @@ pub async fn classify(
     match attempt(reader, completion, scope, execution, config).await {
         Ok(attempt) => attempt,
         Err(error) => SignalAttempt {
+            partial: false,
             status: SignalAttemptStatus::Failed,
             scores: BTreeMap::new(),
             evidence: BTreeMap::new(),

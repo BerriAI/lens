@@ -265,6 +265,7 @@ fn deployment() -> Deployment {
         name: "signals".into(),
         model: "typesafe/test-evaluator".into(),
         provider: Provider::Typesafe,
+        max_input_tokens: None,
         api_base: None,
         api_key: Some(Secret::new("private-key")),
     }

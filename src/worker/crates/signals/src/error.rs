@@ -18,6 +18,8 @@ pub struct SourceError(#[source] pub Box<dyn std::error::Error + Send + Sync>);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DecisionsError {
+    #[error("Evaluation request exceeds the model input context")]
+    Context,
     #[error("Lens signal provider returned HTTP {status}")]
     Provider {
         status: u16,

@@ -97,6 +97,8 @@ pub enum TraceSignalStatus {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TraceSignals {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub partial: bool,
     pub trace_id: String,
     #[serde(default)]
     pub trace_ref: String,
@@ -128,6 +130,8 @@ pub enum SignalStatus {
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub struct SignalData {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub partial: bool,
     #[serde(default)]
     pub status: SignalStatus,
     #[serde(default, deserialize_with = "scores")]
@@ -159,6 +163,8 @@ pub enum SignalAttemptStatus {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SignalAttempt {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub partial: bool,
     pub status: SignalAttemptStatus,
     #[serde(default, deserialize_with = "scores")]
     pub scores: BTreeMap<String, f64>,

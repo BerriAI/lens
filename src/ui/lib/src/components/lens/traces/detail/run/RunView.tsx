@@ -308,6 +308,12 @@ function LoadedRun({
         signals={signals}
         onSelectSignal={selection.selectSignal}
       />
+      {signalState?.status === "ready" && signalState.signals.partial && (
+        <p className="px-4 py-2 text-xs text-muted-foreground">
+          Signals checked part of this trace because the full run exceeded the
+          model context.
+        </p>
+      )}
       <FeedbackPanel summary={trace.summary} accessToken={accessToken} />
       {evidenceMissing && (
         <SignalEvidence
