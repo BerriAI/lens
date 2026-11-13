@@ -29,6 +29,9 @@ pub struct Isolated {
     // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
     pub store: ClickHouseState,
     pub profiles: ProfilesApi,
+    #[allow(dead_code)]
+    // dead_code: profile_demo.rs reads sources through this, profile_state.rs does not
+    pub state: Arc<State>,
 }
 
 impl Drop for Isolated {
@@ -112,7 +115,8 @@ pub async fn isolated() -> Isolated {
         database,
         client,
         config,
-        profiles: ProfilesApi::new(state, store.clone(), None),
+        profiles: ProfilesApi::new(state.clone(), store.clone(), None),
         store,
+        state,
     }
 }

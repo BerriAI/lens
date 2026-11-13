@@ -216,3 +216,106 @@ async fn previews_count_seeded_runs_and_show_their_requests_without_a_gateway(
     );
     assert_eq!(demo.profiles.configured_models().await, Vec::new());
 }
+
+fn selection(profile: &str) -> lens_contract::activity::ActivitySelection {
+    lens_contract::activity::ActivitySelection {
+        agent_name: "lens-demo-research".into(),
+        profile: Some(profile.try_into().expect("profile")),
+        ..Default::default()
+    }
+}
+
+async fn sampled(
+    demo: &Demo,
+    scope: &lens_contract::investigations::Scope,
+    profile: &str,
+) -> std::collections::BTreeSet<String> {
+    let selection = selection(profile);
+    litellm_lens::SourceReader(demo.state.clone())
+        .sample(
+            scope,
+            litellm_lens::SampleRequest {
+                selection: &selection,
+                start: u64::try_from(now_ms() - 14 * DAY_MS).expect("start"),
+                end: u64::try_from(now_ms() + DAY_MS).expect("end"),
+                offset: 0,
+                page_size: 500,
+                preview: false,
+                cursor: "",
+            },
+        )
+        .await
+        .expect("sample")
+        .executions
+        .into_iter()
+        .map(|execution| execution.trace_id)
+        .collect()
+}
+
+#[rstest]
+#[tokio::test]
+async fn investigating_a_reviewed_task_samples_exactly_its_runs_for_every_team_callers(
+    #[future(awt)] demo: Demo,
+) {
+    let (state, _) = demo
+        .profiles
+        .load(&id("lens-demo-research"))
+        .await
+        .expect("load");
+    let active = state.active().cloned().expect("active");
+    let runs = demo
+        .profiles
+        .runs(
+            every_team(),
+            RunQuery {
+                agent: "lens-demo-research".into(),
+                start_ms: now_ms() - 14 * DAY_MS,
+                end_ms: now_ms() + DAY_MS,
+                taxonomy_id: active.taxonomy_id.clone(),
+                taxonomy_version: active.version,
+                windows: active.windows.clone(),
+                limit: 5_001,
+            },
+        )
+        .await
+        .expect("runs");
+    let task: std::collections::BTreeSet<String> = runs
+        .iter()
+        .filter(|run| run.profile_id == "task:demo-research-summarize")
+        .map(|run| run.trace_id.clone())
+        .collect();
+    let every_team = lens_contract::investigations::Scope {
+        team_id: String::new(),
+        api_key_hash: String::new(),
+        all_teams: true,
+    };
+
+    let sample = sampled(&demo, &every_team, "task:demo-research-summarize").await;
+
+    assert!(!task.is_empty());
+    assert_eq!(sample, task);
+}
+
+#[rstest]
+#[tokio::test]
+async fn scoped_callers_cannot_investigate_by_an_enhanced_task_but_keep_recorded_categories(
+    #[future(awt)] demo: Demo,
+) {
+    let team = lens_contract::investigations::Scope {
+        team_id: litellm_lens::task_profiles::seed::TEAM.into(),
+        api_key_hash: String::new(),
+        all_teams: false,
+    };
+    let every_team = lens_contract::investigations::Scope {
+        team_id: String::new(),
+        api_key_hash: String::new(),
+        all_teams: true,
+    };
+
+    let task = sampled(&demo, &team, "task:demo-research-summarize").await;
+    let recorded = sampled(&demo, &team, "recorded:Literature review").await;
+
+    assert!(task.is_empty());
+    assert!(!recorded.is_empty());
+    assert_eq!(recorded, sampled(&demo, &every_team, "recorded:Literature review").await);
+}

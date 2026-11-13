@@ -547,6 +547,38 @@ mod tests {
     }
 
     #[rstest]
+    #[case::one_agent("agent", "agent", 1, 0, Some(3.0))]
+    #[case::two_agents("agent", "helper", 0, 1, None)]
+    fn a_later_export_bridging_two_charged_requests_merges_them_into_one(
+        #[case] first: &str,
+        #[case] second: &str,
+        #[case] requests: u64,
+        #[case] shared: u64,
+        #[case] spend: Option<f64>,
+    ) {
+        let runs = vec![run("t1", "cluster:a", 2)];
+        let calls = resolved(
+            &runs[0],
+            vec![
+                call("retry-a", first, vec![charge("a", Some(1.0))]),
+                call("retry-b", second, vec![charge("b", Some(2.0))]),
+                call(
+                    "wrapper",
+                    "agent",
+                    vec![charge("a", Some(1.0)), charge("b", Some(2.0))],
+                ),
+            ],
+        );
+
+        let totals = view(&runs, &calls, "agent").totals();
+
+        assert_eq!(totals.requests, requests);
+        assert_eq!(totals.shared_requests, shared);
+        assert_eq!(totals.other_agent_requests, 0);
+        assert_eq!(totals.spend_usd, spend);
+    }
+
+    #[rstest]
     fn overlapping_exports_of_one_request_charge_it_once() {
         let runs = vec![run("t1", "cluster:a", 1)];
         let calls = resolved(
