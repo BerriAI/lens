@@ -1,9 +1,13 @@
 mod calls;
+mod gateway;
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use lens_server::profiles::{
-    ProfileStore, ProfileStoreError, RunQuery,
+    ConfiguredModel, ProfileStore, ProfileStoreError, RunQuery,
     aggregate::{Run, RunCalls},
 };
 use litellm_traces::query::named::ReadAccessParams;
@@ -11,17 +15,31 @@ use litellm_traces_clickhouse::{
     ClickHouseTraces,
     query::profiles::{ProfileRuns, ProfileRunsParams},
 };
+use tokio::sync::Mutex;
 
-use crate::{State, wait_for_read_slot};
+use crate::{State, gateway::Models, wait_for_read_slot};
+
+const MODEL_CACHE: Duration = Duration::from_secs(60);
+
+struct CachedModels {
+    fetched: Instant,
+    models: Vec<ConfiguredModel>,
+}
 
 #[derive(Clone)]
 pub struct ProfilesApi {
     state: Arc<State>,
+    models: Option<Models>,
+    configured: Arc<Mutex<Option<CachedModels>>>,
 }
 
 impl ProfilesApi {
-    pub fn new(state: Arc<State>) -> Self {
-        Self { state }
+    pub fn new(state: Arc<State>, models: Option<Models>) -> Self {
+        Self {
+            state,
+            models,
+            configured: Arc::new(Mutex::new(None)),
+        }
     }
 
     fn traces(&self) -> ClickHouseTraces {
@@ -95,5 +113,28 @@ impl ProfileStore for ProfilesApi {
             max_spans,
         )
         .await
+    }
+
+    async fn configured_models(&self) -> Vec<ConfiguredModel> {
+        let Some(models) = &self.models else {
+            return Vec::new();
+        };
+        let Some(connection) = models.connection() else {
+            return Vec::new();
+        };
+        let mut cached = self.configured.lock().await;
+        if let Some(cached) = cached.as_ref()
+            && cached.fetched.elapsed() < MODEL_CACHE
+        {
+            return cached.models.clone();
+        }
+        let fresh = gateway::configured_models(&models.client(), &connection)
+            .await
+            .unwrap_or_default();
+        *cached = Some(CachedModels {
+            fetched: Instant::now(),
+            models: fresh.clone(),
+        });
+        fresh
     }
 }

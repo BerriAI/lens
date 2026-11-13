@@ -13,6 +13,7 @@ import { catalog } from "../../optimizations/model";
 import type { DemoStorage } from "./storage";
 import { demoEvalsApi } from "./demoEvals";
 import type { SignalConfig } from "../../model/types";
+import { demoProfilesApi } from "./demoProfiles";
 
 const notInDemo = (): Promise<never> =>
   Promise.reject(
@@ -291,9 +292,7 @@ export function createLensDemo(now = Date.now(), storage?: DemoStorage): LensSer
     lens,
     optimizations: createOptimizationStore(data, lens.datasets, storage, now),
     traces: demoTracesApi(data),
-    profiles: {
-      scope: "demo",
-      usage: async ({ startMs, endMs }, agent) => {
+    profiles: demoProfilesApi(data, async ({ startMs, endMs }, agent) => {
         const counts = new Map<string, number>();
         for (const run of data.runs) {
           const trace = run.trace.summary;
@@ -305,8 +304,9 @@ export function createLensDemo(now = Date.now(), storage?: DemoStorage): LensSer
         }
         return [...counts]
           .map(([category, runs]) => ({ category, runs }))
-          .sort((a, b) => b.runs - a.runs || a.category.localeCompare(b.category));
-      },
-    },
+          .sort(
+            (a, b) => b.runs - a.runs || a.category.localeCompare(b.category),
+          );
+    }),
   };
 }

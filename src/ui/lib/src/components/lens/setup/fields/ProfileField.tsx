@@ -17,20 +17,25 @@ export function ProfileField() {
   const { value: scope } = useDebouncedValue({ agent: selection.agent_name, hours }, 350);
   const query = useQuery({
     queryKey: ["lens", "setup-profiles", api.scope, scope],
-    queryFn: ({ signal }) =>
-      api.usage({ startMs: endMs - scope.hours * 3_600_000, endMs }, scope.agent, signal),
+    queryFn: async ({ signal }) => {
+      const window = { startMs: endMs - scope.hours * 3_600_000, endMs };
+      if (!scope.agent) {
+        const categories = await api.usage(window, scope.agent, signal);
+        return categories.map((category) => ({ value: category.category, label: category.category }));
+      }
+      const overview = await api.overview(window, scope.agent, signal);
+      return overview.profiles.map((profile) => ({ value: profile.profile_id, label: profile.name }));
+    },
     enabled: selection.source !== "requests" && Number.isInteger(hours) && hours > 0,
     staleTime: 30_000,
   });
-  const categories = [
-    ...new Set([
-      ...(query.data ?? []).map((category) => category.category),
-      ...(selection.profile ? [selection.profile] : []),
-    ]),
-  ];
+  const options = query.data ?? [];
   const items = [
     { value: "", label: "All profiles" },
-    ...categories.map((category) => ({ value: category, label: category })),
+    ...options,
+    ...(selection.profile && !options.some((option) => option.value === selection.profile)
+      ? [{ value: selection.profile, label: selection.profile }]
+      : []),
   ];
   if (selection.source === "requests") return null;
   return (

@@ -32,3 +32,13 @@ TOKENIZERS_PARALLELISM=false /usr/bin/time -l src/worker/target/debug/examples/r
 ```
 
 The `-l` flag is macOS-specific. On Linux, use `/usr/bin/time -v`. The probe runs without throttling to measure classification cost; the server worker applies the pauses above
+
+## Profiles view
+
+The Profiles tab shows one agent's runs in the selected time range as a breakdown ranked by runs or spend and a heatmap of profiles against model deployments. Each profile keeps the same color in both views, and runs that are not in a group stay neutral. The breakdown follows the concept overview in LLooM's visualization guide (https://stanfordhci.github.io/lloom/about/vis-guide.html). Each run is counted once and keeps one profile. A recorded `task_category` or `scenario` always wins, otherwise a run takes its automatic group. Runs the local worker could not group stay `Other / uncertain`, and runs it has not reached yet stay `Unclassified`
+
+Requests are the agent's own model calls inside those runs. Lens resolves them with the same strict ledger matching the trace view uses, so a call counts once even when it was exported twice, and calls that share a ledger record are one request. A request that other agents in the same run also exported is counted as shared and charged to neither agent. Cost is known only when every ledger record behind a request is priced. Otherwise the view says how many requests the spend rests on and never shows the missing part as zero. Retries charge the whole request. When the attempts used different deployments, the request appears under `multiple deployments` instead of being priced as either one. The gateway's compact cost records have no delivery identity, so the view does not report deliveries
+
+Heatmap columns are gateway deployment IDs recorded on the ledger. Older ledger records without one appear under their model group, and calls without a matching record appear as unmatched. Callers who can read every team also see configured deployments without traffic, with the capability flags the gateway declares. Evaluation results are not collected yet
+
+Each request reads at most 5,000 runs and 50,000 spans. When a range holds more, the view labels the figures as partial and shows how many runs they cover
