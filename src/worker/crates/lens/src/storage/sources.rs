@@ -66,12 +66,16 @@ impl SourceReader {
         let Some(taxonomy) = state.active() else {
             return ProfileTaxonomyParams::default();
         };
-        let windows = crate::task_profiles::ranges(&taxonomy.windows, i64::MAX);
+        let (window_starts, window_ends) = crate::task_profiles::pending_ranges(
+            &taxonomy.windows,
+            self.0.storage.config.retention_days(),
+            chrono::Utc::now().timestamp_millis(),
+        );
         ProfileTaxonomyParams {
             taxonomy_id: taxonomy.taxonomy_id.clone(),
             taxonomy_version: taxonomy.version,
-            window_starts: windows.iter().map(|window| window.0).collect(),
-            window_ends: windows.iter().map(|window| window.1).collect(),
+            window_starts,
+            window_ends,
         }
     }
 

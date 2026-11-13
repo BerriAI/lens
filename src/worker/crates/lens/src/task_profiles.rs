@@ -59,6 +59,23 @@ pub(crate) fn ranges(windows: &[ClassificationWindow], open_end: i64) -> Vec<(i6
         .collect()
 }
 
+const RETENTION_MARGIN_MS: i64 = 60 * 60 * 1000;
+
+/// Ranges whose unassigned runs still count as pending. Runs too close to retention are never
+/// classified, so they keep their automatic group instead of staying pending until they expire.
+pub(crate) fn pending_ranges(
+    windows: &[ClassificationWindow],
+    retention_days: u32,
+    now_ms: i64,
+) -> (Vec<i64>, Vec<i64>) {
+    let cutoff = now_ms - i64::from(retention_days) * 86_400_000 + RETENTION_MARGIN_MS;
+    ranges(windows, i64::MAX)
+        .into_iter()
+        .map(|(start, end)| (start.max(cutoff), end))
+        .filter(|(start, end)| end > start)
+        .unzip()
+}
+
 struct CachedModels {
     fetched: Instant,
     models: Vec<ConfiguredModel>,
@@ -181,6 +198,11 @@ impl ProfileStore for ProfilesApi {
         query: RunQuery,
     ) -> Result<Vec<Run>, ProfileStoreError> {
         let _permit = self.permit().await?;
+        let pending = pending_ranges(
+            &query.windows,
+            self.state.storage.config.retention_days(),
+            chrono::Utc::now().timestamp_millis(),
+        );
         let rows = litellm_storage_clickhouse::fetch::<ProfileRuns>(
             &self.state.storage.client,
             self.state.storage.config.storage().reader(),
@@ -193,12 +215,8 @@ impl ProfileStore for ProfilesApi {
                 end_ms: query.end_ms,
                 taxonomy_id: query.taxonomy_id,
                 taxonomy_version: query.taxonomy_version,
-                window_starts: query.windows.iter().map(|window| window.start_ms).collect(),
-                window_ends: query
-                    .windows
-                    .iter()
-                    .map(|window| window.end_ms.unwrap_or(i64::MAX))
-                    .collect(),
+                window_starts: pending.0,
+                window_ends: pending.1,
                 limit: query.limit,
             },
         )
@@ -321,5 +339,29 @@ impl DiscoveryCatalog for ProfilesApi {
                 })
                 .collect(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    const DAY: i64 = 86_400_000;
+    const NOW: i64 = 100 * DAY;
+
+    fn window(start_ms: i64, end_ms: Option<i64>) -> ClassificationWindow {
+        ClassificationWindow { start_ms, end_ms }
+    }
+
+    #[rstest]
+    #[case::open_window_reaching_past_retention(window(80 * DAY, None), (vec![93 * DAY + RETENTION_MARGIN_MS], vec![i64::MAX]))]
+    #[case::backfill_entirely_past_retention(window(80 * DAY, Some(90 * DAY)), (vec![], vec![]))]
+    #[case::recent_backfill(window(95 * DAY, Some(96 * DAY)), (vec![95 * DAY], vec![96 * DAY]))]
+    fn runs_past_retention_are_never_left_pending(
+        #[case] classified: ClassificationWindow,
+        #[case] expected: (Vec<i64>, Vec<i64>),
+    ) {
+        assert_eq!(pending_ranges(&[classified], 7, NOW), expected);
     }
 }

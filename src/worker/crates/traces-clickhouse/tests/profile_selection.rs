@@ -17,8 +17,18 @@ mod support;
 use fixtures::{DATABASE, SeededDatabase, migrated_database};
 use support::TestResult;
 
-const START_MS: i64 = 1_790_000_000_000;
 const MINUTE_MS: i64 = 60_000;
+const DAY_MS: i64 = 24 * 60 * MINUTE_MS;
+
+/// Assignments expire with the run's start, so fixture runs must stay inside the 7-day retention
+/// whenever the suite runs.
+static START_MS: std::sync::LazyLock<i64> = std::sync::LazyLock::new(|| {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_millis() as i64;
+    now / MINUTE_MS * MINUTE_MS - 6 * 60 * MINUTE_MS
+});
 
 fn span(
     trace: &str,
@@ -31,7 +41,7 @@ fn span(
     BTreeMap::from([
         (
             "Timestamp".into(),
-            json!((START_MS + minute * MINUTE_MS) * 1_000_000),
+            json!((*START_MS + minute * MINUTE_MS) * 1_000_000),
         ),
         ("TraceId".into(), json!(trace)),
         ("SpanId".into(), json!(format!("{trace}-root"))),
@@ -110,6 +120,14 @@ async fn runs(
                 team,
                 "planner",
             ),
+            span(
+                "expiring",
+                -(7 * 24 * 60) + 6 * 60 + 30,
+                "Older than the retention allows",
+                json!({}),
+                team,
+                "assistant",
+            ),
         ],
     )
     .await?;
@@ -117,7 +135,7 @@ async fn runs(
 }
 
 fn whole_hour() -> (i64, i64) {
-    (START_MS, START_MS + 60 * MINUTE_MS)
+    (*START_MS, *START_MS + 60 * MINUTE_MS)
 }
 
 fn traces(rows: &[litellm_traces_clickhouse::profiles::BucketingCandidate]) -> Vec<String> {
@@ -155,8 +173,8 @@ async fn windows_select_runs_by_when_they_started(
     let fixture = runs?;
     let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
     let windows = [
-        (START_MS, START_MS + 5 * MINUTE_MS),
-        (START_MS + 15 * MINUTE_MS, START_MS + 25 * MINUTE_MS),
+        (*START_MS, *START_MS + 5 * MINUTE_MS),
+        (*START_MS + 15 * MINUTE_MS, *START_MS + 25 * MINUTE_MS),
     ];
 
     let sample = discovery_samples(
@@ -248,11 +266,11 @@ async fn only_unassigned_runs_inside_a_window_are_pending(
             user_id: String::new(),
             team_ids: Vec::new(),
             agent: "assistant".into(),
-            start_ms: START_MS,
-            end_ms: START_MS + 60 * MINUTE_MS,
+            start_ms: *START_MS,
+            end_ms: *START_MS + 60 * MINUTE_MS,
             taxonomy_id: "tax".into(),
             taxonomy_version: 1,
-            window_starts: vec![START_MS + 15 * MINUTE_MS],
+            window_starts: vec![*START_MS + 15 * MINUTE_MS],
             window_ends: vec![i64::MAX],
             limit: 100,
         },
@@ -271,5 +289,32 @@ async fn only_unassigned_runs_inside_a_window_are_pending(
         profile("team", "recorded").as_deref(),
         Some("recorded:Billing")
     );
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn runs_at_the_edge_of_retention_are_never_sampled_or_classified(
+    #[future(awt)] runs: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = runs?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let since_last_week = [(*START_MS - 8 * DAY_MS, *START_MS + 60 * MINUTE_MS)];
+    let discovery = BucketingParams::windows("assistant", &since_last_week, 500);
+    let classify = BucketingParams {
+        taxonomy_id: "tax".into(),
+        taxonomy_version: 1,
+        require_input: 0,
+        max_attempts: 3,
+        ..BucketingParams::windows("assistant", &since_last_week, 20)
+    };
+
+    let eligible = discovery_eligible(&fixture.database.client, &config, &discovery).await?;
+    let sample = discovery_samples(&fixture.database.client, &config, &discovery).await?;
+    let candidates = bucketing_candidates(&fixture.database.client, &config, &classify).await?;
+
+    assert_eq!(eligible, 4);
+    assert!(!traces(&sample).contains(&"team/expiring".to_owned()));
+    assert!(!traces(&candidates).contains(&"team/expiring".to_owned()));
     Ok(())
 }

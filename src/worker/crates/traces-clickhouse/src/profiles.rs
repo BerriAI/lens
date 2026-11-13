@@ -276,7 +276,7 @@ pub async fn project(
     Ok(true)
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct BucketingParams {
     pub agent: String,
     pub taxonomy_id: String,
@@ -322,10 +322,26 @@ pub struct BucketingCandidate {
     pub attempts: u8,
 }
 
+/// Assignments expire with their run's start like every trace table, so runs that are about to
+/// expire are never sampled or classified; an assignment for one would vanish and be paid for again.
+#[derive(Serialize)]
+struct Retained {
+    #[serde(flatten)]
+    params: BucketingParams,
+    retention_days: u32,
+}
+
+fn retained(config: &Config, params: &BucketingParams) -> Retained {
+    Retained {
+        params: params.clone(),
+        retention_days: config.retention_days(),
+    }
+}
+
 struct BucketingCandidates;
 
 impl Query for BucketingCandidates {
-    type Params = BucketingParams;
+    type Params = Retained;
     type Row = BucketingCandidate;
     const READ_LIMITS: ReadLimits = ReadLimits {
         result_rows: 101,
@@ -341,7 +357,7 @@ impl Query for BucketingCandidates {
 struct DiscoverySamples;
 
 impl Query for DiscoverySamples {
-    type Params = BucketingParams;
+    type Params = Retained;
     type Row = BucketingCandidate;
     const READ_LIMITS: ReadLimits = ReadLimits {
         result_rows: 501,
@@ -363,7 +379,7 @@ struct EligibleRuns {
 struct DiscoveryEligible;
 
 impl Query for DiscoveryEligible {
-    type Params = BucketingParams;
+    type Params = Retained;
     type Row = EligibleRuns;
     const READ_LIMITS: ReadLimits = ReadLimits {
         result_rows: 1,
@@ -383,7 +399,7 @@ pub async fn discovery_eligible(
     params: &BucketingParams,
 ) -> Result<u64, Error> {
     Ok(
-        fetch::<DiscoveryEligible>(client, config.storage().reader(), params)
+        fetch::<DiscoveryEligible>(client, config.storage().reader(), &retained(config, params))
             .await?
             .first()
             .map_or(0, |row| row.eligible_runs),
@@ -396,7 +412,7 @@ pub async fn discovery_samples(
     config: &Config,
     params: &BucketingParams,
 ) -> Result<Vec<BucketingCandidate>, Error> {
-    Ok(fetch::<DiscoverySamples>(client, config.storage().reader(), params).await?)
+    Ok(fetch::<DiscoverySamples>(client, config.storage().reader(), &retained(config, params)).await?)
 }
 
 /// Unrecorded runs of the agent that this taxonomy version has not settled yet, newest first.
@@ -405,7 +421,7 @@ pub async fn bucketing_candidates(
     config: &Config,
     params: &BucketingParams,
 ) -> Result<Vec<BucketingCandidate>, Error> {
-    Ok(fetch::<BucketingCandidates>(client, config.storage().reader(), params).await?)
+    Ok(fetch::<BucketingCandidates>(client, config.storage().reader(), &retained(config, params)).await?)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
