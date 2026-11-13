@@ -317,5 +317,8 @@ async fn scoped_callers_cannot_investigate_by_an_enhanced_task_but_keep_recorded
 
     assert!(task.is_empty());
     assert!(!recorded.is_empty());
-    assert_eq!(recorded, sampled(&demo, &every_team, "recorded:Literature review").await);
+    assert_eq!(
+        recorded,
+        sampled(&demo, &every_team, "recorded:Literature review").await
+    );
 }
