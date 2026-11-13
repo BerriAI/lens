@@ -41,6 +41,8 @@ pub struct ProfileRunsRow {
     pub trace_id: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub end_ms: i64,
     pub profile_id: String,
     pub category: String,
     pub input_preview: String,

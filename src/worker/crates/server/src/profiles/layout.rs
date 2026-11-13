@@ -116,6 +116,7 @@ mod tests {
             api_key_hash: "key".into(),
             trace_id: trace_id.into(),
             start_ms: 0,
+            end_ms: 0,
             profile_id: profile_id.into(),
             category: String::new(),
             input_preview: String::new(),

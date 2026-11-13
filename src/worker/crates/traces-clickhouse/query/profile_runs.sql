@@ -1,6 +1,7 @@
 1 AS profile_scope
 SELECT spans.TeamId AS team_id, spans.ApiKeyHash AS api_key_hash, spans.TraceId AS trace_id,
-       runs.start_ms AS start_ms, trace_profiles.profile_id AS profile_id,
+       runs.start_ms AS start_ms, toUnixTimestamp64Milli(runs.trace_end) AS end_ms,
+       trace_profiles.profile_id AS profile_id,
        trace_profiles.category AS category,
        substringUTF8(spans.input_preview, 1, 300) AS input_preview,
        length(spans.agents) AS agent_count

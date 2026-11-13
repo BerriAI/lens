@@ -50,7 +50,10 @@ export function ProfileMap({
   const current = chosen ?? selected;
   const currentOnMap = data.groups.some((group) => group.profile.profile_id === current);
   const zoom = zoomed && currentOnMap ? current : null;
-  const choose = (profileId: string) => setChosen(chosen === profileId ? null : profileId);
+  const choose = (profileId: string) => {
+    setChosen(chosen === profileId ? null : profileId);
+    setZoomed(false);
+  };
   const layout = useMemo(
     () =>
       layoutMap(

@@ -227,6 +227,7 @@ impl ProfileStore for ProfilesApi {
                 api_key_hash: row.api_key_hash,
                 trace_id: row.trace_id,
                 start_ms: row.start_ms,
+                end_ms: row.end_ms,
                 profile_id: row.profile_id,
                 category: row.category,
                 input_preview: row.input_preview,

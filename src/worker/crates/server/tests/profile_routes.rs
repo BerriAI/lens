@@ -246,6 +246,7 @@ fn run(trace: &str, profile_id: &str, category: &str) -> Run {
         api_key_hash: "key".into(),
         trace_id: trace.into(),
         start_ms: 10,
+        end_ms: 10,
         profile_id: profile_id.into(),
         category: category.into(),
         input_preview: format!("request {trace}"),

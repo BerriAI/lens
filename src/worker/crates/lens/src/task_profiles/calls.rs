@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    future::Future,
+};
 
 use lens_server::profiles::{
     ProfileStoreError,
@@ -19,7 +22,6 @@ use litellm_traces_clickhouse::{
 };
 
 const RUNS_PER_READ: usize = 32;
-const RUN_SPAN_MS: i64 = 6 * 3_600_000;
 const SPEND_MARGIN_MS: i64 = 30 * 60_000;
 const NANOS_PER_MS: i64 = 1_000_000;
 
@@ -27,10 +29,42 @@ fn now_ms() -> u64 {
     u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or_default()
 }
 
+/// The two trace reads call resolution needs.
+pub(super) trait CallSource: Send + Sync {
+    fn run_spans(
+        &self,
+        params: &TracePageSpansParams,
+    ) -> impl Future<Output = Result<Vec<TraceSpansRow>, ProfileStoreError>> + Send;
+    fn spend(
+        &self,
+        params: &SpendByResponseIdsParams,
+    ) -> impl Future<Output = Result<Vec<SpendByResponseIdsRow>, ProfileStoreError>> + Send;
+}
+
+impl CallSource for ClickHouseTraces {
+    async fn run_spans(
+        &self,
+        params: &TracePageSpansParams,
+    ) -> Result<Vec<TraceSpansRow>, ProfileStoreError> {
+        TraceStore::run_spans(self, params, now_ms())
+            .await
+            .map_err(|_| ProfileStoreError::Unavailable)
+    }
+
+    async fn spend(
+        &self,
+        params: &SpendByResponseIdsParams,
+    ) -> Result<Vec<SpendByResponseIdsRow>, ProfileStoreError> {
+        TraceStore::spend(self, params)
+            .await
+            .map_err(|_| ProfileStoreError::Unavailable)
+    }
+}
+
 /// Resolves model calls for runs in batches: one span read and one spend read per batch, never
 /// one per run. Stops before `max_spans` is exceeded; runs left out are reported as unresolved.
 pub(super) async fn resolve(
-    traces: &ClickHouseTraces,
+    traces: &impl CallSource,
     client: &litellm_http::Client,
     reader: &Connection,
     scope: &ReadAccessParams,
@@ -40,9 +74,9 @@ pub(super) async fn resolve(
     let mut resolved = RunCalls::new();
     let mut spans_read = 0;
     for batch in runs.chunks(RUNS_PER_READ) {
-        let (Some(start_ms), Some(last_ms)) = (
+        let (Some(start_ms), Some(end_ms)) = (
             batch.iter().map(|run| run.start_ms).min(),
-            batch.iter().map(|run| run.start_ms).max(),
+            batch.iter().map(|run| run.end_ms.max(run.start_ms)).max(),
         ) else {
             continue;
         };
@@ -54,11 +88,9 @@ pub(super) async fn resolve(
                 .collect(),
             trace_ids: batch.iter().map(|run| run.trace_id.clone()).collect(),
             start_ms,
-            end_ms: last_ms.saturating_add(RUN_SPAN_MS),
+            end_ms: end_ms.saturating_add(1),
         };
-        let Ok(mut spans) = traces.run_spans(&params, now_ms()).await else {
-            break;
-        };
+        let mut spans = traces.run_spans(&params).await?;
         spans_read += spans.len();
         if spans_read > max_spans {
             break;
@@ -111,7 +143,7 @@ pub(super) async fn resolve(
 }
 
 async fn spend(
-    traces: &ClickHouseTraces,
+    traces: &impl CallSource,
     scope: &ReadAccessParams,
     spans: &[TraceSpansRow],
 ) -> Result<Vec<SpendByResponseIdsRow>, ProfileStoreError> {
@@ -139,7 +171,6 @@ async fn spend(
             end_ms: end_ns.div_euclid(NANOS_PER_MS) + SPEND_MARGIN_MS,
         })
         .await
-        .map_err(|_| ProfileStoreError::Unavailable)
 }
 
 type Ledger = BTreeMap<LedgerRequest, CallCostModelsRow>;
@@ -233,6 +264,72 @@ fn priced(call: ModelCall, ledger: &Ledger) -> Call {
 mod tests {
     use super::*;
     use rstest::rstest;
+    use std::sync::Mutex;
+
+    struct FailsAfterFirstBatch {
+        reads: Mutex<Vec<usize>>,
+    }
+
+    impl CallSource for FailsAfterFirstBatch {
+        async fn run_spans(
+            &self,
+            params: &TracePageSpansParams,
+        ) -> Result<Vec<TraceSpansRow>, ProfileStoreError> {
+            let mut reads = self.reads.lock().expect("reads");
+            reads.push(params.trace_ids.len());
+            if reads.len() > 1 {
+                return Err(ProfileStoreError::Unavailable);
+            }
+            Ok(Vec::new())
+        }
+
+        async fn spend(
+            &self,
+            _: &SpendByResponseIdsParams,
+        ) -> Result<Vec<SpendByResponseIdsRow>, ProfileStoreError> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn listed(index: usize) -> Run {
+        Run {
+            team_id: "team".into(),
+            api_key_hash: "key".into(),
+            trace_id: format!("trace-{index}"),
+            start_ms: 1,
+            end_ms: 2,
+            profile_id: "unclassified".into(),
+            category: String::new(),
+            input_preview: String::new(),
+            agent_count: 1,
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_failed_span_read_fails_resolution_instead_of_looking_like_truncation() {
+        let source = FailsAfterFirstBatch {
+            reads: Mutex::default(),
+        };
+        let runs: Vec<Run> = (0..=RUNS_PER_READ).map(listed).collect();
+
+        let resolved = resolve(
+            &source,
+            &crate::config::http_client().expect("client"),
+            &Connection::reader("http://127.0.0.1:9", "unused").expect("connection"),
+            &ReadAccessParams {
+                all_teams: true,
+                user_id: String::new(),
+                team_ids: Vec::new(),
+            },
+            &runs,
+            usize::MAX,
+        )
+        .await;
+
+        assert_eq!(resolved, Err(ProfileStoreError::Unavailable));
+        assert_eq!(*source.reads.lock().expect("reads"), vec![RUNS_PER_READ, 1]);
+    }
 
     fn request(request_id: &str) -> LedgerRequest {
         LedgerRequest {
