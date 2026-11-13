@@ -90,7 +90,11 @@ it("draws only discovery positions of real groups and counts every other run bes
   expect(outside.getByRole("button", { name: /Unknown/ })).toHaveTextContent("2");
   expect(outside.getByRole("button", { name: /Refunds/ })).toHaveTextContent("2");
   expect(outside.getByRole("button", { name: /Reset a forgotten password/ })).toHaveTextContent("1");
-  expect(screen.queryByRole("button", { name: /Unknown, .* on the map/ })).not.toBeInTheDocument();
+  const map = within(screen.getByRole("group", { name: "Similarity map of 5 runs in 2 groups" }));
+  expect(map.getAllByRole("button").map((label) => label.getAttribute("aria-label"))).toEqual([
+    "Answer billing questions, 3 runs on the map",
+    "Reset a forgotten password, 2 runs on the map",
+  ]);
 });
 
 it("focuses a group from its label by pointer or keyboard and opens details only on request", async () => {
