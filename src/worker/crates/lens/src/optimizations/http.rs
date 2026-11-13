@@ -140,7 +140,7 @@ async fn claim<R: SessionRepository>(
     }
     for (snapshot, attempt) in app.engine.0.store.attempts(&id).await? {
         if attempt.external
-            && let Some(attempt) = app.engine.0.store.claim(snapshot, attempt).await?
+            && let Some(attempt) = app.engine.0.store.claim(&id, snapshot, attempt).await?
         {
             return Ok(Json(
                 json!({"id":attempt.result.id,"lease":attempt.owner,"model":attempt.result.model,"input":attempt.result.input,"expected":attempt.result.expected,"requestId":format!("{}-{}", id, attempt.result.id)}),

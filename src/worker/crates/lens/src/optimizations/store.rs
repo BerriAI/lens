@@ -124,7 +124,25 @@ impl Store {
         if !previous.value.is_null() {
             return Ok(());
         }
-        match self.save(previous, attempt).await {
+        let (record_snapshot, record) = self.get(id).await?;
+        if record.status != OptimizationStatus::Running {
+            return Ok(());
+        }
+        match self
+            .0
+            .commit(vec![
+                Change {
+                    previous: record_snapshot,
+                    value: serde_json::to_value(record)?,
+                },
+                Change {
+                    previous,
+                    value: serde_json::to_value(attempt)?,
+                },
+            ])
+            .await
+            .map_err(Error::from)
+        {
             Err(Error::Storage(litellm_storage_clickhouse::Error::StateConflict)) => Ok(()),
             result => result,
         }
@@ -142,16 +160,35 @@ impl Store {
 
     pub async fn claim(
         &self,
+        id: &str,
         snapshot: Snapshot,
         mut attempt: Attempt,
     ) -> Result<Option<Attempt>, Error> {
         if attempt.state != AttemptState::Pending {
             return Ok(None);
         }
+        let (record_snapshot, record) = self.get(id).await?;
+        if record.status != OptimizationStatus::Running {
+            return Ok(None);
+        }
         attempt.state = AttemptState::Running;
         attempt.owner = Some(uuid::Uuid::new_v4().to_string());
         attempt.deadline = Utc::now().timestamp_millis() + 600_000;
-        match self.save(snapshot, &attempt).await {
+        match self
+            .0
+            .commit(vec![
+                Change {
+                    previous: record_snapshot,
+                    value: serde_json::to_value(record)?,
+                },
+                Change {
+                    previous: snapshot,
+                    value: serde_json::to_value(&attempt)?,
+                },
+            ])
+            .await
+            .map_err(Error::from)
+        {
             Ok(()) => Ok(Some(attempt)),
             Err(Error::Storage(litellm_storage_clickhouse::Error::StateConflict)) => Ok(None),
             Err(error) => Err(error),

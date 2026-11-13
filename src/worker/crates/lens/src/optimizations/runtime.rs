@@ -92,7 +92,8 @@ impl Optimizations {
                     continue;
                 }
                 if !attempt.external
-                    && let Some(mut attempt) = self.0.store.claim(snapshot, attempt).await?
+                    && let Some(mut attempt) =
+                        self.0.store.claim(&record.id, snapshot, attempt).await?
                 {
                     if let Err(error) = self.execute(record, &mut attempt).await {
                         attempt.result.error = Some(error.to_string());
