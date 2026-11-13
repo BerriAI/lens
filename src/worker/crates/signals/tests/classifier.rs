@@ -646,7 +646,7 @@ async fn context_refusal_drops_evidence_then_reduces_state_without_losing_scores
 
 #[rstest]
 #[tokio::test]
-async fn irreducible_context_refusals_stop_and_remain_retryable(
+async fn irreducible_context_refusals_stop_without_provider_cooldown(
     reader: Reader,
     config: SignalConfig,
     scope: Scope,
@@ -658,9 +658,6 @@ async fn irreducible_context_refusals_stop_and_remain_retryable(
     };
     let result = classify(&reader, &completion, &scope, &execution, &config).await;
     assert_eq!(result.status, SignalAttemptStatus::Failed);
-    assert!(matches!(
-        result.failure,
-        Some(lens_contract::signals::SignalFailure::Transient { .. })
-    ));
+    assert!(result.failure.is_none());
     assert_eq!(completion.calls.lock().unwrap().len(), 2);
 }

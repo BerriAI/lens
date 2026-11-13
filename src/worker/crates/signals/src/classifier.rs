@@ -486,11 +486,11 @@ fn provider_failure(error: &Error) -> Option<SignalFailure> {
         }) => Some(SignalFailure::Transient {
             retry_after_seconds: *retry_after_seconds,
         }),
-        Error::Decisions(
-            DecisionsError::Context | DecisionsError::Timeout | DecisionsError::Unavailable(_),
-        ) => Some(SignalFailure::Transient {
-            retry_after_seconds: None,
-        }),
+        Error::Decisions(DecisionsError::Timeout | DecisionsError::Unavailable(_)) => {
+            Some(SignalFailure::Transient {
+                retry_after_seconds: None,
+            })
+        }
         _ => None,
     }
 }
