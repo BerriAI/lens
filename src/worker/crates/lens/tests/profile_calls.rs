@@ -33,7 +33,13 @@ fn attributes(pairs: &[(&str, &str)]) -> Value {
     )
 }
 
-fn span(span_id: &str, parent: &str, start_ms: i64, duration_ms: i64, pairs: &[(&str, &str)]) -> Value {
+fn span(
+    span_id: &str,
+    parent: &str,
+    start_ms: i64,
+    duration_ms: i64,
+    pairs: &[(&str, &str)],
+) -> Value {
     json!({
         "traceId": TRACE, "spanId": span_id, "parentSpanId": parent, "name": pairs[0].1, "kind": 1,
         "startTimeUnixNano": (start_ms * 1_000_000).to_string(),
@@ -86,7 +92,11 @@ async fn long_run() -> LongRun {
             ]),
         ]}]
     }]});
-    let spans = decode_otlp(&serde_json::to_vec(&payload).expect("payload"), Some("application/json")).expect("otlp");
+    let spans = decode_otlp(
+        &serde_json::to_vec(&payload).expect("payload"),
+        Some("application/json"),
+    )
+    .expect("otlp");
     let tenant = Tenant {
         team_id: TEAM.into(),
         api_key_hash: KEY.into(),
@@ -95,9 +105,15 @@ async fn long_run() -> LongRun {
     };
     let writer = isolated.config.storage().writer();
     let database = isolated.config.storage().database();
-    insert_shared_rows(&isolated.client, writer, database, InsertTable::OtelTraces, span_rows(spans, &tenant))
-        .await
-        .expect("spans");
+    insert_shared_rows(
+        &isolated.client,
+        writer,
+        database,
+        InsertTable::OtelTraces,
+        span_rows(spans, &tenant),
+    )
+    .await
+    .expect("spans");
     insert_rows(
         &isolated.client,
         writer,
@@ -132,7 +148,10 @@ async fn a_call_late_in_a_long_run_is_still_counted_and_priced(#[future(awt)] lo
         )
         .await
         .expect("runs");
-    let calls = profiles.calls(every_team(), runs.clone(), 50_000).await.expect("calls");
+    let calls = profiles
+        .calls(every_team(), runs.clone(), 50_000)
+        .await
+        .expect("calls");
 
     let totals = View {
         runs: &runs,

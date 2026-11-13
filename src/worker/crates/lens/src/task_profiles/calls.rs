@@ -29,7 +29,6 @@ fn now_ms() -> u64 {
     u64::try_from(chrono::Utc::now().timestamp_millis()).unwrap_or_default()
 }
 
-/// The two trace reads call resolution needs.
 pub(super) trait CallSource: Send + Sync {
     fn run_spans(
         &self,
