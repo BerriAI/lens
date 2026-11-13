@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lens_server::profiles::{ProfileStore, RunQuery, aggregate::View};
 use litellm_traces::{Tenant, decode_otlp, query::named::ReadAccessParams};
@@ -62,6 +62,12 @@ fn ledger(request: &str, response: &str, start_ms: i64, spend: f64) -> BTreeMap<
     .unwrap_or_default()
     .into_iter()
     .collect()
+}
+
+fn without(row: BTreeMap<String, Value>, fields: &[&str]) -> BTreeMap<String, Value> {
+    row.into_iter()
+        .filter(|(field, _)| !fields.contains(&field.as_str()))
+        .collect()
 }
 
 async fn ingest(isolated: &Isolated, payload: Value, ledger: Vec<BTreeMap<String, Value>>) {
@@ -236,4 +242,86 @@ async fn a_call_under_an_unnamed_agent_span_is_never_charged_to_a_display_label(
     assert_eq!(totals.requests, own_requests);
     assert_eq!(totals.other_agent_requests, other_agent_requests);
     assert_eq!(totals.spend_usd, spend);
+}
+
+/// Ledger rows record a deployment, only a model group (gateways that never sent a deployment ID),
+/// or nothing (rows written before Lens stored deployment metadata). Each request stays priced and
+/// lands in the column its own record supports.
+#[rstest]
+#[tokio::test]
+async fn requests_are_grouped_by_the_deployment_metadata_their_ledger_rows_recorded() {
+    let isolated = profile_store::isolated().await;
+    let start_ms = chrono::Utc::now().timestamp_millis() - 2 * HOUR_MS;
+    let payload = json!({"resourceSpans": [{
+        "resource": {"attributes": attributes(&[("service.name", "long-service"), ("gen_ai.agent.name", AGENT)])},
+        "scopeSpans": [{"scope": {"name": "profile-calls-test"}, "spans": [
+            span("3000000000000001", "", start_ms, 60_000, &[
+                ("gen_ai.operation.name", "invoke_agent"), ("gen_ai.agent.name", AGENT),
+                ("gen_ai.prompt", "Summarize last week's incidents"),
+            ]),
+            span("3000000000000002", "3000000000000001", start_ms + 1_000, 1_000, &[
+                ("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "sonnet"),
+                ("gen_ai.response.id", "resp-deployment"),
+            ]),
+            span("3000000000000003", "3000000000000001", start_ms + 3_000, 1_000, &[
+                ("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "sonnet"),
+                ("gen_ai.response.id", "resp-group"),
+            ]),
+            span("3000000000000004", "3000000000000001", start_ms + 5_000, 1_000, &[
+                ("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "sonnet"),
+                ("gen_ai.response.id", "resp-bare"),
+            ]),
+        ]}]
+    }]});
+    ingest(
+        &isolated,
+        payload,
+        vec![
+            ledger("req-deployment", "resp-deployment", start_ms + 1_000, 0.25),
+            without(
+                ledger("req-group", "resp-group", start_ms + 3_000, 0.5),
+                &["model_id"],
+            ),
+            without(
+                ledger("req-bare", "resp-bare", start_ms + 5_000, 0.125),
+                &["model_id", "model_group", "model", "custom_llm_provider"],
+            ),
+        ],
+    )
+    .await;
+    let runs = isolated
+        .profiles
+        .runs(every_team(), query(start_ms))
+        .await
+        .expect("runs");
+    let calls = isolated
+        .profiles
+        .calls(every_team(), runs.clone(), 50_000)
+        .await
+        .expect("calls");
+    let view = View {
+        runs: &runs,
+        calls: &calls,
+        agent: AGENT,
+        truncated: false,
+    };
+
+    let columns: BTreeSet<String> = view
+        .cells(None)
+        .into_iter()
+        .map(|(column, _)| column.key())
+        .collect();
+    let totals = view.totals();
+
+    assert_eq!(
+        columns,
+        BTreeSet::from([
+            "id:dep-sonnet".to_owned(),
+            "group:sonnet".to_owned(),
+            "group:unknown".to_owned(),
+        ])
+    );
+    assert_eq!(totals.requests, 3);
+    assert_eq!(totals.matched_requests, 3);
+    assert_eq!(totals.spend_usd, Some(0.875));
 }
