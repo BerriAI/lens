@@ -361,18 +361,29 @@ mod tests {
     }
 
     #[rstest]
-    fn a_historical_ledger_row_without_a_deployment_id_is_not_given_one() {
+    #[case::model_group(Some(("sonnet", "provider/model")), "group:sonnet")]
+    #[case::model_only(Some(("", "provider/model")), "group:provider/model")]
+    #[case::no_metadata(Some(("", "")), "group:unknown")]
+    #[case::no_cost_record(None, "group:unknown")]
+    fn a_ledger_row_without_a_deployment_id_is_grouped_by_what_it_recorded(
+        #[case] recorded: Option<(&str, &str)>,
+        #[case] expected: &str,
+    ) {
         let only = request("only");
-        let ledger: Ledger = [(only.clone(), row(&only, "", "sonnet"))]
+        let ledger: Ledger = recorded
+            .map(|(model_group, model)| {
+                (
+                    only.clone(),
+                    CallCostModelsRow {
+                        model: model.into(),
+                        ..row(&only, "", model_group)
+                    },
+                )
+            })
             .into_iter()
             .collect();
 
-        assert_eq!(
-            ledger_column(&only, &ledger),
-            Column::UnknownDeployment {
-                model_group: "sonnet".into()
-            }
-        );
+        assert_eq!(ledger_column(&only, &ledger).key(), expected);
     }
 
     #[rstest]
