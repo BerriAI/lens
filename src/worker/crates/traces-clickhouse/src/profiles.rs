@@ -412,7 +412,10 @@ pub async fn discovery_samples(
     config: &Config,
     params: &BucketingParams,
 ) -> Result<Vec<BucketingCandidate>, Error> {
-    Ok(fetch::<DiscoverySamples>(client, config.storage().reader(), &retained(config, params)).await?)
+    Ok(
+        fetch::<DiscoverySamples>(client, config.storage().reader(), &retained(config, params))
+            .await?,
+    )
 }
 
 /// Unrecorded runs of the agent that this taxonomy version has not settled yet, newest first.
@@ -421,7 +424,10 @@ pub async fn bucketing_candidates(
     config: &Config,
     params: &BucketingParams,
 ) -> Result<Vec<BucketingCandidate>, Error> {
-    Ok(fetch::<BucketingCandidates>(client, config.storage().reader(), &retained(config, params)).await?)
+    Ok(
+        fetch::<BucketingCandidates>(client, config.storage().reader(), &retained(config, params))
+            .await?,
+    )
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
