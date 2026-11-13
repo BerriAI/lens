@@ -21,21 +21,23 @@ const modeDescriptions = {
   offline: "Compare models using a saved dataset",
 };
 
-export function ModelOptimizations() {
+export function ModelOptimizations({ canView = true, readOnly = false }: { canView?: boolean; readOnly?: boolean }) {
   const store = useOptimizationStore();
+  if (!canView) return <p className="lens-page-body text-sm text-muted-foreground">Model optimizations require proxy administrator access.</p>;
   return store ? (
-    <OptimizationWorkspace store={store} />
+    <OptimizationWorkspace store={store} readOnly={readOnly} />
   ) : (
     <p className="lens-page-body text-sm text-muted-foreground">Model optimizations are available in the demo.</p>
   );
 }
-function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
+function OptimizationWorkspace({ store, readOnly }: { store: OptimizationStore; readOnly: boolean }) {
   const state = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot);
   const route = useOptimizationRoute();
   const [initial, setInitial] = useState<OptimizationConfig>();
   const [resetting, setResetting] = useState(false);
   useEffect(() => {
-    const timer = setInterval(store.advance, 1800);
+    store.advance();
+    const timer = setInterval(store.advance, store.live ? 5000 : 1800);
     return () => clearInterval(timer);
   }, [store]);
   const run = state.runs.find((item) => item.id === route.id);
@@ -52,11 +54,14 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
   );
   return (
     <>
+      {state.error && <p role="alert" className="lens-page-body text-sm text-destructive">{state.error} <Button size="xs" variant="outline" onClick={store.advance}>Retry</Button></p>}
+      {state.loading && <p role="status" className="lens-page-body text-sm text-muted-foreground">Loading optimizations…</p>}
       {run ? (
         <OptimizationDetail
           key={run.id}
           run={run}
           store={store}
+          readOnly={readOnly}
           onBack={() => route.open(null)}
           onNew={(config) => openNew(config.mode, config)}
         />
@@ -67,11 +72,11 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
             title="Model optimizations"
             actions={
               <>
-                <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
+                {!store.live && <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
                   <RotateCcw />
                   Reset demo
-                </Button>
-                <DropdownMenu>
+                </Button>}
+                {!readOnly && <DropdownMenu>
                   <DropdownMenuTrigger render={<Button size="sm" />}>
                     <Plus />
                     New optimization
@@ -89,7 +94,7 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu>}
               </>
             }
           />
@@ -157,11 +162,11 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
                           <td className="px-4 text-xs capitalize">{item.status}</td>
                           <td className="px-4">
                             <span className="font-mono text-xs">
-                              {best?.id ?? (item.status === "completed" ? "Keep current model" : "Collecting results")}
+                              {best?.id ?? (item.status === "completed" ? (store.live ? "Insufficient evidence" : "Keep current model") : "Collecting results")}
                             </span>
                             <p className="mt-1.5 text-xs text-muted-foreground">
                               {item.completed.toLocaleString()}{" "}
-                              {item.config.mode === "offline" ? "cases" : "sampled runs"}
+                              {store.live ? "model runs" : item.config.mode === "offline" ? "cases" : "sampled runs"}
                             </p>
                           </td>
                           <td className="px-4 text-sm tabular-nums">{best ? `${best.savings}%` : "—"}</td>
@@ -184,7 +189,7 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
                   <div className="grid gap-3 p-8 text-center">
                     <p className="text-sm text-muted-foreground">No optimizations match this view.</p>
                     <div>
-                      <Button size="sm" onClick={() => openNew(route.mode === "all" ? "live" : route.mode)}>
+                      <Button disabled={readOnly} size="sm" onClick={() => openNew(route.mode === "all" ? "live" : route.mode)}>
                         New optimization
                       </Button>
                     </div>
@@ -192,13 +197,13 @@ function OptimizationWorkspace({ store }: { store: OptimizationStore }) {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {state.runs.length} optimizations · Simulated traffic and results
+                {state.runs.length} optimizations{!store.live && " · Simulated traffic and results"}
               </p>
             </div>
           </div>
         </section>
       )}
-      {route.newMode && (
+      {route.newMode && !readOnly && (
         <NewOptimization
           key={`${route.newMode}-${route.datasetId ?? ""}-${route.revision ?? ""}`}
           mode={route.newMode}

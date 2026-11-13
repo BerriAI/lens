@@ -16,6 +16,7 @@ import type { LensDemoData } from "./fixtures";
 import { readDemoState, writeDemoState, type DemoStorage } from "./storage";
 
 export interface OptimizationStore {
+  readonly live?: boolean;
   subscribe(listener: () => void): () => void;
   snapshot(): OptimizationState;
   create(config: OptimizationConfig): Promise<string>;

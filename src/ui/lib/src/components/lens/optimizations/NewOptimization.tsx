@@ -74,8 +74,13 @@ export function NewOptimization({
   onCreated(id: string): void;
 }) {
   const datasets = useDatasets();
+  const live = !!store.live;
+  const options = store.snapshot();
+  const available = live ? options.models ?? [] : catalog;
+  const agents = live ? options.agents ?? [] : demoAgents;
   const [draft, setDraft] = useState(() => ({
     ...defaultConfig(mode),
+    ...(live ? { agent: agents[0] ?? "", models: [] as string[], baseline: available[0]?.id ?? "", teamId: "", judgeModel: available[0]?.id ?? "", rubric: "Assess correctness, completeness, and whether the answer is grounded in the supplied evidence." } : {}),
     ...initial,
     mode,
     datasetId: datasetId ?? initial?.datasetId ?? "",
@@ -89,11 +94,13 @@ export function NewOptimization({
   const dataset = datasets.data?.find((item) => item.id === draft.datasetId) ?? datasets.data?.[0];
   const selectedDataset = useDataset(mode === "offline" ? (dataset?.id ?? null) : null, draft.revision || null);
   const agent = mode === "offline" ? dataset?.agent_name || draft.agent : draft.agent;
-  const models =
-    preset === "Custom"
-      ? draft.models.filter((id) => !modelEligibility(agent, id) && id !== baselineFor(agent))
-      : presetModels(agent, preset);
-  const connected = store.snapshot().connectedAgents.includes(agent);
+  const baseline = live ? draft.baseline ?? "" : baselineFor(agent);
+  const eligibility = (id: string) => live ? null : modelEligibility(agent, id);
+  const presets = (selected: Tier | "Auto") => live
+    ? available.filter((model) => model.id !== baseline && (selected === "Auto" ? model.cost !== null && model.cost < (available.find((item) => item.id === baseline)?.cost ?? 0) : model.tier === selected)).slice(0, 8).map((model) => model.id)
+    : presetModels(agent, selected);
+  const models = preset === "Custom" ? draft.models.filter((id) => !eligibility(id) && id !== baseline) : presets(preset);
+  const connected = live || store.snapshot().connectedAgents.includes(agent);
   const set = (next: Partial<OptimizationConfig>) => setDraft((current) => ({ ...current, ...next }));
   const selectModel = (id: string, checked: boolean) => {
     setPreset("Custom");
@@ -120,6 +127,7 @@ export function NewOptimization({
       const id = await store.create({
         ...draft,
         agent,
+        teamId: mode === "offline" ? selectedDataset.data?.team_id ?? draft.teamId ?? "" : draft.teamId,
         models,
         judge: mode === "live" ? draft.judge : "llm",
         datasetId: dataset?.id ?? "",
@@ -168,11 +176,11 @@ export function NewOptimization({
                   <Choice
                     label="Agent"
                     value={agent}
-                    items={demoAgents.map((name) => ({
+                    items={agents.map((name) => ({
                       value: name,
                       label: name,
                     }))}
-                    onChange={(agent) => set({ agent, models: presetModels(agent, "Auto") })}
+                    onChange={(agent) => set({ agent, models: [] })}
                   />
                 </Field>
                 <Field label="Traffic">
@@ -193,9 +201,11 @@ export function NewOptimization({
               </>
             )}
           </div>
-          <p className="-mt-3 text-xs text-muted-foreground">
-            Current model <span className="font-mono text-foreground">{baselineFor(agent)}</span>
-          </p>
+          {live ? (
+            <Field label="Current model">
+              <Choice label="Current model" value={baseline} items={available.map((model) => ({value: model.id, label: model.id}))} onChange={(baseline) => set({baseline})} />
+            </Field>
+          ) : <p className="-mt-3 text-xs text-muted-foreground">Current model <span className="font-mono text-foreground">{baseline}</span></p>}
           {mode === "shadow" && (
             <p className="text-xs text-muted-foreground">
               Shadow tests replay the final model call of each sampled trace.
@@ -214,6 +224,8 @@ export function NewOptimization({
               />
               {draft.scope === "final" ? (
                 <p className="text-xs text-muted-foreground">Uses the recorded conversation and tool results.</p>
+              ) : live ? (
+                <p className="text-xs text-muted-foreground">Run your agent locally or in CI with the snippet shown after creation.</p>
               ) : connected ? (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Check className="size-3.5 text-emerald-600" />
@@ -265,11 +277,11 @@ export function NewOptimization({
               ))}
             </div>
             <div className="max-h-44 overflow-y-auto rounded-lg border py-1">
-              {catalog
+              {available
                 .filter(
                   (model) =>
-                    model.id !== baselineFor(agent) &&
-                    !modelEligibility(agent, model.id) &&
+                    model.id !== baseline &&
+                    !eligibility(model.id) &&
                     (preset === "Custom" || models.includes(model.id)),
                 )
                 .map((model) => (
@@ -284,20 +296,20 @@ export function NewOptimization({
                   </label>
                 ))}
             </div>
-            <details className="text-xs text-muted-foreground">
+            {!live && <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer">
-                {catalog.filter((model) => modelEligibility(agent, model.id)).length} models unavailable for this agent
+                {catalog.filter((model) => eligibility(model.id)).length} models unavailable for this agent
               </summary>
               <div className="mt-2 grid gap-2">
-                {catalog
-                  .filter((model) => modelEligibility(agent, model.id))
+                {available
+                  .filter((model) => eligibility(model.id))
                   .map((model) => (
                     <div key={model.id}>
-                      <span className="font-mono">{model.id}</span> · {modelEligibility(agent, model.id)}
+                      <span className="font-mono">{model.id}</span> · {eligibility(model.id)}
                     </div>
                   ))}
               </div>
-            </details>
+            </details>}
           </Field>
           <Field label="Quality">
             {mode === "live" ? (
@@ -317,11 +329,15 @@ export function NewOptimization({
               </p>
             )}
             {(mode !== "live" || draft.judge === "llm") && (
-              <p className="font-mono text-xs text-muted-foreground">gpt-6-astra · blind comparison</p>
+              live ? <Choice label="Judge model" value={draft.judgeModel ?? ""} items={available.map((model) => ({value:model.id, label:model.id}))} onChange={(judgeModel) => set({judgeModel})} /> : <p className="font-mono text-xs text-muted-foreground">gpt-6-astra · blind comparison</p>
             )}
             <details className="text-xs text-muted-foreground">
               <summary className="cursor-pointer">Advanced</summary>
               <div className="mt-3 grid grid-cols-2 gap-3">
+                {live && <>
+                  <label className="col-span-2 grid gap-2">Team ID<Input aria-label="Team ID" value={draft.teamId ?? ""} onChange={(event) => set({teamId: event.target.value})} placeholder="Leave empty for unassigned traffic" /></label>
+                  {(mode !== "live" || draft.judge === "llm") && <label className="col-span-2 grid gap-2">Quality rubric<textarea aria-label="Quality rubric" className="min-h-24 rounded-md border bg-background p-2 text-sm" value={draft.rubric ?? ""} onChange={(event) => set({rubric: event.target.value})} /></label>}
+                </>}
                 {mode === "live" && draft.judge === "llm" && (
                   <>
                     <label className="grid gap-2">

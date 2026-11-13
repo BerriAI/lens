@@ -17,6 +17,7 @@ pub mod journal;
 pub mod local;
 pub mod local_credentials;
 pub mod model;
+pub mod optimizations;
 pub mod pipeline;
 pub mod profiles;
 pub mod sandbox;

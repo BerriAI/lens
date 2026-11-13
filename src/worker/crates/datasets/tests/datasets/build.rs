@@ -744,3 +744,25 @@ async fn jsonl_ignores_numeric_metadata_without_coercing_numeric_record_fields(
         }]
     );
 }
+
+#[rstest]
+#[tokio::test]
+async fn exported_request_snapshots_round_trip_with_numeric_parameters() {
+    let mut original = case("question");
+    original.request = lens_contract::optimizations::ReplayRequest::capture(
+        r#"{"messages":[{"role":"user","content":"question"}],"temperature":0.25,"seed":42}"#,
+    )
+    .map(Box::new);
+    let exported = export_jsonl(&[original.clone()]);
+    let rebuilt = build_cases(
+        &request(vec![text(&exported)]),
+        &Reader::default(),
+        &[],
+        &Scope::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    assert!(rebuilt.skipped.is_empty());
+    assert_eq!(rebuilt.cases[0].request, original.request);
+}

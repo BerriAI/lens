@@ -24,6 +24,8 @@ pub enum StoreError {
 
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum RevisionProblem {
+    #[error("The saved replay request is invalid")]
+    InvalidRequest,
     #[error("A dataset holds at most {0} cases")]
     TooManyCases(i64),
     #[error("Each case must be at most {0} characters")]

@@ -7,6 +7,7 @@ import { liveTracesApi, TracesApiContext, type TracesApi } from "../traces/api";
 import { liveLensApi, type LensApi } from "./service";
 import { liveProfilesApi, type ProfilesApi } from "../profiles/api";
 import type { OptimizationStore } from "./demo/demoOptimizations";
+import { liveOptimizationStore } from "../optimizations/live";
 
 export interface LensServices {
   readonly accessToken: string;
@@ -24,6 +25,7 @@ export function liveLensServices(accessToken: string): LensServices {
     lens: liveLensApi(fetchClient, apiClient, accessToken),
     traces: liveTracesApi(accessToken),
     profiles: liveProfilesApi(accessToken),
+    optimizations: liveOptimizationStore(accessToken),
   };
 }
 

@@ -136,6 +136,7 @@ const web = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1", "--port
     ...baseEnv,
     LENS_DEV_PROXY_URL: backend,
     NEXT_PUBLIC_USE_REWRITES: "true",
+    NEXT_PUBLIC_BASE_URL: origin,
     NEXT_TELEMETRY_DISABLED: "1",
   },
   stdio: ["ignore", "pipe", "pipe"],

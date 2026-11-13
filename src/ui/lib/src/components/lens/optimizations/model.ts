@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { measuredRows } from "./results";
 
 export const modes = ["live", "shadow", "offline"] as const;
 export type Mode = (typeof modes)[number];
@@ -118,6 +119,10 @@ export function presetModels(agent: string, tier: Tier | "Auto") {
 }
 
 export const configSchema = z.object({
+  baseline: z.string().optional(),
+  teamId: z.string().optional(),
+  judgeModel: z.string().optional(),
+  rubric: z.string().optional(),
   mode: z.enum(modes),
   agent: z.string(),
   models: z.array(z.string()).min(1),
@@ -133,6 +138,7 @@ export const configSchema = z.object({
 });
 export type OptimizationConfig = z.infer<typeof configSchema>;
 export const exampleSchema = z.object({
+  results: z.record(z.string(), z.object({ output: z.string().nullable(), score: z.number().nullable(), error: z.string().nullable() })).optional(),
   id: z.string(),
   question: z.string(),
   context: z.string(),
@@ -143,6 +149,15 @@ export const exampleSchema = z.object({
 });
 export type ComparisonExample = z.infer<typeof exampleSchema>;
 export function exampleJudgment(example: ComparisonExample, modelId: string) {
+  if (example.results) {
+    const result = example.results[modelId];
+    return {
+      label: result?.error ? "Execution failed" : result?.score != null ? `Score ${result.score.toFixed(2)} / 10` : "Not scored",
+      regression: false,
+      reason: result?.error ?? (result?.score != null ? `Recorded score: ${result.score.toFixed(2)} / 10` : "No quality score is available for this result."),
+      answer: result?.output ?? result?.error ?? "No output is available yet.",
+    };
+  }
   const tier = catalog.find((model) => model.id === modelId)?.tier;
   const variation =
     [...example.question].reduce((value, character) => (value * 31 + character.charCodeAt(0)) >>> 0, 7) % 23;
@@ -199,6 +214,12 @@ export function exampleJudgment(example: ComparisonExample, modelId: string) {
   };
 }
 export const optimizationSchema = z.object({
+  measured: z.array(z.object({
+    id: z.string(), model: z.string(), servedModel: z.string().nullable(), sourceId: z.string(), traceId: z.string(), spanId: z.string(),
+    input: z.string(), expected: z.string(), original: z.string(), output: z.string().nullable(), score: z.number().nullable(),
+    costUsd: z.number().nullable(), durationMs: z.number().nullable(), error: z.string().nullable(), scoreError: z.string().nullable(), completedAt: z.number(),
+  })).optional(),
+  error: z.string().nullable().optional(),
   id: z.string(),
   config: configSchema,
   status: z.enum(["running", "paused", "completed"]),
@@ -210,6 +231,10 @@ export const optimizationSchema = z.object({
 });
 export type Optimization = z.infer<typeof optimizationSchema>;
 export const optimizationStateSchema = z.object({
+  loading: z.boolean().optional(),
+  error: z.string().optional(),
+  models: z.array(z.object({ id: z.string(), tier: z.string(), cost: z.number().nullable() })).optional(),
+  agents: z.array(z.string()).optional(),
   version: z.literal(1),
   runs: z.array(optimizationSchema),
   connectedAgents: z.array(z.string()),
@@ -232,6 +257,7 @@ export function defaultConfig(mode: Mode, agent = "support_agent"): Optimization
   };
 }
 export function comparisonRows(run: Optimization) {
+  if (run.measured) return measuredRows(run);
   const baseline = catalog.find((model) => model.id === baselineFor(run.config.agent))!;
   return [baseline.id, ...run.config.models.filter((id) => id !== baseline.id)].map((id) => {
     const model = catalog.find((item) => item.id === id)!;

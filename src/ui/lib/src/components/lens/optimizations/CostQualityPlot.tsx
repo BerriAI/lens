@@ -5,22 +5,24 @@ import { comparisonRows, paretoFrontier, recommendedModel, type Optimization } f
 
 type ModelPoint = ReturnType<typeof comparisonRows>[number];
 const tick = { fontSize: 11, fill: "var(--muted-foreground)" };
-const dollars = (value: number) => `$${value.toFixed(3)}`;
+const dollars = (value: number) => `$${value.toLocaleString("en-US", {minimumFractionDigits: 3, maximumFractionDigits: 8})}`;
 
 export function CostQualityPlot({ run, unit }: { run: Optimization; unit: string }) {
   const points = comparisonRows(run)
-    .filter((row) => row.scored > 0)
+    .filter((row) => row.scored > 0 && Number.isFinite(row.cost) && Number.isFinite(row.quality))
     .toSorted((a, b) => a.cost - b.cost);
   if (!points.length) return null;
   const recommended = recommendedModel(run)?.id;
   const frontier = paretoFrontier(points);
-  const maxCost = Math.ceil((Math.max(...points.map((row) => row.cost)) * 1.15) / 0.005) * 0.005;
+  const highestCost = Math.max(...points.map((row) => row.cost));
+  const step = 10 ** Math.floor(Math.log10(highestCost || 0.001)) / 2;
+  const maxCost = Math.max(step, Math.ceil(highestCost * 1.15 / step) * step);
   const qualityDomain = [
     Math.max(0, Math.floor((Math.min(...points.map((row) => row.quality)) - 0.25) * 2) / 2),
     Math.min(10, Math.ceil((Math.max(...points.map((row) => row.quality)) + 0.25) * 2) / 2),
   ];
   const qualityLabel = run.config.judge === "feedback" ? "Feedback / 10" : "Judge score / 10";
-  const costTicks = Array.from({ length: Math.round(maxCost / 0.005) + 1 }, (_, index) => index * 0.005);
+  const costTicks = Array.from({ length: 6 }, (_, index) => index * maxCost / 5);
   const qualityTicks = Array.from(
     { length: Math.round((qualityDomain[1] - qualityDomain[0]) / 0.5) + 1 },
     (_, index) => qualityDomain[0] + index * 0.5,
@@ -91,7 +93,7 @@ export function CostQualityPlot({ run, unit }: { run: Optimization; unit: string
                           {qualityLabel}: {point.quality.toFixed(2)}
                         </p>
                         <p>
-                          Cost / {unit}: ${point.cost.toFixed(4)}
+                          Cost / {unit}: {dollars(point.cost)}
                         </p>
                         <p className="text-muted-foreground">{point.scored.toLocaleString("en-US")} scored</p>
                       </div>

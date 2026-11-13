@@ -65,6 +65,10 @@ evaluation = Eval(
 
 The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported. HTTP, execution, retries, concurrency, setup, diagnostics, the development server, and GitHub reporting run in Rust under `src/worker/crates/evals-sdk`. `src/worker/crates/evals-python` binds that core to Python with PyO3. Python handles your coroutine and eval-file imports
 
+## Model optimizations
+
+Use `lens.optimizations.assign(...)` to select a model once per live agent run, or `lens.optimizations.arun(optimization_id, task=task)` to run a full-agent model comparison in your environment. See [Model optimizations](../../docs/model-optimizations.md) for setup, trace correlation, limitations, and an executable example
+
 ## Install
 
 This is a private preview. Version `0.1.0a3` is not published to PyPI. Its GitHub wheel release is also pending CI. Generated workflows use `install-from-source: 'true'` to build the SDK from the Action's pinned checkout without a release download. The SDK workflow builds wheels for Linux x86_64, macOS arm64/x86_64, and Windows x86_64. Once published, download the wheel for your platform from the [SDK prerelease](https://github.com/BerriAI/lens/releases/tag/lens-evals-v0.1.0a3), verify it against the accompanying `SHA256SUMS`, then install it in your agent project:

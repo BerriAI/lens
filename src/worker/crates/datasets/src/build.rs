@@ -12,6 +12,8 @@ use std::collections::HashSet;
 struct TextLine {
     messages: Vec<DatasetMessage>,
     #[serde(default)]
+    request: Option<lens_contract::optimizations::ReplayRequest>,
+    #[serde(default)]
     reply: String,
     #[serde(default)]
     tool_calls: Vec<DatasetToolCall>,
@@ -143,13 +145,17 @@ fn text_cases(source: &TextSource, limits: Limits) -> Vec<Candidate> {
                     .ok()
                     .and_then(|parsed| serde_json::from_value::<TextLine>(text_value(&parsed)).ok())
                 {
-                    Some(parsed) => make_case(
-                        parsed.messages,
-                        parsed.reply,
-                        parsed.tool_calls,
-                        parsed.source,
-                        parsed.expected,
-                        parsed.agent_version,
+                    Some(parsed) => with_request(
+                        parsed.request,
+                        make_case(
+                            parsed.messages,
+                            parsed.reply,
+                            parsed.tool_calls,
+                            parsed.source,
+                            parsed.expected,
+                            parsed.agent_version,
+                            limits,
+                        ),
                         limits,
                     ),
                     None => skipped(CaseSource::default(), SkipReason::Invalid),
@@ -173,14 +179,39 @@ fn text_cases(source: &TextSource, limits: Limits) -> Vec<Candidate> {
     )]
 }
 
+fn with_request(
+    request: Option<lens_contract::optimizations::ReplayRequest>,
+    candidate: Candidate,
+    limits: Limits,
+) -> Candidate {
+    match candidate {
+        Candidate::Case(mut case) => {
+            if request
+                .as_ref()
+                .is_some_and(|request| request.validate().is_err())
+            {
+                return skipped(case.source, SkipReason::Invalid);
+            }
+            case.request = request.map(Box::new);
+            if crate::case_chars(&case) as i128 > i128::from(limits.max_case_chars) {
+                return skipped(case.source, SkipReason::TooLarge);
+            }
+            Candidate::Case(case)
+        }
+        skipped => skipped,
+    }
+}
+
 fn text_value(value: &jiter::JsonValue<'_>) -> serde_json::Value {
     use jiter::JsonValue;
     use serde_json::Value;
     match value {
-        // Text records have no numeric fields; numeric metadata stays ignorable without becoming text.
-        JsonValue::Null | JsonValue::Int(_) | JsonValue::BigInt(_) | JsonValue::Float(_) => {
-            Value::Null
-        }
+        JsonValue::Null => Value::Null,
+        JsonValue::Int(value) => Value::Number((*value).into()),
+        JsonValue::BigInt(value) => value.to_string().parse().unwrap_or(Value::Null),
+        JsonValue::Float(value) => serde_json::Number::from_f64(*value)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         JsonValue::Bool(value) => Value::Bool(*value),
         JsonValue::Str(value) => Value::String(value.to_string()),
         JsonValue::Array(values) => Value::Array(values.iter().map(text_value).collect()),

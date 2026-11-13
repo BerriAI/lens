@@ -361,7 +361,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       )}
                     </TabsContent>
                     <TabsContent value="optimizations" className={PANEL}>
-                      <ModelOptimizations />
+                      <ModelOptimizations canView={canViewInvestigations} readOnly={readOnly || !isAdmin} />
                     </TabsContent>
                   </>
                 )}
