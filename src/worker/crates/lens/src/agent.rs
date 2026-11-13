@@ -7,7 +7,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)]
@@ -173,6 +173,7 @@ pub async fn run<T: Output>(
         "python_instructions": include_str!("../prompts/python_instructions.md"),
         "context": claim.job.settings.context, "checks": checks(claim)?,
         "catalog_fields": ["span_id", "parent_span_id", "name", "kind", "characters", "start_time", "end_time"],
+        "execution_ids": workspace.executions.iter().map(|execution| &execution.id).collect::<Vec<_>>(),
         "available_sessions": workspace.executions.len(), "available_review_records": workspace.reviews.len(),
         "response_schema": model::schema(T::SCHEMA)?,
     });
@@ -181,6 +182,8 @@ pub async fn run<T: Output>(
     request.messages = vec![task_message.clone(), model::message(wire::ModelMessageRole::User, json!({"initial_evidence": [], "supplied": assignment.supplied, "existing_findings": existing}).to_string())];
     let mut compacted = false;
     let mut rejected = 0;
+    let mut history_characters = 16 * 1024;
+    let mut repeated_tools = BTreeMap::<String, u8>::new();
     loop {
         tracker.change("model", true).await?;
         let result = model::structured::<Turn<T>>(&workspace.client, request.clone(), T::SCHEMA, |turn| {
@@ -193,6 +196,7 @@ pub async fn run<T: Output>(
         tracker.change("model", false).await?;
         let (turn, responded) = match result {
             Err(Error::Context(previous)) if !compacted => {
+                history_characters = (history_characters / 2).max(1);
                 tracker.change("checkpoint", true).await?;
                 request.messages =
                     model::compact(&workspace.client, *previous, journal.turns.len() + 1).await?;
@@ -246,6 +250,20 @@ pub async fn run<T: Output>(
         let mut results = Vec::new();
         let mut archived = Vec::new();
         for tool in turn.tools {
+            let arguments = serde_json::to_string(&tool)?;
+            let repeat_key = match &tool {
+                Tool::Evidence(request)
+                    if request.action == wire::EvidenceRequestAction::History =>
+                {
+                    format!("{history_characters}:{arguments}")
+                }
+                _ => arguments,
+            };
+            let repeated = repeated_tools.entry(repeat_key).or_default();
+            *repeated += 1;
+            if *repeated > 3 {
+                return Err(Error::ToolNoProgress);
+            }
             let operation = match &tool {
                 Tool::Evidence(r) => r.action.to_string(),
                 Tool::Python(_) => "python".into(),
@@ -255,7 +273,7 @@ pub async fn run<T: Output>(
                 Tool::Evidence(request)
                     if request.action == wire::EvidenceRequestAction::History =>
                 {
-                    journal.reply(request).await
+                    journal.page(request, history_characters).await
                 }
                 Tool::Evidence(request) => workspace.respond(request).await,
                 Tool::Python(request) => sandbox::execute(workspace, request)
@@ -268,7 +286,17 @@ pub async fn run<T: Output>(
                 Err(error) => json!({"request": tool, "error": error.to_string()}).to_string(),
             };
             archived.push(match &tool {
-                Tool::Evidence(r) => journal.reference(r).unwrap_or_else(|| result.clone()),
+                Tool::Evidence(r) if r.action == wire::EvidenceRequestAction::History => {
+                    let reply: Value = serde_json::from_str(&result)?;
+                    let recorded = reply
+                        .get("request")
+                        .and_then(|value| serde_json::from_value(value.clone()).ok());
+                    recorded
+                        .as_ref()
+                        .and_then(|request| journal.reference(request))
+                        .unwrap_or_else(|| result.clone())
+                }
+                Tool::Evidence(_) => result.clone(),
                 _ => result.clone(),
             });
             results.push(result);

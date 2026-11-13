@@ -111,6 +111,10 @@ pub enum Error {
         "The compacted task exceeds the model context window. Use a larger-context model or shorter instructions."
     )]
     CompactedContext,
+    #[error(
+        "The investigation repeated the same tool request without making progress. Start a new investigation or use a different analysis model."
+    )]
+    ToolNoProgress,
     #[error("Python input exceeds 256 MiB. Select fewer executions or spans.")]
     PythonInputTooLarge,
     #[error("Unknown span IDs in Python request")]
