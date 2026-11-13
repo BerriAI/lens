@@ -32,22 +32,25 @@ export function ProfileMap({
   overview,
   colors,
   selected,
-  onSelect,
+  onOpenDetails,
 }: {
   overview: ProfilesOverview;
   colors: ReadonlyMap<string, string>;
   selected: string | null;
-  onSelect: (profileId: string) => void;
+  onOpenDetails: (profileId: string) => void;
 }) {
   const data = useMemo(() => similarity(overview), [overview]);
   const areaRef = useRef<HTMLDivElement>(null);
   const { width = 0 } = useResizeObserver({ ref: areaRef as RefObject<HTMLDivElement>, box: "content-box" });
   const [hovered, setHovered] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
   const height = Math.round(Math.min(380, Math.max(260, width * 0.6)));
   const measure = useMemo(() => canvasMeasure(() => areaRef.current), []);
-  const selectedOnMap = data.groups.some((group) => group.profile.profile_id === selected);
-  const zoom = zoomed && selectedOnMap ? selected : null;
+  const current = chosen ?? selected;
+  const currentOnMap = data.groups.some((group) => group.profile.profile_id === current);
+  const zoom = zoomed && currentOnMap ? current : null;
+  const choose = (profileId: string) => setChosen(chosen === profileId ? null : profileId);
   const layout = useMemo(
     () =>
       layoutMap(
@@ -58,12 +61,12 @@ export function ProfileMap({
           points: group.points,
         })),
         { width, height },
-        { measure, priority: selected, zoom },
+        { measure, priority: current, zoom },
       ),
-    [data.groups, width, height, measure, selected, zoom],
+    [data.groups, width, height, measure, current, zoom],
   );
   const names = useMemo(() => new Map(data.groups.map((group) => [group.profile.profile_id, group.profile.name])), [data.groups]);
-  const focus = hovered ?? selected;
+  const focus = hovered ?? current;
   if (data.groups.length === 0) {
     return (
       <div role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -98,7 +101,7 @@ export function ProfileMap({
                       className="cursor-pointer transition-opacity duration-150 motion-reduce:transition-none"
                       style={{ fill: colors.get(group.profileId) ?? NEUTRAL }}
                       opacity={focus === null ? 0.75 : focus === group.profileId ? 1 : 0.18}
-                      onClick={() => onSelect(group.profileId)}
+                      onClick={() => choose(group.profileId)}
                       onMouseEnter={() => setHovered(group.profileId)}
                       onMouseLeave={() => setHovered(null)}
                     />
@@ -120,7 +123,7 @@ export function ProfileMap({
               </g>
               {layout.labels.map((label) => {
                 const name = names.get(label.profileId) ?? "";
-                const active = selected === label.profileId;
+                const active = current === label.profileId;
                 const dimmed = focus !== null && focus !== label.profileId;
                 return (
                   <g
@@ -131,8 +134,8 @@ export function ProfileMap({
                     aria-pressed={active}
                     className="cursor-pointer outline-none [&:focus-visible>rect]:stroke-ring"
                     opacity={dimmed ? 0.45 : 1}
-                    onClick={() => onSelect(label.profileId)}
-                    onKeyDown={(event) => activate(event, () => onSelect(label.profileId))}
+                    onClick={() => choose(label.profileId)}
+                    onKeyDown={(event) => activate(event, () => choose(label.profileId))}
                     onMouseEnter={() => setHovered(label.profileId)}
                     onMouseLeave={() => setHovered(null)}
                   >
@@ -179,10 +182,15 @@ export function ProfileMap({
             {formatCount(data.placed)} of {formatCount(data.total)} runs on the map. Nearby points suggest similar
             requests; distances are approximate.
           </span>
-          {selectedOnMap && (
-            <Button variant="outline" size="xs" aria-pressed={zoomed} onClick={() => setZoomed(!zoomed)}>
-              {zoomed ? "Show all groups" : "Zoom to selection"}
-            </Button>
+          {current !== null && currentOnMap && (
+            <span className="flex gap-2">
+              <Button variant="outline" size="xs" aria-pressed={zoomed} onClick={() => setZoomed(!zoomed)}>
+                {zoomed ? "Show all groups" : "Zoom to selection"}
+              </Button>
+              <Button variant="outline" size="xs" onClick={() => onOpenDetails(current)}>
+                View details
+              </Button>
+            </span>
           )}
         </figcaption>
       </figure>
@@ -196,13 +204,13 @@ export function ProfileMap({
                 <li key={id}>
                   <button
                     type="button"
-                    aria-current={selected === id || undefined}
-                    onClick={() => onSelect(id)}
+                    aria-pressed={current === id}
+                    onClick={() => choose(id)}
                     onMouseEnter={() => setHovered(id)}
                     onMouseLeave={() => setHovered(null)}
                     className={cn(
                       "flex w-full items-start justify-between gap-3 rounded-md px-2 py-1 text-left transition-[background-color,opacity] duration-150 hover:bg-muted/60 motion-reduce:transition-none",
-                      selected === id && "bg-muted",
+                      current === id && "bg-muted",
                       focus !== null && focus !== id && "opacity-55",
                     )}
                   >
@@ -229,7 +237,8 @@ export function ProfileMap({
                 <li key={profile.profile_id}>
                   <button
                     type="button"
-                    onClick={() => onSelect(profile.profile_id)}
+                    aria-label={`View details for ${profile.name}, ${formatCount(runs)} runs not on the map`}
+                    onClick={() => onOpenDetails(profile.profile_id)}
                     className="flex w-full items-start justify-between gap-3 rounded-md px-2 py-1 text-left hover:bg-muted/60"
                   >
                     <span className="min-w-0">

@@ -177,7 +177,7 @@ export function ProfilesView({
               {profile.view === "breakdown" ? (
                 <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
               ) : (
-                <ProfileMap overview={overview.data} colors={colors} selected={selected} onSelect={profile.selectProfile} />
+                <ProfileMap overview={overview.data} colors={colors} selected={selected} onOpenDetails={profile.selectProfile} />
               )}
             </div>
             <div className="rounded-xl border bg-card p-5">

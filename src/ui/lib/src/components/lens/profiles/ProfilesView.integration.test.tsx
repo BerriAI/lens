@@ -274,3 +274,58 @@ it("opens the similarity map from a shared link", async () => {
   expect(screen.getByRole("radio", { name: "Similarity map" })).toHaveAttribute("aria-checked", "true");
   expect(within(screen.getByRole("region", { name: "Runs not on the map" })).getByRole("button", { name: /Unclassified/ })).toHaveTextContent("10");
 });
+
+it("lets the map focus and zoom a group without a modal in the way, and opens details on request", async () => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        const size = [{ inlineSize: 600, blockSize: 360 }];
+        this.callback(
+          [{ target, contentRect: new DOMRect(0, 0, 600, 360), borderBoxSize: size, contentBoxSize: size, devicePixelContentBoxSize: size }],
+          this,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, {
+    overview: overview({
+      profiles: [
+        summary("task:billing", "Answer billing questions", { source: "enhanced" }),
+        summary("task:password", "Reset a forgotten password", { source: "enhanced" }),
+      ],
+      points: [
+        { trace_id: "b1", profile_id: "task:billing", x: 0, y: 0, placement: "discovery" },
+        { trace_id: "b2", profile_id: "task:billing", x: 1, y: 1, placement: "discovery" },
+        { trace_id: "p1", profile_id: "task:password", x: 100, y: 100, placement: "discovery" },
+      ],
+    }),
+  });
+  const onUrlUpdate = vi.fn();
+  renderWithLens(<ProfilesView agents={agents} />, {
+    searchParams: "?tab=profiles&agent=assistant&profile_view=similarity",
+    onUrlUpdate,
+  });
+
+  await user.click(await screen.findByRole("button", { name: "Answer billing questions, 2 runs on the map" }));
+  await user.click(screen.getByRole("button", { name: "Zoom to selection" }));
+
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show all groups" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("button", { name: /Reset a forgotten password, 1 run on the map/ })).not.toBeInTheDocument();
+  expect(onUrlUpdate.mock.calls.some(([update]) => new URLSearchParams(update.queryString).has("profile"))).toBe(false);
+
+  await user.click(screen.getByRole("button", { name: "View details" }));
+
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile")).toBe("task:billing"));
+  expect(proxy.get).toHaveBeenCalledWith(
+    "/lens/profiles/detail",
+    expect.objectContaining({ query: expect.objectContaining({ profile_id: "task:billing" }) }),
+  );
+});

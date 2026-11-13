@@ -45,9 +45,9 @@ const discovered = overview([
   { trace_id: "r1", profile_id: "recorded:Refunds", x: 20, y: 20, placement: "categorical" },
 ]);
 
-function render(data: ProfilesOverview, selected: string | null = null, onSelect = vi.fn()) {
+function render(data: ProfilesOverview, selected: string | null = null, onOpenDetails = vi.fn()) {
   return renderWithProviders(
-    <ProfileMap overview={data} colors={profileColors(data.profiles)} selected={selected} onSelect={onSelect} />,
+    <ProfileMap overview={data} colors={profileColors(data.profiles)} selected={selected} onOpenDetails={onOpenDetails} />,
   );
 }
 
@@ -93,24 +93,32 @@ it("draws only discovery positions of real groups and counts every other run bes
   expect(screen.queryByRole("button", { name: /Unknown, .* on the map/ })).not.toBeInTheDocument();
 });
 
-it("selects a group from its map label by pointer or keyboard", async () => {
+it("focuses a group from its label by pointer or keyboard and opens details only on request", async () => {
   const user = userEvent.setup();
-  const onSelect = vi.fn();
-  render(discovered, null, onSelect);
+  const onOpenDetails = vi.fn();
+  render(discovered, null, onOpenDetails);
+  const billing = await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" });
 
-  await user.click(await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" }));
-  expect(onSelect).toHaveBeenLastCalledWith("task:a");
+  await user.click(billing);
+
+  expect(billing).toHaveAttribute("aria-pressed", "true");
+  expect(onOpenDetails).not.toHaveBeenCalled();
 
   screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" }).focus();
   await user.keyboard("{Enter}");
-  expect(onSelect).toHaveBeenLastCalledWith("task:b");
+
+  expect(screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" })).toHaveAttribute("aria-pressed", "true");
+  expect(billing).toHaveAttribute("aria-pressed", "false");
+  await user.click(screen.getByRole("button", { name: "View details" }));
+  expect(onOpenDetails).toHaveBeenCalledWith("task:b");
 });
 
-it("zooms to the selected group and back to every group", async () => {
+it("zooms to the focused group and back to every group", async () => {
   const user = userEvent.setup();
-  render(discovered, "task:a");
+  render(discovered);
 
-  expect(await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("button", { name: "Zoom to selection" })).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" }));
   expect(screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "Zoom to selection" }));
