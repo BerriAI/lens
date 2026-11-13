@@ -103,6 +103,55 @@ it("explains missing gateway models and still previews the sample without model 
   expect(discoveryCalls(proxy)).toEqual([]);
 });
 
+it("saves models the gateway lists after a refresh for each role without starting discovery", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const none = { discovery: "", embedding: "", classification: "" };
+  const missing = settingsView({ defaults: none, options: { discovery: ["claude-haiku"], embedding: [], classification: [] } });
+  routes(proxy, missing);
+  let refreshed = false;
+  const read = proxy.get.getMockImplementation();
+  proxy.get.mockImplementation(async (path, request) =>
+    path === "/lens/profiles/settings" ? (refreshed ? settingsView({ defaults: none }) : missing) : read?.(path, request),
+  );
+  const write = proxy.post.getMockImplementation();
+  proxy.post.mockImplementation(async (path, request) => {
+    if (path !== "/lens/gateway/refresh") return write?.(path, request);
+    refreshed = true;
+    return {};
+  });
+  render();
+
+  expect(await screen.findByText(/No embedding models are available/)).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Refresh models" }));
+  await waitFor(() => expect(screen.queryByText(/No embedding models are available/)).not.toBeInTheDocument());
+  const choose = async (role: string, model: string) => {
+    await user.click(screen.getByRole("combobox", { name: role }));
+    await user.click(await screen.findByRole("option", { name: model }));
+  };
+  await choose("Task discovery model", "claude-sonnet");
+  await choose("Embedding model", "qwen-embed");
+  await choose("Classification model", "typesafe/jev-latest");
+  await user.click(screen.getByRole("switch", { name: "Use paid models for assistant" }));
+  await user.click(screen.getByRole("button", { name: "Save settings" }));
+
+  await waitFor(() =>
+    expect(proxy.put).toHaveBeenCalledWith(
+      "/lens/profiles/settings",
+      expect.objectContaining({
+        body: {
+          agent: "assistant",
+          revision: 0,
+          enabled: true,
+          models: { discovery: "claude-sonnet", embedding: "qwen-embed", classification: "typesafe/jev-latest" },
+        },
+      }),
+    ),
+  );
+  expect(proxy.post).toHaveBeenCalledWith("/lens/gateway/refresh", expect.anything());
+  expect(discoveryCalls(proxy)).toEqual([]);
+});
+
 it("starts discovery only after confirming the agent, range, sample and models", async () => {
   const user = userEvent.setup();
   const proxy = stubGateway();
