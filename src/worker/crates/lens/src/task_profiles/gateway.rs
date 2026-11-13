@@ -273,11 +273,12 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
-    async fn an_unreachable_gateway_is_a_connection_error() {
-        let gateway = MockServer::start().await;
-        let connection =
-            GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
-        drop(gateway);
+    async fn a_gateway_that_drops_the_connection_is_a_connection_error() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("listener");
+        let address = listener.local_addr().expect("address");
+        std::thread::spawn(move || listener.incoming().for_each(drop));
+        let connection = GatewayConfig::new(&format!("http://{address}"), "fixture-key".into())
+            .expect("connection");
 
         let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
 
