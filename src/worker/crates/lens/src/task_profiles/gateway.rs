@@ -225,16 +225,24 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
-            .and(body_partial_json(json!({"input": ["request 20", "request 21"]})))
+            .and(body_partial_json(
+                json!({"input": ["request 20", "request 21"]}),
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(vectors(2, EMBED_BATCH)))
             .expect(1)
             .mount(&gateway)
             .await;
-        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+        let connection =
+            GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
 
-        let embedded = embed(&reqwest::Client::new(), &connection, "qwen", &texts(EMBED_BATCH + 2))
-            .await
-            .expect("embeddings");
+        let embedded = embed(
+            &reqwest::Client::new(),
+            &connection,
+            "qwen",
+            &texts(EMBED_BATCH + 2),
+        )
+        .await
+        .expect("embeddings");
 
         assert_eq!(embedded.len(), EMBED_BATCH + 2);
         assert_eq!(embedded[0], vec![0.0, 1.0]);
@@ -255,7 +263,8 @@ mod tests {
             .respond_with(reply)
             .mount(&gateway)
             .await;
-        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+        let connection =
+            GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
 
         let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(2)).await;
 
@@ -266,7 +275,8 @@ mod tests {
     #[tokio::test]
     async fn an_unreachable_gateway_is_a_connection_error() {
         let gateway = MockServer::start().await;
-        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+        let connection =
+            GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
         drop(gateway);
 
         let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
@@ -290,7 +300,8 @@ mod tests {
             .respond_with(reply)
             .mount(&gateway)
             .await;
-        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+        let connection =
+            GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
 
         let models = configured_models(&reqwest::Client::new(), &connection).await;
 

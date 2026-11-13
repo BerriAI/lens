@@ -103,7 +103,7 @@ async fn turning_discovery_off_wins_over_a_concurrent_first_activation(
 ) {
     let profiles = &isolated.profiles;
     seeded(
-        &profiles,
+        profiles,
         Some(taxonomy(TaxonomyStatus::Draft, Vec::new())),
         None,
     )
@@ -145,7 +145,7 @@ async fn turning_discovery_off_wins_over_a_concurrent_resume(#[future(awt)] isol
             end_ms: Some(10),
         }],
     );
-    seeded(&profiles, None, Some(paused.clone())).await;
+    seeded(profiles, None, Some(paused.clone())).await;
     let (browser, browser_heads) = profiles.load("tax").await.expect("load");
     let (switch, switch_heads) = profiles.load("tax").await.expect("load");
     let request = TaxonomyRevisionRequest {

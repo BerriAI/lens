@@ -169,6 +169,7 @@ it("focuses a group from the side list and clears the focus when chosen again", 
   expect(screen.getByRole("button", { name: "Answer billing questions, 3 runs on the map" })).toHaveAttribute("opacity", "0.45");
 
   await user.click(entry);
+  await user.unhover(entry);
 
   expect(entry).toHaveAttribute("aria-pressed", "false");
   expect(screen.queryByRole("button", { name: "Zoom to selection" })).not.toBeInTheDocument();

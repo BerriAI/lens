@@ -70,7 +70,11 @@ impl Memory {
 }
 
 impl ProfileStore for Memory {
-    async fn runs(&self, _: ReadAccessParams, query: RunQuery) -> Result<Vec<Run>, ProfileStoreError> {
+    async fn runs(
+        &self,
+        _: ReadAccessParams,
+        query: RunQuery,
+    ) -> Result<Vec<Run>, ProfileStoreError> {
         self.lock().queries.push(query);
         if self.unavailable {
             return Err(ProfileStoreError::Unavailable);
@@ -78,7 +82,12 @@ impl ProfileStore for Memory {
         Ok(self.runs.clone())
     }
 
-    async fn calls(&self, _: ReadAccessParams, _: Vec<Run>, _: usize) -> Result<RunCalls, ProfileStoreError> {
+    async fn calls(
+        &self,
+        _: ReadAccessParams,
+        _: Vec<Run>,
+        _: usize,
+    ) -> Result<RunCalls, ProfileStoreError> {
         Ok(self.calls.clone())
     }
 
@@ -101,10 +110,20 @@ impl TaxonomyStore for Memory {
     type Heads = u64;
 
     async fn load(&self, taxonomy_id: &str) -> Result<(AgentState, u64), ProfileStoreError> {
-        Ok(self.lock().states.get(taxonomy_id).cloned().unwrap_or_default())
+        Ok(self
+            .lock()
+            .states
+            .get(taxonomy_id)
+            .cloned()
+            .unwrap_or_default())
     }
 
-    async fn save(&self, taxonomy_id: &str, heads: u64, changes: Changes) -> Result<(), ProfileStoreError> {
+    async fn save(
+        &self,
+        taxonomy_id: &str,
+        heads: u64,
+        changes: Changes,
+    ) -> Result<(), ProfileStoreError> {
         let mut shared = self.lock();
         let (state, version) = shared.states.entry(taxonomy_id.to_owned()).or_default();
         if *version != heads {
@@ -129,7 +148,10 @@ impl DiscoveryCatalog for Memory {
         }
     }
 
-    async fn preview(&self, request: DiscoveryRequest) -> Result<DiscoveryPreview, ProfileStoreError> {
+    async fn preview(
+        &self,
+        request: DiscoveryRequest,
+    ) -> Result<DiscoveryPreview, ProfileStoreError> {
         self.lock().previews.push(request.clone());
         Ok(DiscoveryPreview {
             eligible_runs: 42,
@@ -292,8 +314,16 @@ async fn serve(database: &Database, store: Memory) -> Server {
         .await
 }
 
-async fn call(server: &Server, method: Method, path: &str, role: Option<Role>, body: Option<Value>) -> (StatusCode, Value) {
-    let request = server.client.request(method, server.url.join(path).expect("url"));
+async fn call(
+    server: &Server,
+    method: Method,
+    path: &str,
+    role: Option<Role>,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let request = server
+        .client
+        .request(method, server.url.join(path).expect("url"));
     let request = match role {
         Some(role) => request.bearer_auth(token(role)),
         None => request,
@@ -355,7 +385,14 @@ async fn settings_start_off_and_show_deployment_defaults_to_every_team_admins(
 ) {
     let server = serve(&database, Memory::default()).await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/settings?agent={AGENT}"), Some(role), None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/settings?agent={AGENT}"),
+        Some(role),
+        None,
+    )
+    .await;
 
     assert_eq!(status, expected);
     if status == StatusCode::OK {
@@ -397,14 +434,38 @@ async fn opting_in_rejects_models_the_gateway_does_not_offer_for_their_role(
 
 #[rstest]
 #[tokio::test]
-async fn saving_settings_persists_them_and_rejects_a_stale_form(#[future(awt)] database: Database, admin: Option<Role>) {
+async fn saving_settings_persists_them_and_rejects_a_stale_form(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
     let store = Memory::default();
     let server = serve(&database, store.clone()).await;
     let save = |revision: u32| json!({"agent": AGENT, "revision": revision, "enabled": true, "models": choice()});
 
-    let (saved, body) = call(&server, Method::PUT, "/lens/profiles/settings", admin, Some(save(0))).await;
-    let (stale, _) = call(&server, Method::PUT, "/lens/profiles/settings", admin, Some(save(0))).await;
-    let (_, reloaded) = call(&server, Method::GET, &format!("/lens/profiles/settings?agent={AGENT}"), admin, None).await;
+    let (saved, body) = call(
+        &server,
+        Method::PUT,
+        "/lens/profiles/settings",
+        admin,
+        Some(save(0)),
+    )
+    .await;
+    let (stale, _) = call(
+        &server,
+        Method::PUT,
+        "/lens/profiles/settings",
+        admin,
+        Some(save(0)),
+    )
+    .await;
+    let (_, reloaded) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/settings?agent={AGENT}"),
+        admin,
+        None,
+    )
+    .await;
 
     assert_eq!(saved, StatusCode::OK);
     assert_eq!(body["revision"], json!(1));
@@ -437,7 +498,11 @@ async fn turning_discovery_off_closes_classification_even_with_models_the_gatewa
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["enabled"], json!(false));
-    assert!(store.state().active.expect("active").windows[0].end_ms.is_some());
+    assert!(
+        store.state().active.expect("active").windows[0]
+            .end_ms
+            .is_some()
+    );
 }
 
 #[rstest]
@@ -453,10 +518,20 @@ async fn previews_are_read_only_and_limited_to_every_team_admins(
     let server = serve(&database, store.clone()).await;
     let request = json!({"agent": AGENT, "start_ms": 0, "end_ms": 10, "max_runs": 300});
 
-    let (status, body) = call(&server, Method::POST, "/lens/profiles/discovery/preview", Some(role), Some(request)).await;
+    let (status, body) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery/preview",
+        Some(role),
+        Some(request),
+    )
+    .await;
 
     assert_eq!(status, expected);
-    assert_eq!(store.lock().previews.len(), usize::from(expected == StatusCode::OK));
+    assert_eq!(
+        store.lock().previews.len(),
+        usize::from(expected == StatusCode::OK)
+    );
     if expected == StatusCode::OK {
         assert_eq!(body["sample_runs"], json!(42));
         assert_eq!(store.state(), AgentState::default());
@@ -467,11 +542,22 @@ async fn previews_are_read_only_and_limited_to_every_team_admins(
 #[case::too_small(json!({"agent": AGENT, "start_ms": 0, "end_ms": 10, "max_runs": 19}))]
 #[case::empty_range(json!({"agent": AGENT, "start_ms": 10, "end_ms": 10, "max_runs": 100}))]
 #[tokio::test]
-async fn previews_reject_an_unusable_range_or_size(#[future(awt)] database: Database, admin: Option<Role>, #[case] request: Value) {
+async fn previews_reject_an_unusable_range_or_size(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+    #[case] request: Value,
+) {
     let store = Memory::default();
     let server = serve(&database, store.clone()).await;
 
-    let (status, _) = call(&server, Method::POST, "/lens/profiles/discovery/preview", admin, Some(request)).await;
+    let (status, _) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery/preview",
+        admin,
+        Some(request),
+    )
+    .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(store.lock().previews.is_empty());
@@ -510,7 +596,10 @@ async fn discovery_starts_only_for_an_opted_in_agent_with_available_models(
 
 #[rstest]
 #[tokio::test]
-async fn a_discovery_snapshots_the_saved_models_and_refuses_a_second_one(#[future(awt)] database: Database, admin: Option<Role>) {
+async fn a_discovery_snapshots_the_saved_models_and_refuses_a_second_one(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
     let store = Memory::with(AgentState {
         active: Some(taxonomy(TaxonomyStatus::Frozen, open())),
         settings: Some(settings(true)),
@@ -519,19 +608,42 @@ async fn a_discovery_snapshots_the_saved_models_and_refuses_a_second_one(#[futur
     let server = serve(&database, store.clone()).await;
     let request = json!({"agent": AGENT, "start_ms": 0, "end_ms": 10, "max_runs": 100});
 
-    let (status, body) = call(&server, Method::POST, "/lens/profiles/discovery", admin, Some(request.clone())).await;
-    let (again, _) = call(&server, Method::POST, "/lens/profiles/discovery", admin, Some(request)).await;
+    let (status, body) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery",
+        admin,
+        Some(request.clone()),
+    )
+    .await;
+    let (again, _) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery",
+        admin,
+        Some(request),
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["taxonomy"]["status"], json!("discovering"));
-    assert_eq!(body["taxonomy"]["models"], json!({"distill": "haiku", "embedding": "qwen", "synthesis": "haiku", "decision": "jev"}));
-    assert_eq!(body["active"]["tasks"][0]["name"], json!("Answer billing questions"));
+    assert_eq!(
+        body["taxonomy"]["models"],
+        json!({"distill": "haiku", "embedding": "qwen", "synthesis": "haiku", "decision": "jev"})
+    );
+    assert_eq!(
+        body["active"]["tasks"][0]["name"],
+        json!("Answer billing questions")
+    );
     assert_eq!(again, StatusCode::CONFLICT);
 }
 
 #[rstest]
 #[tokio::test]
-async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(#[future(awt)] database: Database, admin: Option<Role>) {
+async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
     let store = Memory::with(AgentState {
         working: Some(taxonomy(TaxonomyStatus::Draft, Vec::new())),
         settings: Some(settings(true)),
@@ -540,7 +652,14 @@ async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(#[future
     let server = serve(&database, store.clone()).await;
     let edit = json!({"agent": AGENT, "revision": 5, "name": "Billing", "description": "", "inclusion_criteria": "", "exclusion_criteria": "", "required_capabilities": []});
 
-    let (edited, body) = call(&server, Method::PATCH, "/lens/profiles/taxonomy/tasks/billing", admin, Some(edit)).await;
+    let (edited, body) = call(
+        &server,
+        Method::PATCH,
+        "/lens/profiles/taxonomy/tasks/billing",
+        admin,
+        Some(edit),
+    )
+    .await;
     let (activated, view) = call(
         &server,
         Method::POST,
@@ -555,7 +674,10 @@ async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(#[future
     assert_eq!(activated, StatusCode::OK);
     assert_eq!(view["taxonomy"], Value::Null);
     assert_eq!(view["active"]["tasks"][0]["name"], json!("Billing"));
-    assert_eq!(view["active"]["windows"][0], json!({"start_ms": 1_000, "end_ms": 9_000}));
+    assert_eq!(
+        view["active"]["windows"][0],
+        json!({"start_ms": 1_000, "end_ms": 9_000})
+    );
     assert_eq!(view["active"]["windows"][1]["end_ms"], Value::Null);
 }
 
@@ -590,7 +712,10 @@ async fn draft_changes_report_why_they_were_refused(
 
 #[rstest]
 #[tokio::test]
-async fn paused_classification_resumes_and_the_active_tasks_can_be_removed(#[future(awt)] database: Database, admin: Option<Role>) {
+async fn paused_classification_resumes_and_the_active_tasks_can_be_removed(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
     let paused = vec![ClassificationWindow {
         start_ms: 100,
         end_ms: Some(200),
@@ -602,7 +727,14 @@ async fn paused_classification_resumes_and_the_active_tasks_can_be_removed(#[fut
     });
     let server = serve(&database, store.clone()).await;
 
-    let (resumed, view) = call(&server, Method::POST, "/lens/profiles/taxonomy/resume", admin, Some(json!({"agent": AGENT, "revision": 5}))).await;
+    let (resumed, view) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/taxonomy/resume",
+        admin,
+        Some(json!({"agent": AGENT, "revision": 5})),
+    )
+    .await;
     let (removed, after) = call(
         &server,
         Method::POST,
@@ -616,7 +748,10 @@ async fn paused_classification_resumes_and_the_active_tasks_can_be_removed(#[fut
     assert_eq!(view["active"]["windows"][1]["end_ms"], Value::Null);
     assert_eq!(removed, StatusCode::OK);
     assert_eq!(after["active"], Value::Null);
-    assert_eq!(store.state().active.map(|active| active.status), Some(TaxonomyStatus::Cleared));
+    assert_eq!(
+        store.state().active.map(|active| active.status),
+        Some(TaxonomyStatus::Cleared)
+    );
 }
 
 #[rstest]
@@ -640,7 +775,14 @@ async fn the_taxonomy_view_shows_enhanced_tasks_only_to_every_team_callers(
     )
     .await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/taxonomy?agent={AGENT}"), Some(role), None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/taxonomy?agent={AGENT}"),
+        Some(role),
+        None,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["can_write"], can_write);
@@ -649,7 +791,10 @@ async fn the_taxonomy_view_shows_enhanced_tasks_only_to_every_team_callers(
 
 #[rstest]
 #[tokio::test]
-async fn the_overview_resolves_runs_against_the_active_taxonomy_and_its_windows(#[future(awt)] database: Database, admin: Option<Role>) {
+async fn the_overview_resolves_runs_against_the_active_taxonomy_and_its_windows(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
     let store = traffic(AgentState {
         working: Some(taxonomy(TaxonomyStatus::Discovering, Vec::new())),
         active: Some(taxonomy(TaxonomyStatus::Frozen, open())),
@@ -657,36 +802,68 @@ async fn the_overview_resolves_runs_against_the_active_taxonomy_and_its_windows(
     });
     let server = serve(&database, store.clone()).await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/overview{}", window_query("")), admin, None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{}", window_query("")),
+        admin,
+        None,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["taxonomy"]["status"], json!("frozen"));
     assert_eq!(
-        body["profiles"].as_array().map(|profiles| profiles.iter().map(|profile| profile["name"].clone()).collect::<Vec<_>>()),
-        Some(vec![json!("login help"), json!("Refunds"), json!("Answer billing questions")])
+        body["profiles"].as_array().map(|profiles| profiles
+            .iter()
+            .map(|profile| profile["name"].clone())
+            .collect::<Vec<_>>()),
+        Some(vec![
+            json!("login help"),
+            json!("Refunds"),
+            json!("Answer billing questions")
+        ])
     );
     assert_eq!(body["totals"]["spend_usd"], json!(0.25));
     assert_eq!(
-        store.lock().queries.last().map(|query| (query.taxonomy_id.clone(), query.taxonomy_version, query.windows.clone(), query.limit)),
+        store.lock().queries.last().map(|query| (
+            query.taxonomy_id.clone(),
+            query.taxonomy_version,
+            query.windows.clone(),
+            query.limit
+        )),
         Some(("tax".to_owned(), 2, open(), 5_001))
     );
 }
 
 #[rstest]
 #[tokio::test]
-async fn scoped_callers_never_resolve_against_an_enhanced_taxonomy(#[future(awt)] database: Database) {
+async fn scoped_callers_never_resolve_against_an_enhanced_taxonomy(
+    #[future(awt)] database: Database,
+) {
     let store = traffic(AgentState {
         active: Some(taxonomy(TaxonomyStatus::Frozen, open())),
         ..AgentState::default()
     });
     let server = serve(&database, store.clone()).await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/overview{}", window_query("")), Some(Role::InternalUser), None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{}", window_query("")),
+        Some(Role::InternalUser),
+        None,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["taxonomy"], Value::Null);
     assert_eq!(
-        store.lock().queries.last().map(|query| (query.taxonomy_id.clone(), query.taxonomy_version, query.windows.len())),
+        store.lock().queries.last().map(|query| (
+            query.taxonomy_id.clone(),
+            query.taxonomy_version,
+            query.windows.len()
+        )),
         Some((String::new(), 0, 0))
     );
 }
@@ -710,11 +887,23 @@ async fn the_matrix_lists_idle_deployments_only_to_every_team_callers_and_compar
     )
     .await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/matrix{}", window_query("")), Some(role), None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/matrix{}", window_query("")),
+        Some(role),
+        None,
+    )
+    .await;
     let fit = |column: &str| {
         body["compatibility"]
             .as_array()
-            .and_then(|entries| entries.iter().find(|entry| entry["profile_id"] == json!("task:billing") && entry["column_key"] == json!(column)))
+            .and_then(|entries| {
+                entries.iter().find(|entry| {
+                    entry["profile_id"] == json!("task:billing")
+                        && entry["column_key"] == json!(column)
+                })
+            })
             .map(|entry| entry["status"].clone())
     };
 
@@ -728,7 +917,11 @@ async fn the_matrix_lists_idle_deployments_only_to_every_team_callers_and_compar
 #[case::by_id("&profile_id=task:billing")]
 #[case::by_legacy_label("&profile_id=Answer%20billing%20questions")]
 #[tokio::test]
-async fn the_detail_returns_a_reviewed_definition_with_its_runs(#[future(awt)] database: Database, admin: Option<Role>, #[case] profile: &str) {
+async fn the_detail_returns_a_reviewed_definition_with_its_runs(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+    #[case] profile: &str,
+) {
     let server = serve(
         &database,
         traffic(AgentState {
@@ -738,20 +931,42 @@ async fn the_detail_returns_a_reviewed_definition_with_its_runs(#[future(awt)] d
     )
     .await;
 
-    let (status, body) = call(&server, Method::GET, &format!("/lens/profiles/detail{}", window_query(profile)), admin, None).await;
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/detail{}", window_query(profile)),
+        admin,
+        None,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["profile"]["profile_id"], json!("task:billing"));
-    assert_eq!(body["definition"]["description"], json!("Questions about invoices"));
+    assert_eq!(
+        body["definition"]["description"],
+        json!("Questions about invoices")
+    );
     assert_eq!(body["runs"][0]["trace_id"], json!("t1"));
     assert_eq!(body["models"][0]["column_key"], json!("id:dep-vision"));
 }
 
 #[rstest]
-#[case::no_profile("/lens/profiles/detail?agent=assistant&start_ms=0&end_ms=100", StatusCode::BAD_REQUEST)]
-#[case::unknown_profile("/lens/profiles/detail?agent=assistant&start_ms=0&end_ms=100&profile_id=task:gone", StatusCode::NOT_FOUND)]
-#[case::reversed_window("/lens/profiles/overview?agent=assistant&start_ms=200&end_ms=100", StatusCode::BAD_REQUEST)]
-#[case::no_agent("/lens/profiles/matrix?agent=%20&start_ms=0&end_ms=100", StatusCode::BAD_REQUEST)]
+#[case::no_profile(
+    "/lens/profiles/detail?agent=assistant&start_ms=0&end_ms=100",
+    StatusCode::BAD_REQUEST
+)]
+#[case::unknown_profile(
+    "/lens/profiles/detail?agent=assistant&start_ms=0&end_ms=100&profile_id=task:gone",
+    StatusCode::NOT_FOUND
+)]
+#[case::reversed_window(
+    "/lens/profiles/overview?agent=assistant&start_ms=200&end_ms=100",
+    StatusCode::BAD_REQUEST
+)]
+#[case::no_agent(
+    "/lens/profiles/matrix?agent=%20&start_ms=0&end_ms=100",
+    StatusCode::BAD_REQUEST
+)]
 #[tokio::test]
 async fn profile_reads_reject_unusable_requests(
     #[future(awt)] database: Database,
@@ -789,7 +1004,12 @@ async fn profile_reads_fail_closed(
             ..Identity::default()
         })
     });
-    let request = server.client.get(server.url.join(&format!("/lens/profiles/overview{}", window_query(""))).expect("url"));
+    let request = server.client.get(
+        server
+            .url
+            .join(&format!("/lens/profiles/overview{}", window_query("")))
+            .expect("url"),
+    );
     let request = match token {
         Some(token) => request.bearer_auth(token),
         None => request,

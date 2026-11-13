@@ -220,12 +220,20 @@ mod tests {
     }
 
     impl Decisions for Provider {
-        async fn complete(&self, request: &DecisionRequest) -> Result<Value, lens_signals::DecisionsError> {
-            self.models.lock().expect("models").push(request.model.clone());
-            self.reply.clone().map_err(|status| lens_signals::DecisionsError::Provider {
-                status,
-                retry_after_seconds: None,
-            })
+        async fn complete(
+            &self,
+            request: &DecisionRequest,
+        ) -> Result<Value, lens_signals::DecisionsError> {
+            self.models
+                .lock()
+                .expect("models")
+                .push(request.model.clone());
+            self.reply
+                .clone()
+                .map_err(|status| lens_signals::DecisionsError::Provider {
+                    status,
+                    retry_after_seconds: None,
+                })
         }
     }
 
@@ -242,10 +250,19 @@ mod tests {
             models: std::sync::Mutex::default(),
         };
 
-        let decided = decide(&provider, "typesafe/jev-latest", &taxonomy(), "the login test fails").await;
+        let decided = decide(
+            &provider,
+            "typesafe/jev-latest",
+            &taxonomy(),
+            "the login test fails",
+        )
+        .await;
 
         assert_eq!(decided, expected);
-        assert_eq!(*provider.models.lock().expect("models"), vec!["typesafe/jev-latest".to_owned()]);
+        assert_eq!(
+            *provider.models.lock().expect("models"),
+            vec!["typesafe/jev-latest".to_owned()]
+        );
     }
 
     #[rstest]

@@ -19,11 +19,14 @@ pub struct Isolated {
     _container: Option<ContainerAsync<ClickHouse>>,
     url: String,
     database: String,
-    #[allow(dead_code)] // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
+    #[allow(dead_code)]
+    // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
     pub client: litellm_http::Client,
-    #[allow(dead_code)] // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
+    #[allow(dead_code)]
+    // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
     pub config: Config,
-    #[allow(dead_code)] // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
+    #[allow(dead_code)]
+    // dead_code: profile_demo.rs seeds through these, profile_state.rs does not
     pub store: ClickHouseState,
     pub profiles: ProfilesApi,
 }
@@ -90,7 +93,10 @@ pub async fn isolated() -> Isolated {
     )
     .await
     .expect("database");
-    let store = ClickHouseState::new(client.clone(), Connection::reader(&url, &database).expect("connection"));
+    let store = ClickHouseState::new(
+        client.clone(),
+        Connection::reader(&url, &database).expect("connection"),
+    );
     store
         .initialize(&format!("/lens-profile-tests/{database}"))
         .await

@@ -1,6 +1,7 @@
 use lens_contract::profiles::{DiscoveryModelOptions, DiscoveryRequest, TaxonomyStatus};
 use lens_server::profiles::{
-    ProfileStore, RunQuery, taxonomy::{AgentState, Changes, DiscoveryCatalog, TaxonomyStore},
+    ProfileStore, RunQuery,
+    taxonomy::{AgentState, Changes, DiscoveryCatalog, TaxonomyStore},
     taxonomy_id,
 };
 use litellm_lens::task_profiles::seed::seed;
@@ -44,27 +45,56 @@ fn now_ms() -> i64 {
 #[fixture]
 async fn demo() -> Demo {
     let isolated = profile_store::isolated().await;
-    let message = seed(&isolated.client, &isolated.config, &isolated.store).await.expect("seed");
+    let message = seed(&isolated.client, &isolated.config, &isolated.store)
+        .await
+        .expect("seed");
     Demo { isolated, message }
 }
 
 #[rstest]
 #[tokio::test]
 async fn the_seed_stores_sample_tasks_without_opting_any_agent_in(#[future(awt)] demo: Demo) {
-    let (research, _) = demo.profiles.load(&id("lens-demo-research")).await.expect("research");
-    let (coding, _) = demo.profiles.load(&id("lens-demo-coding")).await.expect("coding");
-    let (support, _) = demo.profiles.load(&id("lens-demo-support")).await.expect("support");
+    let (research, _) = demo
+        .profiles
+        .load(&id("lens-demo-research"))
+        .await
+        .expect("research");
+    let (coding, _) = demo
+        .profiles
+        .load(&id("lens-demo-coding"))
+        .await
+        .expect("coding");
+    let (support, _) = demo
+        .profiles
+        .load(&id("lens-demo-support"))
+        .await
+        .expect("support");
 
-    let reseeded = seed(&demo.client, &demo.config, &demo.store).await.expect("reseed");
+    let reseeded = seed(&demo.client, &demo.config, &demo.store)
+        .await
+        .expect("reseed");
 
     assert!(demo.message.ends_with("no model calls"), "{}", demo.message);
     assert_eq!(reseeded, demo.message);
-    assert_eq!(research.active().map(|active| (active.sample, active.windows.len())), Some((true, 0)));
+    assert_eq!(
+        research
+            .active()
+            .map(|active| (active.sample, active.windows.len())),
+        Some((true, 0))
+    );
     assert_eq!(research.under_review(), None);
     assert_eq!(coding.active(), None);
-    assert_eq!(coding.under_review().map(|draft| (draft.status, draft.sample)), Some((TaxonomyStatus::Draft, true)));
+    assert_eq!(
+        coding
+            .under_review()
+            .map(|draft| (draft.status, draft.sample)),
+        Some((TaxonomyStatus::Draft, true))
+    );
     assert_eq!((support.active(), support.under_review()), (None, None));
-    assert_eq!([research.settings, coding.settings, support.settings], [None, None, None]);
+    assert_eq!(
+        [research.settings, coding.settings, support.settings],
+        [None, None, None]
+    );
 }
 
 #[rstest]
@@ -72,12 +102,22 @@ async fn the_seed_stores_sample_tasks_without_opting_any_agent_in(#[future(awt)]
 async fn the_seed_refuses_to_replace_a_real_taxonomy(#[future(awt)] demo: Demo) {
     let research = id("lens-demo-research");
     let (state, heads) = demo.profiles.load(&research).await.expect("load");
-    let real = state.active().cloned().map(|active| lens_contract::profiles::Taxonomy {
-        sample: false,
-        ..active
-    });
+    let real = state
+        .active()
+        .cloned()
+        .map(|active| lens_contract::profiles::Taxonomy {
+            sample: false,
+            ..active
+        });
     demo.profiles
-        .save(&research, heads, Changes { active: real.clone(), ..Changes::default() })
+        .save(
+            &research,
+            heads,
+            Changes {
+                active: real.clone(),
+                ..Changes::default()
+            },
+        )
         .await
         .expect("real taxonomy");
 
@@ -93,8 +133,14 @@ async fn the_seed_refuses_to_replace_a_real_taxonomy(#[future(awt)] demo: Demo) 
 
 #[rstest]
 #[tokio::test]
-async fn seeded_runs_resolve_profiles_and_priced_calls_through_the_store(#[future(awt)] demo: Demo) {
-    let (state, _): (AgentState, _) = demo.profiles.load(&id("lens-demo-research")).await.expect("load");
+async fn seeded_runs_resolve_profiles_and_priced_calls_through_the_store(
+    #[future(awt)] demo: Demo,
+) {
+    let (state, _): (AgentState, _) = demo
+        .profiles
+        .load(&id("lens-demo-research"))
+        .await
+        .expect("load");
     let active = state.active().cloned().expect("active");
     let runs = demo
         .profiles
@@ -112,12 +158,28 @@ async fn seeded_runs_resolve_profiles_and_priced_calls_through_the_store(#[futur
         )
         .await
         .expect("runs");
-    let calls = demo.profiles.calls(every_team(), runs.clone(), 50_000).await.expect("calls");
-    let profiles: std::collections::BTreeSet<&str> = runs.iter().map(|run| run.profile_id.as_str()).collect();
-    let priced = calls.values().flatten().flat_map(|call| &call.charges).filter(|charge| charge.spend.is_some()).count();
+    let calls = demo
+        .profiles
+        .calls(every_team(), runs.clone(), 50_000)
+        .await
+        .expect("calls");
+    let profiles: std::collections::BTreeSet<&str> =
+        runs.iter().map(|run| run.profile_id.as_str()).collect();
+    let priced = calls
+        .values()
+        .flatten()
+        .flat_map(|call| &call.charges)
+        .filter(|charge| charge.spend.is_some())
+        .count();
 
-    assert!(profiles.contains("task:demo-research-summarize"), "{profiles:?}");
-    assert!(profiles.contains("recorded:Literature review"), "{profiles:?}");
+    assert!(
+        profiles.contains("task:demo-research-summarize"),
+        "{profiles:?}"
+    );
+    assert!(
+        profiles.contains("recorded:Literature review"),
+        "{profiles:?}"
+    );
     assert!(profiles.contains("unknown"), "{profiles:?}");
     assert!(!profiles.contains("pending"), "{profiles:?}");
     assert!(priced > 0);
@@ -125,7 +187,9 @@ async fn seeded_runs_resolve_profiles_and_priced_calls_through_the_store(#[futur
 
 #[rstest]
 #[tokio::test]
-async fn previews_count_seeded_runs_and_show_their_requests_without_a_gateway(#[future(awt)] demo: Demo) {
+async fn previews_count_seeded_runs_and_show_their_requests_without_a_gateway(
+    #[future(awt)] demo: Demo,
+) {
     let preview = demo
         .profiles
         .preview(DiscoveryRequest {
@@ -140,7 +204,15 @@ async fn previews_count_seeded_runs_and_show_their_requests_without_a_gateway(#[
     assert!(preview.eligible_runs > 20);
     assert_eq!(preview.sample_runs, 20);
     assert_eq!(preview.previews.len(), 3);
-    assert!(preview.previews.first().is_some_and(|run| !run.input_preview.is_empty()));
-    assert_eq!(demo.profiles.options().await, DiscoveryModelOptions::default());
+    assert!(
+        preview
+            .previews
+            .first()
+            .is_some_and(|run| !run.input_preview.is_empty())
+    );
+    assert_eq!(
+        demo.profiles.options().await,
+        DiscoveryModelOptions::default()
+    );
     assert_eq!(demo.profiles.configured_models().await, Vec::new());
 }
