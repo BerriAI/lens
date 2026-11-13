@@ -1024,6 +1024,7 @@ it("carries a selected profile id into the real investigation setup and matching
       return Response.json({ window, coverage, profiles: [], models: [], cells: [], compatibility: [], other_agent_requests: 0 });
     if (request.path === "/lens/profiles/detail")
       return Response.json({ window, coverage, profile: coding, definition: null, runs: [], models: [] });
+    if (request.path === "/lens/profiles/taxonomy") return Response.json({ taxonomy: null, discovery_available: false, can_write: false });
     if (request.path === "/lens/preview/sample") return Response.json({ eligible: 10, selected: 10, executions: [] });
     if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
     if (request.path === "/lens/agents") return Response.json(["assistant"]);

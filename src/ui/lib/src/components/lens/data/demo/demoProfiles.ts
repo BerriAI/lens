@@ -5,6 +5,8 @@ import { usageCategory } from "../../profiles/usageProfile";
 import type { TimeWindow } from "../../../shared/timeRange/timeRange";
 import type { LensDemoData } from "./fixtures";
 
+const readOnly = () => Promise.reject(new Error("The demo is read-only"));
+
 interface DemoRun {
   traceId: string;
   startMs: number;
@@ -154,5 +156,19 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
         models: cells(own),
       };
     },
+    taxonomy: async () => ({ taxonomy: null, active: null, discovery_available: false, can_write: false }),
+    settings: async (agent) => ({
+      settings: { agent, enabled: false, models: { discovery: "", embedding: "", classification: "" }, revision: 0, updated_at: null },
+      defaults: { discovery: "", embedding: "", classification: "" },
+      options: { discovery: [], embedding: [], classification: [] },
+      can_write: false,
+    }),
+    saveSettings: readOnly,
+    preview: readOnly,
+    discover: readOnly,
+    editTask: readOnly,
+    activate: readOnly,
+    resume: readOnly,
+    reset: readOnly,
   };
 }

@@ -56,7 +56,9 @@ const LEGACY_PARSERS = { dataset_tab: parseAsString };
 const GITHUB_PARSERS = { github_agent: parseAsString, github_authorization: parseAsString };
 
 const LIST_PARSERS = { search: parseAsString.withDefault("") };
-const PROFILE_PARSERS = { profile: parseAsString };
+export const PROFILE_VIEWS = ["breakdown", "similarity"] as const;
+export type ProfileView = (typeof PROFILE_VIEWS)[number];
+const PROFILE_PARSERS = { profile: parseAsString, profile_view: parseAsStringLiteral(PROFILE_VIEWS).withDefault("breakdown") };
 const AGENT_LIST_PARSERS = { agent_search: parseAsString.withDefault("") };
 const CONNECT_PROJECT_PARSERS = {
   connect_agent: parseAsString,
@@ -276,12 +278,14 @@ export function useDialogRoute() {
 }
 
 export function useProfileRoute() {
-  const [{ profile, agent, hours }, setParams] = useQueryStates(PROFILE_ROUTE_PARSERS, { history: "push" });
+  const [{ profile, profile_view, agent, hours }, setParams] = useQueryStates(PROFILE_ROUTE_PARSERS, { history: "push" });
   return {
     profile,
+    view: profile_view,
     agent,
     hours,
     selectProfile: (next: string | null) => void setParams({ profile: next }),
+    setView: (next: ProfileView) => void setParams({ profile_view: next === "breakdown" ? null : next }, { history: "replace" }),
     investigate: (next: string, selectedAgent: string, lookbackHours: number) =>
       void setParams({
         profile: next,

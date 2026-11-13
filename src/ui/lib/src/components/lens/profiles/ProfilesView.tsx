@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChartNoAxesColumn, CircleAlert, List, RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, CircleAlert, List, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "../../ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { LoadingState } from "../../shared/LoadingState";
 import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
@@ -14,10 +15,13 @@ import type { LensAgents } from "../agents/AgentScoped";
 import { useProfilesApi } from "../data/LensServices";
 import { useTracesLive } from "../traces/api";
 import { LensPageHeader } from "../ui/LensPageHeader";
-import { useLensRoute, useProfileRoute } from "../route";
+import { PROFILE_VIEWS, useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
+import { DiscoverySettingsSheet } from "./DiscoverySettingsSheet";
 import { ProfileBreakdown } from "./ProfileBreakdown";
+import { ProfileMap } from "./ProfileMap";
+import { TaxonomyPanel } from "./TaxonomyPanel";
 import { formatCount, formatUsd, profileColors, selectedProfileId } from "./profilesData";
 import type { ProfilesOverview } from "./schemas";
 
@@ -91,6 +95,12 @@ export function ProfilesView({
     enabled: !!agent,
     staleTime: 30_000,
   });
+  const taxonomy = useQuery({
+    queryKey: ["lens", "profile-taxonomy", api.scope, agent],
+    queryFn: ({ signal }) => api.taxonomy(agent, signal),
+    enabled: !!agent,
+  });
+  const [configuring, setConfiguring] = useState(false);
   const shown = overview.error ? undefined : overview.data;
   const heatmap = matrix.error ? undefined : matrix.data;
   const profiles = shown?.profiles ?? [];
@@ -105,6 +115,11 @@ export function ProfilesView({
         description="Understand the different tasks your agents are used for"
         actions={
           <>
+            {taxonomy.data?.can_write && (
+              <Button variant="outline" size="sm" onClick={() => setConfiguring(true)}>
+                <Sparkles className="size-3.5" aria-hidden="true" /> Configure task discovery
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => route.setTab("traces")}>
               <List className="size-3.5" aria-hidden="true" /> View traces
             </Button>
@@ -162,10 +177,28 @@ export function ProfilesView({
         {shown && shown.totals.runs > 0 && (
           <>
             <Totals overview={shown} agent={agent} live={live} />
-            <div className="rounded-xl border bg-card p-5">
-              <h3 className="mb-4 text-base font-medium">Profiles</h3>
-              <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
-            </div>
+            <Tabs
+              value={profile.view}
+              onValueChange={(value) => {
+                const view = PROFILE_VIEWS.find((candidate) => candidate === value);
+                if (view) profile.setView(view);
+              }}
+              className="gap-4 rounded-xl border bg-card p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-medium">Profiles</h3>
+                <TabsList aria-label="Profile view">
+                  <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
+                  <TabsTrigger value="similarity">Similarity map</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="breakdown">
+                <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
+              </TabsContent>
+              <TabsContent value="similarity">
+                <ProfileMap overview={shown} colors={colors} selected={selected} onOpenDetails={profile.selectProfile} />
+              </TabsContent>
+            </Tabs>
             <div className="rounded-xl border bg-card p-5">
               <h3 className="mb-3 text-base font-medium">Profiles by model deployment</h3>
               {matrix.error && <p role="alert" className="text-sm text-destructive">{matrix.error.message}</p>}
@@ -174,7 +207,11 @@ export function ProfilesView({
             </div>
           </>
         )}
+        {!!agent && <TaxonomyPanel agent={agent} onConfigure={() => setConfiguring(true)} />}
       </div>
+      {!!agent && (
+        <DiscoverySettingsSheet agent={agent} window={window} open={configuring} onOpenChange={setConfiguring} />
+      )}
       <ProfileDetailSheet
         agent={agent}
         window={window}

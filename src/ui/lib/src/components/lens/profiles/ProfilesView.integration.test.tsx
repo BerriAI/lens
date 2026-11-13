@@ -92,16 +92,34 @@ const detail = (profileId: string): ProfileDetail => ({
   models: [],
 });
 
-function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview } = {}) {
+function routes(proxy: ReturnType<typeof stubGateway>, data: { overview?: ProfilesOverview; admin?: boolean } = {}) {
   proxy.get.mockImplementation(async (path, request) => {
     if (path === "/lens/profiles/overview") return data.overview ?? overview();
     if (path === "/lens/profiles/matrix") return matrix;
     if (path === "/lens/profiles/detail") return detail(String(request.query.profile_id));
+    if (path === "/lens/profiles/taxonomy") return { taxonomy: null, active: null, discovery_available: false, can_write: data.admin ?? false };
+    if (path === "/lens/profiles/settings")
+      return {
+        settings: { agent: "assistant", enabled: false, models: { discovery: "", embedding: "", classification: "" }, revision: 0, updated_at: null },
+        defaults: { discovery: "", embedding: "", classification: "" },
+        options: { discovery: [], embedding: [], classification: [] },
+        can_write: true,
+      };
     throw new Error(`unexpected ${path}`);
   });
 }
 
-beforeEach(() => testQueryClient.clear());
+beforeEach(() => {
+  testQueryClient.clear();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -133,14 +151,15 @@ it("shows run and spend figures, never a missing cost as zero, and selects a pro
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile")).toBe("recorded:Coding"));
 });
 
-it("shows heatmap cells without cost evidence as no data", async () => {
+it("shows heatmap cells without cost evidence as no data, with requirements marked unreviewed", async () => {
   const proxy = stubGateway();
   routes(proxy);
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
 
   await userEvent.setup().click(await screen.findByRole("radio", { name: "Avg cost" }));
 
-  expect(screen.getByRole("button", { name: "Coding on claude-sonnet: No data" })).toHaveTextContent("No data");
+  const cell = screen.getByRole("button", { name: "Coding on claude-sonnet: No data" });
+  expect(cell).toHaveTextContent("Requirements not reviewed");
 });
 
 it("translates an older label link to the profile id and investigates it", async () => {
@@ -258,4 +277,122 @@ it("ranks by spend with unknown cost last instead of as zero", async () => {
   expect(rows[0]).toHaveTextContent("cost known for 4 of 12 requests");
   expect(rows[1]).toHaveTextContent("$0.00");
   expect(rows[2]).toHaveTextContent("No cost data");
+});
+
+it("switches between the breakdown and the similarity map through the URL", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  const onUrlUpdate = vi.fn();
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant", onUrlUpdate });
+
+  await user.click(await screen.findByRole("tab", { name: "Similarity map" }));
+
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile_view")).toBe("similarity"));
+  expect(await screen.findByText("No similarity positions in this range")).toBeVisible();
+  expect(screen.queryByRole("list", { name: "Profiles ranked by runs" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("tab", { name: "Breakdown" }));
+
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("profile_view")).toBe(false));
+  expect(await ranked()).toBeTruthy();
+});
+
+it("opens the similarity map from a shared link", async () => {
+  const proxy = stubGateway();
+  routes(proxy, {
+    overview: overview({
+      points: [
+        { trace_id: "t1", profile_id: "recorded:Coding", x: 1, y: 1 },
+        { trace_id: "t2", profile_id: "unclassified", x: 2, y: 2 },
+      ],
+    }),
+  });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant&profile_view=similarity" });
+
+  expect(await screen.findByText(/1 of 20 runs on the map/)).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Similarity map" })).toHaveAttribute("aria-selected", "true");
+  expect(within(screen.getByRole("region", { name: "Runs not on the map" })).getByRole("button", { name: /Unclassified/ })).toHaveTextContent("10");
+});
+
+it("lets the map focus and zoom a group without a modal in the way, and opens details on request", async () => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class implements ResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        const size = [{ inlineSize: 600, blockSize: 360 }];
+        this.callback(
+          [{ target, contentRect: new DOMRect(0, 0, 600, 360), borderBoxSize: size, contentBoxSize: size, devicePixelContentBoxSize: size }],
+          this,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, {
+    overview: overview({
+      profiles: [
+        summary("task:billing", "Answer billing questions", { source: "enhanced" }),
+        summary("task:password", "Reset a forgotten password", { source: "enhanced" }),
+      ],
+      points: [
+        { trace_id: "b1", profile_id: "task:billing", x: 0, y: 0 },
+        { trace_id: "b2", profile_id: "task:billing", x: 1, y: 1 },
+        { trace_id: "p1", profile_id: "task:password", x: 100, y: 100 },
+      ],
+    }),
+  });
+  const onUrlUpdate = vi.fn();
+  renderWithLens(<ProfilesView agents={agents} />, {
+    searchParams: "?tab=profiles&agent=assistant&profile_view=similarity",
+    onUrlUpdate,
+  });
+
+  await user.click(await screen.findByRole("button", { name: "Answer billing questions, 2 runs on the map" }));
+  await user.click(screen.getByRole("button", { name: "Zoom to selection" }));
+
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show all groups" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("button", { name: /Reset a forgotten password, 1 run on the map/ })).not.toBeInTheDocument();
+  expect(onUrlUpdate.mock.calls.some(([update]) => new URLSearchParams(update.queryString).has("profile"))).toBe(false);
+
+  await user.click(screen.getByRole("button", { name: "View details" }));
+
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("profile")).toBe("task:billing"));
+  expect(proxy.get).toHaveBeenCalledWith(
+    "/lens/profiles/detail",
+    expect.objectContaining({ query: expect.objectContaining({ profile_id: "task:billing" }) }),
+  );
+});
+
+it("opens task discovery settings from the header for admins without calling a model", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, { admin: true });
+  proxy.post.mockResolvedValue({ eligible_runs: 0, sample_runs: 0, previews: [] });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  await user.click(await screen.findByRole("button", { name: "Configure task discovery" }));
+
+  expect(await screen.findByRole("dialog", { name: "Task discovery" })).toBeVisible();
+  expect(await screen.findByRole("switch", { name: "Use paid models for assistant" })).not.toBeChecked();
+  expect(proxy.post.mock.calls.map(([path]) => path).filter((path) => path !== "/lens/profiles/discovery/preview")).toEqual([]);
+  expect(proxy.put).not.toHaveBeenCalled();
+});
+
+it("hides task discovery settings from callers who cannot change them", async () => {
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  expect(await ranked()).toBeTruthy();
+  await waitFor(() =>
+    expect(testQueryClient.getQueryState(["lens", "profile-taxonomy", "test", "assistant"])?.status).toBe("success"),
+  );
+  expect(screen.queryByRole("button", { name: "Configure task discovery" })).not.toBeInTheDocument();
 });

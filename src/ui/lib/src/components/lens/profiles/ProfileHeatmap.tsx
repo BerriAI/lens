@@ -5,6 +5,7 @@ import { cn } from "../../../lib/cva.config";
 import { SegmentedControl } from "./SegmentedControl";
 import {
   cellReading,
+  compatibilityNote,
   formatCount,
   formatReading,
   heatIntensity,
@@ -34,6 +35,10 @@ export function ProfileHeatmap({
   const cells = useMemo(
     () => new Map(matrix.cells.map((cell) => [`${cell.profile_id}\u0000${cell.column_key}`, cell])),
     [matrix.cells],
+  );
+  const compatibility = useMemo(
+    () => new Map(matrix.compatibility.map((entry) => [`${entry.profile_id}\u0000${entry.column_key}`, entry])),
+    [matrix.compatibility],
   );
   const values = matrix.cells.map((cell) => cellReading(cell, metric).value);
   if (matrix.profiles.length === 0) return null;
@@ -83,6 +88,7 @@ export function ProfileHeatmap({
                   const reading = cellReading(cells.get(key), metric);
                   const label = formatReading(metric, reading.value) ?? "No data";
                   const intensity = heatIntensity(reading.value, values);
+                  const fit = compatibility.get(key);
                   return (
                     <td key={model.column_key} className="p-0">
                       <button
@@ -104,6 +110,14 @@ export function ProfileHeatmap({
                         {metric !== "requests" && reading.observations > 0 && (
                           <span className="text-[11px] text-muted-foreground">{formatCount(reading.observations)} observed</span>
                         )}
+                        <span
+                          className={cn(
+                            "text-[11px]",
+                            fit?.status === "incompatible" ? "text-destructive" : "text-muted-foreground",
+                          )}
+                        >
+                          {compatibilityNote(profile.required_capabilities, fit)}
+                        </span>
                       </button>
                     </td>
                   );
@@ -114,7 +128,8 @@ export function ProfileHeatmap({
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Evaluation results are not collected yet.
+        Compatibility compares a reviewed task&apos;s requirements with the gateway&apos;s model metadata. It is not a
+        quality score. Evaluation results are not collected yet.
         {matrix.other_agent_requests > 0 &&
           ` ${formatCount(matrix.other_agent_requests)} requests made by other agents in these runs are not counted.`}
       </p>

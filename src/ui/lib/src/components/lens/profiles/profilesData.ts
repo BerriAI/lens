@@ -1,4 +1,4 @@
-import type { MatrixCell, ProfileSource, ProfileSummary } from "./schemas";
+import type { Capability, MatrixCell, ProfilesOverview, ProfileSource, ProfileSummary } from "./schemas";
 
 export const HEAT_METRICS = ["requests", "cost", "latency"] as const;
 export type HeatMetric = (typeof HEAT_METRICS)[number];
@@ -53,6 +53,46 @@ export function rankProfiles(profiles: readonly ProfileSummary[], rank: Rank): R
         (b.value ?? 0) - (a.value ?? 0) ||
         a.profile.name.localeCompare(b.profile.name),
     );
+}
+
+export interface SimilarityGroup {
+  profile: ProfileSummary;
+  points: { key: string; x: number; y: number }[];
+}
+
+export interface Similarity {
+  groups: SimilarityGroup[];
+  unplaced: { profile: ProfileSummary; runs: number }[];
+  placed: number;
+  total: number;
+}
+
+/** Draws only positions computed from discovery embeddings; every other run is counted beside the map. */
+export function similarity(overview: ProfilesOverview): Similarity {
+  const groupable = new Set(
+    overview.profiles.filter((profile) => !isOutsideGroups(profile.source)).map((profile) => profile.profile_id),
+  );
+  const genuine = overview.points
+    .map((point, index) => ({ ...point, key: `${index}:${point.trace_id}` }))
+    .filter((point) => groupable.has(point.profile_id));
+  const groups = overview.profiles
+    .map((profile) => ({
+      profile,
+      points: genuine
+        .filter((point) => point.profile_id === profile.profile_id)
+        .map(({ key, x, y }) => ({ key, x, y })),
+    }))
+    .filter((group) => group.points.length > 0);
+  const placedBy = new Map(groups.map((group) => [group.profile.profile_id, group.points.length]));
+  return {
+    groups,
+    unplaced: overview.profiles
+      .map((profile) => ({ profile, runs: Math.max(profile.run_count - (placedBy.get(profile.profile_id) ?? 0), 0) }))
+      .filter((entry) => entry.runs > 0)
+      .sort((a, b) => b.runs - a.runs || a.profile.name.localeCompare(b.profile.name)),
+    placed: genuine.length,
+    total: overview.totals.runs,
+  };
 }
 
 /** Older links name a profile by its label; resolve them within the agent's current profiles. */
@@ -119,4 +159,32 @@ export function heatIntensity(value: number | null, values: readonly (number | n
   const low = Math.min(...present);
   const high = Math.max(...present);
   return high > low ? (value - low) / (high - low) : 1;
+}
+
+const CAPABILITY_LABELS: Record<Capability, string> = {
+  function_calling: "function calling",
+  vision: "vision",
+  reasoning: "reasoning",
+  structured_output: "structured output",
+};
+
+export interface Fit {
+  status: "compatible" | "incompatible" | "unknown";
+  missing: readonly Capability[];
+  unknown: readonly Capability[];
+}
+
+/** Compatibility compares declared metadata only; it says nothing about how well a model does the task. */
+export function compatibilityNote(requirements: readonly Capability[] | null, fit: Fit | undefined): string {
+  if (requirements === null) return "Requirements not reviewed";
+  if (!fit) return "No metadata";
+  const list = (capabilities: readonly Capability[]) => capabilities.map((capability) => CAPABILITY_LABELS[capability]).join(", ");
+  switch (fit.status) {
+    case "compatible":
+      return requirements.length ? "Meets declared requirements" : "No special requirements";
+    case "incompatible":
+      return `Metadata says it lacks ${list(fit.missing)}`;
+    case "unknown":
+      return `${list(fit.unknown)} support unknown`;
+  }
 }

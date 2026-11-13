@@ -30,8 +30,24 @@ describe("demo profiles", () => {
   });
 
   it("rejects a profile the agent does not have", async () => {
-    await expect(profiles().detail(everything, "support_agent", "recorded:Missing")).rejects.toThrow(
+    await expect(profiles().detail(everything, "support_agent", "task:missing")).rejects.toThrow(
       "Profile not found in this agent and time range",
     );
+  });
+
+  it("keeps task discovery off and read-only without contacting a model", async () => {
+    const api = profiles();
+    const settings = await api.settings("support_agent");
+    const window = everything;
+
+    expect(settings.settings.enabled).toBe(false);
+    expect(settings.can_write).toBe(false);
+    expect(await api.taxonomy("support_agent")).toEqual({ taxonomy: null, active: null, discovery_available: false, can_write: false });
+    await expect(api.preview({ agent: "support_agent", window, maxRuns: 20 })).rejects.toThrow("The demo is read-only");
+    await expect(api.discover({ agent: "support_agent", window, maxRuns: 20 })).rejects.toThrow("The demo is read-only");
+    await expect(
+      api.saveSettings({ agent: "support_agent", revision: 0, enabled: true, models: settings.defaults }),
+    ).rejects.toThrow("The demo is read-only");
+    await expect(api.activate("support_agent", 1, false)).rejects.toThrow("The demo is read-only");
   });
 });

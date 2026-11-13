@@ -63,6 +63,28 @@ export function ProfileDetailSheet({
                   <dd className="font-medium tabular-nums">{formatUsd(detail.profile.spend_usd) ?? "No data"}</dd>
                 </div>
               </dl>
+              {detail.definition ? (
+                <section className="space-y-2 text-sm">
+                  <h3 className="lens-section-label">Definition</h3>
+                  {detail.definition.description && <p>{detail.definition.description}</p>}
+                  {detail.definition.inclusion_criteria && (
+                    <p><span className="text-muted-foreground">Belongs when: </span>{detail.definition.inclusion_criteria}</p>
+                  )}
+                  {detail.definition.exclusion_criteria && (
+                    <p><span className="text-muted-foreground">Does not belong: </span>{detail.definition.exclusion_criteria}</p>
+                  )}
+                  <p className="text-muted-foreground">
+                    Requires:{" "}
+                    {detail.definition.required_capabilities.length
+                      ? detail.definition.required_capabilities.join(", ").replaceAll("_", " ")
+                      : "nothing beyond text"}
+                  </p>
+                </section>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This profile has no reviewed definition, so its model requirements are unknown.
+                </p>
+              )}
               <section className="space-y-2">
                 <h3 className="lens-section-label">Models</h3>
                 {detail.models.length === 0 ? (
