@@ -214,6 +214,58 @@ mod tests {
         assert_eq!(decision(&taxonomy(), value), expected);
     }
 
+    struct Provider {
+        reply: Result<Value, u16>,
+        models: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl Decisions for Provider {
+        async fn complete(&self, request: &DecisionRequest) -> Result<Value, lens_signals::DecisionsError> {
+            self.models.lock().expect("models").push(request.model.clone());
+            self.reply.clone().map_err(|status| lens_signals::DecisionsError::Provider {
+                status,
+                retry_after_seconds: None,
+            })
+        }
+    }
+
+    #[rstest]
+    #[case::assigned(Ok(reply("T001", 0.8)), Ok(Decision::Assigned("debug".into())))]
+    #[case::provider_failure(Err(503), Err(DiscoveryError::Provider("decision")))]
+    #[tokio::test]
+    async fn a_run_is_decided_by_the_taxonomy_classification_model(
+        #[case] reply: Result<Value, u16>,
+        #[case] expected: Result<Decision, DiscoveryError>,
+    ) {
+        let provider = Provider {
+            reply,
+            models: std::sync::Mutex::default(),
+        };
+
+        let decided = decide(&provider, "typesafe/jev-latest", &taxonomy(), "the login test fails").await;
+
+        assert_eq!(decided, expected);
+        assert_eq!(*provider.models.lock().expect("models"), vec!["typesafe/jev-latest".to_owned()]);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_taxonomy_without_tasks_never_reaches_the_provider() {
+        let provider = Provider {
+            reply: Ok(reply("T001", 0.8)),
+            models: std::sync::Mutex::default(),
+        };
+        let empty = Taxonomy {
+            tasks: Vec::new(),
+            ..taxonomy()
+        };
+
+        let decided = decide(&provider, "jev", &empty, "anything").await;
+
+        assert_eq!(decided, Err(DiscoveryError::InvalidReply("taxonomy")));
+        assert!(provider.models.lock().expect("models").is_empty());
+    }
+
     #[rstest]
     fn every_frozen_task_and_none_are_offered() {
         let request = request("jev", &taxonomy(), "fix the login test").expect("request");

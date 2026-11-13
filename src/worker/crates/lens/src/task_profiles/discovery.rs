@@ -398,6 +398,106 @@ mod tests {
         assert_eq!(intents, vec!["Fix a failing test", "Explain code"]);
     }
 
+    #[derive(Default)]
+    struct Recording {
+        calls: std::sync::Mutex<Vec<(String, &'static str)>>,
+    }
+
+    impl Recording {
+        fn calls(&self) -> Vec<(String, &'static str)> {
+            self.calls.lock().expect("calls").clone()
+        }
+    }
+
+    impl Language for Recording {
+        async fn complete(&self, model: &str, prompt: String) -> Result<String, DiscoveryError> {
+            let stage = if prompt.starts_with(DISTILL_PROMPT) { "distill" } else { "name" };
+            self.calls.lock().expect("calls").push((model.to_owned(), stage));
+            if stage == "name" {
+                let name = if prompt.contains("invoice") { "Answer billing questions" } else { "Fix login problems" };
+                return Ok(format!(r#"{{"name": "{name}", "required_capabilities": ["vision"], "example_indices": [0]}}"#));
+            }
+            let intents: Vec<&str> = prompt
+                .lines()
+                .filter(|line| line.contains(". \""))
+                .map(|line| if line.contains("invoice") { "billing question" } else { "login problem" })
+                .collect();
+            Ok(serde_json::json!({ "intents": intents }).to_string())
+        }
+    }
+
+    #[derive(Default)]
+    struct Axes {
+        models: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl Embeddings for Axes {
+        async fn embed(&self, model: &str, texts: &[String]) -> Result<Vec<Vec<f32>>, DiscoveryError> {
+            self.models.lock().expect("models").push(model.to_owned());
+            Ok(texts
+                .iter()
+                .enumerate()
+                .map(|(index, text)| {
+                    let mut vector = vec![0.02 * (index % 7) as f32; 8];
+                    vector[if text.contains("billing") { 0 } else { 4 }] = 1.0;
+                    vector
+                })
+                .collect())
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn discovery_distills_embeds_clusters_and_names_with_the_models_it_was_given() {
+        let samples: Vec<Sample> = (0..30)
+            .map(|index| Sample {
+                text: if index < 15 { format!("Why is invoice {index} wrong?") } else { format!("I cannot log in, attempt {index}") },
+                ..sample(&format!("t{index}"))
+            })
+            .collect();
+        let language = Recording::default();
+        let embeddings = Axes::default();
+        let models = TaxonomyModels {
+            distill: "summarizer".into(),
+            embedding: "qwen".into(),
+            synthesis: "namer".into(),
+            decision: "jev".into(),
+        };
+        let mut ids = ["task-a", "task-b"].into_iter();
+
+        let (tasks, points) = discover(&language, &embeddings, &models, &samples, || ids.next().unwrap_or("extra").into())
+            .await
+            .expect("discovery");
+
+        let names: std::collections::BTreeSet<&str> = tasks.iter().map(|task| task.name.as_str()).collect();
+        let billing = points.iter().filter(|point| point.task_id == points[0].task_id).count();
+        assert_eq!(names, ["Answer billing questions", "Fix login problems"].into());
+        assert_eq!(tasks[0].required_capabilities, vec![Capability::Vision]);
+        assert_eq!(points.len(), 30);
+        assert_eq!(billing, 15);
+        assert_ne!(points[0].task_id, points[29].task_id);
+        assert_eq!(
+            language.calls(),
+            vec![
+                ("summarizer".to_owned(), "distill"),
+                ("summarizer".to_owned(), "distill"),
+                ("namer".to_owned(), "name"),
+                ("namer".to_owned(), "name"),
+            ]
+        );
+        assert_eq!(*embeddings.models.lock().expect("models"), vec!["qwen".to_owned()]);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn an_embedding_reply_of_the_wrong_length_fails_discovery() {
+        let samples: Vec<Sample> = (0..20).map(|index| sample(&index.to_string())).collect();
+
+        let result = discover(&Reply(r#"{"intents": []}"#), &NoEmbeddings, &TaxonomyModels::default(), &samples, || "id".into()).await;
+
+        assert_eq!(result, Err(DiscoveryError::InvalidReply("embedding")));
+    }
+
     struct Failing;
 
     impl Language for Failing {

@@ -168,6 +168,10 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_partial_json, header, method, path},
+    };
 
     #[rstest]
     fn undeclared_capabilities_stay_unknown_and_embedding_deployments_are_not_columns() {
@@ -197,6 +201,100 @@ mod tests {
         .expect("reply");
 
         assert_eq!(ordered(reply, 2), Ok(vec![vec![1.0, 0.0], vec![0.0, 1.0]]));
+    }
+
+    fn texts(count: usize) -> Vec<String> {
+        (0..count).map(|index| format!("request {index}")).collect()
+    }
+
+    fn vectors(batch: usize, offset: usize) -> serde_json::Value {
+        json!({"data": (0..batch).rev().map(|index| json!({"index": index, "embedding": [(offset + index) as f32, 1.0]})).collect::<Vec<_>>()})
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn embeddings_are_requested_in_tagged_batches_and_returned_in_input_order() {
+        let gateway = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/embeddings"))
+            .and(header("authorization", "Bearer fixture-key"))
+            .and(body_partial_json(json!({"model": "qwen", "input": texts(EMBED_BATCH), "metadata": {"litellm_lens_internal": true, "tags": [INTERNAL_TAG]}})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(vectors(EMBED_BATCH, 0)))
+            .expect(1)
+            .mount(&gateway)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/v1/embeddings"))
+            .and(body_partial_json(json!({"input": ["request 20", "request 21"]})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(vectors(2, EMBED_BATCH)))
+            .expect(1)
+            .mount(&gateway)
+            .await;
+        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+
+        let embedded = embed(&reqwest::Client::new(), &connection, "qwen", &texts(EMBED_BATCH + 2))
+            .await
+            .expect("embeddings");
+
+        assert_eq!(embedded.len(), EMBED_BATCH + 2);
+        assert_eq!(embedded[0], vec![0.0, 1.0]);
+        assert_eq!(embedded[EMBED_BATCH + 1], vec![21.0, 1.0]);
+    }
+
+    #[rstest]
+    #[case::rejected(ResponseTemplate::new(429), EmbedError::Rejected(429))]
+    #[case::not_json(ResponseTemplate::new(200).set_body_string("<html>"), EmbedError::InvalidReply)]
+    #[tokio::test]
+    async fn a_failed_embedding_call_fails_discovery_with_its_reason(
+        #[case] reply: ResponseTemplate,
+        #[case] expected: EmbedError,
+    ) {
+        let gateway = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/embeddings"))
+            .respond_with(reply)
+            .mount(&gateway)
+            .await;
+        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+
+        let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(2)).await;
+
+        assert_eq!(result, Err(expected));
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn an_unreachable_gateway_is_a_connection_error() {
+        let gateway = MockServer::start().await;
+        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+        drop(gateway);
+
+        let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
+
+        assert_eq!(result, Err(EmbedError::Connection));
+    }
+
+    #[rstest]
+    #[case::listed(ResponseTemplate::new(200).set_body_json(json!({"data": [{"model_name": "sonnet", "model_info": {"id": "dep-1", "mode": "chat"}}]})), Some(1))]
+    #[case::rejected(ResponseTemplate::new(401), None)]
+    #[case::not_json(ResponseTemplate::new(200).set_body_string("nope"), None)]
+    #[tokio::test]
+    async fn configured_models_come_from_the_gateway_model_list(
+        #[case] reply: ResponseTemplate,
+        #[case] expected: Option<usize>,
+    ) {
+        let gateway = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/model/info"))
+            .and(header("authorization", "Bearer fixture-key"))
+            .respond_with(reply)
+            .mount(&gateway)
+            .await;
+        let connection = GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
+
+        let models = configured_models(&reqwest::Client::new(), &connection).await;
+
+        assert_eq!(models.map(|models| models.len()), expected);
     }
 
     #[rstest]

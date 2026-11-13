@@ -155,3 +155,49 @@ it("draws runs from different teams that share a trace id without colliding", as
   expect(await screen.findByRole("group", { name: "Similarity map of 2 runs in 1 group" })).toBeVisible();
   expect(errors.mock.calls.flat().join(" ")).not.toContain("same key");
 });
+
+it("focuses a group from the side list and clears the focus when chosen again", async () => {
+  const user = userEvent.setup();
+  render(discovered);
+  const groups = within(await screen.findByRole("region", { name: "Groups on the map" }));
+  const entry = groups.getByRole("button", { name: /Reset a forgotten password/ });
+
+  await user.click(entry);
+
+  expect(entry).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Answer billing questions, 3 runs on the map" })).toHaveAttribute("opacity", "0.45");
+
+  await user.click(entry);
+
+  expect(entry).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByRole("button", { name: "Zoom to selection" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Answer billing questions, 3 runs on the map" })).toHaveAttribute("opacity", "1");
+});
+
+it("previews a group's emphasis while hovering its label without choosing it", async () => {
+  const user = userEvent.setup();
+  render(discovered);
+  const billing = await screen.findByRole("button", { name: "Answer billing questions, 3 runs on the map" });
+  const password = screen.getByRole("button", { name: "Reset a forgotten password, 2 runs on the map" });
+
+  await user.hover(billing);
+
+  expect(password).toHaveAttribute("opacity", "0.45");
+  expect(billing).toHaveAttribute("aria-pressed", "false");
+
+  await user.unhover(billing);
+
+  expect(password).toHaveAttribute("opacity", "1");
+});
+
+it("opens details for a run group that has no position", async () => {
+  const user = userEvent.setup();
+  const onOpenDetails = vi.fn();
+  render(discovered, null, onOpenDetails);
+
+  const outside = within(await screen.findByRole("region", { name: "Runs not on the map" }));
+  await user.click(outside.getByRole("button", { name: /View details for Refunds/ }));
+
+  expect(onOpenDetails).toHaveBeenCalledWith("recorded:Refunds");
+});

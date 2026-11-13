@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use chrono::{DateTime, Utc};
 use lens_contract::profiles::{
     ActivationRequest, ClassificationWindow, DiscoveryModelChoice, DiscoveryModelOptions,
@@ -10,12 +8,11 @@ use lens_server::profiles::{
     ProfileStoreError,
     taxonomy::{AgentState, Changes, TaxonomyStore, activate, resume, update_settings},
 };
-use litellm_lens::{State, Storage, config::http_client, task_profiles::ProfilesApi};
-use litellm_storage_clickhouse::{Connection, execute_statement, state::ClickHouseState};
-use litellm_traces_clickhouse::Config;
+use litellm_lens::task_profiles::ProfilesApi;
 use rstest::{fixture, rstest};
 
-const SECRET: &str = "isolated-test-internal-secret-32-bytes";
+mod profile_store;
+use profile_store::Isolated;
 
 fn now() -> DateTime<Utc> {
     DateTime::from_timestamp(1_800_000_000, 0).expect("time")
@@ -79,32 +76,8 @@ fn disable(state: &AgentState) -> Changes {
 }
 
 #[fixture]
-async fn profiles() -> ProfilesApi {
-    let url = std::env::var("LENS_TEST_CLICKHOUSE_URL").expect("set LENS_TEST_CLICKHOUSE_URL");
-    let client = http_client().expect("client");
-    let database = format!("lens_test_{}", uuid::Uuid::new_v4().simple());
-    execute_statement(
-        &client,
-        &Connection::writer(&url).expect("writer"),
-        &format!("CREATE DATABASE `{database}`"),
-        std::time::Duration::from_secs(30),
-    )
-    .await
-    .expect("database");
-    let store = ClickHouseState::new(
-        client.clone(),
-        Connection::reader(&url, &database).expect("connection"),
-    );
-    store
-        .initialize(&format!("/lens-profile-state-test/{database}"))
-        .await
-        .expect("state tables");
-    let config = Config::new(database, &url, 14).expect("config");
-    let state = Arc::new(State::connected(
-        Storage::new(config, client, SECRET.into()),
-        SECRET.into(),
-    ));
-    ProfilesApi::new(state, store, None)
+async fn isolated() -> Isolated {
+    profile_store::isolated().await
 }
 
 async fn seeded(profiles: &ProfilesApi, working: Option<Taxonomy>, active: Option<Taxonomy>) {
@@ -125,10 +98,10 @@ async fn seeded(profiles: &ProfilesApi, working: Option<Taxonomy>, active: Optio
 
 #[rstest]
 #[tokio::test]
-#[ignore = "requires an isolated ClickHouse with Keeper in LENS_TEST_CLICKHOUSE_URL"]
 async fn turning_discovery_off_wins_over_a_concurrent_first_activation(
-    #[future(awt)] profiles: ProfilesApi,
+    #[future(awt)] isolated: Isolated,
 ) {
+    let profiles = &isolated.profiles;
     seeded(
         &profiles,
         Some(taxonomy(TaxonomyStatus::Draft, Vec::new())),
@@ -163,8 +136,8 @@ async fn turning_discovery_off_wins_over_a_concurrent_first_activation(
 
 #[rstest]
 #[tokio::test]
-#[ignore = "requires an isolated ClickHouse with Keeper in LENS_TEST_CLICKHOUSE_URL"]
-async fn turning_discovery_off_wins_over_a_concurrent_resume(#[future(awt)] profiles: ProfilesApi) {
+async fn turning_discovery_off_wins_over_a_concurrent_resume(#[future(awt)] isolated: Isolated) {
+    let profiles = &isolated.profiles;
     let paused = taxonomy(
         TaxonomyStatus::Frozen,
         vec![ClassificationWindow {
