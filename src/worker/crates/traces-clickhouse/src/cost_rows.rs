@@ -20,6 +20,8 @@ const IDENTITIES: [&str; 9] = [
     "user",
 ];
 
+const MODEL_METADATA: [&str; 4] = ["model_id", "model_group", "model", "custom_llm_provider"];
+
 fn text<'a>(row: &'a InsertRow, key: &str) -> Result<&'a str, Error> {
     row.get(key)
         .map_or(Ok(""), |value| value.as_str().ok_or(Error::InvalidRow))
@@ -81,8 +83,19 @@ fn project_row(row: &InsertRow) -> Result<Vec<InsertRow>, Error> {
     if !spend.is_null() && spend.as_f64().is_none_or(|value| !value.is_finite()) {
         return Err(Error::InvalidRow);
     }
+    let metadata = MODEL_METADATA.into_iter().map(|name| {
+        let value = row
+            .get(name)
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        (
+            name.to_owned(),
+            Shared::new(Value::String(value.to_owned())),
+        )
+    });
     let common: InsertRow = identities
         .into_iter()
+        .chain(metadata)
         .chain([
             (
                 "upstream_response_id".into(),

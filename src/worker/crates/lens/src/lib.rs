@@ -26,6 +26,7 @@ pub mod setup;
 pub mod signals;
 pub mod slack;
 mod storage;
+pub mod task_profiles;
 pub mod worker;
 
 use axum::{

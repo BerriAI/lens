@@ -812,3 +812,9 @@ pub enum EvalCloserError {
     #[error("Stored eval run is incomplete")]
     InvalidRun,
 }
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum ProfileStoreError {
+    #[error("Profile data is temporarily unavailable")]
+    Unavailable,
+}
