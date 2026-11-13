@@ -23,6 +23,11 @@ pub struct ProfileRunsParams {
     pub start_ms: i64,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub end_ms: i64,
+    pub taxonomy_id: String,
+    #[serde(deserialize_with = "super::number::deserialize")]
+    pub taxonomy_version: u32,
+    pub window_starts: Vec<i64>,
+    pub window_ends: Vec<i64>,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub limit: u32,
 }
@@ -102,4 +107,19 @@ impl Query for CallCostModels {
     type Row = CallCostModelsRow;
 
     const SQL: &'static str = include_str!("../../query/call_cost_models.sql");
+}
+
+/// The agent's frozen enhanced taxonomy, if any. Version 0 means none is active.
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Clone, Debug, Default)]
+pub struct ProfileTaxonomyParams {
+    #[serde(default)]
+    pub taxonomy_id: String,
+    #[serde(default, deserialize_with = "super::number::deserialize")]
+    pub taxonomy_version: u32,
+    /// Run start ranges the taxonomy classifies; outside them an unassigned run is not pending.
+    #[serde(default)]
+    pub window_starts: Vec<i64>,
+    #[serde(default)]
+    pub window_ends: Vec<i64>,
 }
