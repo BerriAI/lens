@@ -174,7 +174,7 @@ impl Reviewed {
                 SampleRequest {
                     selection: &selection,
                     start: u64::try_from(self.start_ms - DAY_MS).expect("start"),
-                    end: u64::try_from(self.start_ms + DAY_MS).expect("end"),
+                    end: u64::try_from(self.start_ms + 3 * DAY_MS).expect("end"),
                     offset: 0,
                     page_size: 500,
                     preview: false,
