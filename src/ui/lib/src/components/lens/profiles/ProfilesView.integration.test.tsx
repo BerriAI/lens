@@ -171,6 +171,17 @@ it("says when request figures cover only part of the listed runs", async () => {
   renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
 
   expect(await screen.findByText(/cover 1,200 of 5,000 listed runs/)).toBeVisible();
+  expect(screen.getByText("at least, first 5,000 listed")).toBeVisible();
+});
+
+it("keeps an exact run count when only request figures stop early", async () => {
+  const proxy = stubGateway();
+  routes(proxy, { overview: overview({ coverage: { runs_listed: 20, runs_resolved: 12, truncated: false } }) });
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+
+  expect(await screen.findByText(/cover 12 of 20 listed runs/)).toBeVisible();
+  expect(screen.getByText("each run counted once")).toBeVisible();
+  expect(screen.queryByText(/at least/)).not.toBeInTheDocument();
 });
 
 it("lets a failed overview be retried without showing stale figures", async () => {
