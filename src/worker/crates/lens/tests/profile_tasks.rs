@@ -30,7 +30,8 @@ const AGENT: &str = "research-agent";
 const TEAM: &str = "research-team";
 const KEY: &str = "research-key";
 const USER: &str = "research-user";
-const RECORDED: &str = "Literature review";
+/// Recorded with the same name as the reserved `unknown` profile id, which must not match it.
+const RECORDED: &str = "unknown";
 const RUNS: usize = 32;
 const MINUTE_MS: i64 = 60_000;
 const DAY_MS: i64 = 24 * 60 * MINUTE_MS;
@@ -407,5 +408,25 @@ async fn scoped_callers_cannot_investigate_by_an_enhanced_task_but_keep_recorded
         .await;
 
     assert_eq!(task, BTreeSet::new());
+    assert_eq!(recorded, reviewed.traces(Kind::Recorded));
+}
+
+#[rstest]
+#[tokio::test]
+async fn investigating_the_unknown_profile_skips_a_recorded_category_with_the_same_name(
+    #[future(awt)] reviewed: Reviewed,
+) {
+    let every_team = Scope {
+        team_id: String::new(),
+        api_key_hash: String::new(),
+        all_teams: true,
+    };
+
+    let unknown = reviewed.sampled(&every_team, "unknown").await;
+    let recorded = reviewed
+        .sampled(&every_team, &format!("recorded:{RECORDED}"))
+        .await;
+
+    assert_eq!(unknown, reviewed.traces(Kind::Unknown));
     assert_eq!(recorded, reviewed.traces(Kind::Recorded));
 }
