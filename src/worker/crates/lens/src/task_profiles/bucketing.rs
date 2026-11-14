@@ -142,12 +142,17 @@ pub fn decision(taxonomy: &Taxonomy, reply: Value) -> Result<Decision, Discovery
         .ok_or(DiscoveryError::InvalidReply("decision"))
 }
 
+/// A run without a request preview has nothing to judge, so it is settled as unknown without a
+/// paid call.
 pub async fn decide(
     decisions: &impl Decisions,
     model: &str,
     taxonomy: &Taxonomy,
     input: &str,
 ) -> Result<Decision, DiscoveryError> {
+    if input.trim().is_empty() {
+        return Ok(Decision::Unknown);
+    }
     let reply = decisions
         .complete(&request(model, taxonomy, input)?)
         .await
@@ -279,6 +284,22 @@ mod tests {
         let decided = decide(&provider, "jev", &empty, "anything").await;
 
         assert_eq!(decided, Err(DiscoveryError::InvalidReply("taxonomy")));
+        assert!(provider.models.lock().expect("models").is_empty());
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::blank(" \n\t")]
+    #[tokio::test]
+    async fn a_run_without_a_request_is_unknown_without_a_paid_call(#[case] input: &str) {
+        let provider = Provider {
+            reply: Ok(reply("T001", 0.9)),
+            models: std::sync::Mutex::default(),
+        };
+
+        let decided = decide(&provider, "jev", &taxonomy(), input).await;
+
+        assert_eq!(decided, Ok(Decision::Unknown));
         assert!(provider.models.lock().expect("models").is_empty());
     }
 
