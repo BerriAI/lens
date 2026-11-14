@@ -77,6 +77,7 @@ async fn saved_definition_creates_one_snapshotted_run_and_replay_does_not_submit
         pr: None,
         ci_url: String::new(),
         identity: "same-execution".into(),
+        baseline_run_id: None,
     };
     let first = named::evaluate_with_environment(
         "demo",

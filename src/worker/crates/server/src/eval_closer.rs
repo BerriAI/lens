@@ -341,6 +341,7 @@ mod tests {
             dataset_id: "dataset".into(),
             revision: 7,
             case_ids: None,
+            baseline_run_id: None,
             version: "sha".into(),
             branch: "feature".into(),
             pr: None,

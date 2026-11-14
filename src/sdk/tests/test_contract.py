@@ -34,7 +34,9 @@ def test_golden_wire_payloads_match_appendix(name, model):
     payload = (FIXTURES / f"{name}.json").read_text()
     original = getattr(appendix(), model.__name__).model_validate_json(payload)
     generated = model.model_validate_json(payload)
-    assert generated.model_dump(mode="json", exclude={"agent_io", "output"}) == original.model_dump(mode="json")
+    assert generated.model_dump(mode="json", exclude={"agent_io", "output", "baseline_run_id"}) == original.model_dump(
+        mode="json"
+    )
     assert model.model_validate_json(generated.model_dump_json()) == generated
 
 

@@ -30,6 +30,7 @@ class Execution:
     pr: int | None = None
     ci_url: str = ""
     identity: str = ""
+    baseline_run_id: str | None = None
 
     @classmethod
     def local(cls) -> Self:
