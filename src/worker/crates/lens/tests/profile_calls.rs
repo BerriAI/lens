@@ -48,6 +48,11 @@ fn span(
     })
 }
 
+fn in_trace(trace_id: &str, mut span: Value) -> Value {
+    span["traceId"] = json!(trace_id);
+    span
+}
+
 fn ledger(request: &str, response: &str, start_ms: i64, spend: f64) -> BTreeMap<String, Value> {
     json!({
         "request_id": request, "response_id": response, "litellm_call_id": format!("call-{request}"),
@@ -324,4 +329,67 @@ async fn requests_are_grouped_by_the_deployment_metadata_their_ledger_rows_recor
     assert_eq!(totals.requests, 3);
     assert_eq!(totals.matched_requests, 3);
     assert_eq!(totals.spend_usd, Some(0.875));
+}
+
+/// Two runs read in one batch reuse a cached response id hours apart, each with its own ledger
+/// row. Each call is matched only against ledger rows from its own run's time window.
+#[rstest]
+#[tokio::test]
+async fn runs_read_in_one_batch_match_only_ledger_rows_from_their_own_time() {
+    let isolated = profile_store::isolated().await;
+    let start_ms = chrono::Utc::now().timestamp_millis() - 6 * HOUR_MS;
+    let later_ms = start_ms + 3 * HOUR_MS;
+    let payload = json!({"resourceSpans": [{
+        "resource": {"attributes": attributes(&[("service.name", "long-service"), ("gen_ai.agent.name", AGENT)])},
+        "scopeSpans": [{"scope": {"name": "profile-calls-test"}, "spans": [
+            in_trace("a0000000000000000000000000000001", span("4000000000000001", "", start_ms, 60_000, &[
+                ("gen_ai.operation.name", "invoke_agent"), ("gen_ai.agent.name", AGENT),
+                ("gen_ai.prompt", "Morning digest"),
+            ])),
+            in_trace("a0000000000000000000000000000001", span("4000000000000002", "4000000000000001", start_ms + 1_000, 1_000, &[
+                ("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "sonnet"),
+                ("gen_ai.response.id", "resp-cached"),
+            ])),
+            in_trace("a0000000000000000000000000000002", span("4000000000000003", "", later_ms, 60_000, &[
+                ("gen_ai.operation.name", "invoke_agent"), ("gen_ai.agent.name", AGENT),
+                ("gen_ai.prompt", "Afternoon digest"),
+            ])),
+            in_trace("a0000000000000000000000000000002", span("4000000000000004", "4000000000000003", later_ms + 1_000, 1_000, &[
+                ("gen_ai.operation.name", "chat"), ("gen_ai.request.model", "sonnet"),
+                ("gen_ai.response.id", "resp-cached"),
+            ])),
+        ]}]
+    }]});
+    ingest(
+        &isolated,
+        payload,
+        vec![
+            ledger("req-morning", "resp-cached", start_ms + 1_000, 0.25),
+            ledger("req-afternoon", "resp-cached", later_ms + 1_000, 0.5),
+        ],
+    )
+    .await;
+    let runs = isolated
+        .profiles
+        .runs(every_team(), query(start_ms))
+        .await
+        .expect("runs");
+    let calls = isolated
+        .profiles
+        .calls(every_team(), runs.clone(), 50_000)
+        .await
+        .expect("calls");
+
+    let totals = View {
+        runs: &runs,
+        calls: &calls,
+        agent: AGENT,
+        truncated: false,
+    }
+    .totals();
+
+    assert_eq!(runs.len(), 2);
+    assert_eq!(totals.requests, 2);
+    assert_eq!(totals.matched_requests, 2);
+    assert_eq!(totals.spend_usd, Some(0.75));
 }

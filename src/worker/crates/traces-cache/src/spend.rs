@@ -11,7 +11,7 @@ use litellm_traces::{
 const NANOS_PER_MS: i64 = 1_000_000;
 const SPEND_WINDOW_MS: i64 = 30 * 60 * 1000;
 
-pub(super) fn spend_window(rows: &[TraceSpansRow]) -> Option<Range<i64>> {
+pub fn spend_window(rows: &[TraceSpansRow]) -> Option<Range<i64>> {
     let start_ns = rows.iter().map(|row| row.start_ns).min()?;
     let end_ns = rows
         .iter()
@@ -23,7 +23,7 @@ pub(super) fn spend_window(rows: &[TraceSpansRow]) -> Option<Range<i64>> {
     )
 }
 
-pub(super) fn spend_within(
+pub fn spend_within(
     spend: &[SpendByResponseIdsRow],
     window: Range<i64>,
 ) -> &[SpendByResponseIdsRow] {
