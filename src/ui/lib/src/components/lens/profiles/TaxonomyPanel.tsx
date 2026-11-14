@@ -185,7 +185,7 @@ function DraftTasks({
         <ul className="space-y-2">
           {draft.tasks.map((task) => (
             <TaskEditor
-              key={`${task.task_id}:${draft.revision}`}
+              key={`${draft.version}:${JSON.stringify(task)}`}
               task={task}
               saving={!write}
               onSave={(edit) => onEdit(task.task_id, edit)}
@@ -277,6 +277,7 @@ export function TaxonomyPanel({ agent, onConfigure }: { agent: string; onConfigu
       )}
       {view.taxonomy && (
         <DraftTasks
+          key={`${view.taxonomy.taxonomy_id}:${view.taxonomy.version}`}
           agent={agent}
           draft={view.taxonomy}
           view={view}

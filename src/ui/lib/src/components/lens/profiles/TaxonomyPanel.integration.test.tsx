@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
@@ -73,6 +73,42 @@ it("lets an admin correct a draft's definitions and requirements before activati
       }),
     ),
   );
+});
+
+it("keeps unsaved edits on other tasks when one task is saved", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const [debug] = taxonomy({}).tasks;
+  const docs = { ...debug, task_id: "docs", name: "Write docs" };
+  const saved = view({ taxonomy: taxonomy({ revision: 8, tasks: [{ ...debug, name: "Debug flaky tests" }, docs] }) });
+  proxy.get.mockResolvedValue(view({ taxonomy: taxonomy({ tasks: [debug, docs] }) }));
+  proxy.post.mockResolvedValue({ eligible_runs: 140, sample_runs: 140, previews: [] });
+  proxy.patch.mockResolvedValue(saved);
+  render();
+  await screen.findByDisplayValue("Write docs");
+  const [, docsName] = screen.getAllByRole("textbox", { name: "Task name" });
+  fireEvent.change(docsName, { target: { value: "Write release notes" } });
+  proxy.get.mockResolvedValue(saved);
+
+  await user.click(screen.getAllByRole("button", { name: "Save task" })[0]);
+
+  expect(await screen.findByDisplayValue("Debug flaky tests")).toBeVisible();
+  expect(screen.getByDisplayValue("Write release notes")).toBeVisible();
+});
+
+it("clears the backfill choice when a new discovery replaces the draft", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  proxy.get.mockResolvedValue(view({ taxonomy: taxonomy({}) }));
+  proxy.post.mockResolvedValue({ eligible_runs: 140, sample_runs: 140, previews: [] });
+  render();
+  await user.click(await screen.findByRole("checkbox", { name: /Also classify earlier runs/ }));
+  expect(screen.getByRole("checkbox", { name: /Also classify earlier runs/ })).toBeChecked();
+  proxy.get.mockResolvedValue(view({ taxonomy: taxonomy({ version: 3, revision: 9 }) }));
+
+  await testQueryClient.refetchQueries({ queryKey: ["lens", "profile-taxonomy"] });
+
+  await waitFor(() => expect(screen.getByRole("checkbox", { name: /Also classify earlier runs/ })).not.toBeChecked());
 });
 
 it("activates for new runs only unless the counted backfill is chosen", async () => {
