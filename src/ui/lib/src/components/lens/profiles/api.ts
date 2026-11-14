@@ -46,7 +46,7 @@ export interface ProfilesApi {
   settings(agent: string, signal?: AbortSignal): Promise<ProfileSettingsView>;
   saveSettings(update: SettingsUpdate): Promise<ProfileSettings>;
   preview(input: DiscoveryInput, signal?: AbortSignal): Promise<DiscoveryPreview>;
-  discover(input: DiscoveryInput): Promise<TaxonomyView>;
+  discover(input: DiscoveryInput, revision: number): Promise<TaxonomyView>;
   editTask(agent: string, revision: number, taskId: string, edit: TaskEdit): Promise<TaxonomyView>;
   activate(agent: string, revision: number, backfill: boolean): Promise<TaxonomyView>;
   resume(agent: string, revision: number): Promise<TaxonomyView>;
@@ -98,9 +98,9 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
       previewSchema.parse(
         await apiClient.post<unknown>("/lens/profiles/discovery/preview", { accessToken, signal, body: discoveryBody(input) }),
       ),
-    discover: async (input) =>
+    discover: async (input, revision) =>
       taxonomyViewSchema.parse(
-        await apiClient.post<unknown>("/lens/profiles/discovery", { accessToken, body: discoveryBody(input) }),
+        await apiClient.post<unknown>("/lens/profiles/discovery", { accessToken, body: { ...discoveryBody(input), revision } }),
       ),
     editTask: async (agent, revision, taskId, edit) =>
       taxonomyViewSchema.parse(

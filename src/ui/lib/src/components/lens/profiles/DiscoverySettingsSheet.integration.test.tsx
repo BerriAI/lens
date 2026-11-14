@@ -196,7 +196,44 @@ it("starts discovery only after confirming the agent, range, sample and models",
     start_ms: new Date(2020, 0, 1).getTime(),
     end_ms: new Date(2020, 0, 8).getTime(),
     max_runs: 200,
+    revision: 0,
   });
+});
+
+it("starts a rediscovery at the revision of the draft it replaces", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, enabled);
+  const read = proxy.get.getMockImplementation();
+  const draft = {
+    taxonomy_id: "tax",
+    agent: "assistant",
+    version: 2,
+    revision: 7,
+    status: "draft",
+    tasks: [],
+    points: [],
+    job: null,
+    discovered_at: null,
+    frozen_at: null,
+    error: null,
+    models: { distill: "claude-haiku", embedding: "qwen-embed", synthesis: "claude-haiku", decision: "typesafe/jev-latest" },
+    discovery: null,
+    windows: [],
+  };
+  proxy.get.mockImplementation(async (path, request) =>
+    path === "/lens/profiles/taxonomy"
+      ? { taxonomy: draft, active: null, discovery_available: true, can_write: true }
+      : read?.(path, request),
+  );
+  render();
+  await screen.findByText(/Why was I charged twice\?/);
+
+  await user.click(screen.getByRole("button", { name: "Discover tasks" }));
+  await user.click(within(screen.getByRole("region", { name: "Confirm discovery" })).getByRole("button", { name: "Start discovery" }));
+
+  await waitFor(() => expect(discoveryCalls(proxy)).toHaveLength(1));
+  expect(discoveryCalls(proxy)[0][1].body).toEqual(expect.objectContaining({ revision: 7 }));
 });
 
 it("refuses to discover with unsaved changes or a sample below the minimum", async () => {

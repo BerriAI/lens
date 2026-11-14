@@ -170,7 +170,8 @@ function SettingsForm({
     onSuccess: () => invalidateProfiles(queryClient),
   });
   const discover = useMutation({
-    mutationFn: () => api.discover({ agent, window: range ?? window, maxRuns: runs ?? DEFAULT_SAMPLE }),
+    mutationFn: () =>
+      api.discover({ agent, window: range ?? window, maxRuns: runs ?? DEFAULT_SAMPLE }, taxonomy?.taxonomy?.revision ?? 0),
     onSuccess: async () => {
       await invalidateProfiles(queryClient);
       onStarted();
