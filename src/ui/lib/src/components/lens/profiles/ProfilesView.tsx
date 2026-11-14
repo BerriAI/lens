@@ -91,7 +91,9 @@ export function ProfilesView({
     enabled: !!agent,
     staleTime: 30_000,
   });
-  const profiles = overview.data?.profiles ?? [];
+  const shown = overview.error ? undefined : overview.data;
+  const heatmap = matrix.error ? undefined : matrix.data;
+  const profiles = shown?.profiles ?? [];
   const colors = useMemo(() => profileColors(profiles), [profiles]);
   const selected = selectedProfileId(profiles, profile.profile);
   const fetching = overview.isFetching || matrix.isFetching;
@@ -149,7 +151,7 @@ export function ProfilesView({
             description={overview.error.message}
           />
         )}
-        {overview.data && overview.data.totals.runs === 0 && (
+        {shown && shown.totals.runs === 0 && (
           <StateMessage
             role="status"
             icon={<ChartNoAxesColumn className="size-5" />}
@@ -157,9 +159,9 @@ export function ProfilesView({
             description="Choose another agent or a wider time range to see its task breakdown."
           />
         )}
-        {overview.data && overview.data.totals.runs > 0 && (
+        {shown && shown.totals.runs > 0 && (
           <>
-            <Totals overview={overview.data} agent={agent} live={live} />
+            <Totals overview={shown} agent={agent} live={live} />
             <div className="rounded-xl border bg-card p-5">
               <h3 className="mb-4 text-base font-medium">Profiles</h3>
               <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
@@ -168,7 +170,7 @@ export function ProfilesView({
               <h3 className="mb-3 text-base font-medium">Profiles by model deployment</h3>
               {matrix.error && <p role="alert" className="text-sm text-destructive">{matrix.error.message}</p>}
               {matrix.isPending && <p className="text-sm text-muted-foreground">Loading model figures…</p>}
-              {matrix.data && <ProfileHeatmap matrix={matrix.data} colors={colors} selected={selected} onSelect={profile.selectProfile} />}
+              {heatmap && <ProfileHeatmap matrix={heatmap} colors={colors} selected={selected} onSelect={profile.selectProfile} />}
             </div>
           </>
         )}

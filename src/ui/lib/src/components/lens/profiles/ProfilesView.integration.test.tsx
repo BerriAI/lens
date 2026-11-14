@@ -195,6 +195,30 @@ it("lets a failed overview be retried without showing stale figures", async () =
   expect((await ranked()).getByRole("button", { name: /Coding/ })).toBeVisible();
 });
 
+it("hides earlier figures when a later refetch of the same range fails", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  renderWithLens(<ProfilesView agents={agents} />, { searchParams: "?tab=profiles&agent=assistant" });
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Coding on claude-sonnet: 12" })).toBeVisible();
+  const serve = proxy.get.getMockImplementation();
+  proxy.get.mockImplementation(async (path, request) => {
+    if (path === "/lens/profiles/overview" || path === "/lens/profiles/matrix") throw new Error("Profiles unavailable");
+    return serve?.(path, request);
+  });
+
+  await testQueryClient.refetchQueries({ queryKey: ["lens"] });
+
+  expect(await screen.findByText("Could not load usage profiles")).toBeVisible();
+  expect(screen.queryByRole("list", { name: "Profiles ranked by runs" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Coding on claude-sonnet: 12" })).not.toBeInTheDocument();
+  proxy.get.mockImplementation(async (path, request) => serve?.(path, request));
+  await user.click(screen.getByRole("button", { name: "Refresh usage profiles" }));
+
+  expect((await ranked()).getByRole("button", { name: /Coding/ })).toBeVisible();
+});
+
 it("ranks by spend with unknown cost last instead of as zero", async () => {
   const user = userEvent.setup();
   const proxy = stubGateway();
