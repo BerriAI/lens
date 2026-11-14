@@ -99,6 +99,12 @@ it("opens a run without a request preview by its trace id", async () => {
   expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("trace_ref")).toBe("REF9");
 });
 
+it("says how many runs the figures cover without calling a complete run list a lower bound", async () => {
+  render(detail({ coverage: { runs_listed: 3, runs_resolved: 2, truncated: false } }));
+
+  expect(await screen.findByText("Figures cover 2 of 3 runs in this range.")).toBeVisible();
+});
+
 it("says when a profile has no model requests", async () => {
   render(detail({ models: [], coverage: { runs_listed: 3, runs_resolved: 3, truncated: false } }));
 

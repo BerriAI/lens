@@ -101,9 +101,9 @@ export function ProfileDetailSheet({
                   ))}
                 </ul>
               </section>
-              {detail.coverage.truncated && (
+              {detail.coverage.runs_resolved < detail.coverage.runs_listed && (
                 <p className="text-xs text-muted-foreground">
-                  Figures cover {formatCount(detail.coverage.runs_resolved)} of at least{" "}
+                  Figures cover {formatCount(detail.coverage.runs_resolved)} of {detail.coverage.truncated && "at least "}
                   {formatCount(detail.coverage.runs_listed)} runs in this range.
                 </p>
               )}

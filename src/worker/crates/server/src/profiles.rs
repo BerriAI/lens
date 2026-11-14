@@ -210,7 +210,6 @@ async fn load<S: ProfileStore>(
     let truncated = runs.len() > MAX_RUNS as usize;
     runs.truncate(MAX_RUNS as usize);
     let calls = store.calls(scope.clone(), runs.clone(), MAX_SPANS).await?;
-    let truncated = truncated || calls.len() < runs.len();
     Ok(Loaded {
         runs,
         calls,

@@ -49,7 +49,7 @@ function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: 
       </div>
       <p className="text-xs text-muted-foreground">
         {!live && "Demo data. "}
-        {coverage.truncated &&
+        {coverage.runs_resolved < coverage.runs_listed &&
           `Request, cost and latency figures cover ${formatCount(coverage.runs_resolved)} of ${formatCount(coverage.runs_listed)} listed runs. Narrow the time range for complete figures. `}
         {totals.other_agent_requests + totals.shared_requests > 0 &&
           `${formatCount(totals.other_agent_requests)} requests by other agents and ${formatCount(totals.shared_requests)} requests shared between agents in these runs are excluded.`}

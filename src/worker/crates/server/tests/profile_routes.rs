@@ -206,6 +206,35 @@ async fn the_overview_ranks_recorded_and_automatic_profiles_with_their_spend(
 }
 
 #[rstest]
+#[case::span_budget_reached(3, json!({"runs_listed": 3, "runs_resolved": 1, "truncated": false}))]
+#[case::run_cap_reached(5_001, json!({"runs_listed": 5_000, "runs_resolved": 1, "truncated": true}))]
+#[tokio::test]
+async fn only_a_capped_run_list_is_reported_as_truncated(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+    #[case] listed: usize,
+    #[case] coverage: Value,
+) {
+    let store = traffic();
+    let extra = (store.runs.len()..listed)
+        .map(|index| run(&format!("extra-{index}"), "unclassified", "Unclassified"));
+    let runs = store.runs.iter().cloned().chain(extra).collect();
+    let server = serve(&database, Memory { runs, ..store }).await;
+
+    let (status, body) = call(
+        &server,
+        Method::GET,
+        &format!("/lens/profiles/overview{}", window_query("")),
+        admin,
+        None,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["coverage"], coverage);
+}
+
+#[rstest]
 #[case::admin(Role::ProxyAdmin, 2)]
 #[case::scoped_user(Role::InternalUser, 1)]
 #[tokio::test]
