@@ -4,26 +4,36 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
-import type { ProfileDetail } from "./schemas";
+import type { ProfileDetail, TaskDefinition } from "./schemas";
+
+const definition: TaskDefinition = {
+  task_id: "charts",
+  name: "Read charts",
+  description: "Answer questions about an attached chart",
+  inclusion_criteria: "Asks about a chart or screenshot",
+  exclusion_criteria: "Plain text questions",
+  required_capabilities: ["vision", "structured_output"],
+  example_trace_ids: [],
+};
 
 const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
   window: { agent: "assistant", start_ms: 0, end_ms: 1 },
   coverage: { runs_listed: 5000, runs_resolved: 1200, truncated: true },
   profile: {
-    profile_id: "recorded:Charts",
+    profile_id: "task:charts",
     name: "Read charts",
-    source: "recorded",
+    source: "enhanced",
     run_count: 3,
     share: 0.5,
     request_count: 4,
     cost_observations: 2,
     spend_usd: 0.5,
   },
-  definition: null,
+  definition,
   runs: [{ trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 1, spend_usd: null }],
   models: [
     {
-      profile_id: "recorded:Charts",
+      profile_id: "task:charts",
       column_key: "id:dep-vision",
       request_count: 3,
       avg_cost_usd: 0.25,
@@ -34,7 +44,7 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
       eval_sample_count: 0,
     },
     {
-      profile_id: "recorded:Charts",
+      profile_id: "task:charts",
       column_key: "unmatched:mystery-model",
       request_count: 1,
       avg_cost_usd: null,
@@ -60,7 +70,7 @@ function render(data: ProfileDetail | Error, options: { canInvestigate?: boolean
     <ProfileDetailSheet
       agent="assistant"
       window={{ startMs: 0, endMs: 1 }}
-      profileId="recorded:Charts"
+      profileId="task:charts"
       canInvestigate={options.canInvestigate ?? true}
       investigateDisabled={options.investigateDisabled ?? false}
       onInvestigate={onInvestigate}
@@ -77,10 +87,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("shows per-model figures and partial coverage without inventing missing values", async () => {
+it("shows a reviewed definition, per-model figures and partial coverage without inventing missing values", async () => {
   render(detail());
 
   const sheet = within(await screen.findByRole("dialog", { name: "Read charts" }));
+  expect(sheet.getByText("Asks about a chart or screenshot")).toBeVisible();
+  expect(sheet.getByText("Plain text questions")).toBeVisible();
+  expect(sheet.getByText(/Requires:/)).toHaveTextContent("vision, structured output");
   expect(sheet.getByText("dep-vision")).toBeVisible();
   expect(sheet.getByText("3 requests · $0.25 avg · 1.5 s p95")).toBeVisible();
   expect(sheet.getByText("mystery-model")).toBeVisible();
@@ -106,11 +119,18 @@ it("says how many runs the figures cover without calling a complete run list a l
   expect(await screen.findByText("Figures cover 2 of 3 runs in this range.")).toBeVisible();
 });
 
-it("says when a profile has no model requests", async () => {
-  render(detail({ models: [], coverage: { runs_listed: 3, runs_resolved: 3, truncated: false } }));
+it("says when a profile has no reviewed definition or model requests", async () => {
+  render(detail({ definition: null, models: [], coverage: { runs_listed: 3, runs_resolved: 3, truncated: false } }));
 
-  expect(await screen.findByText("No model requests by assistant in these runs.")).toBeVisible();
+  expect(await screen.findByText("This profile has no reviewed definition, so its model requirements are unknown.")).toBeVisible();
+  expect(screen.getByText("No model requests by assistant in these runs.")).toBeVisible();
   expect(screen.queryByText(/Figures cover/)).not.toBeInTheDocument();
+});
+
+it("lists a definition without requirements as text only", async () => {
+  render(detail({ definition: { ...definition, required_capabilities: [] } }));
+
+  expect(await screen.findByText(/Requires:/)).toHaveTextContent("nothing beyond text");
 });
 
 it("hides investigation from callers who cannot investigate", async () => {
@@ -132,7 +152,7 @@ it("investigates the profile shown", async () => {
 
   await user.click(await screen.findByRole("button", { name: "Investigate profile" }));
 
-  expect(onInvestigate).toHaveBeenCalledWith("recorded:Charts");
+  expect(onInvestigate).toHaveBeenCalledWith("task:charts");
 });
 
 it("reports a failed detail load", async () => {

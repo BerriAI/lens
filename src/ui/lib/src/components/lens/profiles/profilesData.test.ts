@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cellReading,
+  compatibilityNote,
   formatLatency,
   formatUsd,
   heatIntensity,
@@ -8,8 +9,9 @@ import {
   profileColors,
   rankProfiles,
   selectedProfileId,
+  similarity,
 } from "./profilesData";
-import type { MatrixCell, ProfileSummary } from "./schemas";
+import type { MatrixCell, ProfilesOverview, ProfileSummary } from "./schemas";
 
 const cell = (overrides: Partial<MatrixCell>): MatrixCell => ({
   profile_id: "p",
@@ -125,6 +127,55 @@ describe("rankProfiles", () => {
   });
 });
 
+describe("similarity", () => {
+  const overview = (points: ProfilesOverview["points"], profiles: ProfileSummary[]): ProfilesOverview => ({
+    window: { agent: "a", start_ms: 0, end_ms: 1 },
+    coverage: { runs_listed: 7, runs_resolved: 7, truncated: false },
+    totals: { runs: 7, requests: 7, matched_requests: 7, cost_observations: 7, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
+    profiles,
+    points,
+  });
+
+  it("draws only positions of real groups and counts every other run beside the map", () => {
+    const data = similarity(
+      overview(
+        [
+          { trace_id: "t1", profile_id: "task:a", x: 1, y: 1 },
+          { trace_id: "t3", profile_id: "unknown", x: 3, y: 3 },
+        ],
+        [
+          profile("task:a", { run_count: 3 }),
+          profile("unknown", { source: "unknown", run_count: 2 }),
+          profile("recorded:Billing", { source: "recorded", run_count: 2 }),
+        ],
+      ),
+    );
+
+    expect(data.groups.map((group) => [group.profile.profile_id, group.points.length])).toEqual([["task:a", 1]]);
+    expect(data.unplaced.map((entry) => [entry.profile.profile_id, entry.runs])).toEqual([
+      ["recorded:Billing", 2],
+      ["task:a", 2],
+      ["unknown", 2],
+    ]);
+    expect(data.placed).toBe(1);
+    expect(data.placed + data.unplaced.reduce((sum, entry) => sum + entry.runs, 0)).toBe(data.total);
+  });
+
+  it("keys runs that share a trace id in different teams apart", () => {
+    const data = similarity(
+      overview(
+        [
+          { trace_id: "same", profile_id: "task:a", x: 1, y: 1 },
+          { trace_id: "same", profile_id: "task:a", x: 2, y: 2 },
+        ],
+        [profile("task:a", { run_count: 2 })],
+      ),
+    );
+
+    expect(new Set(data.groups[0].points.map((point) => point.key)).size).toBe(2);
+  });
+});
+
 describe("cellReading", () => {
   it("reports missing cost as no value with its observation count", () => {
     expect(cellReading(cell({ avg_cost_usd: null, cost_observations: 0 }), "cost")).toEqual({ value: null, observations: 0 });
@@ -159,5 +210,17 @@ describe("heatIntensity", () => {
     expect(heatIntensity(2, values)).toBe(0);
     expect(heatIntensity(6, values)).toBe(1);
     expect(heatIntensity(null, values)).toBeNull();
+  });
+});
+
+describe("compatibilityNote", () => {
+  it.each([
+    { name: "unreviewed profile", requirements: null, fit: undefined, note: "Requirements not reviewed" },
+    { name: "met requirements", requirements: ["vision"], fit: { status: "compatible", missing: [], unknown: [] }, note: "Meets declared requirements" },
+    { name: "no requirements", requirements: [], fit: { status: "compatible", missing: [], unknown: [] }, note: "No special requirements" },
+    { name: "missing capability", requirements: ["vision"], fit: { status: "incompatible", missing: ["vision"], unknown: [] }, note: "Metadata says it lacks vision" },
+    { name: "undeclared capability", requirements: ["function_calling"], fit: { status: "unknown", missing: [], unknown: ["function_calling"] }, note: "function calling support unknown" },
+  ] as const)("describes a $name", ({ requirements, fit, note }) => {
+    expect(compatibilityNote(requirements, fit)).toBe(note);
   });
 });
