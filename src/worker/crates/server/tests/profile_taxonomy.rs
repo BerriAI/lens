@@ -51,6 +51,7 @@ fn request(max_runs: u32) -> DiscoveryRequest {
         start_ms: 1_000,
         end_ms: 9_000,
         max_runs,
+        revision: 0,
     }
 }
 
@@ -74,8 +75,15 @@ fn applied(state: &AgentState, changes: Changes) -> AgentState {
     }
 }
 
+fn shown(state: &AgentState) -> DiscoveryRequest {
+    DiscoveryRequest {
+        revision: state.under_review().map_or(0, |working| working.revision),
+        ..request(100)
+    }
+}
+
 fn start(state: &AgentState, job_id: &str) -> Result<AgentState, TransitionError> {
-    start_discovery(state, "tax", &request(100), job_id.into(), now())
+    start_discovery(state, "tax", &shown(state), job_id.into(), now())
         .map(|changes| applied(state, changes))
 }
 
@@ -244,6 +252,18 @@ fn a_live_draft_cannot_be_activated_after_discovery_is_turned_off(drafted: Agent
     assert_eq!(
         activate(&off, &activation(&off, false), now()),
         Err(TransitionError::Disabled)
+    );
+}
+
+#[rstest]
+fn a_new_discovery_replaces_only_the_draft_the_caller_last_saw(drafted: AgentState) {
+    let unseen = start_discovery(&drafted, "tax", &request(100), "job-2".into(), now());
+    let seen = start_discovery(&drafted, "tax", &shown(&drafted), "job-2".into(), now());
+
+    assert_eq!(unseen, Err(TransitionError::Stale));
+    assert_eq!(
+        seen.map(|changes| changes.working.map(|working| working.status)),
+        Ok(Some(TaxonomyStatus::Discovering))
     );
 }
 
@@ -576,7 +596,7 @@ fn the_last_attempt_blocks_a_new_discovery_until_its_lease_ends(
     let restarted = start_discovery(
         &running,
         "tax",
-        &request(100),
+        &shown(&running),
         "job-2".into(),
         after(leases_later),
     );

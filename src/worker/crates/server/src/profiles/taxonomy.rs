@@ -255,6 +255,9 @@ pub fn start_discovery(
     {
         return Err(TransitionError::Running);
     }
+    if state.under_review().map_or(0, |working| working.revision) != request.revision {
+        return Err(TransitionError::Stale);
+    }
     let working = Taxonomy {
         taxonomy_id: taxonomy_id.to_owned(),
         agent: request.agent.clone(),
