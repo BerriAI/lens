@@ -11,4 +11,5 @@ pub use cache::{Freshness, LIVE_TTL, SETTLED_TTL, Snapshot, SnapshotCache, Snaps
 pub use error::{Error, ReadError};
 pub use list::{SummaryProjection, project_run};
 pub use reader::TraceReader;
+pub use spend::{spend_window, spend_within};
 pub use store::{StoreError, SummaryPage, TraceStore};

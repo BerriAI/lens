@@ -15,14 +15,13 @@ use litellm_traces::{
         TraceSpansRow,
     },
 };
-use litellm_traces_cache::TraceStore;
+use litellm_traces_cache::{TraceStore, spend_window, spend_within};
 use litellm_traces_clickhouse::{
     ClickHouseTraces,
     query::profiles::{CallCostModels, CallCostModelsParams, CallCostModelsRow},
 };
 
 const RUNS_PER_READ: usize = 32;
-const SPEND_MARGIN_MS: i64 = 30 * 60_000;
 const NANOS_PER_MS: i64 = 1_000_000;
 
 fn now_ms() -> u64 {
@@ -130,7 +129,11 @@ pub(super) async fn resolve(
             let key = run_key(run);
             let calls = by_run
                 .get(&key)
-                .map(|rows| model_calls(rows, &spend))
+                .map(|rows| {
+                    let own =
+                        spend_window(rows).map_or(&[][..], |window| spend_within(&spend, window));
+                    model_calls(rows, own)
+                })
                 .unwrap_or_default()
                 .into_iter()
                 .map(|call| priced(call, &models))
@@ -147,29 +150,25 @@ async fn spend(
     spans: &[TraceSpansRow],
 ) -> Result<Vec<SpendByResponseIdsRow>, ProfileStoreError> {
     let lookup = SpendLookup::new(spans);
-    let (Some(start_ns), Some(end_ns)) = (
-        spans.iter().map(|row| row.start_ns).min(),
-        spans
-            .iter()
-            .map(|row| row.start_ns.saturating_add_unsigned(row.duration_ns))
-            .max(),
-    ) else {
+    let Some(window) = spend_window(spans) else {
         return Ok(Vec::new());
     };
     if lookup.is_empty() {
         return Ok(Vec::new());
     }
-    traces
+    let mut rows = traces
         .spend(&SpendByResponseIdsParams {
             access: scope.clone(),
             response_ids: lookup.response_ids,
             provider_request_ids: lookup.provider_request_ids,
             request_ids: lookup.request_ids,
             trace_ids: lookup.trace_ids,
-            start_ms: start_ns.div_euclid(NANOS_PER_MS) - SPEND_MARGIN_MS,
-            end_ms: end_ns.div_euclid(NANOS_PER_MS) + SPEND_MARGIN_MS,
+            start_ms: window.start,
+            end_ms: window.end,
         })
-        .await
+        .await?;
+    rows.sort_by_key(|row| row.start_ms);
+    Ok(rows)
 }
 
 type Ledger = BTreeMap<LedgerRequest, CallCostModelsRow>;
