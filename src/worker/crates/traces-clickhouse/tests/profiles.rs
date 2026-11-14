@@ -138,6 +138,15 @@ async fn profiled_database(
                 ("team", "key"),
             ),
             row(
+                "named-unclassified",
+                "root",
+                "",
+                0,
+                json!({}),
+                json!({"task_category":"unclassified"}),
+                ("team", "key"),
+            ),
+            row(
                 "coding",
                 "foreign-root",
                 "",
@@ -191,13 +200,14 @@ fn parameters(profile: &str, preview: u8) -> LensSampleParams {
 }
 
 #[rstest]
-#[case::all("",vec!["coding","earliest","resource-priority","unclassified","workflows"])]
+#[case::all("",vec!["coding","earliest","named-unclassified","resource-priority","unclassified","workflows"])]
 #[case::coding("Coding",vec!["coding","earliest","resource-priority"])]
 #[case::workflows("Workflows",vec!["workflows"])]
 #[case::unclassified("Unclassified",vec!["unclassified"])]
 #[case::unknown("Not recorded",vec![])]
 #[case::recorded_id("recorded:Coding",vec!["coding","earliest","resource-priority"])]
 #[case::unclassified_id("unclassified",vec!["unclassified"])]
+#[case::recorded_category_named_like_an_id("recorded:unclassified",vec!["named-unclassified"])]
 #[tokio::test]
 async fn preview_and_actual_sampling_use_profile_precedence_and_tenant_identity(
     #[future(awt)] profiled_database: TestResult<SeededDatabase>,
