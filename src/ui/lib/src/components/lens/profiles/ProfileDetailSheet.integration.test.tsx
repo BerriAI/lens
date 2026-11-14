@@ -19,6 +19,7 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
     cost_observations: 2,
     spend_usd: 0.5,
   },
+  definition: null,
   runs: [{ trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 1, spend_usd: null }],
   models: [
     {

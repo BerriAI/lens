@@ -47,13 +47,14 @@ const overview = (overrides: Partial<ProfilesOverview> = {}): ProfilesOverview =
     summary("recorded:Coding", "Coding"),
     summary("unclassified", "Unclassified", { spend_usd: null, cost_observations: 0, request_count: 6 }),
   ],
+  points: [],
   ...overrides,
 });
 
 const matrix: ProfilesMatrix = {
   window: { agent: "assistant", start_ms: 0, end_ms: 1 },
   coverage: { runs_listed: 20, runs_resolved: 20, truncated: false },
-  profiles: [{ profile_id: "recorded:Coding", name: "Coding", source: "recorded" }],
+  profiles: [{ profile_id: "recorded:Coding", name: "Coding", source: "recorded", required_capabilities: null }],
   models: [
     {
       column_key: "id:dep-sonnet",
@@ -78,6 +79,7 @@ const matrix: ProfilesMatrix = {
       eval_sample_count: 0,
     },
   ],
+  compatibility: [],
   other_agent_requests: 0,
 };
 
@@ -85,6 +87,7 @@ const detail = (profileId: string): ProfileDetail => ({
   window: { agent: "assistant", start_ms: 0, end_ms: 1 },
   coverage: { runs_listed: 20, runs_resolved: 20, truncated: false },
   profile: summary(profileId, "Coding"),
+  definition: null,
   runs: [{ trace_id: "trace-1", trace_ref: "REF1", start_ms: 0, input_preview: "Fix the login test", request_count: 2, spend_usd: 0.4 }],
   models: [],
 });

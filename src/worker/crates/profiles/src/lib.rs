@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod clustering;
 mod error;
 
 use std::path::PathBuf;

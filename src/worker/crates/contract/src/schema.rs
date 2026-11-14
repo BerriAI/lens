@@ -54,6 +54,15 @@ pub fn worker_contract() -> Value {
     let _ = generator.subschema_for::<profiles::ProfilesOverview>();
     let _ = generator.subschema_for::<profiles::ProfilesMatrix>();
     let _ = generator.subschema_for::<profiles::ProfileDetail>();
+    let _ = generator.subschema_for::<profiles::TaxonomyView>();
+    let _ = generator.subschema_for::<profiles::DiscoveryRequest>();
+    let _ = generator.subschema_for::<profiles::TaskEdit>();
+    let _ = generator.subschema_for::<profiles::TaxonomyRevisionRequest>();
+    let _ = generator.subschema_for::<profiles::ActivationRequest>();
+    let _ = generator.subschema_for::<profiles::ResetRequest>();
+    let _ = generator.subschema_for::<profiles::ProfileSettingsView>();
+    let _ = generator.subschema_for::<profiles::ProfileSettingsUpdate>();
+    let _ = generator.subschema_for::<profiles::DiscoveryPreview>();
     let mut schema = normalize(
         json!({
             "$schema": "http://json-schema.org/draft-07/schema#",

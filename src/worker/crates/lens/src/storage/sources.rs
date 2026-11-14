@@ -17,6 +17,8 @@ use litellm_traces_clickhouse::query::lens::{
     LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
 };
 
+use litellm_traces_clickhouse::query::profiles::ProfileTaxonomyParams;
+
 use crate::{Error, State, wait_for_read_slot};
 
 #[derive(Clone)]
@@ -33,6 +35,67 @@ pub struct SampleRequest<'a> {
 }
 
 impl SourceReader {
+    /// The agent's active enhanced taxonomy, which only every-team scopes can use. Without a
+    /// profile filter the taxonomy changes nothing, so it is not read.
+    async fn taxonomy(
+        &self,
+        scope: &Scope,
+        agent: &str,
+        profile: Option<&str>,
+    ) -> ProfileTaxonomyParams {
+        if profile.is_none_or(str::is_empty) {
+            return ProfileTaxonomyParams::default();
+        }
+        let access = litellm_traces::query::named::ReadAccessParams {
+            all_teams: scope.all_teams,
+            user_id: String::new(),
+            team_ids: Vec::new(),
+        };
+        let Some(id) =
+            lens_server::profiles::taxonomy_id(&access, agent).filter(|_| !agent.is_empty())
+        else {
+            return ProfileTaxonomyParams::default();
+        };
+        let store = litellm_storage_clickhouse::state::ClickHouseState::new(
+            self.0.storage.client.clone(),
+            self.0.storage.config.storage().reader().clone(),
+        );
+        let Ok((state, _)) = crate::task_profiles::load_state(&store, &id).await else {
+            return ProfileTaxonomyParams::default();
+        };
+        let Some(taxonomy) = state.active() else {
+            return ProfileTaxonomyParams::default();
+        };
+        let (window_starts, window_ends) = crate::task_profiles::pending_ranges(
+            &taxonomy.windows,
+            self.0.storage.config.retention_days(),
+            chrono::Utc::now().timestamp_millis(),
+        );
+        ProfileTaxonomyParams {
+            taxonomy_id: taxonomy.taxonomy_id.clone(),
+            taxonomy_version: taxonomy.version,
+            window_starts,
+            window_ends,
+        }
+    }
+
+    async fn sample_parameters(
+        &self,
+        scope: &Scope,
+        request: &SampleRequest<'_>,
+    ) -> Result<LensSampleParams, Error> {
+        Ok(LensSampleParams {
+            taxonomy: self
+                .taxonomy(
+                    scope,
+                    &request.selection.agent_name,
+                    request.selection.profile.as_deref().map(String::as_str),
+                )
+                .await,
+            ..sample_parameters(scope, request)?
+        })
+    }
+
     async fn read<Q: Query>(&self, parameters: &Q::Params) -> Result<Vec<Q::Row>, Error> {
         self.0.require_storage()?;
         let _permit = wait_for_read_slot(self.0.read_slots.clone().acquire_owned()).await?;
@@ -70,7 +133,7 @@ impl SourceReader {
     }
 
     pub async fn sample(&self, scope: &Scope, request: SampleRequest<'_>) -> Result<Sample, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSample>(&parameters).await?;
         sample_page(rows, &request)
     }
@@ -80,7 +143,7 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<Sample, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSignalSample>(&parameters).await?;
         sample_page(rows, &request)
     }
@@ -90,7 +153,7 @@ impl SourceReader {
         scope: &Scope,
         request: SampleRequest<'_>,
     ) -> Result<u64, Error> {
-        let parameters = sample_parameters(scope, &request)?;
+        let parameters = self.sample_parameters(scope, &request).await?;
         let rows = self.read::<LensSampleEligibility>(&parameters).await?;
         Ok(rows.first().map_or(0, |row| row.eligible))
     }
@@ -150,6 +213,13 @@ impl SourceReader {
         for source in sources {
             let rows = self
                 .read::<LensFindingSource>(&LensFindingSourceParams {
+                    taxonomy: self
+                        .taxonomy(
+                            &lens.scope,
+                            &lens.settings.agent_name,
+                            lens.settings.profile.as_deref().map(String::as_str),
+                        )
+                        .await,
                     profile: lens
                         .settings
                         .profile
@@ -243,6 +313,7 @@ fn sample_parameters(
 ) -> Result<LensSampleParams, Error> {
     let settings = request.selection;
     Ok(LensSampleParams {
+        taxonomy: Default::default(),
         profile: settings
             .profile
             .as_ref()
@@ -500,7 +571,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             serde_json::to_value(parameters).unwrap(),
-            json!({"profile":"Coding","all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
+            json!({"profile":"Coding","taxonomy_id":"","taxonomy_version":0,"window_starts":[],"window_ends":[],"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
         );
     }
 

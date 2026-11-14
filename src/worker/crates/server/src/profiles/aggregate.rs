@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use lens_contract::profiles::{
-    MatrixCell, ProfileCoverage, ProfileRunRef, ProfileSource, ProfileTotals,
+    MatrixCell, ProfileCoverage, ProfileRunRef, ProfileSource, ProfileTotals, Taxonomy,
 };
 use litellm_traces::LedgerRequest;
 
@@ -437,10 +437,32 @@ pub fn source(profile_id: &str) -> ProfileSource {
         .map_or(profile_id, |(kind, _)| kind)
     {
         "recorded" => ProfileSource::Recorded,
+        "task" => ProfileSource::Enhanced,
         "cluster" => ProfileSource::Local,
+        "pending" => ProfileSource::Pending,
+        "unknown" => ProfileSource::Unknown,
         "uncertain" => ProfileSource::Uncertain,
         _ => ProfileSource::Unclassified,
     }
+}
+
+pub fn display_name(profile_id: &str, category: &str, taxonomy: Option<&Taxonomy>) -> String {
+    profile_id
+        .strip_prefix("task:")
+        .and_then(|task_id| {
+            taxonomy?
+                .tasks
+                .iter()
+                .find(|task| task.task_id == task_id)
+                .map(|task| task.name.clone())
+        })
+        .unwrap_or_else(|| {
+            if category.is_empty() {
+                "Unnamed task".into()
+            } else {
+                category.to_owned()
+            }
+        })
 }
 
 #[cfg(test)]
@@ -819,7 +841,10 @@ mod tests {
 
     #[rstest]
     #[case::recorded("recorded:Coding", ProfileSource::Recorded)]
+    #[case::enhanced("task:abc", ProfileSource::Enhanced)]
     #[case::local("cluster:abc", ProfileSource::Local)]
+    #[case::pending("pending", ProfileSource::Pending)]
+    #[case::unknown("unknown", ProfileSource::Unknown)]
     #[case::uncertain("uncertain", ProfileSource::Uncertain)]
     #[case::unclassified("unclassified", ProfileSource::Unclassified)]
     fn profile_ids_map_to_their_source(#[case] profile_id: &str, #[case] expected: ProfileSource) {

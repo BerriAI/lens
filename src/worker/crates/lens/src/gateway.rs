@@ -55,6 +55,7 @@ impl GatewayConfig {
 struct Snapshot {
     analysis: Arc<AnalysisModels>,
     evaluation: Arc<EvaluationModels>,
+    embedding: Arc<Vec<String>>,
     status: GatewayStatus,
 }
 
@@ -97,6 +98,7 @@ impl Models {
             snapshot: RwLock::new(Arc::new(Snapshot {
                 analysis: analysis_models,
                 evaluation: evaluation_models,
+                embedding: Arc::default(),
                 status,
             })),
             refresh: Mutex::new(()),
@@ -124,11 +126,19 @@ impl Models {
         self.0.client.clone()
     }
 
+    pub(crate) fn signing(&self) -> Option<lens_inference::GatewayIdentity> {
+        self.0.signing.clone()
+    }
+
     pub fn analysis(&self) -> Arc<AnalysisModels> {
         self.snapshot().analysis.clone()
     }
     pub fn evaluation(&self) -> Arc<EvaluationModels> {
         self.snapshot().evaluation.clone()
+    }
+
+    pub fn embedding_models(&self) -> Vec<String> {
+        self.snapshot().embedding.as_ref().clone()
     }
 
     async fn discover(&self, connection: &GatewayConfig) -> Result<Snapshot, GatewayError> {
@@ -143,6 +153,7 @@ impl Models {
         let mut evaluation = self.0.evaluation.clone();
         let analysis_count = discovered.analysis.len();
         let evaluation_count = discovered.evaluation.len();
+        let embedding = Arc::new(discovered.embedding);
         analysis.extend(discovered.analysis);
         evaluation.extend(discovered.evaluation);
         let (analysis, evaluation) = compile(analysis, evaluation, self.0.signing.clone())
@@ -161,6 +172,7 @@ impl Models {
         Ok(Snapshot {
             analysis,
             evaluation,
+            embedding,
             status,
         })
     }
@@ -194,6 +206,7 @@ impl ModelCatalog for Models {
                 Snapshot {
                     analysis: previous.analysis.clone(),
                     evaluation: previous.evaluation.clone(),
+                    embedding: previous.embedding.clone(),
                     status,
                 }
             }

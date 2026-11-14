@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+hdbscan = "=0.12.0"
+ndarray = "0.17"
+rand.workspace = true
+umap-rs = "=0.4.5"
 fastembed = { version = "=7.5.0", default-features = false, features = ["hf-hub-rustls-tls", "ort-download-binaries-rustls-tls"] }
 serde.workspace = true
 sha2.workspace = true

@@ -26,6 +26,7 @@ describe("demo profiles", () => {
 
     expect(byName).toEqual(byId);
     expect(byId.runs).toHaveLength(first.run_count);
+    expect(byId.definition).toBeNull();
   });
 
   it("rejects a profile the agent does not have", async () => {
