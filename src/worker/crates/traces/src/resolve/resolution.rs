@@ -121,15 +121,25 @@ impl<'a> Resolution<'a> {
     }
 
     pub(super) fn owner(&self, index: usize) -> &'a str {
-        let row = self.row(index);
-        if !row.agent.is_empty() {
-            return &row.agent;
+        self.owning_agent(index)
+            .map_or("", |agent| agent_label(self.row(agent)))
+    }
+
+    /// The recorded agent name that owns a span, never a span's display name, so accounting only
+    /// attributes work to agents that traces name.
+    pub(super) fn agent(&self, index: usize) -> &'a str {
+        self.owning_agent(index)
+            .map_or("", |agent| self.row(agent).agent.as_str())
+    }
+
+    fn owning_agent(&self, index: usize) -> Option<usize> {
+        if !self.row(index).agent.is_empty() {
+            return Some(index);
         }
         self.graph
             .ancestors(index)
             .into_iter()
             .find(|ancestor| self.is_agent(*ancestor))
-            .map_or("", |agent| agent_label(self.row(agent)))
     }
 
     pub(super) fn requests(&self, index: usize) -> SpendEvidence<'a> {

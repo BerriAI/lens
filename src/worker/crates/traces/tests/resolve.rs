@@ -1,5 +1,5 @@
 use litellm_traces::{
-    AgentNode, RunSourceType, SpanStatus, SpendMatch, iso_time, listed_summary,
+    AgentNode, RunSourceType, SpanStatus, SpendMatch, iso_time, listed_summary, model_calls,
     query::named::{ListTracesRow, SpendByResponseIdsRow, TraceSpansRow},
     resolve_trace,
 };
@@ -458,6 +458,36 @@ fn repeated_response_id_counts_once() {
             .map(|span| span.spend)
             .collect::<Vec<_>>(),
         [None, Some(0.25), Some(0.25)]
+    );
+}
+
+#[rstest]
+fn model_calls_carry_recorded_agent_names_while_the_trace_keeps_display_labels() {
+    let rows = [
+        row("root", "", "assistant", "agent", "assistant"),
+        llm("direct", "root", "", "direct"),
+        row("planner", "root", "invoke_agent", "agent", ""),
+        llm("nested", "planner", "", "nested"),
+        llm("named", "planner", "reviewer", "named"),
+    ];
+
+    let calls: Vec<_> = model_calls(&rows, &[])
+        .into_iter()
+        .map(|call| (call.span_id, call.agent))
+        .collect();
+
+    assert_eq!(
+        calls,
+        [
+            ("direct".to_owned(), "assistant".to_owned()),
+            ("nested".to_owned(), String::new()),
+            ("named".to_owned(), "reviewer".to_owned()),
+        ]
+    );
+    assert!(
+        agents(&rows)
+            .iter()
+            .any(|agent| agent.name == "invoke_agent" && agent.llm_calls == 1)
     );
 }
 
