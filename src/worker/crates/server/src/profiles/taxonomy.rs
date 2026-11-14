@@ -193,7 +193,7 @@ pub fn validate_models(
 fn active_job(taxonomy: &Taxonomy, now: DateTime<Utc>) -> bool {
     taxonomy.status == TaxonomyStatus::Discovering
         && taxonomy.job.as_ref().is_some_and(|job| {
-            job.attempts < MAX_ATTEMPTS && job.lease_until.is_none_or(|lease| lease > now)
+            job.lease_until.is_some_and(|lease| lease > now) || job.attempts < MAX_ATTEMPTS
         })
 }
 

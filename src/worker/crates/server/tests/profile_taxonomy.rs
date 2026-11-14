@@ -556,6 +556,35 @@ fn an_older_attempt_cannot_finish_a_reclaimed_job(enabled: AgentState) {
 }
 
 #[rstest]
+#[case::last_attempt_still_leased(2, Err(TransitionError::Running))]
+#[case::last_attempt_lease_expired(3, Ok(()))]
+fn the_last_attempt_blocks_a_new_discovery_until_its_lease_ends(
+    enabled: AgentState,
+    #[case] leases_later: i32,
+    #[case] expected: Result<(), TransitionError>,
+) {
+    let after = |leases: i32| now() + LEASE * leases + Duration::seconds(1);
+    let started = start(&enabled, "job").expect("start");
+    let first = claim(started.working.as_ref().expect("working"), now()).expect("first");
+    let second = claim(&first, after(1)).expect("second");
+    let third = claim(&second, after(2)).expect("third");
+    let running = AgentState {
+        working: Some(third),
+        ..enabled
+    };
+
+    let restarted = start_discovery(
+        &running,
+        "tax",
+        &request(100),
+        "job-2".into(),
+        after(leases_later),
+    );
+
+    assert_eq!(restarted.map(|_| ()), expected);
+}
+
+#[rstest]
 fn a_held_lease_is_not_reclaimed_and_exhausted_jobs_fail(enabled: AgentState) {
     let started = start(&enabled, "job").expect("start");
     let first = claim(started.working.as_ref().expect("working"), now()).expect("first claim");
