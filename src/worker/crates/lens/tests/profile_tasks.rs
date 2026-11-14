@@ -355,6 +355,7 @@ async fn a_preview_counts_runs_without_recorded_categories_and_shows_inputs_with
             start_ms: reviewed.start_ms - DAY_MS,
             end_ms: reviewed.start_ms + DAY_MS,
             max_runs: 20,
+            revision: 0,
         })
         .await
         .expect("preview");

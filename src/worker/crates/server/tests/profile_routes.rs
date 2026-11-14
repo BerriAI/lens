@@ -639,6 +639,40 @@ async fn a_discovery_snapshots_the_saved_models_and_refuses_a_second_one(
 }
 
 #[rstest]
+#[case::draft_not_seen(0, StatusCode::CONFLICT, json!("draft"))]
+#[case::draft_seen(5, StatusCode::OK, json!("discovering"))]
+#[tokio::test]
+async fn a_new_discovery_replaces_a_draft_only_at_the_revision_the_caller_saw(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+    #[case] revision: u32,
+    #[case] expected: StatusCode,
+    #[case] status: Value,
+) {
+    let store = Memory::with(AgentState {
+        working: Some(taxonomy(TaxonomyStatus::Draft, Vec::new())),
+        settings: Some(settings(true)),
+        ..AgentState::default()
+    });
+    let server = serve(&database, store.clone()).await;
+
+    let (code, _) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery",
+        admin,
+        Some(json!({"agent": AGENT, "start_ms": 0, "end_ms": 10, "max_runs": 100, "revision": revision})),
+    )
+    .await;
+
+    assert_eq!(code, expected);
+    assert_eq!(
+        json!(store.state().working.map(|working| working.status)),
+        status
+    );
+}
+
+#[rstest]
 #[tokio::test]
 async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(
     #[future(awt)] database: Database,

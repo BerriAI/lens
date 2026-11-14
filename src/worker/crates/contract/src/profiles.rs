@@ -332,6 +332,10 @@ pub struct DiscoveryRequest {
     pub start_ms: i64,
     pub end_ms: i64,
     pub max_runs: u32,
+    /// Revision of the discovery or draft under review that a new discovery replaces, 0 when
+    /// none is shown. Previews ignore it.
+    #[serde(default)]
+    pub revision: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
