@@ -472,8 +472,14 @@ async fn model_contract_rejects_malformed_findings_and_repairs(#[case] change: V
     let calls = count.clone();
     Mock::given(method("POST"))
         .and(path("/replay/lens-test/job-test/model"))
-        .respond_with(move |_request: &Request| {
-            let value = if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+        .respond_with(move |request: &Request| {
+            let attempt = calls.fetch_add(1, Ordering::SeqCst);
+            let body: wire::ModelRequest = serde_json::from_slice(&request.body).unwrap();
+            if attempt > 0 && body.messages.last().unwrap().role != wire::ModelMessageRole::User {
+                return ResponseTemplate::new(400)
+                    .set_body_json(json!({"detail":"Conversation must end with a user turn"}));
+            }
+            let value = if attempt == 0 {
                 invalid.clone()
             } else {
                 finding()

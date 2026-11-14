@@ -48,6 +48,7 @@ unicode-casefold = "0.2"
 uuid.workspace = true
 
 [dev-dependencies]
+tiktoken-rs.workspace = true
 jsonwebtoken.workspace = true
 lens-parity = { path = "../parity" }
 base64.workspace = true
