@@ -126,6 +126,10 @@ impl Models {
         self.0.client.clone()
     }
 
+    pub(crate) fn signing(&self) -> Option<lens_inference::GatewayIdentity> {
+        self.0.signing.clone()
+    }
+
     pub fn analysis(&self) -> Arc<AnalysisModels> {
         self.snapshot().analysis.clone()
     }

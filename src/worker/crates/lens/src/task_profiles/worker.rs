@@ -205,7 +205,15 @@ impl Embeddings for GatewayEmbeddings<'_> {
             .models
             .connection()
             .ok_or(DiscoveryError::Unconfigured("embedding"))?;
-        Ok(gateway::embed(&self.models.client(), &connection, model, texts).await?)
+        let signing = self.models.signing();
+        Ok(gateway::embed(
+            &self.models.client(),
+            &connection,
+            signing.as_ref(),
+            model,
+            texts,
+        )
+        .await?)
     }
 }
 
