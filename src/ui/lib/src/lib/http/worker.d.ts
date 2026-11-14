@@ -8,6 +8,11 @@ export type InvestigatorState =
   "starting" | "running" | "scheduled" | "stalled" | "failed" | "daily_limit" | "unavailable";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSource".
+ */
+export type ProfileSource = "recorded" | "local" | "uncertain" | "unclassified";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".
  */
 export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
@@ -542,6 +547,50 @@ export interface InvestigatorStatus {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "MatrixCell".
+ */
+export interface MatrixCell {
+  avg_cost_usd?: number | null;
+  column_key: string;
+  cost_observations: number;
+  eval_sample_count: number;
+  eval_success_rate?: number | null;
+  latency_observations: number;
+  p95_latency_ms?: number | null;
+  profile_id: string;
+  request_count: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ModelCapabilities".
+ */
+export interface ModelCapabilities {
+  function_calling?: boolean | null;
+  reasoning?: boolean | null;
+  structured_output?: boolean | null;
+  vision?: boolean | null;
+  [k: string]: unknown;
+}
+/**
+ * A matrix column. `model_config_id` is the gateway deployment ID recorded on the ledger
+ * row, or `None` when no matched ledger row carried one.
+ *
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ModelColumn".
+ */
+export interface ModelColumn {
+  capabilities: ModelCapabilities;
+  column_key: string;
+  configured: boolean;
+  model_config_id?: string | null;
+  model_group: string;
+  model_name: string;
+  provider: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "ModelMessage".
  */
 export interface ModelMessage {
@@ -566,6 +615,117 @@ export interface ModelResult {
   context_exceeded?: boolean;
   cost: number;
   finish_reason?: ("length" | "content_filter") | null;
+}
+/**
+ * How much of the window the figures rest on. When `truncated` is set, `runs_listed` is a
+ * lower bound and the request, cost and latency figures cover only `runs_resolved` runs.
+ *
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileCoverage".
+ */
+export interface ProfileCoverage {
+  runs_listed: number;
+  runs_resolved: number;
+  truncated: boolean;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileDetail".
+ */
+export interface ProfileDetail {
+  coverage: ProfileCoverage;
+  models: MatrixCell[];
+  profile: ProfileSummary;
+  runs: ProfileRunRef[];
+  window: ProfileWindow;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileSummary".
+ */
+export interface ProfileSummary {
+  cost_observations: number;
+  name: string;
+  profile_id: string;
+  request_count: number;
+  run_count: number;
+  share: number;
+  source: ProfileSource;
+  spend_usd?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileRunRef".
+ */
+export interface ProfileRunRef {
+  input_preview: string;
+  request_count: number;
+  spend_usd?: number | null;
+  start_ms: number;
+  trace_id: string;
+  trace_ref: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileWindow".
+ */
+export interface ProfileWindow {
+  agent: string;
+  end_ms: number;
+  start_ms: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileRef".
+ */
+export interface ProfileRef {
+  name: string;
+  profile_id: string;
+  source: ProfileSource;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfileTotals".
+ */
+export interface ProfileTotals {
+  cost_observations: number;
+  matched_requests: number;
+  other_agent_requests: number;
+  requests: number;
+  runs: number;
+  shared_requests: number;
+  spend_usd?: number | null;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfilesMatrix".
+ */
+export interface ProfilesMatrix {
+  cells: MatrixCell[];
+  coverage: ProfileCoverage;
+  models: ModelColumn[];
+  other_agent_requests: number;
+  profiles: ProfileRef[];
+  window: ProfileWindow;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ProfilesOverview".
+ */
+export interface ProfilesOverview {
+  coverage: ProfileCoverage;
+  profiles: ProfileSummary[];
+  totals: ProfileTotals;
+  window: ProfileWindow;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

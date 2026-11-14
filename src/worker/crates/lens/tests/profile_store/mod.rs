@@ -93,6 +93,6 @@ pub async fn isolated() -> Isolated {
         database,
         client,
         config,
-        profiles: ProfilesApi::new(state),
+        profiles: ProfilesApi::new(state, None),
     }
 }

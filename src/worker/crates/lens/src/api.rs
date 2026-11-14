@@ -143,6 +143,21 @@ impl Application {
         Ok(self)
     }
 
+    pub fn with_profiles(mut self, state: Arc<State>) -> Self {
+        let models = self
+            .local_worker
+            .as_ref()
+            .and_then(|worker| match &worker.models {
+                crate::gateway::AnalysisSource::Connected(models) => Some(models.clone()),
+                crate::gateway::AnalysisSource::Static(_) => None,
+            });
+        self.router = self.router.merge(lens_server::profiles::router(
+            self.authentication.clone(),
+            crate::task_profiles::ProfilesApi::new(state, models),
+        ));
+        self
+    }
+
     pub fn with_service(self, state: Arc<State>, url: String, release: String) -> Self {
         let router = self.router.merge(lens_server::service::router(
             self.authentication.clone(),

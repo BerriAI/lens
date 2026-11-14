@@ -141,6 +141,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     )
     .await?
     .with_evaluations()?
+    .with_profiles(state.clone())
     .with_service(state.clone(), config.ingestion_url, config.release);
     let eval_task = application.evals.start();
     let mut tasks = tokio::task::JoinSet::new();

@@ -1342,6 +1342,71 @@
       ],
       "type": "object"
     },
+    "MatrixCell": {
+      "properties": {
+        "avg_cost_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "column_key": {
+          "type": "string"
+        },
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eval_sample_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eval_success_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latency_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "p95_latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile_id",
+        "column_key",
+        "request_count",
+        "cost_observations",
+        "latency_observations",
+        "eval_sample_count"
+      ],
+      "type": "object"
+    },
     "MetadataFilter": {
       "additionalProperties": false,
       "properties": {
@@ -1357,6 +1422,93 @@
       "required": [
         "key",
         "value"
+      ],
+      "type": "object"
+    },
+    "ModelCapabilities": {
+      "properties": {
+        "function_calling": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "structured_output": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vision": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ModelColumn": {
+      "description": "A matrix column. `model_config_id` is the gateway deployment ID recorded on the ledger\nrow, or `None` when no matched ledger row carried one.",
+      "properties": {
+        "capabilities": {
+          "$ref": "#/definitions/ModelCapabilities"
+        },
+        "column_key": {
+          "type": "string"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "model_config_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model_group": {
+          "type": "string"
+        },
+        "model_name": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "column_key",
+        "model_name",
+        "model_group",
+        "provider",
+        "configured",
+        "capabilities"
       ],
       "type": "object"
     },
@@ -1472,6 +1624,308 @@
       "required": [
         "check_id",
         "summary"
+      ],
+      "type": "object"
+    },
+    "ProfileCoverage": {
+      "description": "How much of the window the figures rest on. When `truncated` is set, `runs_listed` is a\nlower bound and the request, cost and latency figures cover only `runs_resolved` runs.",
+      "properties": {
+        "runs_listed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runs_resolved": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runs_listed",
+        "runs_resolved",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "ProfileDetail": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/MatrixCell"
+          },
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/definitions/ProfileSummary"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/definitions/ProfileRunRef"
+          },
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "profile",
+        "runs",
+        "models"
+      ],
+      "type": "object"
+    },
+    "ProfileRef": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/definitions/ProfileSource"
+        }
+      },
+      "required": [
+        "profile_id",
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "ProfileRunRef": {
+      "properties": {
+        "input_preview": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_ms": {
+          "type": "integer"
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "trace_ref",
+        "start_ms",
+        "input_preview",
+        "request_count"
+      ],
+      "type": "object"
+    },
+    "ProfileSource": {
+      "enum": [
+        "recorded",
+        "local",
+        "uncertain",
+        "unclassified"
+      ],
+      "type": "string"
+    },
+    "ProfileSummary": {
+      "properties": {
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "request_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "run_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "share": {
+          "type": "number"
+        },
+        "source": {
+          "$ref": "#/definitions/ProfileSource"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "profile_id",
+        "name",
+        "source",
+        "run_count",
+        "share",
+        "request_count",
+        "cost_observations"
+      ],
+      "type": "object"
+    },
+    "ProfileTotals": {
+      "properties": {
+        "cost_observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "matched_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "other_agent_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "shared_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spend_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs",
+        "requests",
+        "matched_requests",
+        "cost_observations",
+        "other_agent_requests",
+        "shared_requests"
+      ],
+      "type": "object"
+    },
+    "ProfileWindow": {
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "end_ms": {
+          "type": "integer"
+        },
+        "start_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "start_ms",
+        "end_ms"
+      ],
+      "type": "object"
+    },
+    "ProfilesMatrix": {
+      "properties": {
+        "cells": {
+          "items": {
+            "$ref": "#/definitions/MatrixCell"
+          },
+          "type": "array"
+        },
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/definitions/ModelColumn"
+          },
+          "type": "array"
+        },
+        "other_agent_requests": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/definitions/ProfileRef"
+          },
+          "type": "array"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "profiles",
+        "models",
+        "cells",
+        "other_agent_requests"
+      ],
+      "type": "object"
+    },
+    "ProfilesOverview": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/ProfileCoverage"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/definitions/ProfileSummary"
+          },
+          "type": "array"
+        },
+        "totals": {
+          "$ref": "#/definitions/ProfileTotals"
+        },
+        "window": {
+          "$ref": "#/definitions/ProfileWindow"
+        }
+      },
+      "required": [
+        "window",
+        "coverage",
+        "totals",
+        "profiles"
       ],
       "type": "object"
     },
