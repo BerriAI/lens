@@ -624,6 +624,12 @@
           "minimum": 0,
           "type": "integer"
         },
+        "revision": {
+          "default": 0,
+          "description": "Revision of the discovery or draft under review that a new discovery replaces, 0 when\nnone is shown. Previews ignore it.",
+          "minimum": 0,
+          "type": "integer"
+        },
         "start_ms": {
           "type": "integer"
         }

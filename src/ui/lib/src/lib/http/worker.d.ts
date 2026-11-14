@@ -539,6 +539,11 @@ export interface DiscoveryRequest {
   agent: string;
   end_ms: number;
   max_runs: number;
+  /**
+   * Revision of the discovery or draft under review that a new discovery replaces, 0 when
+   * none is shown. Previews ignore it.
+   */
+  revision?: number;
   start_ms: number;
 }
 /**
