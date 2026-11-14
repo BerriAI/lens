@@ -757,6 +757,44 @@ mod tests {
         assert_eq!(cells[0].1.avg_cost_usd, Some(3.0));
     }
 
+    /// A run's spend has no observation count beside it, so a partial sum would read as the run's
+    /// whole cost. Totals keep the priced part because they report how many requests it covers.
+    #[rstest]
+    fn a_run_with_an_unpriced_request_has_unknown_spend_while_totals_keep_the_priced_part() {
+        let runs = vec![run("t1", "cluster:a", 1), run("t2", "cluster:a", 1)];
+        let calls = RunCalls::from([
+            (
+                run_key(&runs[0]),
+                vec![
+                    call("s1", "agent", vec![charge("r1", Some(0.25))]),
+                    call("s2", "agent", vec![charge("r2", None)]),
+                ],
+            ),
+            (
+                run_key(&runs[1]),
+                vec![
+                    call("s3", "agent", vec![charge("r3", Some(0.5))]),
+                    call("s4", "agent", vec![charge("r4", Some(0.25))]),
+                ],
+            ),
+        ]);
+        let view = view(&runs, &calls, "agent");
+
+        let listed: Vec<_> = view
+            .runs_for("cluster:a", 10)
+            .into_iter()
+            .map(|run| (run.trace_id, run.request_count, run.spend_usd))
+            .collect();
+        let totals = view.totals();
+
+        assert_eq!(
+            listed,
+            [("t1".to_owned(), 2, None), ("t2".to_owned(), 2, Some(0.75))]
+        );
+        assert_eq!((totals.requests, totals.cost_observations), (4, 3));
+        assert_eq!(totals.spend_usd, Some(1.0));
+    }
+
     #[rstest]
     #[case::empty(&[], None)]
     #[case::single(&[4.0], Some(4.0))]
