@@ -82,6 +82,25 @@ it("opts in with the three chosen models without starting any discovery", async 
   expect(discoveryCalls(proxy)).toEqual([]);
 });
 
+it("shows a saved opt-in as saved while the settings are read again", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy, settingsView());
+  render();
+  await user.click(await screen.findByRole("switch", { name: "Use paid models for assistant" }));
+  expect(screen.getByText(/Not saved yet/)).toBeVisible();
+  const read = proxy.get.getMockImplementation();
+  proxy.get.mockImplementation(async (path, request) =>
+    path === "/lens/profiles/settings" ? new Promise(() => {}) : read?.(path, request),
+  );
+
+  await user.click(screen.getByRole("button", { name: "Save settings" }));
+
+  expect(await screen.findByRole("button", { name: "Turn off now" })).toBeVisible();
+  expect(screen.getByText("Task discovery is on for this agent")).toBeVisible();
+  expect(screen.queryByText(/Not saved yet/)).not.toBeInTheDocument();
+});
+
 it("explains missing gateway models and still previews the sample without model calls", async () => {
   const proxy = stubGateway();
   routes(

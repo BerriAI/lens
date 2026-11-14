@@ -159,6 +159,9 @@ function SettingsForm({
     onSuccess: async (settings) => {
       setEnabled(settings.enabled);
       setModels(settings.models);
+      queryClient.setQueryData<ProfileSettingsView>(["lens", "profile-settings", api.scope, agent], (current) =>
+        current ? { ...current, settings } : current,
+      );
       await invalidateProfiles(queryClient);
     },
   });
