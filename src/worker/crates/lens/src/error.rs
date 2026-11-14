@@ -262,6 +262,8 @@ pub enum DiscoveryError {
     TimedOut,
     #[error("discovery was cancelled or replaced")]
     Cancelled,
+    #[error("task discovery state could not be read")]
+    StateUnavailable,
     #[error(transparent)]
     Embedding(#[from] EmbedError),
 }

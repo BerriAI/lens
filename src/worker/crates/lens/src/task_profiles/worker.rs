@@ -1,11 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
+use futures_util::future::BoxFuture;
 use lens_contract::{
     profiles::{DiscoveryModelOptions, Taxonomy, TaxonomyStatus},
     worker::{ModelRequest, ModelRequestPrompt, ModelRequestPurpose},
 };
-use lens_server::profiles::taxonomy::{AgentState, Changes, claim, complete};
+use lens_server::profiles::{
+    ProfileStoreError,
+    taxonomy::{AgentState, Changes, claim, complete},
+};
 use litellm_storage_clickhouse::state::{Change, ClickHouseState};
 use litellm_traces_clickhouse::profiles::{
     AssignmentOutcome, BucketingParams, TaskAssignment, bucketing_candidates, discovery_samples,
@@ -113,8 +117,26 @@ pub struct ProfilesWorker {
     owner: String,
 }
 
+/// Where a running discovery reads whether its job is still current.
+trait StateSource: Send + Sync {
+    fn load<'s>(
+        &'s self,
+        taxonomy_id: &'s str,
+    ) -> BoxFuture<'s, Result<AgentState, ProfileStoreError>>;
+}
+
+impl StateSource for ClickHouseState {
+    fn load<'s>(
+        &'s self,
+        taxonomy_id: &'s str,
+    ) -> BoxFuture<'s, Result<AgentState, ProfileStoreError>> {
+        Box::pin(async move { load_state(self, taxonomy_id).await.map(|(state, _)| state) })
+    }
+}
+
+/// Checked before every paid stage. Unreadable state stops the run without calling it cancelled.
 struct JobGuard<'a> {
-    store: &'a ClickHouseState,
+    source: &'a dyn StateSource,
     taxonomy_id: &'a str,
     job_id: &'a str,
     attempt: u32,
@@ -122,10 +144,20 @@ struct JobGuard<'a> {
 
 impl JobGuard<'_> {
     async fn check(&self) -> Result<(), DiscoveryError> {
-        match load_state(self.store, self.taxonomy_id).await {
-            Ok((state, _)) if discovery_current(&state, self.job_id, self.attempt) => Ok(()),
-            _ => Err(DiscoveryError::Cancelled),
+        match self.source.load(self.taxonomy_id).await {
+            Ok(state) if discovery_current(&state, self.job_id, self.attempt) => Ok(()),
+            Ok(_) => Err(DiscoveryError::Cancelled),
+            Err(_) => Err(DiscoveryError::StateUnavailable),
         }
+    }
+}
+
+/// A run stopped by unreadable state keeps its lease, so the job is retried once the lease ends
+/// instead of being marked failed.
+fn recorded<T>(outcome: Result<T, DiscoveryError>) -> Option<Result<T, String>> {
+    match outcome {
+        Err(DiscoveryError::StateUnavailable) => None,
+        other => Some(other.map_err(|error| error.to_string())),
     }
 }
 
@@ -252,15 +284,14 @@ impl ProfilesWorker {
             return true;
         };
         let guard = JobGuard {
-            store: &self.store,
+            source: &self.store,
             taxonomy_id,
             job_id: &job.job_id,
             attempt: job.attempts,
         };
-        let outcome = self
-            .run(&claimed, &guard)
-            .await
-            .map_err(|error| error.to_string());
+        let Some(outcome) = recorded(self.run(&claimed, &guard).await) else {
+            return true;
+        };
         let Ok((latest, heads)) = load_state(&self.store, taxonomy_id).await else {
             return true;
         };
@@ -509,6 +540,49 @@ mod tests {
             classifiable(&state(enabled, None, Some(active))).is_some(),
             expected
         );
+    }
+
+    struct Stored(Option<AgentState>);
+
+    impl StateSource for Stored {
+        fn load<'s>(&'s self, _: &'s str) -> BoxFuture<'s, Result<AgentState, ProfileStoreError>> {
+            Box::pin(async { self.0.clone().ok_or(ProfileStoreError::Unavailable) })
+        }
+    }
+
+    #[rstest]
+    #[case::still_running(Some(state(true, Some(taxonomy(TaxonomyStatus::Discovering, Vec::new())), None)), Ok(()))]
+    #[case::turned_off(
+        Some(state(false, Some(taxonomy(TaxonomyStatus::Discovering, Vec::new())), None)),
+        Err(DiscoveryError::Cancelled)
+    )]
+    #[case::replaced(Some(state(true, None, None)), Err(DiscoveryError::Cancelled))]
+    #[case::unreadable(None, Err(DiscoveryError::StateUnavailable))]
+    #[tokio::test]
+    async fn paid_stages_stop_unless_the_job_is_still_current(
+        #[case] loaded: Option<AgentState>,
+        #[case] expected: Result<(), DiscoveryError>,
+    ) {
+        let stored = Stored(loaded);
+        let guard = JobGuard {
+            source: &stored,
+            taxonomy_id: "tax",
+            job_id: "job",
+            attempt: 1,
+        };
+
+        assert_eq!(guard.check().await, expected);
+    }
+
+    #[rstest]
+    #[case::unreadable_state(Err(DiscoveryError::StateUnavailable), None)]
+    #[case::cancelled(Err(DiscoveryError::Cancelled), Some(Err("discovery was cancelled or replaced".to_owned())))]
+    #[case::finished(Ok(()), Some(Ok(())))]
+    fn only_unreadable_state_leaves_the_job_for_a_retry(
+        #[case] outcome: Result<(), DiscoveryError>,
+        #[case] expected: Option<Result<(), String>>,
+    ) {
+        assert_eq!(recorded(outcome), expected);
     }
 
     #[rstest]
