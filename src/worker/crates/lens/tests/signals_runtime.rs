@@ -7,7 +7,7 @@ use datasets::support::{Database, INGEST, database};
 use lens_contract::{
     feedback::TraceIdentity,
     investigations::Scope,
-    signals::{SignalConfig, SignalData, SignalEvidence, TraceSignalStatus},
+    signals::{SignalConfig, SignalData, SignalEvidence, SignalFailure, TraceSignalStatus},
 };
 use lens_decisions::{Deployment, EvaluationModels, Provider, Secret, TransportLimits};
 use lens_signals::{LIVE_SWEEP, SignalReader, SignalRepository, run_signal_tick, trace_signals};
@@ -330,14 +330,29 @@ async fn oversized_gateway_trace_keeps_durable_scores_and_reports_partial_covera
     );
 }
 
+const JUDGE_ANSWERS: &str = "```json\n{\"answers\":[{\"id\":\"frustration\",\"probability\":0.9,\"choice\":null},{\"id\":\"__evidence_0\",\"probability\":null,\"choice\":\"[L000]\"}]}\n```";
+
 #[rstest]
-#[case::classified(200, TraceSignalStatus::Classified)]
-#[case::rate_limited(429, TraceSignalStatus::Failed)]
+#[case::classified(200, JUDGE_ANSWERS, TraceSignalStatus::Classified, None)]
+#[case::rate_limited(
+    429,
+    JUDGE_ANSWERS,
+    TraceSignalStatus::Failed,
+    Some(SignalFailure::Transient { retry_after_seconds: None })
+)]
+#[case::unusable_reply(
+    200,
+    "I cannot judge this run.",
+    TraceSignalStatus::Failed,
+    Some(SignalFailure::Permanent)
+)]
 #[tokio::test]
 async fn ingested_trace_is_classified_by_a_chat_model_configured_for_analysis(
     #[future(awt)] database: Database,
     #[case] status: u16,
+    #[case] answers: &str,
     #[case] expected: TraceSignalStatus,
+    #[case] failure: Option<SignalFailure>,
 ) {
     let server = database.serve(false).await;
     let ingested_at = Utc::now();
@@ -355,7 +370,6 @@ async fn ingested_trace_is_classified_by_a_chat_model_configured_for_analysis(
         .unwrap();
     assert_eq!(result.status(), 200, "{}", result.text().await.unwrap());
     let provider = MockServer::start().await;
-    let answers = "```json\n{\"answers\":[{\"id\":\"frustration\",\"probability\":0.9,\"choice\":null},{\"id\":\"__evidence_0\",\"probability\":null,\"choice\":\"[L000]\"}]}\n```";
     Mock::given(method("POST"))
         .and(path("/v1/chat/completions"))
         .respond_with(ResponseTemplate::new(status).set_body_json(json!({
@@ -453,7 +467,8 @@ async fn ingested_trace_is_classified_by_a_chat_model_configured_for_analysis(
         json!({"id":"frustration","type":"noul","instructions":"Is the user frustrated?"})
     );
     assert_eq!(asked["questions"][0]["id"], "__evidence_0");
-    if status == 200 {
+    assert_eq!(stored.failure, failure);
+    if expected == TraceSignalStatus::Classified {
         assert_eq!(stored.scores["frustration"], 0.9);
         assert_eq!(projected.flags[0].score, 0.9);
         assert_eq!(

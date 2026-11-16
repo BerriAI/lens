@@ -64,7 +64,7 @@ Decisions models are fast and cheap, but their input window is small for long, t
 
 Any model available for analysis can be the judge. Configure it as described in [Configure analysis models](analysis.md), then choose it in **Settings > Signals**. Chat models are listed after the System 1 models and are marked **Chat judge**. Nothing else changes: each signal keeps its question, its score from 0 to 1, the threshold and the flagged excerpt
 
-Lens sends the judge the same labeled trace content and questions in one request and asks for every score and supporting excerpt at once. It accepts only scores between 0 and 1 and excerpts that were part of the request. A trace that is still too long for the chat model is reduced the same way as for a Decisions model, and the result is marked partial
+Lens sends the judge the same labeled trace content and questions in one request and asks for every score and supporting excerpt at once. It accepts only scores between 0 and 1 and excerpts that were part of the request. A trace that is still too long for the chat model is reduced the same way as for a Decisions model, and the result is marked partial. A reply Lens cannot use, such as one cut off at the output limit, fails that trace until the trace or the signal configuration changes, so a long trace is not sent again every half hour
 
 Choosing a chat model is a cost decision. Every trace is sent in full to that model, so a 250,000 token trace costs 250,000 input tokens per classification, and a trace is classified again when it grows. Signals have no spending limit of their own. Pick a model whose input price suits your trace volume and use the spending controls of your provider or gateway key. A chat judge gets up to four minutes per trace instead of one
 

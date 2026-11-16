@@ -500,10 +500,13 @@ async fn attempt(
 
 fn provider_failure(error: &Error) -> Option<SignalFailure> {
     match error {
-        Error::Decisions(DecisionsError::Provider {
-            status: 400 | 413 | 422,
-            ..
-        }) => Some(SignalFailure::Permanent),
+        Error::Decisions(
+            DecisionsError::Provider {
+                status: 400 | 413 | 422,
+                ..
+            }
+            | DecisionsError::Answer,
+        ) => Some(SignalFailure::Permanent),
         Error::Decisions(DecisionsError::Provider {
             retry_after_seconds,
             ..

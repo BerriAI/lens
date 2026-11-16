@@ -613,6 +613,28 @@ async fn refusal_preserves_retry_policy(
     );
 }
 
+struct Unusable;
+impl Decisions for Unusable {
+    async fn complete(&self, _: &DecisionRequest) -> Result<Value, DecisionsError> {
+        Err(DecisionsError::Answer)
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn unusable_answer_fails_the_trace_for_good_instead_of_pausing_and_asking_again(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    use lens_contract::signals::{SignalAttemptStatus, SignalFailure};
+    let attempt = classify(&reader, &Unusable, &scope, &execution, &config).await;
+    assert_eq!(attempt.status, SignalAttemptStatus::Failed);
+    assert_eq!(attempt.failure, Some(SignalFailure::Permanent));
+    assert!(attempt.scores.is_empty());
+}
+
 #[rstest]
 #[case::none("none", 0.9)]
 #[case::unoffered_leaf("L000", 0.9)]

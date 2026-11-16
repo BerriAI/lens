@@ -83,10 +83,9 @@ impl SignalModels {
             return Err(DecisionsError::Context);
         }
         if completion.result.finish_reason.is_some() {
-            return Err(unavailable(crate::Error::SignalJudgeResponse));
+            return Err(DecisionsError::Answer);
         }
-        answers(&completion.result.content, request)
-            .ok_or_else(|| unavailable(crate::Error::SignalJudgeResponse))
+        answers(&completion.result.content, request).ok_or(DecisionsError::Answer)
     }
 }
 
@@ -96,6 +95,7 @@ fn unavailable(error: impl std::error::Error + Send + Sync + 'static) -> Decisio
 
 fn provider_error(error: lens_analysis::Error) -> DecisionsError {
     match error {
+        lens_analysis::Error::Provider { status: 413, .. } => DecisionsError::Context,
         lens_analysis::Error::Provider {
             status,
             retry_after,
@@ -162,8 +162,9 @@ impl Decisions for SignalModels {
 
 #[cfg(test)]
 mod tests {
-    use super::answers;
-    use lens_signals::{DecisionRequest, Question, SignalState};
+    use super::{answers, provider_error};
+    use lens_analysis::{ProviderDiagnostic, ProviderFailureKind};
+    use lens_signals::{DecisionRequest, DecisionsError, Question, SignalState};
     use rstest::{fixture, rstest};
     use serde_json::{Value, json};
     use std::{collections::BTreeMap, time::Duration};
@@ -237,5 +238,21 @@ mod tests {
         #[case] content: &str,
     ) {
         assert_eq!(answers(content, &request), None);
+    }
+
+    #[rstest]
+    #[case::too_large(413, true)]
+    #[case::rate_limited(429, false)]
+    #[case::rejected(400, false)]
+    fn only_a_size_refusal_asks_for_a_smaller_trace(#[case] status: u16, #[case] smaller: bool) {
+        let error = provider_error(lens_analysis::Error::Provider {
+            status,
+            retry_after: None,
+            diagnostic: ProviderDiagnostic {
+                classification: ProviderFailureKind::Other,
+                request_id: None,
+            },
+        });
+        assert_eq!(matches!(error, DecisionsError::Context), smaller);
     }
 }
