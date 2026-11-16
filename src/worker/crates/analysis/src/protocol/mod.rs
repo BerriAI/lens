@@ -5,13 +5,19 @@ mod schema;
 use crate::{Error, Provider, ResponseSchema, catalog::ResolvedDeployment};
 use lens_contract::worker::ModelMessage;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 pub(crate) struct Completion {
     pub(crate) model: String,
     pub(crate) content: Option<String>,
     pub(crate) finish_reason: Option<String>,
     pub(crate) usage: litellm_cost::Usage,
+}
+
+pub(crate) enum Outcome<'a> {
+    Complete(Completion),
+    Failed(&'a [u8]),
+    Cut,
 }
 
 pub(crate) struct StrictSchema {
@@ -32,20 +38,47 @@ pub(crate) fn request(
     boundaries: &[usize],
     output: u64,
     schema: Option<&StrictSchema>,
+    stream: bool,
 ) -> Result<Value, Error> {
     match deployment.config.provider {
-        Provider::Anthropic => anthropic::request(deployment, messages, boundaries, output, schema),
+        Provider::Anthropic => {
+            anthropic::request(deployment, messages, boundaries, output, schema, stream)
+        }
         Provider::OpenAi | Provider::OpenAiCompatible => {
-            openai::request(deployment, messages, boundaries, output, schema)
+            openai::request(deployment, messages, boundaries, output, schema, stream)
         }
     }
 }
 
-pub(crate) fn response(provider: Provider, model: &str, body: &[u8]) -> Result<Completion, Error> {
-    match provider {
-        Provider::Anthropic => anthropic::response(body),
-        Provider::OpenAi | Provider::OpenAiCompatible => openai::response(model, body),
+pub(crate) fn low_reasoning(provider: Provider, body: &Value) -> Option<Value> {
+    (provider != Provider::Anthropic).then(|| {
+        let mut body = body.clone();
+        body["reasoning_effort"] = json!("low");
+        body
+    })
+}
+
+pub(crate) fn response<'a>(
+    provider: Provider,
+    model: &str,
+    body: &'a [u8],
+    streamed: bool,
+) -> Result<Outcome<'a>, Error> {
+    match (provider, streamed) {
+        (Provider::Anthropic, true) => anthropic::stream(body),
+        (Provider::Anthropic, false) => anthropic::response(body).map(Outcome::Complete),
+        (Provider::OpenAi | Provider::OpenAiCompatible, true) => openai::stream(model, body),
+        (Provider::OpenAi | Provider::OpenAiCompatible, false) => {
+            openai::response(model, body).map(Outcome::Complete)
+        }
     }
+}
+
+fn events(body: &[u8]) -> impl Iterator<Item = &[u8]> {
+    body.split(|byte| *byte == b'\n')
+        .filter_map(|line| line.strip_prefix(b"data:"))
+        .map(<[u8]>::trim_ascii)
+        .filter(|data| *data != b"[DONE]")
 }
 
 #[derive(Deserialize)]

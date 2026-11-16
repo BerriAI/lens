@@ -60,11 +60,59 @@ pub fn anthropic_completion() -> Value {
     json!({"model":"reported","content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"{\"ok\":"},{"type":"redacted_thinking","data":"hidden"},{"type":"text","text":"true}"}],"stop_reason":"end_turn","usage":{"input_tokens":60,"output_tokens":20,"cache_read_input_tokens":30,"cache_creation_input_tokens":10,"cache_creation":{"ephemeral_5m_input_tokens":7,"ephemeral_1h_input_tokens":3}}})
 }
 
+pub fn chunks(finish_reason: &str) -> Vec<Value> {
+    vec![
+        json!({"model":"reported","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}),
+        json!({"model":"reported","choices":[{"index":0,"delta":{"content":"{\"ok\":"},"finish_reason":null}]}),
+        json!({"model":"reported","choices":[{"index":0,"delta":{"content":"true}"},"finish_reason":null}]}),
+        json!({"model":"reported","choices":[{"index":0,"delta":{},"finish_reason":finish_reason}]}),
+        json!({"model":"reported","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_tokens_details":{"cached_tokens":30,"cache_creation_tokens":10}}}),
+    ]
+}
+
+pub fn anthropic_events(stop_reason: &str) -> Vec<Value> {
+    vec![
+        json!({"type":"message_start","message":{"model":"reported","content":[],"stop_reason":null,"usage":{"input_tokens":60,"output_tokens":1,"cache_read_input_tokens":30,"cache_creation_input_tokens":10,"cache_creation":{"ephemeral_5m_input_tokens":7,"ephemeral_1h_input_tokens":3}}}}),
+        json!({"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}),
+        json!({"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"private"}}),
+        json!({"type":"content_block_stop","index":0}),
+        json!({"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}),
+        json!({"type":"ping"}),
+        json!({"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"{\"ok\":"}}),
+        json!({"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"true}"}}),
+        json!({"type":"content_block_stop","index":1}),
+        json!({"type":"message_delta","delta":{"stop_reason":stop_reason,"stop_sequence":null},"usage":{"output_tokens":20}}),
+        json!({"type":"message_stop"}),
+    ]
+}
+
+pub fn event_stream(events: &[Value]) -> ResponseTemplate {
+    let body: String = events
+        .iter()
+        .map(|event| match event["type"].as_str() {
+            Some(name) => format!("event: {name}\ndata: {event}\n\n"),
+            None => format!("data: {event}\n\n"),
+        })
+        .chain(["data: [DONE]\n\n".to_owned()])
+        .collect();
+    ResponseTemplate::new(200).set_body_raw(body, "text/event-stream; charset=utf-8")
+}
+
 pub async fn respond(server: &MockServer, endpoint: &str, status: u16, body: Value) {
+    respond_times(server, endpoint, status, body, 1).await;
+}
+
+pub async fn respond_times(
+    server: &MockServer,
+    endpoint: &str,
+    status: u16,
+    body: Value,
+    requests: u64,
+) {
     Mock::given(method("POST"))
         .and(path(endpoint))
         .respond_with(ResponseTemplate::new(status).set_body_json(body))
-        .expect(1)
+        .expect(requests)
         .mount(server)
         .await;
 }

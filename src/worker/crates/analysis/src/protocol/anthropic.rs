@@ -1,4 +1,4 @@
-use super::{Completion, StrictSchema};
+use super::{Completion, Outcome, StrictSchema};
 use crate::{Error, catalog::ResolvedDeployment};
 use lens_contract::worker::{ModelMessage, ModelMessageRole};
 use litellm_core_utils::{
@@ -23,6 +23,7 @@ pub(super) fn request(
     boundaries: &[usize],
     output: u64,
     schema: Option<&StrictSchema>,
+    stream: bool,
 ) -> Result<Value, Error> {
     let source: Vec<ChatMessage> = serde_json::from_value(json!(messages))?;
     let conversation = build_conversation(&source);
@@ -61,7 +62,7 @@ pub(super) fn request(
             json!({"role":role,"content":blocks})
         })
         .collect();
-    let mut body = json!({"model":deployment.model,"system":system,"messages":turns,"max_tokens":output,"stream":false});
+    let mut body = json!({"model":deployment.model,"system":system,"messages":turns,"max_tokens":output,"stream":stream});
     if let Some(schema) = schema {
         body["output_config"] = json!({"format":{"type":"json_schema","schema":schema.schema}});
     }
@@ -104,46 +105,138 @@ struct CacheCreation {
     ephemeral_1h_input_tokens: u64,
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum Event {
+    MessageStart {
+        message: Opening,
+    },
+    ContentBlockStart {
+        content_block: Block,
+    },
+    ContentBlockDelta {
+        delta: Delta,
+    },
+    MessageDelta {
+        delta: Closing,
+        usage: Option<FinalUsage>,
+    },
+    Error {},
+    #[serde(other)]
+    Other,
+}
+#[derive(Deserialize)]
+struct Opening {
+    model: String,
+    usage: ResponseUsage,
+}
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum Delta {
+    TextDelta {
+        text: String,
+    },
+    #[serde(other)]
+    Other,
+}
+#[derive(Deserialize)]
+struct Closing {
+    stop_reason: Option<String>,
+}
+#[derive(Deserialize)]
+struct FinalUsage {
+    output_tokens: u64,
+}
+
+fn text(block: Block) -> Result<String, Error> {
+    match block {
+        Block::Text { text } => Ok(text),
+        Block::Thinking { thinking } => {
+            drop(thinking);
+            Ok(String::new())
+        }
+        Block::RedactedThinking { data } => {
+            drop(data);
+            Ok(String::new())
+        }
+        Block::Unsupported => Err(Error::ResponseContent),
+    }
+}
+
 pub(super) fn response(body: &[u8]) -> Result<Completion, Error> {
     let response: Response = serde_json::from_slice(body)?;
     let content = response
         .content
         .into_iter()
-        .map(|block| match block {
-            Block::Text { text } => Ok(text),
-            Block::Thinking { thinking } => {
-                drop(thinking);
-                Ok(String::new())
-            }
-            Block::RedactedThinking { data } => {
-                drop(data);
-                Ok(String::new())
-            }
-            Block::Unsupported => Err(Error::ResponseContent),
-        })
+        .map(text)
         .collect::<Result<String, _>>()?;
-    Ok(Completion {
-        model: response.model,
+    Ok(completion(
+        response.model,
+        content,
+        response.stop_reason,
+        response.usage,
+    ))
+}
+
+pub(super) fn stream(body: &[u8]) -> Result<Outcome<'_>, Error> {
+    let mut opening = None;
+    let mut content = String::new();
+    let mut closing = None;
+    let mut output_tokens = None;
+    for event in super::events(body) {
+        match serde_json::from_slice(event)? {
+            Event::MessageStart { message } => opening = Some(message),
+            Event::ContentBlockStart { content_block } => content.push_str(&text(content_block)?),
+            Event::ContentBlockDelta {
+                delta: Delta::TextDelta { text },
+            } => content.push_str(&text),
+            Event::MessageDelta { delta, usage } => {
+                closing = Some(delta);
+                output_tokens = usage.map(|usage| usage.output_tokens).or(output_tokens);
+            }
+            Event::Error {} => return Ok(Outcome::Failed(event)),
+            Event::ContentBlockDelta { .. } | Event::Other => {}
+        }
+    }
+    let (Some(opening), Some(closing)) = (opening, closing) else {
+        return Ok(Outcome::Cut);
+    };
+    let usage = ResponseUsage {
+        output_tokens: output_tokens.unwrap_or(opening.usage.output_tokens),
+        ..opening.usage
+    };
+    Ok(Outcome::Complete(completion(
+        opening.model,
+        content,
+        closing.stop_reason,
+        usage,
+    )))
+}
+
+fn completion(
+    model: String,
+    content: String,
+    stop_reason: Option<String>,
+    usage: ResponseUsage,
+) -> Completion {
+    Completion {
+        model,
         content: (!content.is_empty()).then_some(content),
-        finish_reason: response
-            .stop_reason
-            .map(|reason| finish_reason_for(&reason).to_owned()),
+        finish_reason: stop_reason.map(|reason| finish_reason_for(&reason).to_owned()),
         usage: Usage {
-            prompt_tokens: response.usage.input_tokens,
-            completion_tokens: response.usage.output_tokens,
-            cache_read_tokens: response.usage.cache_read_input_tokens.unwrap_or(0),
-            cache_write_tokens: response.usage.cache_creation_input_tokens.unwrap_or(0),
-            cache_write_5m_tokens: response
-                .usage
+            prompt_tokens: usage.input_tokens,
+            completion_tokens: usage.output_tokens,
+            cache_read_tokens: usage.cache_read_input_tokens.unwrap_or(0),
+            cache_write_tokens: usage.cache_creation_input_tokens.unwrap_or(0),
+            cache_write_5m_tokens: usage
                 .cache_creation
                 .as_ref()
                 .map(|details| details.ephemeral_5m_input_tokens),
-            cache_write_1h_tokens: response
-                .usage
+            cache_write_1h_tokens: usage
                 .cache_creation
                 .as_ref()
                 .map(|details| details.ephemeral_1h_input_tokens),
             prompt_convention: PromptConvention::ExcludesCache,
         },
-    })
+    }
 }

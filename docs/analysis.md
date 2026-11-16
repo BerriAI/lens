@@ -67,7 +67,7 @@ Open a finding and follow an evidence citation to the original trace. Existing a
 
 To receive new improvement candidates in Slack, configure the optional [Slack findings integration](slack.md)
 
-Lens asks providers that accept a JSON schema to enforce the response format, and uses JSON mode when a provider rejects the schema. Every quote in a finding is checked against the recorded span. A quote that differs from the recording only in whitespace, escaping, emphasis markers or an ellipsis is saved as the recorded text. A quote that cannot be found is returned to the model with the nearest recorded passage, and a result that still cannot be verified is discarded while the verified results are kept
+Lens asks providers that accept a JSON schema to enforce the response format, and reads each response as a stream so a load balancer in front of the provider sees data arriving while the model writes. A provider that rejects that request is asked again with a buffered JSON mode request. When a gateway times out before a response starts, which happens when a reasoning model thinks for longer than the gateway waits, Lens asks again with `reasoning_effort` set to `low`. Lens keeps whichever form worked for that deployment until it restarts or the gateway model list is refreshed. Every quote in a finding is checked against the recorded span. A quote that differs from the recording only in whitespace, escaping, emphasis markers or an ellipsis is saved as the recorded text. A quote that cannot be found is returned to the model with the nearest recorded passage, and a result that still cannot be verified is discarded while the verified results are kept
 
 A run that finishes while some tasks failed is shown as **Partial**. Its verified findings are saved, and the failed traces are analyzed again on the next run
 
@@ -94,6 +94,7 @@ The example prices and token limits are placeholders. Replace them with your dep
 | The run reports that the provider rejected the request | Check the provider key, access to the selected model, and any configured API base URL |
 | The request exceeds the investigation budget | Increase the analysis budget or reduce the model's output allowance, then run it again |
 | A task reports that the response reached the model output limit | Raise `capacity.max_output_tokens` for that deployment or choose a model with a larger output limit |
+| The run reports that the provider request timed out | A proxy or load balancer between Lens and the provider closed the connection. Raise its idle timeout above the time your model needs before it starts answering, or choose a model that reasons less |
 | The trace list is empty | Send a real run from your agent using a Lens tracing key. An analysis provider key does not authorize trace ingestion |
 
 Changing a provider key requires updating its server-side secret and restarting Lens. Keep the existing admin token and ClickHouse configuration so sessions and saved work remain available

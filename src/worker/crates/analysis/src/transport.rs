@@ -54,7 +54,8 @@ const OUTPUT_GROWTH: u64 = 4;
 struct PreparedRequest {
     deployment: Arc<catalog::ResolvedDeployment>,
     body: Value,
-    unstructured: Option<Value>,
+    plain: Option<Value>,
+    quick: Option<Value>,
     custom_charge: bool,
 }
 
@@ -228,16 +229,35 @@ impl AnalysisModels {
         let estimate = lens_inference::quote(&estimates, !boundaries.is_empty())?;
         let selected = group.next.fetch_add(1, Ordering::Relaxed) % candidates.len();
         let deployment = candidates[selected].0.clone();
+        let provider = deployment.config.provider;
+        let plain_only = deployment.plain_requests.load(Ordering::Relaxed);
+        let reduced = deployment.reduced_reasoning.load(Ordering::Relaxed);
         let schema = options
             .response_schema
             .as_ref()
-            .filter(|_| !deployment.schema_rejected.load(Ordering::Relaxed))
+            .filter(|_| !plain_only)
             .and_then(protocol::strict_schema);
-        let body = protocol::request(&deployment, &messages, &boundaries, output, schema.as_ref())?;
-        let unstructured = schema
-            .is_some()
-            .then(|| protocol::request(&deployment, &messages, &boundaries, output, None))
-            .transpose()?;
+        let paced = |body: Value| {
+            reduced
+                .then(|| protocol::low_reasoning(provider, &body))
+                .flatten()
+                .unwrap_or(body)
+        };
+        let body = paced(protocol::request(
+            &deployment,
+            &messages,
+            &boundaries,
+            output,
+            schema.as_ref(),
+            !plain_only,
+        )?);
+        let plain = (!plain_only)
+            .then(|| protocol::request(&deployment, &messages, &boundaries, output, None, false))
+            .transpose()?
+            .map(paced);
+        let quick = (!reduced)
+            .then(|| protocol::low_reasoning(provider, &body))
+            .flatten();
         let custom_charge = group.deployments.len() == 1
             && deployment
                 .config
@@ -252,7 +272,8 @@ impl AnalysisModels {
             request: Some(PreparedRequest {
                 deployment,
                 body,
-                unstructured,
+                plain,
+                quick,
                 custom_charge,
             }),
         })
@@ -367,23 +388,29 @@ impl AnalysisModels {
                 metadata.as_ref(),
             )
             .await?;
-        let reply = match &request.unstructured {
-            Some(unstructured)
-                if matches!(first.status.as_u16(), 400 | 422)
-                    && !protocol::context_failure(provider, &first.body) =>
-            {
+        let refused = matches!(first.status.as_u16(), 400 | 422)
+            && !protocol::context_failure(provider, &first.body);
+        let timed_out = matches!(first.status.as_u16(), 408 | 504 | 524);
+        let reply = match (&request.plain, &request.quick) {
+            (Some(plain), _) if refused => {
                 let retried = self
-                    .exchange(
-                        deployment,
-                        unstructured,
-                        marker.as_deref(),
-                        metadata.as_ref(),
-                    )
+                    .exchange(deployment, plain, marker.as_deref(), metadata.as_ref())
                     .await?;
                 if retried.status.is_success() {
-                    deployment.schema_rejected.store(true, Ordering::Relaxed);
+                    deployment.plain_requests.store(true, Ordering::Relaxed);
                 }
                 retried
+            }
+            (_, Some(quick)) if timed_out => {
+                let retried = self
+                    .exchange(deployment, quick, marker.as_deref(), metadata.as_ref())
+                    .await?;
+                if retried.status.is_success() {
+                    deployment.reduced_reasoning.store(true, Ordering::Relaxed);
+                    retried
+                } else {
+                    first
+                }
             }
             _ => first,
         };
@@ -410,7 +437,18 @@ impl AnalysisModels {
                 ),
             });
         }
-        let completion = protocol::response(deployment.config.provider, &deployment.model, &body)?;
+        let streamed = headers
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/event-stream"));
+        let completion = match protocol::response(provider, &deployment.model, &body, streamed)? {
+            protocol::Outcome::Complete(completion) => completion,
+            protocol::Outcome::Failed(failure) if protocol::context_failure(provider, failure) => {
+                return Ok(context_completion());
+            }
+            protocol::Outcome::Failed(failure) => return Err(interrupted(&headers, failure)),
+            protocol::Outcome::Cut => return Err(interrupted(&headers, &[])),
+        };
         let usage = normalized_usage(completion.usage)?;
         let actual = deployment
             .pricing
@@ -436,6 +474,15 @@ impl AnalysisModels {
                 usage: Some(usage),
             },
         })
+    }
+}
+
+fn interrupted(headers: &reqwest::header::HeaderMap, failure: &[u8]) -> Error {
+    let status = reqwest::StatusCode::BAD_GATEWAY.as_u16();
+    Error::Provider {
+        status,
+        retry_after: None,
+        diagnostic: crate::ProviderDiagnostic::from_response(status, headers, failure),
     }
 }
 

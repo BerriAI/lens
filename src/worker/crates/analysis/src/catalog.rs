@@ -59,7 +59,8 @@ pub(crate) struct ResolvedDeployment {
     pub(crate) counter: Arc<TokenCounter>,
     pub(crate) cache_breakpoints: bool,
     pub(crate) legacy_accounting: bool,
-    pub(crate) schema_rejected: AtomicBool,
+    pub(crate) plain_requests: AtomicBool,
+    pub(crate) reduced_reasoning: AtomicBool,
 }
 
 pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedDeployment, Error> {
@@ -150,7 +151,8 @@ pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedD
         counter,
         cache_breakpoints,
         legacy_accounting,
-        schema_rejected: AtomicBool::new(false),
+        plain_requests: AtomicBool::new(false),
+        reduced_reasoning: AtomicBool::new(false),
     })
 }
 
