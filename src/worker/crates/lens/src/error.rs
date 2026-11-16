@@ -58,9 +58,10 @@ pub enum Error {
     Ingestion(#[from] lens_auth::IngestionError),
     #[error("Lens application state storage failed")]
     StateStorage(#[from] litellm_storage_clickhouse::Error),
-    #[error("{schema} response invalid after two attempts: {detail}")]
+    #[error("{schema} response invalid after {attempts} attempts: {detail}")]
     ModelValidation {
         schema: &'static str,
+        attempts: usize,
         detail: String,
     },
     #[error(

@@ -2,9 +2,11 @@ mod transport {
     pub mod support;
 }
 use lens_analysis::{
-    AnalysisModels, Catalog, Error, Provider, ProviderFailureKind, TransportLimits,
+    AnalysisModels, Catalog, Deployment, Error, PrepareOptions, Provider, ProviderFailureKind,
+    ResponseSchema, TransportLimits,
 };
 use lens_contract::worker::ModelRequest;
+use lens_inference::{ModelCapacity, OutputLimits};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
@@ -155,6 +157,8 @@ async fn anthropic_lifts_system_merges_turns_and_accounts_cache(
 #[case::typed(Provider::OpenAi,"/chat/completions",json!({"error":{"type":"context_window_exceeded"}}))]
 #[case::anthropic_prefix(Provider::Anthropic,"/messages",json!({"error":{"type":"invalid_request_error","message":"prompt is too long: 1000 tokens"}}))]
 #[case::anthropic_window(Provider::Anthropic,"/messages",json!({"error":{"type":"invalid_request_error","message":"request exceeds the context window"}}))]
+#[case::gateway(Provider::OpenAiCompatible,"/chat/completions",json!({"error":{"message":"litellm.ContextWindowExceededError: litellm.BadRequestError: AnthropicError - prompt is too long: 203644 tokens > 200000 maximum","type":"invalid_request_error","param":null,"code":"400"}}))]
+#[case::gateway_messages_route(Provider::Anthropic,"/messages",json!({"type":"error","error":{"type":"invalid_request_error","message":"litellm.ContextWindowExceededError: litellm.BadRequestError: AnthropicError - prompt is too long: 220321 tokens > 200000 maximum"}}))]
 #[tokio::test]
 async fn provider_context_limit_is_zero_cost(
     catalog: Arc<Catalog>,
@@ -183,6 +187,7 @@ async fn provider_context_limit_is_zero_cost(
 #[case::rate_limit(429,json!({"error":{"code":"context_length_exceeded"}}))]
 #[case::server(500,json!({"error":{"message":"secret"}}))]
 #[case::invalid_failure(400,json!("context_window_exceeded"))]
+#[case::gateway_wording_inside_another_message(400,json!({"error":{"message":"secret litellm.ContextWindowExceededError"}}))]
 #[tokio::test]
 async fn unrelated_errors_are_sanitized_and_never_retried(
     catalog: Arc<Catalog>,
@@ -1168,4 +1173,243 @@ async fn retry_after_is_preserved_without_retrying(
         matches!(client.complete(&client.prepare("analysis",&request).await.unwrap()).await,Err(Error::Provider{status:429,retry_after,..}) if retry_after==expected)
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+fn turn_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "result": {"anyOf": [{"$ref": "#/definitions/Answer"}, {"type": "null"}]},
+            "notes": {"type": "string", "default": "", "maxLength": 800}
+        },
+        "definitions": {"Answer": {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}, "quote": {"type": "string", "minLength": 1}},
+            "required": ["ok"]
+        }}
+    })
+}
+
+fn structured(schema: &Value) -> PrepareOptions<'_> {
+    PrepareOptions {
+        response_schema: Some(ResponseSchema {
+            name: "Turn[Answer]",
+            schema,
+        }),
+        ..Default::default()
+    }
+}
+
+#[rstest]
+#[case::compatible(Provider::OpenAiCompatible, "/chat/completions", completion())]
+#[case::openai(Provider::OpenAi, "/chat/completions", completion())]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_completion())]
+#[tokio::test]
+async fn structured_requests_ask_the_provider_to_enforce_the_closed_schema(
+    catalog: Arc<Catalog>,
+    mut request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] reply: Value,
+) {
+    request.messages[2].role = lens_contract::worker::ModelMessageRole::User;
+    let server = MockServer::start().await;
+    respond(&server, endpoint, 200, reply).await;
+    let client = client(catalog, deployment(&server, provider));
+    let schema = turn_schema();
+    let prepared = client
+        .prepare_with("analysis", &request, structured(&schema))
+        .await
+        .unwrap();
+    assert_eq!(
+        client.complete(&prepared).await.unwrap().result.content,
+        "{\"ok\":true}"
+    );
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    let answer = json!({
+        "type": "object",
+        "properties": {"ok": {"type": "boolean"}, "quote": {"type": "string"}},
+        "required": ["ok", "quote"],
+        "additionalProperties": false
+    });
+    let closed = json!({
+        "type": "object",
+        "properties": {
+            "result": {"anyOf": [answer, {"type": "null"}]},
+            "notes": {"type": "string"}
+        },
+        "required": ["notes", "result"],
+        "additionalProperties": false
+    });
+    if provider == Provider::Anthropic {
+        assert_eq!(
+            body["output_config"],
+            json!({"format": {"type": "json_schema", "schema": closed}})
+        );
+    } else {
+        assert_eq!(
+            body["response_format"],
+            json!({"type": "json_schema", "json_schema": {"name": "Turn_Answer_", "strict": true, "schema": closed}})
+        );
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn provider_that_rejects_the_schema_is_asked_again_without_it_and_remembered(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(|request: &wiremock::Request| {
+            let body: Value = request.body_json().unwrap();
+            if body["response_format"]["type"] == "json_schema" {
+                ResponseTemplate::new(400).set_body_json(
+                    json!({"error": {"message": "response_format json_schema is unavailable"}}),
+                )
+            } else {
+                ResponseTemplate::new(200).set_body_json(completion())
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let schema = turn_schema();
+    let first = client
+        .prepare_with("analysis", &request, structured(&schema))
+        .await
+        .unwrap();
+    let first = client.complete(&first).await.unwrap();
+    assert_eq!(first.result.content, "{\"ok\":true}");
+    assert!((first.result.cost - 1.33).abs() < 1e-10);
+    let second = client
+        .prepare_with("analysis", &request, structured(&schema))
+        .await
+        .unwrap();
+    client.complete(&second).await.unwrap();
+    let formats: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json::<Value>().unwrap()["response_format"]["type"].clone())
+        .collect();
+    assert_eq!(formats, ["json_schema", "json_object", "json_object"]);
+}
+
+async fn structured_outcome(
+    client: &AnalysisModels,
+    request: &ModelRequest,
+    schema: &Value,
+) -> Result<bool, u16> {
+    let prepared = client
+        .prepare_with("analysis", request, structured(schema))
+        .await
+        .unwrap();
+    match client.complete(&prepared).await {
+        Ok(completion) => Ok(completion.result.context_exceeded),
+        Err(Error::Provider { status, .. }) => Err(status),
+        Err(error) => panic!("unexpected failure: {error}"),
+    }
+}
+
+#[rstest]
+#[case::invalid_request(json!({"error": {"message": "unknown model"}}), Err(400), 4)]
+#[case::context(json!({"error": {"code": "context_length_exceeded"}}), Ok(true), 2)]
+#[case::gateway_context(json!({"error": {"message": "litellm.ContextWindowExceededError: prompt is too long", "type": "invalid_request_error", "code": "400"}}), Ok(true), 2)]
+#[tokio::test]
+async fn schema_retry_neither_hides_other_rejections_nor_disables_the_schema(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] failure: Value,
+    #[case] outcome: Result<bool, u16>,
+    #[case] requests: usize,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(failure))
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let schema = turn_schema();
+    assert_eq!(
+        structured_outcome(&client, &request, &schema).await,
+        outcome
+    );
+    assert_eq!(
+        structured_outcome(&client, &request, &schema).await,
+        outcome
+    );
+    let formats: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json::<Value>().unwrap()["response_format"]["type"].clone())
+        .collect();
+    assert_eq!(formats.len(), requests);
+    assert_eq!(formats[0], "json_schema");
+    assert_eq!(formats[requests / 2], "json_schema");
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_allowance_grows_on_request_up_to_the_deployment_capacity(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(
+        catalog,
+        Deployment {
+            capacity: ModelCapacity {
+                max_input_tokens: None,
+                max_output_tokens: 300.try_into().ok(),
+            },
+            output_limits: OutputLimits {
+                max_tokens: 50.try_into().ok(),
+                ..Default::default()
+            },
+            ..deployment(&server, Provider::OpenAiCompatible)
+        },
+    );
+    let initial = client.prepare("analysis", &request).await.unwrap();
+    assert_eq!(initial.output_tokens, 50);
+    let grown = client
+        .prepare_with(
+            "analysis",
+            &request,
+            PrepareOptions {
+                minimum_output_tokens: initial.larger_output(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(grown.output_tokens, 200);
+    assert!(grown.estimate > initial.estimate);
+    let capped = client
+        .prepare_with(
+            "analysis",
+            &request,
+            PrepareOptions {
+                minimum_output_tokens: grown.larger_output(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(capped.output_tokens, 300);
+    assert_eq!(capped.larger_output(), None);
+    client.complete(&capped).await.unwrap();
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    assert_eq!(body["max_tokens"], 300);
 }

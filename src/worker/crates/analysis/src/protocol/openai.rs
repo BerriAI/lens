@@ -1,4 +1,4 @@
-use super::Completion;
+use super::{Completion, StrictSchema};
 use crate::{Error, Provider, catalog::ResolvedDeployment};
 use lens_contract::worker::ModelMessage;
 use litellm_cost::{PromptConvention, Usage};
@@ -10,6 +10,7 @@ pub(super) fn request(
     messages: &[ModelMessage],
     boundaries: &[usize],
     output: u64,
+    schema: Option<&StrictSchema>,
 ) -> Result<Value, Error> {
     let messages: Vec<_> = messages.iter().enumerate().map(|(index,message)| {
         let content = if deployment.cache_breakpoints && boundaries.contains(&index) {
@@ -22,8 +23,14 @@ pub(super) fn request(
     } else {
         "max_tokens"
     };
+    let format = match schema {
+        Some(schema) => {
+            json!({"type":"json_schema","json_schema":{"name":schema.name,"strict":true,"schema":schema.schema}})
+        }
+        None => json!({"type":"json_object"}),
+    };
     Ok(
-        json!({"model":deployment.model,"messages":messages,limit:output,"stream":false,"response_format":{"type":"json_object"}}),
+        json!({"model":deployment.model,"messages":messages,limit:output,"stream":false,"response_format":format}),
     )
 }
 

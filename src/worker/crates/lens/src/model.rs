@@ -1,4 +1,5 @@
 use crate::{Error, control::JobClient, wire};
+use lens_analysis::ResponseSchema;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::{
@@ -77,41 +78,58 @@ pub fn request(
     })
 }
 
+const STRUCTURED_ATTEMPTS: usize = 3;
+
+fn document(content: &str) -> Result<Value, serde_json::Error> {
+    let json = content.find('{').map_or(content, |start| &content[start..]);
+    serde_json::Deserializer::from_str(json)
+        .into_iter::<Value>()
+        .next()
+        .unwrap_or_else(|| serde_json::from_str(json))
+}
+
 pub async fn structured<T: DeserializeOwned>(
     client: &JobClient,
     mut request: wire::ModelRequest,
     schema_name: &'static str,
     validate: impl Fn(&T) -> Option<String>,
 ) -> Result<(T, Vec<wire::ModelMessage>), Error> {
-    let validator =
-        jsonschema::validator_for(&schema(schema_name)?).map_err(|_| Error::InvalidRequest)?;
+    let contract = schema(schema_name)?;
+    let validator = jsonschema::validator_for(&contract).map_err(|_| Error::InvalidRequest)?;
+    let format = ResponseSchema {
+        name: schema_name,
+        schema: &contract,
+    };
     let mut detail = String::new();
-    for attempt in 0..2 {
-        let response = client.model(&request).await?;
+    for attempt in 1..=STRUCTURED_ATTEMPTS {
+        let response = client.structured_model(&request, Some(format)).await?;
         if response.context_exceeded {
             return Err(Error::Context(Box::new(request)));
         }
-        let value: Result<Value, _> = serde_json::from_str(&response.content);
-        let contract_error = value
-            .as_ref()
-            .ok()
-            .and_then(|value| validator.validate(value).err())
-            .map(|error| error.to_string());
-        let parsed: Result<T, _> = value.and_then(serde_json::from_value);
-        detail = match parsed {
-            Ok(ref value) if response.finish_reason.is_none() => contract_error
-                .or_else(|| validate(value))
-                .unwrap_or_default(),
-            Ok(_) => "Model did not finish its response. Return a complete JSON object.".into(),
-            Err(ref error) => error.to_string(),
+        let parsed = match response.finish_reason {
+            Some(wire::ModelResultFinishReason::Length) => Err("The response reached the model output limit before the JSON object was complete. Return a shorter complete object: keep reasoning and notes brief and cite fewer, shorter quotes. If this keeps happening, raise the deployment output limit.".into()),
+            Some(wire::ModelResultFinishReason::ContentFilter) => Err("The provider content filter stopped the response before it was complete. Return a complete JSON object.".into()),
+            None => document(&response.content)
+                .map_err(|error| error.to_string())
+                .and_then(|value| {
+                    let contract_error = validator.validate(&value).err().map(|error| error.to_string());
+                    let parsed: T = serde_json::from_value(value).map_err(|error| error.to_string())?;
+                    match contract_error.or_else(|| validate(&parsed)) {
+                        Some(problem) => Err(problem),
+                        None => Ok(parsed),
+                    }
+                }),
         };
-        if detail.is_empty() {
-            request
-                .messages
-                .push(message(wire::ModelMessageRole::Assistant, response.content));
-            return Ok((parsed?, request.messages));
+        match parsed {
+            Ok(parsed) => {
+                request
+                    .messages
+                    .push(message(wire::ModelMessageRole::Assistant, response.content));
+                return Ok((parsed, request.messages));
+            }
+            Err(problem) => detail = problem,
         }
-        if attempt == 0 {
+        if attempt < STRUCTURED_ATTEMPTS {
             if request.messages.is_empty() {
                 request.messages.push(message(
                     wire::ModelMessageRole::User,
@@ -122,14 +140,15 @@ pub async fn structured<T: DeserializeOwned>(
                 .messages
                 .push(message(wire::ModelMessageRole::Assistant, response.content));
             request.messages.push(message(wire::ModelMessageRole::User, json!({
-                "instruction": "Your previous response did not match the required response contract. Generate a new response from the original evidence, correcting the validation errors. Follow the complete object structure in response_schema. If the schema allows tools, you may request them before finalizing.",
+                "instruction": "Your previous response did not match the required response contract. Generate a new response from the original evidence, correcting the validation errors. Return only the JSON object, without Markdown fences or commentary. Follow the complete object structure in response_schema. If the schema allows tools, you may request them before finalizing.",
                 "validation_errors": detail,
-                "response_schema": schema(schema_name)?,
+                "response_schema": contract,
             }).to_string()));
         }
     }
     Err(Error::ModelValidation {
         schema: schema_name,
+        attempts: STRUCTURED_ATTEMPTS,
         detail,
     })
 }
@@ -161,13 +180,7 @@ fn history_resume(messages: &[wire::ModelMessage]) -> Result<wire::EvidenceReque
         let Some(results) = position["tool_results"].as_array() else {
             continue;
         };
-        for result in results {
-            let Some(reply) = result
-                .as_str()
-                .and_then(|text| serde_json::from_str::<Value>(text).ok())
-            else {
-                continue;
-            };
+        for reply in results {
             let Ok(request) =
                 serde_json::from_value::<wire::EvidenceRequest>(reply["request"].clone())
             else {
@@ -275,5 +288,34 @@ pub async fn compact(
             }
             Err(error) => return Err(error),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::document;
+    use rstest::rstest;
+    use serde_json::json;
+
+    #[rstest]
+    #[case::plain(r#"{"result":null,"tools":[]}"#)]
+    #[case::fenced("```json\n{\"result\":null,\"tools\":[]}\n```")]
+    #[case::bare_fence("```\n{\"result\":null,\"tools\":[]}\n```\n")]
+    #[case::leading_prose("Here is the result:\n{\"result\":null,\"tools\":[]}")]
+    #[case::trailing_commentary("{\"result\":null,\"tools\":[]}\n\nLet me know if you need more.")]
+    #[case::second_object("{\"result\":null,\"tools\":[]}{\"ignored\":true}")]
+    fn first_json_object_is_read_from_a_decorated_response(#[case] content: &str) {
+        assert_eq!(
+            document(content).unwrap(),
+            json!({"result": null, "tools": []})
+        );
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::prose("I could not review this run.")]
+    #[case::truncated(r#"{"result":{"observations":[{"check_id":"refu"#)]
+    fn responses_without_a_complete_object_are_rejected(#[case] content: &str) {
+        assert!(document(content).is_err());
     }
 }

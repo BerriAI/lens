@@ -97,9 +97,11 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
         .unwrap();
     assert!(prepared.estimate > 0.0);
     assert!(
-        prepared.estimate < 0.01,
+        prepared.estimate < 128_000.0 * 0.000002,
         "reserve the requested output, not the full model capacity"
     );
+    assert!(prepared.output_tokens < 128_000);
+    assert!(prepared.larger_output().is_some());
     assert_eq!(
         analysis.complete(&prepared).await.unwrap().result.content,
         "Result"
@@ -121,7 +123,7 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
     );
     let analysis_body: Value = requests[2].body_json().unwrap();
     assert_eq!(analysis_body["model"], "team/analysis");
-    assert_eq!(analysis_body["max_tokens"], 4096);
+    assert_eq!(analysis_body["max_tokens"], prepared.output_tokens);
 }
 
 #[rstest]

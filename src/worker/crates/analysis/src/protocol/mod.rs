@@ -1,7 +1,8 @@
 mod anthropic;
 mod openai;
+mod schema;
 
-use crate::{Error, Provider, catalog::ResolvedDeployment};
+use crate::{Error, Provider, ResponseSchema, catalog::ResolvedDeployment};
 use lens_contract::worker::ModelMessage;
 use serde::Deserialize;
 use serde_json::Value;
@@ -13,16 +14,29 @@ pub(crate) struct Completion {
     pub(crate) usage: litellm_cost::Usage,
 }
 
+pub(crate) struct StrictSchema {
+    name: String,
+    schema: Value,
+}
+
+pub(crate) fn strict_schema(format: &ResponseSchema<'_>) -> Option<StrictSchema> {
+    Some(StrictSchema {
+        name: schema::name(format.name),
+        schema: schema::strict(format.schema)?,
+    })
+}
+
 pub(crate) fn request(
     deployment: &ResolvedDeployment,
     messages: &[ModelMessage],
     boundaries: &[usize],
     output: u64,
+    schema: Option<&StrictSchema>,
 ) -> Result<Value, Error> {
     match deployment.config.provider {
-        Provider::Anthropic => anthropic::request(deployment, messages, boundaries, output),
+        Provider::Anthropic => anthropic::request(deployment, messages, boundaries, output, schema),
         Provider::OpenAi | Provider::OpenAiCompatible => {
-            openai::request(deployment, messages, boundaries, output)
+            openai::request(deployment, messages, boundaries, output, schema)
         }
     }
 }
@@ -58,4 +72,8 @@ pub(crate) fn context_failure(provider: Provider, body: &[u8]) -> bool {
                 message.starts_with("prompt is too long:")
                     || message.contains("exceeds the context window")
             }))
+        || error
+            .message
+            .as_deref()
+            .is_some_and(|message| message.starts_with("litellm.ContextWindowExceededError"))
 }

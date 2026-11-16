@@ -430,6 +430,7 @@ mod tests {
 
     #[rstest]
     #[case::completed("", JobStatus::Completed, true)]
+    #[case::partial("One analysis task failed", JobStatus::Completed, true)]
     #[case::failed("Analysis failed", JobStatus::Failed, false)]
     #[tokio::test]
     async fn result_retries_consolidate_only_the_saved_successful_review(
@@ -486,10 +487,14 @@ mod tests {
             coverage: Coverage::default(),
             findings: vec![],
             assessments: vec![],
-            review_versions: vec![crate::wire::ReviewVersion {
-                execution_id: review.execution_id.clone(),
-                content_version: review.content_version.clone(),
-            }],
+            review_versions: if consolidated {
+                vec![crate::wire::ReviewVersion {
+                    execution_id: review.execution_id.clone(),
+                    content_version: review.content_version.clone(),
+                }]
+            } else {
+                vec![]
+            },
             error: error.into(),
         };
         let first = caller.save_result(&body).await;
@@ -713,7 +718,7 @@ mod tests {
     #[rstest]
     #[case::complete("", false, (JobStatus::Completed, 1))]
     #[case::empty_failure("storage unavailable", true, (JobStatus::Failed, 7))]
-    #[case::partial_failure("one trace unavailable", false, (JobStatus::Failed, 1))]
+    #[case::partial_failure("one trace unavailable", false, (JobStatus::Completed, 1))]
     fn completed_run_preserves_progress_and_schedules_from_its_result(
         lens: Lens,
         job: Job,
@@ -740,7 +745,11 @@ mod tests {
             } else {
                 result.assessments.clone()
             },
-            ..result
+            review_versions: if empty_coverage {
+                vec![]
+            } else {
+                result.review_versions.clone()
+            },
         };
         let saved = finish(&lens, &job, &body, &[], now).unwrap();
         let finished = &saved.jobs[0];

@@ -254,8 +254,9 @@ impl JobBackend for LocalJob {
     fn model<'a>(
         &'a self,
         body: &'a wire::ModelRequest,
+        schema: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> BoxFuture<'a, Result<wire::ModelResult, Error>> {
-        response(self.analyze(body))
+        response(self.analyze(body, schema))
     }
     fn progress<'a>(&'a self, body: &'a Progress) -> BoxFuture<'a, Result<(), Error>> {
         response(self.save_progress(body))

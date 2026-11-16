@@ -17,7 +17,7 @@ LENS_GATEWAY_API_KEY=<gateway-virtual-key>
 
 For Compose, put these values in `deploy/lens/.env`. For hosted services, use the service's environment and secret settings. Keep the key limited to models Lens should use; Lens fetches only the models accessible to that key from `/model_group/info`
 
-Open **Settings > LiteLLM gateway** to check the connection and refresh the model list without restarting Lens. Discovered chat models are available for analysis when their pricing and output-token limits are valid. Each call requests at most 4,096 output tokens, or the model's smaller supported limit. Discovered evaluation models are available separately for [Signals](signals.md#connect-a-litellm-gateway)
+Open **Settings > LiteLLM gateway** to check the connection and refresh the model list without restarting Lens. Discovered chat models are available for analysis when their pricing and output-token limits are valid. Each call starts with an output allowance of 16,384 tokens, or the model's smaller supported limit. When a response is cut off at that allowance, Lens repeats the call with a larger one, up to the model's output limit. Discovered evaluation models are available separately for [Signals](signals.md#connect-a-litellm-gateway)
 
 A failed refresh shows an error and keeps the previous usable models. Explicit `LENS_ANALYSIS_MODELS` deployments remain available and take precedence over discovered aliases with the same name. Changing the gateway key or URL requires a restart; the browser never receives the key
 
@@ -31,17 +31,19 @@ The recommended OpenAI configuration uses the model name `analysis` in the dashb
 
 ```dotenv
 OPENAI_API_KEY=<your-provider-key>
-LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"openai/gpt-6.1-sol","provider":"openai","api_key_env":"OPENAI_API_KEY","output_limits":{"max_tokens":4096}}]'
+LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"openai/gpt-6.1-sol","provider":"openai","api_key_env":"OPENAI_API_KEY","output_limits":{"max_tokens":16384}}]'
 ```
 
 To use Anthropic instead, use its key and this configuration:
 
 ```dotenv
 ANTHROPIC_API_KEY=<your-provider-key>
-LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"anthropic/claude-sonnet-5-5","provider":"anthropic","api_key_env":"ANTHROPIC_API_KEY","output_limits":{"max_tokens":4096}}]'
+LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"anthropic/claude-sonnet-5-5","provider":"anthropic","api_key_env":"ANTHROPIC_API_KEY","output_limits":{"max_tokens":16384}}]'
 ```
 
 Use `api_key_env` to name the environment variable holding the credential. Do not put the key itself inside `LENS_ANALYSIS_MODELS`. The server rejects missing credentials and unknown configuration fields at startup
+
+`output_limits.max_tokens` is the output allowance each call starts with, and it sets how much budget a call reserves. When a response is cut off at that allowance, Lens repeats the call with a larger one, up to `capacity.max_output_tokens` or the model's known output limit. Set `capacity.max_output_tokens` to the same value as `max_tokens` to keep a fixed cap
 
 Apply the configuration from the repository root:
 
@@ -65,6 +67,10 @@ Open a finding and follow an evidence citation to the original trace. Existing a
 
 To receive new improvement candidates in Slack, configure the optional [Slack findings integration](slack.md)
 
+Lens asks providers that accept a JSON schema to enforce the response format, and uses JSON mode when a provider rejects the schema. Every quote in a finding is checked against the recorded span. A quote that differs from the recording only in whitespace, escaping, emphasis markers or an ellipsis is saved as the recorded text. A quote that cannot be found is returned to the model with the nearest recorded passage, and a result that still cannot be verified is discarded while the verified results are kept
+
+A run that finishes while some tasks failed is shown as **Partial**. Its verified findings are saved, and the failed traces are analyzed again on the next run
+
 The spend estimate reserves budget before each provider call. Successful calls record their cost in the run history, including calls that finish while analysis is being cancelled. An exhausted budget stops new model calls; it does not stop trace ingestion
 
 ## Connect an OpenAI-compatible endpoint
@@ -73,7 +79,7 @@ Use this option for a compatible provider or an optional LiteLLM gateway. Set `L
 
 ```dotenv
 LENS_MODEL_API_KEY=<your-model-credential>
-LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"my-analysis-model","provider":"openai_compatible","api_base":"https://models.example.com/v1","api_key_env":"LENS_MODEL_API_KEY","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"capacity":{"max_input_tokens":128000,"max_output_tokens":4096},"output_limits":{"max_tokens":4096}}]'
+LENS_ANALYSIS_MODELS='[{"name":"analysis","model":"my-analysis-model","provider":"openai_compatible","api_base":"https://models.example.com/v1","api_key_env":"LENS_MODEL_API_KEY","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"capacity":{"max_input_tokens":128000,"max_output_tokens":32768},"output_limits":{"max_tokens":16384}}]'
 ```
 
 The example prices and token limits are placeholders. Replace them with your deployment's actual prices and supported limits. For known catalog models, omit those overrides to use Lens's bundled model metadata. The base URL ends at the API prefix, such as `/v1`, not `/chat/completions`. It is the model endpoint, separate from Lens's `/v1/traces` ingestion endpoint
@@ -87,6 +93,7 @@ The example prices and token limits are placeholders. Replace them with your dep
 | Models appear, but the worker is not ready | Check the Lens service logs and ClickHouse readiness, then retry |
 | The run reports that the provider rejected the request | Check the provider key, access to the selected model, and any configured API base URL |
 | The request exceeds the investigation budget | Increase the analysis budget or reduce the model's output allowance, then run it again |
+| A task reports that the response reached the model output limit | Raise `capacity.max_output_tokens` for that deployment or choose a model with a larger output limit |
 | The trace list is empty | Send a real run from your agent using a Lens tracing key. An analysis provider key does not authorize trace ingestion |
 
 Changing a provider key requires updating its server-side secret and restarting Lens. Keep the existing admin token and ClickHouse configuration so sessions and saved work remain available

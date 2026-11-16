@@ -1,4 +1,4 @@
-use super::Completion;
+use super::{Completion, StrictSchema};
 use crate::{Error, catalog::ResolvedDeployment};
 use lens_contract::worker::{ModelMessage, ModelMessageRole};
 use litellm_core_utils::{
@@ -22,6 +22,7 @@ pub(super) fn request(
     messages: &[ModelMessage],
     boundaries: &[usize],
     output: u64,
+    schema: Option<&StrictSchema>,
 ) -> Result<Value, Error> {
     let source: Vec<ChatMessage> = serde_json::from_value(json!(messages))?;
     let conversation = build_conversation(&source);
@@ -60,9 +61,11 @@ pub(super) fn request(
             json!({"role":role,"content":blocks})
         })
         .collect();
-    Ok(
-        json!({"model":deployment.model,"system":system,"messages":turns,"max_tokens":output,"stream":false}),
-    )
+    let mut body = json!({"model":deployment.model,"system":system,"messages":turns,"max_tokens":output,"stream":false});
+    if let Some(schema) = schema {
+        body["output_config"] = json!({"format":{"type":"json_schema","schema":schema.schema}});
+    }
+    Ok(body)
 }
 
 #[derive(Deserialize)]

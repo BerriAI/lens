@@ -1,4 +1,4 @@
-use crate::{Deployment, Error, Provider, TransportLimits, catalog, protocol};
+use crate::{Deployment, Error, PrepareOptions, Provider, TransportLimits, catalog, protocol};
 use lens_contract::worker::{ModelMessage, ModelRequest, ModelResult};
 use lens_inference::{DeploymentEstimate, Usage, UsageEnvelope};
 use litellm_cost::{PromptConvention, Request, ServiceTier, ThresholdPolicy};
@@ -9,6 +9,7 @@ use serde_json::Value;
 use std::{
     borrow::Cow,
     collections::BTreeMap,
+    num::NonZeroU64,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -30,13 +31,37 @@ struct DeploymentGroup {
 pub struct PreparedAnalysis {
     pub estimate: f64,
     pub context_exceeded: bool,
+    pub output_tokens: u64,
+    output_ceiling: u64,
     request: Option<PreparedRequest>,
 }
+
+impl PreparedAnalysis {
+    pub fn larger_output(&self) -> Option<NonZeroU64> {
+        if self.output_tokens >= self.output_ceiling {
+            return None;
+        }
+        NonZeroU64::new(
+            self.output_tokens
+                .saturating_mul(OUTPUT_GROWTH)
+                .min(self.output_ceiling),
+        )
+    }
+}
+
+const OUTPUT_GROWTH: u64 = 4;
 
 struct PreparedRequest {
     deployment: Arc<catalog::ResolvedDeployment>,
     body: Value,
+    unstructured: Option<Value>,
     custom_charge: bool,
+}
+
+struct Reply {
+    status: reqwest::StatusCode,
+    headers: reqwest::header::HeaderMap,
+    body: Vec<u8>,
 }
 
 pub struct AnalysisCompletion {
@@ -117,6 +142,16 @@ impl AnalysisModels {
         alias: &str,
         body: &ModelRequest,
     ) -> Result<PreparedAnalysis, Error> {
+        self.prepare_with(alias, body, PrepareOptions::default())
+            .await
+    }
+
+    pub async fn prepare_with(
+        &self,
+        alias: &str,
+        body: &ModelRequest,
+        options: PrepareOptions<'_>,
+    ) -> Result<PreparedAnalysis, Error> {
         let group = self.models.get(alias).ok_or_else(|| Error::UnknownModel {
             model: alias.into(),
         })?;
@@ -143,37 +178,66 @@ impl AnalysisModels {
             return Ok(PreparedAnalysis {
                 estimate: 0.0,
                 context_exceeded: true,
+                output_tokens: 0,
+                output_ceiling: 0,
                 request: None,
             });
         }
-        let estimates = group
+        let allowances = group
             .deployments
             .iter()
             .zip(counts.iter().copied())
             .map(|(deployment, prompt_tokens)| {
-                let output_tokens = lens_inference::output_tokens(
+                let configured = lens_inference::output_tokens(
                     &deployment.config.model,
                     &deployment.config.output_limits,
                     deployment.catalog_capacity,
                     Some(prompt_tokens),
                 )?;
-                Ok(DeploymentEstimate {
-                    prices: deployment.prices,
-                    prompt_tokens,
-                    output_tokens,
-                })
+                let ceiling = lens_inference::output_tokens(
+                    &deployment.config.model,
+                    &lens_inference::OutputLimits {
+                        max_output_tokens: deployment.config.capacity.max_output_tokens,
+                        ..Default::default()
+                    },
+                    deployment.catalog_capacity,
+                    Some(prompt_tokens),
+                )
+                .map_or(configured, |capacity| capacity.max(configured));
+                let output_tokens = options.minimum_output_tokens.map_or(configured, |minimum| {
+                    configured.max(minimum.get()).min(ceiling)
+                });
+                Ok((
+                    DeploymentEstimate {
+                        prices: deployment.prices,
+                        prompt_tokens,
+                        output_tokens,
+                    },
+                    ceiling,
+                ))
             })
             .collect::<Result<Vec<_>, Error>>()?;
+        let (estimates, ceilings): (Vec<_>, Vec<_>) = allowances.into_iter().unzip();
         let output = estimates
             .iter()
             .map(|estimate| estimate.output_tokens)
             .min()
             .ok_or(lens_inference::Error::ModelUnavailable)?;
+        let output_ceiling = ceilings.into_iter().min().unwrap_or(output);
         let boundaries = lens_inference::cache_injection_points(body);
         let estimate = lens_inference::quote(&estimates, !boundaries.is_empty())?;
         let selected = group.next.fetch_add(1, Ordering::Relaxed) % candidates.len();
         let deployment = candidates[selected].0.clone();
-        let body = protocol::request(&deployment, &messages, &boundaries, output)?;
+        let schema = options
+            .response_schema
+            .as_ref()
+            .filter(|_| !deployment.schema_rejected.load(Ordering::Relaxed))
+            .and_then(protocol::strict_schema);
+        let body = protocol::request(&deployment, &messages, &boundaries, output, schema.as_ref())?;
+        let unstructured = schema
+            .is_some()
+            .then(|| protocol::request(&deployment, &messages, &boundaries, output, None))
+            .transpose()?;
         let custom_charge = group.deployments.len() == 1
             && deployment
                 .config
@@ -183,9 +247,12 @@ impl AnalysisModels {
         Ok(PreparedAnalysis {
             estimate,
             context_exceeded: false,
+            output_tokens: output,
+            output_ceiling,
             request: Some(PreparedRequest {
                 deployment,
                 body,
+                unstructured,
                 custom_charge,
             }),
         })
@@ -220,30 +287,18 @@ impl AnalysisModels {
         .map_err(|_| Error::Timeout)?
     }
 
-    async fn send(
+    async fn exchange(
         &self,
-        request: &PreparedRequest,
-        estimate: f64,
-        metadata: Option<Value>,
-    ) -> Result<AnalysisCompletion, Error> {
-        let deployment = &request.deployment;
-        let marker = self
-            .gateway
-            .as_ref()
-            .map(|gateway| {
-                gateway.token(
-                    &deployment.endpoint,
-                    lens_inference::GatewayPurpose::Analysis,
-                    chrono::Utc::now(),
-                )
-            })
-            .transpose()?
-            .flatten();
-        let mut body = Cow::Borrowed(&request.body);
+        deployment: &catalog::ResolvedDeployment,
+        body: &Value,
+        marker: Option<&str>,
+        metadata: Option<&Value>,
+    ) -> Result<Reply, Error> {
+        let mut body = Cow::Borrowed(body);
         if marker.is_some()
             && let Some(metadata) = metadata
         {
-            body.to_mut()["metadata"] = metadata;
+            body.to_mut()["metadata"] = metadata.clone();
         }
         let builder = self
             .client
@@ -264,11 +319,6 @@ impl AnalysisModels {
         let mut response = builder.send().await.map_err(Error::Transport)?;
         let status = response.status();
         let headers = response.headers().clone();
-        let retry_after = response
-            .headers()
-            .get(reqwest::header::RETRY_AFTER)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.parse::<u64>().ok());
         if response
             .content_length()
             .is_some_and(|length| length > self.limits.max_response_bytes as u64)
@@ -282,12 +332,74 @@ impl AnalysisModels {
             }
             body.extend_from_slice(&chunk);
         }
-        if !status.is_success() {
-            if status.as_u16() == 400
-                && protocol::context_failure(deployment.config.provider, &body)
+        Ok(Reply {
+            status,
+            headers,
+            body,
+        })
+    }
+
+    async fn send(
+        &self,
+        request: &PreparedRequest,
+        estimate: f64,
+        metadata: Option<Value>,
+    ) -> Result<AnalysisCompletion, Error> {
+        let deployment = &request.deployment;
+        let marker = self
+            .gateway
+            .as_ref()
+            .map(|gateway| {
+                gateway.token(
+                    &deployment.endpoint,
+                    lens_inference::GatewayPurpose::Analysis,
+                    chrono::Utc::now(),
+                )
+            })
+            .transpose()?
+            .flatten();
+        let provider = deployment.config.provider;
+        let first = self
+            .exchange(
+                deployment,
+                &request.body,
+                marker.as_deref(),
+                metadata.as_ref(),
+            )
+            .await?;
+        let reply = match &request.unstructured {
+            Some(unstructured)
+                if matches!(first.status.as_u16(), 400 | 422)
+                    && !protocol::context_failure(provider, &first.body) =>
             {
+                let retried = self
+                    .exchange(
+                        deployment,
+                        unstructured,
+                        marker.as_deref(),
+                        metadata.as_ref(),
+                    )
+                    .await?;
+                if retried.status.is_success() {
+                    deployment.schema_rejected.store(true, Ordering::Relaxed);
+                }
+                retried
+            }
+            _ => first,
+        };
+        let Reply {
+            status,
+            headers,
+            body,
+        } = reply;
+        if !status.is_success() {
+            if status.as_u16() == 400 && protocol::context_failure(provider, &body) {
                 return Ok(context_completion());
             }
+            let retry_after = headers
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse::<u64>().ok());
             return Err(Error::Provider {
                 status: status.as_u16(),
                 retry_after,
