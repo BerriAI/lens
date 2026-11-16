@@ -11,6 +11,9 @@ export const systemOneModels = (details: readonly AnalysisModelInfo[]): Analysis
     .filter((info) => isDecisionsMode(info.mode))
     .toSorted((a, b) => a.model_group.localeCompare(b.model_group));
 
+export const chatJudgeModels = (details: readonly AnalysisModelInfo[]): AnalysisModelInfo[] =>
+  details.filter((info) => info.mode === "chat").toSorted((a, b) => a.model_group.localeCompare(b.model_group));
+
 export interface LibrarySignal {
   readonly id: string;
   readonly name: string;

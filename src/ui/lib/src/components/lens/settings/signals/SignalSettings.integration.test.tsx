@@ -158,6 +158,37 @@ describe("signal settings", () => {
     expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled();
   });
 
+  it("accepts a chat model configured for analysis as the judge", async () => {
+    network.mockImplementation(async () =>
+      Response.json({
+        data: [
+          { model_group: "jev", providers: ["typesafe"], mode: "evaluation" },
+          { model_group: "long-context-chat", providers: ["openai_compatible"], mode: "chat" },
+          { model_group: "embeddings", providers: ["openai"], mode: "embedding" },
+        ],
+      }),
+    );
+    renderWithLens(<SignalForm saved={{ ...saved, model: "long-context-chat" }} />);
+    const threshold = await screen.findByRole("spinbutton", { name: "Flag at score" });
+    await waitFor(() => expect(network).toHaveBeenCalled());
+    act(() => fireEvent.change(threshold, { target: { value: "70" } }));
+
+    expect(screen.getByRole("combobox", { name: "System 1 model" })).toHaveValue("long-context-chat");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled());
+    expect(screen.queryByText(/is not in the current model list/)).not.toBeInTheDocument();
+  });
+
+  it("does not accept a model that can neither decide nor chat", async () => {
+    network.mockImplementation(async () =>
+      Response.json({ data: [{ model_group: "embeddings", providers: ["openai"], mode: "embedding" }] }),
+    );
+    renderWithLens(<SignalForm saved={{ ...saved, model: "embeddings" }} />);
+
+    expect(
+      await screen.findByText("embeddings is not in the current model list. Your selection is kept."),
+    ).toBeVisible();
+  });
+
   it("should retain a saved model that disappears from the discovered catalogue", async () => {
     network.mockImplementation(async () =>
       Response.json({ data: [{ model_group: "another-jev", providers: ["typesafe"], mode: "evaluation" }] }),

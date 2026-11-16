@@ -49,7 +49,25 @@ pub struct DecisionRequest {
     pub tags: Vec<&'static str>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DecisionLimits {
+    pub choices: usize,
+    pub deadline: Duration,
+}
+
+impl Default for DecisionLimits {
+    fn default() -> Self {
+        Self {
+            choices: EVIDENCE_OPTIONS,
+            deadline: Duration::from_secs(60),
+        }
+    }
+}
+
 pub trait Decisions: Send + Sync {
+    fn limits(&self, _model: &str) -> DecisionLimits {
+        DecisionLimits::default()
+    }
     fn complete(
         &self,
         request: &DecisionRequest,
@@ -59,6 +77,7 @@ pub trait Decisions: Send + Sync {
 struct SourceStep {
     step: SignalStep,
     span_id: String,
+    started: String,
 }
 
 struct EvidenceState {
@@ -82,12 +101,14 @@ async fn source_steps(
                 content: part.content,
             },
             span_id: part.span_id,
+            started: part.start_time,
         }));
         let Some(next) = content.next_cursor else {
             break;
         };
         cursor = next;
     }
+    steps.sort_by(|earlier, later| earlier.started.cmp(&later.started));
     Ok(steps)
 }
 
@@ -209,8 +230,8 @@ fn selected_choice(value: &Value) -> Option<String> {
     Some(choice)
 }
 
-fn evidence_choices(range: Range<usize>) -> BTreeMap<String, Range<usize>> {
-    let width = range.len().div_ceil(EVIDENCE_OPTIONS).max(1);
+fn evidence_choices(range: Range<usize>, limit: usize) -> BTreeMap<String, Range<usize>> {
+    let width = range.len().div_ceil(limit.max(1)).max(1);
     range
         .clone()
         .step_by(width)
@@ -309,6 +330,7 @@ async fn score_response(
     completion: &impl Decisions,
     request: &mut DecisionRequest,
     started: Instant,
+    deadline: Duration,
 ) -> Result<(Output, bool, bool), Error> {
     let mut scores_only = false;
     let mut partial = false;
@@ -331,7 +353,7 @@ async fn score_response(
                 } else {
                     return Err(DecisionsError::Context.into());
                 }
-                request.timeout = Duration::from_secs(60)
+                request.timeout = deadline
                     .checked_sub(started.elapsed())
                     .filter(|remaining| !remaining.is_zero())
                     .ok_or(DecisionsError::Timeout)?;
@@ -348,8 +370,9 @@ async fn attempt(
     execution: &Execution,
     config: &SignalConfig,
 ) -> Result<SignalAttempt, Error> {
+    let limits = completion.limits(&config.model);
     let prepared = evidence_state(source_steps(reader, scope, execution).await?);
-    let choices = evidence_choices(0..prepared.candidates.len());
+    let choices = evidence_choices(0..prepared.candidates.len(), limits.choices);
     let mut pending = config
         .signals
         .iter()
@@ -380,12 +403,12 @@ async fn attempt(
                 std::iter::once(score).chain(evidence)
             })
             .collect(),
-        timeout: Duration::from_secs(60),
+        timeout: limits.deadline,
         tags: vec!["litellm-lens-signals"],
     };
     let started = Instant::now();
     let (mut response, scores_only, partial) =
-        score_response(completion, &mut request, started).await?;
+        score_response(completion, &mut request, started, limits.deadline).await?;
     if scores_only {
         pending.clear();
     }
@@ -419,7 +442,7 @@ async fn attempt(
                     evidence.insert(config.signals[index].id.clone(), selected.clone());
                 }
             } else {
-                next.insert(index, evidence_choices(range));
+                next.insert(index, evidence_choices(range, limits.choices));
             }
         }
         pending = next;
@@ -436,7 +459,8 @@ async fn attempt(
             })
             .collect();
         let followup = async {
-            request.timeout = Duration::from_secs(60)
+            request.timeout = limits
+                .deadline
                 .checked_sub(started.elapsed())
                 .filter(|remaining| !remaining.is_zero())
                 .ok_or(DecisionsError::Timeout)?;
@@ -533,6 +557,7 @@ mod tests {
                 content: content.into(),
             },
             span_id: "span".into(),
+            started: String::new(),
         }]);
         assert!(prepared.candidates.is_empty());
     }
@@ -554,6 +579,7 @@ mod tests {
                         content: content.clone(),
                     },
                     span_id: format!("span-{index}"),
+                    started: String::new(),
                 })
                 .collect(),
         );

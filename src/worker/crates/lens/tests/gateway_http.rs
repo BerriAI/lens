@@ -45,7 +45,8 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[
             {"model_group":"new/evaluator","mode":"evaluation"},
             {"model_group":"typesafe/jev-latest","mode":"decisions"},
-            {"model_group":"ordinary-chat","mode":"chat","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_output_tokens":4096}
+            {"model_group":"ordinary-chat","mode":"chat","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_output_tokens":4096},
+            {"model_group":"embeddings","mode":"embedding"}
         ]}))).mount(&gateway).await;
     let refreshed: Value = client
         .post(format!("{}/lens/gateway/refresh", server.url))
@@ -81,12 +82,22 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .await
         .unwrap();
     assert_eq!(saved_decisions.status(), 200);
-    let mut chat = config;
+    let mut chat = config.clone();
     chat["model"] = json!("ordinary-chat");
-    let rejected = client
+    let saved_chat = client
         .put(format!("{}/lens/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&chat)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(saved_chat.status(), 200);
+    let mut embeddings = config;
+    embeddings["model"] = json!("embeddings");
+    let rejected = client
+        .put(format!("{}/lens/signals", server.url))
+        .bearer_auth(ADMIN)
+        .json(&embeddings)
         .send()
         .await
         .unwrap();

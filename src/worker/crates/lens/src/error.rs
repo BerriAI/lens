@@ -40,6 +40,8 @@ pub enum Error {
     EvalJudgeResponse,
     #[error("The eval judge could not match the trial to its recorded evidence")]
     EvalJudgeEvidence,
+    #[error("The signal judge returned an incomplete or invalid answer")]
+    SignalJudgeResponse,
     #[error(transparent)]
     Investigation(#[from] lens_investigations::Error),
     #[error(transparent)]

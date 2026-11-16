@@ -4,7 +4,7 @@ Signals flag traces that match questions you define, such as whether an agent re
 
 Signals read every page and preserve each step's full captured content. The evaluation provider's context window still applies; a provider failure is recorded as a failed attempt
 
-Signals use a Decisions API evaluation model. An investigation analysis model alone does not enable them
+Signals use a Decisions API evaluation model by default. A chat model configured for analysis can judge traces instead, which helps when traces are longer than your evaluation model accepts. See [Use a chat model as the judge](#use-a-chat-model-as-the-judge)
 
 For optional help from your coding agent, copy the [provider setup prompt](setup-with-agent.md#enable-investigations-signals-or-eval-judging) and specify signals
 
@@ -58,6 +58,18 @@ Evidence selection starts alongside classification in the same Decisions request
 
 Signals inspect bounded excerpts, so a highlighted passage is a location to investigate rather than proof of a root cause. Captured text can differ from rendered Markdown or JSON; Lens shows the original excerpt without inventing line numbers for the formatted output. Older classifications and results without a usable passage show an evidence-unavailable message
 
+## Use a chat model as the judge
+
+Decisions models are fast and cheap, but their input window is small for long, tool-heavy runs. When a trace does not fit, Lens first drops evidence selection and then shortens steps, so the part that shows the failure can be cut. A long-context chat model reads the whole trace instead
+
+Any model available for analysis can be the judge. Configure it as described in [Configure analysis models](analysis.md), then choose it in **Settings > Signals**. Chat models are listed after the System 1 models and are marked **Chat judge**. Nothing else changes: each signal keeps its question, its score from 0 to 1, the threshold and the flagged excerpt
+
+Lens sends the judge the same labeled trace content and questions in one request and asks for every score and supporting excerpt at once. It accepts only scores between 0 and 1 and excerpts that were part of the request. A trace that is still too long for the chat model is reduced the same way as for a Decisions model, and the result is marked partial
+
+Choosing a chat model is a cost decision. Every trace is sent in full to that model, so a 250,000 token trace costs 250,000 input tokens per classification, and a trace is classified again when it grows. Signals have no spending limit of their own. Pick a model whose input price suits your trace volume and use the spending controls of your provider or gateway key. A chat judge gets up to four minutes per trace instead of one
+
+A chat score is the model's own estimate. It is not calibrated like a Decisions score, so check a few flagged and unflagged traces before relying on a threshold
+
 ## Use a compatible connection
 
 Lens also accepts `perplexity`, `openrouter`, `cloudflare`, `strands_decider`, and `decisions_compatible` provider configurations. Use a model that supports the provider's Decisions API. Cloudflare and Strands require `api_base`; compatible connections need the base URL reachable from Lens
@@ -68,7 +80,7 @@ For a compatible Decisions service:
 export LENS_EVALUATION_MODELS='[{"name":"signals","model":"your-evaluation-model","provider":"decisions_compatible","api_base":"https://evaluations.example.com/v1","api_key_env":"EVALUATION_API_KEY"}]'
 ```
 
-Replace the model and API base with those from your service, and supply `EVALUATION_API_KEY` through your secret configuration. Do not use an ordinary chat-completions endpoint as a Decisions endpoint
+Replace the model and API base with those from your service, and supply `EVALUATION_API_KEY` through your secret configuration. Do not configure an ordinary chat-completions endpoint as a Decisions endpoint. To judge with a chat model, add it as an analysis model instead
 
 ## Resolve setup problems
 

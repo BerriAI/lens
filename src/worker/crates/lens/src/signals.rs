@@ -13,6 +13,9 @@ use litellm_storage_clickhouse::signals::Signals;
 
 use crate::{Error, SampleRequest, SourceReader};
 
+mod judge;
+pub use judge::SignalModels;
+
 #[derive(Clone)]
 pub struct SignalsWorker {
     pub repository: Signals,
@@ -68,12 +71,15 @@ impl SignalsWorker {
     async fn sweep(&self, sweep: SignalSweep) {
         let mut cursor = String::new();
         loop {
-            let models = self.models.evaluation();
+            let models = SignalModels {
+                evaluation: self.models.evaluation(),
+                analysis: self.models.analysis(),
+            };
             let ready = self.sources.0.schema_ready.load(Ordering::Acquire);
             let delay = match lens_signals::run_signal_tick(
                 &self.sources,
                 Some(&self.repository),
-                Some(models.as_ref()),
+                Some(&models),
                 &Utc::now,
                 ready,
                 &cursor,
