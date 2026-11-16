@@ -62,8 +62,8 @@ function SetupCallout({ hasModels, gatewayConnected }: { hasModels: boolean; gat
         ) : (
           <p className="text-xs text-muted-foreground">
             {gatewayConnected
-              ? "Your gateway has no evaluation models. Add a model that supports the Decisions API, then refresh models."
-              : "Add an evaluation provider to your Lens deployment, then refresh models."}{" "}
+              ? "Your gateway has no evaluation or chat models. Add a model that supports the Decisions API or a chat model, then refresh models."
+              : "Add an evaluation or analysis provider to your Lens deployment, then refresh models."}{" "}
             <a
               href="https://github.com/BerriAI/lens/blob/main/docs/signals.md"
               target="_blank"
