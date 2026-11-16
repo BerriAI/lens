@@ -394,7 +394,13 @@ pub async fn run<T: Output>(
         let mut results = Vec::new();
         let mut archived = Vec::new();
         for tool in turn.tools {
-            inspected = true;
+            inspected |= match &tool {
+                Tool::Evidence(request) => matches!(
+                    request.action,
+                    wire::EvidenceRequestAction::Read | wire::EvidenceRequestAction::Search
+                ),
+                Tool::Python(_) => true,
+            };
             let arguments = serde_json::to_string(&tool)?;
             let repeat_key = match &tool {
                 Tool::Evidence(request)

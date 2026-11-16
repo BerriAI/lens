@@ -101,8 +101,11 @@ pub(super) fn stream<'a>(model: &str, body: &'a [u8]) -> Result<Outcome<'a>, Err
     let mut content = String::new();
     let mut finish_reason = None;
     let mut usage = None;
-    for event in super::events(body) {
-        let chunk: Chunk = serde_json::from_slice(event)?;
+    let mut events = super::events(body).peekable();
+    while let Some(event) = events.next() {
+        let Some(chunk) = super::event::<Chunk>(event, events.peek().is_none())? else {
+            break;
+        };
         if chunk.error.is_some() {
             return Ok(Outcome::Failed(event));
         }

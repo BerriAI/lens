@@ -78,7 +78,18 @@ fn events(body: &[u8]) -> impl Iterator<Item = &[u8]> {
     body.split(|byte| *byte == b'\n')
         .filter_map(|line| line.strip_prefix(b"data:"))
         .map(<[u8]>::trim_ascii)
-        .filter(|data| *data != b"[DONE]")
+        .filter(|data| !data.is_empty() && *data != b"[DONE]")
+}
+
+fn event<'a, T: Deserialize<'a>>(
+    data: &'a [u8],
+    last: bool,
+) -> Result<Option<T>, serde_json::Error> {
+    match serde_json::from_slice(data) {
+        Ok(event) => Ok(Some(event)),
+        Err(_) if last => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 #[derive(Deserialize)]

@@ -183,8 +183,12 @@ pub(super) fn stream(body: &[u8]) -> Result<Outcome<'_>, Error> {
     let mut content = String::new();
     let mut closing = None;
     let mut output_tokens = None;
-    for event in super::events(body) {
-        match serde_json::from_slice(event)? {
+    let mut events = super::events(body).peekable();
+    while let Some(event) = events.next() {
+        let Some(parsed) = super::event::<Event>(event, events.peek().is_none())? else {
+            break;
+        };
+        match parsed {
             Event::MessageStart { message } => opening = Some(message),
             Event::ContentBlockStart { content_block } => content.push_str(&text(content_block)?),
             Event::ContentBlockDelta {

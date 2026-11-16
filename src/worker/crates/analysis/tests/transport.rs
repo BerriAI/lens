@@ -1699,3 +1699,89 @@ async fn gateway_timeout_without_a_quicker_way_to_ask_is_reported_and_changes_no
         .collect();
     assert_eq!(asked, efforts);
 }
+
+fn raw_stream(events: &[Value], tail: &str) -> ResponseTemplate {
+    let body: String = events
+        .iter()
+        .map(|event| format!("data: {event}\n\n"))
+        .chain([tail.to_owned()])
+        .collect();
+    ResponseTemplate::new(200).set_body_raw(body, "text/event-stream")
+}
+
+#[rstest]
+#[case::compatible(Provider::OpenAiCompatible, "/chat/completions", chunks("stop").drain(..2).collect(), "data: {\"model\":\"reported\",\"choices\":[{\"ind")]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_events("end_turn").drain(..7).collect(), "data: {\"type\":\"content_block_del")]
+#[tokio::test]
+async fn stream_cut_in_the_middle_of_an_event_is_retryable_like_any_other_interruption(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] events: Vec<Value>,
+    #[case] tail: &str,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(raw_stream(&events, tail))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    assert!(matches!(
+        client
+            .complete(&client.prepare("analysis", &request).await.unwrap())
+            .await,
+        Err(Error::Provider { status: 502, .. })
+    ));
+}
+
+#[rstest]
+#[tokio::test]
+async fn finished_stream_is_kept_when_only_what_follows_the_answer_is_damaged(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    let answered: Vec<Value> = chunks("stop").drain(..4).collect();
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(raw_stream(
+            &answered,
+            "data:\n\ndata: {\"model\":\"reported\",\"choices\":[],\"usage\":{\"prompt_tok",
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(result.result.content, "{\"ok\":true}");
+    assert_eq!(result.result.finish_reason, None);
+}
+
+#[rstest]
+#[tokio::test]
+async fn damaged_event_before_the_end_of_a_stream_is_an_invalid_reply(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    let mut events = chunks("stop");
+    events.insert(1, json!("not a chunk"));
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(event_stream(&events))
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    assert!(matches!(
+        client
+            .complete(&client.prepare("analysis", &request).await.unwrap())
+            .await,
+        Err(Error::Json(_))
+    ));
+}

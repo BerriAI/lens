@@ -110,7 +110,7 @@ impl LocalJob {
         while let Some(minimum) = larger {
             match self.complete(body, schema, Some(minimum)).await {
                 Ok(next) => (result, larger) = next,
-                Err(Error::Control { status: 402, .. }) => break,
+                Err(Error::Control { .. } | Error::Request(_)) => break,
                 Err(error) => return Err(error),
             }
         }
@@ -628,6 +628,42 @@ mod tests {
         assert!(lens.reservations.is_empty());
         assert_eq!(lens.jobs[0].steps.len(), 2);
         assert!((lens.spent - 2.0 * (10.0 * 0.000001 + 5.0 * 0.000002)).abs() < 1e-12);
+    }
+
+    #[rstest]
+    #[case::provider_error(500)]
+    #[case::gateway_timeout(504)]
+    #[tokio::test]
+    async fn larger_allowance_the_provider_fails_returns_the_truncated_response(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] failure: u16,
+    ) {
+        let served = AtomicUsize::new(0);
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/v1/chat/completions"))
+            .respond_with(move |_: &wiremock::Request| {
+                if served.fetch_add(1, Ordering::SeqCst) > 0 {
+                    return wiremock::ResponseTemplate::new(failure);
+                }
+                wiremock::ResponseTemplate::new(200).set_body_json(json!({
+                    "model": "gpt-4o-mini",
+                    "choices": [{"message": {"content": "{\"result\":"}, "finish_reason": "length"}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                }))
+            })
+            .mount(&stored_job.provider)
+            .await;
+        let result = stored_job
+            .job
+            .analyze(&review_request(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.content, "{\"result\":");
+        assert_eq!(result.finish_reason, Some(ModelResultFinishReason::Length));
+        assert_eq!(requested_allowances(&stored_job).await[..2], [1024, 4096]);
+        let lens = stored_job.job.lens().await.unwrap();
+        assert!(lens.reservations.is_empty());
+        assert_eq!(lens.jobs[0].steps.len(), 1);
     }
 
     #[rstest]

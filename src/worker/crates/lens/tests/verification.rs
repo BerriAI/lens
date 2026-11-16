@@ -376,6 +376,26 @@ async fn run_cannot_be_declared_unassessable_before_its_spans_were_read() {
 
 #[rstest]
 #[tokio::test]
+async fn listing_the_spans_does_not_count_as_reading_the_run() {
+    let unread = Reply::Turn(json!({"result": {"cannot_assess": true}}));
+    let session = Session::start(vec![
+        unread.clone(),
+        Reply::Turn(json!({"tools": [{"action": "catalog", "execution_id": "run-test"}]})),
+        unread.clone(),
+        unread,
+    ])
+    .await;
+    let error = session.run::<wire::Extraction>().await.err().unwrap();
+    assert!(
+        error
+            .to_string()
+            .contains("You have not read the recorded spans"),
+        "{error}"
+    );
+}
+
+#[rstest]
+#[tokio::test]
 async fn run_that_is_never_read_fails_instead_of_being_skipped() {
     let unread = Reply::Turn(json!({"result": {"cannot_assess": true}}));
     let session = Session::start(vec![unread.clone(), unread.clone(), unread]).await;
