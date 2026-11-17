@@ -1825,18 +1825,30 @@ async fn anthropic_model_behind_a_gateway_gets_cache_markers_in_chat_format(
 }
 
 #[rstest]
+#[case::markers(false, Some(0), &[(true, true), (true, false), (false, true), (false, true), (false, true)])]
+#[case::schema(true, None, &[(true, true), (true, false), (true, false), (true, false)])]
+#[case::markers_and_schema(true, Some(0), &[(true, true), (true, false), (false, true), (false, false), (false, false), (false, false)])]
+#[case::markers_after_the_schema(true, Some(2), &[(true, true), (true, false), (true, false), (false, false), (false, false)])]
 #[tokio::test]
-async fn gateway_that_rejects_cache_markers_is_asked_again_without_them_and_remembered(
+async fn gateway_that_rejects_a_request_loses_only_what_it_rejected(
     request: ModelRequest,
+    #[case] rejects_schema: bool,
+    #[case] rejects_markers_from: Option<usize>,
+    #[case] asked: &[(bool, bool)],
 ) {
     let server = MockServer::start().await;
+    let received = std::sync::atomic::AtomicUsize::new(0);
     Mock::given(method("POST"))
         .and(path("/chat/completions"))
-        .respond_with(|request: &wiremock::Request| {
+        .respond_with(move |request: &wiremock::Request| {
+            let position = received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let body: Value = request.body_json().unwrap();
-            if body["messages"][1]["content"].is_array() {
+            let markers = body["messages"][1]["content"].is_array()
+                && rejects_markers_from.is_some_and(|from| position >= from);
+            let schema = rejects_schema && body["response_format"]["type"] == "json_schema";
+            if markers || schema {
                 ResponseTemplate::new(400)
-                    .set_body_json(json!({"error": {"message": "unknown field cache_control"}}))
+                    .set_body_json(json!({"error": {"message": "unsupported request field"}}))
             } else {
                 ResponseTemplate::new(200).set_body_json(completion())
             }
@@ -1847,21 +1859,29 @@ async fn gateway_that_rejects_cache_markers_is_asked_again_without_them_and_reme
         caching_catalog("anthropic"),
         deployment(&server, Provider::OpenAiCompatible),
     );
-    let first = client.prepare("analysis", &request).await.unwrap();
+    let schema = turn_schema();
     assert_eq!(
-        client.complete(&first).await.unwrap().result.content,
-        "{\"ok\":true}"
+        [
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+        ],
+        [Ok(false); 3]
     );
-    let second = client.prepare("analysis", &request).await.unwrap();
-    client.complete(&second).await.unwrap();
-    let marked: Vec<bool> = server
+    let sent: Vec<(bool, bool)> = server
         .received_requests()
         .await
         .unwrap()
         .iter()
-        .map(|request| request.body_json::<Value>().unwrap()["messages"][1]["content"].is_array())
+        .map(|request| {
+            let body: Value = request.body_json().unwrap();
+            (
+                body["messages"][1]["content"].is_array(),
+                body["stream"] == true,
+            )
+        })
         .collect();
-    assert_eq!(marked, [true, false, false]);
+    assert_eq!(sent, asked);
 }
 
 #[rstest]

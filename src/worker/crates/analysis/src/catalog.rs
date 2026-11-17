@@ -61,6 +61,7 @@ pub(crate) struct ResolvedDeployment {
     pub(crate) cache_priced: bool,
     pub(crate) legacy_accounting: bool,
     pub(crate) plain_requests: AtomicBool,
+    pub(crate) unmarked_requests: AtomicBool,
     pub(crate) reduced_reasoning: AtomicBool,
 }
 
@@ -174,6 +175,7 @@ pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedD
         cache_priced,
         legacy_accounting,
         plain_requests: AtomicBool::new(false),
+        unmarked_requests: AtomicBool::new(false),
         reduced_reasoning: AtomicBool::new(false),
     })
 }
