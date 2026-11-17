@@ -1,5 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Evaluation request exceeds the model input context")]
+    Context,
     #[error(transparent)]
     Identity(#[from] lens_inference::Error),
     #[error("Evaluation deployment names and models must not be empty")]

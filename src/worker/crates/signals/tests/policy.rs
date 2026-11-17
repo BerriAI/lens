@@ -27,7 +27,9 @@ fn key_uses_canonical_unicode_json_without_names_or_threshold() {
     let config:SignalConfig=serde_json::from_value(json!({"model":"雪","threshold":0.7,"signals":[{"id":"a","name":"ignored","question":"Why 雪?"}]})).unwrap();
     let expected = format!(
         "{:x}",
-        Sha256::digest(r#"{"model":"雪","signals":[{"id":"a","question":"Why 雪?"}]}"#)
+        Sha256::digest(
+            r#"{"context_policy":1,"model":"雪","signals":[{"id":"a","question":"Why 雪?"}]}"#
+        )
     );
     assert_eq!(config_key(&config), expected);
 }
@@ -303,4 +305,34 @@ fn permanent_refusals_require_changed_input(
     };
     assert_eq!(candidate(&execution, Some(&row), &key, now), expected);
     assert_eq!(claimable(&execution, Some(&row), &key, now), expected);
+}
+
+#[rstest]
+fn previous_context_failures_are_requeued_by_the_new_policy(
+    config: SignalConfig,
+    execution: Execution,
+    now: DateTime<Utc>,
+) {
+    let old_payload = json!({"model":config.model,"signals":config.signals.iter().map(|signal| json!({"id":signal.id,"question":signal.question})).collect::<Vec<_>>()});
+    let previous = StoredTraceSignal {
+        trace_id: "trace".into(),
+        trace_ref: "ref".into(),
+        config_key: format!("{:x}", Sha256::digest(old_payload.to_string())),
+        span_count: execution.span_count,
+        claimed_until: None,
+        classified_at: Some(now),
+        data: json!({"status":"failed", "failure":{"kind":"permanent"}, "error":"Lens signal provider returned HTTP 400"}),
+    };
+    assert!(candidate(
+        &execution,
+        Some(&previous),
+        &config_key(&config),
+        now
+    ));
+    assert!(claimable(
+        &execution,
+        Some(&previous),
+        &config_key(&config),
+        now
+    ));
 }

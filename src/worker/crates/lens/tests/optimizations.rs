@@ -25,9 +25,12 @@ async fn api(server: &datasets::support::Server, route: &str, body: Option<Value
 }
 
 #[rstest]
+#[case::plain_score(r#"{"score":1.0}"#)]
+#[case::fenced_score("```json\n{\"score\":1.0,\"reason\":\"The answer is correct\"}\n```")]
 #[tokio::test]
 async fn offline_replays_both_models_persists_measured_results_and_obeys_pause(
     #[future(awt)] database: Database,
+    #[case] judge_reply: &str,
 ) {
     let gateway = MockServer::start().await;
     Mock::given(method("GET")).and(path("/model_group/info")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[
@@ -35,7 +38,7 @@ async fn offline_replays_both_models_persists_measured_results_and_obeys_pause(
     ]}))).mount(&gateway).await;
     Mock::given(method("POST")).and(path("/chat/completions")).respond_with(ResponseTemplate::new(200).insert_header("x-litellm-response-cost","0.001").set_body_json(json!({"model":"candidate","choices":[{"message":{"content":"The answer is 4"},"finish_reason":"stop"}]}))).with_priority(10).mount(&gateway).await;
     Mock::given(method("POST")).and(path("/chat/completions")).and(body_partial_json(json!({"model":"baseline"}))).respond_with(ResponseTemplate::new(200).insert_header("x-litellm-response-cost","0.002").set_body_json(json!({"model":"baseline","choices":[{"message":{"content":"4"},"finish_reason":"stop"}]}))).mount(&gateway).await;
-    Mock::given(method("POST")).and(path("/chat/completions")).and(body_partial_json(json!({"model":"judge"}))).respond_with(ResponseTemplate::new(200).set_body_json(json!({"model":"judge","choices":[{"message":{"content":"{\"score\":1.0}"},"finish_reason":"stop"}]}))).mount(&gateway).await;
+    Mock::given(method("POST")).and(path("/chat/completions")).and(body_partial_json(json!({"model":"judge"}))).respond_with(ResponseTemplate::new(200).set_body_json(json!({"model":"judge","choices":[{"message":{"content":judge_reply},"finish_reason":"stop"}]}))).mount(&gateway).await;
     let models = || {
         Models::new(
             vec![],

@@ -97,9 +97,11 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
         .unwrap();
     assert!(prepared.estimate > 0.0);
     assert!(
-        prepared.estimate < 0.01,
+        prepared.estimate < 128_000.0 * 0.000002,
         "reserve the requested output, not the full model capacity"
     );
+    assert!(prepared.output_tokens < 128_000);
+    assert!(prepared.larger_output().is_some());
     assert_eq!(
         analysis.complete(&prepared).await.unwrap().result.content,
         "Result"
@@ -121,7 +123,7 @@ async fn discovered_models_are_the_models_used_for_actual_inference(decision: De
     );
     let analysis_body: Value = requests[2].body_json().unwrap();
     assert_eq!(analysis_body["model"], "team/analysis");
-    assert_eq!(analysis_body["max_tokens"], 4096);
+    assert_eq!(analysis_body["max_tokens"], prepared.output_tokens);
 }
 
 #[rstest]
@@ -235,6 +237,7 @@ async fn explicit_static_alias_takes_precedence_over_a_discovered_duplicate() {
             name: "reserved".into(),
             model: "explicit-upstream".into(),
             provider: lens_decisions::Provider::DecisionsCompatible,
+            max_input_tokens: None,
             api_base: Some(server.uri().parse().unwrap()),
             api_key: Some(lens_decisions::Secret::new("static-key")),
         }],
@@ -272,4 +275,26 @@ fn invalid_base_urls_are_rejected_without_echoing_them(#[case] base: &str) {
     let error = GatewayConfig::new(base, KEY.into()).err().unwrap();
     assert!(!error.to_string().contains(base));
     assert!(!error.to_string().contains(KEY));
+}
+
+#[rstest]
+#[tokio::test]
+async fn discovered_evaluation_capacity_is_used_before_inference(mut decision: DecisionRequest) {
+    let server = MockServer::start().await;
+    catalog(&server, json!({"data":[{"model_group":"team/system-one","mode":"evaluation","max_input_tokens":2048}]})).await;
+    let models = models(&server);
+    assert!(models.refresh().await.connected);
+    decision
+        .state
+        .steps
+        .push(lens_contract::signals::SignalStep {
+            kind: "user".into(),
+            name: "question".into(),
+            content: "Ж🦀".repeat(1000),
+        });
+    assert!(matches!(
+        models.evaluation().evaluate(&decision).await,
+        Err(lens_decisions::Error::Context)
+    ));
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }

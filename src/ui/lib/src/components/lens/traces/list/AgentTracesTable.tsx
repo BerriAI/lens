@@ -191,20 +191,37 @@ function SignalsCell({ run }: { run: TraceSummary }) {
   const state = useContext(SignalsContext).get(runKey(run));
   const muted = mutedCell;
   if (!configured) return muted("-", "Signals are not set up");
-  if (!state || state.status === "pending") return <Skeleton aria-label="Loading signals" className="h-3 w-16" />;
-  if (state.status === "error") return muted("Unavailable", "Could not load signals");
+  if (!state || state.status === "pending")
+    return <Skeleton aria-label="Loading signals" className="h-3 w-16" />;
+  if (state.status === "error")
+    return muted("Unavailable", "Could not load signals");
   const { status } = state.signals;
   if (status === "unclassified" || status === "pending")
     return muted("Checking", "The System 1 model is checking this run");
-  if (status === "failed") return muted("Not checked", "The System 1 model could not check this run");
+  if (status === "failed")
+    return muted("Not checked", "The System 1 model could not check this run");
   const flags = flaggedSignals(state.signals);
-  if (!flags.length) return <span title="No signals detected" />;
+  if (!flags.length)
+    return state.signals.partial ? (
+      muted("Partial check", "Only part of this trace fit the model context")
+    ) : (
+      <span title="No signals detected" />
+    );
   return (
-    <SignalPills
-      flags={flags}
-      className="overflow-hidden"
-      onSelect={onOpen ? (flag) => onOpen(run, flag) : undefined}
-    />
+    <div
+      title={
+        state.signals.partial ? "Signals based on a partial trace" : undefined
+      }
+    >
+      <SignalPills
+        flags={flags}
+        className="overflow-hidden"
+        onSelect={onOpen ? (flag) => onOpen(run, flag) : undefined}
+      />
+      {state.signals.partial && (
+        <span className="text-xs text-muted-foreground">Partial check</span>
+      )}
+    </div>
   );
 }
 

@@ -71,7 +71,17 @@ impl ScoreRun for EvalScorer {
         };
         let evaluation = lens_evals::evaluate(&run, &self.judge.for_run(input))
             .await
-            .map_err(|error| EvalCloserError::Scoring(Box::new(error)))?;
+            .map_err(|error| {
+                tracing::warn!(
+                    run_id = %input.run.run.id,
+                    error = %error,
+                    cause = %std::error::Error::source(&error)
+                        .map(ToString::to_string)
+                        .unwrap_or_default(),
+                    "Eval scoring failed"
+                );
+                EvalCloserError::Scoring(Box::new(error))
+            })?;
         Ok(ScoredRun {
             summary: evaluation.summary,
             verdicts: evaluation.verdicts,

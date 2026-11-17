@@ -3,7 +3,10 @@ use lens_inference::{ModelCapacity, Prices, deployment_prices, output_tokens};
 use litellm_cost::{Pricing, PricingPlan, Rate, Rates, ThresholdRates};
 use litellm_model_catalog::{Catalog, Mode, ModelEntry, Provenance};
 use litellm_token_counter::TokenCounter;
-use std::{num::NonZeroU64, sync::Arc};
+use std::{
+    num::NonZeroU64,
+    sync::{Arc, atomic::AtomicBool},
+};
 use url::Url;
 
 pub fn bundled_catalog() -> Result<Arc<Catalog>, Error> {
@@ -54,8 +57,19 @@ pub(crate) struct ResolvedDeployment {
     pub(crate) catalog_capacity: ModelCapacity,
     pub(crate) pricing: PricingPlan,
     pub(crate) counter: Arc<TokenCounter>,
-    pub(crate) cache_breakpoints: bool,
+    pub(crate) cache_marks: CacheMarks,
+    pub(crate) cache_priced: bool,
     pub(crate) legacy_accounting: bool,
+    pub(crate) plain_requests: AtomicBool,
+    pub(crate) unmarked_requests: AtomicBool,
+    pub(crate) reduced_reasoning: AtomicBool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CacheMarks {
+    None,
+    Native,
+    Forwarded,
 }
 
 pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedDeployment, Error> {
@@ -123,16 +137,29 @@ pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedD
     let custom = config
         .input_cost_per_token
         .zip(config.output_cost_per_token);
+    let cache_priced =
+        custom.is_some() && standard_rates(entry, custom).cache_read != Rate::Missing;
     let pricing = pricing(entry, custom)?;
     let counter = Arc::new(tokens::counter(
         &config.model,
         direct.map(|matched| matched.entry),
     )?);
-    let cache_breakpoints = entry.is_some_and(|entry| {
-        if config.provider == Provider::Anthropic {
-            entry.info().supports_prompt_caching == Some(true)
+    let cache_marks = entry.map_or(CacheMarks::None, |entry| {
+        let info = entry.info();
+        let native = if config.provider == Provider::Anthropic {
+            info.supports_prompt_caching
         } else {
-            entry.info().supports_prompt_cache_breakpoint == Some(true)
+            info.supports_prompt_cache_breakpoint
+        };
+        if native == Some(true) {
+            CacheMarks::Native
+        } else if config.provider == Provider::OpenAiCompatible
+            && info.supports_prompt_caching == Some(true)
+            && info.litellm_provider.as_deref() == Some("anthropic")
+        {
+            CacheMarks::Forwarded
+        } else {
+            CacheMarks::None
         }
     });
     let legacy_accounting = config.model == "gpt-3.5-turbo-0301";
@@ -144,8 +171,12 @@ pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedD
         catalog_capacity,
         pricing,
         counter,
-        cache_breakpoints,
+        cache_marks,
+        cache_priced,
         legacy_accounting,
+        plain_requests: AtomicBool::new(false),
+        unmarked_requests: AtomicBool::new(false),
+        reduced_reasoning: AtomicBool::new(false),
     })
 }
 
@@ -183,15 +214,27 @@ fn endpoint(provider: Provider, configured: Option<&Url>) -> Result<Url, Error> 
     Ok(endpoint)
 }
 
+fn standard_rates(entry: Option<&ModelEntry>, custom: Option<(f64, f64)>) -> Rates {
+    let catalog = rates(entry, "");
+    match custom {
+        Some((input, output)) => {
+            let cache = if catalog.input == Rate::Value(input) {
+                catalog
+            } else {
+                Rates::EMPTY
+            };
+            Rates {
+                input: Rate::Value(input),
+                output: Rate::Value(output),
+                ..cache
+            }
+        }
+        None => catalog,
+    }
+}
+
 fn pricing(entry: Option<&ModelEntry>, custom: Option<(f64, f64)>) -> Result<PricingPlan, Error> {
-    let base = match custom {
-        Some((input, output)) => Rates {
-            input: Rate::Value(input),
-            output: Rate::Value(output),
-            ..Rates::EMPTY
-        },
-        None => rates(entry, ""),
-    };
+    let base = standard_rates(entry, custom);
     let thresholds: Vec<_> = if custom.is_some() {
         Vec::new()
     } else {

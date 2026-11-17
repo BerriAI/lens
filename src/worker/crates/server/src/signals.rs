@@ -111,7 +111,7 @@ async fn save<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
     authorize(identity.user_role, true)?;
     if !config.model.is_empty()
         && !app.models.model_groups().iter().any(|model| {
-            lens_contract::activity::is_decisions_mode(&model.mode)
+            (lens_contract::activity::is_decisions_mode(&model.mode) || model.mode == "chat")
                 && model.model_group == config.model
         })
     {

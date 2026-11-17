@@ -1,4 +1,4 @@
-use crate::{Error, control::JobClient, wire};
+use crate::{Error, control::JobClient, quote, wire};
 use futures_util::{Stream, TryStreamExt, stream};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -10,6 +10,22 @@ use tokio::io::AsyncWriteExt;
 use unicode_casefold::UnicodeCaseFold;
 
 const MAX_PYTHON_INPUT: usize = 256 * 1024 * 1024;
+const MAX_CITATION_SPAN: usize = 4 * 1024 * 1024;
+const MAX_CITATION_SEARCH: usize = 8 * 1024 * 1024;
+
+pub enum Citation {
+    Verified(Vec<wire::Evidence>),
+    Rejected {
+        problem: &'static str,
+        closest: Option<String>,
+    },
+}
+
+enum Located {
+    Recorded(Vec<String>),
+    Missing(Option<String>),
+    Unread,
+}
 
 #[derive(Clone)]
 pub struct Workspace {
@@ -278,31 +294,119 @@ impl Workspace {
         })
     }
 
-    pub async fn valid(&self, evidence: &wire::Evidence) -> Result<bool, Error> {
-        let Some(execution) = self
-            .executions
-            .iter()
-            .find(|e| e.id == evidence.execution_id)
-        else {
-            return Ok(false);
-        };
-        let selected = [evidence.span_id.clone()];
-        let sources = self.sources(execution, &selected);
-        futures_util::pin_mut!(sources);
-        while let Some(source) = sources.try_next().await? {
-            if self.contains(&source, &evidence.quote, true).await? {
-                if let Ok(mut previews) = self.previews.lock() {
-                    let entries = previews.entry(execution.id.clone()).or_default();
-                    if entries.len() < 8
-                        && !entries.iter().any(|p| p.span_id == source.part.span_id)
-                    {
-                        entries.push(serde_json::from_value(json!({"span_id": source.part.span_id, "name": character_range(&source.part.name, 0, Some(120)), "kind": character_range(&source.part.kind, 0, Some(40)), "preview": character_range(&evidence.quote, 0, Some(240)), "cited": true}))?);
-                    }
-                }
-                return Ok(true);
+    async fn locate(&self, source: &Source, cited: &str) -> Result<(Located, usize), Error> {
+        let mut text = String::new();
+        let chunks = self.chunks(source, 0);
+        futures_util::pin_mut!(chunks);
+        while let Some(piece) = chunks.try_next().await? {
+            text.push_str(&piece.content);
+            if text.len() > MAX_CITATION_SPAN {
+                let located = if self.contains(source, cited, true).await? {
+                    Located::Recorded(vec![cited.into()])
+                } else {
+                    Located::Unread
+                };
+                return Ok((located, text.len()));
             }
         }
-        Ok(false)
+        let located = if text.split(quote::OMISSION).any(|part| part.contains(cited)) {
+            Located::Recorded(vec![cited.into()])
+        } else {
+            match quote::recorded_passages(&text, cited) {
+                Some(passages) => {
+                    Located::Recorded(passages.into_iter().map(str::to_owned).collect())
+                }
+                None => Located::Missing(quote::closest_passage(&text, cited)),
+            }
+        };
+        Ok((located, text.len()))
+    }
+
+    fn verified(
+        &self,
+        execution: &wire::Execution,
+        source: &Source,
+        evidence: &wire::Evidence,
+        recorded: Vec<String>,
+    ) -> Result<Citation, Error> {
+        if let Ok(mut previews) = self.previews.lock()
+            && let Some(first) = recorded.first()
+        {
+            let entries = previews.entry(execution.id.clone()).or_default();
+            if entries.len() < 8 && !entries.iter().any(|p| p.span_id == source.part.span_id) {
+                entries.push(serde_json::from_value(json!({"span_id": source.part.span_id, "name": character_range(&source.part.name, 0, Some(120)), "kind": character_range(&source.part.kind, 0, Some(40)), "preview": character_range(first, 0, Some(240)), "cited": true}))?);
+            }
+        }
+        Ok(Citation::Verified(
+            recorded
+                .into_iter()
+                .map(|quote| {
+                    Ok(wire::Evidence {
+                        execution_id: execution.id.clone(),
+                        span_id: source.part.span_id.clone(),
+                        quote: quote.try_into().map_err(|_| Error::InvalidRequest)?,
+                        role: evidence.role,
+                    })
+                })
+                .collect::<Result<_, Error>>()?,
+        ))
+    }
+
+    fn named_execution(&self, id: &str) -> Option<&wire::Execution> {
+        if let Some(exact) = self.executions.iter().find(|e| e.id == id) {
+            return Some(exact);
+        }
+        let mut near = self.executions.iter().filter(|e| {
+            e.id.len() == id.len()
+                && e.id.bytes().zip(id.bytes()).filter(|(a, b)| a != b).count() <= 3
+        });
+        match (near.next(), near.next(), self.executions.as_slice()) {
+            (Some(only), None, _) => Some(only),
+            (None, _, [only]) => Some(only),
+            _ => None,
+        }
+    }
+
+    pub async fn cite(&self, evidence: &wire::Evidence) -> Result<Citation, Error> {
+        let Some(execution) = self.named_execution(&evidence.execution_id) else {
+            return Ok(Citation::Rejected {
+                problem: "Unknown execution_id. Use an execution ID from the supplied catalog.",
+                closest: None,
+            });
+        };
+        let selected = [evidence.span_id.clone()];
+        let mut problem = "Unknown span_id for this execution. Use a span ID from the catalog.";
+        let mut closest = None;
+        let cited = self.sources(execution, &selected);
+        futures_util::pin_mut!(cited);
+        while let Some(source) = cited.try_next().await? {
+            problem =
+                "The quote is not in the cited span. Copy the supporting text exactly as recorded.";
+            match self.locate(&source, &evidence.quote).await?.0 {
+                Located::Recorded(recorded) => {
+                    return self.verified(execution, &source, evidence, recorded);
+                }
+                Located::Missing(passage) => closest = passage,
+                Located::Unread => {}
+            }
+        }
+        let mut searched = 0;
+        let others = self.sources(execution, &[]);
+        futures_util::pin_mut!(others);
+        while let Some(source) = others.try_next().await? {
+            if source.part.span_id == evidence.span_id {
+                continue;
+            }
+            if searched > MAX_CITATION_SEARCH {
+                break;
+            }
+            let (located, characters) = self.locate(&source, &evidence.quote).await?;
+            searched += characters;
+            if let Located::Recorded(recorded) = located {
+                return self.verified(execution, &source, evidence, recorded);
+            }
+        }
+        Ok(Citation::Rejected { problem, closest })
     }
 
     pub async fn fingerprint(&self, execution: &wire::Execution) -> Result<String, Error> {
@@ -347,11 +451,10 @@ impl Workspace {
                 json!({"request": request, "error": "Search requires nonempty literal text"}),
             );
         }
-        let executions: Vec<_> = self
-            .executions
-            .iter()
-            .filter(|e| request.execution_id.as_ref().is_none_or(|id| id == &e.id))
-            .collect();
+        let executions: Vec<_> = match &request.execution_id {
+            Some(id) => self.named_execution(id).into_iter().collect(),
+            None => self.executions.iter().collect(),
+        };
         if request.execution_id.is_some() && executions.is_empty() {
             return Ok(
                 json!({"request": request, "error": "Unknown execution_id. Use the supplied catalog"}),

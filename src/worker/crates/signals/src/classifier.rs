@@ -49,7 +49,25 @@ pub struct DecisionRequest {
     pub tags: Vec<&'static str>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DecisionLimits {
+    pub choices: usize,
+    pub deadline: Duration,
+}
+
+impl Default for DecisionLimits {
+    fn default() -> Self {
+        Self {
+            choices: EVIDENCE_OPTIONS,
+            deadline: Duration::from_secs(60),
+        }
+    }
+}
+
 pub trait Decisions: Send + Sync {
+    fn limits(&self, _model: &str) -> DecisionLimits {
+        DecisionLimits::default()
+    }
     fn complete(
         &self,
         request: &DecisionRequest,
@@ -59,6 +77,7 @@ pub trait Decisions: Send + Sync {
 struct SourceStep {
     step: SignalStep,
     span_id: String,
+    started: String,
 }
 
 struct EvidenceState {
@@ -82,12 +101,14 @@ async fn source_steps(
                 content: part.content,
             },
             span_id: part.span_id,
+            started: part.start_time,
         }));
         let Some(next) = content.next_cursor else {
             break;
         };
         cursor = next;
     }
+    steps.sort_by(|earlier, later| earlier.started.cmp(&later.started));
     Ok(steps)
 }
 
@@ -209,8 +230,8 @@ fn selected_choice(value: &Value) -> Option<String> {
     Some(choice)
 }
 
-fn evidence_choices(range: Range<usize>) -> BTreeMap<String, Range<usize>> {
-    let width = range.len().div_ceil(EVIDENCE_OPTIONS).max(1);
+fn evidence_choices(range: Range<usize>, limit: usize) -> BTreeMap<String, Range<usize>> {
+    let width = range.len().div_ceil(limit.max(1)).max(1);
     range
         .clone()
         .step_by(width)
@@ -271,6 +292,77 @@ fn output(value: Value) -> Result<Output, Error> {
     serde_json::from_value(Value::Object(object)).map_err(Error::Response)
 }
 
+fn shrink_state(state: &mut SignalState) -> bool {
+    let previous = state.steps.clone();
+    let characters: usize = state
+        .steps
+        .iter()
+        .map(|step| {
+            step.content.chars().count() + step.name.chars().count() + step.kind.chars().count()
+        })
+        .sum();
+    if characters > state.steps.len() * 64 {
+        for step in &mut state.steps {
+            for text in [&mut step.content, &mut step.name, &mut step.kind] {
+                let count = text.chars().count();
+                if count > 64 {
+                    let head = text.chars().take(count / 4).collect::<String>();
+                    let tail = text.chars().skip(count - count / 4).collect::<String>();
+                    *text = format!("{head}\n[... omitted ...]\n{tail}");
+                }
+            }
+        }
+    }
+    if state.steps == previous && state.steps.len() > 1 {
+        let keep = state.steps.len().div_ceil(2);
+        let last = state.steps.pop().expect("nonempty steps");
+        state.steps = state.steps.drain(..).step_by(2).take(keep - 1).collect();
+        state.steps.push(last);
+    }
+    let changed = state.steps != previous;
+    if changed {
+        state.task = "Partial AI agent trace: content or steps were omitted to fit the model context. Judge only the supplied text; missing evidence does not demonstrate absence of a problem.";
+    }
+    changed
+}
+
+async fn score_response(
+    completion: &impl Decisions,
+    request: &mut DecisionRequest,
+    started: Instant,
+    deadline: Duration,
+) -> Result<(Output, bool, bool), Error> {
+    let mut scores_only = false;
+    let mut partial = false;
+    loop {
+        match completion.complete(request).await {
+            Ok(value) => return Ok((output(value)?, scores_only, partial)),
+            Err(DecisionsError::Context) => {
+                if !scores_only
+                    && request
+                        .questions
+                        .values()
+                        .any(|question| matches!(question, Question::Choice { .. }))
+                {
+                    request
+                        .questions
+                        .retain(|_, question| matches!(question, Question::Noul { .. }));
+                    scores_only = true;
+                } else if shrink_state(&mut request.state) {
+                    partial = true;
+                } else {
+                    return Err(DecisionsError::Context.into());
+                }
+                request.timeout = deadline
+                    .checked_sub(started.elapsed())
+                    .filter(|remaining| !remaining.is_zero())
+                    .ok_or(DecisionsError::Timeout)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
 async fn attempt(
     reader: &impl SignalReader,
     completion: &impl Decisions,
@@ -278,8 +370,9 @@ async fn attempt(
     execution: &Execution,
     config: &SignalConfig,
 ) -> Result<SignalAttempt, Error> {
+    let limits = completion.limits(&config.model);
     let prepared = evidence_state(source_steps(reader, scope, execution).await?);
-    let choices = evidence_choices(0..prepared.candidates.len());
+    let choices = evidence_choices(0..prepared.candidates.len(), limits.choices);
     let mut pending = config
         .signals
         .iter()
@@ -310,11 +403,15 @@ async fn attempt(
                 std::iter::once(score).chain(evidence)
             })
             .collect(),
-        timeout: Duration::from_secs(60),
+        timeout: limits.deadline,
         tags: vec!["litellm-lens-signals"],
     };
     let started = Instant::now();
-    let mut response = output(completion.complete(&request).await?)?;
+    let (mut response, scores_only, partial) =
+        score_response(completion, &mut request, started, limits.deadline).await?;
+    if scores_only {
+        pending.clear();
+    }
     let scores = config
         .signals
         .iter()
@@ -345,7 +442,7 @@ async fn attempt(
                     evidence.insert(config.signals[index].id.clone(), selected.clone());
                 }
             } else {
-                next.insert(index, evidence_choices(range));
+                next.insert(index, evidence_choices(range, limits.choices));
             }
         }
         pending = next;
@@ -362,7 +459,8 @@ async fn attempt(
             })
             .collect();
         let followup = async {
-            request.timeout = Duration::from_secs(60)
+            request.timeout = limits
+                .deadline
                 .checked_sub(started.elapsed())
                 .filter(|remaining| !remaining.is_zero())
                 .ok_or(DecisionsError::Timeout)?;
@@ -379,6 +477,7 @@ async fn attempt(
         }
     }
     Ok(SignalAttempt {
+        partial,
         status: if complete {
             SignalAttemptStatus::Classified
         } else {
@@ -401,10 +500,13 @@ async fn attempt(
 
 fn provider_failure(error: &Error) -> Option<SignalFailure> {
     match error {
-        Error::Decisions(DecisionsError::Provider {
-            status: 400 | 413 | 422,
-            ..
-        }) => Some(SignalFailure::Permanent),
+        Error::Decisions(
+            DecisionsError::Provider {
+                status: 400 | 413 | 422,
+                ..
+            }
+            | DecisionsError::Answer,
+        ) => Some(SignalFailure::Permanent),
         Error::Decisions(DecisionsError::Provider {
             retry_after_seconds,
             ..
@@ -430,6 +532,7 @@ pub async fn classify(
     match attempt(reader, completion, scope, execution, config).await {
         Ok(attempt) => attempt,
         Err(error) => SignalAttempt {
+            partial: false,
             status: SignalAttemptStatus::Failed,
             scores: BTreeMap::new(),
             evidence: BTreeMap::new(),
@@ -457,6 +560,7 @@ mod tests {
                 content: content.into(),
             },
             span_id: "span".into(),
+            started: String::new(),
         }]);
         assert!(prepared.candidates.is_empty());
     }
@@ -478,6 +582,7 @@ mod tests {
                         content: content.clone(),
                     },
                     span_id: format!("span-{index}"),
+                    started: String::new(),
                 })
                 .collect(),
         );

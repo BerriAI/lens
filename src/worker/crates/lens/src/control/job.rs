@@ -1,5 +1,6 @@
 use crate::{Error, wire};
 use futures_util::future::BoxFuture;
+use lens_analysis::ResponseSchema;
 use lens_investigations::AnalysisCheckpoint;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
@@ -29,6 +30,7 @@ pub trait JobBackend: Send + Sync {
     fn model<'a>(
         &'a self,
         request: &'a wire::ModelRequest,
+        schema: Option<ResponseSchema<'a>>,
     ) -> BoxFuture<'a, Result<wire::ModelResult, Error>>;
     fn progress<'a>(&'a self, progress: &'a wire::Progress) -> BoxFuture<'a, Result<(), Error>>;
     fn heartbeat(&self) -> BoxFuture<'_, Result<(), Error>> {
@@ -97,6 +99,14 @@ impl JobClient {
     }
 
     pub async fn model(&self, body: &wire::ModelRequest) -> Result<wire::ModelResult, Error> {
+        self.structured_model(body, None).await
+    }
+
+    pub async fn structured_model(
+        &self,
+        body: &wire::ModelRequest,
+        schema: Option<ResponseSchema<'_>>,
+    ) -> Result<wire::ModelResult, Error> {
         let _permit = self
             .model_slots
             .acquire()
@@ -108,7 +118,7 @@ impl JobClient {
             .await
             .map_err(|_| Error::Unavailable)?;
         for attempt in 0..=4 {
-            match self.backend.model(body).await {
+            match self.backend.model(body, schema).await {
                 Err(ref error) if error.retryable() && attempt < 4 => {
                     let requested = match error {
                         Error::Control { retry_after, .. } => retry_after.unwrap_or_default(),

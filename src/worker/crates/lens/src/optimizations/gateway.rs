@@ -208,11 +208,7 @@ impl Gateway {
         if let Some(error) = reply.error {
             return Err(Error::Invalid(error));
         }
-        let score: crate::eval_judge::Score = serde_json::from_str(&reply.output)
-            .map_err(|_| Error::Invalid("The judge returned an invalid score"))?;
-        if !(0.0..=1.0).contains(&score.score) {
-            return Err(Error::Invalid("The judge returned an invalid score"));
-        }
-        Ok(score.score)
+        crate::eval_judge::score(&reply.output)
+            .ok_or(Error::Invalid("The judge returned an invalid score"))
     }
 }

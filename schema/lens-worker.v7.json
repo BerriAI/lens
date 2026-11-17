@@ -2497,6 +2497,9 @@
           "default": "",
           "type": "string"
         },
+        "partial": {
+          "type": "boolean"
+        },
         "status": {
           "$ref": "#/definitions/TraceSignalStatus"
         },

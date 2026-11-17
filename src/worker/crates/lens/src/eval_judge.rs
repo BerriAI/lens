@@ -118,9 +118,20 @@ struct CompletionMessage {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Score {
-    pub(crate) score: f64,
+struct Score {
+    score: f64,
+}
+
+pub(crate) fn score(reply: &str) -> Option<f64> {
+    let reply = reply.trim_start();
+    let json = reply.strip_prefix("```").map_or(reply, |fenced| {
+        fenced.trim_start_matches(|letter: char| letter.is_ascii_alphanumeric())
+    });
+    let Score { score } = serde_json::Deserializer::from_str(json)
+        .into_iter()
+        .next()?
+        .ok()?;
+    (0.0..=1.0).contains(&score).then_some(score)
 }
 
 impl Judge for RunJudge<'_> {
@@ -258,10 +269,6 @@ impl Judge for RunJudge<'_> {
                     .content
             }
         };
-        let score: Score = serde_json::from_str(&content).map_err(|_| Error::EvalJudgeResponse)?;
-        if !(0.0..=1.0).contains(&score.score) {
-            return Err(Error::EvalJudgeResponse.into());
-        }
-        Ok(score.score)
+        Ok(score(&content).ok_or(Error::EvalJudgeResponse)?)
     }
 }

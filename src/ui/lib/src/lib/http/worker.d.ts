@@ -743,6 +743,7 @@ export interface TraceSignals {
   classified_at?: string | null;
   flags?: SignalFlag[];
   model?: string;
+  partial?: boolean;
   status: TraceSignalStatus;
   trace_id: string;
   trace_ref?: string;

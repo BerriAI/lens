@@ -28,6 +28,7 @@ struct Group {
 struct Resolved {
     config: Deployment,
     model: String,
+    input_capacity: Option<std::num::NonZeroU64>,
     endpoint: Url,
 }
 
@@ -115,7 +116,14 @@ fn resolve(config: Deployment, catalog: &Catalog) -> Result<Resolved, Error> {
             model.to_owned(),
         )
     };
+    let input_capacity = config.max_input_tokens.or_else(|| {
+        catalog
+            .lookup(&config.model)
+            .and_then(|entry| entry.entry.info().max_input_tokens)
+            .and_then(std::num::NonZeroU64::new)
+    });
     Ok(Resolved {
+        input_capacity,
         config,
         model,
         endpoint: Url::parse(&endpoint).map_err(|_| Error::Endpoint)?,
@@ -209,6 +217,13 @@ impl EvaluationModels {
         } else {
             json!({"model":deployment.model,"state":request.state,"questions":request.questions})
         };
+        // The provider tokenizer is unknown for gateway aliases. UTF-8 bytes bound
+        // byte-fallback token counts; reserve room for the provider's question framing.
+        if deployment.input_capacity.is_some_and(|capacity| {
+            body.to_string().len() as u64 > capacity.get().saturating_sub(capacity.get() / 10)
+        }) {
+            return Err(Error::Context);
+        }
         let builder = self.client.post(deployment.endpoint.clone()).json(&body);
         let builder = match &deployment.config.api_key {
             Some(key) if !key.0.is_empty() => builder.bearer_auth(&key.0),
@@ -261,6 +276,30 @@ impl EvaluationModels {
             bytes.extend_from_slice(&chunk);
         }
         if !status.is_success() {
+            let detail: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+            if status.as_u16() == 413
+                || (matches!(status.as_u16(), 400 | 422)
+                    && [
+                        "/detail/error_type",
+                        "/error/code",
+                        "/error/type",
+                        "/code",
+                        "/type",
+                    ]
+                    .iter()
+                    .any(|path| {
+                        matches!(
+                            detail.pointer(path).and_then(Value::as_str),
+                            Some(
+                                "max_tokens_exceeded"
+                                    | "context_length_exceeded"
+                                    | "context_window_exceeded"
+                            )
+                        )
+                    }))
+            {
+                return Err(Error::Context);
+            }
             return Err(Error::Provider {
                 status: status.as_u16(),
                 retry_after_seconds,
@@ -290,6 +329,7 @@ impl Decisions for EvaluationModels {
                 status,
                 retry_after_seconds,
             },
+            Error::Context => DecisionsError::Context,
             Error::Timeout => DecisionsError::Timeout,
             Error::ResponseLimit => DecisionsError::ResponseLimit,
             error => DecisionsError::Unavailable(Box::new(error)),
@@ -314,6 +354,7 @@ mod tests {
                 name: "signals".into(),
                 model: "test-evaluator".into(),
                 provider,
+                max_input_tokens: None,
                 api_base: None,
                 api_key: Some(crate::Secret::new("key")),
             },

@@ -4,7 +4,9 @@ use lens_contract::{
     signals::{SignalAttemptStatus, SignalConfig, SignalEvidence},
     worker::Execution,
 };
-use lens_signals::{DecisionRequest, Decisions, DecisionsError, Question, classify, signal_state};
+use lens_signals::{
+    DecisionLimits, DecisionRequest, Decisions, DecisionsError, Question, classify, signal_state,
+};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, time::Duration};
@@ -416,6 +418,158 @@ impl Decisions for EvidenceCompletion {
     }
 }
 
+#[rstest]
+#[tokio::test]
+async fn steps_reach_the_model_in_the_order_they_were_recorded(
+    reader: Reader,
+    completion: Completion,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    let at = |span: &str, time: &str, content: &str| lens_contract::worker::TracePart {
+        span_id: span.into(),
+        start_time: time.into(),
+        ..part(content)
+    };
+    let reader = Reader {
+        contents: BTreeMap::from([
+            (
+                "".into(),
+                page(
+                    vec![
+                        at(
+                            "1-answer",
+                            "2026-01-01 10:00:09.000000000",
+                            "All tests pass now",
+                        ),
+                        at(
+                            "2-request",
+                            "2026-01-01 10:00:00.000000000",
+                            "Fix the failing test",
+                        ),
+                    ],
+                    Some("next"),
+                ),
+            ),
+            (
+                "next".into(),
+                page(
+                    vec![at(
+                        "3-failure",
+                        "2026-01-01 10:00:03.500000000",
+                        "Exit code 1",
+                    )],
+                    None,
+                ),
+            ),
+        ]),
+        ..reader
+    };
+    classify(&reader, &completion, &scope, &execution, &config).await;
+    let calls = completion.calls.lock().unwrap();
+    assert_eq!(
+        calls[0]
+            .state
+            .steps
+            .iter()
+            .map(|step| step.content.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "[L000] Fix the failing test",
+            "[L001] Exit code 1",
+            "[L002] All tests pass now"
+        ]
+    );
+}
+
+struct UnlimitedJudge {
+    target: usize,
+    calls: std::sync::Mutex<Vec<DecisionRequest>>,
+}
+
+const JUDGE_LIMITS: DecisionLimits = DecisionLimits {
+    choices: usize::MAX,
+    deadline: Duration::from_secs(240),
+};
+
+impl Decisions for UnlimitedJudge {
+    fn limits(&self, _: &str) -> DecisionLimits {
+        JUDGE_LIMITS
+    }
+
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        self.calls.lock().unwrap().push(request.clone());
+        let answers = request
+            .questions
+            .iter()
+            .map(|(id, question)| {
+                let answer = match question {
+                    Question::Noul { .. } => json!({"type":"noul","noul":0.9}),
+                    Question::Choice { .. } if id == "__evidence_0" => {
+                        json!({"type":"choice","choice":format!("L{:03}", self.target),"confidence":1.0})
+                    }
+                    Question::Choice { .. } => {
+                        json!({"type":"choice","choice":"none","confidence":1.0})
+                    }
+                };
+                (id.clone(), answer)
+            })
+            .collect::<serde_json::Map<_, _>>();
+        Ok(json!({"answers":answers}))
+    }
+}
+
+#[rstest]
+#[case::few_passages(1)]
+#[case::beyond_the_decisions_choice_limit(400)]
+#[tokio::test]
+async fn backend_without_a_choice_limit_finds_evidence_in_one_request_within_its_own_deadline(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] preceding_steps: usize,
+) {
+    let quote = "You ignored my request again. This still does not work.";
+    let reader = Reader {
+        contents: BTreeMap::from([(
+            "".into(),
+            page(
+                (0..preceding_steps)
+                    .map(|_| part("Earlier request."))
+                    .chain([lens_contract::worker::TracePart {
+                        span_id: "problem-step".into(),
+                        ..part(quote)
+                    }])
+                    .collect(),
+                None,
+            ),
+        )]),
+        ..reader
+    };
+    let judge = UnlimitedJudge {
+        target: preceding_steps,
+        calls: Default::default(),
+    };
+    let result = classify(&reader, &judge, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(
+        result.evidence["a"],
+        SignalEvidence {
+            span_id: "problem-step".into(),
+            quote: quote.into(),
+        }
+    );
+    let calls = judge.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].timeout, JUDGE_LIMITS.deadline);
+    let Question::Choice { criteria, .. } = &calls[0].questions["__evidence_0"] else {
+        panic!("Expected an evidence choice");
+    };
+    assert_eq!(criteria.len(), preceding_steps + 2);
+}
+
 struct Refusal(u16);
 impl Decisions for Refusal {
     async fn complete(&self, _: &DecisionRequest) -> Result<Value, DecisionsError> {
@@ -457,6 +611,28 @@ async fn refusal_preserves_retry_policy(
             }
         })
     );
+}
+
+struct Unusable;
+impl Decisions for Unusable {
+    async fn complete(&self, _: &DecisionRequest) -> Result<Value, DecisionsError> {
+        Err(DecisionsError::Answer)
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn unusable_answer_fails_the_trace_for_good_instead_of_pausing_and_asking_again(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    use lens_contract::signals::{SignalAttemptStatus, SignalFailure};
+    let attempt = classify(&reader, &Unusable, &scope, &execution, &config).await;
+    assert_eq!(attempt.status, SignalAttemptStatus::Failed);
+    assert_eq!(attempt.failure, Some(SignalFailure::Permanent));
+    assert!(attempt.scores.is_empty());
 }
 
 #[rstest]
@@ -572,4 +748,92 @@ async fn evidence_followup_failure_keeps_completed_scores_and_evidence(
     );
     assert_eq!(public.flags.len(), 1);
     assert_eq!(public.flags[0].score, 0.9);
+}
+
+struct ContextLimited {
+    calls: std::sync::Mutex<Vec<DecisionRequest>>,
+    state_limit: usize,
+}
+
+impl Decisions for ContextLimited {
+    async fn complete(&self, request: &DecisionRequest) -> Result<Value, DecisionsError> {
+        self.calls.lock().unwrap().push(request.clone());
+        if request
+            .questions
+            .values()
+            .any(|q| matches!(q, Question::Choice { .. }))
+            || serde_json::to_vec(&request.state).unwrap().len() > self.state_limit
+        {
+            return Err(DecisionsError::Context);
+        }
+        Ok(json!({"answers":{"a":{"type":"noul","noul":0.9},"b":{"type":"noul","noul":0.2}}}))
+    }
+}
+
+#[rstest]
+#[case::questions_only("small trace".into(), false)]
+#[case::large_unicode("Начало 🦀 ".repeat(4000), true)]
+#[tokio::test]
+async fn context_refusal_drops_evidence_then_reduces_state_without_losing_scores(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+    #[case] content: String,
+    #[case] partial: bool,
+) {
+    let reader = Reader {
+        contents: BTreeMap::from([("".into(), page(vec![part(content)], None))]),
+        ..reader
+    };
+    let completion = ContextLimited {
+        calls: Default::default(),
+        state_limit: 2048,
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Classified);
+    assert_eq!(result.scores["a"], 0.9);
+    assert_eq!(result.partial, partial);
+    assert!(result.evidence.is_empty());
+    assert!(result.failure.is_none());
+    let calls = completion.calls.lock().unwrap();
+    assert_eq!(calls[0].state, calls[1].state);
+    assert!(
+        calls[1]
+            .questions
+            .values()
+            .all(|q| matches!(q, Question::Noul { .. }))
+    );
+    assert!(calls.len() < 16);
+    assert!(
+        calls
+            .windows(2)
+            .all(|pair| pair[1].timeout <= pair[0].timeout)
+    );
+    if partial {
+        assert!(calls.last().unwrap().state.task.starts_with("Partial"));
+        assert!(
+            calls.last().unwrap().state.steps[0]
+                .content
+                .contains("Начало")
+        );
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn irreducible_context_refusals_stop_without_provider_cooldown(
+    reader: Reader,
+    config: SignalConfig,
+    scope: Scope,
+    execution: Execution,
+) {
+    let completion = ContextLimited {
+        calls: Default::default(),
+        state_limit: 1,
+    };
+    let result = classify(&reader, &completion, &scope, &execution, &config).await;
+    assert_eq!(result.status, SignalAttemptStatus::Failed);
+    assert!(result.failure.is_none());
+    assert_eq!(completion.calls.lock().unwrap().len(), 2);
 }

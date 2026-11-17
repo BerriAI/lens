@@ -19,6 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: "qualification".into(),
             model: model.clone(),
             provider,
+            max_input_tokens: None,
             api_base: std::env::var("LENS_PROVIDER_API_BASE")
                 .ok()
                 .map(|base| base.parse())

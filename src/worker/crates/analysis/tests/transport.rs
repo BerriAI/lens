@@ -2,9 +2,11 @@ mod transport {
     pub mod support;
 }
 use lens_analysis::{
-    AnalysisModels, Catalog, Error, Provider, ProviderFailureKind, TransportLimits,
+    AnalysisModels, Catalog, Deployment, Error, PrepareOptions, Provider, ProviderFailureKind,
+    ResponseSchema, TransportLimits,
 };
 use lens_contract::worker::ModelRequest;
+use lens_inference::{ModelCapacity, OutputLimits};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
@@ -97,7 +99,8 @@ async fn chat_request_and_usage_preserve_contract(
         "Bearer fixture-key"
     );
     assert_eq!(body["model"], "fixture");
-    assert_eq!(body["stream"], false);
+    assert_eq!(body["stream"], true);
+    assert_eq!(body["stream_options"], json!({"include_usage":true}));
     assert_eq!(body["response_format"], json!({"type":"json_object"}));
     assert_eq!(body[limit], 400);
     assert_eq!(body["messages"][0]["role"], "system");
@@ -146,7 +149,8 @@ async fn anthropic_lifts_system_merges_turns_and_accounts_cache(
         json!([{"role":"user","content":[{"type":"text","text":"Evidence A"},{"type":"text","text":"{}","cache_control":{"type":"ephemeral"}},{"type":"text","text":"Evidence B","cache_control":{"type":"ephemeral"}}]}])
     );
     assert_eq!(body["max_tokens"], 400);
-    assert_eq!(body["stream"], false);
+    assert_eq!(body["stream"], true);
+    assert!(body.get("stream_options").is_none());
     assert!(body.get("response_format").is_none());
 }
 
@@ -155,6 +159,8 @@ async fn anthropic_lifts_system_merges_turns_and_accounts_cache(
 #[case::typed(Provider::OpenAi,"/chat/completions",json!({"error":{"type":"context_window_exceeded"}}))]
 #[case::anthropic_prefix(Provider::Anthropic,"/messages",json!({"error":{"type":"invalid_request_error","message":"prompt is too long: 1000 tokens"}}))]
 #[case::anthropic_window(Provider::Anthropic,"/messages",json!({"error":{"type":"invalid_request_error","message":"request exceeds the context window"}}))]
+#[case::gateway(Provider::OpenAiCompatible,"/chat/completions",json!({"error":{"message":"litellm.ContextWindowExceededError: litellm.BadRequestError: AnthropicError - prompt is too long: 203644 tokens > 200000 maximum","type":"invalid_request_error","param":null,"code":"400"}}))]
+#[case::gateway_messages_route(Provider::Anthropic,"/messages",json!({"type":"error","error":{"type":"invalid_request_error","message":"litellm.ContextWindowExceededError: litellm.BadRequestError: AnthropicError - prompt is too long: 220321 tokens > 200000 maximum"}}))]
 #[tokio::test]
 async fn provider_context_limit_is_zero_cost(
     catalog: Arc<Catalog>,
@@ -178,20 +184,30 @@ async fn provider_context_limit_is_zero_cost(
 }
 
 #[rstest]
-#[case::bad_request(400,json!({"error":{"code":"bad_request","message":"secret context_length_exceeded"}}))]
-#[case::untyped_message(400,json!({"error":{"message":"prompt is too long: 1000"}}))]
-#[case::rate_limit(429,json!({"error":{"code":"context_length_exceeded"}}))]
-#[case::server(500,json!({"error":{"message":"secret"}}))]
-#[case::invalid_failure(400,json!("context_window_exceeded"))]
+#[case::bad_request(400,json!({"error":{"code":"bad_request","message":"secret context_length_exceeded"}}),&[true, false])]
+#[case::untyped_message(400,json!({"error":{"message":"prompt is too long: 1000"}}),&[true, false])]
+#[case::unprocessable(422,json!({"detail":"secret extra inputs are not permitted"}),&[true, false])]
+#[case::rate_limit(429,json!({"error":{"code":"context_length_exceeded"}}),&[true])]
+#[case::server(500,json!({"error":{"message":"secret"}}),&[true])]
+#[case::invalid_failure(400,json!("context_window_exceeded"),&[true, false])]
+#[case::gateway_wording_inside_another_message(400,json!({"error":{"message":"secret litellm.ContextWindowExceededError"}}),&[true, false])]
 #[tokio::test]
-async fn unrelated_errors_are_sanitized_and_never_retried(
+async fn unrelated_errors_are_sanitized_and_only_a_refusal_is_asked_again_in_plain_form(
     catalog: Arc<Catalog>,
     request: ModelRequest,
     #[case] status: u16,
     #[case] body: Value,
+    #[case] streamed: &[bool],
 ) {
     let server = MockServer::start().await;
-    respond(&server, "/chat/completions", status, body).await;
+    respond_times(
+        &server,
+        "/chat/completions",
+        status,
+        body,
+        streamed.len() as u64,
+    )
+    .await;
     let client = client(catalog, deployment(&server, Provider::OpenAi));
     let error = client
         .complete(&client.prepare("analysis", &request).await.unwrap())
@@ -200,7 +216,14 @@ async fn unrelated_errors_are_sanitized_and_never_retried(
         .unwrap();
     assert!(matches!(error,Error::Provider{status:actual,..} if actual==status));
     assert!(!error.to_string().contains("secret"));
-    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    let asked: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json::<Value>().unwrap()["stream"].clone())
+        .collect();
+    assert_eq!(asked, streamed);
 }
 
 #[rstest]
@@ -1095,7 +1118,7 @@ async fn context_message_requires_matching_provider_and_error_type(
     #[case] body: Value,
 ) {
     let server = MockServer::start().await;
-    respond(&server, endpoint, 400, body).await;
+    respond_times(&server, endpoint, 400, body, 2).await;
     let client = client(catalog, deployment(&server, provider));
     assert!(matches!(
         client
@@ -1168,4 +1191,727 @@ async fn retry_after_is_preserved_without_retrying(
         matches!(client.complete(&client.prepare("analysis",&request).await.unwrap()).await,Err(Error::Provider{status:429,retry_after,..}) if retry_after==expected)
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+fn turn_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "result": {"anyOf": [{"$ref": "#/definitions/Answer"}, {"type": "null"}]},
+            "notes": {"type": "string", "default": "", "maxLength": 800}
+        },
+        "definitions": {"Answer": {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}, "quote": {"type": "string", "minLength": 1}},
+            "required": ["ok"]
+        }}
+    })
+}
+
+fn structured(schema: &Value) -> PrepareOptions<'_> {
+    PrepareOptions {
+        response_schema: Some(ResponseSchema {
+            name: "Turn[Answer]",
+            schema,
+        }),
+        ..Default::default()
+    }
+}
+
+#[rstest]
+#[case::compatible(Provider::OpenAiCompatible, "/chat/completions", completion())]
+#[case::openai(Provider::OpenAi, "/chat/completions", completion())]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_completion())]
+#[tokio::test]
+async fn structured_requests_ask_the_provider_to_enforce_the_closed_schema(
+    catalog: Arc<Catalog>,
+    mut request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] reply: Value,
+) {
+    request.messages[2].role = lens_contract::worker::ModelMessageRole::User;
+    let server = MockServer::start().await;
+    respond(&server, endpoint, 200, reply).await;
+    let client = client(catalog, deployment(&server, provider));
+    let schema = turn_schema();
+    let prepared = client
+        .prepare_with("analysis", &request, structured(&schema))
+        .await
+        .unwrap();
+    assert_eq!(
+        client.complete(&prepared).await.unwrap().result.content,
+        "{\"ok\":true}"
+    );
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    let answer = json!({
+        "type": "object",
+        "properties": {"ok": {"type": "boolean"}, "quote": {"type": "string"}},
+        "required": ["ok", "quote"],
+        "additionalProperties": false
+    });
+    let closed = json!({
+        "type": "object",
+        "properties": {
+            "result": {"anyOf": [answer, {"type": "null"}]},
+            "notes": {"type": "string"}
+        },
+        "required": ["notes", "result"],
+        "additionalProperties": false
+    });
+    if provider == Provider::Anthropic {
+        assert_eq!(
+            body["output_config"],
+            json!({"format": {"type": "json_schema", "schema": closed}})
+        );
+    } else {
+        assert_eq!(
+            body["response_format"],
+            json!({"type": "json_schema", "json_schema": {"name": "Turn_Answer_", "strict": true, "schema": closed}})
+        );
+    }
+}
+
+fn shapes(requests: &[wiremock::Request]) -> Vec<(Value, Value, Value)> {
+    requests
+        .iter()
+        .map(|request| {
+            let body: Value = request.body_json().unwrap();
+            (
+                body["response_format"]["type"].clone(),
+                body["stream"].clone(),
+                body["reasoning_effort"].clone(),
+            )
+        })
+        .collect()
+}
+
+#[rstest]
+#[case::schema("response_format", json!({"type": "json_object"}), true)]
+#[case::streaming("stream", json!(false), false)]
+#[tokio::test]
+async fn provider_that_rejects_the_request_is_asked_again_in_plain_form_and_remembered(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] field: &'static str,
+    #[case] accepted: Value,
+    #[case] structured_request: bool,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(move |request: &wiremock::Request| {
+            let body: Value = request.body_json().unwrap();
+            if body[field] == accepted {
+                ResponseTemplate::new(200).set_body_json(completion())
+            } else {
+                ResponseTemplate::new(400)
+                    .set_body_json(json!({"error": {"message": "unsupported request field"}}))
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let schema = turn_schema();
+    let options = if structured_request {
+        structured(&schema)
+    } else {
+        PrepareOptions::default()
+    };
+    let first = client
+        .prepare_with("analysis", &request, options)
+        .await
+        .unwrap();
+    let first = client.complete(&first).await.unwrap();
+    assert_eq!(first.result.content, "{\"ok\":true}");
+    assert!((first.result.cost - 1.33).abs() < 1e-10);
+    let second = client
+        .prepare_with("analysis", &request, options)
+        .await
+        .unwrap();
+    client.complete(&second).await.unwrap();
+    let asked = shapes(&server.received_requests().await.unwrap());
+    let modern = if structured_request {
+        "json_schema"
+    } else {
+        "json_object"
+    };
+    assert_eq!(
+        asked,
+        [
+            (json!(modern), json!(true), Value::Null),
+            (json!("json_object"), json!(false), Value::Null),
+            (json!("json_object"), json!(false), Value::Null),
+        ]
+    );
+}
+
+async fn structured_outcome(
+    client: &AnalysisModels,
+    request: &ModelRequest,
+    schema: &Value,
+) -> Result<bool, u16> {
+    let prepared = client
+        .prepare_with("analysis", request, structured(schema))
+        .await
+        .unwrap();
+    match client.complete(&prepared).await {
+        Ok(completion) => Ok(completion.result.context_exceeded),
+        Err(Error::Provider { status, .. }) => Err(status),
+        Err(error) => panic!("unexpected failure: {error}"),
+    }
+}
+
+#[rstest]
+#[case::invalid_request(json!({"error": {"message": "unknown model"}}), Err(400), 4)]
+#[case::context(json!({"error": {"code": "context_length_exceeded"}}), Ok(true), 2)]
+#[case::gateway_context(json!({"error": {"message": "litellm.ContextWindowExceededError: prompt is too long", "type": "invalid_request_error", "code": "400"}}), Ok(true), 2)]
+#[tokio::test]
+async fn schema_retry_neither_hides_other_rejections_nor_disables_the_schema(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] failure: Value,
+    #[case] outcome: Result<bool, u16>,
+    #[case] requests: usize,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(failure))
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let schema = turn_schema();
+    assert_eq!(
+        structured_outcome(&client, &request, &schema).await,
+        outcome
+    );
+    assert_eq!(
+        structured_outcome(&client, &request, &schema).await,
+        outcome
+    );
+    let formats: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json::<Value>().unwrap()["response_format"]["type"].clone())
+        .collect();
+    assert_eq!(formats.len(), requests);
+    assert_eq!(formats[0], "json_schema");
+    assert_eq!(formats[requests / 2], "json_schema");
+}
+
+#[rstest]
+#[tokio::test]
+async fn output_allowance_grows_on_request_up_to_the_deployment_capacity(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(
+        catalog,
+        Deployment {
+            capacity: ModelCapacity {
+                max_input_tokens: None,
+                max_output_tokens: 300.try_into().ok(),
+            },
+            output_limits: OutputLimits {
+                max_tokens: 50.try_into().ok(),
+                ..Default::default()
+            },
+            ..deployment(&server, Provider::OpenAiCompatible)
+        },
+    );
+    let initial = client.prepare("analysis", &request).await.unwrap();
+    assert_eq!(initial.output_tokens, 50);
+    let grown = client
+        .prepare_with(
+            "analysis",
+            &request,
+            PrepareOptions {
+                minimum_output_tokens: initial.larger_output(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(grown.output_tokens, 200);
+    assert!(grown.estimate > initial.estimate);
+    let capped = client
+        .prepare_with(
+            "analysis",
+            &request,
+            PrepareOptions {
+                minimum_output_tokens: grown.larger_output(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(capped.output_tokens, 300);
+    assert_eq!(capped.larger_output(), None);
+    client.complete(&capped).await.unwrap();
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    assert_eq!(body["max_tokens"], 300);
+}
+
+#[rstest]
+#[case::openai(Provider::OpenAi, "/chat/completions", chunks("stop"), 1.33)]
+#[case::compatible(Provider::OpenAiCompatible, "/chat/completions", chunks("stop"), 1.33)]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_events("end_turn"), 1.36)]
+#[tokio::test]
+async fn streamed_reply_carries_the_same_content_usage_and_cost_as_a_buffered_one(
+    catalog: Arc<Catalog>,
+    mut request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] events: Vec<Value>,
+    #[case] cost: f64,
+) {
+    request.messages[2].role = lens_contract::worker::ModelMessageRole::User;
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(event_stream(&events))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(result.result.content, "{\"ok\":true}");
+    assert_eq!(result.result.finish_reason, None);
+    assert!(!result.result.context_exceeded);
+    assert!((result.result.cost - cost).abs() < 1e-10);
+    assert_eq!(result.usage.model.as_deref(), Some("reported"));
+    assert_eq!(result.usage.usage.unwrap().prompt_tokens, Some(100));
+    assert_eq!(result.usage.usage.unwrap().completion_tokens, Some(20));
+}
+
+#[rstest]
+#[case::openai(Provider::OpenAi, "/chat/completions", chunks("length"))]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_events("max_tokens"))]
+#[tokio::test]
+async fn streamed_reply_that_stops_at_the_output_limit_is_reported_as_cut_off(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] events: Vec<Value>,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(event_stream(&events))
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        result.result.finish_reason,
+        Some(lens_contract::worker::ModelResultFinishReason::Length)
+    );
+    assert_eq!(result.result.content, "{\"ok\":true}");
+}
+
+#[rstest]
+#[case::failure_event(
+    Provider::OpenAiCompatible,
+    "/chat/completions",
+    vec![chunks("stop").remove(1), json!({"error":{"message":"secret upstream detail","type":"rate_limit_error","code":"429"}})],
+    ProviderFailureKind::RateLimited
+)]
+#[case::ended_before_the_final_chunk(
+    Provider::OpenAiCompatible,
+    "/chat/completions",
+    chunks("stop").drain(..3).collect(),
+    ProviderFailureKind::Unavailable
+)]
+#[case::anthropic_failure_event(
+    Provider::Anthropic,
+    "/messages",
+    vec![anthropic_events("end_turn").remove(0), json!({"type":"error","error":{"type":"overloaded_error","message":"secret upstream detail"}})],
+    ProviderFailureKind::Unavailable
+)]
+#[case::anthropic_ended_before_the_final_event(
+    Provider::Anthropic,
+    "/messages",
+    anthropic_events("end_turn").drain(..8).collect(),
+    ProviderFailureKind::Unavailable
+)]
+#[tokio::test]
+async fn interrupted_stream_fails_as_a_retryable_gateway_error_instead_of_a_partial_answer(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] events: Vec<Value>,
+    #[case] classification: ProviderFailureKind,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(event_stream(&events))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let error = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .err()
+        .unwrap();
+    assert!(!error.to_string().contains("secret"));
+    let Error::Provider {
+        status, diagnostic, ..
+    } = error
+    else {
+        panic!("unexpected failure: {error}");
+    };
+    assert_eq!(status, 502);
+    assert_eq!(diagnostic.classification, classification);
+}
+
+#[rstest]
+#[case::gateway(Provider::OpenAiCompatible, "/chat/completions", json!({"error":{"message":"litellm.ContextWindowExceededError: prompt is too long","type":"invalid_request_error","code":"400"}}))]
+#[case::anthropic(Provider::Anthropic, "/messages", json!({"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long: 220321 tokens > 200000 maximum"}}))]
+#[tokio::test]
+async fn context_limit_reported_inside_a_stream_is_zero_cost(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] failure: Value,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(event_stream(&[failure]))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert!(result.result.context_exceeded);
+    assert_eq!(result.result.cost, 0.0);
+}
+
+fn gateway_timeout() -> ResponseTemplate {
+    ResponseTemplate::new(504).set_body_raw(
+        "<html><head><title>504 Gateway Time-out</title></head></html>",
+        "text/html",
+    )
+}
+
+#[rstest]
+#[tokio::test]
+async fn reply_cut_by_a_gateway_timeout_is_asked_again_with_low_reasoning_effort_and_remembered(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(|request: &wiremock::Request| {
+            let body: Value = request.body_json().unwrap();
+            if body["reasoning_effort"] == "low" {
+                event_stream(&chunks("stop"))
+            } else {
+                gateway_timeout()
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let first = client.prepare("analysis", &request).await.unwrap();
+    assert_eq!(
+        client.complete(&first).await.unwrap().result.content,
+        "{\"ok\":true}"
+    );
+    let second = client.prepare("analysis", &request).await.unwrap();
+    client.complete(&second).await.unwrap();
+    assert_eq!(
+        shapes(&server.received_requests().await.unwrap()),
+        [
+            (json!("json_object"), json!(true), Value::Null),
+            (json!("json_object"), json!(true), json!("low")),
+            (json!("json_object"), json!(true), json!("low")),
+        ]
+    );
+}
+
+#[rstest]
+#[case::effort_is_refused(Provider::OpenAiCompatible, "/chat/completions", &[Value::Null, json!("low"), Value::Null, json!("low")])]
+#[case::anthropic(Provider::Anthropic, "/messages", &[Value::Null, Value::Null])]
+#[tokio::test]
+async fn gateway_timeout_without_a_quicker_way_to_ask_is_reported_and_changes_nothing(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] efforts: &[Value],
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(|request: &wiremock::Request| {
+            let body: Value = request.body_json().unwrap();
+            if body["reasoning_effort"].is_null() {
+                gateway_timeout()
+            } else {
+                ResponseTemplate::new(400)
+                    .set_body_json(json!({"error": {"message": "unsupported parameter"}}))
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    let first = client.prepare("analysis", &request).await.unwrap();
+    assert!(matches!(
+        client.complete(&first).await,
+        Err(Error::Provider { status: 504, .. })
+    ));
+    let second = client.prepare("analysis", &request).await.unwrap();
+    assert!(matches!(
+        client.complete(&second).await,
+        Err(Error::Provider { status: 504, .. })
+    ));
+    let asked: Vec<Value> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| request.body_json::<Value>().unwrap()["reasoning_effort"].clone())
+        .collect();
+    assert_eq!(asked, efforts);
+}
+
+fn raw_stream(events: &[Value], tail: &str) -> ResponseTemplate {
+    let body: String = events
+        .iter()
+        .map(|event| format!("data: {event}\n\n"))
+        .chain([tail.to_owned()])
+        .collect();
+    ResponseTemplate::new(200).set_body_raw(body, "text/event-stream")
+}
+
+#[rstest]
+#[case::compatible(Provider::OpenAiCompatible, "/chat/completions", chunks("stop").drain(..2).collect(), "data: {\"model\":\"reported\",\"choices\":[{\"ind")]
+#[case::anthropic(Provider::Anthropic, "/messages", anthropic_events("end_turn").drain(..7).collect(), "data: {\"type\":\"content_block_del")]
+#[tokio::test]
+async fn stream_cut_in_the_middle_of_an_event_is_retryable_like_any_other_interruption(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] endpoint: &str,
+    #[case] events: Vec<Value>,
+    #[case] tail: &str,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(raw_stream(&events, tail))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, provider));
+    assert!(matches!(
+        client
+            .complete(&client.prepare("analysis", &request).await.unwrap())
+            .await,
+        Err(Error::Provider { status: 502, .. })
+    ));
+}
+
+#[rstest]
+#[tokio::test]
+async fn finished_stream_is_kept_when_only_what_follows_the_answer_is_damaged(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    let answered: Vec<Value> = chunks("stop").drain(..4).collect();
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(raw_stream(
+            &answered,
+            "data:\n\ndata: {\"model\":\"reported\",\"choices\":[],\"usage\":{\"prompt_tok",
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(result.result.content, "{\"ok\":true}");
+    assert_eq!(result.result.finish_reason, None);
+}
+
+#[rstest]
+#[tokio::test]
+async fn damaged_event_before_the_end_of_a_stream_is_an_invalid_reply(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+) {
+    let server = MockServer::start().await;
+    let mut events = chunks("stop");
+    events.insert(1, json!("not a chunk"));
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(event_stream(&events))
+        .mount(&server)
+        .await;
+    let client = client(catalog, deployment(&server, Provider::OpenAiCompatible));
+    assert!(matches!(
+        client
+            .complete(&client.prepare("analysis", &request).await.unwrap())
+            .await,
+        Err(Error::Json(_))
+    ));
+}
+
+fn caching_catalog(served_by: &str) -> Arc<Catalog> {
+    catalog_with(
+        json!({"mode":"chat","litellm_provider":served_by,"input_cost_per_token":0.01,"output_cost_per_token":0.02,"max_output_tokens":100,"supports_prompt_caching":true}),
+    )
+}
+
+#[rstest]
+#[case::anthropic_behind_a_gateway(Provider::OpenAiCompatible, "anthropic", Some(json!({"type":"ephemeral"})))]
+#[case::another_provider_behind_a_gateway(Provider::OpenAiCompatible, "openai", None)]
+#[case::direct_openai_endpoint(Provider::OpenAi, "anthropic", None)]
+#[tokio::test]
+async fn anthropic_model_behind_a_gateway_gets_cache_markers_in_chat_format(
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] served_by: &str,
+    #[case] marker: Option<Value>,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(caching_catalog(served_by), deployment(&server, provider));
+    client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    let marked: Vec<Option<Value>> = [1, 2, 4]
+        .map(|index| {
+            body["messages"][index]["content"][0]
+                .get("cache_control")
+                .cloned()
+        })
+        .to_vec();
+    assert_eq!(marked, vec![marker; 3]);
+    assert!(body["messages"][3]["content"].is_string());
+}
+
+#[rstest]
+#[case::markers(false, Some(0), &[(true, true), (true, false), (false, true), (false, true), (false, true)])]
+#[case::schema(true, None, &[(true, true), (true, false), (true, false), (true, false)])]
+#[case::markers_and_schema(true, Some(0), &[(true, true), (true, false), (false, true), (false, false), (false, false), (false, false)])]
+#[case::markers_after_the_schema(true, Some(2), &[(true, true), (true, false), (true, false), (false, false), (false, false)])]
+#[tokio::test]
+async fn gateway_that_rejects_a_request_loses_only_what_it_rejected(
+    request: ModelRequest,
+    #[case] rejects_schema: bool,
+    #[case] rejects_markers_from: Option<usize>,
+    #[case] asked: &[(bool, bool)],
+) {
+    let server = MockServer::start().await;
+    let received = std::sync::atomic::AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(move |request: &wiremock::Request| {
+            let position = received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let body: Value = request.body_json().unwrap();
+            let markers = body["messages"][1]["content"].is_array()
+                && rejects_markers_from.is_some_and(|from| position >= from);
+            let schema = rejects_schema && body["response_format"]["type"] == "json_schema";
+            if markers || schema {
+                ResponseTemplate::new(400)
+                    .set_body_json(json!({"error": {"message": "unsupported request field"}}))
+            } else {
+                ResponseTemplate::new(200).set_body_json(completion())
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(
+        caching_catalog("anthropic"),
+        deployment(&server, Provider::OpenAiCompatible),
+    );
+    let schema = turn_schema();
+    assert_eq!(
+        [
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+        ],
+        [Ok(false); 3]
+    );
+    let sent: Vec<(bool, bool)> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| {
+            let body: Value = request.body_json().unwrap();
+            (
+                body["messages"][1]["content"].is_array(),
+                body["stream"] == true,
+            )
+        })
+        .collect();
+    assert_eq!(sent, asked);
+}
+
+#[rstest]
+#[case::gateway_reports_the_catalog_price(0.01, 0.02, 1.33)]
+#[case::gateway_reports_its_own_price(0.1, 0.2, 14.0)]
+#[tokio::test]
+async fn gateway_deployment_is_charged_cache_rates_only_when_its_price_matches_the_catalog(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] input: f64,
+    #[case] output: f64,
+    #[case] cost: f64,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(
+        catalog,
+        Deployment {
+            input_cost_per_token: Some(input),
+            output_cost_per_token: Some(output),
+            ..deployment(&server, Provider::OpenAiCompatible)
+        },
+    );
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert!(
+        (result.result.cost - cost).abs() < 1e-10,
+        "{}",
+        result.result.cost
+    );
 }

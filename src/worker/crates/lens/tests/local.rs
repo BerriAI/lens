@@ -55,7 +55,8 @@ fn trace() -> Value {
 
 #[rstest]
 #[case::complete(200, 100.0, JobStatus::Completed, 1)]
-#[case::provider_failure(400, 100.0, JobStatus::Failed, 1)]
+#[case::provider_rejects_schema_then_plain_request(400, 100.0, JobStatus::Failed, 2)]
+#[case::provider_denies_access(403, 100.0, JobStatus::Failed, 1)]
 #[case::budget_denial(200, 0.00000001, JobStatus::Failed, 0)]
 #[tokio::test]
 async fn standalone_investigation_uses_local_storage_and_settles_budget(

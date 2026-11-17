@@ -6,7 +6,7 @@ use serde::Deserialize;
 use super::GatewayConfig;
 use crate::error::GatewayError;
 
-const ANALYSIS_OUTPUT_TOKENS: u64 = 4096;
+const ANALYSIS_OUTPUT_TOKENS: u64 = 16_384;
 
 #[derive(Deserialize)]
 struct Catalog {
@@ -80,6 +80,7 @@ pub(super) async fn fetch(
                     name: model.model_group.clone(),
                     model: model.model_group,
                     provider: lens_decisions::Provider::DecisionsCompatible,
+                    max_input_tokens: model.max_input_tokens.and_then(capacity),
                     api_base: Some(connection.base.clone()),
                     api_key: Some(lens_decisions::Secret::new(connection.key.clone())),
                 };
@@ -163,7 +164,7 @@ fn capacity(value: f64) -> Option<NonZeroU64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{GatewayConfig, Model, analysis_deployment};
+    use super::{ANALYSIS_OUTPUT_TOKENS, GatewayConfig, Model, analysis_deployment};
     use rstest::rstest;
     use serde_json::json;
     use wiremock::{
@@ -202,9 +203,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::large_context(128_000, 4096)]
+    #[case::large_context(128_000, ANALYSIS_OUTPUT_TOKENS)]
     #[case::small_context(512, 512)]
-    fn analysis_limits_requested_output_without_losing_model_capacity(
+    fn analysis_starts_below_model_capacity_without_losing_it(
         #[case] capacity: u64,
         #[case] requested: u64,
     ) {

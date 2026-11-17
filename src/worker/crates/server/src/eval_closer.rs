@@ -161,10 +161,26 @@ impl<T: TraceSource, S: ScoreRun> EvalCloser<T, S> {
         now: DateTime<Utc>,
     ) -> Result<(), EvalCloserError> {
         self.store
-            .fail(&run.team, &run.run.id, lease, &error.to_string(), now)
+            .fail(&run.team, &run.run.id, lease, &reason(error), now)
             .await?;
         Ok(())
     }
+}
+
+const SCORING_CAUSES: usize = 2;
+
+fn reason(error: &EvalCloserError) -> String {
+    let causes = match error {
+        EvalCloserError::Scoring(_) => SCORING_CAUSES,
+        _ => 0,
+    };
+    std::iter::successors(Some(error as &dyn std::error::Error), |error| {
+        error.source()
+    })
+    .take(1 + causes)
+    .map(ToString::to_string)
+    .collect::<Vec<_>>()
+    .join(": ")
 }
 
 async fn resolve_trials<T: TraceSource>(
@@ -707,5 +723,52 @@ mod tests {
         );
         assert!(resolved.stored.result.output.is_none());
         assert!(resolved.stored.result.validate().is_ok());
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("{message}")]
+    struct Cause {
+        message: &'static str,
+        #[source]
+        source: Option<Box<Cause>>,
+    }
+
+    fn chain(messages: &[&'static str]) -> Box<Cause> {
+        let (message, rest) = messages.split_first().unwrap();
+        Box::new(Cause {
+            message,
+            source: (!rest.is_empty()).then(|| chain(rest)),
+        })
+    }
+
+    #[rstest]
+    #[case::judge_reply(
+        EvalCloserError::Scoring(chain(&[
+            "The judge could not score the trial",
+            "The eval judge returned an incomplete or invalid score",
+        ])),
+        "Eval scoring failed: The judge could not score the trial: The eval judge returned an incomplete or invalid score"
+    )]
+    #[case::transport_detail_stays_out(
+        EvalCloserError::Scoring(chain(&[
+            "The judge could not score the trial",
+            "Analysis provider transport failed",
+            "error sending request for url (https://gateway.internal/v1/chat/completions)",
+        ])),
+        "Eval scoring failed: The judge could not score the trial: Analysis provider transport failed"
+    )]
+    #[case::single_cause(
+        EvalCloserError::Scoring(chain(&["An eval run needs at least one case and one trial per case"])),
+        "Eval scoring failed: An eval run needs at least one case and one trial per case"
+    )]
+    #[case::trace_lookup_keeps_storage_detail_private(
+        EvalCloserError::Traces(chain(&["query failed on host clickhouse.internal"])),
+        "Eval trace lookup failed"
+    )]
+    fn failed_run_reason_names_why_scoring_failed(
+        #[case] error: EvalCloserError,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(reason(&error), expected);
     }
 }

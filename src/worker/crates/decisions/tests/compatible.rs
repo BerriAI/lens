@@ -55,6 +55,7 @@ fn client(server: &MockServer) -> EvaluationModels {
             name: "system-one".into(),
             model: "gateway/model-alias".into(),
             provider: Provider::DecisionsCompatible,
+            max_input_tokens: None,
             api_base: Some(format!("{}/gateway/v1", server.uri()).parse().unwrap()),
             api_key: Some(Secret::new("private-fixture-key")),
         }],
@@ -233,4 +234,64 @@ async fn unusable_evidence_keeps_valid_signal_scores(
         result["answers"],
         json!({"frustration":{"type":"noul","noul":0.94}})
     );
+}
+
+#[rstest]
+#[case::typesafe(json!({"detail":{"error_type":"max_tokens_exceeded","message":"private diagnostic"}}), true)]
+#[case::gateway(json!({"error":{"code":"context_length_exceeded","message":"private diagnostic"}}), true)]
+#[case::unrelated(json!({"error":{"code":"invalid_request","message":"private diagnostic"}}), false)]
+#[tokio::test]
+async fn size_errors_survive_the_gateway_transport_without_exposing_diagnostics(
+    request: DecisionRequest,
+    #[case] body: Value,
+    #[case] context: bool,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/gateway/v1/decisions"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(body))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let error = lens_signals::Decisions::complete(&client(&server), &request)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        matches!(error, lens_signals::DecisionsError::Context),
+        context
+    );
+    assert!(!error.to_string().contains("private diagnostic"));
+}
+
+#[rstest]
+#[tokio::test]
+async fn known_capacity_bounds_the_whole_unicode_request_before_sending(
+    mut request: DecisionRequest,
+) {
+    let server = MockServer::start().await;
+    let models = EvaluationModels::new(
+        Arc::new(
+            Catalog::parse(
+                br#"{"evaluation-fixture":{"mode":"evaluation","litellm_provider":"typesafe"}}"#,
+                Default::default(),
+            )
+            .unwrap(),
+        ),
+        vec![Deployment {
+            name: "system-one".into(),
+            model: "alias".into(),
+            provider: Provider::DecisionsCompatible,
+            max_input_tokens: std::num::NonZeroU64::new(2048),
+            api_base: Some(server.uri().parse().unwrap()),
+            api_key: Some(Secret::new("synthetic-key")),
+        }],
+        Default::default(),
+    )
+    .unwrap();
+    request.state.steps[0].content = "Ж🦀".repeat(1000);
+    assert!(matches!(
+        models.evaluate(&request).await,
+        Err(lens_decisions::Error::Context)
+    ));
+    assert!(server.received_requests().await.unwrap().is_empty());
 }

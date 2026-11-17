@@ -13,7 +13,9 @@ use lens_contract::{
 };
 use std::future::Future;
 
-pub use classifier::{DecisionRequest, Decisions, Question, SignalState, classify, signal_state};
+pub use classifier::{
+    DecisionLimits, DecisionRequest, Decisions, Question, SignalState, classify, signal_state,
+};
 pub use error::{DecisionsError, Error, RepositoryError, SourceError};
 pub use policy::{candidate, claimable, config_key, enabled, trace_signals};
 pub use scheduler::{

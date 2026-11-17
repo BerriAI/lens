@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use crate::Error;
 
 pub fn config_key(config: &SignalConfig) -> String {
-    let payload = serde_json::json!({"model":config.model,"signals":config.signals.iter().map(|signal| serde_json::json!({"id":signal.id,"question":signal.question})).collect::<Vec<_>>()});
+    let payload = serde_json::json!({"context_policy":1,"model":config.model,"signals":config.signals.iter().map(|signal| serde_json::json!({"id":signal.id,"question":signal.question})).collect::<Vec<_>>()});
     format!("{:x}", Sha256::digest(payload.to_string().as_bytes()))
 }
 
@@ -103,6 +103,7 @@ pub fn trace_signals(
     config: &SignalConfig,
 ) -> Result<TraceSignals, Error> {
     let mut result = TraceSignals {
+        partial: false,
         trace_id: trace.trace_id.clone(),
         trace_ref: trace.trace_ref.clone(),
         status: TraceSignalStatus::Unclassified,
@@ -116,6 +117,7 @@ pub fn trace_signals(
     let object: serde_json::Map<String, serde_json::Value> =
         serde_json::from_value(existing.data.clone())?;
     let data: SignalData = serde_json::from_value(serde_json::Value::Object(object))?;
+    result.partial = data.partial;
     result.model = data.model;
     if data.status == SignalStatus::Pending {
         result.status = TraceSignalStatus::Pending;

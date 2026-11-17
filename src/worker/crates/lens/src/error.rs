@@ -102,9 +102,10 @@ pub enum Error {
     Ingestion(#[from] lens_auth::IngestionError),
     #[error("Lens application state storage failed")]
     StateStorage(#[from] litellm_storage_clickhouse::Error),
-    #[error("{schema} response invalid after two attempts: {detail}")]
+    #[error("{schema} response invalid after {attempts} attempts: {detail}")]
     ModelValidation {
         schema: &'static str,
+        attempts: usize,
         detail: String,
     },
     #[error(
@@ -155,6 +156,10 @@ pub enum Error {
         "The compacted task exceeds the model context window. Use a larger-context model or shorter instructions."
     )]
     CompactedContext,
+    #[error(
+        "The investigation repeated the same tool request without making progress. Start a new investigation or use a different analysis model."
+    )]
+    ToolNoProgress,
     #[error("Python input exceeds 256 MiB. Select fewer executions or spans.")]
     PythonInputTooLarge,
     #[error("Unknown span IDs in Python request")]

@@ -82,7 +82,7 @@ async fn a_late_evaluation_marker_excludes_an_existing_summary(
         vec![span("owner", "first")],
     )
     .await?;
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
     let params = list_params(access(true, "", &[]));
     assert_eq!(store.summary_page(&params).await?.unwrap().data.len(), 1);
@@ -109,7 +109,7 @@ async fn a_late_evaluation_marker_excludes_an_existing_summary(
     )
     .await?;
     assert!(store.summary_page(&params).await?.unwrap().data.is_empty());
-    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 0);
     Ok(())
 }
 
@@ -121,7 +121,7 @@ async fn summary_pages_filter_agents_before_pagination(
     let fixture = migrated_database?;
     let (start_ms, end_ms) = seed_interleaved_agent_runs(&fixture).await?;
     let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
-    summaries::project(&fixture.database.client, &config, 16).await?;
+    summaries::project(&fixture.database.client, &config, 16, &mut None).await?;
     let store = ClickHouseTraces::new(
         fixture.database.client.clone(),
         config.storage().reader().clone(),
@@ -206,14 +206,14 @@ async fn oversized_summary_does_not_block_projection_of_other_traces(
     let scope = access(true, "", &[]);
     let rows = store.list_runs(&list_params(scope.clone())).await?;
 
-    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    assert_eq!(summaries::project(client, &config, 1, &mut None).await?, 1);
     assert!(store.summaries(&scope, &rows).await?.is_empty());
-    assert_eq!(summaries::project(client, &config, 1).await?, 1);
+    assert_eq!(summaries::project(client, &config, 1, &mut None).await?, 1);
     let saved = store.summaries(&scope, &rows).await?;
     assert_eq!(saved.len(), 1);
     assert_eq!(saved[0].trace_id, "smaller-trace");
     assert_eq!(saved[0].span_count, 1);
-    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 0);
     Ok(())
 }
 
@@ -257,7 +257,10 @@ async fn deferred_projections_retry_only_after_the_cooldown(
         .await?
         .error_for_status()?;
 
-    assert_eq!(summaries::project(client, &config, 16).await?, expected);
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut None).await?,
+        expected
+    );
     assert_eq!(store.summaries(&scope, &rows).await?.len(), expected);
     Ok(())
 }
@@ -305,7 +308,7 @@ async fn summaries_preserve_user_visibility_within_a_shared_trace(
         .await?;
     assert_eq!(before.data.len(), 1);
 
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let rows = store.list_runs(&list_params(scope.clone())).await?;
     assert_eq!(store.summaries(&scope, &rows).await?, before.data);
     assert_eq!(
@@ -345,7 +348,7 @@ async fn cost_corrections_invalidate_previous_aliases_and_owners(
         vec![cost("owner")],
     )
     .await?;
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let rows = store.list_runs(&list_params(scope.clone())).await?;
     assert_eq!(store.summaries(&scope, &rows).await?[0].spend, Some(0.25));
     let corrected = cost("owner")
@@ -370,7 +373,7 @@ async fn cost_corrections_invalidate_previous_aliases_and_owners(
             .await?
             .is_none()
     );
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let updated = store.summaries(&scope, &rows).await?;
     assert_eq!(updated.len(), 1);
     assert_eq!(updated[0].spend, None);
@@ -396,10 +399,10 @@ async fn late_spans_and_costs_refresh_persisted_totals(
         vec![span("owner", "first")],
     )
     .await?;
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let rows = store.list_runs(&list_params(scope.clone())).await?;
     assert_eq!(store.summaries(&scope, &rows).await?[0].spend, None);
-    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 0);
 
     insert_rows(
         client,
@@ -410,7 +413,7 @@ async fn late_spans_and_costs_refresh_persisted_totals(
     )
     .await?;
     assert!(store.summaries(&scope, &rows).await?.is_empty());
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let priced = store.summaries(&scope, &rows).await?;
     assert_eq!(priced[0].spend, Some(0.25));
     assert_eq!(priced[0].priced_calls, 1);
@@ -425,12 +428,12 @@ async fn late_spans_and_costs_refresh_persisted_totals(
     .await?;
     let rows = store.list_runs(&list_params(scope.clone())).await?;
     assert!(store.summaries(&scope, &rows).await?.is_empty());
-    assert_eq!(summaries::project(client, &config, 16).await?, 1);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
     let updated = store.summaries(&scope, &rows).await?;
     assert_eq!(updated[0].span_count, 2);
     assert_eq!(updated[0].spend, Some(0.25));
     assert_eq!(updated[0].llm_calls, 2);
-    assert_eq!(summaries::project(client, &config, 16).await?, 0);
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 0);
     Ok(())
 }
 
@@ -478,7 +481,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         None
     };
 
-    assert!(summaries::project(&fixture.database.client, &config, 16).await? > 0);
+    assert!(summaries::project(&fixture.database.client, &config, 16, &mut None).await? > 0);
 
     let rows = store
         .list_runs(&ListTracesParams {
@@ -502,7 +505,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         before.data
     );
     assert_eq!(
-        summaries::project(&fixture.database.client, &config, 16).await?,
+        summaries::project(&fixture.database.client, &config, 16, &mut None).await?,
         0
     );
 
@@ -524,5 +527,109 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
             .await?;
         assert_eq!(Some(after_next), before_next);
     }
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn projection_advances_past_fresh_pages_and_revisits_late_updates(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    litellm_storage_clickhouse::execute_statement(client, config.storage().writer(),
+        "INSERT INTO trace_test.agent_traces_by_key (TeamId, ApiKeyHash, TraceId, StartTs, EndTs, SpanCount)
+         SELECT 'team', 'key', leftPad(toString(number), 4, '0'), now64(9), now64(9), 1 FROM numbers(256)",
+        std::time::Duration::from_secs(10)).await?;
+    litellm_storage_clickhouse::execute_statement(client, config.storage().writer(),
+        "INSERT INTO trace_test.lens_trace_summaries (TeamId, ApiKeyHash, TraceId, TraceRef, ScopeUserId, SourceSpanCount, StartTs, ComputedAt, ResolutionVersion, SpendKeys, Summary)
+         SELECT TeamId, ApiKeyHash, TraceId, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))), '', 1, now64(3), 1, 1, [], '{}' FROM trace_test.agent_traces_by_key",
+        std::time::Duration::from_secs(10)).await?;
+    let last = span("owner", "last")
+        .into_iter()
+        .chain([("TraceId".into(), json!("zz-last"))])
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![last],
+    )
+    .await?;
+    let mut cursor = None;
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        0
+    );
+    assert!(cursor.is_some());
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        1
+    );
+    assert!(cursor.is_none());
+    let updated = span("owner", "new")
+        .into_iter()
+        .chain([("TraceId".into(), json!("0000"))])
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![updated],
+    )
+    .await?;
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        1
+    );
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        0
+    );
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn projection_keeps_unprocessed_candidates_when_a_page_exceeds_the_write_batch(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let spans = (0..17)
+        .map(|index| {
+            span("owner", &format!("span-{index}"))
+                .into_iter()
+                .chain([("TraceId".into(), json!(format!("trace-{index:02}")))])
+                .collect()
+        })
+        .collect();
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        spans,
+    )
+    .await?;
+    let mut cursor = None;
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        16
+    );
+    assert!(cursor.is_some());
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        1
+    );
+    assert!(cursor.is_none());
+    assert_eq!(
+        summaries::project(client, &config, 16, &mut cursor).await?,
+        0
+    );
     Ok(())
 }

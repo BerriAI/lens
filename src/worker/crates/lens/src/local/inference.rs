@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 
 use chrono::Utc;
+use lens_analysis::{PrepareOptions, ResponseSchema};
 use lens_contract::{
     investigations::BudgetReservation,
-    worker::{ModelRequest, ModelResult},
+    worker::{ModelRequest, ModelResult, ModelResultFinishReason},
 };
 use lens_inference::{
     BUDGET_LEASE, BUDGET_RENEW_INTERVAL, BUDGET_WAIT_TIMEOUT, model_step, renew_reservation,
@@ -100,16 +101,44 @@ impl<S: Settlement> Drop for Reservation<S> {
 }
 
 impl LocalJob {
-    pub(super) async fn analyze(&self, body: &ModelRequest) -> Result<ModelResult, Error> {
+    pub(super) async fn analyze(
+        &self,
+        body: &ModelRequest,
+        schema: Option<ResponseSchema<'_>>,
+    ) -> Result<ModelResult, Error> {
+        let (mut result, mut larger) = self.complete(body, schema, None).await?;
+        while let Some(minimum) = larger {
+            match self.complete(body, schema, Some(minimum)).await {
+                Ok(next) => (result, larger) = next,
+                Err(Error::Control { .. } | Error::Request(_)) => break,
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(result)
+    }
+
+    async fn complete(
+        &self,
+        body: &ModelRequest,
+        schema: Option<ResponseSchema<'_>>,
+        minimum_output_tokens: Option<NonZeroU64>,
+    ) -> Result<(ModelResult, Option<NonZeroU64>), Error> {
         let (_, job) = self.assigned().await?;
         let job = Arc::new(job);
         let models = self.control.models.get();
         let prepared = models
-            .prepare(job.settings.model.as_str(), body)
+            .prepare_with(
+                job.settings.model.as_str(),
+                body,
+                PrepareOptions {
+                    response_schema: schema,
+                    minimum_output_tokens,
+                },
+            )
             .await
             .map_err(provider_error)?;
         if prepared.context_exceeded {
-            return Ok(context_exceeded());
+            return Ok((context_exceeded(), None));
         }
         let id = uuid::Uuid::new_v4().to_string();
         let mut reservation = Reservation {
@@ -192,7 +221,7 @@ impl LocalJob {
         };
         if completion.result.context_exceeded {
             reservation.release().await;
-            return Ok(completion.result);
+            return Ok((completion.result, None));
         }
         reservation.cost = completion.result.cost;
         let step = model_step(
@@ -204,7 +233,10 @@ impl LocalJob {
         )?;
         reservation.step = Some(step.clone());
         reservation.settle().await?;
-        Ok(completion.result)
+        let larger = (completion.result.finish_reason == Some(ModelResultFinishReason::Length))
+            .then(|| prepared.larger_output())
+            .flatten();
+        Ok((completion.result, larger))
     }
 }
 
@@ -520,7 +552,7 @@ mod tests {
             json!({"task":"Review the run"}),
         )
         .unwrap();
-        let error = stored_job.job.analyze(&request).await.unwrap_err();
+        let error = stored_job.job.analyze(&request, None).await.unwrap_err();
         assert!(
             matches!(error, Error::Control { status: 402, .. }),
             "{error}"
@@ -536,6 +568,128 @@ mod tests {
         let persisted = stored_job.job.lens().await.unwrap();
         assert!(persisted.reservations.is_empty());
         assert_eq!(persisted.spent, 0.0);
+    }
+
+    fn review_request() -> ModelRequest {
+        crate::model::request(
+            crate::wire::ModelRequestPurpose::Extract,
+            json!({"task":"Review the run"}),
+        )
+        .unwrap()
+    }
+
+    async fn serve_replies(stored_job: &StoredJob, replies: Vec<(&'static str, &'static str)>) {
+        let served = AtomicUsize::new(0);
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/v1/chat/completions"))
+            .respond_with(move |_: &wiremock::Request| {
+                let (finish_reason, content) = replies[served.fetch_add(1, Ordering::SeqCst)];
+                wiremock::ResponseTemplate::new(200).set_body_json(json!({
+                    "model": "gpt-4o-mini",
+                    "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                }))
+            })
+            .mount(&stored_job.provider)
+            .await;
+    }
+
+    async fn requested_allowances(stored_job: &StoredJob) -> Vec<serde_json::Value> {
+        stored_job
+            .provider
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .map(|request| request.body_json::<serde_json::Value>().unwrap()["max_tokens"].clone())
+            .collect()
+    }
+
+    #[rstest]
+    #[case::completes_with_more_room(vec![("length", "{\"result\":"), ("stop", "{\"ok\":true}")], None, "{\"ok\":true}")]
+    #[case::still_cut_off_at_capacity(vec![("length", "{\"a\":"), ("length", "{\"a\":1,\"b\":")], Some(ModelResultFinishReason::Length), "{\"a\":1,\"b\":")]
+    #[tokio::test]
+    async fn truncated_response_is_retried_once_per_larger_allowance_and_every_call_is_billed(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] replies: Vec<(&'static str, &'static str)>,
+        #[case] finish_reason: Option<ModelResultFinishReason>,
+        #[case] content: &str,
+    ) {
+        serve_replies(&stored_job, replies).await;
+        let result = stored_job
+            .job
+            .analyze(&review_request(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.content, content);
+        assert_eq!(result.finish_reason, finish_reason);
+        assert_eq!(requested_allowances(&stored_job).await, [1024, 4096]);
+        let lens = stored_job.job.lens().await.unwrap();
+        assert!(lens.reservations.is_empty());
+        assert_eq!(lens.jobs[0].steps.len(), 2);
+        assert!((lens.spent - 2.0 * (10.0 * 0.000001 + 5.0 * 0.000002)).abs() < 1e-12);
+    }
+
+    #[rstest]
+    #[case::provider_error(500)]
+    #[case::gateway_timeout(504)]
+    #[tokio::test]
+    async fn larger_allowance_the_provider_fails_returns_the_truncated_response(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] failure: u16,
+    ) {
+        let served = AtomicUsize::new(0);
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/v1/chat/completions"))
+            .respond_with(move |_: &wiremock::Request| {
+                if served.fetch_add(1, Ordering::SeqCst) > 0 {
+                    return wiremock::ResponseTemplate::new(failure);
+                }
+                wiremock::ResponseTemplate::new(200).set_body_json(json!({
+                    "model": "gpt-4o-mini",
+                    "choices": [{"message": {"content": "{\"result\":"}, "finish_reason": "length"}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                }))
+            })
+            .mount(&stored_job.provider)
+            .await;
+        let result = stored_job
+            .job
+            .analyze(&review_request(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.content, "{\"result\":");
+        assert_eq!(result.finish_reason, Some(ModelResultFinishReason::Length));
+        assert_eq!(requested_allowances(&stored_job).await[..2], [1024, 4096]);
+        let lens = stored_job.job.lens().await.unwrap();
+        assert!(lens.reservations.is_empty());
+        assert_eq!(lens.jobs[0].steps.len(), 1);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn larger_allowance_the_budget_cannot_cover_returns_the_truncated_response(
+        #[future(awt)] stored_job: StoredJob,
+    ) {
+        let lens = stored_job.job.lens().await.unwrap();
+        let mut limited = lens.clone();
+        limited.settings.monthly_budget = 0.005;
+        stored_job
+            .job
+            .control
+            .repository
+            .replace(&lens, &limited)
+            .await
+            .unwrap();
+        serve_replies(&stored_job, vec![("length", "{\"result\":")]).await;
+        let result = stored_job
+            .job
+            .analyze(&review_request(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.finish_reason, Some(ModelResultFinishReason::Length));
+        assert_eq!(requested_allowances(&stored_job).await, [1024]);
+        assert!(stored_job.job.lens().await.unwrap().reservations.is_empty());
     }
 
     #[rstest]
@@ -562,7 +716,7 @@ mod tests {
                 json!({"task":"Review the run"}),
             )
             .unwrap();
-            job.analyze(&request).await
+            job.analyze(&request, None).await
         });
         tokio::time::timeout(std::time::Duration::from_secs(10), entered.notified())
             .await

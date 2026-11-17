@@ -1,13 +1,13 @@
 use crate::{
     Error,
     activity::Tracker,
-    evidence::Workspace,
+    evidence::{Citation, Workspace, character_range},
     journal::{Journal, Turn as JournalTurn},
     model, sandbox, wire,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)]
@@ -40,98 +40,213 @@ pub fn checks(claim: &wire::Claim) -> Result<Vec<wire::Check>, Error> {
     Ok(checks)
 }
 
-pub trait Output: DeserializeOwned + Send + Sync {
-    const SCHEMA: &'static str;
-    fn validate(
-        &self,
-        claim: &wire::Claim,
-        workspace: &Workspace,
-    ) -> impl std::future::Future<Output = Result<Option<String>, Error>> + Send;
+const REPAIR_ROUNDS: usize = 2;
+
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+enum Target {
+    Unread,
+    Item(usize),
+    Quote(usize, usize),
 }
 
-async fn evidence(
-    claim: &wire::Claim,
-    workspace: &Workspace,
-    check_id: &str,
-    quotes: &[wire::Evidence],
-) -> Result<Option<String>, Error> {
-    if !checks(claim)?.iter().any(|c| *c.id == check_id) {
-        return Ok(Some("Use an enabled check ID".into()));
-    }
-    if !quotes.iter().any(|q| q.role == wire::EvidenceRole::Support) {
-        return Ok(Some("Each finding or observation needs at least one supporting quote from original evidence".into()));
-    }
-    for quote in quotes {
-        match workspace.valid(quote).await {
-            Ok(true) => {},
-            Ok(false) => return Ok(Some("Every evidence quote must exactly match the cited execution and span in the original recording".into())),
-            Err(error) => return Ok(Some(format!("Could not verify a citation: {error}. Inspect other evidence and revise the citation."))),
+pub struct Rejection {
+    target: Target,
+    problem: String,
+    cited: Option<(usize, wire::Evidence)>,
+    closest: Option<String>,
+}
+
+impl Rejection {
+    fn item(index: usize, problem: &str) -> Self {
+        Self {
+            target: Target::Item(index),
+            problem: problem.into(),
+            cited: None,
+            closest: None,
         }
     }
-    Ok(None)
+
+    fn report(&self, items: &str) -> Value {
+        let (path, cited) = match (self.target, &self.cited) {
+            (Target::Unread, _) => ("result".into(), Value::Null),
+            (Target::Item(item) | Target::Quote(item, _), Some((position, cited))) => (
+                format!("result.{items}[{item}].evidence[{position}]"),
+                json!({"execution_id": cited.execution_id, "span_id": cited.span_id, "quote": character_range(&cited.quote, 0, Some(400))}),
+            ),
+            (Target::Item(item) | Target::Quote(item, _), None) => {
+                (format!("result.{items}[{item}]"), Value::Null)
+            }
+        };
+        json!({"path": path, "problem": self.problem, "rejected_citation": cited, "recorded_text_near_quote": self.closest})
+    }
+}
+
+pub trait Output: DeserializeOwned + Send + Sync {
+    const SCHEMA: &'static str;
+    const ITEMS: &'static str;
+    fn verify(
+        &mut self,
+        claim: &wire::Claim,
+        workspace: &Workspace,
+    ) -> impl std::future::Future<Output = Result<Vec<Rejection>, Error>> + Send;
+    fn discard(&mut self, rejections: &[Rejection]) -> bool;
+    fn unsupported_without_reading(&self) -> bool {
+        false
+    }
+}
+
+async fn citations(
+    workspace: &Workspace,
+    enabled: &BTreeSet<String>,
+    index: usize,
+    check_id: &str,
+    quotes: &mut Vec<wire::Evidence>,
+) -> Result<Vec<Rejection>, Error> {
+    if !enabled.contains(check_id) {
+        return Ok(vec![Rejection::item(index, "Use an enabled check ID")]);
+    }
+    let mut rejections = Vec::new();
+    let mut resolved = Vec::with_capacity(quotes.len());
+    for (position, quote) in quotes.drain(..).enumerate() {
+        let rejected = match workspace.cite(&quote).await {
+            Ok(Citation::Verified(verified)) => {
+                resolved.extend(verified);
+                continue;
+            }
+            Ok(Citation::Rejected { problem, closest }) => (problem.to_owned(), closest),
+            Err(error) => (
+                format!(
+                    "Could not verify this citation: {error}. Inspect other evidence and revise the citation."
+                ),
+                None,
+            ),
+        };
+        rejections.push(Rejection {
+            target: Target::Quote(index, resolved.len()),
+            cited: Some((position, quote.clone())),
+            problem: rejected.0,
+            closest: rejected.1,
+        });
+        resolved.push(quote);
+    }
+    *quotes = resolved;
+    if rejections.is_empty() && !quotes.iter().any(|q| q.role == wire::EvidenceRole::Support) {
+        rejections.push(Rejection::item(index, "Each finding or observation needs at least one supporting quote from original evidence"));
+    }
+    Ok(rejections)
+}
+
+fn discard<T>(
+    items: &mut Vec<T>,
+    rejections: &[Rejection],
+    evidence: impl Fn(&mut T) -> &mut Vec<wire::Evidence>,
+) -> bool {
+    let rejected: BTreeSet<_> = rejections
+        .iter()
+        .map(|rejection| rejection.target)
+        .collect();
+    let mut index = 0;
+    items.retain_mut(|item| {
+        let current = index;
+        index += 1;
+        let mut position = 0;
+        evidence(item).retain(|_| {
+            position += 1;
+            !rejected.contains(&Target::Quote(current, position - 1))
+        });
+        !rejected.contains(&Target::Item(current))
+            && evidence(item)
+                .iter()
+                .any(|quote| quote.role == wire::EvidenceRole::Support)
+    });
+    !items.is_empty()
+}
+
+fn enabled(claim: &wire::Claim) -> Result<BTreeSet<String>, Error> {
+    Ok(checks(claim)?
+        .into_iter()
+        .map(|check| check.id.to_string())
+        .collect())
 }
 
 impl Output for wire::Extraction {
     const SCHEMA: &'static str = "PythonAgentTurn[Extraction]";
-    async fn validate(
-        &self,
+    const ITEMS: &'static str = "observations";
+    async fn verify(
+        &mut self,
         claim: &wire::Claim,
         workspace: &Workspace,
-    ) -> Result<Option<String>, Error> {
-        for observation in &self.observations {
-            if let Some(error) = evidence(
-                claim,
-                workspace,
-                &observation.check_id,
-                &observation.evidence,
-            )
-            .await?
-            {
-                return Ok(Some(error));
-            }
+    ) -> Result<Vec<Rejection>, Error> {
+        let enabled = enabled(claim)?;
+        let mut rejections = Vec::new();
+        for (index, observation) in self.observations.iter_mut().enumerate() {
+            rejections.extend(
+                citations(
+                    workspace,
+                    &enabled,
+                    index,
+                    &observation.check_id,
+                    &mut observation.evidence,
+                )
+                .await?,
+            );
         }
-        Ok(None)
+        Ok(rejections)
+    }
+
+    fn discard(&mut self, rejections: &[Rejection]) -> bool {
+        discard(&mut self.observations, rejections, |observation| {
+            &mut observation.evidence
+        })
+    }
+
+    fn unsupported_without_reading(&self) -> bool {
+        self.cannot_assess
     }
 }
 
 impl Output for wire::Findings {
     const SCHEMA: &'static str = "PythonAgentTurn[Findings]";
-    async fn validate(
-        &self,
+    const ITEMS: &'static str = "findings";
+    async fn verify(
+        &mut self,
         claim: &wire::Claim,
         workspace: &Workspace,
-    ) -> Result<Option<String>, Error> {
-        let enabled: BTreeSet<_> = checks(claim)?
-            .into_iter()
-            .map(|c| c.id.to_string())
-            .collect();
-        for finding in &self.findings {
-            if finding.check_ids.iter().any(|id| !enabled.contains(id)) {
-                return Ok(Some("check_ids must contain only enabled check IDs".into()));
-            }
-            if let Some(error) =
-                evidence(claim, workspace, &finding.check_id, &finding.evidence).await?
-            {
-                return Ok(Some(error));
-            }
-            if finding.kind == wire::FindingDraftKind::Issue && finding.brief.is_none() {
-                return Ok(Some("Issues require a brief containing the problem, user goal, observed outcome, and test cases".into()));
-            }
+    ) -> Result<Vec<Rejection>, Error> {
+        let enabled = enabled(claim)?;
+        let mut rejections = Vec::new();
+        for (index, finding) in self.findings.iter_mut().enumerate() {
+            finding.check_ids.retain(|id| enabled.contains(id));
+            finding.merged_finding_ids.clear();
             if finding.existing_finding_id.as_ref().is_some_and(|id| {
                 !claim
                     .findings
                     .iter()
                     .any(|f| &f.id == id && f.kind.to_string() == finding.kind.to_string())
             }) {
-                return Ok(Some(
-                    "Use an existing finding ID of the same kind and cause".into(),
-                ));
+                finding.existing_finding_id = None;
             }
-            if !finding.merged_finding_ids.is_empty() {
-                return Ok(Some("Leave merged_finding_ids empty. Finding consolidation handles merging saved findings.".into()));
+            rejections.extend(
+                citations(
+                    workspace,
+                    &enabled,
+                    index,
+                    &finding.check_id,
+                    &mut finding.evidence,
+                )
+                .await?,
+            );
+            if finding.kind == wire::FindingDraftKind::Issue && finding.brief.is_none() {
+                rejections.push(Rejection::item(index, "Issues require a brief containing the problem, user goal, observed outcome, and test cases"));
             }
         }
-        Ok(None)
+        Ok(rejections)
+    }
+
+    fn discard(&mut self, rejections: &[Rejection]) -> bool {
+        discard(&mut self.findings, rejections, |finding| {
+            &mut finding.evidence
+        })
     }
 }
 
@@ -173,6 +288,7 @@ pub async fn run<T: Output>(
         "python_instructions": include_str!("../prompts/python_instructions.md"),
         "context": claim.job.settings.context, "checks": checks(claim)?,
         "catalog_fields": ["span_id", "parent_span_id", "name", "kind", "characters", "start_time", "end_time"],
+        "execution_ids": workspace.executions.iter().map(|execution| &execution.id).collect::<Vec<_>>(),
         "available_sessions": workspace.executions.len(), "available_review_records": workspace.reviews.len(),
         "response_schema": model::schema(T::SCHEMA)?,
     });
@@ -181,6 +297,9 @@ pub async fn run<T: Output>(
     request.messages = vec![task_message.clone(), model::message(wire::ModelMessageRole::User, json!({"initial_evidence": [], "supplied": assignment.supplied, "existing_findings": existing}).to_string())];
     let mut compacted = false;
     let mut rejected = 0;
+    let mut inspected = false;
+    let mut history_characters = 16 * 1024;
+    let mut repeated_tools = BTreeMap::<String, u8>::new();
     loop {
         tracker.change("model", true).await?;
         let result = model::structured::<Turn<T>>(&workspace.client, request.clone(), T::SCHEMA, |turn| {
@@ -193,6 +312,7 @@ pub async fn run<T: Output>(
         tracker.change("model", false).await?;
         let (turn, responded) = match result {
             Err(Error::Context(previous)) if !compacted => {
+                history_characters = (history_characters / 2).max(1);
                 tracker.change("checkpoint", true).await?;
                 request.messages =
                     model::compact(&workspace.client, *previous, journal.turns.len() + 1).await?;
@@ -213,11 +333,30 @@ pub async fn run<T: Output>(
             result => result?,
         };
         compacted = false;
-        if let Some(result) = turn.result {
-            let Some(invalid) = result.validate(claim, workspace).await? else {
-                return Ok(result);
+        if let Some(mut result) = turn.result {
+            let rejections = if !inspected && result.unsupported_without_reading() {
+                vec![Rejection {
+                    target: Target::Unread,
+                    problem: "You have not read the recorded spans. Use catalog and read on the assigned execution before deciding that it cannot be assessed.".into(),
+                    cited: None,
+                    closest: None,
+                }]
+            } else {
+                result.verify(claim, workspace).await?
             };
+            if rejections.is_empty() {
+                return Ok(result);
+            }
             rejected += 1;
+            let reports: Vec<Value> = rejections
+                .iter()
+                .map(|rejection| rejection.report(T::ITEMS))
+                .collect();
+            let invalid = format!(
+                "{} of the cited results could not be verified. First problem: {}",
+                rejections.len(),
+                rejections[0].problem
+            );
             journal
                 .push(&JournalTurn {
                     response: responded
@@ -229,9 +368,18 @@ pub async fn run<T: Output>(
                     validation_error: invalid.clone(),
                 })
                 .await?;
-            if rejected > 3 {
+            if rejected > REPAIR_ROUNDS {
+                if rejections[0].target != Target::Unread && result.discard(&rejections) {
+                    tracing::warn!(
+                        schema = T::SCHEMA,
+                        discarded = rejections.len(),
+                        "Lens kept the verified results and discarded the rest"
+                    );
+                    return Ok(result);
+                }
                 return Err(Error::ModelValidation {
                     schema: T::SCHEMA,
+                    attempts: rejected,
                     detail: invalid,
                 });
             }
@@ -240,12 +388,33 @@ pub async fn run<T: Output>(
                 wire::ModelMessageRole::User,
                 json!({"journal_turns": journal.turns.len()}).to_string(),
             ));
-            request.messages.push(model::message(wire::ModelMessageRole::System, json!({"instruction": "Correct the validation errors using original evidence. Tools remain available. Verify exact quotes and remove claims the evidence cannot support. Continue using the task response_schema.", "validation_errors": invalid}).to_string()));
+            request.messages.push(model::message(wire::ModelMessageRole::System, json!({"instruction": "Some parts of your result were rejected. Return the complete result again with each rejected part corrected or removed. For a rejected citation, copy the supporting text character for character from recorded_text_near_quote or from a tool result, keep execution_id and span_id of the span that contains it, and remove the claim if the recording does not support it. Tools remain available. Continue using the task response_schema.", "rejected": reports}).to_string()));
             continue;
         }
         let mut results = Vec::new();
         let mut archived = Vec::new();
         for tool in turn.tools {
+            inspected |= match &tool {
+                Tool::Evidence(request) => matches!(
+                    request.action,
+                    wire::EvidenceRequestAction::Read | wire::EvidenceRequestAction::Search
+                ),
+                Tool::Python(_) => true,
+            };
+            let arguments = serde_json::to_string(&tool)?;
+            let repeat_key = match &tool {
+                Tool::Evidence(request)
+                    if request.action == wire::EvidenceRequestAction::History =>
+                {
+                    format!("{history_characters}:{arguments}")
+                }
+                _ => arguments,
+            };
+            let repeated = repeated_tools.entry(repeat_key).or_default();
+            *repeated += 1;
+            if *repeated > 3 {
+                return Err(Error::ToolNoProgress);
+            }
             let operation = match &tool {
                 Tool::Evidence(r) => r.action.to_string(),
                 Tool::Python(_) => "python".into(),
@@ -255,7 +424,7 @@ pub async fn run<T: Output>(
                 Tool::Evidence(request)
                     if request.action == wire::EvidenceRequestAction::History =>
                 {
-                    journal.reply(request).await
+                    journal.page(request, history_characters).await
                 }
                 Tool::Evidence(request) => workspace.respond(request).await,
                 Tool::Python(request) => sandbox::execute(workspace, request)
@@ -264,12 +433,17 @@ pub async fn run<T: Output>(
             };
             tracker.change(&operation, false).await?;
             let result = match result {
-                Ok(value) => value.to_string(),
-                Err(error) => json!({"request": tool, "error": error.to_string()}).to_string(),
+                Ok(value) => value,
+                Err(error) => json!({"request": tool, "error": error.to_string()}),
             };
             archived.push(match &tool {
-                Tool::Evidence(r) => journal.reference(r).unwrap_or_else(|| result.clone()),
-                _ => result.clone(),
+                Tool::Evidence(r) if r.action == wire::EvidenceRequestAction::History => result
+                    .get("request")
+                    .and_then(|value| serde_json::from_value(value.clone()).ok())
+                    .as_ref()
+                    .and_then(|request| journal.reference(request))
+                    .unwrap_or_else(|| result.to_string()),
+                _ => result.to_string(),
             });
             results.push(result);
         }

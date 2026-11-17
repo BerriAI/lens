@@ -18,6 +18,8 @@ pub struct SourceError(#[source] pub Box<dyn std::error::Error + Send + Sync>);
 
 #[derive(Debug, thiserror::Error)]
 pub enum DecisionsError {
+    #[error("Evaluation request exceeds the model input context")]
+    Context,
     #[error("Lens signal provider returned HTTP {status}")]
     Provider {
         status: u16,
@@ -27,6 +29,8 @@ pub enum DecisionsError {
     Timeout,
     #[error("Lens signal provider response exceeds the configured limit")]
     ResponseLimit,
+    #[error("Lens signal model returned an unusable answer")]
+    Answer,
     #[error("Lens signal model request failed")]
     Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

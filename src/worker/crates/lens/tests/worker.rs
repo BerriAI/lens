@@ -65,6 +65,7 @@ impl litellm_lens::control::JobBackend for RetryingModel {
     fn model<'a>(
         &'a self,
         _: &'a wire::ModelRequest,
+        _: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
         Box::pin(async move {
             let mut calls = self.calls.lock().unwrap();
@@ -499,6 +500,120 @@ async fn model_contract_rejects_malformed_findings_and_repairs(#[case] change: V
 }
 
 #[rstest]
+#[case::malformed("{", None)]
+#[case::schema_invalid("{}", None)]
+#[case::unfinished(r#"{"working_notes":"unfinished"}"#, Some("length"))]
+#[tokio::test]
+async fn structured_retry_requests_a_complete_answer_after_provider_normalization(
+    #[case] rejected: &'static str,
+    #[case] finish_reason: Option<&'static str>,
+    #[values(
+        lens_analysis::Provider::Anthropic,
+        lens_analysis::Provider::OpenAiCompatible
+    )]
+    provider: lens_analysis::Provider,
+    #[values(false, true)] conversation: bool,
+) {
+    let server = MockServer::start().await;
+    let count = AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(move |_: &Request| {
+            let first = count.fetch_add(1, Ordering::SeqCst) == 0;
+            ResponseTemplate::new(200).set_body_json(json!({
+                "content": if first { rejected } else { r#"{"working_notes":"repaired"}"# },
+                "cost": 0,
+                "finish_reason": if first { finish_reason } else { None },
+            }))
+        })
+        .expect(2)
+        .mount(&server)
+        .await;
+    let mut request = model::request(
+        wire::ModelRequestPurpose::Extract,
+        json!({"task":"Inspect evidence"}),
+    )
+    .unwrap();
+    if conversation {
+        request.messages = vec![
+            model::message(wire::ModelMessageRole::System, "Inspect evidence"),
+            model::message(wire::ModelMessageRole::User, "Recorded evidence"),
+        ];
+    }
+    let (result, _) =
+        model::structured::<wire::Checkpoint>(&client(&server), request, "Checkpoint", |_| None)
+            .await
+            .unwrap();
+    assert_eq!(result.working_notes.to_string(), "repaired");
+    let requests = server.received_requests().await.unwrap();
+    let retry: wire::ModelRequest = requests[1].body_json().unwrap();
+    let endpoint = if provider == lens_analysis::Provider::Anthropic {
+        "/messages"
+    } else {
+        "/chat/completions"
+    };
+    Mock::given(method("POST"))
+        .and(path(endpoint))
+        .respond_with(move |request: &Request| {
+            let body: Value = request.body_json().unwrap();
+            if provider == lens_analysis::Provider::Anthropic
+                && body["messages"].as_array().unwrap().last().unwrap()["role"] != "user" {
+                return ResponseTemplate::new(400);
+            }
+            let content = r#"{"working_notes":"replacement, not a continuation"}"#;
+            let response = if provider == lens_analysis::Provider::Anthropic {
+                json!({"model":"fixture","content":[{"type":"text","text":content}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":10}})
+            } else {
+                json!({"model":"fixture","choices":[{"message":{"content":content},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":10}})
+            };
+            ResponseTemplate::new(200).set_body_json(response)
+        })
+        .expect(1)
+        .mount(&server)
+        .await;
+    let catalog = Arc::new(lens_analysis::Catalog::parse(
+        br#"{"fixture":{"mode":"chat","litellm_provider":"openai","input_cost_per_token":0.0,"output_cost_per_token":0.0,"max_input_tokens":100000,"max_output_tokens":10000}}"#,
+        Default::default(),
+    ).unwrap());
+    let models = lens_analysis::AnalysisModels::new(
+        catalog,
+        vec![lens_analysis::Deployment {
+            name: "fixture".into(),
+            model: "fixture".into(),
+            provider,
+            api_base: Some(server.uri().parse().unwrap()),
+            api_key: lens_analysis::Secret::new("fixture-key"),
+            input_cost_per_token: None,
+            output_cost_per_token: None,
+            capacity: Default::default(),
+            output_limits: Default::default(),
+        }],
+        Default::default(),
+    )
+    .unwrap();
+    let response = models
+        .complete(&models.prepare("fixture", &retry).await.unwrap())
+        .await
+        .unwrap();
+    let replacement: wire::Checkpoint = serde_json::from_str(&response.result.content).unwrap();
+    assert_eq!(
+        replacement.working_notes.to_string(),
+        "replacement, not a continuation"
+    );
+    assert_eq!(retry.messages[retry.messages.len() - 2].content, rejected);
+    let correction: Value = serde_json::from_str(&retry.messages.last().unwrap().content).unwrap();
+    assert!(
+        correction["validation_errors"]
+            .as_str()
+            .is_some_and(|detail| !detail.is_empty())
+    );
+    assert_eq!(
+        correction["response_schema"],
+        model::schema("Checkpoint").unwrap()
+    );
+}
+
+#[rstest]
 #[tokio::test]
 async fn proxy_prefix_is_preserved_for_every_control_request() {
     let server = MockServer::start().await;
@@ -612,8 +727,7 @@ async fn checkpoint_history_preserves_only_the_supplied_finding_summary() {
                 1 => json!({"tools": [{"action": "history", "include_initial": true,
                     "turn_start": 0, "turn_end": 0}]}),
                 2 => {
-                    let history: Value =
-                        serde_json::from_str(message["tool_results"][0].as_str().unwrap()).unwrap();
+                    let history = &message["tool_results"][0];
                     let recovered = &history["initial_context"]["existing_findings"][0];
                     assert_eq!(recovered["id"], "saved-finding");
                     assert_eq!(recovered["title"], "Refund success was falsely reported");
@@ -703,12 +817,12 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
                 0 => json!({"tools":[{"action":"catalog","execution_id":"run-test"},{"action":"catalog","execution_id":"run-test"}],"checkpoint":"Inspect the archived second reply"}),
                 1 => {
                     let reply: Value = serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
-                    assert!(reply["tool_results"][1].as_str().unwrap().contains("ARCHIVED_SECOND_REPLY"), "{}", reply["tool_results"][1].as_str().unwrap().chars().take(600).collect::<String>());
+                    assert!(reply["tool_results"][1].to_string().contains("ARCHIVED_SECOND_REPLY"), "{}", reply["tool_results"][1].to_string().chars().take(600).collect::<String>());
                     json!({"tools":[{"action":"history","turn_start":0,"turn_end":1,"char_start":filler_size,"char_end":filler_size+6000}]})
                 },
                 2 => {
                     let reply: Value = serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
-                    let history: Value = serde_json::from_str(reply["tool_results"][0].as_str().unwrap()).unwrap();
+                    let history = &reply["tool_results"][0];
                     assert!(history["excerpt"].as_str().unwrap().contains("ARCHIVED_SECOND_REPLY"));
                     json!({"result":{"observations":[]}})
                 },
@@ -797,6 +911,7 @@ impl litellm_lens::control::JobBackend for GatedProgress {
     fn model<'a>(
         &'a self,
         request: &'a wire::ModelRequest,
+        _: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
         Box::pin(async move {
             self.lane_called();
@@ -889,4 +1004,171 @@ async fn lanes_in_flight_keep_running_while_a_progress_write_waits_on_them(
     assert!(result.error.is_empty(), "{}", result.error);
     assert_eq!(result.coverage.grouped_batches, 2);
     assert_eq!(result.coverage.investigated, 2);
+}
+
+#[rstest]
+#[case::included_history(false, 2)]
+#[case::excluded_history(true, 0)]
+#[tokio::test]
+async fn compaction_advances_only_over_history_that_the_checkpoint_received(
+    #[case] excludes_history: bool,
+    #[case] expected: u64,
+) {
+    let server = MockServer::start().await;
+    let calls = AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(move |_: &Request| {
+            let overflow = calls.fetch_add(1, Ordering::SeqCst) == 0 && excludes_history;
+            ResponseTemplate::new(200).set_body_json(json!({"content":"{\"working_notes\":\"Summarized visible evidence\"}", "cost":0, "context_exceeded":overflow}))
+        })
+        .expect(if excludes_history { 2 } else { 1 })
+        .mount(&server)
+        .await;
+    let mut request = model::request(
+        wire::ModelRequestPurpose::Extract,
+        json!({"task":"Review evidence"}),
+    )
+    .unwrap();
+    request.messages = vec![
+        model::message(wire::ModelMessageRole::System, "Review evidence"),
+        model::message(wire::ModelMessageRole::User, json!({"journal_turns":4,"resume_history_from_turn":0,"initial_context_archived":false}).to_string()),
+        model::message(wire::ModelMessageRole::Assistant, "Read archived evidence"),
+        model::message(wire::ModelMessageRole::User, json!({"journal_turns":5,"tool_results":[{"request":{"action":"history","turn_start":0,"turn_end":2},"total_turns":4,"turns":[{},{}]}]}).to_string()),
+    ];
+    let messages = model::compact(&client(&server), request, 6).await.unwrap();
+    let checkpoint: Value = serde_json::from_str(&messages[1].content).unwrap();
+    assert_eq!(checkpoint["resume_history_from_turn"], expected);
+    assert_eq!(checkpoint["resume_history_request"]["turn_start"], expected);
+    assert_eq!(checkpoint["journal_turns"], 6);
+}
+
+#[rstest]
+#[case::history(json!({"action":"history","include_initial":true,"turn_end":0}))]
+#[case::invalid_execution(json!({"action":"catalog","execution_id":"nonexistent"}))]
+#[tokio::test]
+async fn investigation_stops_repeated_tool_requests(#[case] tool: Value) {
+    use litellm_lens::{activity::Tracker, agent, evidence::Workspace};
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/progress"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"content":json!({"tools":[tool]}).to_string(), "cost":0})),
+        )
+        .expect(4)
+        .up_to_n_times(4)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    let workspace = Workspace::new(vec![], client.clone());
+    let tracker = Tracker::start(
+        &client,
+        "repeat-test".into(),
+        wire::ActivityPhase::Review,
+        "Recover history".into(),
+        vec![],
+    )
+    .await
+    .unwrap();
+    let result = agent::run::<wire::Extraction>(
+        &serde_json::from_value(fixture()).unwrap(),
+        &workspace,
+        agent::Assignment {
+            stage: "test",
+            task: "Review the assignment".into(),
+            purpose: wire::ModelRequestPurpose::Extract,
+            supplied: json!({"task_id":"fixture"}),
+        },
+        &tracker,
+    )
+    .await;
+    assert!(matches!(result, Err(litellm_lens::Error::ToolNoProgress)));
+}
+
+#[rstest]
+#[tokio::test]
+async fn oversized_initial_context_recovers_across_successive_compactions() {
+    use litellm_lens::{activity::Tracker, agent, evidence::Workspace};
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/progress"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&server)
+        .await;
+    let calls = AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/replay/lens-test/job-test/model"))
+        .respond_with(move |request: &Request| {
+            let model: wire::ModelRequest = request.body_json().unwrap();
+            let last: Value =
+                serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            let overflow = matches!(call, 0 | 1 | 4);
+            let content = match call {
+                0 | 1 | 4 => json!({}),
+                2 | 5 => {
+                    assert_eq!(
+                        model.messages.last().unwrap().role,
+                        wire::ModelMessageRole::User
+                    );
+                    json!({"working_notes":"Recover the original assignment"})
+                }
+                3 => json!({"tools":[{"action":"history", "include_initial":true, "turn_end":0}]}),
+                6 => {
+                    assert_eq!(last["resume_history_request"]["char_start"], 8192);
+                    assert_eq!(last["resume_history_request"]["turn_end"], 0);
+                    json!({"tools":[last["resume_history_request"].clone()]})
+                }
+                7 => {
+                    let page = &last["tool_results"][0];
+                    assert!(
+                        page["excerpt"]
+                            .as_str()
+                            .unwrap()
+                            .contains("END_OF_ASSIGNMENT")
+                    );
+                    assert!(page["next_request"].is_null());
+                    json!({"result":{"observations":[]}})
+                }
+                _ => panic!("Unexpected recovery call"),
+            };
+            ResponseTemplate::new(200).set_body_json(
+                json!({"content":content.to_string(),"cost":0,"context_exceeded":overflow}),
+            )
+        })
+        .expect(8)
+        .up_to_n_times(8)
+        .mount(&server)
+        .await;
+    let client = client(&server);
+    let workspace = Workspace::new(vec![], client.clone());
+    let tracker = Tracker::start(
+        &client,
+        "recovery".into(),
+        wire::ActivityPhase::Review,
+        "Recover".into(),
+        vec![],
+    )
+    .await
+    .unwrap();
+    let result = agent::run::<wire::Extraction>(
+        &serde_json::from_value(fixture()).unwrap(),
+        &workspace,
+        agent::Assignment {
+            stage: "test",
+            task: "Recover assignment".into(),
+            purpose: wire::ModelRequestPurpose::Extract,
+            supplied: json!({"task":format!("{}END_OF_ASSIGNMENT", "x".repeat(9000))}),
+        },
+        &tracker,
+    )
+    .await
+    .unwrap();
+    assert!(result.observations.is_empty());
 }
