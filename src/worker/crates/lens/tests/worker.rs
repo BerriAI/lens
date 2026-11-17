@@ -65,6 +65,7 @@ impl litellm_lens::control::JobBackend for RetryingModel {
     fn model<'a>(
         &'a self,
         _: &'a wire::ModelRequest,
+        _: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
         Box::pin(async move {
             let mut calls = self.calls.lock().unwrap();
@@ -726,8 +727,7 @@ async fn checkpoint_history_preserves_only_the_supplied_finding_summary() {
                 1 => json!({"tools": [{"action": "history", "include_initial": true,
                     "turn_start": 0, "turn_end": 0}]}),
                 2 => {
-                    let history: Value =
-                        serde_json::from_str(message["tool_results"][0].as_str().unwrap()).unwrap();
+                    let history = &message["tool_results"][0];
                     let recovered = &history["initial_context"]["existing_findings"][0];
                     assert_eq!(recovered["id"], "saved-finding");
                     assert_eq!(recovered["title"], "Refund success was falsely reported");
@@ -817,12 +817,12 @@ async fn oversized_combined_tool_replies_remain_readable_after_a_checkpoint() {
                 0 => json!({"tools":[{"action":"catalog","execution_id":"run-test"},{"action":"catalog","execution_id":"run-test"}],"checkpoint":"Inspect the archived second reply"}),
                 1 => {
                     let reply: Value = serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
-                    assert!(reply["tool_results"][1].as_str().unwrap().contains("ARCHIVED_SECOND_REPLY"), "{}", reply["tool_results"][1].as_str().unwrap().chars().take(600).collect::<String>());
+                    assert!(reply["tool_results"][1].to_string().contains("ARCHIVED_SECOND_REPLY"), "{}", reply["tool_results"][1].to_string().chars().take(600).collect::<String>());
                     json!({"tools":[{"action":"history","turn_start":0,"turn_end":1,"char_start":filler_size,"char_end":filler_size+6000}]})
                 },
                 2 => {
                     let reply: Value = serde_json::from_str(&model.messages.last().unwrap().content).unwrap();
-                    let history: Value = serde_json::from_str(reply["tool_results"][0].as_str().unwrap()).unwrap();
+                    let history = &reply["tool_results"][0];
                     assert!(history["excerpt"].as_str().unwrap().contains("ARCHIVED_SECOND_REPLY"));
                     json!({"result":{"observations":[]}})
                 },
@@ -911,6 +911,7 @@ impl litellm_lens::control::JobBackend for GatedProgress {
     fn model<'a>(
         &'a self,
         request: &'a wire::ModelRequest,
+        _: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> futures_util::future::BoxFuture<'a, Result<wire::ModelResult, litellm_lens::Error>> {
         Box::pin(async move {
             self.lane_called();
@@ -1033,7 +1034,7 @@ async fn compaction_advances_only_over_history_that_the_checkpoint_received(
         model::message(wire::ModelMessageRole::System, "Review evidence"),
         model::message(wire::ModelMessageRole::User, json!({"journal_turns":4,"resume_history_from_turn":0,"initial_context_archived":false}).to_string()),
         model::message(wire::ModelMessageRole::Assistant, "Read archived evidence"),
-        model::message(wire::ModelMessageRole::User, json!({"journal_turns":5,"tool_results":[json!({"request":{"action":"history","turn_start":0,"turn_end":2},"total_turns":4,"turns":[{},{}]}).to_string()]}).to_string()),
+        model::message(wire::ModelMessageRole::User, json!({"journal_turns":5,"tool_results":[{"request":{"action":"history","turn_start":0,"turn_end":2},"total_turns":4,"turns":[{},{}]}]}).to_string()),
     ];
     let messages = model::compact(&client(&server), request, 6).await.unwrap();
     let checkpoint: Value = serde_json::from_str(&messages[1].content).unwrap();
@@ -1125,8 +1126,7 @@ async fn oversized_initial_context_recovers_across_successive_compactions() {
                     json!({"tools":[last["resume_history_request"].clone()]})
                 }
                 7 => {
-                    let page: Value =
-                        serde_json::from_str(last["tool_results"][0].as_str().unwrap()).unwrap();
+                    let page = &last["tool_results"][0];
                     assert!(
                         page["excerpt"]
                             .as_str()

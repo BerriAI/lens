@@ -63,6 +63,7 @@ impl JobBackend for Replay {
     fn model<'a>(
         &'a self,
         request: &'a wire::ModelRequest,
+        _: Option<lens_analysis::ResponseSchema<'a>>,
     ) -> BoxFuture<'a, Result<wire::ModelResult, Error>> {
         Box::pin(async move {
             self.control

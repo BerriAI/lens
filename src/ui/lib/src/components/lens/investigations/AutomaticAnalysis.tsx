@@ -15,6 +15,7 @@ import { useSaveLens } from "../data/mutations";
 import { useAnalysisModels } from "../setup/fields/useAnalysisModels";
 import { analysisModelOptions, modelGate } from "../setup/fields/analysisModels";
 import { useLensRoute } from "../route";
+import { failedTaskSummary, isPartial } from "../model/status";
 import type { InvestigatorStatus, Lens, Settings } from "../model/types";
 
 import { InvestigatorAnalysis } from "./InvestigatorAnalysis";
@@ -219,11 +220,13 @@ function AgentAnalysis({
                   : waiting
                     ? `Waiting for traces · ${sample.data?.eligible ?? 0}/10`
                     : "Ready for first analysis"
-              : job?.status === "failed" || job?.error
-                ? "Last analysis failed"
-                : job?.status === "cancelled"
-                  ? "Last analysis cancelled"
-                  : "Scheduled";
+              : job && isPartial(job)
+                ? "Last analysis was partial"
+                : job?.status === "failed" || job?.error
+                  ? "Last analysis failed"
+                  : job?.status === "cancelled"
+                    ? "Last analysis cancelled"
+                    : "Scheduled";
   const next = !lens.settings.enabled
     ? "Enable analysis to resume"
     : modelUnavailable
@@ -256,11 +259,16 @@ function AgentAnalysis({
           </p>
           <p className="text-muted-foreground">{active && (running || !modelUnavailable) ? active.stage : next}</p>
         </div>
-        {job?.error && (
-          <p role="alert" className="max-w-2xl break-words text-destructive">
-            {job.error}
-          </p>
-        )}
+        {job?.error &&
+          (isPartial(job) ? (
+            <p role="status" className="max-w-2xl break-words text-amber-700 dark:text-amber-300">
+              {failedTaskSummary(job)}. {job.error}
+            </p>
+          ) : (
+            <p role="alert" className="max-w-2xl break-words text-destructive">
+              {job.error}
+            </p>
+          ))}
         {sample.error && (
           <p role="alert" className="text-destructive">
             {sample.error.message}

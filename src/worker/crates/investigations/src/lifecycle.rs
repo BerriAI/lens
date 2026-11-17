@@ -136,10 +136,10 @@ pub fn queue_job(
 }
 
 pub fn result_status(result: &InvestigationResult) -> TerminalStatus {
-    if !result.error.is_empty() {
-        TerminalStatus::Failed
-    } else {
+    if result.error.is_empty() || !result.review_versions.is_empty() {
         TerminalStatus::Completed
+    } else {
+        TerminalStatus::Failed
     }
 }
 

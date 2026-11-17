@@ -188,7 +188,7 @@ it("should keep a failed analysis error visible with its next retry time", () =>
   expect(screen.getByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
 });
 
-it("should surface an error from a completed job instead of claiming analysis is scheduled", () => {
+it("should report a completed job that kept an error as partial instead of failed or scheduled", () => {
   const next = new Date(Date.now() + 3600000).toISOString();
   const completedWithError: Lens = {
     ...initial,
@@ -197,8 +197,8 @@ it("should surface an error from a completed job instead of claiming analysis is
       {
         ...fixture.jobs[0],
         status: "completed",
-        findings: [],
-        error: "Gateway returned HTTP 409",
+        coverage: { ...fixture.jobs[0].coverage, screened: 10, investigated: 8, failed_tasks: 1 },
+        error: "The investigation repeated the same tool request without making progress",
         finished_at: new Date().toISOString(),
       },
     ],
@@ -206,9 +206,15 @@ it("should surface an error from a completed job instead of claiming analysis is
   renderWithLens(
     <AutomaticAnalysis agent={initial.settings.agent_name} lenses={[completedWithError]} ready readOnly={false} />,
   );
-  expect(screen.getByText("Last analysis failed")).toBeVisible();
-  expect(screen.getByRole("alert")).toHaveTextContent("Gateway returned HTTP 409");
+  expect(screen.getByText("Last analysis was partial")).toBeVisible();
+  expect(
+    screen.getByText(
+      "1 of 18 analysis tasks failed. The investigation repeated the same tool request without making progress",
+    ),
+  ).toBeVisible();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
+  expect(screen.queryByText("Last analysis failed")).not.toBeInTheDocument();
   expect(screen.queryByText("Scheduled")).not.toBeInTheDocument();
 });
 

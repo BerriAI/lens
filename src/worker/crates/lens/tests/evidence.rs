@@ -1,4 +1,7 @@
-use litellm_lens::{evidence::Workspace, wire};
+use litellm_lens::{
+    evidence::{Citation, Workspace},
+    wire,
+};
 use rstest::rstest;
 use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
@@ -61,7 +64,10 @@ async fn reads_search_citations_and_python_preserve_original_unicode_across_page
         json!({"execution_id":"run-test","span_id":"span-test","quote":"boundary evidence"}),
     )
     .unwrap();
-    assert!(workspace.valid(&quote).await.unwrap());
+    assert!(matches!(
+        workspace.cite(&quote).await.unwrap(),
+        Citation::Verified(_)
+    ));
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("input.json");
     let mut file = tokio::fs::File::create(&path).await.unwrap();
@@ -107,5 +113,8 @@ async fn citations_cannot_join_across_omitted_content(#[case] quote: &str) {
         json!({"execution_id":"run-test","span_id":"span-test","quote":quote}),
     )
     .unwrap();
-    assert!(!workspace.valid(&citation).await.unwrap());
+    assert!(matches!(
+        workspace.cite(&citation).await.unwrap(),
+        Citation::Rejected { .. }
+    ));
 }

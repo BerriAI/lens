@@ -210,21 +210,22 @@ fn one_off_settings_and_windows_leave_monitor_unchanged(
 }
 
 #[rstest]
-#[case::finding_with_error(true, false, "partial", TerminalStatus::Failed)]
-#[case::assessment_with_error(false, true, "partial", TerminalStatus::Failed)]
-#[case::total_failure(false, false, "failed", TerminalStatus::Failed)]
-#[case::no_error(false, false, "", TerminalStatus::Completed)]
-#[case::finding_without_error(true, false, "", TerminalStatus::Completed)]
-#[case::assessment_without_error(false, true, "", TerminalStatus::Completed)]
-fn results_with_errors_fail_even_after_partial_progress(
-    #[case] finding: bool,
-    #[case] assessable: bool,
+#[case::some_runs_finished(true, "one task failed", TerminalStatus::Completed)]
+#[case::no_run_finished(false, "every task failed", TerminalStatus::Failed)]
+#[case::finished_without_error(true, "", TerminalStatus::Completed)]
+#[case::nothing_to_analyze(false, "", TerminalStatus::Completed)]
+fn errors_fail_a_run_only_when_no_trace_finished_analysis(
+    #[case] finished: bool,
     #[case] error: &str,
     #[case] expected: TerminalStatus,
 ) {
-    let result: RunResult = decode(
-        json!({"coverage":{},"error":error,"findings":if finding {vec![draft("run")]} else {vec![]},"assessments":[{"execution_id":"run","cannot_assess":!assessable}]}),
-    );
+    let result: RunResult = decode(json!({
+        "coverage": {},
+        "error": error,
+        "findings": [draft("run")],
+        "assessments": [{"execution_id": "run", "cannot_assess": false}],
+        "review_versions": if finished { json!([{"execution_id": "run", "content_version": "v1"}]) } else { json!([]) },
+    }));
     assert_eq!(result_status(&result), expected);
 }
 

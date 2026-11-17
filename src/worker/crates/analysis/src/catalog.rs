@@ -3,7 +3,10 @@ use lens_inference::{ModelCapacity, Prices, deployment_prices, output_tokens};
 use litellm_cost::{Pricing, PricingPlan, Rate, Rates, ThresholdRates};
 use litellm_model_catalog::{Catalog, Mode, ModelEntry, Provenance};
 use litellm_token_counter::TokenCounter;
-use std::{num::NonZeroU64, sync::Arc};
+use std::{
+    num::NonZeroU64,
+    sync::{Arc, atomic::AtomicBool},
+};
 use url::Url;
 
 pub fn bundled_catalog() -> Result<Arc<Catalog>, Error> {
@@ -56,6 +59,8 @@ pub(crate) struct ResolvedDeployment {
     pub(crate) counter: Arc<TokenCounter>,
     pub(crate) cache_breakpoints: bool,
     pub(crate) legacy_accounting: bool,
+    pub(crate) plain_requests: AtomicBool,
+    pub(crate) reduced_reasoning: AtomicBool,
 }
 
 pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedDeployment, Error> {
@@ -146,6 +151,8 @@ pub(crate) fn resolve(config: Deployment, catalog: &Catalog) -> Result<ResolvedD
         counter,
         cache_breakpoints,
         legacy_accounting,
+        plain_requests: AtomicBool::new(false),
+        reduced_reasoning: AtomicBool::new(false),
     })
 }
 

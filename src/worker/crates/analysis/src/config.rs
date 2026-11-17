@@ -1,5 +1,6 @@
 use lens_inference::{ModelCapacity, OutputLimits};
-use std::{fmt, time::Duration};
+use serde_json::Value;
+use std::{fmt, num::NonZeroU64, time::Duration};
 use url::Url;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -38,6 +39,18 @@ pub struct Deployment {
     pub output_cost_per_token: Option<f64>,
     pub capacity: ModelCapacity,
     pub output_limits: OutputLimits,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ResponseSchema<'a> {
+    pub name: &'a str,
+    pub schema: &'a Value,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PrepareOptions<'a> {
+    pub response_schema: Option<ResponseSchema<'a>>,
+    pub minimum_output_tokens: Option<NonZeroU64>,
 }
 
 #[derive(Clone, Copy, Debug)]

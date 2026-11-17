@@ -1073,6 +1073,7 @@ mod tests {
         fn model<'a>(
             &'a self,
             _: &'a wire::ModelRequest,
+            _: Option<lens_analysis::ResponseSchema<'a>>,
         ) -> BoxFuture<'a, Result<wire::ModelResult, Error>> {
             Box::pin(async move {
                 self.model_calls.fetch_add(1, Ordering::SeqCst);

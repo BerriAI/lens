@@ -21,7 +21,7 @@ Lens fetches the models accessible to this key from the gateway's `/model_group/
 
 In **Settings > Signals**, choose a discovered System 1 model and save your questions. Models reported with `mode: decisions` or the legacy `mode: evaluation` appear in this selector; Lens sends their requests through the gateway's `/v1/decisions` endpoint using the exact model alias. Ordinary chat models are available for analysis when the gateway supplies valid pricing and output-token limits
 
-Discovered analysis models request at most 4,096 output tokens per call (or their smaller supported limit), while retaining their full context capacity for input checks and budget accounting
+Discovered analysis models start each call with an output allowance of 16,384 tokens (or their smaller supported limit) and raise it only after a cut-off response, while retaining their full context capacity for input checks and budget accounting
 
 An unsuccessful refresh shows the connection error and keeps the last usable models. A successful refresh replaces the discovered list. Explicit `LENS_ANALYSIS_MODELS` and `LENS_EVALUATION_MODELS` remain available and take precedence over a discovered alias with the same name
 
