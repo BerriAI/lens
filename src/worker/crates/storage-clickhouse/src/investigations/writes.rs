@@ -138,6 +138,7 @@ fn writer_key(id: &str) -> Result<String, RepositoryError> {
 
 struct TransformEdit<F, E> {
     transform: F,
+    idempotent: bool,
     reply: oneshot::Sender<Result<Option<Lens>, E>>,
 }
 
@@ -155,7 +156,7 @@ where
     }
 
     fn replays_unconfirmed(&self) -> bool {
-        false
+        self.idempotent
     }
 
     fn apply(self: Box<Self>, candidate: Lens) -> (Lens, Option<Box<dyn Edit>>) {
@@ -265,8 +266,32 @@ impl Investigations {
     where
         E: From<RepositoryError> + Send + 'static,
     {
-        self.publish_edit(id, |reply| Box::new(TransformEdit { transform, reply }))
-            .await
+        self.publish_edit(id, |reply| {
+            Box::new(TransformEdit {
+                transform,
+                idempotent: false,
+                reply,
+            })
+        })
+        .await
+    }
+
+    pub async fn update_idempotent<E>(
+        &self,
+        id: &str,
+        transform: impl Fn(&Lens) -> Result<Lens, E> + Send + 'static,
+    ) -> Result<Option<Lens>, E>
+    where
+        E: From<RepositoryError> + Send + 'static,
+    {
+        self.publish_edit(id, |reply| {
+            Box::new(TransformEdit {
+                transform,
+                idempotent: true,
+                reply,
+            })
+        })
+        .await
     }
 
     pub(super) async fn publish_edit<T, E: From<RepositoryError>>(

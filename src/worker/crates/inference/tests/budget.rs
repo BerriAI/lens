@@ -104,6 +104,16 @@ fn held_budget_waits_without_charging_or_reporting_exhaustion(
 }
 
 #[rstest]
+fn reserving_the_same_hold_again_changes_nothing(lens: Lens, reservation: BudgetReservation) {
+    let held = reserve_amount(&lens, &reservation, None).unwrap();
+    assert_eq!(held.reservations.len(), lens.reservations.len() + 1);
+    assert_eq!(
+        json!(reserve_amount(&held, &reservation, None).unwrap()),
+        json!(held)
+    );
+}
+
+#[rstest]
 #[case::previous_month("2025-12", None, true, true)]
 #[case::unexpired("2026-01", Some(1), true, false)]
 #[case::at_expiry("2026-01", Some(0), true, true)]
