@@ -667,8 +667,14 @@ async fn abort_during_acquisition_publication_releases_the_committed_owner(
 }
 
 #[rstest]
+#[case::locked(false)]
+#[case::idempotent(true)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Database, lens: Lens) {
+async fn an_unconfirmed_publication_is_replayed_only_for_an_idempotent_update(
+    #[future(awt)] database: Database,
+    lens: Lens,
+    #[case] idempotent: bool,
+) {
     use litellm_http::Client;
     use litellm_storage_clickhouse::{Connection, state::ClickHouseState};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -725,19 +731,26 @@ async fn an_unconfirmed_publication_is_not_replayed(#[future(awt)] database: Dat
         Client::no_redirect_for_test(),
         Connection::parse(&server.uri()).unwrap(),
     ));
-    let result = repository
-        .update_locked(&lens.id, |current| {
-            Ok::<_, RepositoryError>(Lens {
-                spent: current.spent + 1.0,
-                ..current.clone()
-            })
+    let charged = lens.spent + 1.0;
+    let charge = move |current: &Lens| {
+        Ok::<_, RepositoryError>(Lens {
+            spent: charged,
+            ..current.clone()
         })
-        .await;
-    assert!(matches!(result, Err(RepositoryError::WriteUnconfirmed)));
-    assert_eq!(publications.load(Ordering::SeqCst), 1);
+    };
+    let result = if idempotent {
+        repository.update_idempotent(&lens.id, charge).await
+    } else {
+        repository.update_locked(&lens.id, charge).await
+    };
+    if idempotent {
+        assert_eq!(result.unwrap().unwrap().spent, charged);
+    } else {
+        assert!(matches!(result, Err(RepositoryError::WriteUnconfirmed)));
+        assert_eq!(publications.load(Ordering::SeqCst), 1);
+    }
     let saved = database.repository().get(&lens.id).await.unwrap().unwrap();
-    assert_eq!(saved.spent, lens.spent + 1.0);
-    assert_eq!(saved.version, lens.version + 1);
+    assert_eq!(saved.spent, charged);
     wait_released(&database).await;
 }
 
@@ -957,8 +970,9 @@ async fn locked_update_cannot_rename_a_lens(#[future(awt)] database: Database, l
 #[case::progress(false, false)]
 #[case::review(true, false)]
 #[case::persistent_delay(false, true)]
+#[case::review_with_persistent_delay(true, true)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn unconfirmed_progress_replays_only_without_a_review(
+async fn unconfirmed_progress_is_replayed_and_a_review_is_recorded_once(
     #[future(awt)] database: Database,
     active: Lens,
     #[case] with_review: bool,
@@ -1037,16 +1051,12 @@ async fn unconfirmed_progress_replays_only_without_a_review(
     let result = repository
         .progress(&lens.id, &lens.jobs[0], &progress, Utc::now())
         .await;
-    if with_review || always_slow {
+    if always_slow {
         assert!(matches!(
             result,
             Err(CheckpointError::Store(RepositoryError::WriteUnconfirmed))
         ));
-        if with_review {
-            assert_eq!(publications.load(Ordering::SeqCst), 1);
-        } else {
-            assert!(publications.load(Ordering::SeqCst) >= 2);
-        }
+        assert!(publications.load(Ordering::SeqCst) >= 2);
     } else {
         assert_eq!(result.unwrap().unwrap().jobs[0].coverage.investigated, 2);
         assert_eq!(publications.load(Ordering::SeqCst), 2);

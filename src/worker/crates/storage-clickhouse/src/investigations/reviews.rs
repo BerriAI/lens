@@ -68,7 +68,7 @@ impl Edit for ProgressEdit {
     }
 
     fn replays_unconfirmed(&self) -> bool {
-        self.body.review.is_none()
+        true
     }
 
     fn apply(self: Box<Self>, candidate: Lens) -> (Lens, Option<Box<dyn Edit>>) {

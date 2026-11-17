@@ -70,7 +70,7 @@ impl LocalControl {
         transform: impl Fn(&Lens) -> Result<Lens, Error> + Send + 'static,
     ) -> Result<Lens, Error> {
         self.repository
-            .update_locked(id, transform)
+            .update_idempotent(id, transform)
             .await?
             .ok_or_else(|| rejected(404, "Lens not found"))
     }

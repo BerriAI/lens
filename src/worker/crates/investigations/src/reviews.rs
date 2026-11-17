@@ -92,6 +92,15 @@ pub fn add_review(job: &Job, review: Option<&Review>) -> Result<Job, Error> {
         content_version: String::new(),
         ..review.clone()
     };
+    let recorded = serde_json::to_value(&summary)?;
+    for saved in &job.reviews {
+        if saved.execution_id == summary.execution_id
+            && saved.at == summary.at
+            && serde_json::to_value(saved)? == recorded
+        {
+            return Ok(job.clone());
+        }
+    }
     Ok(Job {
         reviews: job.reviews.iter().cloned().chain([summary]).collect(),
         reviewed: job.reviewed.checked_add(1).ok_or(Error::ReviewCount)?,

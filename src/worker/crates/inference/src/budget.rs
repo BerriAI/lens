@@ -16,6 +16,13 @@ pub fn reserve_amount(
     reservation: &BudgetReservation,
     now: Option<DateTime<Utc>>,
 ) -> Result<Lens, Error> {
+    if lens
+        .reservations
+        .iter()
+        .any(|item| item.id == reservation.id)
+    {
+        return Ok(lens.clone());
+    }
     let available = lens.settings.monthly_budget - lens.spent;
     if reservation.amount > available {
         return Err(if available <= 0.0 {

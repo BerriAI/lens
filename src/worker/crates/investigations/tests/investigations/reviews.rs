@@ -126,6 +126,33 @@ fn review_history_retains_every_review(job: Job, #[case] count: usize, #[case] f
 }
 
 #[rstest]
+fn review_saved_again_after_an_unconfirmed_write_is_recorded_once(job: Job) {
+    let saved = add_review(&job, Some(&review(0))).unwrap();
+    let replayed = add_review(&saved, Some(&review(0))).unwrap();
+    assert_eq!(json!(replayed), json!(saved));
+    assert_eq!(replayed.reviewed, 1);
+}
+
+#[rstest]
+#[case::later(1, "Review 0")]
+#[case::same_moment_under_another_name(0, "Second opinion")]
+fn different_review_of_the_same_run_is_still_recorded(
+    job: Job,
+    #[case] seconds_later: i64,
+    #[case] name: &str,
+) {
+    let first = review(0);
+    let later = Review {
+        at: first.at + TimeDelta::seconds(seconds_later),
+        name: name.into(),
+        ..first.clone()
+    };
+    let saved = add_review(&add_review(&job, Some(&first)).unwrap(), Some(&later)).unwrap();
+    assert_eq!(saved.reviewed, 2);
+    assert_eq!(saved.reviews.len(), 2);
+}
+
+#[rstest]
 fn review_count_overflow_does_not_change_history(job: Job) {
     let saved = Job {
         reviewed: i64::MAX,
