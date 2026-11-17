@@ -247,16 +247,24 @@ async fn live_assignment_rechecks_permissions_is_team_scoped_and_caps_admission(
     );
 }
 
+async fn sample_repeatedly(server: &datasets::support::Server, ticks: usize) {
+    for _ in 0..ticks {
+        server.optimizations.tick(0).await.unwrap();
+    }
+}
+
 #[rstest]
-#[case::distinct_traces(0, false, 8)]
-#[case::same_trace(0, true, 1)]
-#[case::admission_limit(4998, false, 2)]
+#[case::distinct_traces(0, false, 8, 0)]
+#[case::same_trace(0, true, 1, 0)]
+#[case::admission_limit(4998, false, 2, 0)]
+#[case::during_sampling(0, false, 8, 16)]
 #[tokio::test]
 async fn concurrent_live_assignments_preserve_sampling_and_admission(
     #[future(awt)] database: Database,
     #[case] admitted: u64,
     #[case] same_trace: bool,
     #[case] expected: usize,
+    #[case] sampling_ticks: usize,
 ) {
     let gateway = MockServer::start().await;
     Mock::given(method("GET"))
@@ -307,7 +315,14 @@ async fn concurrent_live_assignments_preserve_sampling_and_admission(
             })),
         )
     });
-    let assignments = futures_util::future::join_all(requests).await;
+    let (assignments, ()) = tokio::join!(
+        futures_util::future::join_all(requests),
+        sample_repeatedly(&server, sampling_ticks)
+    );
+    assert_eq!(
+        api(&server, &format!("/lens/optimizations/{id}"), None).await["status"],
+        "running"
+    );
     assert_eq!(
         assignments
             .iter()

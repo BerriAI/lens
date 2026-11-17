@@ -174,6 +174,18 @@ impl Optimizations {
             previous: snapshot,
             value: serde_json::to_value(&record)?,
         }];
+        if record.config.mode == OptimizationMode::Live {
+            let admission = self
+                .0
+                .store
+                .0
+                .read(&format!("optimization-admission/{id}"))
+                .await?;
+            changes.push(Change {
+                value: admission.value.clone(),
+                previous: admission,
+            });
+        }
         if status == OptimizationStatus::Completed {
             for (previous, mut attempt) in self.0.store.attempts(id).await? {
                 if attempt.state != store::AttemptState::Complete {
@@ -233,7 +245,13 @@ impl Optimizations {
             let Some(id) = experiment.value.as_str() else {
                 return Ok(fallback);
             };
-            let (record_snapshot, record) = self.0.store.get(id).await?;
+            let count = self
+                .0
+                .store
+                .0
+                .read(&format!("optimization-admission/{id}"))
+                .await?;
+            let (_, record) = self.0.store.get(id).await?;
             if record.config.team_id != team || record.status != OptimizationStatus::Running {
                 return Ok(fallback);
             }
@@ -250,12 +268,6 @@ impl Optimizations {
                     fallback
                 });
             }
-            let count = self
-                .0
-                .store
-                .0
-                .read(&format!("optimization-admission/{id}"))
-                .await?;
             let admitted = count.value.as_u64().unwrap_or(0);
             if admitted >= 5000 {
                 return Ok(fallback);
@@ -289,10 +301,6 @@ impl Optimizations {
                 .store
                 .0
                 .commit(vec![
-                    Change {
-                        previous: record_snapshot,
-                        value: serde_json::to_value(&record)?,
-                    },
                     Change {
                         previous: snapshot,
                         value: serde_json::to_value(&assignment)?,
