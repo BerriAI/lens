@@ -1785,3 +1785,133 @@ async fn damaged_event_before_the_end_of_a_stream_is_an_invalid_reply(
         Err(Error::Json(_))
     ));
 }
+
+fn caching_catalog(served_by: &str) -> Arc<Catalog> {
+    catalog_with(
+        json!({"mode":"chat","litellm_provider":served_by,"input_cost_per_token":0.01,"output_cost_per_token":0.02,"max_output_tokens":100,"supports_prompt_caching":true}),
+    )
+}
+
+#[rstest]
+#[case::anthropic_behind_a_gateway(Provider::OpenAiCompatible, "anthropic", Some(json!({"type":"ephemeral"})))]
+#[case::another_provider_behind_a_gateway(Provider::OpenAiCompatible, "openai", None)]
+#[case::direct_openai_endpoint(Provider::OpenAi, "anthropic", None)]
+#[tokio::test]
+async fn anthropic_model_behind_a_gateway_gets_cache_markers_in_chat_format(
+    request: ModelRequest,
+    #[case] provider: Provider,
+    #[case] served_by: &str,
+    #[case] marker: Option<Value>,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(caching_catalog(served_by), deployment(&server, provider));
+    client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    let body: Value = server.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    let marked: Vec<Option<Value>> = [1, 2, 4]
+        .map(|index| {
+            body["messages"][index]["content"][0]
+                .get("cache_control")
+                .cloned()
+        })
+        .to_vec();
+    assert_eq!(marked, vec![marker; 3]);
+    assert!(body["messages"][3]["content"].is_string());
+}
+
+#[rstest]
+#[case::markers(false, Some(0), &[(true, true), (true, false), (false, true), (false, true), (false, true)])]
+#[case::schema(true, None, &[(true, true), (true, false), (true, false), (true, false)])]
+#[case::markers_and_schema(true, Some(0), &[(true, true), (true, false), (false, true), (false, false), (false, false), (false, false)])]
+#[case::markers_after_the_schema(true, Some(2), &[(true, true), (true, false), (true, false), (false, false), (false, false)])]
+#[tokio::test]
+async fn gateway_that_rejects_a_request_loses_only_what_it_rejected(
+    request: ModelRequest,
+    #[case] rejects_schema: bool,
+    #[case] rejects_markers_from: Option<usize>,
+    #[case] asked: &[(bool, bool)],
+) {
+    let server = MockServer::start().await;
+    let received = std::sync::atomic::AtomicUsize::new(0);
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(move |request: &wiremock::Request| {
+            let position = received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let body: Value = request.body_json().unwrap();
+            let markers = body["messages"][1]["content"].is_array()
+                && rejects_markers_from.is_some_and(|from| position >= from);
+            let schema = rejects_schema && body["response_format"]["type"] == "json_schema";
+            if markers || schema {
+                ResponseTemplate::new(400)
+                    .set_body_json(json!({"error": {"message": "unsupported request field"}}))
+            } else {
+                ResponseTemplate::new(200).set_body_json(completion())
+            }
+        })
+        .mount(&server)
+        .await;
+    let client = client(
+        caching_catalog("anthropic"),
+        deployment(&server, Provider::OpenAiCompatible),
+    );
+    let schema = turn_schema();
+    assert_eq!(
+        [
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+            structured_outcome(&client, &request, &schema).await,
+        ],
+        [Ok(false); 3]
+    );
+    let sent: Vec<(bool, bool)> = server
+        .received_requests()
+        .await
+        .unwrap()
+        .iter()
+        .map(|request| {
+            let body: Value = request.body_json().unwrap();
+            (
+                body["messages"][1]["content"].is_array(),
+                body["stream"] == true,
+            )
+        })
+        .collect();
+    assert_eq!(sent, asked);
+}
+
+#[rstest]
+#[case::gateway_reports_the_catalog_price(0.01, 0.02, 1.33)]
+#[case::gateway_reports_its_own_price(0.1, 0.2, 14.0)]
+#[tokio::test]
+async fn gateway_deployment_is_charged_cache_rates_only_when_its_price_matches_the_catalog(
+    catalog: Arc<Catalog>,
+    request: ModelRequest,
+    #[case] input: f64,
+    #[case] output: f64,
+    #[case] cost: f64,
+) {
+    let server = MockServer::start().await;
+    respond(&server, "/chat/completions", 200, completion()).await;
+    let client = client(
+        catalog,
+        Deployment {
+            input_cost_per_token: Some(input),
+            output_cost_per_token: Some(output),
+            ..deployment(&server, Provider::OpenAiCompatible)
+        },
+    );
+    let result = client
+        .complete(&client.prepare("analysis", &request).await.unwrap())
+        .await
+        .unwrap();
+    assert!(
+        (result.result.cost - cost).abs() < 1e-10,
+        "{}",
+        result.result.cost
+    );
+}

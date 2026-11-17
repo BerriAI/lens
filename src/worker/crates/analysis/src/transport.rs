@@ -54,9 +54,15 @@ const OUTPUT_GROWTH: u64 = 4;
 struct PreparedRequest {
     deployment: Arc<catalog::ResolvedDeployment>,
     body: Value,
-    plain: Option<Value>,
+    fallbacks: Vec<Fallback>,
     quick: Option<Value>,
     custom_charge: bool,
+}
+
+struct Fallback {
+    body: Value,
+    plain: bool,
+    unmarked: bool,
 }
 
 struct Reply {
@@ -231,6 +237,8 @@ impl AnalysisModels {
         let deployment = candidates[selected].0.clone();
         let provider = deployment.config.provider;
         let plain_only = deployment.plain_requests.load(Ordering::Relaxed);
+        let forwarded = deployment.cache_marks == catalog::CacheMarks::Forwarded;
+        let unmarked_only = deployment.unmarked_requests.load(Ordering::Relaxed);
         let reduced = deployment.reduced_reasoning.load(Ordering::Relaxed);
         let schema = options
             .response_schema
@@ -243,18 +251,35 @@ impl AnalysisModels {
                 .flatten()
                 .unwrap_or(body)
         };
-        let body = paced(protocol::request(
-            &deployment,
-            &messages,
-            &boundaries,
-            output,
-            schema.as_ref(),
-            !plain_only,
-        )?);
-        let plain = (!plain_only)
-            .then(|| protocol::request(&deployment, &messages, &boundaries, output, None, false))
-            .transpose()?
-            .map(paced);
+        let marks: &[usize] = if unmarked_only { &[] } else { &boundaries };
+        let droppable = forwarded && !marks.is_empty();
+        let form = |structured: bool, marked: bool| {
+            protocol::request(
+                &deployment,
+                &messages,
+                if marked { marks } else { &[] },
+                output,
+                schema.as_ref().filter(|_| structured),
+                structured,
+            )
+            .map(paced)
+        };
+        let body = form(!plain_only, true)?;
+        let fallbacks = [
+            (!plain_only, false, true),
+            (!plain_only && droppable, true, false),
+            (droppable, false, false),
+        ]
+        .into_iter()
+        .filter(|(applies, ..)| *applies)
+        .map(|(_, structured, marked)| {
+            Ok(Fallback {
+                body: form(structured, marked)?,
+                plain: !structured,
+                unmarked: !marked,
+            })
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
         let quick = (!reduced)
             .then(|| protocol::low_reasoning(provider, &body))
             .flatten();
@@ -272,7 +297,7 @@ impl AnalysisModels {
             request: Some(PreparedRequest {
                 deployment,
                 body,
-                plain,
+                fallbacks,
                 quick,
                 custom_charge,
             }),
@@ -360,6 +385,34 @@ impl AnalysisModels {
         })
     }
 
+    async fn fall_back(
+        &self,
+        request: &PreparedRequest,
+        first: Reply,
+        marker: Option<&str>,
+        metadata: Option<&Value>,
+    ) -> Result<Reply, Error> {
+        let deployment = &request.deployment;
+        let mut reply = first;
+        for fallback in &request.fallbacks {
+            reply = self
+                .exchange(deployment, &fallback.body, marker, metadata)
+                .await?;
+            if reply.status.is_success() {
+                deployment
+                    .plain_requests
+                    .fetch_or(fallback.plain, Ordering::Relaxed);
+                deployment
+                    .unmarked_requests
+                    .fetch_or(fallback.unmarked, Ordering::Relaxed);
+            }
+            if !refused(deployment.config.provider, &reply) {
+                break;
+            }
+        }
+        Ok(reply)
+    }
+
     async fn send(
         &self,
         request: &PreparedRequest,
@@ -388,20 +441,13 @@ impl AnalysisModels {
                 metadata.as_ref(),
             )
             .await?;
-        let refused = matches!(first.status.as_u16(), 400 | 422)
-            && !protocol::context_failure(provider, &first.body);
         let timed_out = matches!(first.status.as_u16(), 408 | 504 | 524);
-        let reply = match (&request.plain, &request.quick) {
-            (Some(plain), _) if refused => {
-                let retried = self
-                    .exchange(deployment, plain, marker.as_deref(), metadata.as_ref())
-                    .await?;
-                if retried.status.is_success() {
-                    deployment.plain_requests.store(true, Ordering::Relaxed);
-                }
-                retried
+        let reply = match &request.quick {
+            _ if refused(provider, &first) => {
+                self.fall_back(request, first, marker.as_deref(), metadata.as_ref())
+                    .await?
             }
-            (_, Some(quick)) if timed_out => {
+            Some(quick) if timed_out => {
                 let retried = self
                     .exchange(deployment, quick, marker.as_deref(), metadata.as_ref())
                     .await?;
@@ -462,7 +508,11 @@ impl AnalysisModels {
             .map_err(Error::Cost)?
             .total();
         let custom = request.custom_charge.then_some(&deployment.prices);
-        let cost = lens_inference::completion_charge(custom, usage, actual, estimate);
+        let cost = if custom.is_some() && deployment.cache_priced {
+            actual
+        } else {
+            lens_inference::completion_charge(custom, usage, actual, estimate)
+        };
         Ok(AnalysisCompletion {
             result: lens_inference::model_result(
                 completion.content.as_deref(),
@@ -475,6 +525,10 @@ impl AnalysisModels {
             },
         })
     }
+}
+
+fn refused(provider: Provider, reply: &Reply) -> bool {
+    matches!(reply.status.as_u16(), 400 | 422) && !protocol::context_failure(provider, &reply.body)
 }
 
 fn interrupted(headers: &reqwest::header::HeaderMap, failure: &[u8]) -> Error {
