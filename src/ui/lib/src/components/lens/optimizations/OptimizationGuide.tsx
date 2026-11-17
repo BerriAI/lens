@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type { OptimizationConfig } from "./model";
 
-export const optimizationGuideUrl = "https://github.com/BerriAI/lens/blob/main/docs/model-optimizations.md";
+export const optimizationGuideUrl = "https://docs.litellm.ai/docs/proxy/lens/model-optimizations";
 
 const guides = {
   live: {
