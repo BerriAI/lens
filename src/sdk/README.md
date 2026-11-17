@@ -67,7 +67,7 @@ The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported.
 
 ## Model optimizations
 
-Use `lens.optimizations.assign(...)` to select a model once per live agent run, or `lens.optimizations.arun(optimization_id, task=task)` to run a full-agent model comparison in your environment. See [Model optimizations](../../docs/model-optimizations.md) for setup, trace correlation, limitations, and an executable example
+Use `lens.optimizations.assign(...)` to select a model once per live agent run, or `lens.optimizations.arun(optimization_id, task=task)` to run a full-agent model comparison in your environment. Follow the [Live](../../docs/model-optimizations.md#live-example), [Shadow](../../docs/model-optimizations.md#shadow-example), or [full-agent Offline](../../docs/model-optimizations.md#full-agent-example) example to connect your agent and inspect its results
 
 ## Install
 

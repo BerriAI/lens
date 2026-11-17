@@ -34,6 +34,8 @@ For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Aut
 
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 
+To compare models for your agent, open **Model optimizations**. The [model optimizations guide](../../docs/model-optimizations.md) explains Live, Shadow, and Offline comparisons, with runnable examples and the results you can expect
+
 ## Trace content and size
 
 Lens preserves accepted input, output, and attribute values without truncation. Oversized requests are rejected with HTTP 413. Trace uploads and internal spend batches accept up to 32 MiB per request; gzip uploads must also expand to at most 32 MiB across all members. Other API request bodies, including dataset, eval, signal and feedback requests, accept up to 2 MiB. Reduce the exporter batch size or split an API operation when it exceeds these limits

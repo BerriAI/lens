@@ -12,6 +12,7 @@ import { useOptimizationRoute } from "../route";
 import { resetDemoStorage } from "../data/demo/storage";
 import { NewOptimization } from "./NewOptimization";
 import { OptimizationDetail } from "./OptimizationDetail";
+import { optimizationGuideUrl } from "./OptimizationGuide";
 import { modes, modeLabels, recommendedModel, type Mode, type OptimizationConfig } from "./model";
 import type { OptimizationStore } from "../data/demo/demoOptimizations";
 
@@ -100,6 +101,12 @@ function OptimizationWorkspace({ store, readOnly }: { store: OptimizationStore; 
           />
           <div className="lens-page-body min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto grid max-w-[1200px] gap-5">
+              <p className="text-sm text-muted-foreground">
+                Compare models for your agent using quality scores, cost, and latency.{" "}
+                <a href={optimizationGuideUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-4 hover:underline">
+                  How it works
+                </a>
+              </p>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div role="group" aria-label="Optimization type" className="flex gap-1">
                   {(["all", ...modes] as const).map((mode) => (

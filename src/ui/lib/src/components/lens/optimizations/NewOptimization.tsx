@@ -8,6 +8,7 @@ import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useDataset, useDatasets } from "../datasets/api";
+import { OptimizationGuide } from "./OptimizationGuide";
 import {
   baselineFor,
   catalog,
@@ -150,6 +151,7 @@ export function NewOptimization({
         <DialogHeader>
           <DialogTitle>New {modeLabels[mode].toLowerCase()} optimization</DialogTitle>
         </DialogHeader>
+        <OptimizationGuide mode={mode} scope={draft.scope} />
         <form
           className="grid gap-5"
           onSubmit={(event) => {
@@ -206,11 +208,6 @@ export function NewOptimization({
               <Choice label="Current model" value={baseline} items={available.map((model) => ({value: model.id, label: model.id}))} onChange={(baseline) => set({baseline})} />
             </Field>
           ) : <p className="-mt-3 text-xs text-muted-foreground">Current model <span className="font-mono text-foreground">{baseline}</span></p>}
-          {mode === "shadow" && (
-            <p className="text-xs text-muted-foreground">
-              Shadow tests replay the final model call of each sampled trace.
-            </p>
-          )}
           {mode === "offline" && (
             <Field label="Run">
               <Choice

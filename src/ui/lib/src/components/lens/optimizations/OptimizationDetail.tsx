@@ -9,6 +9,7 @@ import { useOpenSourceTrace } from "../route";
 import { Choice } from "./NewOptimization";
 import { CostQualityPlot } from "./CostQualityPlot";
 import { RunnerSetup } from "./RunnerSetup";
+import { OptimizationGuide } from "./OptimizationGuide";
 import {
   baselineFor,
   comparisonRows,
@@ -158,6 +159,7 @@ export function OptimizationDetail({
       <div className="lens-page-body min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-[1200px] gap-6">
           {run.error && <p role="alert" className="text-sm text-destructive">{run.error}</p>}
+          <OptimizationGuide mode={run.config.mode} scope={run.config.scope} />
           {store.live && run.config.mode === "live" && <RunnerSetup run={run} />}
           {store.live && run.config.mode === "offline" && run.config.scope === "agent" && <RunnerSetup run={run} />}
           <div className="grid gap-3 border-b pb-6">

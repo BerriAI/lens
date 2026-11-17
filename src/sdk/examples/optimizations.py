@@ -125,7 +125,7 @@ class Agent:
 
 async def main() -> None:
     parser: Final = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("live", "offline"))
+    parser.add_argument("mode", choices=("live", "shadow", "offline"))
     parser.add_argument("--question", default="What is 2 + 2?")
     args: Final = parser.parse_args()
     client: Final = Lens(os.environ["LENS_BASE_URL"], os.environ["LENS_API_KEY"])
@@ -135,6 +135,11 @@ async def main() -> None:
         print(f"Submitted {completed} full-agent trials")
         return
     trace_id: Final = uuid4().hex
+    if args.mode == "shadow":
+        model: Final = os.environ["LENS_OPTIMIZATION_BASELINE"]
+        await agent.run(Case(trace_id, args.question), model, trace_id)
+        print(json.dumps({"traceId": trace_id, "model": model}))
+        return
     assignment: Final = await client.optimizations.aassign(
         agent=agent.name,
         baseline=os.environ["LENS_OPTIMIZATION_BASELINE"],
