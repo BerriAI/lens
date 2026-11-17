@@ -352,7 +352,7 @@ impl Workspace {
         ))
     }
 
-    fn cited_execution(&self, id: &str) -> Option<&wire::Execution> {
+    fn named_execution(&self, id: &str) -> Option<&wire::Execution> {
         if let Some(exact) = self.executions.iter().find(|e| e.id == id) {
             return Some(exact);
         }
@@ -368,7 +368,7 @@ impl Workspace {
     }
 
     pub async fn cite(&self, evidence: &wire::Evidence) -> Result<Citation, Error> {
-        let Some(execution) = self.cited_execution(&evidence.execution_id) else {
+        let Some(execution) = self.named_execution(&evidence.execution_id) else {
             return Ok(Citation::Rejected {
                 problem: "Unknown execution_id. Use an execution ID from the supplied catalog.",
                 closest: None,
@@ -451,11 +451,10 @@ impl Workspace {
                 json!({"request": request, "error": "Search requires nonempty literal text"}),
             );
         }
-        let executions: Vec<_> = self
-            .executions
-            .iter()
-            .filter(|e| request.execution_id.as_ref().is_none_or(|id| id == &e.id))
-            .collect();
+        let executions: Vec<_> = match &request.execution_id {
+            Some(id) => self.named_execution(id).into_iter().collect(),
+            None => self.executions.iter().collect(),
+        };
         if request.execution_id.is_some() && executions.is_empty() {
             return Ok(
                 json!({"request": request, "error": "Unknown execution_id. Use the supplied catalog"}),
