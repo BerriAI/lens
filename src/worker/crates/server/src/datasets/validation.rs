@@ -36,6 +36,7 @@ pub(crate) enum Kind {
     Source,
     Tag(&'static str),
     AwareDatetime,
+    ReplayRequest,
     Optional(&'static Kind),
     Investigation(crate::investigations::validation::Kind),
     Feedback(crate::feedback::validation::Kind),
@@ -77,6 +78,7 @@ impl Model {
                     true,
                     Kind::Tuple(&Kind::Record(Self::Message), 0),
                 ),
+                ("request", false, Kind::Optional(&Kind::ReplayRequest)),
                 ("reply", false, STRING),
                 (
                     "tool_calls",
@@ -316,6 +318,21 @@ pub(crate) fn validate(
     errors: &mut Vec<ValidationError>,
 ) {
     match kind {
+        Kind::ReplayRequest => {
+            let valid = serde_json::from_value::<lens_contract::optimizations::ReplayRequest>(
+                value.clone(),
+            )
+            .is_ok_and(|request| request.validate().is_ok());
+            if !valid {
+                errors.push(failure(
+                    "value_error",
+                    path,
+                    "The saved replay request is invalid",
+                    value.clone(),
+                    None,
+                ));
+            }
+        }
         Kind::Optional(kind) => {
             if !value.is_null() {
                 validate(value, *kind, path, errors);

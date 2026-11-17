@@ -5,7 +5,8 @@ import { ChevronRight, Download, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StateMessage } from "../../shared/StateMessage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
-import { useDatasetRoute } from "../route";
+import { useDatasetRoute, useOptimizationRoute } from "../route";
+import { useOptimizationStore } from "../data/LensServices";
 import { IdChip } from "../traces/ui/IdChip";
 import {
   isRevisionConflict,
@@ -104,6 +105,8 @@ function DatasetRevision(props: DatasetRevisionProps) {
     onReload,
   } = props;
   const { caseId, setCaseId } = useDatasetRoute();
+  const optimize = useOptimizationRoute();
+  const optimizationStore = useOptimizationStore();
   const [edits, setEdits] = useState<CaseEdits>({});
   const save = useSaveRevision();
   const exportDataset = useExportDataset();
@@ -149,6 +152,11 @@ function DatasetRevision(props: DatasetRevisionProps) {
         description={dataset.agent_name || "Any agent"}
         actions={
           <>
+            {optimizationStore && (
+              <Button size="sm" onClick={() => optimize.create("offline", dataset.id, dataset.revision)}>
+                Optimize models
+              </Button>
+            )}
             <IdChip value={dataset.id} label="Copy dataset ID" />
             <RevisionPicker
               revision={dataset.revision}

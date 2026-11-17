@@ -8,28 +8,55 @@ import type { LensApi } from "../service";
 import { demoDatasetsApi } from "./demoDatasets";
 import { createLensDemoData, type LensDemoData } from "./fixtures";
 import { usageCategory } from "../../profiles/usageProfile";
+import { createOptimizationStore } from "./demoOptimizations";
+import { catalog } from "../../optimizations/model";
+import type { DemoStorage } from "./storage";
+import { demoEvalsApi } from "./demoEvals";
+import type { SignalConfig } from "../../model/types";
 
 const notInDemo = (): Promise<never> =>
-  Promise.reject(new ApiError("This item is not in the demo", 404, { detail: "This item is not in the demo" }));
-const readOnly = (): Promise<never> =>
-  Promise.reject(new ApiError("Demo data is read-only", 403, { detail: "Demo data is read-only" }));
+  Promise.reject(
+    new ApiError("This item is not in the demo", 404, {
+      detail: "This item is not in the demo",
+    }),
+  );
 const found = <T>(value: T | undefined): Promise<T> => (value === undefined ? notInDemo() : Promise.resolve(value));
 
-function demoLensApi(data: LensDemoData): LensApi {
+function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
   const jobs = (lensId: string) => data.lenses.find((lens) => lens.id === lensId)?.jobs;
+  const datasets = demoDatasetsApi(data, () => new Date(), storage);
+  let signalConfig: SignalConfig = {
+    model: "gpt-6-luna",
+    threshold: 0.5,
+    signals: [],
+  };
+  const gateway = () => ({
+    configured: true,
+    connected: true,
+    api_base: null,
+    analysis_models: 10,
+    evaluation_models: 10,
+    error: null,
+    last_refreshed: new Date().toISOString(),
+  });
   return {
     scope: "demo",
-    datasets: demoDatasetsApi(data),
-    evalRuns: {
-      list: async () => [],
-      get: notInDemo,
-      runCase: notInDemo,
-      cases: notInDemo,
-      evals: async () => [],
-      evalDefinition: notInDemo,
-      saveEval: notInDemo,
-    },
-    lenses: async () => ({ lenses: data.lenses, workers: [], tracing_enabled: true }),
+    datasets,
+    evalRuns: demoEvalsApi(datasets, storage),
+    lenses: async () => ({
+      lenses: data.lenses,
+      workers: [
+        {
+          id: "demo-worker",
+          name: "Demo analysis",
+          revoked: false,
+          analysis_key_id: "demo-analysis",
+          last_seen: new Date().toISOString(),
+          scope: { all_teams: true, api_key_hash: "", team_id: "" },
+        },
+      ],
+      tracing_enabled: true,
+    }),
     activity: async () => ({ traces: true, requests: false }),
     runs: (lensId, offset) => found(jobs(lensId)?.slice(offset)),
     run: (lensId, jobId) => found(jobs(lensId)?.find((job) => job.id === jobId)),
@@ -41,32 +68,76 @@ function demoLensApi(data: LensDemoData): LensApi {
       };
     },
     execution: notInDemo,
-    sample: notInDemo,
-    agents: notInDemo,
-    models: async () => ({ data: [] }),
-    modelDetails: async () => ({ data: [] }),
-    gateway: async () => ({
-      configured: false,
-      connected: false,
-      api_base: null,
-      analysis_models: 0,
-      evaluation_models: 0,
-      error: null,
-      last_refreshed: null,
+    sample: async (selection) => {
+      const executions = data.lenses
+        .filter((lens) => !selection.agent_name || lens.settings.agent_name === selection.agent_name)
+        .flatMap((lens) => lens.jobs[0]?.sample?.executions ?? []);
+      return {
+        eligible: executions.length,
+        selected: executions.length,
+        executions,
+      };
+    },
+    agents: async () => [...new Set(data.runs.flatMap((run) => run.trace.summary.agent_names ?? []))],
+    models: async () => ({ data: catalog.map(({ id }) => ({ id })) }),
+    modelDetails: async () => ({
+      data: catalog.map(({ id }) => ({
+        model_group: id,
+        providers: ["Demo gateway"],
+        mode: "chat",
+      })),
     }),
-    refreshGateway: readOnly,
-    saveLens: readOnly,
-    startRun: readOnly,
+    gateway: async () => gateway(),
+    refreshGateway: async () => gateway(),
+    saveLens: async (id, settings) => {
+      const current = data.lenses.find((lens) => lens.id === id) ?? data.lenses[0];
+      const saved = {
+        ...current,
+        id: id ?? `demo-lens-${crypto.randomUUID()}`,
+        settings,
+        revision: current.revision + 1,
+      };
+      data.lenses = [...data.lenses.filter((lens) => lens.id !== saved.id), saved];
+      return saved;
+    },
+    startRun: async (id) => {
+      const lens = await found(data.lenses.find((lens) => lens.id === id));
+      lens.jobs = [
+        {
+          ...lens.jobs[0],
+          id: `demo-job-${crypto.randomUUID()}`,
+          created_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+        },
+        ...lens.jobs,
+      ];
+    },
     watchAll: async () => ({ watching: [], skipped: [] }),
-    signalConfig: async () => ({ model: "", threshold: 0.5, signals: [] }),
-    saveSignalConfig: readOnly,
-    cancelRun: readOnly,
-    reviewFinding: readOnly,
+    signalConfig: async () => signalConfig,
+    saveSignalConfig: async (config) => {
+      signalConfig = config;
+      return config;
+    },
+    cancelRun: async () => {},
+    reviewFinding: async (lensId, findingId, status, reason) => {
+      const lens = await found(data.lenses.find((lens) => lens.id === lensId));
+      lens.findings = lens.findings.map((finding) =>
+        finding.id === findingId ? { ...finding, status, reason } : finding,
+      );
+      lens.jobs = lens.jobs.map((job) => ({
+        ...job,
+        findings: job.findings?.map((finding) => (finding.id === findingId ? { ...finding, status, reason } : finding)),
+      }));
+    },
   };
 }
 
 const DEMO_FEEDBACK = [
-  { score: 3, comment: "It edited the wrong file and I had to ask twice.", author: "customer-1042" },
+  {
+    score: 3,
+    comment: "It edited the wrong file and I had to ask twice.",
+    author: "customer-1042",
+  },
   { score: 9, comment: "Exactly what I asked for.", author: "customer-2210" },
 ] as const;
 
@@ -76,7 +147,13 @@ function demoFeedback(runs: LensDemoData["runs"]): Feedback[] {
     if (!summary) return [];
     const at = summary.start_time;
     return [
-      { ...entry, trace_id: summary.trace_id, trace_ref: summary.trace_ref ?? "", created_at: at, updated_at: at },
+      {
+        ...entry,
+        trace_id: summary.trace_id,
+        trace_ref: summary.trace_ref ?? "",
+        created_at: at,
+        updated_at: at,
+      },
     ];
   });
 }
@@ -95,7 +172,10 @@ function demoTracesApi(data: LensDemoData): TracesApi {
     handoff: (traceId, spanId) => {
       const found = run(traceId);
       const step = spanId ? found?.details.find((span) => span.span_id === spanId) : found;
-      return { text: JSON.stringify(step, null, 2), copied: spanId ? "Step copied" : "Trace copied" };
+      return {
+        text: JSON.stringify(step, null, 2),
+        copied: spanId ? "Step copied" : "Trace copied",
+      };
     },
     list: async ({ startMs, endMs }, agent) => ({
       data: summariesIn(data, startMs, endMs).filter((trace) => !agent || traceAgentNames(trace).includes(agent)),
@@ -128,10 +208,19 @@ function demoTracesApi(data: LensDemoData): TracesApi {
               .map((finding) => finding.id),
           ),
         );
-        return { ...trace, finding_count: assessed.length ? findings.size : null };
+        return {
+          ...trace,
+          finding_count: assessed.length ? findings.size : null,
+        };
       }),
     signals: async (traces) =>
-      traces.map((trace) => ({ ...trace, status: "unclassified" as const, flags: [], model: "", classified_at: null })),
+      traces.map((trace) => ({
+        ...trace,
+        status: "unclassified" as const,
+        flags: [],
+        model: "",
+        classified_at: null,
+      })),
     feedbackSummary: async (traces) =>
       traces.map((trace) => {
         const scores = feedbackFor(trace.trace_id).map((entry) => entry.score);
@@ -145,7 +234,11 @@ function demoTracesApi(data: LensDemoData): TracesApi {
       }),
     feedback: async (traceId) => {
       const summary = (await found(run(traceId))).trace.summary;
-      return { trace_id: traceId, trace_ref: summary.trace_ref ?? "", feedback: feedbackFor(traceId) };
+      return {
+        trace_id: traceId,
+        trace_ref: summary.trace_ref ?? "",
+        feedback: feedbackFor(traceId),
+      };
     },
     anyRecorded: async () => data.runs.length > 0,
     trace: (traceId) => found(run(traceId)?.trace),
@@ -190,11 +283,13 @@ function demoTracesApi(data: LensDemoData): TracesApi {
   };
 }
 
-export function createLensDemo(now = Date.now()): LensServices {
+export function createLensDemo(now = Date.now(), storage?: DemoStorage): LensServices {
   const data = createLensDemoData(now);
+  const lens = demoLensApi(data, storage);
   return {
     accessToken: "lens-demo",
-    lens: demoLensApi(data),
+    lens,
+    optimizations: createOptimizationStore(data, lens.datasets, storage, now),
     traces: demoTracesApi(data),
     profiles: {
       scope: "demo",
@@ -203,23 +298,14 @@ export function createLensDemo(now = Date.now()): LensServices {
         for (const run of data.runs) {
           const trace = run.trace.summary;
           const at = Date.parse(trace.start_time);
-          if (
-            at < startMs ||
-            at >= endMs ||
-            (agent && !traceAgentNames(trace).includes(agent))
-          )
-            continue;
+          if (at < startMs || at >= endMs || (agent && !traceAgentNames(trace).includes(agent))) continue;
           const category =
-            run.details
-              .map((detail) => usageCategory(detail.attributes))
-              .find(Boolean) ?? "Unclassified";
+            run.details.map((detail) => usageCategory(detail.attributes)).find(Boolean) ?? "Unclassified";
           counts.set(category, (counts.get(category) ?? 0) + 1);
         }
         return [...counts]
           .map(([category, runs]) => ({ category, runs }))
-          .sort(
-            (a, b) => b.runs - a.runs || a.category.localeCompare(b.category),
-          );
+          .sort((a, b) => b.runs - a.runs || a.category.localeCompare(b.category));
       },
     },
   };

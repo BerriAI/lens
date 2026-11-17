@@ -8,6 +8,26 @@ export type InvestigatorState =
   "starting" | "running" | "scheduled" | "stalled" | "failed" | "daily_limit" | "unavailable";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationJudge".
+ */
+export type OptimizationJudge = "feedback" | "llm";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationMode".
+ */
+export type OptimizationMode = "live" | "shadow" | "offline";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationScope".
+ */
+export type OptimizationScope = "final" | "agent";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationStatus".
+ */
+export type OptimizationStatus = "running" | "paused" | "completed";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TraceSignalStatus".
  */
 export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
@@ -569,6 +589,76 @@ export interface ModelResult {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationAssignment".
+ */
+export interface OptimizationAssignment {
+  baseline: boolean;
+  model: string;
+  optimizationId?: string | null;
+  traceId: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationConfig".
+ */
+export interface OptimizationConfig {
+  agent: string;
+  baseline: string;
+  baselineSampling: number;
+  candidateSampling: number;
+  datasetId: string;
+  datasetName: string;
+  judge: OptimizationJudge;
+  judgeModel: string;
+  mode: OptimizationMode;
+  models: string[];
+  revision: number;
+  rubric: string;
+  scope: OptimizationScope;
+  teamId: string;
+  tolerance: number;
+  traffic: number;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationResult".
+ */
+export interface OptimizationResult {
+  completedAt: number;
+  costUsd?: number | null;
+  durationMs?: number | null;
+  error?: string | null;
+  expected: string;
+  id: string;
+  input: string;
+  model: string;
+  original: string;
+  output?: string | null;
+  score?: number | null;
+  scoreError?: string | null;
+  servedModel?: string | null;
+  sourceId: string;
+  spanId: string;
+  traceId: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "OptimizationRun".
+ */
+export interface OptimizationRun {
+  config: OptimizationConfig;
+  createdAt: number;
+  error?: string | null;
+  id: string;
+  pending: number;
+  results: OptimizationResult[];
+  status: OptimizationStatus;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "Progress".
  */
 export interface Progress {
@@ -605,6 +695,16 @@ export interface PythonAgentTurnFindings {
   checkpoint?: string | null;
   result?: Findings | null;
   tools?: (EvidenceRequest | PythonRequest)[];
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "ReplayRequest".
+ */
+export interface ReplayRequest {
+  messages: unknown[];
+  parameters?: {
+    [k: string]: unknown;
+  };
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema

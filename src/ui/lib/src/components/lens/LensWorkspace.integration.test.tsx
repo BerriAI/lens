@@ -285,7 +285,7 @@ describe("Lens interactive demo", () => {
     await expectUrl(onUrlUpdate, (url) => expect(url.get("q")).toBe("agent:support_agent status:error"));
     await user.click(screen.getByRole("tab", { name: "Findings" }));
     expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "New investigation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New investigation" })).toBeVisible();
     expect(network).not.toHaveBeenCalled();
     await user.click(screen.getByRole("switch", { name: "Demo data" }));
     expect(await screen.findByText(/Findings require proxy administrator access/)).toBeVisible();
@@ -770,14 +770,14 @@ describe("Lens interactive demo", () => {
   });
 });
 
-it("opens demo findings without exposing analysis edits or touching live data", async () => {
+it("opens editable demo findings without touching live data", async () => {
   const user = userEvent.setup();
   const finding = createLensDemoData().lenses[0].findings.find((item) => item.kind === "issue")!;
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
     searchParams: "?tab=investigations&demo=true",
   });
   expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Findings settings" })).toBeVisible();
   await user.click(await screen.findByRole("row", { name: finding.title }));
   expect(await screen.findByRole("heading", { name: finding.title })).toBeVisible();
   expect(network).not.toHaveBeenCalled();
@@ -794,7 +794,7 @@ it("should show only the selected agent's findings and open their report", async
   expect(await screen.findByRole("row", { name: research.title })).toBeVisible();
   expect(screen.queryByRole("row", { name: support.title })).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Filter by agent" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Findings settings" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Findings settings" })).toBeVisible();
   await user.click(screen.getByRole("row", { name: research.title }));
   const report = await screen.findByRole("complementary", { name: "Finding details" });
   expect(within(report).getByRole("heading", { name: research.title })).toBeVisible();
@@ -980,8 +980,8 @@ it("discovers profiles from Traces and keeps the selected agent and time range i
     onUrlUpdate,
   });
   await user.click(await screen.findByRole("button", { name: "Task profiles" }));
-  expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "4 of 6 runs, 66.7%");
-  expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 6 runs, 33.3%");
+  expect(await screen.findByRole("meter", { name: "Workflows" })).toHaveAttribute("aria-valuetext", "52 of 54 runs, 96.3%");
+  expect(screen.getByRole("meter", { name: "Unclassified" })).toHaveAttribute("aria-valuetext", "2 of 54 runs, 3.7%");
   expect(screen.queryByRole("combobox", { name: "Profile agent" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));

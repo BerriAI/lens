@@ -386,3 +386,21 @@ fn default_limits_preserve_large_cases_and_datasets() {
     let cases = vec![large; 201];
     assert_eq!(revision_problem(&cases, Limits::default()), None);
 }
+
+#[rstest]
+fn editing_saved_case_invalidates_its_original_request_and_source() {
+    let mut original = case("original question");
+    original.id = case_id(&original.messages, &original.reply, &original.tool_calls);
+    original.request = lens_contract::optimizations::ReplayRequest::capture(
+        r#"{"messages":[{"role":"user","content":"original question"}],"temperature":0.4}"#,
+    )
+    .map(Box::new);
+    original.source.trace_id = "original-trace".into();
+    let unchanged = revision_cases(&[original.clone()]);
+    assert_eq!(unchanged[0].request, original.request);
+    original.messages[0].content = "edited question".into();
+    let changed = revision_cases(&[original]);
+    assert_eq!(changed[0].messages[0].content, "edited question");
+    assert!(changed[0].request.is_none());
+    assert!(changed[0].source.trace_id.is_empty());
+}

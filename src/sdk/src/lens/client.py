@@ -10,6 +10,7 @@ from . import _native
 from .config import Execution
 from .errors import ConfigurationError
 from .models import Report
+from .optimizations import Optimizations
 from .session import Evaluation
 
 
@@ -40,6 +41,10 @@ class NamedEvals:
 class Lens:
     base_url: str
     api_key: str = field(repr=False)
+
+    @property
+    def optimizations(self) -> Optimizations:
+        return Optimizations(self.base_url, self.api_key)
 
     @property
     def evals(self) -> NamedEvals:

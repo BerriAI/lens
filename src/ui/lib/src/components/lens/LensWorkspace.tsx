@@ -16,6 +16,8 @@ import { DatasetsView } from "./datasets/DatasetsView";
 import { EvalsView } from "./evals/EvalsView";
 import { LensSettings } from "./settings/LensSettings";
 import { createLensDemo } from "./data/demo/createLensDemo";
+import { browserDemoStorage } from "./data/demo/storage";
+import { ModelOptimizations } from "./optimizations/ModelOptimizations";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
 import { LensTabs } from "./LensTabs";
@@ -65,10 +67,10 @@ function LiveSession(props: WorkspaceProps) {
 }
 
 function SampleSession() {
-  const [services] = useState(() => createLensDemo());
+  const [services] = useState(() => createLensDemo(Date.now(), browserDemoStorage()));
   return (
     <LensServicesProvider services={services}>
-      <LensContent userRole="proxy_admin_viewer" readOnly />
+      <LensContent userRole="proxy_admin" readOnly={false} />
     </LensServicesProvider>
   );
 }
@@ -122,7 +124,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
         }
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
-  const requestedTab = tab === "settings" && !canConfigure ? defaultTab : tab ?? defaultTab;
+  const requestedTab = tab === "settings" && !canConfigure ? defaultTab : (tab ?? defaultTab);
   const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
   useEffect(() => {
     if (requestedTab === "investigations") setTab("findings");
@@ -216,7 +218,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
                   </div>
                   <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
-                    {agents.agent && (
+                    {agents.agent && activeTab !== "optimizations" && (
                       <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
                     )}
                     <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
@@ -357,6 +359,9 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       ) : (
                         <p className="py-6 text-sm text-muted-foreground">Evals require proxy administrator access.</p>
                       )}
+                    </TabsContent>
+                    <TabsContent value="optimizations" className={PANEL}>
+                      <ModelOptimizations canView={canViewInvestigations} readOnly={readOnly || !isAdmin} />
                     </TabsContent>
                   </>
                 )}

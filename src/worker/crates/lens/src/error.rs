@@ -7,6 +7,48 @@ use litellm_traces_cache::ReadError;
 use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
+pub enum OptimizationError {
+    #[error("{0}")]
+    Invalid(&'static str),
+    #[error("Optimization not found")]
+    NotFound,
+    #[error("This credential cannot perform this action")]
+    Forbidden,
+    #[error("The optimization changed; refresh and try again")]
+    Conflict,
+    #[error("Optimization storage is unavailable")]
+    Storage(#[from] litellm_storage_clickhouse::Error),
+    #[error("Optimization data is invalid")]
+    Json(#[from] serde_json::Error),
+    #[error("Authentication failed")]
+    Authentication(#[from] lens_auth::Error),
+    #[error("Configure a reachable gateway before running optimizations")]
+    Gateway,
+    #[error("Trace or dataset evidence is unavailable")]
+    Evidence,
+}
+
+impl IntoResponse for OptimizationError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Authentication(_) => StatusCode::UNAUTHORIZED,
+            Self::Conflict | Self::Storage(litellm_storage_clickhouse::Error::StateConflict) => {
+                StatusCode::CONFLICT
+            }
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        (
+            status,
+            Json(serde_json::json!({"detail": self.to_string()})),
+        )
+            .into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum GatewayError {
     #[error(
         "Cannot reach the LiteLLM gateway. Check the URL and network connection, then refresh."
@@ -30,6 +72,8 @@ pub enum GatewayError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Optimization(#[from] OptimizationError),
     #[error(transparent)]
     GitHub(#[from] lens_server::github::GitHubError),
     #[error("Configure an analysis model before using the eval judge scorer")]

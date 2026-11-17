@@ -6,6 +6,7 @@
     "src/ui/app"
   ],
   "scripts": {
+    "demo:gateway": "node scripts/demo_gateway.mjs",
     "dev": "LENS_PUBLIC_URL=http://127.0.0.1:3100 ./deploy/lens/start && npm run dev:ui",
     "dev:ui": "npm run dev --workspace @litellm/lens-web",
     "build:ui": "npm run build --workspace @litellm/lens-web",

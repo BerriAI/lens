@@ -26,8 +26,31 @@ interface RerunResponse {
 
 export function RunEval(props: RunEvalProps) {
   const { scope } = useLensApi();
-  if (scope === "demo") return null;
+  if (scope === "demo") return <DemoRunEval {...props} />;
   return <LiveRunEval {...props} />;
+}
+
+function DemoRunEval({ definition, onRefresh }: RunEvalProps) {
+  const api = useLensApi();
+  const run = useMutation({
+    mutationFn: async () => {
+      await api.evalRuns.runDemo?.(definition.name);
+      await onRefresh();
+    },
+  });
+  return (
+    <section aria-label="Run eval" className="flex items-center justify-between gap-3 border-b px-6 py-3">
+      <p className="text-xs text-muted-foreground">Simulated agent execution</p>
+      <Button size="sm" disabled={run.isPending} onClick={() => run.mutate()}>
+        {run.isPending ? <Loader2 className="animate-spin" /> : <Play />}Run eval
+      </Button>
+      {run.error && (
+        <p role="alert" className="text-xs text-destructive">
+          {run.error.message}
+        </p>
+      )}
+    </section>
+  );
 }
 
 function LiveRunEval({ definition, runs, onRefresh }: RunEvalProps) {

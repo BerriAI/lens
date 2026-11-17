@@ -16,6 +16,8 @@ use testcontainers_modules::{
     testcontainers::{ContainerAsync, ImageExt, runners::AsyncRunner},
 };
 
+pub const GATEWAY: &str = "dataset-test-gateway-secret-at-least-32";
+
 pub const ADMIN: &str = "dataset-integration-admin-token-at-least-32";
 pub const INGEST: &str = "dataset-integration-tracing-key";
 const SERVICE: &str = "dataset-integration-service-token-at-least-32";
@@ -87,6 +89,7 @@ pub struct Server {
     pub url: String,
     pub store: ClickHouseState,
     pub sources: litellm_lens::SourceReader,
+    pub optimizations: litellm_lens::optimizations::Optimizations,
     pub worker: Option<litellm_lens::local::LocalControl>,
     evaluations: tokio::task::JoinHandle<()>,
     task: tokio::task::JoinHandle<()>,
@@ -138,7 +141,7 @@ impl Database {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let application = api::initialize(
             &state,
-            Settings::new(ADMIN, None, &url).unwrap(),
+            Settings::new(ADMIN, Some(GATEWAY.into()), &url).unwrap(),
             Default::default(),
             Default::default(),
             api::EvalConfig {
@@ -187,6 +190,7 @@ impl Database {
         let sources = litellm_lens::SourceReader(state.clone());
         let worker = application.local_worker.clone();
         let evaluations = application.evals.start();
+        let optimizations = application.optimizations.clone();
         let routes =
             litellm_lens::router(state)
                 .merge(application.router)
@@ -200,6 +204,7 @@ impl Database {
             sources,
             worker,
             evaluations,
+            optimizations,
             task,
         }
     }

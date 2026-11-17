@@ -143,6 +143,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     .with_evaluations()?
     .with_service(state.clone(), config.ingestion_url, config.release);
     let eval_task = application.evals.start();
+    let optimization_task = application.optimizations.start();
     let mut tasks = tokio::task::JoinSet::new();
     let credentials = application.credentials.clone();
     if !credentials.synchronize().await? {
@@ -203,6 +204,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let _ = shutdown.send(());
     tasks.abort_all();
     eval_task.abort();
+    optimization_task.abort();
     while tasks.join_next().await.is_some() {}
     if tokio::time::timeout(Duration::from_secs(10), &mut server)
         .await

@@ -1,3 +1,5 @@
+import { agentOptimizationScenarios, optimizationScenarios } from "./optimizationScenarios";
+
 export type Scenario = {
   agent: string;
   question: string;
@@ -116,4 +118,6 @@ export const scenarios: Scenario[] = [
     result: "Order tracking requires the order number.",
     answer: "Of course. What is your order number?",
   },
+  ...optimizationScenarios,
+  ...agentOptimizationScenarios,
 ];

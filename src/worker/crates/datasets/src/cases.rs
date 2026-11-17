@@ -55,6 +55,10 @@ pub fn case_chars(case: &DatasetCase) -> usize {
         + case.reply.chars().count()
         + tool_call_chars(&case.tool_calls)
         + case.expected.chars().count()
+        + case
+            .request
+            .as_ref()
+            .map_or(0, |request| json_text(request).chars().count())
 }
 
 pub fn make_case(
@@ -78,6 +82,7 @@ pub fn make_case(
     let case = DatasetCase {
         id: case_id(&messages, &reply, &tool_calls),
         messages,
+        request: None,
         reply,
         tool_calls,
         expected,
@@ -154,7 +159,7 @@ fn reply(ui: &UiContent, raw: &str) -> (String, Vec<DatasetToolCall>) {
 
 pub fn case_from_span(detail: &SpanDetail, source: CaseSource, limits: Limits) -> Candidate {
     let (text, calls) = reply(&detail.output_ui, &detail.output);
-    make_case(
+    let candidate = make_case(
         conversation(&detail.input_ui, &detail.input),
         text,
         calls,
@@ -169,7 +174,26 @@ pub fn case_from_span(detail: &SpanDetail, source: CaseSource, limits: Limits) -
             .cloned()
             .unwrap_or_default(),
         limits,
-    )
+    );
+    match candidate {
+        Candidate::Case(mut case) => {
+            case.request = lens_contract::optimizations::ReplayRequest::capture(
+                detail
+                    .attributes
+                    .get("lens.replay.request")
+                    .map_or(detail.input.as_str(), String::as_str),
+            )
+            .map(Box::new);
+            if case_chars(&case) as i128 > i128::from(limits.max_case_chars) {
+                return Candidate::Skipped(SkippedCase {
+                    source: case.source,
+                    reason: SkipReason::TooLarge,
+                });
+            }
+            Candidate::Case(case)
+        }
+        skipped => skipped,
+    }
 }
 
 pub fn revision_cases(cases: &[DatasetCase]) -> Vec<DatasetCase> {
@@ -178,8 +202,17 @@ pub fn revision_cases(cases: &[DatasetCase]) -> Vec<DatasetCase> {
         .iter()
         .filter_map(|case| {
             let id = case_id(&case.messages, &case.reply, &case.tool_calls);
-            seen.insert(id.clone())
-                .then(|| DatasetCase { id, ..case.clone() })
+            seen.insert(id.clone()).then(|| {
+                if id == case.id || case.id.len() != 64 {
+                    return DatasetCase { id, ..case.clone() };
+                }
+                DatasetCase {
+                    id,
+                    request: None,
+                    source: CaseSource::default(),
+                    ..case.clone()
+                }
+            })
         })
         .collect()
 }
@@ -187,6 +220,13 @@ pub fn revision_cases(cases: &[DatasetCase]) -> Vec<DatasetCase> {
 pub fn revision_problem(cases: &[DatasetCase], limits: Limits) -> Option<RevisionProblem> {
     if cases.len() as i128 > i128::from(limits.max_cases) {
         return Some(RevisionProblem::TooManyCases(limits.max_cases));
+    }
+    if cases.iter().any(|case| {
+        case.request
+            .as_ref()
+            .is_some_and(|request| request.validate().is_err())
+    }) {
+        return Some(RevisionProblem::InvalidRequest);
     }
     cases
         .iter()

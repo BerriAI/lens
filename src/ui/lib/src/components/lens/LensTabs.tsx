@@ -1,6 +1,16 @@
 "use client";
 
-import { Activity, Bot, ChartNoAxesColumn, Database, FlaskConical, House, Settings, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  ChartNoAxesColumn,
+  Database,
+  FlaskConical,
+  House,
+  Settings,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "../../lib/cva.config";
 import { TabsList, TabsTrigger } from "../ui/tabs";
 import { useWorkerConnected } from "./hooks/useWorkerConnected";
@@ -24,6 +34,11 @@ const NAVIGATION_ITEMS = [
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "datasets", label: "Datasets", icon: Database },
   { value: "evals", label: "Evals", icon: FlaskConical },
+  {
+    value: "optimizations",
+    label: "Model optimizations",
+    icon: ChartNoAxesColumn,
+  },
 ] as const;
 
 export function LensTabs({ activity, workers, onNavigate, orientation, collapsed = false }: LensTabsProps) {
@@ -78,7 +93,9 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
           : "h-9 w-max justify-start gap-1",
       )}
     >
-      {NAVIGATION_ITEMS.map(({ value, label, icon }) => item(value, label, icon))}
+      {NAVIGATION_ITEMS.map(({ value, label, icon }) =>
+        item(value, label, icon),
+      )}
       {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
     </TabsList>
   );

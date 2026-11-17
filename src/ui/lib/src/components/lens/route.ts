@@ -15,6 +15,7 @@ export const LENS_TABS = {
   investigations: "Investigations",
   datasets: "Datasets",
   evals: "Evals",
+  optimizations: "Model optimizations",
   settings: "Settings",
 } as const;
 export type LensTab = keyof typeof LENS_TABS;
@@ -50,6 +51,15 @@ const EVAL_PARSERS = {
   eval: parseAsString,
   eval_run: parseAsString,
   eval_case: parseAsString,
+};
+
+const OPTIMIZATION_PARSERS = {
+  optimization: parseAsString,
+  optimization_mode: parseAsStringLiteral(["all", "live", "shadow", "offline"]).withDefault("all"),
+  optimization_new: parseAsStringLiteral(["live", "shadow", "offline"]),
+  optimization_dataset: parseAsString,
+  optimization_revision: parseAsInteger,
+  optimization_search: parseAsString.withDefault(""),
 };
 
 const LEGACY_PARSERS = { dataset_tab: parseAsString };
@@ -105,6 +115,7 @@ const SESSION_PARSERS = {
   ...DIALOG_PARSERS,
   ...DATASET_PARSERS,
   ...EVAL_PARSERS,
+  ...OPTIMIZATION_PARSERS,
   ...LEGACY_PARSERS,
   ...GITHUB_PARSERS,
 };
@@ -118,6 +129,7 @@ const CLEARED_AGENT_VIEW = {
   ...nulls(Object.keys(RESULT_PARSERS)),
   ...nulls(Object.keys(DATASET_PARSERS)),
   ...nulls(Object.keys(EVAL_PARSERS)),
+  ...nulls(Object.keys(OPTIMIZATION_PARSERS)),
   ...nulls(Object.keys(LEGACY_PARSERS)),
   ...nulls(Object.keys(DIALOG_PARSERS)),
   ...nulls(Object.keys(INBOX_PARSERS)),
@@ -413,6 +425,42 @@ export function useEvalRunRoute() {
 }
 
 const SOURCE_TRACE_PARSERS = { tab: LENS_PARSERS.tab, agent: RUN_FILTER_PARSERS.agent, ...OPEN_TRACE_PARSERS };
+
+export function useOptimizationRoute() {
+  const [state, set] = useQueryStates({ ...OPTIMIZATION_PARSERS, tab: LENS_PARSERS.tab }, { history: "push" });
+  return {
+    id: state.optimization,
+    mode: state.optimization_mode,
+    newMode: state.optimization_new,
+    datasetId: state.optimization_dataset,
+    revision: state.optimization_revision,
+    search: state.optimization_search,
+    open: (id: string | null) =>
+      void set({
+        tab: "optimizations",
+        optimization: id,
+        optimization_new: null,
+        optimization_dataset: null,
+        optimization_revision: null,
+      }),
+    filter: (mode: "all" | "live" | "shadow" | "offline") => void set({ optimization_mode: mode, optimization: null }),
+    create: (mode: "live" | "shadow" | "offline", datasetId?: string, revision?: number) =>
+      void set({
+        tab: "optimizations",
+        ...(datasetId ? { optimization: null } : {}),
+        optimization_new: mode,
+        optimization_dataset: datasetId ?? null,
+        optimization_revision: revision ?? null,
+      }),
+    closeCreate: () =>
+      void set({
+        optimization_new: null,
+        optimization_dataset: null,
+        optimization_revision: null,
+      }),
+    setSearch: (search: string) => void set({ optimization_search: search }, { history: "replace" }),
+  };
+}
 
 export interface SourceTrace {
   readonly agent?: string;

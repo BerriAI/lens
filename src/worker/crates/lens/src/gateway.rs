@@ -15,8 +15,8 @@ use crate::{Error, error::GatewayError};
 
 #[derive(Clone)]
 pub struct GatewayConfig {
-    base: Url,
-    key: String,
+    pub(crate) base: Url,
+    pub(crate) key: String,
 }
 
 impl GatewayConfig {
@@ -65,6 +65,14 @@ struct Registry {
 pub struct Models(Arc<Registry>);
 
 impl Models {
+    pub(crate) fn optimization_config(
+        &self,
+    ) -> Option<(GatewayConfig, Option<lens_inference::GatewayIdentity>)> {
+        self.0
+            .connection
+            .clone()
+            .map(|connection| (connection, self.0.signing.clone()))
+    }
     pub fn new(
         analysis: Vec<lens_analysis::Deployment>,
         evaluation: Vec<lens_decisions::Deployment>,

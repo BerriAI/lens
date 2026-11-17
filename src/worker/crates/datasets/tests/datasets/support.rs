@@ -21,6 +21,7 @@ pub fn case(content: &str) -> DatasetCase {
     DatasetCase {
         id: String::new(),
         messages: vec![message(content)],
+        request: None,
         reply: String::new(),
         tool_calls: Vec::new(),
         expected: String::new(),

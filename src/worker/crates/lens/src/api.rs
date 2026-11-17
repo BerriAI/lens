@@ -29,6 +29,7 @@ pub struct Application {
     pub local_worker: Option<crate::local::LocalControl>,
     pub signals_worker: Option<crate::signals::SignalsWorker>,
     pub evals: EvalRuntime,
+    pub optimizations: crate::optimizations::Optimizations,
     authentication: Arc<Authentication<Sessions>>,
 }
 
@@ -81,6 +82,7 @@ impl Application {
         seed: &str,
     ) -> Result<Self, Error> {
         models.refresh().await;
+        self.optimizations.configure(&models)?;
         let signals = crate::signals::SignalsWorker {
             repository: litellm_storage_clickhouse::signals::Signals(
                 self.authentication.sessions.0.clone(),
@@ -209,6 +211,7 @@ pub async fn initialize(
         sessions: Sessions(store.clone()),
     });
     let traces_reader = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
+    let optimizations = crate::optimizations::Optimizations::new(state.clone(), store.clone());
     let eval_runtime = EvalRuntime::new(
         EvalStore::new(store.clone()),
         traces_reader.clone(),
@@ -241,7 +244,11 @@ pub async fn initialize(
             authentication.clone(),
             crate::FeedbackApi(state.clone()),
         ))
-        .merge(eval_api);
+        .merge(eval_api)
+        .merge(crate::optimizations::router(
+            authentication.clone(),
+            optimizations.clone(),
+        ));
     let router = router.merge(lens_server::ingestion::router(
         authentication.clone(),
         ingestion,
@@ -254,6 +261,7 @@ pub async fn initialize(
         local_worker: None,
         signals_worker: None,
         evals: eval_runtime,
+        optimizations,
         authentication,
     })
 }
