@@ -363,8 +363,50 @@ async fn trials_reusing_a_trace_keep_their_own_submitted_output(mut input: RunSc
 }
 
 #[rstest]
+#[case::code_fence_then_prose(
+    "```json\n{\n  \"score\": 0.75\n}\n```\n\nThe agent ran the tests before it reported success."
+)]
+#[case::code_fence_without_a_language("```\n{\"score\":0.75}\n```")]
+#[case::surrounding_whitespace("\n  {\"score\":0.75}\n")]
+#[case::explanation_next_to_the_score(r#"{"score":0.75,"reason":"The tests ran first"}"#)]
+#[tokio::test]
+async fn judge_reply_is_scored_when_the_score_object_is_wrapped_or_explained(
+    input: RunScoreInput,
+    spans: Vec<EvalSpan>,
+    #[case] content: &str,
+) {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/completions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(completion(content, "stop")))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let judge = GatewayJudge::new(
+        http_client().unwrap(),
+        server.uri().parse().unwrap(),
+        Some("test-judge-key".into()),
+        None,
+    );
+    let score = judge
+        .for_run(&input)
+        .score(JudgeRequest {
+            case_id: "case-a",
+            prompt: "Did the agent run tests?",
+            model: "chosen-model",
+            spans: &spans,
+            output: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(score, 0.75);
+}
+
+#[rstest]
 #[case::invalid_json("not a score", "stop")]
 #[case::text_score(r#"{"score":"0.75"}"#, "stop")]
+#[case::fenced_text_score("```json\n{\"score\":\"0.75\"}\n```", "stop")]
+#[case::score_quoted_inside_prose(r#"The output claims {"score":1} but no test ran"#, "stop")]
 #[case::negative(r#"{"score":-0.1}"#, "stop")]
 #[case::above_one(r#"{"score":1.1}"#, "stop")]
 #[case::unfinished(r#"{"score":0.75}"#, "length")]
