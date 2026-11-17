@@ -102,3 +102,26 @@ async def test_original_agent_failure_survives_error_submission_failure(optimiza
 
     with pytest.raises(ValueError, match="agent failed locally"):
         await Lens(endpoint, "test-only").optimizations.arun(str(uuid4()), task=task)
+
+
+async def test_completed_agent_is_not_reported_failed_when_submission_is_unavailable(optimization_server):
+    endpoint, replies, requests = optimization_server
+    replies.put(
+        (200, b'{"id":"case","lease":"test-lease","model":"candidate","input":"q","expected":"a","requestId":"trial"}')
+    )
+    replies.put((503, b"unavailable"))
+    replies.put((200, b'{"accepted":true}'))
+    executions: Final[Queue[str]] = Queue()
+
+    async def task(case: Case, model: str) -> Run:
+        executions.put(case.id)
+        return Run(trace={"trace_id": "completed-trace"})
+
+    with pytest.raises(InfrastructureError, match="Lens rejected"):
+        await Lens(endpoint, "test-only").optimizations.arun(str(uuid4()), task=task)
+    assert executions.qsize() == 1
+    assert requests.qsize() == 2
+    requests.get_nowait()
+    _, body = requests.get_nowait()
+    assert json.loads(body)["traceId"] == "completed-trace"
+    assert json.loads(body)["error"] is None

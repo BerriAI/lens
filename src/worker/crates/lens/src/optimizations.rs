@@ -14,6 +14,7 @@ use litellm_storage_clickhouse::{
     datasets::Datasets,
     state::{Change, ClickHouseState, Snapshot},
 };
+use rand::Rng;
 use serde_json::json;
 use std::sync::{Arc, RwLock};
 
@@ -219,100 +220,99 @@ impl Optimizations {
             model: request.baseline.clone(),
             baseline: true,
         };
-        let experiment = self
-            .0
-            .store
-            .0
-            .read(&format!(
-                "optimization-live/{}",
-                digest(&[team, &request.agent, &request.baseline])
-            ))
-            .await?;
-        let Some(id) = experiment.value.as_str() else {
-            return Ok(fallback);
-        };
-        let (_, record) = self.0.store.get(id).await?;
-        if record.config.team_id != team || record.status != OptimizationStatus::Running {
-            return Ok(fallback);
-        }
-        let assignment_key = format!(
-            "optimization-assignment/{id}/{}",
-            digest(&[&request.trace_id])
-        );
-        let snapshot = self.0.store.0.read(&assignment_key).await?;
-        if !snapshot.value.is_null() {
-            let assignment: OptimizationAssignment = serde_json::from_value(snapshot.value)?;
-            return Ok(if eligible(identity, &assignment.model) {
-                assignment
-            } else {
-                fallback
-            });
-        }
-        let count = self
-            .0
-            .store
-            .0
-            .read(&format!("optimization-admission/{id}"))
-            .await?;
-        let admitted = count.value.as_u64().unwrap_or(0);
-        if admitted >= 5000 {
-            return Ok(fallback);
-        }
-        let candidates: Vec<_> = record
-            .config
-            .models
-            .iter()
-            .filter(|model| eligible(identity, model))
-            .collect();
-        if candidates.is_empty() {
-            return Ok(fallback);
-        }
-        let sampled =
-            bucket(&[id, &request.trace_id, "traffic"]) % 100 < u64::from(record.config.traffic);
-        let model = if sampled {
-            candidates
-                [(bucket(&[id, &request.trace_id, "model"]) % candidates.len() as u64) as usize]
-                .clone()
-        } else {
-            request.baseline.clone()
-        };
-        let assignment = OptimizationAssignment {
-            optimization_id: Some(id.into()),
-            trace_id: request.trace_id,
-            baseline: model == request.baseline,
-            model,
-        };
-        match self
-            .0
-            .store
-            .0
-            .commit(vec![
-                Change {
-                    previous: snapshot,
-                    value: serde_json::to_value(&assignment)?,
-                },
-                Change {
-                    previous: count,
-                    value: json!(admitted + 1),
-                },
-            ])
-            .await
-        {
-            Ok(_) => Ok(assignment),
-            Err(litellm_storage_clickhouse::Error::StateConflict) => {
-                let stored = self.0.store.0.read(&assignment_key).await?.value;
-                if stored.is_null() {
-                    return Ok(fallback);
-                }
-                let assignment: OptimizationAssignment = serde_json::from_value(stored)?;
-                Ok(if eligible(identity, &assignment.model) {
+        for retry in 0..32 {
+            let experiment = self
+                .0
+                .store
+                .0
+                .read(&format!(
+                    "optimization-live/{}",
+                    digest(&[team, &request.agent, &request.baseline])
+                ))
+                .await?;
+            let Some(id) = experiment.value.as_str() else {
+                return Ok(fallback);
+            };
+            let (record_snapshot, record) = self.0.store.get(id).await?;
+            if record.config.team_id != team || record.status != OptimizationStatus::Running {
+                return Ok(fallback);
+            }
+            let assignment_key = format!(
+                "optimization-assignment/{id}/{}",
+                digest(&[&request.trace_id])
+            );
+            let snapshot = self.0.store.0.read(&assignment_key).await?;
+            if !snapshot.value.is_null() {
+                let assignment: OptimizationAssignment = serde_json::from_value(snapshot.value)?;
+                return Ok(if eligible(identity, &assignment.model) {
                     assignment
                 } else {
                     fallback
-                })
+                });
             }
-            Err(error) => Err(error.into()),
+            let count = self
+                .0
+                .store
+                .0
+                .read(&format!("optimization-admission/{id}"))
+                .await?;
+            let admitted = count.value.as_u64().unwrap_or(0);
+            if admitted >= 5000 {
+                return Ok(fallback);
+            }
+            let candidates: Vec<_> = record
+                .config
+                .models
+                .iter()
+                .filter(|model| eligible(identity, model))
+                .collect();
+            if candidates.is_empty() {
+                return Ok(fallback);
+            }
+            let sampled = bucket(&[id, &request.trace_id, "traffic"]) % 100
+                < u64::from(record.config.traffic);
+            let model = if sampled {
+                candidates
+                    [(bucket(&[id, &request.trace_id, "model"]) % candidates.len() as u64) as usize]
+                    .clone()
+            } else {
+                request.baseline.clone()
+            };
+            let assignment = OptimizationAssignment {
+                optimization_id: Some(id.into()),
+                trace_id: request.trace_id.clone(),
+                baseline: model == request.baseline,
+                model,
+            };
+            match self
+                .0
+                .store
+                .0
+                .commit(vec![
+                    Change {
+                        previous: record_snapshot,
+                        value: serde_json::to_value(&record)?,
+                    },
+                    Change {
+                        previous: snapshot,
+                        value: serde_json::to_value(&assignment)?,
+                    },
+                    Change {
+                        previous: count,
+                        value: json!(admitted + 1),
+                    },
+                ])
+                .await
+            {
+                Ok(_) => return Ok(assignment),
+                Err(litellm_storage_clickhouse::Error::StateConflict) => {
+                    let delay = rand::thread_rng().gen_range(0..=20 * (retry + 1).min(8));
+                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                }
+                Err(error) => return Err(error.into()),
+            }
         }
+        Err(Error::Conflict)
     }
 }
 

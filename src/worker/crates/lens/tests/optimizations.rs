@@ -248,6 +248,97 @@ async fn live_assignment_rechecks_permissions_is_team_scoped_and_caps_admission(
 }
 
 #[rstest]
+#[case::distinct_traces(0, false, 8)]
+#[case::same_trace(0, true, 1)]
+#[case::admission_limit(4998, false, 2)]
+#[tokio::test]
+async fn concurrent_live_assignments_preserve_sampling_and_admission(
+    #[future(awt)] database: Database,
+    #[case] admitted: u64,
+    #[case] same_trace: bool,
+    #[case] expected: usize,
+) {
+    let gateway = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/model_group/info"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[
+            {"model_group":"baseline","mode":"chat"},
+            {"model_group":"candidate","mode":"chat"}
+        ]})))
+        .mount(&gateway)
+        .await;
+    let models = Models::new(
+        vec![],
+        vec![],
+        None,
+        Some(GatewayConfig::new(&gateway.uri(), "fixture-only".into()).unwrap()),
+    )
+    .unwrap();
+    let server = database.serve_registry(true, models).await;
+    let run = api(
+        &server,
+        "/lens/optimizations",
+        Some(json!({
+            "mode":"live","agent":"support","baseline":"baseline","models":["candidate"],
+            "teamId":"","traffic":100,"judge":"feedback","judgeModel":"","rubric":"",
+            "baselineSampling":100,"candidateSampling":100,"datasetId":"","datasetName":"",
+            "revision":0,"scope":"final","tolerance":0.1
+        })),
+    )
+    .await;
+    let id = run["id"].as_str().unwrap();
+    let key = format!("optimization-admission/{id}");
+    let previous = server.store.read(&key).await.unwrap();
+    server
+        .store
+        .commit(vec![litellm_storage_clickhouse::state::Change {
+            previous,
+            value: json!(admitted),
+        }])
+        .await
+        .unwrap();
+    let requests = (0..8).map(|index| {
+        let trace = if same_trace { 0 } else { index };
+        api(
+            &server,
+            "/lens/optimizations/assign",
+            Some(json!({
+                "agent":"support", "baseline":"baseline", "traceId":format!("trace-{trace}")
+            })),
+        )
+    });
+    let assignments = futures_util::future::join_all(requests).await;
+    assert_eq!(
+        assignments
+            .iter()
+            .filter(|result| result["model"] == "candidate")
+            .count(),
+        if same_trace { 8 } else { expected }
+    );
+    assert_eq!(
+        server.store.read(&key).await.unwrap().value,
+        json!(admitted + expected as u64)
+    );
+    let keys = server
+        .store
+        .keys(&format!("optimization-assignment/{id}/"), "", 10)
+        .await
+        .unwrap();
+    let stored = server
+        .store
+        .read_many(&keys.iter().map(String::as_str).collect::<Vec<_>>())
+        .await
+        .unwrap();
+    assert_eq!(
+        stored
+            .iter()
+            .filter(|snapshot| !snapshot.value.is_null())
+            .count(),
+        expected
+    );
+}
+
+#[rstest]
 #[case::anonymous(None, 401)]
 #[case::viewer(Some("proxy_admin_viewer"), 403)]
 #[case::team(Some("internal_user"), 403)]

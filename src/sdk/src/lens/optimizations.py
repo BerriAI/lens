@@ -127,22 +127,22 @@ class Optimizations:
         try:
             async with asyncio.timeout(480):
                 result: Final = await task(case, trial.model)
-            trace_id: Final = result.trace.get("trace_id")
-            if not trace_id:
-                raise ConfigurationError("Model optimizations require a trace_id in lens.Run")
-            submission: Final = Submission(id=trial.id, lease=trial.lease, traceId=trace_id)
-            deadline: Final = time.monotonic() + 90
-            while time.monotonic() < deadline:
-                if await self._submit(identifier, submission):
-                    return True
-                await asyncio.sleep(2)
-            raise InfrastructureError("The completed agent trace did not arrive before the runner deadline")
         except Exception:
             with suppress(InfrastructureError):
                 await asyncio.to_thread(
                     self._post, f"{identifier}/submit", Submission(id=trial.id, lease=trial.lease, error="agent_failed")
                 )
             raise
+        trace_id: Final = result.trace.get("trace_id")
+        if not trace_id:
+            raise ConfigurationError("Model optimizations require a trace_id in lens.Run")
+        submission: Final = Submission(id=trial.id, lease=trial.lease, traceId=trace_id)
+        deadline: Final = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            if await self._submit(identifier, submission):
+                return True
+            await asyncio.sleep(2)
+        raise InfrastructureError("The completed agent trace did not arrive before the runner deadline")
 
     async def _submit(self, identifier: str, submission: Submission) -> bool:
         receipt: Final = Receipt.model_validate_json(
