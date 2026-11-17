@@ -395,6 +395,34 @@ async fn listing_the_spans_does_not_count_as_reading_the_run() {
 }
 
 #[rstest]
+#[case::one_wrong_character("run-tesT", false)]
+#[case::unrelated("made-up-run", true)]
+#[tokio::test]
+async fn tool_request_reads_the_run_whose_id_it_mistyped(
+    #[case] requested: &str,
+    #[case] refused: bool,
+) {
+    let session = Session::start(vec![
+        Reply::Turn(json!({"tools": [{"action": "read", "execution_id": requested}]})),
+        Reply::Turn(json!({"result": {"cannot_assess": true, "reasoning": "Nothing to report."}})),
+    ])
+    .await;
+    session.run::<wire::Extraction>().await.unwrap();
+    let requests = session.model_requests().await;
+    let answered: Value =
+        serde_json::from_str(&requests[1].messages.last().unwrap().content).unwrap();
+    let result = &answered["tool_results"][0];
+    assert_eq!(
+        result["error"]
+            .as_str()
+            .is_some_and(|error| !error.is_empty()),
+        refused,
+        "{result}"
+    );
+    assert_eq!(result.to_string().contains(FAILURE), !refused);
+}
+
+#[rstest]
 #[tokio::test]
 async fn run_that_is_never_read_fails_instead_of_being_skipped() {
     let unread = Reply::Turn(json!({"result": {"cannot_assess": true}}));
