@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AnalysisModelInfo } from "./types";
-import { isDecisionsMode, systemOneModels } from "./signals";
+import { chatJudgeModels, isDecisionsMode, systemOneModels } from "./signals";
 
 describe("isDecisionsMode", () => {
   it.each([
@@ -25,5 +25,18 @@ describe("systemOneModels", () => {
       "decisions-model",
       "legacy-model",
     ]);
+  });
+});
+
+describe("chatJudgeModels", () => {
+  it("offers only chat models, in name order", () => {
+    const details: AnalysisModelInfo[] = [
+      { model_group: "sonnet", providers: ["anthropic"], mode: "chat" },
+      { model_group: "decisions-model", providers: ["typesafe"], mode: "decisions" },
+      { model_group: "embeddings", providers: ["openai"], mode: "embedding" },
+      { model_group: "haiku", providers: ["anthropic"], mode: "chat" },
+    ];
+
+    expect(chatJudgeModels(details).map((model) => model.model_group)).toEqual(["haiku", "sonnet"]);
   });
 });

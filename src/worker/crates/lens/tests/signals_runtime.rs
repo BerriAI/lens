@@ -7,7 +7,7 @@ use datasets::support::{Database, INGEST, database};
 use lens_contract::{
     feedback::TraceIdentity,
     investigations::Scope,
-    signals::{SignalConfig, SignalData, SignalEvidence, TraceSignalStatus},
+    signals::{SignalConfig, SignalData, SignalEvidence, SignalFailure, TraceSignalStatus},
 };
 use lens_decisions::{Deployment, EvaluationModels, Provider, Secret, TransportLimits};
 use lens_signals::{LIVE_SWEEP, SignalReader, SignalRepository, run_signal_tick, trace_signals};
@@ -328,4 +328,158 @@ async fn oversized_gateway_trace_keeps_durable_scores_and_reports_partial_covera
         .claimed,
         0
     );
+}
+
+const JUDGE_ANSWERS: &str = "```json\n{\"answers\":[{\"id\":\"frustration\",\"probability\":0.9,\"choice\":null},{\"id\":\"__evidence_0\",\"probability\":null,\"choice\":\"[L000]\"}]}\n```";
+
+#[rstest]
+#[case::classified(200, JUDGE_ANSWERS, TraceSignalStatus::Classified, None)]
+#[case::rate_limited(
+    429,
+    JUDGE_ANSWERS,
+    TraceSignalStatus::Failed,
+    Some(SignalFailure::Transient { retry_after_seconds: None })
+)]
+#[case::unusable_reply(
+    200,
+    "I cannot judge this run.",
+    TraceSignalStatus::Failed,
+    Some(SignalFailure::Permanent)
+)]
+#[tokio::test]
+async fn ingested_trace_is_classified_by_a_chat_model_configured_for_analysis(
+    #[future(awt)] database: Database,
+    #[case] status: u16,
+    #[case] answers: &str,
+    #[case] expected: TraceSignalStatus,
+    #[case] failure: Option<SignalFailure>,
+) {
+    let server = database.serve(false).await;
+    let ingested_at = Utc::now();
+    let now = ingested_at + chrono::TimeDelta::seconds(30);
+    let at = (ingested_at - chrono::TimeDelta::seconds(60))
+        .timestamp_nanos_opt()
+        .unwrap();
+    let payload = json!({"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"signal-agent"}}]},"scopeSpans":[{"spans":[{"traceId":"c1112222333344445555666677778888","spanId":"3111222233334444","name":"Signal agent","startTimeUnixNano":at.to_string(),"endTimeUnixNano":(at+1_000_000).to_string(),"attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"invoke_agent"}},{"key":"gen_ai.agent.name","value":{"stringValue":"signal-agent"}},{"key":"gen_ai.input.messages","value":{"stringValue":"[{\"role\":\"user\",\"content\":\"I am frustrated that you ignored the request\"}]"}}],"status":{"code":1}}]}]}]});
+    let result = reqwest::Client::new()
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(INGEST)
+        .json(&payload)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(result.status(), 200, "{}", result.text().await.unwrap());
+    let provider = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(ResponseTemplate::new(status).set_body_json(json!({
+            "model": "long-context-chat",
+            "choices": [{"message": {"content": answers}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 20}
+        })))
+        .expect(1)
+        .mount(&provider)
+        .await;
+    let catalog = lens_analysis::bundled_catalog().unwrap();
+    let models = litellm_lens::signals::SignalModels {
+        evaluation: std::sync::Arc::new(
+            EvaluationModels::new(catalog.clone(), vec![], TransportLimits::default()).unwrap(),
+        ),
+        analysis: std::sync::Arc::new(
+            lens_analysis::AnalysisModels::new(
+                catalog,
+                vec![lens_analysis::Deployment {
+                    name: "judge".into(),
+                    model: "long-context-chat".into(),
+                    provider: lens_analysis::Provider::OpenAiCompatible,
+                    api_base: Some(format!("{}/v1", provider.uri()).parse().unwrap()),
+                    api_key: lens_analysis::Secret::new("synthetic-key"),
+                    input_cost_per_token: Some(0.000001),
+                    output_cost_per_token: Some(0.000002),
+                    capacity: lens_inference::ModelCapacity {
+                        max_input_tokens: 1_000_000.try_into().ok(),
+                        max_output_tokens: 4096.try_into().ok(),
+                    },
+                    output_limits: Default::default(),
+                }],
+                Default::default(),
+            )
+            .unwrap(),
+        ),
+    };
+    let config: SignalConfig = serde_json::from_value(json!({"model":"judge","threshold":0.5,"signals":[{"id":"frustration","name":"Frustration","question":"Is the user frustrated?"}]})).unwrap();
+    let repository = Signals(server.store.clone());
+    repository.save_config(&config).await.unwrap();
+    let tick = run_signal_tick(
+        &server.sources,
+        Some(&repository),
+        Some(&models),
+        &|| now,
+        true,
+        "",
+        LIVE_SWEEP,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tick.claimed, 1);
+    let identity = TraceIdentity {
+        trace_id: "c1112222333344445555666677778888".into(),
+        trace_ref: SignalReader::sample(
+            &server.sources,
+            &Scope {
+                all_teams: true,
+                ..Default::default()
+            },
+            (now - chrono::TimeDelta::minutes(15)).timestamp_millis(),
+            now.timestamp_millis(),
+            100,
+            "",
+        )
+        .await
+        .unwrap()
+        .executions[0]
+            .trace_ref
+            .clone(),
+    };
+    let rows = repository
+        .traces(std::slice::from_ref(&identity))
+        .await
+        .unwrap();
+    let projected = trace_signals(&identity, rows.first(), &config).unwrap();
+    assert_eq!(projected.status, expected);
+    assert_eq!(projected.model, "judge");
+    let stored: SignalData = serde_json::from_value(rows[0].data.clone()).unwrap();
+    let sent: Value = provider.received_requests().await.unwrap()[0]
+        .body_json()
+        .unwrap();
+    assert_eq!(sent["model"], "long-context-chat");
+    let asked: Value = serde_json::from_str(
+        sent["messages"].as_array().unwrap().last().unwrap()["content"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    let passage = asked["trace"]["steps"][0]["content"].as_str().unwrap();
+    assert!(passage.starts_with("[L000] "));
+    assert!(passage.contains("I am frustrated that you ignored the request"));
+    assert_eq!(
+        asked["questions"][1],
+        json!({"id":"frustration","type":"noul","instructions":"Is the user frustrated?"})
+    );
+    assert_eq!(asked["questions"][0]["id"], "__evidence_0");
+    assert_eq!(stored.failure, failure);
+    if expected == TraceSignalStatus::Classified {
+        assert_eq!(stored.scores["frustration"], 0.9);
+        assert_eq!(projected.flags[0].score, 0.9);
+        assert_eq!(
+            projected.flags[0].evidence,
+            Some(SignalEvidence {
+                span_id: "3111222233334444".into(),
+                quote: passage.trim_start_matches("[L000] ").into(),
+            })
+        );
+    } else {
+        assert!(stored.scores.is_empty());
+        assert!(projected.flags.is_empty());
+    }
 }

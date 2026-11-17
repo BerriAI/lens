@@ -66,10 +66,10 @@ describe("Gateway connection", () => {
     renderWithLens(<ConnectionWithSignals />);
 
     expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
-    expect(screen.getByText(/Your gateway has no evaluation models/)).toBeVisible();
+    expect(await screen.findByText("Pick one of the models configured for Lens below.")).toBeVisible();
     await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
-    expect(await screen.findByText("No evaluation models configured for Lens")).toBeVisible();
-    expect(screen.queryByRole("option", { name: /gateway-chat/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /gateway-chat/ })).toHaveTextContent("Chat judge");
+    expect(screen.queryByRole("option", { name: /gateway-jev/ })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
 
     gateway.get.mockImplementation((path) => {
@@ -90,8 +90,8 @@ describe("Gateway connection", () => {
     );
     expect(testQueryClient.getQueryState(lensKeys.models("test"))?.isInvalidated).toBe(true);
     await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
-    await user.click(await screen.findByRole("option", { name: /gateway-jev/ }));
-    expect(screen.queryByRole("option", { name: /gateway-chat/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /gateway-chat/ })).toBeVisible();
+    await user.click(screen.getByRole("option", { name: /gateway-jev/ }));
     await user.click(screen.getByRole("button", { name: "Save signals" }));
 
     expect(await screen.findByText("Saved")).toBeVisible();
@@ -141,7 +141,7 @@ describe("Gateway connection", () => {
       "The gateway could not be reached",
     );
     expect(screen.getByText(/Could not load System 1 models/)).toBeVisible();
-    expect(screen.queryByText(/Your gateway has no evaluation models/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Your gateway has no evaluation or chat models/)).not.toBeInTheDocument();
     expect(screen.getByText(/Last available catalogue/)).toBeVisible();
     expect(model).toHaveValue(evaluationModel.model_group);
     expect(threshold).toHaveValue(70);

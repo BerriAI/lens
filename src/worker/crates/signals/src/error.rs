@@ -29,6 +29,8 @@ pub enum DecisionsError {
     Timeout,
     #[error("Lens signal provider response exceeds the configured limit")]
     ResponseLimit,
+    #[error("Lens signal model returned an unusable answer")]
+    Answer,
     #[error("Lens signal model request failed")]
     Unavailable(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

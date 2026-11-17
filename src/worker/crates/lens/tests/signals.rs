@@ -39,10 +39,23 @@ async fn serve(database: &Database) -> Server {
         settings: Settings::new(ADMIN, Some(SECRET.into()), url.as_str()).unwrap(),
         sessions: Sessions(database.sessions.clone()),
     });
-    let router = lens_server::signals::router(
+    let router = lens_server::signals::with_catalog(
         authentication,
         Signals(database.sessions.clone()),
-        vec!["evaluation".into()],
+        [
+            ("evaluation", "evaluation"),
+            ("chat-judge", "chat"),
+            ("embeddings", "embedding"),
+        ]
+        .map(
+            |(model_group, mode)| lens_contract::activity::AnalysisModelInfo {
+                model_group: model_group.into(),
+                providers: Vec::new(),
+                mode: mode.into(),
+                supported_openai_params: None,
+            },
+        )
+        .to_vec(),
     );
     let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     Server {
@@ -246,14 +259,19 @@ async fn stored_classifications_keep_trace_identity_order_and_live_display_setti
 }
 
 #[rstest]
+#[case::unknown("not-configured")]
+#[case::not_a_judge("embeddings")]
 #[tokio::test]
-async fn an_unknown_model_cannot_be_saved_with_empty_signals(#[future(awt)] database: Database) {
+async fn a_model_that_cannot_judge_cannot_be_saved_with_empty_signals(
+    #[future(awt)] database: Database,
+    #[case] model: &str,
+) {
     let server = serve(&database).await;
     let response = server
         .client
         .put(server.url.join("/lens/signals").unwrap())
         .bearer_auth(ADMIN)
-        .json(&json!({"model":"chat-only","signals":[]}))
+        .json(&json!({"model":model,"signals":[]}))
         .send()
         .await
         .unwrap();
@@ -264,6 +282,29 @@ async fn an_unknown_model_cannot_be_saved_with_empty_signals(#[future(awt)] data
             .await
             .unwrap(),
         SignalConfig::default()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_chat_model_can_be_saved_as_the_signal_judge(#[future(awt)] database: Database) {
+    let server = serve(&database).await;
+    let response = server
+        .client
+        .put(server.url.join("/lens/signals").unwrap())
+        .bearer_auth(ADMIN)
+        .json(&json!({"model":"chat-judge","signals":[]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        Signals(database.sessions.clone())
+            .get_config()
+            .await
+            .unwrap()
+            .model,
+        "chat-judge"
     );
 }
 

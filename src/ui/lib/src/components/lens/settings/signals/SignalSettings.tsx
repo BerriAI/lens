@@ -15,7 +15,7 @@ import { Textarea } from "../../../ui/textarea";
 
 import { useLensApi } from "../../data/LensServices";
 import { lensKeys, lensQueries } from "../../data/queries";
-import { SIGNAL_LIBRARY, signalsConfigured, systemOneModels } from "../../model/signals";
+import { chatJudgeModels, SIGNAL_LIBRARY, signalsConfigured, systemOneModels } from "../../model/signals";
 import { WatchPicker } from "../../setup/WatchPicker";
 import type { SignalConfig } from "../../model/types";
 import { SettingsCard, SettingsSection } from "../SettingsSection";
@@ -58,12 +58,12 @@ function SetupCallout({ hasModels, gatewayConnected }: { hasModels: boolean; gat
       <div className="space-y-1">
         <p className="font-medium">Choose a System 1 model to start flagging traces</p>
         {hasModels ? (
-          <p className="text-xs text-muted-foreground">Pick one of the evaluation models configured for Lens below.</p>
+          <p className="text-xs text-muted-foreground">Pick one of the models configured for Lens below.</p>
         ) : (
           <p className="text-xs text-muted-foreground">
             {gatewayConnected
-              ? "Your gateway has no evaluation models. Add a model that supports the Decisions API, then refresh models."
-              : "Add an evaluation provider to your Lens deployment, then refresh models."}{" "}
+              ? "Your gateway has no evaluation or chat models. Add a model that supports the Decisions API or a chat model, then refresh models."
+              : "Add an evaluation or analysis provider to your Lens deployment, then refresh models."}{" "}
             <a
               href="https://github.com/BerriAI/lens/blob/main/docs/signals.md"
               target="_blank"
@@ -149,12 +149,21 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
     (gateway.data?.configured && !gateway.data.connected
       ? gateway.data.error ?? "The model gateway is not connected"
       : undefined);
-  const models = systemOneModels(details.data?.data ?? []);
-  const options = models.map((info) => ({
-    value: info.model_group,
-    label: info.model_group,
-    sublabel: info.providers.join(", "),
-  }));
+  const systemOne = systemOneModels(details.data?.data ?? []);
+  const judges = chatJudgeModels(details.data?.data ?? []);
+  const models = [...systemOne, ...judges];
+  const options = [
+    ...systemOne.map((info) => ({
+      value: info.model_group,
+      label: info.model_group,
+      sublabel: info.providers.join(", "),
+    })),
+    ...judges.map((info) => ({
+      value: info.model_group,
+      label: info.model_group,
+      sublabel: ["Chat judge", ...info.providers].join(" · "),
+    })),
+  ];
   const problems = draftProblems(draft);
   const unavailable =
     Boolean(draft.model) && details.isSuccess && !models.some((info) => info.model_group === draft.model);
@@ -255,10 +264,13 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               onValueChange={(value) => setDraft((current) => ({ ...current, model: value ?? "" }))}
               placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
               disabled={details.isPending}
-              emptyText={discoveryError ? "Model list unavailable" : "No evaluation models configured for Lens"}
+              emptyText={discoveryError ? "Model list unavailable" : "No evaluation or chat models configured for Lens"}
               allowClear
             />
-            <p className="text-xs text-muted-foreground">Evaluation models configured for Lens, such as TypeSafe JEV</p>
+            <p className="text-xs text-muted-foreground">
+              Evaluation models configured for Lens, such as TypeSafe JEV. A chat model can judge traces that are too
+              long for a System 1 model, at a higher cost per trace
+            </p>
             {unavailable && !discoveryError && (
               <p className="text-xs text-muted-foreground">
                 {draft.model} is not in the current model list. Your selection is kept.
