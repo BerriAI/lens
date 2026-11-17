@@ -1,5 +1,8 @@
 use super::{Completion, Outcome, StrictSchema};
-use crate::{Error, Provider, catalog::ResolvedDeployment};
+use crate::{
+    Error, Provider,
+    catalog::{CacheMarks, ResolvedDeployment},
+};
 use lens_contract::worker::ModelMessage;
 use litellm_cost::{PromptConvention, Usage};
 use serde::Deserialize;
@@ -13,12 +16,24 @@ pub(super) fn request(
     schema: Option<&StrictSchema>,
     stream: bool,
 ) -> Result<Value, Error> {
-    let messages: Vec<_> = messages.iter().enumerate().map(|(index,message)| {
-        let content = if deployment.cache_breakpoints && boundaries.contains(&index) {
-            json!([{"type":"text","text":message.content,"prompt_cache_breakpoint":{"mode":"explicit"}}])
-        } else { json!(message.content) };
-        json!({"role":message.role,"content":content})
-    }).collect();
+    let mark = match deployment.cache_marks {
+        CacheMarks::None => None,
+        CacheMarks::Native => Some(("prompt_cache_breakpoint", json!({"mode":"explicit"}))),
+        CacheMarks::Forwarded => Some(("cache_control", json!({"type":"ephemeral"}))),
+    };
+    let messages: Vec<_> = messages
+        .iter()
+        .enumerate()
+        .map(|(index, message)| {
+            let content = match &mark {
+                Some((name, value)) if boundaries.contains(&index) => {
+                    json!([{"type":"text","text":message.content,*name:value}])
+                }
+                _ => json!(message.content),
+            };
+            json!({"role":message.role,"content":content})
+        })
+        .collect();
     let limit = if deployment.config.provider == Provider::OpenAi {
         "max_completion_tokens"
     } else {

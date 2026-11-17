@@ -243,16 +243,21 @@ impl AnalysisModels {
                 .flatten()
                 .unwrap_or(body)
         };
+        let unmarked: &[usize] = if deployment.cache_marks == catalog::CacheMarks::Forwarded {
+            &[]
+        } else {
+            &boundaries
+        };
         let body = paced(protocol::request(
             &deployment,
             &messages,
-            &boundaries,
+            if plain_only { unmarked } else { &boundaries },
             output,
             schema.as_ref(),
             !plain_only,
         )?);
         let plain = (!plain_only)
-            .then(|| protocol::request(&deployment, &messages, &boundaries, output, None, false))
+            .then(|| protocol::request(&deployment, &messages, unmarked, output, None, false))
             .transpose()?
             .map(paced);
         let quick = (!reduced)
@@ -462,7 +467,11 @@ impl AnalysisModels {
             .map_err(Error::Cost)?
             .total();
         let custom = request.custom_charge.then_some(&deployment.prices);
-        let cost = lens_inference::completion_charge(custom, usage, actual, estimate);
+        let cost = if custom.is_some() && deployment.cache_priced {
+            actual
+        } else {
+            lens_inference::completion_charge(custom, usage, actual, estimate)
+        };
         Ok(AnalysisCompletion {
             result: lens_inference::model_result(
                 completion.content.as_deref(),

@@ -1,5 +1,8 @@
 use super::{Completion, Outcome, StrictSchema};
-use crate::{Error, catalog::ResolvedDeployment};
+use crate::{
+    Error,
+    catalog::{CacheMarks, ResolvedDeployment},
+};
 use lens_contract::worker::{ModelMessage, ModelMessageRole};
 use litellm_core_utils::{
     core_helpers::finish_reason_for, prompt_templates::factory::build_conversation,
@@ -30,7 +33,8 @@ pub(super) fn request(
     if !conversation.opens_on_user_turn() {
         return Err(Error::Conversation);
     }
-    let cached = |index: usize| deployment.cache_breakpoints && boundaries.contains(&index);
+    let cached =
+        |index: usize| deployment.cache_marks != CacheMarks::None && boundaries.contains(&index);
     let system_marks = messages
         .iter()
         .enumerate()
