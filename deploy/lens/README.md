@@ -2,7 +2,7 @@
 
 Lens records agent traces, investigates failures, and turns useful examples into datasets. The standalone deployment includes the UI, API and background processing in one Lens service, with ClickHouse storing its data and coordination state
 
-The source installation below builds the current checkout. A published standalone image and release bundle are still being qualified; this guide does not imply that an installable release has shipped
+The source installation below builds the current checkout. For a published version, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest instead of building from source
 
 Prefer your coding agent to make the changes? [Set it up for me](../../docs/setup-with-agent.md#start-standalone-lens) has a copyable prompt for standalone setup, an existing LiteLLM deployment, and optional external storage. The commands below remain the shortest manual path
 

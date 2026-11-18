@@ -94,3 +94,5 @@ docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --ne
 Run these on the deployment's native Linux architecture. Startup and recovery checks exercise persisted records and credentials. The sandbox check verifies useful calculation and confinement. Run provider, browser, import and connected-mode checks against the release candidate as well
 
 Source qualification does not mean an official release has been published
+
+See [Release Lens](docs/releasing.md) for how a release is published and verified

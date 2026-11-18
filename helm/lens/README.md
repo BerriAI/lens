@@ -19,7 +19,7 @@ kubectl --namespace lens port-forward service/lens 4318:4318
 
 Open `http://localhost:4318/ui/`. Obtain the generated private login credential locally with `kubectl --namespace lens get secret lens-admin -o jsonpath='{.data.admin-token}' | base64 --decode`. Keep this credential private. Helm reuses generated credentials on upgrades, and uninstall retains them and the ClickHouse volume
 
-The source chart defaults to the version in its `appVersion`. Before a public release exists, provide a built image through `image.repository` and `image.tag`. A published release is installed from `oci://ghcr.io/berriai/charts/lens` with an exact `--version`; verify its signed release manifest before adopting it
+The source chart defaults to the version in its `appVersion`. Before a public release exists, provide a built image through `image.repository` and `image.tag`. A published release is installed from `oci://ghcr.io/berriai/charts/lens` with an exact `--version` and defaults to the release image digest. [Verify the signed release manifest](../../docs/releasing.md#verify-a-release) before adopting it
 
 The bundled ClickHouse deployment includes an ingress NetworkPolicy that permits TCP 8123 only from this release's Lens pods in the same namespace. Keeper and Raft ports are not exposed to other pods by that policy. Your cluster must use a CNI that enforces NetworkPolicy, and other policies selecting the ClickHouse pod must not grant broader access because Kubernetes combines their allowed traffic. External ClickHouse deployments need equivalent storage isolation managed by their operator
 
