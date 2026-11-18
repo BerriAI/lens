@@ -1,9 +1,14 @@
 use serde_json::Value;
 
 pub const MIN_PREVIEW_BYTES: usize = 256;
+const MARKER: &str = "…[Lens preview: ";
 
 fn marker(omitted: usize) -> String {
-    format!("…[Lens preview: {omitted} bytes omitted]")
+    format!("{MARKER}{omitted} bytes omitted]")
+}
+
+pub fn is_preview(content: &str) -> bool {
+    content.contains(MARKER)
 }
 
 fn floor_boundary(text: &str, index: usize) -> usize {
@@ -111,6 +116,15 @@ mod tests {
             preview("[{\"content\":\"hi\"}]", 1024),
             "[{\"content\":\"hi\"}]"
         );
+    }
+
+    #[rstest]
+    #[case::plain("雪".repeat(1000), true)]
+    #[case::json(json!([{"content": "雪".repeat(1000)}]).to_string(), true)]
+    #[case::overflowing_structure(Value::Array((0..400).map(|i| json!({"i": i})).collect()).to_string(), true)]
+    #[case::inline("[{\"content\":\"hi\"}]".to_owned(), false)]
+    fn previews_are_recognizable(#[case] content: String, #[case] previewed: bool) {
+        assert_eq!(is_preview(&preview(&content, 300)), previewed);
     }
 
     #[rstest]

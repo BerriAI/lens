@@ -7,5 +7,5 @@ mod store;
 
 pub use error::Error;
 pub use key::{Field, ObjectKey, scope, valid_event_id};
-pub use preview::{MIN_PREVIEW_BYTES, preview};
+pub use preview::{MIN_PREVIEW_BYTES, is_preview, preview};
 pub use store::{Store, StoreConfig, Sweep, sha256_hex};

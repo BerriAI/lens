@@ -5,9 +5,9 @@ use lens_payloads::{Field, ObjectKey, Store, sha256_hex};
 use litellm_storage_clickhouse::fetch;
 use litellm_traces::query::named as contracts;
 use litellm_traces_clickhouse::{
-    Connection, InsertTable, PayloadRefRow, Payloads, insert_ledger, insert_payload_ref,
-    insert_rows, ledger_row, query::lens, query::named::SpendByResponseIds, request_page,
-    request_text,
+    Connection, InsertTable, PayloadRefRow, Payloads, Unavailable, insert_ledger,
+    insert_payload_ref, insert_rows, ledger_row, query::lens, query::named::SpendByResponseIds,
+    request_page, request_text,
 };
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
@@ -244,6 +244,21 @@ fn full_body() -> String {
 }
 
 async fn offload(fixture: &SeededDatabase, server: &MockServer, key: &ObjectKey) -> TestResult {
+    offload_serving(
+        fixture,
+        server,
+        key,
+        ResponseTemplate::new(200).set_body_string(full_body()),
+    )
+    .await
+}
+
+async fn offload_serving(
+    fixture: &SeededDatabase,
+    server: &MockServer,
+    key: &ObjectKey,
+    served: ResponseTemplate,
+) -> TestResult {
     let body = full_body();
     let record: BTreeMap<String, Value> = record()
         .into_iter()
@@ -270,7 +285,7 @@ async fn offload(fixture: &SeededDatabase, server: &MockServer, key: &ObjectKey)
     .await?;
     Mock::given(method("GET"))
         .and(path(format!("/{BUCKET}/{}", key.as_str())))
-        .respond_with(ResponseTemplate::new(200).set_body_string(body))
+        .respond_with(served)
         .mount(server)
         .await;
     Ok(())
@@ -322,6 +337,7 @@ async fn offloaded_bodies_expand_and_search_beyond_the_stored_preview(
             &source.event_id,
         )
         .await;
+    assert_eq!(bodies.unavailable, None);
     let messages = bodies.messages.ok_or("body was not resolved")?;
 
     assert_eq!(messages, full_body());
@@ -360,5 +376,43 @@ async fn references_outside_the_rows_tenant_are_never_fetched(
             .unwrap_or_default()
             .is_empty()
     );
+    Ok(())
+}
+
+#[rstest]
+#[case::deleted(
+    ResponseTemplate::new(404).set_body_string(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>NoSuchKey</Code><Message>missing</Message></Error>",
+    ),
+    Unavailable::Expired
+)]
+#[case::changed(
+    ResponseTemplate::new(200).set_body_string("[]"),
+    Unavailable::Unreadable
+)]
+#[case::store_down(ResponseTemplate::new(503), Unavailable::Unreadable)]
+#[tokio::test]
+async fn unresolved_bodies_report_why_only_the_preview_is_available(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] served: ResponseTemplate,
+    #[case] reason: Unavailable,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let server = MockServer::start().await;
+    offload_serving(&fixture, &server, &tenant_key("team-a"), served).await?;
+    let source = request_source(&fixture).await?;
+
+    let bodies = store(&server)
+        .resolve(
+            &fixture.database.client,
+            &Connection::writer(&fixture.database.url)?,
+            &source.team_id,
+            &source.api_key,
+            &source.event_id,
+        )
+        .await;
+
+    assert_eq!((bodies.messages, bodies.unavailable), (None, Some(reason)));
+    assert!(lens_payloads::is_preview(&source.messages));
     Ok(())
 }

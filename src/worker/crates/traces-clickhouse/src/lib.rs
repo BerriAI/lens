@@ -44,7 +44,7 @@ pub use litellm_storage_clickhouse::{Connection, Parameter};
 pub use litellm_traces::{QueryScope, ReadQuery};
 pub use log_row::log_rows;
 pub use logs::{get_log, list_logs};
-pub use payloads::{Bodies, Payloads};
+pub use payloads::{Bodies, Payloads, Unavailable};
 pub use query::evals;
 pub use query::{QueryHelp, execute_read, query_help, query_sql};
 pub use query_access::QueryReaders;

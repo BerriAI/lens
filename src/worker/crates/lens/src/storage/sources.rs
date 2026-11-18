@@ -10,18 +10,39 @@ use lens_contract::{
     },
 };
 use litellm_storage_clickhouse::{Query, fetch};
-use litellm_traces_clickhouse::query::lens::{
-    self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
-    LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams, LensContentRow,
-    LensEvidence, LensEvidenceParams, LensFindingSource, LensFindingSourceParams,
-    LensRequestSource, LensRequestSourceParams, LensRequestSourceRow, LensSample,
-    LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
+use litellm_traces_clickhouse::{
+    Bodies, Unavailable,
+    query::lens::{
+        self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
+        LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams,
+        LensContentRow, LensEvidence, LensEvidenceParams, LensFindingSource,
+        LensFindingSourceParams, LensRequestSource, LensRequestSourceParams, LensRequestSourceRow,
+        LensSample, LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
+    },
 };
 
 use crate::{Error, State, wait_for_read_slot};
 
 #[derive(Clone)]
 pub struct SourceReader(pub Arc<State>);
+
+struct Offloaded {
+    row: LensRequestSourceRow,
+    input: String,
+    output: String,
+    incomplete: Option<&'static str>,
+}
+
+fn incomplete(bodies: &Bodies, row: &LensRequestSourceRow) -> Option<&'static str> {
+    let previewed = [(&bodies.messages, &row.messages), (&bodies.response, &row.response)]
+        .into_iter()
+        .any(|(body, stored)| body.is_none() && lens_payloads::is_preview(stored));
+    previewed.then_some(match bodies.unavailable {
+        None => "the full body has not been stored yet",
+        Some(Unavailable::Expired) => "the full body expired or was deleted",
+        Some(Unavailable::Unreadable) => "the full body could not be read",
+    })
+}
 
 pub struct SampleRequest<'a> {
     pub selection: &'a ActivitySelection,
@@ -100,7 +121,7 @@ impl SourceReader {
         &self,
         scope: &Scope,
         execution: &Execution,
-    ) -> Result<Option<(LensRequestSourceRow, String, String)>, Error> {
+    ) -> Result<Option<Offloaded>, Error> {
         let Some(payloads) = self.0.storage.payloads() else {
             return Ok(None);
         };
@@ -130,12 +151,23 @@ impl SourceReader {
                 &row.event_id,
             )
             .await;
-        if bodies.messages.is_none() && bodies.response.is_none() {
+        let reason = incomplete(&bodies, &row);
+        if bodies.messages.is_none() && bodies.response.is_none() && reason.is_none() {
             return Ok(None);
         }
-        let input = bodies.messages.unwrap_or_else(|| row.messages.clone());
-        let output = bodies.response.unwrap_or_else(|| row.response.clone());
-        Ok(Some((row, input, output)))
+        let body = |resolved: Option<String>, stored: &str| match (resolved, reason) {
+            (Some(body), _) => body,
+            (None, Some(reason)) if lens_payloads::is_preview(stored) => {
+                format!("{stored}\n[Lens: {reason}; showing the stored preview]")
+            }
+            (None, _) => stored.to_owned(),
+        };
+        Ok(Some(Offloaded {
+            input: body(bodies.messages, &row.messages),
+            output: body(bodies.response, &row.response),
+            incomplete: reason,
+            row,
+        }))
     }
 
     pub async fn content(
@@ -149,14 +181,20 @@ impl SourceReader {
             Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
             None => 0,
         };
-        if let Some((row, input, output)) = self.offloaded(scope, execution).await? {
+        if let Some(Offloaded {
+            row,
+            input,
+            output,
+            incomplete,
+        }) = self.offloaded(scope, execution).await?
+        {
             let (content, truncated) = litellm_traces_clickhouse::request_page(
                 &input,
                 &output,
                 &row.error_str,
                 page_offset,
             );
-            return Ok(content_page(
+            let page = content_page(
                 execution,
                 vec![LensContentRow {
                     span_id: row.span_id,
@@ -168,7 +206,11 @@ impl SourceReader {
                     content,
                     truncated: u8::from(truncated),
                 }],
-            ));
+            );
+            return Ok(ExecutionContent {
+                partial: page.partial || incomplete.is_some(),
+                ..page
+            });
         }
         let rows = self
             .read::<LensContent>(&LensContentParams {
@@ -191,10 +233,14 @@ impl SourceReader {
         execution: &Execution,
         evidence: &Evidence,
     ) -> Result<bool, Error> {
-        if let Some((row, input, output)) = self.offloaded(scope, execution).await? {
-            return Ok(evidence.span_id == row.span_id
-                && litellm_traces_clickhouse::request_text(&input, &output, &row.error_str)
-                    .contains(evidence.quote.to_string().as_str()));
+        if let Some(offloaded) = self.offloaded(scope, execution).await? {
+            let text = litellm_traces_clickhouse::request_text(
+                &offloaded.input,
+                &offloaded.output,
+                &offloaded.row.error_str,
+            );
+            return Ok(evidence.span_id == offloaded.row.span_id
+                && text.contains(evidence.quote.to_string().as_str()));
         }
         let rows = self
             .read::<LensEvidence>(&LensEvidenceParams {
@@ -438,8 +484,7 @@ fn content_page(execution: &Execution, rows: Vec<LensContentRow>) -> ExecutionCo
     let next_cursor = (rows.len() == 40)
         .then(|| rows.last().map(|row| row.span_id.clone()))
         .flatten();
-    let partial = !execution.root_seen || rows.iter().any(|row| row.truncated != 0);
-    let parts = rows
+    let parts: Vec<TracePart> = rows
         .into_iter()
         .map(|row| TracePart {
             execution_id: execution.id.clone(),
@@ -453,6 +498,10 @@ fn content_page(execution: &Execution, rows: Vec<LensContentRow>) -> ExecutionCo
             truncated: row.truncated != 0,
         })
         .collect();
+    let partial = !execution.root_seen
+        || parts
+            .iter()
+            .any(|part| part.truncated || lens_payloads::is_preview(&part.content));
     ExecutionContent {
         execution: execution.clone(),
         parts,
@@ -575,26 +624,65 @@ mod tests {
     }
 
     #[rstest]
-    #[case::complete(true, false, false)]
-    #[case::root_missing(false, false, true)]
-    #[case::truncated(true, true, true)]
+    #[case::complete(true, false, "quote", false)]
+    #[case::root_missing(false, false, "quote", true)]
+    #[case::truncated(true, true, "quote", true)]
+    #[case::stored_preview(true, false, PREVIEWED, true)]
     fn content_marks_incomplete_reads(
         row: LensSampleRow,
         #[case] root_seen: bool,
         #[case] truncated: bool,
+        #[case] text: &str,
         #[case] partial: bool,
     ) {
         let execution = Execution {
             root_seen,
             ..execution(row).unwrap()
         };
-        let row:LensContentRow=serde_json::from_value(json!({"span_id":"span","parent_span_id":"parent","name":"tool","kind":"tool","start_time":"start","end_time":"end","content":"quote","truncated":u8::from(truncated)})).unwrap();
+        let row:LensContentRow=serde_json::from_value(json!({"span_id":"span","parent_span_id":"parent","name":"tool","kind":"tool","start_time":"start","end_time":"end","content":text,"truncated":u8::from(truncated)})).unwrap();
         let content = content_page(&execution, vec![row]);
         assert_eq!(content.partial, partial);
         assert_eq!(content.parts[0].execution_id, execution.id);
         assert_eq!(content.parts[0].parent_span_id, "parent");
-        assert_eq!(content.parts[0].content, "quote");
+        assert_eq!(content.parts[0].content, text);
         assert_eq!(content.parts[0].truncated, truncated);
         assert!(content.next_cursor.is_none());
+    }
+
+    const PREVIEWED: &str = "[\"…[Lens preview: 9 bytes omitted]\"]";
+
+    fn request_row(messages: &str) -> LensRequestSourceRow {
+        LensRequestSourceRow {
+            span_id: "request".into(),
+            name: "model".into(),
+            start_time: "start".into(),
+            end_time: "end".into(),
+            messages: messages.into(),
+            response: "ok".into(),
+            error_str: String::new(),
+            event_id: "evt".into(),
+            team_id: "team".into(),
+            api_key: "key".into(),
+        }
+    }
+
+    #[rstest]
+    #[case::resolved(Some("full"), None, PREVIEWED, None)]
+    #[case::inline(None, None, "[\"short\"]", None)]
+    #[case::not_uploaded_yet(None, None, PREVIEWED, Some("the full body has not been stored yet"))]
+    #[case::expired(None, Some(Unavailable::Expired), PREVIEWED, Some("the full body expired or was deleted"))]
+    #[case::unreadable(None, Some(Unavailable::Unreadable), PREVIEWED, Some("the full body could not be read"))]
+    fn unresolved_previews_say_why_the_body_is_incomplete(
+        #[case] resolved: Option<&str>,
+        #[case] unavailable: Option<Unavailable>,
+        #[case] stored: &str,
+        #[case] expected: Option<&str>,
+    ) {
+        let bodies = Bodies {
+            messages: resolved.map(str::to_owned),
+            response: None,
+            unavailable,
+        };
+        assert_eq!(incomplete(&bodies, &request_row(stored)), expected);
     }
 }
