@@ -551,7 +551,6 @@ fn model_call_span_cost_agrees_with_the_run_total_when_priced_from_related_evide
     );
     assert_eq!(pending.summary.spend, None);
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         trace_id: "trace".into(),
         span_id: "evidence".into(),
         litellm_call_id: "gateway".into(),
@@ -609,7 +608,6 @@ fn no_priced_call_leaves_cost_unknown() {
 
 fn gateway_logged(request_id: &str, call_id: &str, cost: f64) -> SpendByResponseIdsRow {
     SpendByResponseIdsRow {
-        event_id: String::new(),
         litellm_call_id: call_id.into(),
         ..spend(request_id, &format!("chatcmpl-{request_id}"), cost)
     }
@@ -633,7 +631,6 @@ fn only_ids_litellm_assigned_join_spend(
         ..llm("call", "", "agent", "")
     }];
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         upstream_response_id: "trace".into(),
         ..gateway_logged("request", "gateway", 0.25)
     }];
@@ -657,7 +654,6 @@ fn spend_logs_price_only_calls_in_their_own_team(
         ..llm("call", "", "agent", "response")
     }];
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         team_id: logged_team.into(),
         ..spend("request", "response", 0.25)
     }];
@@ -701,7 +697,6 @@ fn a_single_matched_row_is_matched_whatever_its_cost(
 ) {
     let rows = [llm("call", "", "agent", "response")];
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         spend: cost,
         ..spend("request", "response", 0.0)
     }];
@@ -760,12 +755,10 @@ fn call_id_picks_the_call_when_its_response_id_has_a_cache_hit_twin() {
     }];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             litellm_call_id: "gateway".into(),
             ..spend("request", "chatcmpl-shared", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             litellm_call_id: "cache-hit".into(),
             ..spend("request_cache_hit", "chatcmpl-shared", 0.0)
         },
@@ -840,7 +833,6 @@ fn spend_lookup_collects_only_assigned_ids() {
 fn upstream_response_id_inside_a_managed_id_joins_spend() {
     let rows = [llm("call", "", "agent", "chatcmpl-upstream")];
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         upstream_response_id: "chatcmpl-upstream".into(),
         ..spend("request", "resp_managed", 0.25)
     }];
@@ -939,7 +931,6 @@ fn complete_correlation_requires_known_finite_cost(
 ) {
     let rows = [llm("call", "", "agent", "response")];
     let logged = SpendByResponseIdsRow {
-        event_id: String::new(),
         spend: cost,
         ..spend("request", "response", 0.25)
     };
@@ -1071,12 +1062,10 @@ fn empty_root_preview_uses_the_earliest_agent_or_model_input() {
 #[case::newest_first(true)]
 fn repeated_request_ids_preserve_storage_identity(#[case] reverse: bool) {
     let first = SpendByResponseIdsRow {
-        event_id: String::new(),
         start_ms: 100,
         ..spend("same", "response", 0.25)
     };
     let second = SpendByResponseIdsRow {
-        event_id: String::new(),
         start_ms: 200,
         ..spend("same", "response", 0.5)
     };
@@ -1104,12 +1093,10 @@ fn totals_deduplicate_only_equal_storage_identities(
     ];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: 100,
             ..spend("same", "a", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: if duplicate { 100 } else { 200 },
             ..spend(
                 "same",
@@ -1163,6 +1150,61 @@ fn ledger_deliveries_are_counted_once_per_event(
             .summary
             .spend,
         expected
+    );
+}
+
+fn ledger_charge(
+    event_id: &str,
+    request_id: &str,
+    response_id: &str,
+    cost: f64,
+) -> SpendByResponseIdsRow {
+    SpendByResponseIdsRow {
+        event_id: event_id.into(),
+        litellm_call_id: "gateway".into(),
+        ..spend(request_id, response_id, cost)
+    }
+}
+
+#[rstest]
+#[case::charges_of_one_call_sum("evt-a", "evt-b", [Some(0.75), Some(0.75)], Some(0.75))]
+#[case::replayed_charge_counts_once("evt-a", "evt-a", [Some(0.25), Some(0.25)], Some(0.25))]
+#[case::legacy_rows_stay_separate_calls("", "", [Some(0.25), None], Some(0.25))]
+fn every_charge_of_a_gateway_call_is_priced_once(
+    #[case] first_event: &str,
+    #[case] second_event: &str,
+    #[case] span_spend: [Option<f64>; 2],
+    #[case] total: Option<f64>,
+) {
+    let keyed = |span_id: &str, key: litellm_traces::CallKey| TraceSpansRow {
+        call_keys: vec![key],
+        call_evidence: Some(litellm_traces::CallEvidenceKind::Complete),
+        ..llm(span_id, "", "agent", "")
+    };
+    let rows = [
+        keyed(
+            "by-response",
+            litellm_traces::CallKey::ProviderResponse("chatcmpl-a".into()),
+        ),
+        keyed("by-call-id", litellm_traces::CallKey::LiteLlmRequest("gateway".into())),
+    ];
+    let first = ledger_charge(first_event, "request", "chatcmpl-a", 0.25);
+    let second = if first_event == second_event {
+        first.clone()
+    } else {
+        ledger_charge(second_event, "request_cost", "", 0.5)
+    };
+    let trace = resolve_trace("trace", "ref", &rows, &[first, second]).unwrap();
+    let spend = |span_id: &str| {
+        trace
+            .spans
+            .iter()
+            .find(|span| span.span_id == span_id)
+            .and_then(|span| span.spend)
+    };
+    assert_eq!(
+        ([spend("by-response"), spend("by-call-id")], trace.summary.spend),
+        (span_spend, total)
     );
 }
 
@@ -1522,7 +1564,6 @@ fn sibling_transport_does_not_lose_model_call_spend(
         0.5,
     ))
     .chain(unrelated_spend.then(|| SpendByResponseIdsRow {
-        event_id: String::new(),
         trace_id: "trace".into(),
         span_id: "tool-http".into(),
         ..owned_spend("unrelated", "unrelated", "team", "", "key", 0.75)
@@ -1595,14 +1636,12 @@ fn gateway_attempt_identifiers_must_match_one_spend_row(
     ];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             litellm_call_id: "call-a".into(),
             trace_id: "trace".into(),
             span_id: "attempt".into(),
             ..owned_spend("request-a", "response-a", "team", "", "key", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             litellm_call_id: "call-b".into(),
             trace_id: "trace".into(),
             span_id: "other-attempt".into(),
@@ -1724,13 +1763,11 @@ fn transports_preserve_retry_spend_without_counting_unrelated_cached_rows(
     ];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             trace_id: "trace".into(),
             span_id: "first".into(),
             ..owned_spend("retry", "retry-response", "team", "", "key", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             trace_id: "trace".into(),
             span_id: "second".into(),
             ..owned_spend("final", "final-response", "team", "", "key", 0.5)
@@ -1874,7 +1911,6 @@ fn independent_key_disambiguates_repeated_request_ids(#[case] transport: bool) {
     )];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: 100,
             litellm_call_id: "gateway".into(),
             trace_id: "trace".into(),
@@ -1882,7 +1918,6 @@ fn independent_key_disambiguates_repeated_request_ids(#[case] transport: bool) {
             ..owned_spend("same", "response", "team", "", "key", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: 200,
             litellm_call_id: "other".into(),
             ..owned_spend("same", "response", "team", "", "key", 0.5)
@@ -1914,12 +1949,10 @@ fn conflicting_keys_cannot_agree_on_request_id_alone() {
     ];
     let logs = [
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: 100,
             ..owned_spend("same", "response", "team", "", "key", 0.25)
         },
         SpendByResponseIdsRow {
-            event_id: String::new(),
             start_ms: 200,
             litellm_call_id: "gateway".into(),
             ..owned_spend("same", "other", "team", "", "key", 0.5)
@@ -1957,7 +1990,6 @@ fn gateway_lookup_respects_legacy_fallback_and_ownership(
         "key",
     )];
     let logs = [SpendByResponseIdsRow {
-        event_id: String::new(),
         litellm_call_id: call_id.into(),
         ..owned_spend(request_id, "provider", team, "", key, 0.25)
     }];
@@ -1997,7 +2029,6 @@ fn native_cost_uses_typed_ids_or_the_original_transport(
         ..llm("native-call", "", "agent", "")
     };
     let log = SpendByResponseIdsRow {
-        event_id: String::new(),
         provider_request_id: "req_native".into(),
         trace_id: if traceparent { "original-trace" } else { "" }.into(),
         span_id: if traceparent { "native-call" } else { "" }.into(),

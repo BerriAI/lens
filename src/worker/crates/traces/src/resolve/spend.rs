@@ -95,6 +95,29 @@ impl Ownership<'_> {
 pub(super) type Requests<'a> = Vec<&'a SpendRow>;
 
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+enum Call<'a> {
+    Ledger {
+        team_id: &'a str,
+        litellm_call_id: &'a str,
+    },
+    Row((&'a str, i64, &'a str, &'a str)),
+}
+
+fn call(spend: &SpendRow) -> Call<'_> {
+    if spend.event_id.is_empty() || spend.litellm_call_id.is_empty() {
+        return Call::Row(spend.identity());
+    }
+    Call::Ledger {
+        team_id: &spend.team_id,
+        litellm_call_id: &spend.litellm_call_id,
+    }
+}
+
+fn calls<'a>(requests: &[&'a SpendRow]) -> BTreeSet<Call<'a>> {
+    requests.iter().copied().map(call).collect()
+}
+
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
 enum KeyFamily {
     GatewayCall,
     ProviderResponse,
@@ -114,43 +137,32 @@ fn key_family(key: &CallKey) -> KeyFamily {
 pub(super) enum KeyMatch<'a> {
     Missing,
     Conflicting,
-    Unique(&'a SpendRow),
+    Unique(Requests<'a>),
     Ambiguous(Requests<'a>),
 }
 
 impl<'a> KeyMatch<'a> {
     fn new(requests: Requests<'a>) -> Self {
-        match requests.as_slice() {
-            [] => Self::Missing,
-            [request] => Self::Unique(request),
+        match calls(&requests).len() {
+            0 => Self::Missing,
+            1 => Self::Unique(requests),
             _ => Self::Ambiguous(requests),
         }
     }
 
-    fn unique(&self) -> Option<&'a SpendRow> {
+    fn unique(&self) -> Option<&Requests<'a>> {
         match self {
-            Self::Unique(request) => Some(request),
+            Self::Unique(requests) => Some(requests),
             Self::Missing | Self::Conflicting | Self::Ambiguous(_) => None,
         }
     }
 
     fn agrees_with(&self, selected: &[&SpendRow]) -> bool {
+        let selected_calls = calls(selected);
         match self {
             Self::Missing | Self::Conflicting => false,
-            Self::Unique(request) => selected
-                .iter()
-                .any(|row| row.identity() == request.identity()),
-            Self::Ambiguous(requests) => {
-                requests
-                    .iter()
-                    .filter(|request| {
-                        selected
-                            .iter()
-                            .any(|row| row.identity() == request.identity())
-                    })
-                    .count()
-                    == 1
-            }
+            Self::Unique(requests) => !calls(requests).is_disjoint(&selected_calls),
+            Self::Ambiguous(requests) => calls(requests).intersection(&selected_calls).count() == 1,
         }
     }
 }
@@ -192,13 +204,12 @@ impl<'a> SpendEvidence<'a> {
     pub(super) fn complete_requests(&self) -> Option<Requests<'a>> {
         match self {
             Self::Complete(matches) if !matches.is_empty() => {
-                let requests: Requests<'a> = matches
-                    .iter()
-                    .filter_map(KeyMatch::unique)
-                    .map(|request| (request.identity(), request))
-                    .collect::<IndexMap<_, _>>()
-                    .into_values()
-                    .collect();
+                let requests = unique(
+                    matches
+                        .iter()
+                        .filter_map(KeyMatch::unique)
+                        .flat_map(|requests| requests.iter().copied()),
+                );
                 matches
                     .iter()
                     .all(|matched| matched.agrees_with(&requests))
@@ -223,7 +234,7 @@ fn matches<'a>(
     spend_rows: &'a [SpendRow],
     key: &CallKey,
     row: &TraceSpansRow,
-) -> IndexMap<(&'a str, i64, &'a str), &'a SpendRow> {
+) -> Requests<'a> {
     let matches = |spend: &SpendRow| match key {
         CallKey::ProviderResponse(id) => {
             !id.is_empty() && (spend.response_id == *id || spend.upstream_response_id == *id)
@@ -241,11 +252,9 @@ fn matches<'a>(
                 && spend.span_id == row.span_id
         }
     };
-    spend_rows
-        .iter()
-        .filter(|spend| ownership.owns(spend) && matches(spend))
-        .map(|spend| (spend.identity(), spend))
-        .collect()
+    let owned = || spend_rows.iter().filter(|spend| ownership.owns(spend));
+    let matched: BTreeSet<_> = owned().filter(|spend| matches(spend)).map(call).collect();
+    unique(owned().filter(|spend| matched.contains(&call(spend))))
 }
 
 pub(super) fn requests<'a>(
@@ -258,14 +267,7 @@ pub(super) fn requests<'a>(
         .key_set()
         .into_iter()
         .flatten()
-        .map(|key| {
-            (
-                key,
-                matches(ownership, spend_rows, key, row)
-                    .into_values()
-                    .collect(),
-            )
-        })
+        .map(|key| (key, matches(ownership, spend_rows, key, row)))
         .collect();
     let anchored: Vec<&SpendRow> = keyed
         .iter()
@@ -289,7 +291,7 @@ pub(super) fn requests<'a>(
             aliases
                 .iter()
                 .filter(|(key, _)| key_family(key) == family)
-                .flat_map(|(_, requests)| requests.iter().map(|request| request.identity()))
+                .flat_map(|(_, requests)| calls(requests))
                 .collect()
         })
         .collect();
@@ -303,7 +305,7 @@ pub(super) fn requests<'a>(
                     .filter(|request| {
                         compatible_rows
                             .iter()
-                            .all(|family| family.contains(&request.identity()))
+                            .all(|family| family.contains(&call(request)))
                     })
                     .collect(),
             );
