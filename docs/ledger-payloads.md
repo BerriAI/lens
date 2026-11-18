@@ -54,6 +54,6 @@ Ledger costs, aliases and body references use `AGENT_TRACING_RETENTION_DAYS`, li
 
 ## Turn it off
 
-To return to the legacy export, set `lens_ledger_export` back to `false` on the gateway. Deliveries already queued keep draining while Lens is reachable, and ledger costs already stored stay readable. Lens hides a legacy row when a ledger delivery for the same team, key and call exists, so a call exported both ways counts once
+To return to the legacy export, set `lens_ledger_export` back to `false` on the gateway. Deliveries already queued keep draining while Lens is reachable, and ledger costs already stored stay readable. A legacy row is hidden only when it is a copy of a ledger delivery for the same team, key and call: their provider response or provider request ids agree and none disagree, or, when neither side has provider ids, they share the request id and start time to the millisecond. A legacy charge for a different provider attempt of the same call still counts, together with the ledger charges for that call. If the gateway could not attach provider ids to a ledger delivery and its request id differs from the legacy one, both are counted
 
 If you remove the bucket settings from Lens, it stops uploading and sweeping. Bodies already offloaded show their marked preview, and the objects stay in the bucket. Delete the `lens-payloads/` namespace yourself, or add a lifecycle rule for it, when you no longer need them

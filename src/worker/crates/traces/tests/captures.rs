@@ -114,6 +114,7 @@ fn captured_spend_rows(spend_logs: &str) -> (FixtureCapture, Vec<SpendByResponse
             let upstream_response_id = upstream_response_id(&record.response_id);
             SpendByResponseIdsRow {
                 event_id: String::new(),
+                ledger_call_id: String::new(),
                 request_id: record.request_id,
                 litellm_call_id: record.litellm_call_id,
                 response_id: record.response_id,

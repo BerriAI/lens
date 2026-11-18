@@ -198,6 +198,108 @@ async fn legacy_rows_are_read_only_when_no_ledger_event_owns_the_call(
     Ok(())
 }
 
+async fn record_legacy(fixture: &SeededDatabase, rows: Vec<BTreeMap<String, Value>>) -> TestResult {
+    let writer = Connection::writer(&fixture.database.url)?;
+    insert_rows(
+        &fixture.database.client,
+        &writer,
+        DATABASE,
+        InsertTable::SpendLogs,
+        rows,
+    )
+    .await?;
+    Ok(())
+}
+
+fn charges(rows: &[contracts::SpendByResponseIdsRow]) -> BTreeSet<(&str, &str, &str)> {
+    rows.iter()
+        .map(|row| {
+            (
+                row.event_id.as_str(),
+                row.request_id.as_str(),
+                row.ledger_call_id.as_str(),
+            )
+        })
+        .collect()
+}
+
+#[rstest]
+#[tokio::test]
+async fn mixed_routes_drop_only_the_legacy_copy_of_a_ledger_attempt(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    record: BTreeMap<String, Value>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let attempt = |request: &str, response: &str, provider: &str, spend: f64| {
+        with(
+            &record,
+            &[
+                ("request_id", json!(request)),
+                ("response_id", json!(response)),
+                ("provider_request_id", json!(provider)),
+                ("spend", json!(spend)),
+            ],
+        )
+    };
+    let ledger_b = attempt("billing-b", "response-b", "provider-b", 0.5);
+    record_legacy(
+        &fixture,
+        vec![
+            attempt("response-b", "response-b", "provider-b", 0.49),
+            attempt("response-a", "response-a", "provider-a", 0.25),
+        ],
+    )
+    .await?;
+    deliver(&fixture, &[("evt-b", &ledger_b), ("evt-b", &ledger_b)]).await?;
+
+    let rows = lookup(&fixture, "team-a", "gateway-call").await?;
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(
+        charges(&rows),
+        BTreeSet::from([
+            ("", "response-a", "gateway-call"),
+            ("evt-b", "billing-b", "gateway-call"),
+        ])
+    );
+    assert_eq!(rows.iter().filter_map(|row| row.spend).sum::<f64>(), 0.75);
+    Ok(())
+}
+
+#[rstest]
+#[case::same_request_and_start("billing-record", 0, &["evt-a"])]
+#[case::same_request_other_start("billing-record", 1, &["", "evt-a"])]
+#[case::other_request_same_start("callback-record", 0, &["", "evt-a"])]
+#[tokio::test]
+async fn without_provider_ids_a_legacy_copy_needs_the_same_request_and_start(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    record: BTreeMap<String, Value>,
+    #[case] legacy_request: &str,
+    #[case] start_offset_ms: i64,
+    #[case] expected: &[&str],
+) -> TestResult {
+    let fixture = migrated_database?;
+    let accounting_only = with(&record, &[("response_id", json!(""))]);
+    record_legacy(
+        &fixture,
+        vec![with(
+            &accounting_only,
+            &[
+                ("request_id", json!(legacy_request)),
+                ("start_time", json!(START_MS + start_offset_ms)),
+            ],
+        )],
+    )
+    .await?;
+    deliver(&fixture, &[("evt-a", &accounting_only)]).await?;
+
+    let rows = lookup(&fixture, "team-a", "gateway-call").await?;
+
+    assert_eq!(rows.len(), expected.len());
+    assert_eq!(event_ids(&rows), expected);
+    Ok(())
+}
+
 fn with(record: &BTreeMap<String, Value>, fields: &[(&str, Value)]) -> BTreeMap<String, Value> {
     record
         .clone()

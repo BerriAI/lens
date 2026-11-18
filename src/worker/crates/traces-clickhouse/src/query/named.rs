@@ -219,6 +219,8 @@ struct SpendByResponseIdsRowEncoding {
     #[serde(default)]
     pub event_id: String,
     pub litellm_call_id: String,
+    #[serde(default)]
+    pub ledger_call_id: String,
     pub response_id: String,
     pub upstream_response_id: String,
     #[serde(default)]

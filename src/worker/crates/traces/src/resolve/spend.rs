@@ -106,14 +106,19 @@ enum Call<'a> {
 }
 
 fn call(spend: &SpendRow) -> Call<'_> {
-    if spend.event_id.is_empty() || spend.litellm_call_id.is_empty() {
+    let litellm_call_id = if spend.event_id.is_empty() {
+        &spend.ledger_call_id
+    } else {
+        &spend.litellm_call_id
+    };
+    if litellm_call_id.is_empty() {
         return Call::Row(spend.identity());
     }
     Call::Ledger {
         team_id: &spend.team_id,
         api_key: &spend.api_key,
         user: &spend.user,
-        litellm_call_id: &spend.litellm_call_id,
+        litellm_call_id,
     }
 }
 

@@ -63,6 +63,7 @@ fn llm(span_id: &str, parent: &str, agent: &str, response_id: &str) -> TraceSpan
 fn spend(request_id: &str, response_id: &str, cost: f64) -> SpendByResponseIdsRow {
     SpendByResponseIdsRow {
         event_id: String::new(),
+        ledger_call_id: String::new(),
         request_id: request_id.into(),
         litellm_call_id: String::new(),
         response_id: response_id.into(),
@@ -1215,6 +1216,39 @@ fn every_charge_of_a_gateway_call_is_priced_once(
 }
 
 #[rstest]
+#[case::legacy_attempt_joins_the_ledger_call("gateway", Some(0.75), SpendMatch::Matched)]
+#[case::legacy_attempt_without_ledger_proof_stays_ambiguous("", None, SpendMatch::Ambiguous)]
+fn a_legacy_attempt_counts_with_the_ledger_call_it_belongs_to(
+    #[case] ledger_call_id: &str,
+    #[case] expected: Option<f64>,
+    #[case] state: SpendMatch,
+) {
+    let rows = [TraceSpansRow {
+        call_keys: vec![litellm_traces::CallKey::LiteLlmRequest("gateway".into())],
+        call_evidence: Some(litellm_traces::CallEvidenceKind::Complete),
+        ..llm("call", "", "agent", "")
+    }];
+    let ledger = ledger_charge("evt-b", "billing-b", "chatcmpl-b", 0.5);
+    let logs = [
+        SpendByResponseIdsRow {
+            ledger_call_id: ledger_call_id.into(),
+            ..gateway_logged("attempt-a", "gateway", 0.25)
+        },
+        ledger.clone(),
+        ledger,
+    ];
+    let trace = resolve_trace("trace", "ref", &rows, &logs).unwrap();
+    assert_eq!(
+        (
+            trace.spans[0].spend,
+            trace.summary.spend,
+            trace.spans[0].spend_match
+        ),
+        (expected, expected, Some(state))
+    );
+}
+
+#[rstest]
 fn charges_with_disjoint_provider_evidence_join_only_their_own_call() {
     let rows = [TraceSpansRow {
         call_keys: vec![litellm_traces::CallKey::ProviderResponse(
@@ -1323,6 +1357,7 @@ fn owned_spend(
 ) -> SpendByResponseIdsRow {
     SpendByResponseIdsRow {
         event_id: String::new(),
+        ledger_call_id: String::new(),
         request_id: request_id.into(),
         response_id: response_id.into(),
         litellm_call_id: String::new(),
