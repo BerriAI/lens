@@ -95,4 +95,4 @@ Run these on the deployment's native Linux architecture. Startup and recovery ch
 
 Source qualification does not mean an official release has been published
 
-See [Release Lens](docs/releasing.md) for the standalone release workflow and approval step
+See [Release Lens](docs/releasing.md) for how a release is published and verified
