@@ -16,7 +16,14 @@ Once the rehearsal and CI are green, run it again with `dry_run=false`. That run
 gh workflow run release.yml --repo BerriAI/lens-releaser -f tag=v0.1.0 -f sha=<main-commit-sha> -f dry_run=false
 ```
 
-The approved run publishes `ghcr.io/berriai/lens:0.1.0` and `oci://ghcr.io/berriai/charts/lens` version `0.1.0`, then creates the `v0.1.0` tag and the GitHub release in this repository. The release attaches the chart, Compose bundle and `@litellm/lens-ui` tarball along with a signed manifest. Nothing is published to npm or PyPI. Do not push release tags by hand
+The approved run publishes `ghcr.io/berriai/lens:0.1.0` and `oci://ghcr.io/berriai/charts/lens` version `0.1.0`. It attaches the chart, Compose bundle and `@litellm/lens-ui` tarball along with a signed manifest to a release in BerriAI/lens-releaser. Nothing is published to npm or PyPI
+
+The pipeline does not write to this repository. Creating the public tag and GitHub release here is a manual last step for someone with write access, using the two commands the run prints in its summary
+
+```sh
+gh release download v0.1.0 -R BerriAI/lens-releaser -D lens-0.1.0
+gh release create v0.1.0 -R BerriAI/lens --target <main-commit-sha> --title 'Lens 0.1.0' --generate-notes lens-0.1.0/*
+```
 
 ## Verify a release
 
