@@ -1186,7 +1186,10 @@ fn every_charge_of_a_gateway_call_is_priced_once(
             "by-response",
             litellm_traces::CallKey::ProviderResponse("chatcmpl-a".into()),
         ),
-        keyed("by-call-id", litellm_traces::CallKey::LiteLlmRequest("gateway".into())),
+        keyed(
+            "by-call-id",
+            litellm_traces::CallKey::LiteLlmRequest("gateway".into()),
+        ),
     ];
     let first = ledger_charge(first_event, "request", "chatcmpl-a", 0.25);
     let second = if first_event == second_event {
@@ -1203,7 +1206,10 @@ fn every_charge_of_a_gateway_call_is_priced_once(
             .and_then(|span| span.spend)
     };
     assert_eq!(
-        ([spend("by-response"), spend("by-call-id")], trace.summary.spend),
+        (
+            [spend("by-response"), spend("by-call-id")],
+            trace.summary.spend
+        ),
         (span_spend, total)
     );
 }

@@ -125,7 +125,9 @@ impl<'a> Generated<'a> {
         let day = NaiveDate::parse_from_str(&format!("{year}/{month}/{date}"), "%Y/%m/%d").ok()?;
         let canonical = day_path(day) == format!("{year}/{month}/{date}")
             && scope.len() == SCOPE_HEX_LEN
-            && scope.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+            && scope
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
             && valid_event_id(event_id);
         let field = Field::parse(field)?;
         canonical.then_some(Self {

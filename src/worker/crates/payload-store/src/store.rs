@@ -160,7 +160,10 @@ impl Store {
     /// in key order, so it walks expired days oldest first and stops at the first retained day:
     /// each pass reads what has expired since the last one, however long Lens was down.
     pub async fn sweep(&self, today: DateTime<Utc>, retention_days: u64) -> Result<Sweep, Error> {
-        let Some(cutoff) = today.date_naive().checked_sub_days(Days::new(retention_days)) else {
+        let Some(cutoff) = today
+            .date_naive()
+            .checked_sub_days(Days::new(retention_days))
+        else {
             return Ok(Sweep::default());
         };
         let namespace = format!("{}{NAMESPACE}", self.prefix);
