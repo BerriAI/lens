@@ -118,6 +118,9 @@ impl LocalControl {
         let due_at = now();
         let mut after = None;
         loop {
+            if *stop.borrow() {
+                return Ok(None);
+            }
             let page = self
                 .repository
                 .due(&worker.scope, &due_at, 20, after.as_ref())
@@ -147,6 +150,9 @@ impl LocalControl {
         let due_at = now();
         let mut after = None;
         loop {
+            if *stop.borrow() {
+                return Ok(None);
+            }
             let page = self
                 .repository
                 .due(&worker.scope, &due_at, 20, after.as_ref())
