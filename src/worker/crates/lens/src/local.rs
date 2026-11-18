@@ -18,10 +18,12 @@ use lens_investigations::{
     current_job, queue_job,
 };
 use litellm_storage_clickhouse::investigations::Investigations;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, watch};
 
-use crate::{Error, SourceReader, control::JobClient};
+use crate::{Error, SourceReader, control::JobClient, worker::Execution};
 use job::LocalJob;
+
+const SHUTDOWN_DRAIN: Duration = Duration::from_secs(8);
 
 #[derive(Clone)]
 pub struct LocalControl {
@@ -237,29 +239,39 @@ impl LocalControl {
     }
 
     pub async fn run_once(&self) -> Result<bool, Error> {
+        let (_running, stop) = watch::channel(false);
+        self.run_until(stop).await
+    }
+
+    async fn run_until(&self, stop: watch::Receiver<bool>) -> Result<bool, Error> {
         let Some(claim) = self.claim().await? else {
             return Ok(false);
         };
-        let backend = LocalJob {
+        let backend = Arc::new(LocalJob {
             control: self.clone(),
             lens_id: claim.lens_id.clone(),
             job_id: claim.job.id.clone(),
             attempt: claim.job.attempts,
             worker_id: claim.job.worker_id.clone().ok_or(Error::InvalidRequest)?,
-        };
+        });
+        if *stop.borrow() {
+            return release(&backend).await;
+        }
         let client = JobClient::local(
-            Arc::new(backend),
+            backend.clone(),
             claim.job.settings.concurrency.get() as usize,
             self.slots.clone(),
         );
-        crate::worker::execute(claim, client).await?;
-        Ok(true)
+        match crate::worker::execute_until(claim, client, drained(stop)).await? {
+            Execution::Finished => Ok(true),
+            Execution::Interrupted => release(&backend).await,
+        }
     }
 
-    async fn slot(&self) {
+    async fn slot(&self, stop: watch::Receiver<bool>) {
         let mut delay = 2;
-        loop {
-            match self.run_once().await {
+        while !*stop.borrow() {
+            match self.run_until(stop.clone()).await {
                 Ok(true) => {
                     delay = 2;
                     continue;
@@ -267,13 +279,41 @@ impl LocalControl {
                 Ok(false) => {}
                 Err(_) => tracing::warn!("Lens could not run a local investigation; retrying"),
             }
-            tokio::time::sleep(Duration::from_secs(delay)).await;
+            tokio::select! {
+                () = tokio::time::sleep(Duration::from_secs(delay)) => {}
+                () = stopped(stop.clone()) => return,
+            }
             delay = (delay * 2).min(15);
         }
     }
 
-    pub async fn serve(self) {
-        tokio::join!(self.slot(), self.slot(), self.slot(), self.automatic_loop());
+    pub async fn serve(self, stop: watch::Receiver<bool>) {
+        tokio::join!(
+            self.slot(stop.clone()),
+            self.slot(stop.clone()),
+            self.slot(stop.clone()),
+            self.automatic_loop(stop)
+        );
+    }
+}
+
+async fn stopped(mut stop: watch::Receiver<bool>) {
+    let _ = stop.wait_for(|stopping| *stopping).await;
+}
+
+async fn drained(stop: watch::Receiver<bool>) {
+    stopped(stop).await;
+    tokio::time::sleep(SHUTDOWN_DRAIN).await;
+}
+
+async fn release(job: &LocalJob) -> Result<bool, Error> {
+    match job.release_at(Utc::now()).await {
+        Ok(()) => {
+            tracing::info!(job_id = %job.job_id, attempt = job.attempt, "Lens released an unfinished analysis for another worker");
+            Ok(true)
+        }
+        Err(Error::JobOwnershipLost) => Ok(true),
+        Err(error) => Err(error),
     }
 }
 
@@ -1254,6 +1294,197 @@ mod tests {
         assert!(matches!(error, Error::Control { status: 409, .. }));
         assert_eq!(waiting_job.results.lock().unwrap().len(), 1);
     }
+    #[rstest]
+    #[tokio::test(start_paused = true)]
+    async fn draining_work_keeps_its_heartbeat_and_finishes_before_the_deadline(
+        waiting_job: Arc<WaitingJob>,
+    ) {
+        let (stop, stopping) = watch::channel(false);
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        let task = tokio::spawn(crate::worker::execute_until(
+            claim,
+            client,
+            drained(stopping),
+        ));
+        tokio::time::timeout(Duration::from_secs(1), waiting_job.sample_entered.notified())
+            .await
+            .unwrap();
+        tokio::time::advance(Duration::from_secs(29)).await;
+        stop.send(true).unwrap();
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::time::timeout(Duration::from_secs(1), waiting_job.pulse_seen.notified())
+            .await
+            .unwrap();
+        assert!(!task.is_finished());
+        waiting_job.sample_ready.notify_one();
+        let outcome = tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(outcome, Execution::Finished);
+        assert_eq!(waiting_job.pulse_calls.load(Ordering::SeqCst), 1);
+        let results = waiting_job.results.lock().unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].error.is_empty());
+    }
+
+    #[rstest]
+    #[tokio::test(start_paused = true)]
+    async fn drain_deadline_cancels_unfinished_work_without_recording_a_result(
+        waiting_job: Arc<WaitingJob>,
+    ) {
+        let (stop, stopping) = watch::channel(false);
+        let client = JobClient::local(waiting_job.clone(), 1, Arc::new(Semaphore::new(1)));
+        let claim = serde_json::from_str(include_str!("../tests/fixtures/claim.json")).unwrap();
+        let run = crate::worker::execute_until(claim, client, drained(stopping));
+        let shutdown = async {
+            waiting_job.sample_entered.notified().await;
+            stop.send(true).unwrap();
+            tokio::time::Instant::now()
+        };
+        let both = async { tokio::join!(run, shutdown) };
+        let (outcome, stopped_at) = tokio::time::timeout(SHUTDOWN_DRAIN * 2, both)
+            .await
+            .unwrap();
+        assert_eq!(outcome.unwrap(), Execution::Interrupted);
+        assert_eq!(tokio::time::Instant::now() - stopped_at, SHUTDOWN_DRAIN);
+        assert_eq!(Arc::strong_count(&waiting_job), 1);
+        assert!(waiting_job.results.lock().unwrap().is_empty());
+        assert_eq!(waiting_job.pulse_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn released_claims_are_reclaimed_at_once_and_the_old_attempt_cannot_release_the_new_one(
+        #[future(awt)] stored_job: StoredJob,
+    ) {
+        let job = &stored_job.job;
+        let control = &job.control;
+        let worker = control.worker().await.unwrap();
+        let (_, claimed) = job.assigned().await.unwrap();
+        let released_at = claimed.lease_until.unwrap() - chrono::TimeDelta::minutes(1);
+
+        job.release_at(released_at).await.unwrap();
+        let lens = job.lens().await.unwrap();
+        let released = current_job(&lens).unwrap();
+        assert_eq!(released.lease_until, Some(released_at));
+        assert_eq!(released.status, wire::JobStatus::Running);
+        assert_eq!(released.attempts, claimed.attempts);
+
+        let reclaimed = control
+            .claim_at(&worker, released_at)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reclaimed.job.id, claimed.id);
+        assert_eq!(reclaimed.job.attempts, claimed.attempts + 1);
+        assert!(matches!(
+            job.release_at(released_at).await,
+            Err(Error::JobOwnershipLost)
+        ));
+        let lens = job.lens().await.unwrap();
+        let current = current_job(&lens).unwrap();
+        assert_eq!(current.attempts, reclaimed.job.attempts);
+        assert_eq!(current.lease_until, reclaimed.job.lease_until);
+    }
+
+    fn other_worker(job: &LocalJob, now: DateTime<Utc>) -> (LocalJob, DateTime<Utc>) {
+        let job = LocalJob {
+            worker_id: "other-worker".into(),
+            ..job.clone()
+        };
+        (job, now)
+    }
+
+    fn earlier_attempt(job: &LocalJob, now: DateTime<Utc>) -> (LocalJob, DateTime<Utc>) {
+        let job = LocalJob {
+            attempt: job.attempt - 1,
+            ..job.clone()
+        };
+        (job, now)
+    }
+
+    fn other_job(job: &LocalJob, now: DateTime<Utc>) -> (LocalJob, DateTime<Utc>) {
+        let job = LocalJob {
+            job_id: "other-job".into(),
+            ..job.clone()
+        };
+        (job, now)
+    }
+
+    fn expired_lease(job: &LocalJob, now: DateTime<Utc>) -> (LocalJob, DateTime<Utc>) {
+        (job.clone(), now + chrono::TimeDelta::minutes(1))
+    }
+
+    #[rstest]
+    #[case::other_worker(other_worker)]
+    #[case::earlier_attempt(earlier_attempt)]
+    #[case::other_job(other_job)]
+    #[case::expired_lease(expired_lease)]
+    #[tokio::test]
+    async fn release_leaves_claims_it_does_not_own_unchanged(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] stale: fn(&LocalJob, DateTime<Utc>) -> (LocalJob, DateTime<Utc>),
+    ) {
+        let (before, claimed) = stored_job.job.assigned().await.unwrap();
+        let live = claimed.lease_until.unwrap() - chrono::TimeDelta::minutes(1);
+        let (job, now) = stale(&stored_job.job, live);
+
+        assert!(matches!(
+            job.release_at(now).await,
+            Err(Error::JobOwnershipLost)
+        ));
+        let after = stored_job.job.lens().await.unwrap();
+        assert_eq!(
+            serde_json::to_value(&after).unwrap(),
+            serde_json::to_value(&before).unwrap()
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_claim_that_lands_after_shutdown_is_released_without_running(
+        #[future(awt)] stored_job: StoredJob,
+    ) {
+        let job = &stored_job.job;
+        let control = &job.control;
+        let worker = control.worker().await.unwrap();
+        let (_, claimed) = job.assigned().await.unwrap();
+        job.release_at(Utc::now()).await.unwrap();
+        let (_stop, stopping) = watch::channel(true);
+
+        assert!(control.run_until(stopping).await.unwrap());
+        let lens = job.lens().await.unwrap();
+        let released = current_job(&lens).unwrap().clone();
+        assert_eq!(released.status, wire::JobStatus::Running);
+        assert_eq!(released.attempts, claimed.attempts + 1);
+        assert!(released.sample.is_none());
+        let reclaimed = control
+            .claim_at(&worker, released.lease_until.unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reclaimed.job.attempts, claimed.attempts + 2);
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_stopped_worker_claims_no_new_work(#[future(awt)] stored_job: StoredJob) {
+        let job = &stored_job.job;
+        let (_, claimed) = job.assigned().await.unwrap();
+        let released_at = Utc::now();
+        job.release_at(released_at).await.unwrap();
+        let (_stop, stopping) = watch::channel(true);
+
+        job.control.clone().serve(stopping).await;
+        let lens = job.lens().await.unwrap();
+        let current = current_job(&lens).unwrap();
+        assert_eq!(current.attempts, claimed.attempts);
+        assert_eq!(current.lease_until, Some(released_at));
+    }
+
     #[rstest]
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn concurrent_worker_progress_recovers_after_a_committed_write_times_out(

@@ -159,7 +159,8 @@ async fn run() -> Result<(), litellm_lens::Error> {
             litellm_lens::slack::Notifications::new(slack, worker.repository.clone())?;
         tasks.spawn(notifications.serve());
     }
-    tasks.spawn(worker.serve());
+    let (stop_analysis, analysis_stopping) = tokio::sync::watch::channel(false);
+    let mut analysis = tokio::spawn(worker.serve(analysis_stopping));
     let signals = application
         .signals_worker
         .clone()
@@ -196,20 +197,33 @@ async fn run() -> Result<(), litellm_lens::Error> {
     let outcome = tokio::select! {
         _ = shutdown_signal() => Ok(()),
         _ = tasks.join_next() => Err(litellm_lens::Error::Unavailable),
+        _ = &mut analysis => Err(litellm_lens::Error::Unavailable),
         result = &mut server => {
             tasks.abort_all();
+            analysis.abort();
             return result.map_err(|_| litellm_lens::Error::Unavailable)?.map_err(Into::into);
         }
     };
     let _ = shutdown.send(());
+    let _ = stop_analysis.send(true);
+    if outcome.is_err() {
+        analysis.abort();
+    }
     tasks.abort_all();
     eval_task.abort();
     optimization_task.abort();
     while tasks.join_next().await.is_some() {}
-    if tokio::time::timeout(Duration::from_secs(10), &mut server)
+    let drained = async {
+        if outcome.is_ok() {
+            let _ = (&mut analysis).await;
+        }
+        let _ = (&mut server).await;
+    };
+    if tokio::time::timeout(Duration::from_secs(10), drained)
         .await
         .is_err()
     {
+        analysis.abort();
         server.abort();
     }
     outcome

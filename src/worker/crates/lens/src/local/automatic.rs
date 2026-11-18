@@ -111,12 +111,15 @@ impl LocalControl {
         Ok(eligible >= FIRST_RUN_TRACES)
     }
 
-    pub(super) async fn automatic_loop(&self) {
-        loop {
+    pub(super) async fn automatic_loop(&self, stop: tokio::sync::watch::Receiver<bool>) {
+        while !*stop.borrow() {
             if self.reconcile_automatic().await.is_err() {
                 tracing::warn!("Lens could not configure automatic analysis; retrying");
             }
-            tokio::time::sleep(Duration::from_secs(30)).await;
+            tokio::select! {
+                () = tokio::time::sleep(Duration::from_secs(30)) => {}
+                () = super::stopped(stop.clone()) => return,
+            }
         }
     }
 }
