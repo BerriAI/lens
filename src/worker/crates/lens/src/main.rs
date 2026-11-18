@@ -160,7 +160,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         tasks.spawn(notifications.serve());
     }
     let (stop_analysis, analysis_stopping) = tokio::sync::watch::channel(false);
-    let mut analysis = tokio::spawn(worker.serve(analysis_stopping));
+    let mut analysis = tokio::spawn(worker.serve_until(analysis_stopping));
     let signals = application
         .signals_worker
         .clone()
@@ -223,6 +223,11 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .await
         .is_err()
     {
+        if outcome.is_ok() && !analysis.is_finished() {
+            tracing::warn!(
+                "Lens shutdown deadline passed before analysis drained; unreleased jobs wait for their lease to expire"
+            );
+        }
         analysis.abort();
         server.abort();
     }
