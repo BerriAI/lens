@@ -22,6 +22,7 @@ pub struct SummaryProjection {
     pub summary: TraceSummary,
     pub spend_lookup: SpendLookup,
     pub canonical_request_ids: Vec<String>,
+    pub ledger_call_ids: Vec<String>,
 }
 
 pub async fn project_run<S: TraceStore>(
@@ -71,6 +72,11 @@ pub async fn project_run<S: TraceStore>(
                 summary: trace.summary,
                 spend_lookup: SpendLookup::new(&scoped_rows),
                 canonical_request_ids: costs.iter().map(|row| row.request_id.clone()).collect(),
+                ledger_call_ids: costs
+                    .iter()
+                    .filter(|row| !row.event_id.is_empty() && !row.litellm_call_id.is_empty())
+                    .map(|row| row.litellm_call_id.clone())
+                    .collect(),
             })
         })
         .collect())

@@ -1215,6 +1215,43 @@ fn every_charge_of_a_gateway_call_is_priced_once(
 }
 
 #[rstest]
+fn charges_with_disjoint_provider_evidence_join_only_their_own_call() {
+    let rows = [TraceSpansRow {
+        call_keys: vec![litellm_traces::CallKey::ProviderResponse(
+            "chatcmpl-a".into(),
+        )],
+        call_evidence: Some(litellm_traces::CallEvidenceKind::Complete),
+        ..llm("call", "", "agent", "")
+    }];
+    let first = ledger_charge("evt-a", "request", "chatcmpl-a", 0.25);
+    let logs = [
+        first.clone(),
+        SpendByResponseIdsRow {
+            provider_request_id: "req-b".into(),
+            ..ledger_charge("evt-b", "request", "", 0.5)
+        },
+        first,
+        SpendByResponseIdsRow {
+            user: "other-user".into(),
+            ..ledger_charge("evt-other-user", "request", "", 1.0)
+        },
+        SpendByResponseIdsRow {
+            team_id: "other-team".into(),
+            ..ledger_charge("evt-other-team", "request", "chatcmpl-a", 2.0)
+        },
+    ];
+    let trace = resolve_trace("trace", "ref", &rows, &logs).unwrap();
+    assert_eq!(
+        (
+            trace.spans[0].spend,
+            trace.summary.spend,
+            trace.summary.priced_calls
+        ),
+        (Some(0.75), Some(0.75), 1)
+    );
+}
+
+#[rstest]
 #[case::matching("call-one", "claude_code.tool.execution", SpanStatus::Error)]
 #[case::other_tool("other-call", "claude_code.tool.execution", SpanStatus::Ok)]
 #[case::child_agent("call-one", "child agent", SpanStatus::Ok)]

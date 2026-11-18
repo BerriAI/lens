@@ -238,6 +238,11 @@ fn projection<'a>(
                 .iter()
                 .map(|key| ("canonical", key.as_str())),
         )
+        .chain(
+            run.ledger_call_ids
+                .iter()
+                .map(|key| ("litellm_request", key.as_str())),
+        )
         .collect();
     Ok(Projection {
         team_id: &candidate.team_id,

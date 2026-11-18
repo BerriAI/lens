@@ -1,7 +1,8 @@
 use litellm_traces::query::named::{ListTracesParams, ReadAccessParams};
 use litellm_traces_cache::{TraceReader, TraceStore};
 use litellm_traces_clickhouse::{
-    ClickHouseTraces, Config, Connection, InsertTable, insert_rows, summaries,
+    ClickHouseTraces, Config, Connection, InsertTable, insert_ledger, insert_rows, ledger_row,
+    summaries,
 };
 use rstest::rstest;
 use serde_json::{Value, json};
@@ -527,6 +528,75 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
             .await?;
         assert_eq!(Some(after_next), before_next);
     }
+    Ok(())
+}
+
+async fn deliver_charge(
+    fixture: &SeededDatabase,
+    config: &Config,
+    event_id: &str,
+    fields: &[(&str, Value)],
+) -> TestResult {
+    let record: BTreeMap<String, Value> = cost("owner")
+        .into_iter()
+        .chain([("litellm_call_id".into(), json!("gateway-call"))])
+        .chain(
+            fields
+                .iter()
+                .map(|(name, value)| ((*name).to_owned(), value.clone())),
+        )
+        .collect();
+    let row = ledger_row(event_id, &record, 1024 * 1024).map_err(|error| format!("{error:?}"))?;
+    insert_ledger(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        &[row],
+    )
+    .await?;
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_late_charge_of_an_already_priced_call_refreshes_the_persisted_total(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let scope = access(false, "owner", &[]);
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![span("owner", "first")],
+    )
+    .await?;
+    deliver_charge(&fixture, &config, "evt-a", &[]).await?;
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
+    let rows = store.list_runs(&list_params(scope.clone())).await?;
+    assert_eq!(store.summaries(&scope, &rows).await?[0].spend, Some(0.25));
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 0);
+
+    deliver_charge(
+        &fixture,
+        &config,
+        "evt-b",
+        &[
+            ("response_id", json!("")),
+            ("provider_request_id", json!("provider-request-b")),
+            ("spend", json!(0.5)),
+        ],
+    )
+    .await?;
+    assert!(store.summaries(&scope, &rows).await?.is_empty());
+    assert_eq!(summaries::project(client, &config, 16, &mut None).await?, 1);
+    let refreshed = store.summaries(&scope, &rows).await?;
+    assert_eq!(refreshed[0].spend, Some(0.75));
+    assert_eq!(refreshed[0].priced_calls, 1);
     Ok(())
 }
 

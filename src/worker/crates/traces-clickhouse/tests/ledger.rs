@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use aws_sdk_s3::config::{BehaviorVersion, Credentials, Region, retry::RetryConfig};
 use lens_payloads::{Field, ObjectKey, Store, sha256_hex};
@@ -150,14 +153,21 @@ async fn ledger_costs_are_visible_only_inside_their_tenant(
     Ok(())
 }
 
+fn event_ids(rows: &[contracts::SpendByResponseIdsRow]) -> Vec<&str> {
+    let ids: BTreeSet<&str> = rows.iter().map(|row| row.event_id.as_str()).collect();
+    ids.into_iter().collect()
+}
+
 #[rstest]
-#[case::same_call_prefers_ledger("gateway-call", &["evt-a"])]
-#[case::other_call_keeps_history("older-call", &["", "evt-a"])]
+#[case::same_call_prefers_ledger("gateway-call", "key-a", &["evt-a"])]
+#[case::other_call_keeps_history("older-call", "key-a", &["", "evt-a"])]
+#[case::same_call_id_under_another_key_keeps_history("gateway-call", "key-b", &["", "evt-a"])]
 #[tokio::test]
 async fn legacy_rows_are_read_only_when_no_ledger_event_owns_the_call(
     #[future(awt)] migrated_database: TestResult<SeededDatabase>,
     record: BTreeMap<String, Value>,
     #[case] legacy_call: &str,
+    #[case] legacy_key: &str,
     #[case] expected: &[&str],
 ) -> TestResult {
     let fixture = migrated_database?;
@@ -167,6 +177,7 @@ async fn legacy_rows_are_read_only_when_no_ledger_event_owns_the_call(
         .chain([
             ("litellm_call_id".to_owned(), json!(legacy_call)),
             ("request_id".to_owned(), json!("legacy-record")),
+            ("api_key".to_owned(), json!(legacy_key)),
         ])
         .collect();
     let writer = Connection::writer(&fixture.database.url)?;
@@ -182,12 +193,64 @@ async fn legacy_rows_are_read_only_when_no_ledger_event_owns_the_call(
 
     let rows = lookup(&fixture, "team-a", "provider-response").await?;
 
-    assert_eq!(
-        rows.iter()
-            .map(|row| row.event_id.as_str())
-            .collect::<Vec<_>>(),
-        expected
+    assert_eq!(rows.len(), expected.len());
+    assert_eq!(event_ids(&rows), expected);
+    Ok(())
+}
+
+fn with(record: &BTreeMap<String, Value>, fields: &[(&str, Value)]) -> BTreeMap<String, Value> {
+    record
+        .clone()
+        .into_iter()
+        .chain(
+            fields
+                .iter()
+                .map(|(name, value)| ((*name).to_owned(), value.clone())),
+        )
+        .collect()
+}
+
+#[rstest]
+#[tokio::test]
+async fn every_charge_of_one_call_is_read_once_inside_its_own_scope(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    record: BTreeMap<String, Value>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let second_charge = with(
+        &record,
+        &[
+            ("response_id", json!("")),
+            ("provider_request_id", json!("provider-request-b")),
+            ("spend", json!(0.5)),
+        ],
     );
+    let other_team = with(&record, &[("team_id", json!("team-b"))]);
+    let other_key = with(
+        &record,
+        &[
+            ("response_id", json!("")),
+            ("api_key", json!("key-b")),
+            ("user", json!("user-b")),
+        ],
+    );
+    deliver(
+        &fixture,
+        &[
+            ("evt-a", &record),
+            ("evt-b", &second_charge),
+            ("evt-a", &record),
+            ("evt-other-team", &other_team),
+            ("evt-other-key", &other_key),
+        ],
+    )
+    .await?;
+
+    let rows = lookup(&fixture, "team-a", "provider-response").await?;
+
+    assert_eq!(rows.len(), 2);
+    assert_eq!(event_ids(&rows), ["evt-a", "evt-b"]);
+    assert_eq!(rows.iter().filter_map(|row| row.spend).sum::<f64>(), 0.625);
     Ok(())
 }
 
@@ -259,14 +322,24 @@ async fn offload_serving(
     key: &ObjectKey,
     served: ResponseTemplate,
 ) -> TestResult {
+    offload_record(fixture, server, key, record(), Some(served)).await
+}
+
+async fn offload_record(
+    fixture: &SeededDatabase,
+    server: &MockServer,
+    key: &ObjectKey,
+    record: BTreeMap<String, Value>,
+    served: Option<ResponseTemplate>,
+) -> TestResult {
     let body = full_body();
-    let record: BTreeMap<String, Value> = record()
-        .into_iter()
-        .chain([("messages".to_owned(), json!(body))])
-        .collect();
+    let record = with(&record, &[("messages", json!(body))]);
     let row = ledger_row("evt-a", &record, 4096).map_err(|rejection| format!("{rejection:?}"))?;
     let writer = Connection::writer(&fixture.database.url)?;
     insert_ledger(&fixture.database.client, &writer, DATABASE, &[row]).await?;
+    let Some(served) = served else {
+        return Ok(());
+    };
     insert_payload_ref(
         &fixture.database.client,
         &writer,

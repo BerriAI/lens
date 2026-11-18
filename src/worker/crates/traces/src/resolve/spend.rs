@@ -98,6 +98,8 @@ pub(super) type Requests<'a> = Vec<&'a SpendRow>;
 enum Call<'a> {
     Ledger {
         team_id: &'a str,
+        api_key: &'a str,
+        user: &'a str,
         litellm_call_id: &'a str,
     },
     Row((&'a str, i64, &'a str, &'a str)),
@@ -109,6 +111,8 @@ fn call(spend: &SpendRow) -> Call<'_> {
     }
     Call::Ledger {
         team_id: &spend.team_id,
+        api_key: &spend.api_key,
+        user: &spend.user,
         litellm_call_id: &spend.litellm_call_id,
     }
 }
