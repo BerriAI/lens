@@ -126,6 +126,18 @@ fn scope(identity: &Identity, write: bool) -> Result<Scope, InvestigationError> 
     Err(InvestigationError::ForbiddenRead)
 }
 
+fn investigator_scope(identity: &Identity, write: bool) -> Result<Scope, InvestigationError> {
+    if identity.user_role == Role::SlackInvestigator
+        && let Some(team_id) = identity.team_id.as_ref().filter(|id| !id.is_empty())
+    {
+        return Ok(Scope {
+            team_id: team_id.clone(),
+            ..Scope::default()
+        });
+    }
+    scope(identity, write)
+}
+
 fn validate_selection(settings: &LensSettings) -> Result<(), InvestigationError> {
     for id in &settings.execution_ids {
         let decoded = URL_SAFE
@@ -182,8 +194,8 @@ async fn list<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
     headers: HeaderMap,
     method: Method,
 ) -> Result<Json<LensList>, InvestigationError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let scope = scope(&identity, false)?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
+    let scope = investigator_scope(&identity, false)?;
     let lenses: Vec<_> = app
         .repository
         .lenses(&scope)
@@ -215,12 +227,12 @@ async fn create<R: SessionRepository, D: LensRepository, A: InvestigationAccess>
     body: Bytes,
 ) -> Result<Json<Lens>, InvestigationError> {
     let parsed = body_validation::parse_body(&body, &headers)?;
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
     let settings: LensSettings = body_validation::request(
         parsed,
         body_validation::Model::Investigation(validation::Model::Settings),
     )?;
-    let scope = scope(&identity, true)?;
+    let scope = investigator_scope(&identity, true)?;
     validate_selection(&settings)?;
     app.access.validate_model(&settings, &identity).await?;
     app.access.validate_workers(&settings, &scope).await?;
@@ -240,8 +252,8 @@ async fn read<R: SessionRepository, D: LensRepository, A: InvestigationAccess>(
     headers: HeaderMap,
     method: Method,
 ) -> Result<Json<Lens>, InvestigationError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let lens = get_lens(&app.repository, &id, &scope(&identity, false)?).await?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
+    let lens = get_lens(&app.repository, &id, &investigator_scope(&identity, false)?).await?;
     Ok(Json(lens_investigations::summarized(&lens)))
 }
 
@@ -417,8 +429,8 @@ async fn import<R: SessionRepository, D: LensRepository, A: InvestigationAccess>
     method: Method,
     Json(request): Json<FindingImport>,
 ) -> Result<Json<FindingImported>, InvestigationError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let scope = scope(&identity, true)?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
+    let scope = investigator_scope(&identity, true)?;
     let lens = get_lens(&app.repository, &id, &scope).await?;
     lens_investigations::validate_import(&lens, &request)?;
     let evidence = app

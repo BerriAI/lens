@@ -70,6 +70,47 @@ fn gateway_delegation_requires_a_strong_configured_secret(
 }
 
 #[rstest]
+#[case::admin(ADMIN)]
+#[case::short("short")]
+fn slack_credential_cannot_reuse_admin_or_weak_keys(#[case] key: &str) {
+    assert!(matches!(
+        Settings::new(ADMIN, None, ORIGIN)
+            .unwrap()
+            .with_slack_investigator(key, "docs-team"),
+        Err(Error::Configuration(_))
+    ));
+}
+
+#[rstest]
+#[tokio::test]
+async fn slack_credential_only_authenticates_on_opted_in_routes(now: DateTime<Utc>) {
+    const KEY: &str = "slack-investigator-test-token-only";
+    let authentication = Authentication {
+        settings: Settings::new(ADMIN, None, ORIGIN)
+            .unwrap()
+            .with_slack_investigator(KEY, "docs-team")
+            .unwrap(),
+        sessions: Memory::default(),
+    };
+    let header = format!("Bearer {KEY}");
+    assert!(matches!(
+        authentication.authenticate(bearer(&header), now).await,
+        Err(Error::Unauthorized(_))
+    ));
+    let identity = authentication
+        .authenticate_slack(bearer(&header), now)
+        .await
+        .unwrap();
+    assert_eq!(
+        trace_read_scope(&identity),
+        Some(ReadScope::OwnedRows {
+            user_id: String::new(),
+            team_ids: vec!["docs-team".into()],
+        }),
+    );
+}
+
+#[rstest]
 #[tokio::test]
 async fn sign_in_stores_a_hash_with_eight_hour_expiry(
     authentication: Authentication<Memory>,

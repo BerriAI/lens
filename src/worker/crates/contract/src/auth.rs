@@ -12,6 +12,9 @@ pub enum Role {
     InternalUserViewer,
     Team,
     Customer,
+    #[serde(skip)]
+    #[schemars(skip)]
+    SlackInvestigator,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
