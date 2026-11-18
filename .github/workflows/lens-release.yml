@@ -1,0 +1,203 @@
+name: Lens release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/lens-release.yml
+      - scripts/package_release.sh
+      - VERSION
+      - helm/lens/**
+      - deploy/lens/**
+      - deploy/clickhouse/keeper.xml
+      - src/ui/lib/package.json
+
+permissions: {}
+
+concurrency:
+  group: lens-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/berriai/lens
+  CHART: ghcr.io/berriai/charts/lens
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the release source
+        id: version
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          version=$(<VERSION)
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            [[ "$GITHUB_REF" == "refs/tags/v$version" ]]
+            git merge-base --is-ancestor HEAD "refs/remotes/origin/$DEFAULT_BRANCH"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  assets:
+    needs: version
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 24.14.1
+          package-manager-cache: false
+      - name: Install verified Helm
+        shell: bash -euo pipefail {0}
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz
+          echo "a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496  $RUNNER_TEMP/helm.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
+          echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+      - name: Rehearse packaging with a placeholder digest
+        run: bash scripts/package_release.sh "$RUNNER_TEMP/lens-assets" "sha256:$(printf '%064d' 0)"
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        if: github.event_name != 'push'
+        with:
+          name: lens-dry-run-assets
+          path: ${{ runner.temp }}/lens-assets
+          if-no-files-found: error
+          retention-days: 7
+
+  image:
+    needs: [version, assets]
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
+      - name: Build and smoke-test the native runtime
+        shell: bash -euo pipefail {0}
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          docker buildx build --load --tag lens:release --file deploy/runtime/Dockerfile \
+            --build-arg "LENS_VERSION=$VERSION" --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" .
+          deploy/lens/smoke.sh lens:release "$VERSION"
+      - name: Push the qualified build by digest
+        if: github.event_name == 'push'
+        shell: bash -euo pipefail {0}
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx build --file deploy/runtime/Dockerfile --build-arg "LENS_VERSION=$VERSION" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" \
+            --output "type=image,name=$IMAGE,push-by-digest=true,name-canonical=true,push=true" \
+            --provenance=false --metadata-file "$RUNNER_TEMP/image.json" .
+          jq -er '."containerimage.digest" | select(test("^sha256:[a-f0-9]{64}$"))' \
+            "$RUNNER_TEMP/image.json" > "$RUNNER_TEMP/digest"
+          test "$(docker image inspect lens:release --format '{{.Id}}')" = \
+            "$(jq -er '."containerimage.config.digest"' "$RUNNER_TEMP/image.json")"
+      - uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        if: github.event_name == 'push'
+        with:
+          name: lens-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digest
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [version, image]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 24.14.1
+          package-manager-cache: false
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb
+        with:
+          cosign-release: v2.4.3
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e
+        with:
+          pattern: lens-digest-*
+          path: ${{ runner.temp }}/digests
+      - name: Install verified Helm
+        shell: bash -euo pipefail {0}
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/helm.tgz" https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz
+          echo "a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496  $RUNNER_TEMP/helm.tgz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/helm.tgz" -C "$RUNNER_TEMP" linux-amd64/helm
+          echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+      - name: Publish signed images, chart and release assets
+        shell: bash -euo pipefail {0}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists" >&2
+            exit 1
+          fi
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          amd64=$(<"$RUNNER_TEMP/digests/lens-digest-amd64/digest")
+          arm64=$(<"$RUNNER_TEMP/digests/lens-digest-arm64/digest")
+          [[ "$amd64" =~ ^sha256:[a-f0-9]{64}$ && "$arm64" =~ ^sha256:[a-f0-9]{64}$ ]]
+          docker buildx imagetools create --tag "$IMAGE:$VERSION" --metadata-file "$RUNNER_TEMP/index.json" \
+            "$IMAGE@$amd64" "$IMAGE@$arm64"
+          digest=$(jq -er '."containerimage.descriptor".digest' "$RUNNER_TEMP/index.json")
+          assets="$RUNNER_TEMP/lens-assets"
+          bash scripts/package_release.sh "$assets" "$digest"
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          chart=$(helm push "$assets/lens-$VERSION.tgz" oci://ghcr.io/berriai/charts 2>&1)
+          printf '%s\n' "$chart"
+          chart_digest=$(awk '$1 == "Digest:" {print $2}' <<< "$chart")
+          [[ "$chart_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          cosign sign --yes "$IMAGE@$digest" "$CHART@$chart_digest"
+          cd "$assets"
+          printf 'Source: %s\nImage: %s\nChart: %s\n\n' "$GITHUB_SHA" "$IMAGE@$digest" "$CHART@$chart_digest" > manifest.txt
+          sha256sum "lens-$VERSION.tgz" "litellm-lens-ui-$VERSION.tgz" "lens-install-$VERSION.tar.gz" >> manifest.txt
+          cosign sign-blob --yes --bundle manifest.sigstore.json manifest.txt
+          notes=$(printf 'Image: `%s@%s`, chart: `oci://%s` at version `%s`.' "$IMAGE" "$digest" "$CHART" "$VERSION")
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
+            --title "Lens $VERSION" --notes "$notes" \
+            "lens-$VERSION.tgz" "litellm-lens-ui-$VERSION.tgz" "lens-install-$VERSION.tar.gz" manifest.txt manifest.sigstore.json
