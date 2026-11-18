@@ -216,10 +216,10 @@ impl From<contracts::SpendByResponseIdsParams> for SpendByResponseIdsParams {
 #[serde(remote = "contracts::SpendByResponseIdsRow")]
 struct SpendByResponseIdsRowEncoding {
     pub request_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub event_id: String,
     pub litellm_call_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub ledger_call_id: String,
     pub response_id: String,
     pub upstream_response_id: String,
@@ -376,6 +376,10 @@ mod tests {
         );
         round_trip::<SpendByResponseIdsRow>(
             json!({"request_id": "request", "litellm_call_id": "gateway", "response_id": "response", "upstream_response_id": "upstream", "provider_request_id": "req_provider", "trace_id": "trace", "span_id": "span", "team_id": "team", "api_key": "key", "user": "user", "spend": 0.125, "start_ms": -1}),
+            quoted,
+        );
+        round_trip::<SpendByResponseIdsRow>(
+            json!({"request_id": "request", "event_id": "evt", "litellm_call_id": "gateway", "ledger_call_id": "gateway", "response_id": "response", "upstream_response_id": "upstream", "provider_request_id": "req_provider", "trace_id": "trace", "span_id": "span", "team_id": "team", "api_key": "key", "user": "user", "spend": 0.125, "start_ms": -1}),
             quoted,
         );
     }

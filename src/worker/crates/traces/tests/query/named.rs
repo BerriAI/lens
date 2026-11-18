@@ -64,4 +64,7 @@ fn result_contracts_preserve_public_field_names() {
     round_trip::<SpendByResponseIdsRow>(
         json!({"request_id": "request", "litellm_call_id": "gateway", "response_id": "response", "upstream_response_id": "upstream", "provider_request_id": "req_provider", "trace_id": "trace", "span_id": "span", "team_id": "team", "api_key": "key", "user": "user", "spend": 0.125, "start_ms": -1}),
     );
+    round_trip::<SpendByResponseIdsRow>(
+        json!({"request_id": "request", "event_id": "evt", "litellm_call_id": "gateway", "ledger_call_id": "gateway", "response_id": "response", "upstream_response_id": "upstream", "provider_request_id": "req_provider", "trace_id": "trace", "span_id": "span", "team_id": "team", "api_key": "key", "user": "user", "spend": 0.125, "start_ms": -1}),
+    );
 }

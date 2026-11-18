@@ -259,10 +259,10 @@ pub struct SpendByResponseIdsParams {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SpendByResponseIdsRow {
     pub request_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub event_id: String,
     pub litellm_call_id: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub ledger_call_id: String,
     pub response_id: String,
     pub upstream_response_id: String,
