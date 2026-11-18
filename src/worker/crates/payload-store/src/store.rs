@@ -1,5 +1,6 @@
 use aws_sdk_s3::{
     Client,
+    operation::get_object::GetObjectOutput,
     primitives::ByteStream,
     types::{Delete, ObjectIdentifier},
 };
@@ -9,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     Error, ObjectKey,
+    codec::{BYTES_METADATA, ENCODING_METADATA, Encoding, MAX_BODY_BYTES, decode, encode},
     key::{Generated, NAMESPACE, day_path},
 };
 
@@ -62,6 +64,32 @@ fn request_error<E: std::error::Error + Send + Sync + 'static>(error: E) -> Erro
     Error::Request(Box::new(error))
 }
 
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, Error> + Send + 'static,
+) -> Result<T, Error> {
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(request_error)?
+}
+
+fn metadata<'a>(object: &'a GetObjectOutput, name: &str) -> Option<&'a str> {
+    object
+        .metadata()
+        .and_then(|metadata| metadata.get(name))
+        .map(String::as_str)
+}
+
+async fn bounded(mut body: ByteStream, limit: u64) -> Result<Vec<u8>, Error> {
+    let mut stored = Vec::new();
+    while let Some(chunk) = body.try_next().await.map_err(request_error)? {
+        if (stored.len() + chunk.len()) as u64 > limit {
+            return Err(Error::Integrity);
+        }
+        stored.extend_from_slice(&chunk);
+    }
+    Ok(stored)
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Sweep {
     pub deleted: u64,
@@ -106,27 +134,46 @@ impl Store {
         &self.prefix
     }
 
+    /// Stores `body` gzip-compressed when that is smaller, recording the encoding and the logical
+    /// length in object metadata. The checksum S3 verifies covers the stored bytes.
     pub async fn put(&self, key: &ObjectKey, body: Vec<u8>, sha256: &str) -> Result<(), Error> {
-        if sha256_hex(&body) != sha256 {
+        if body.len() as u64 > MAX_BODY_BYTES {
             return Err(Error::Integrity);
         }
-        let length = i64::try_from(body.len()).map_err(|_| Error::Integrity)?;
-        let checksum = STANDARD.encode(Sha256::digest(&body));
+        let expected = sha256.to_owned();
+        let (stored, logical, checksum) = blocking(move || {
+            if sha256_hex(&body) != expected {
+                return Err(Error::Integrity);
+            }
+            let logical = body.len();
+            let stored = encode(body);
+            let checksum = STANDARD.encode(Sha256::digest(&stored.bytes));
+            Ok((stored, logical, checksum))
+        })
+        .await?;
+        let length = i64::try_from(stored.bytes.len()).map_err(|_| Error::Integrity)?;
         self.client
             .put_object()
             .bucket(&self.bucket)
             .key(key.as_str())
             .content_length(length)
             .checksum_sha256(checksum)
-            .content_type("application/json")
-            .body(ByteStream::from(body))
+            .content_type(stored.encoding.content_type())
+            .metadata(ENCODING_METADATA, stored.encoding.name())
+            .metadata(BYTES_METADATA, logical.to_string())
+            .body(ByteStream::from(stored.bytes))
             .send()
             .await
             .map_err(request_error)?;
         Ok(())
     }
 
+    /// Reads exactly `bytes` logical bytes matching `sha256`. Objects without encoding metadata
+    /// were stored as is. The stored body is never read past `bytes`.
     pub async fn get(&self, key: &ObjectKey, bytes: u64, sha256: &str) -> Result<String, Error> {
+        if bytes > MAX_BODY_BYTES {
+            return Err(Error::Integrity);
+        }
         let object = self
             .client
             .get_object()
@@ -138,22 +185,25 @@ impl Store {
                 service if service.is_no_such_key() => Error::Missing,
                 service => request_error(service),
             })?;
-        if object
-            .content_length()
-            .is_some_and(|length| u64::try_from(length).ok() != Some(bytes))
+        let encoding =
+            Encoding::parse(metadata(&object, ENCODING_METADATA)).ok_or(Error::Integrity)?;
+        if metadata(&object, BYTES_METADATA).is_some_and(|recorded| recorded != bytes.to_string())
+            || object
+                .content_length()
+                .is_some_and(|length| !u64::try_from(length).is_ok_and(|length| length <= bytes))
         {
             return Err(Error::Integrity);
         }
-        let body = object
-            .body
-            .collect()
-            .await
-            .map_err(request_error)?
-            .into_bytes();
-        if u64::try_from(body.len()).ok() != Some(bytes) || sha256_hex(&body) != sha256 {
-            return Err(Error::Integrity);
-        }
-        String::from_utf8(body.to_vec()).map_err(|_| Error::Integrity)
+        let stored = bounded(object.body, bytes).await?;
+        let expected = sha256.to_owned();
+        let body = blocking(move || {
+            let body = decode(stored, encoding, bytes)?;
+            (sha256_hex(&body) == expected)
+                .then_some(body)
+                .ok_or(Error::Integrity)
+        })
+        .await?;
+        String::from_utf8(body).map_err(|_| Error::Integrity)
     }
 
     /// Deletes every object Lens generated for a day before `today - retention_days`. Listing is

@@ -123,6 +123,196 @@ async fn get_returns_only_bytes_matching_the_recorded_checksum(
     }
 }
 
+fn long_body() -> String {
+    format!(
+        "[{{\"role\":\"user\",\"content\":\"{}\"}}]",
+        "雪 snow ".repeat(4096)
+    )
+}
+
+fn header(request: &wiremock::Request, name: &str) -> Option<String> {
+    request
+        .headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
+}
+
+/// The object bytes of a PUT, whether the SDK sent them plainly or in aws-chunked framing.
+fn object_bytes(request: &wiremock::Request) -> Vec<u8> {
+    if header(request, "x-amz-decoded-content-length").is_none() {
+        return request.body.clone();
+    }
+    let line_end = request
+        .body
+        .windows(2)
+        .position(|pair| pair == b"\r\n")
+        .unwrap();
+    let size_text = String::from_utf8_lossy(&request.body[..line_end]);
+    let size = usize::from_str_radix(size_text.split(';').next().unwrap(), 16).unwrap();
+    request.body[line_end + 2..line_end + 2 + size].to_vec()
+}
+
+async fn stored_by_put(server: &MockServer, body: &str) -> wiremock::Request {
+    Mock::given(method("PUT"))
+        .and(path(object_path()))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(server)
+        .await;
+    store(server)
+        .put(
+            &key(),
+            body.as_bytes().to_vec(),
+            &sha256_hex(body.as_bytes()),
+        )
+        .await
+        .unwrap();
+    server
+        .received_requests()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|request| request.method.as_str() == "PUT")
+        .unwrap()
+}
+
+#[rstest]
+#[case::compressible(long_body(), "gzip", "application/gzip")]
+#[case::shorter_as_is(BODY.to_owned(), "identity", "application/json")]
+#[tokio::test]
+async fn put_records_the_encoding_and_logical_length_it_stored(
+    #[future(awt)] server: MockServer,
+    #[case] body: String,
+    #[case] encoding: &str,
+    #[case] content_type: &str,
+) {
+    let request = stored_by_put(&server, &body).await;
+    let stored = object_bytes(&request);
+
+    assert_eq!(
+        header(&request, "x-amz-meta-lens-encoding").as_deref(),
+        Some(encoding)
+    );
+    assert_eq!(
+        header(&request, "x-amz-meta-lens-bytes"),
+        Some(body.len().to_string())
+    );
+    assert_eq!(
+        header(&request, "content-type").as_deref(),
+        Some(content_type)
+    );
+    assert!(
+        !header(&request, "content-encoding")
+            .unwrap_or_default()
+            .contains("gzip")
+    );
+    assert_eq!(stored.len() < body.len(), encoding == "gzip");
+}
+
+#[rstest]
+#[case::compressible(long_body())]
+#[case::shorter_as_is(BODY.to_owned())]
+#[tokio::test]
+async fn an_object_put_through_the_sdk_reads_back_exactly(
+    #[future(awt)] server: MockServer,
+    #[case] body: String,
+) {
+    let request = stored_by_put(&server, &body).await;
+    Mock::given(method("GET"))
+        .and(path(object_path()))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header(
+                    "x-amz-meta-lens-encoding",
+                    header(&request, "x-amz-meta-lens-encoding")
+                        .unwrap()
+                        .as_str(),
+                )
+                .insert_header(
+                    "x-amz-meta-lens-bytes",
+                    header(&request, "x-amz-meta-lens-bytes").unwrap().as_str(),
+                )
+                .set_body_bytes(object_bytes(&request)),
+        )
+        .mount(&server)
+        .await;
+
+    let read = store(&server)
+        .get(&key(), body.len() as u64, &sha256_hex(body.as_bytes()))
+        .await
+        .unwrap();
+
+    assert_eq!(read, body);
+}
+
+fn gzipped(body: &str) -> Vec<u8> {
+    use std::io::Write;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(body.as_bytes()).unwrap();
+    encoder.finish().unwrap()
+}
+
+#[rstest]
+#[case::compressed_without_metadata(None, None, false)]
+#[case::unknown_encoding(Some("br"), None, false)]
+#[case::other_logical_length(Some("gzip"), Some("1"), false)]
+#[case::compressed(Some("gzip"), None, true)]
+#[tokio::test]
+async fn compressed_objects_need_explicit_matching_metadata(
+    #[future(awt)] server: MockServer,
+    #[case] encoding: Option<&str>,
+    #[case] recorded_bytes: Option<&str>,
+    #[case] readable: bool,
+) {
+    let body = long_body();
+    let response = ResponseTemplate::new(200).set_body_bytes(gzipped(&body));
+    let response = match encoding {
+        Some(encoding) => response.insert_header("x-amz-meta-lens-encoding", encoding),
+        None => response,
+    };
+    let response = match recorded_bytes {
+        Some(bytes) => response.insert_header("x-amz-meta-lens-bytes", bytes),
+        None => response,
+    };
+    Mock::given(method("GET"))
+        .and(path(object_path()))
+        .respond_with(response)
+        .mount(&server)
+        .await;
+
+    let result = store(&server)
+        .get(&key(), body.len() as u64, &sha256_hex(body.as_bytes()))
+        .await;
+
+    if readable {
+        assert_eq!(result.unwrap(), body);
+    } else {
+        assert!(matches!(result, Err(Error::Integrity)));
+    }
+}
+
+#[rstest]
+#[case::raw_longer_than_recorded(BODY.len() as u64 - 1)]
+#[case::recorded_above_the_body_limit(lens_payloads::MAX_BODY_BYTES + 1)]
+#[tokio::test]
+async fn objects_larger_than_their_recorded_body_are_rejected(
+    #[future(awt)] server: MockServer,
+    #[case] recorded: u64,
+) {
+    Mock::given(method("GET"))
+        .and(path(object_path()))
+        .respond_with(ResponseTemplate::new(200).set_body_string(BODY))
+        .mount(&server)
+        .await;
+
+    let result = store(&server)
+        .get(&key(), recorded, &sha256_hex(BODY.as_bytes()))
+        .await;
+
+    assert!(matches!(result, Err(Error::Integrity)));
+}
+
 #[rstest]
 #[tokio::test]
 async fn get_reports_a_deleted_object_as_missing(#[future(awt)] server: MockServer) {

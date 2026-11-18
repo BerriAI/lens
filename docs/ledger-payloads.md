@@ -30,6 +30,8 @@ With a bucket the defaults become 64 KiB inline and a 4 KiB preview. Both settin
 
 Lens writes objects only under `{prefix}lens-payloads/v1/YYYY/MM/DD/{scope}/{event_id}/{field}`, where the scope is a hash of the team and key. Grant its credentials `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on that namespace and `s3:ListBucket` limited to that prefix. Lens does not need access to anything else in the bucket and never deletes outside the namespace
 
+Lens compresses each body with gzip before storing it when that makes the object smaller, and otherwise stores the body as it is. The object metadata says which: `lens-encoding` is `gzip` or `identity`, and `lens-bytes` holds the logical size, the length of the body before compression. Compressed objects have content type `application/gzip` and no `Content-Encoding` header, so no client or proxy decompresses them on the way. The body reference in ClickHouse keeps the logical size and the SHA-256 of the uncompressed body, so the bucket's object sizes and checksums can be smaller than or differ from the sizes Lens reports. Objects written before compression have no `lens-encoding` and are read as stored. Lens reads at most the logical size from the bucket, stops decompressing one byte past it, and treats an unknown encoding, a size mismatch or a damaged object as unreadable. Bodies are limited to 32 MiB
+
 The store must support ListObjectsV2 in key order, DeleteObjects, and SHA-256 object checksums. AWS S3 general purpose buckets meet this. S3 directory buckets do not list in key order, so expired objects there may not all be found. For other S3-compatible services, confirm these operations before you enable the store
 
 ## What readers see

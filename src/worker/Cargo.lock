@@ -3136,6 +3136,7 @@ dependencies = [
  "aws-sdk-s3",
  "base64 0.22.1",
  "chrono",
+ "flate2",
  "rstest",
  "serde",
  "serde_json",
