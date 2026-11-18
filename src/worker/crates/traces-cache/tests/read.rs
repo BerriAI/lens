@@ -10,11 +10,11 @@ use std::{
 use litellm_traces::{
     CallEvidenceKind, CallKey, ObservationType, SpanStatus,
     query::named::{
-        ListTracesParams, ListTracesRow, ReadAccessParams, SpanDetailParams, SpanDetailRow,
-        SpanErrorParams, SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow,
-        TraceConversationAnchor, TraceConversationAnchorParams, TraceConversationRow,
-        TraceConversationTurnsParams, TraceIdentityParams, TracePageSpansParams, TraceSpansParams,
-        TraceSpansRow,
+        LedgerContent, LedgerContentParams, ListTracesParams, ListTracesRow, ReadAccessParams,
+        SpanDetailParams, SpanDetailRow, SpanErrorParams, SpanErrorRow, SpendByResponseIdsParams,
+        SpendByResponseIdsRow, TraceConversationAnchor, TraceConversationAnchorParams,
+        TraceConversationRow, TraceConversationTurnsParams, TraceIdentityParams,
+        TracePageSpansParams, TraceSpansParams, TraceSpansRow,
     },
 };
 use litellm_traces_cache::{LIVE_TTL, ReadError, StoreError, TraceReader, TraceStore};
@@ -62,6 +62,8 @@ struct State {
     spend: Vec<SpendByResponseIdsRow>,
     span_detail: Option<SpanDetailRow>,
     span_error: Option<SpanErrorRow>,
+    ledger_content: HashMap<(String, String, String), LedgerContent>,
+    ledger_requests: Vec<(String, String, String)>,
     list_runs_too_large_above: Option<u32>,
     trace_too_large_refs: HashSet<String>,
     spend_fails_above_response_ids: Option<usize>,
@@ -324,6 +326,20 @@ impl TraceStore for FakeStore {
         let state = self.state.lock().unwrap();
         Self::failure(&state, Operation::SpanError)?;
         Ok(state.span_error.clone())
+    }
+
+    async fn ledger_content(
+        &self,
+        params: &LedgerContentParams,
+    ) -> Result<Option<LedgerContent>, StoreError<Self::Error>> {
+        let key = (
+            params.team_id.clone(),
+            params.api_key.clone(),
+            params.event_id.clone(),
+        );
+        let mut state = self.state.lock().unwrap();
+        state.ledger_requests.push(key.clone());
+        Ok(state.ledger_content.get(&key).cloned())
     }
 }
 
@@ -1279,4 +1295,156 @@ async fn conversation_without_an_authorized_session_does_not_query_turns(#[case]
     assert_eq!(page.is_some(), exists);
     assert!(page.is_none_or(|page| page.turns.is_empty() && page.next_cursor.is_none()));
     assert_eq!(store.calls(Operation::ConversationTurns), 0);
+}
+
+fn traced_call(user: &str) -> TraceSpansRow {
+    TraceSpansRow {
+        kind: ObservationType::Llm,
+        call_keys: vec![CallKey::ProviderResponse("response-1".into())],
+        call_evidence: Some(CallEvidenceKind::Complete),
+        api_key_hash: "tracing-key".into(),
+        user_id: user.into(),
+        ..span(1)
+    }
+}
+
+fn gateway_charge(event_id: &str, team: &str, user: &str) -> SpendByResponseIdsRow {
+    SpendByResponseIdsRow {
+        event_id: event_id.into(),
+        litellm_call_id: format!("call-{event_id}"),
+        team_id: team.into(),
+        api_key: "gateway-key".into(),
+        user: user.into(),
+        ..spend_row("response-1", 0.25)
+    }
+}
+
+fn gateway_store(
+    span_user: &str,
+    own_input: &str,
+    charges: Vec<SpendByResponseIdsRow>,
+) -> FakeStore {
+    let root = TraceSpansRow {
+        api_key_hash: "tracing-key".into(),
+        user_id: span_user.into(),
+        ..span(0)
+    };
+    let store = FakeStore::with_spans("ref", vec![root, traced_call(span_user)]);
+    let mut state = store.state.lock().unwrap();
+    state.spend = charges;
+    state.span_detail = Some(SpanDetailRow {
+        span_id: "span-1".into(),
+        input: own_input.into(),
+        output: String::new(),
+        attributes: Default::default(),
+    });
+    state.ledger_content = HashMap::from([(
+        ("team".into(), "gateway-key".into(), "evt-1".into()),
+        LedgerContent {
+            input: "gateway input".into(),
+            output: "gateway output".into(),
+            input_note: None,
+            output_note: Some("[Lens: the full body expired or was deleted]".into()),
+        },
+    )]);
+    drop(state);
+    store
+}
+
+#[rstest]
+#[case::same_user_through_separate_keys("user", vec![gateway_charge("evt-1", "team", "user")], true)]
+#[case::ambiguous_response_id(
+    "user",
+    vec![gateway_charge("evt-1", "team", "user"), gateway_charge("evt-2", "team", "user")],
+    false
+)]
+#[case::other_user("user", vec![gateway_charge("evt-1", "team", "intruder")], false)]
+#[case::other_team("user", vec![gateway_charge("evt-1", "other-team", "user")], false)]
+#[case::no_authenticated_user("", vec![gateway_charge("evt-1", "team", "")], false)]
+#[case::legacy_record("user", vec![gateway_charge("", "team", "user")], false)]
+#[tokio::test]
+async fn span_detail_reads_gateway_content_only_for_the_proven_owner(
+    #[case] span_user: &str,
+    #[case] charges: Vec<SpendByResponseIdsRow>,
+    #[case] filled: bool,
+) {
+    let store = gateway_store(span_user, "", charges);
+    let detail = TraceReader::new(usize::MAX)
+        .get_span(&store, &access(), "trace", "span-1", "ref")
+        .await
+        .unwrap()
+        .unwrap();
+
+    let requests = store.state.lock().unwrap().ledger_requests.clone();
+    if filled {
+        assert_eq!(
+            requests,
+            [("team".into(), "gateway-key".into(), "evt-1".into())]
+        );
+        assert_eq!(
+            (detail.input.as_str(), detail.output.as_str()),
+            ("gateway input", "gateway output")
+        );
+        assert_eq!(
+            detail
+                .attributes
+                .get(litellm_traces::PAYLOAD_OUTPUT)
+                .map(String::as_str),
+            Some("[Lens: the full body expired or was deleted]")
+        );
+    } else {
+        assert!(requests.is_empty());
+        assert_eq!((detail.input.as_str(), detail.output.as_str()), ("", ""));
+        assert!(detail.attributes.is_empty());
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn gateway_content_never_replaces_a_body_the_span_recorded() {
+    let store = gateway_store(
+        "user",
+        "own input",
+        vec![gateway_charge("evt-1", "team", "user")],
+    );
+    let detail = TraceReader::new(usize::MAX)
+        .get_span(&store, &access(), "trace", "span-1", "ref")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        (detail.input.as_str(), detail.output.as_str()),
+        ("own input", "gateway output")
+    );
+    assert!(
+        !detail
+            .attributes
+            .contains_key(litellm_traces::PAYLOAD_INPUT)
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_span_with_its_own_body_reads_no_gateway_content() {
+    let store = gateway_store(
+        "user",
+        "own input",
+        vec![gateway_charge("evt-1", "team", "user")],
+    );
+    store.state.lock().unwrap().span_detail = Some(SpanDetailRow {
+        span_id: "span-1".into(),
+        input: "own input".into(),
+        output: "own output".into(),
+        attributes: Default::default(),
+    });
+    let detail = TraceReader::new(usize::MAX)
+        .get_span(&store, &access(), "trace", "span-1", "ref")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(detail.output, "own output");
+    assert!(store.state.lock().unwrap().ledger_requests.is_empty());
+    assert_eq!(store.calls(Operation::Spend), 0);
 }

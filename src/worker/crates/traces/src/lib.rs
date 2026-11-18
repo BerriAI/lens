@@ -40,12 +40,13 @@ pub use otlp::{
 pub use query::ReadQuery;
 pub use query_access::QueryScope;
 pub use request::LogListRequest;
-pub use resolve::{SpendLookup, iso_time, listed_summary, resolve_trace};
+pub use resolve::{SpendLookup, iso_time, listed_summary, matched_spend, resolve_trace};
 pub use response::{OtelLogPage, OtelLogRecord, OtelLogSummary};
 pub use shared::{Shared, SharedIdentity};
 pub use tenant::Tenant;
 pub use ui::{ChatRole, UiContent, UiField, UiMessage, UiToolCall, to_ui_content};
 pub use view::{
-    AgentNode, RunSource, RunSourceType, Span, SpanDetail, SpanErrorPage, SpanStatus, SpendMatch,
-    Trace, TraceConversationPage, TraceConversationTurn, TracePage, TraceSummary,
+    AgentNode, PAYLOAD_INPUT, PAYLOAD_OUTPUT, RunSource, RunSourceType, Span, SpanDetail,
+    SpanErrorPage, SpanStatus, SpendMatch, Trace, TraceConversationPage, TraceConversationTurn,
+    TracePage, TraceSummary,
 };

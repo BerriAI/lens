@@ -10,10 +10,10 @@ use crate::{
     spend::spend,
 };
 use litellm_traces::{
-    SpanDetail, SpanErrorPage, Trace, TracePage,
+    PAYLOAD_INPUT, PAYLOAD_OUTPUT, SpanDetail, SpanErrorPage, Trace, TracePage, matched_spend,
     query::named::{
-        ListTracesParams, ReadAccessParams, SpanDetailParams, SpanErrorParams, TraceIdentityParams,
-        TraceSpansParams,
+        LedgerContent, LedgerContentParams, ListTracesParams, ReadAccessParams, SpanDetailParams,
+        SpanDetailRow, SpanErrorParams, TraceIdentityParams, TraceSpansParams,
     },
     request::{TRACE_PAGE_SIZE_MAX, TRACE_PAGE_SIZE_MIN},
     resolve_trace, to_ui_content,
@@ -277,7 +277,12 @@ impl TraceReader {
             trace_ref,
             span_id: span_id.to_owned(),
         };
-        let row = store.span_detail(&params).await.map_err(map_store_error)?;
+        let row = match store.span_detail(&params).await.map_err(map_store_error)? {
+            Some(row) if row.input.is_empty() || row.output.is_empty() => Some(
+                with_gateway_content(row, gateway_content(store, &params, span_id).await),
+            ),
+            row => row,
+        };
         Ok(row.map(|row| SpanDetail {
             input_ui: to_ui_content(&row.input),
             output_ui: to_ui_content(&row.output),
@@ -328,6 +333,67 @@ impl TraceReader {
             total_chars: row.total_chars,
             next_cursor,
         }))
+    }
+}
+
+/// The ledger body of the gateway call that priced this span. The span and the delivery are each
+/// read inside the caller's scope, and the resolver must prove the delivery belongs to the span's
+/// owner (same team, and the same authenticated user or the same key) with no competing record.
+async fn gateway_content<S: TraceStore>(
+    store: &S,
+    params: &SpanDetailParams,
+    span_id: &str,
+) -> Option<LedgerContent> {
+    let spans = TraceSpansParams {
+        access: params.access.clone(),
+        trace_id: params.trace_id.clone(),
+        trace_ref: params.trace_ref.clone(),
+    };
+    let rows = store.trace_spans(&spans, now_ms()).await.ok()?;
+    let costs = spend(store, &params.access, &rows).await?;
+    let charge =
+        matched_spend(&rows, &costs, span_id).filter(|charge| !charge.event_id.is_empty())?;
+    let content = LedgerContentParams {
+        access: params.access.clone(),
+        team_id: charge.team_id.clone(),
+        api_key: charge.api_key.clone(),
+        event_id: charge.event_id.clone(),
+        start_ms: charge.start_ms,
+    };
+    match store.ledger_content(&content).await {
+        Ok(content) => content,
+        Err(error) => {
+            tracing::warn!(%error, "gateway content for a span is unavailable");
+            None
+        }
+    }
+}
+
+fn with_gateway_content(row: SpanDetailRow, content: Option<LedgerContent>) -> SpanDetailRow {
+    let Some(content) = content else {
+        return row;
+    };
+    let fill_input = row.input.is_empty() && !content.input.is_empty();
+    let fill_output = row.output.is_empty() && !content.output.is_empty();
+    let notes = [
+        (fill_input, PAYLOAD_INPUT, content.input_note),
+        (fill_output, PAYLOAD_OUTPUT, content.output_note),
+    ];
+    SpanDetailRow {
+        attributes: row
+            .attributes
+            .into_iter()
+            .chain(notes.into_iter().filter_map(|(filled, name, note)| {
+                note.filter(|_| filled).map(|note| (name.to_owned(), note))
+            }))
+            .collect(),
+        input: if fill_input { content.input } else { row.input },
+        output: if fill_output {
+            content.output
+        } else {
+            row.output
+        },
+        span_id: row.span_id,
     }
 }
 

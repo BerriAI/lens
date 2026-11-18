@@ -1,14 +1,14 @@
 use lens_payloads::Field;
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Error as StorageError, Query, fetch};
-use litellm_traces::query::named as contracts;
+use litellm_traces::{PAYLOAD_INPUT, PAYLOAD_OUTPUT, query::named as contracts};
 use litellm_traces_cache::{StoreError, TraceStore};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use crate::{
-    Connection, Error, Payloads,
+    Connection, Error, Payloads, Unavailable,
     query::conversation::{ConversationAnchor, ConversationTurns},
     query::named::{
         ListTracesParams, ListTracesRow, SpanDetail as SpanDetailQuery, SpanError, SpanErrorParams,
@@ -16,8 +16,28 @@ use crate::{
     },
 };
 
-pub const PAYLOAD_INPUT: &str = "lens.payload.input";
-pub const PAYLOAD_OUTPUT: &str = "lens.payload.output";
+struct LedgerContentQuery;
+
+#[derive(Deserialize)]
+struct LedgerContentRow {
+    input: String,
+    output: String,
+}
+
+impl Query for LedgerContentQuery {
+    type Params = contracts::LedgerContentParams;
+    type Row = LedgerContentRow;
+    const SQL: &'static str = "SELECT messages AS input, response AS output \
+        FROM spend_logs FINAL \
+        WHERE team_id = {team_id:String} AND api_key = {api_key:String} \
+          AND start_time >= fromUnixTimestamp64Milli({start_ms:Int64}) \
+          AND start_time < fromUnixTimestamp64Milli({start_ms:Int64} + 1) \
+          AND ledger_event_id = {event_id:String} AND ledger_event_id != '' \
+          AND ({all_teams:UInt8} = 1 \
+               OR ({user_id:String} != '' AND user = {user_id:String}) \
+               OR has({team_ids:Array(String)}, team_id)) \
+        LIMIT 1";
+}
 
 #[derive(Serialize)]
 struct SpendLogInputPreviewParams {
@@ -429,6 +449,47 @@ impl TraceStore for ClickHouseTraces {
             }
         }
         Ok(detail)
+    }
+
+    async fn ledger_content(
+        &self,
+        params: &contracts::LedgerContentParams,
+    ) -> Result<Option<contracts::LedgerContent>, StoreError<Self::Error>> {
+        let Some(stored) = fetch::<LedgerContentQuery>(&self.client, &self.connection, params)
+            .await
+            .map_err(failed)?
+            .pop()
+        else {
+            return Ok(None);
+        };
+        let Some(payloads) = &self.payloads else {
+            return Ok(Some(contracts::LedgerContent {
+                input: stored.input,
+                output: stored.output,
+                ..contracts::LedgerContent::default()
+            }));
+        };
+        let bodies = payloads
+            .resolve(
+                &self.client,
+                &self.connection,
+                &params.team_id,
+                &params.api_key,
+                &params.event_id,
+            )
+            .await;
+        let input_note = bodies
+            .missing(Field::Messages, &stored.input)
+            .map(Unavailable::note);
+        let output_note = bodies
+            .missing(Field::Response, &stored.output)
+            .map(Unavailable::note);
+        Ok(Some(contracts::LedgerContent {
+            input: bodies.messages.unwrap_or(stored.input),
+            output: bodies.response.unwrap_or(stored.output),
+            input_note,
+            output_note,
+        }))
     }
 
     async fn span_error(

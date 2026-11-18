@@ -42,6 +42,8 @@ Ad hoc SQL over `spend_logs` (the query API and the analysis sandbox) only ever 
 
 Spans that agents send directly over OTLP are unchanged. Their content is stored on the span and is never moved to the bucket
 
+An agent usually sends its spans with a Lens tracing key and calls models with a gateway virtual key, so the two records carry different key hashes. When a model call span has no recorded input or output, its span details show the body of the gateway call that priced it. That happens only when the span names the call through `gen_ai.response.id` or `litellm.call_id`, and exactly one ledger delivery matches. The delivery must also belong to the same team and to the same signed-in user as the tracing key, or use the same key. Both the span and the delivery must be visible to the reader. In every other case, including a tracing key with no owning user, the span details show no gateway body. A body the span recorded itself is never replaced
+
 ## Costs that arrive late
 
 The gateway retries deliveries until Lens acknowledges them, so a cost can arrive minutes or hours after the call. A stored trace summary is recomputed when a delivery for any call it already priced or tried to price arrives, including a later charge for the same call. An open trace view refreshes within 5 seconds while it still has an unpriced call. Once every call is priced, it can take up to 10 minutes for the view to show a further charge

@@ -655,3 +655,57 @@ async fn span_detail_says_why_only_a_preview_of_the_gateway_body_is_shown(
     assert!(!detail.attributes.contains_key(PAYLOAD_OUTPUT));
     Ok(())
 }
+
+#[rstest]
+#[case::same_user_through_separate_keys("user-a", true)]
+#[case::other_user("user-b", false)]
+#[tokio::test]
+async fn span_detail_reads_the_body_of_the_ledger_call_its_owner_made(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    record: BTreeMap<String, Value>,
+    #[case] gateway_user: &str,
+    #[case] visible: bool,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let server = MockServer::start().await;
+    let writer = Connection::writer(&fixture.database.url)?;
+    insert_rows(
+        &fixture.database.client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![serde_json::from_value(json!({
+            "Timestamp": START_MS * 1_000_000, "TraceId": "agent-trace", "SpanId": "model-call",
+            "SpanName": "model call", "ObservationType": "llm", "Duration": 1_000_000,
+            "TeamId": "team-a", "ApiKeyHash": "tracing-key", "UserId": "user-a",
+            "LiteLLMRequestId": "provider-response", "CallEvidence": "complete",
+            "Input": "", "Output": ""
+        }))?],
+    )
+    .await?;
+    let charged = with(&record, &[("user", json!(gateway_user))]);
+    offload_record(
+        &fixture,
+        &server,
+        &tenant_key("team-a"),
+        charged,
+        Some(ResponseTemplate::new(200).set_body_string(full_body())),
+    )
+    .await?;
+    let store = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    )
+    .with_payloads(Some(store(&server)));
+
+    let detail = litellm_traces_cache::TraceReader::new(usize::MAX)
+        .get_span(&store, &access("team-a"), "agent-trace", "model-call", "")
+        .await
+        .map_err(|error| format!("{error:?}"))?
+        .ok_or("missing visible span")?;
+
+    assert_eq!(detail.input == full_body(), visible);
+    assert_eq!(detail.input.is_empty(), !visible);
+    assert!(!detail.attributes.contains_key(PAYLOAD_INPUT));
+    Ok(())
+}

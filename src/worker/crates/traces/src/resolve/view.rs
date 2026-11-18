@@ -159,6 +159,27 @@ fn sorted_unique<'a>(values: impl Iterator<Item = &'a str>) -> Vec<String> {
         .collect()
 }
 
+/// The one spend record that prices the model call `span_id`, when the resolver proves it: the
+/// span is unique in `rows`, the record belongs to the trace's owner and no other record competes.
+pub fn matched_spend<'a>(
+    rows: &'a [TraceSpansRow],
+    spend: &'a [SpendRow],
+    span_id: &str,
+) -> Option<&'a SpendRow> {
+    let indexes: Vec<usize> = (0..rows.len())
+        .filter(|index| rows[*index].span_id == span_id)
+        .collect();
+    let [index] = indexes[..] else {
+        return None;
+    };
+    let resolution = Resolution::new(rows, spend);
+    let matched = resolution.call_match(index)?;
+    match (matched.state, matched.requests.as_deref()) {
+        (SpendMatch::Matched, Some([request])) => Some(*request),
+        _ => None,
+    }
+}
+
 pub fn resolve_trace(
     trace_id: &str,
     trace_ref: &str,

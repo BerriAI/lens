@@ -207,6 +207,25 @@ pub struct SpanDetailRow {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct LedgerContentParams {
+    #[serde(flatten)]
+    pub access: ReadAccessParams,
+    pub team_id: String,
+    pub api_key: String,
+    pub event_id: String,
+    pub start_ms: i64,
+}
+
+/// The stored body of one ledger delivery, with why a field is only its marked preview.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LedgerContent {
+    pub input: String,
+    pub output: String,
+    pub input_note: Option<String>,
+    pub output_note: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SpanErrorParams {
     #[serde(flatten)]
     pub access: ReadAccessParams,

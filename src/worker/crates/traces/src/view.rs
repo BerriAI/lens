@@ -168,6 +168,9 @@ pub struct TraceConversationPage {
     pub next_cursor: Option<String>,
 }
 
+pub const PAYLOAD_INPUT: &str = "lens.payload.input";
+pub const PAYLOAD_OUTPUT: &str = "lens.payload.output";
+
 #[macro_rules_attribute::apply(crate::response_type)]
 #[derive(Debug, PartialEq)]
 pub struct SpanDetail {

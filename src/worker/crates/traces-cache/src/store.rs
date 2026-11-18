@@ -1,10 +1,11 @@
 use std::future::Future;
 
 use litellm_traces::query::named::{
-    ListTracesParams, ListTracesRow, SpanDetailParams, SpanDetailRow, SpanErrorParams,
-    SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow, TraceConversationAnchor,
-    TraceConversationAnchorParams, TraceConversationRow, TraceConversationTurnsParams,
-    TraceIdentityParams, TracePageSpansParams, TraceSpansParams, TraceSpansRow,
+    LedgerContent, LedgerContentParams, ListTracesParams, ListTracesRow, SpanDetailParams,
+    SpanDetailRow, SpanErrorParams, SpanErrorRow, SpendByResponseIdsParams, SpendByResponseIdsRow,
+    TraceConversationAnchor, TraceConversationAnchorParams, TraceConversationRow,
+    TraceConversationTurnsParams, TraceIdentityParams, TracePageSpansParams, TraceSpansParams,
+    TraceSpansRow,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -92,4 +93,11 @@ pub trait TraceStore: Sync {
         &self,
         params: &SpanErrorParams,
     ) -> impl Future<Output = Result<Option<SpanErrorRow>, StoreError<Self::Error>>> + Send;
+
+    /// The body of exactly one ledger delivery, read under its own team, key, event and start time
+    /// and inside `params.access`.
+    fn ledger_content(
+        &self,
+        params: &LedgerContentParams,
+    ) -> impl Future<Output = Result<Option<LedgerContent>, StoreError<Self::Error>>> + Send;
 }
