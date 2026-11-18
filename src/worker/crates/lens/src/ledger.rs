@@ -10,7 +10,7 @@ use lens_contract::ledger::{
     LEDGER_VERSION, LedgerBatch, LedgerCapabilities, LedgerEnvelope, LedgerResult, LedgerResults,
     LedgerStatus, PayloadUpload, SUPPORTED_LEDGER_VERSIONS,
 };
-use lens_payloads::{Field, ObjectKey, sha256_hex};
+use lens_payloads::{Field, ObjectKey, Sweep, sha256_hex};
 use litellm_traces_clickhouse::{
     LedgerRow, PayloadRefRow, insert_ledger, insert_payload_ref, ledger_row,
 };
@@ -244,10 +244,17 @@ pub async fn sweep_payloads(state: Arc<State>) {
             .sweep(chrono::Utc::now(), retention_days)
             .await
         {
-            Ok(deleted) if deleted > 0 => {
-                tracing::info!(deleted, "deleted payload objects past retention");
+            Ok(Sweep { deleted, failed }) => {
+                if deleted > 0 {
+                    tracing::info!(deleted, "deleted payload objects past retention");
+                }
+                if failed > 0 {
+                    tracing::warn!(
+                        failed,
+                        "payload objects past retention were not deleted; retrying later"
+                    );
+                }
             }
-            Ok(_) => {}
             Err(error) => tracing::warn!(%error, "payload retention sweep failed; retrying later"),
         }
         tokio::time::sleep(SWEEP_INTERVAL).await;
@@ -323,8 +330,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(field, Field::Messages);
-        assert!(key.belongs_to("", "team", "hash"));
-        assert!(!key.belongs_to("", "other", "hash"));
+        assert!(key.is_for("", "team", "hash", "evt", Field::Messages));
+        assert!(!key.is_for("", "other", "hash", "evt", Field::Messages));
     }
 
     #[rstest]

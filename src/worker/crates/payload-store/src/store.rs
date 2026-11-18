@@ -7,9 +7,10 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Days, Utc};
 use sha2::{Digest, Sha256};
 
-use crate::{Error, ObjectKey, key::day_prefix};
-
-const SWEEP_LOOKBACK_DAYS: u64 = 30;
+use crate::{
+    Error, ObjectKey,
+    key::{Generated, NAMESPACE, day_path},
+};
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -59,6 +60,12 @@ impl StoreConfig {
 
 fn request_error<E: std::error::Error + Send + Sync + 'static>(error: E) -> Error {
     Error::Request(Box::new(error))
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Sweep {
+    pub deleted: u64,
+    pub failed: u64,
 }
 
 pub struct Store {
@@ -149,64 +156,77 @@ impl Store {
         String::from_utf8(body.to_vec()).map_err(|_| Error::Integrity)
     }
 
-    pub async fn sweep(&self, today: DateTime<Utc>, retention_days: u64) -> Result<u64, Error> {
-        let mut deleted = 0;
-        for age in retention_days + 1..=retention_days + SWEEP_LOOKBACK_DAYS {
-            let Some(day) = today.checked_sub_days(Days::new(age)) else {
-                continue;
-            };
-            deleted += self
-                .delete_prefix(&format!("{}{}/", self.prefix, day_prefix(day)))
-                .await?;
-        }
-        Ok(deleted)
-    }
-
-    async fn delete_prefix(&self, prefix: &str) -> Result<u64, Error> {
-        let mut deleted = 0;
+    /// Deletes every object Lens generated for a day before `today - retention_days`. Listing is
+    /// in key order, so it walks expired days oldest first and stops at the first retained day:
+    /// each pass reads what has expired since the last one, however long Lens was down.
+    pub async fn sweep(&self, today: DateTime<Utc>, retention_days: u64) -> Result<Sweep, Error> {
+        let Some(cutoff) = today.date_naive().checked_sub_days(Days::new(retention_days)) else {
+            return Ok(Sweep::default());
+        };
+        let namespace = format!("{}{NAMESPACE}", self.prefix);
+        let retained = format!("{namespace}{}/", day_path(cutoff));
+        let mut sweep = Sweep::default();
         let mut token = None;
         loop {
             let page = self
                 .client
                 .list_objects_v2()
                 .bucket(&self.bucket)
-                .prefix(prefix)
+                .prefix(&namespace)
                 .set_continuation_token(token)
                 .send()
                 .await
                 .map_err(request_error)?;
-            let identifiers = page
+            let keys: Vec<&str> = page
                 .contents()
                 .iter()
                 .filter_map(|object| object.key())
-                .map(|key| {
-                    ObjectIdentifier::builder()
-                        .key(key)
-                        .build()
-                        .map_err(request_error)
+                .collect();
+            let reached_retained = keys.iter().any(|key| *key >= retained.as_str());
+            let expired: Vec<&str> = keys
+                .into_iter()
+                .filter(|key| {
+                    Generated::parse(&self.prefix, key).is_some_and(|key| key.day < cutoff)
                 })
-                .collect::<Result<Vec<_>, _>>()?;
-            if !identifiers.is_empty() {
-                deleted += identifiers.len() as u64;
-                self.client
-                    .delete_objects()
-                    .bucket(&self.bucket)
-                    .delete(
-                        Delete::builder()
-                            .set_objects(Some(identifiers))
-                            .quiet(true)
-                            .build()
-                            .map_err(request_error)?,
-                    )
-                    .send()
-                    .await
-                    .map_err(request_error)?;
-            }
+                .collect();
+            let failed = self.delete(&expired).await?;
+            sweep.deleted += (expired.len() as u64).saturating_sub(failed);
+            sweep.failed += failed;
             token = page.next_continuation_token().map(str::to_owned);
-            if token.is_none() {
-                return Ok(deleted);
+            if reached_retained || token.is_none() {
+                return Ok(sweep);
             }
         }
+    }
+
+    async fn delete(&self, keys: &[&str]) -> Result<u64, Error> {
+        if keys.is_empty() {
+            return Ok(0);
+        }
+        let identifiers = keys
+            .iter()
+            .map(|key| {
+                ObjectIdentifier::builder()
+                    .key(*key)
+                    .build()
+                    .map_err(request_error)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let output = self
+            .client
+            .delete_objects()
+            .bucket(&self.bucket)
+            .delete(
+                Delete::builder()
+                    .set_objects(Some(identifiers))
+                    .quiet(true)
+                    .build()
+                    .map_err(request_error)?,
+            )
+            .send()
+            .await
+            .map_err(request_error)?;
+        Ok(output.errors().len() as u64)
     }
 }
 

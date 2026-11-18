@@ -77,7 +77,7 @@ impl Payloads {
                 continue;
             };
             let key = ObjectKey::from_stored(row.object_key);
-            if !key.belongs_to(self.0.prefix(), team_id, api_key) {
+            if !key.is_for(self.0.prefix(), team_id, api_key, event_id, field) {
                 tracing::warn!("payload reference outside its tenant scope was ignored");
                 continue;
             }

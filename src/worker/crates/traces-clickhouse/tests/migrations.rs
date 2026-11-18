@@ -1157,7 +1157,8 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', \
+         'lens_ledger_costs', 'lens_ledger_aliases', 'lens_payload_refs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     let ttl_queries = ttl_queries["data"].as_array().expect("retention tables");
@@ -1171,6 +1172,9 @@ async fn retention_reconciliation_updates_each_table_ttl(
             "lens_call_costs",
             "lens_eval_traces",
             "lens_feedback",
+            "lens_ledger_aliases",
+            "lens_ledger_costs",
+            "lens_payload_refs",
             "lens_trace_summaries",
             "otel_logs",
             "otel_traces",
@@ -1192,7 +1196,8 @@ async fn retention_reconciliation_updates_each_table_ttl(
         &database,
         "SELECT name, create_table_query FROM system.tables \
          WHERE database = 'trace_test' AND name IN \
-         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
+         ('otel_traces', 'otel_logs', 'agent_traces_by_key', 'lens_eval_traces', 'spend_logs', 'lens_call_costs', \
+         'lens_ledger_costs', 'lens_ledger_aliases', 'lens_payload_refs', 'lens_feedback', 'lens_trace_summaries') ORDER BY name",
     )
     .await?;
     for row in ttl_queries["data"].as_array().expect("retention tables") {
