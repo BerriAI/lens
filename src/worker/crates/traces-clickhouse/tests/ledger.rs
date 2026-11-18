@@ -81,7 +81,7 @@ async fn lookup(
         start_ms: START_MS - 1,
         end_ms: START_MS + 2,
     };
-    let reader = Connection::writer(&fixture.database.url)?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let mut rows: Vec<_> =
         fetch::<SpendByResponseIds>(&fixture.database.client, &reader, &params.into())
             .await?
@@ -471,7 +471,7 @@ fn tenant_key(team: &str) -> ObjectKey {
 }
 
 async fn request_source(fixture: &SeededDatabase) -> TestResult<lens::LensRequestSourceRow> {
-    let reader = Connection::writer(&fixture.database.url)?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
     let rows = fetch::<lens::LensRequestSource>(
         &fixture.database.client,
         &reader,
@@ -506,7 +506,7 @@ async fn offloaded_bodies_expand_and_search_beyond_the_stored_preview(
     let bodies = store(&server)
         .resolve(
             &fixture.database.client,
-            &Connection::writer(&fixture.database.url)?,
+            &Connection::reader(&fixture.database.url, DATABASE)?,
             &source.team_id,
             &source.api_key,
             &source.event_id,
@@ -536,7 +536,7 @@ async fn references_outside_the_rows_tenant_are_never_fetched(
     let bodies = store(&server)
         .resolve(
             &fixture.database.client,
-            &Connection::writer(&fixture.database.url)?,
+            &Connection::reader(&fixture.database.url, DATABASE)?,
             &source.team_id,
             &source.api_key,
             &source.event_id,
@@ -580,7 +580,7 @@ async fn unresolved_bodies_report_why_only_the_preview_is_available(
     let bodies = store(&server)
         .resolve(
             &fixture.database.client,
-            &Connection::writer(&fixture.database.url)?,
+            &Connection::reader(&fixture.database.url, DATABASE)?,
             &source.team_id,
             &source.api_key,
             &source.event_id,

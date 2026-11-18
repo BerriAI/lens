@@ -3,9 +3,9 @@ use std::{collections::BTreeMap, time::Duration};
 use litellm_http::Client;
 use litellm_storage_clickhouse::Error as StorageError;
 use litellm_traces_clickhouse::{
-    Connection, Error, InsertTable, NORMALIZED_FIELD_DEFINITIONS, Parameter, ReadQuery,
-    apply_migrations, encode_rows, ensure_schema, execute_named_read, execute_read,
-    reconcile_retention, schema_statements,
+    Connection, Error, InsertTable, NORMALIZED_FIELD_DEFINITIONS, Parameter, PayloadRefRow,
+    ReadQuery, apply_migrations, encode_rows, ensure_schema, execute_named_read, execute_read,
+    insert_ledger, insert_payload_ref, ledger_row, reconcile_retention, schema_statements,
 };
 use rstest::rstest;
 use sqlx::migrate::MigrateError;
@@ -1053,6 +1053,9 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_call_costs"},
             {"name": "lens_eval_traces"},
             {"name": "lens_feedback"},
+            {"name": "lens_ledger_aliases"},
+            {"name": "lens_ledger_costs"},
+            {"name": "lens_payload_refs"},
             {"name": "lens_task_clusters"},
             {"name": "lens_task_profiles"},
             {"name": "lens_trace_summaries"},
@@ -1088,6 +1091,34 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     )
     .await?;
     insert_rows(&database, "lens_feedback", vec![feedback]).await?;
+    let delivery = ledger_row(
+        "old-event",
+        &BTreeMap::from([
+            ("request_id".into(), serde_json::json!("old-ledger-request")),
+            ("team_id".into(), serde_json::json!("team-1")),
+            ("spend".into(), serde_json::json!(1.0)),
+            ("start_time".into(), serde_json::json!(old_timestamp_ms)),
+        ]),
+        1024,
+    )
+    .map_err(|rejection| format!("{rejection:?}"))?;
+    insert_ledger(&database.client, &writer, "trace_test", &[delivery]).await?;
+    insert_payload_ref(
+        &database.client,
+        &writer,
+        "trace_test",
+        &PayloadRefRow {
+            team_id: "team-1".into(),
+            api_key: String::new(),
+            event_id: "old-event".into(),
+            field: "messages",
+            event_time_ms: old_timestamp_ms,
+            object_key: "old-object".into(),
+            bytes: 1,
+            sha256: String::new(),
+        },
+    )
+    .await?;
     let summary = serde_json::from_value(serde_json::json!({
         "TeamId": "team-1", "ApiKeyHash": "", "TraceId": "expired", "TraceRef": "expired-ref",
         "ScopeUserId": "", "SourceSpanCount": 1, "StartTs": old_iso, "ComputedAt": 1,
@@ -1097,6 +1128,9 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     assert_eq!(table_rows(&database, "lens_trace_summaries").await?, 1);
     assert_eq!(table_rows(&database, "agent_traces_by_key").await?, 1);
     assert_eq!(table_rows(&database, "lens_call_costs").await?, 2);
+    assert_eq!(table_rows(&database, "lens_ledger_costs").await?, 1);
+    assert_eq!(table_rows(&database, "lens_ledger_aliases").await?, 2);
+    assert_eq!(table_rows(&database, "lens_payload_refs").await?, 1);
     ensure_schema(&database.client, &writer, "trace_test", 14).await?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
     loop {
@@ -1132,6 +1166,24 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     assert_eq!(table_rows(&database, "agent_traces_by_key").await?, 0);
     assert_eq!(table_rows(&database, "spend_logs").await?, 0);
     assert_eq!(table_rows(&database, "lens_call_costs").await?, 0);
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_ledger_costs FINAL",
+    )
+    .await?;
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_ledger_aliases FINAL",
+    )
+    .await?;
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_payload_refs FINAL",
+    )
+    .await?;
+    assert_eq!(table_rows(&database, "lens_ledger_costs").await?, 0);
+    assert_eq!(table_rows(&database, "lens_ledger_aliases").await?, 0);
+    assert_eq!(table_rows(&database, "lens_payload_refs").await?, 0);
     execute_write(
         &database,
         "OPTIMIZE TABLE trace_test.lens_trace_summaries FINAL",

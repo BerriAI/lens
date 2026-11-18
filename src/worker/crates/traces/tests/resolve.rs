@@ -1168,12 +1168,13 @@ fn ledger_charge(
 }
 
 #[rstest]
-#[case::charges_of_one_call_sum("evt-a", "evt-b", [Some(0.75), Some(0.75)], Some(0.75))]
-#[case::replayed_charge_counts_once("evt-a", "evt-a", [Some(0.25), Some(0.25)], Some(0.25))]
-#[case::legacy_rows_stay_separate_calls("", "", [Some(0.25), None], Some(0.25))]
+#[case::charges_of_one_call_sum("evt-a", "evt-b", false, [Some(0.75), Some(0.75)], Some(0.75))]
+#[case::replayed_charge_counts_once("evt-a", "evt-a", true, [Some(0.25), Some(0.25)], Some(0.25))]
+#[case::legacy_rows_stay_separate_calls("", "", false, [Some(0.25), None], Some(0.25))]
 fn every_charge_of_a_gateway_call_is_priced_once(
     #[case] first_event: &str,
     #[case] second_event: &str,
+    #[case] replay: bool,
     #[case] span_spend: [Option<f64>; 2],
     #[case] total: Option<f64>,
 ) {
@@ -1193,7 +1194,7 @@ fn every_charge_of_a_gateway_call_is_priced_once(
         ),
     ];
     let first = ledger_charge(first_event, "request", "chatcmpl-a", 0.25);
-    let second = if first_event == second_event {
+    let second = if replay {
         first.clone()
     } else {
         ledger_charge(second_event, "request_cost", "", 0.5)
