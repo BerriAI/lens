@@ -48,7 +48,7 @@ pub use payloads::{Bodies, Payloads, Unavailable};
 pub use query::evals;
 pub use query::{QueryHelp, execute_read, query_help, query_sql};
 pub use query_access::QueryReaders;
-pub use reads::ClickHouseTraces;
+pub use reads::{ClickHouseTraces, PAYLOAD_INPUT, PAYLOAD_OUTPUT};
 pub use receipt::trace_received;
 pub use request_content::{request_page, request_text};
 pub use schema::{

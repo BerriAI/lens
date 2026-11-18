@@ -9,9 +9,10 @@ use lens_contract::{
         MetadataFilter, Sample, TracePart,
     },
 };
+use lens_payloads::Field;
 use litellm_storage_clickhouse::{Query, fetch};
 use litellm_traces_clickhouse::{
-    Bodies, Unavailable,
+    Unavailable,
     query::lens::{
         self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
         LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams,
@@ -30,21 +31,15 @@ struct Offloaded {
     row: LensRequestSourceRow,
     input: String,
     output: String,
-    incomplete: Option<&'static str>,
+    incomplete: bool,
 }
 
-fn incomplete(bodies: &Bodies, row: &LensRequestSourceRow) -> Option<&'static str> {
-    let previewed = [
-        (&bodies.messages, &row.messages),
-        (&bodies.response, &row.response),
-    ]
-    .into_iter()
-    .any(|(body, stored)| body.is_none() && lens_payloads::is_preview(stored));
-    previewed.then_some(match bodies.unavailable {
-        None => "the full body has not been stored yet",
-        Some(Unavailable::Expired) => "the full body expired or was deleted",
-        Some(Unavailable::Unreadable) => "the full body could not be read",
-    })
+fn body(resolved: Option<String>, stored: &str, missing: Option<Unavailable>) -> String {
+    match (resolved, missing) {
+        (Some(body), _) => body,
+        (None, Some(missing)) => format!("{stored}\n{}", missing.note()),
+        (None, None) => stored.to_owned(),
+    }
 }
 
 pub struct SampleRequest<'a> {
@@ -154,21 +149,19 @@ impl SourceReader {
                 &row.event_id,
             )
             .await;
-        let reason = incomplete(&bodies, &row);
-        if bodies.messages.is_none() && bodies.response.is_none() && reason.is_none() {
+        let messages = bodies.missing(Field::Messages, &row.messages);
+        let response = bodies.missing(Field::Response, &row.response);
+        if bodies.messages.is_none()
+            && bodies.response.is_none()
+            && messages.is_none()
+            && response.is_none()
+        {
             return Ok(None);
         }
-        let body = |resolved: Option<String>, stored: &str| match (resolved, reason) {
-            (Some(body), _) => body,
-            (None, Some(reason)) if lens_payloads::is_preview(stored) => {
-                format!("{stored}\n[Lens: {reason}; showing the stored preview]")
-            }
-            (None, _) => stored.to_owned(),
-        };
         Ok(Some(Offloaded {
-            input: body(bodies.messages, &row.messages),
-            output: body(bodies.response, &row.response),
-            incomplete: reason,
+            input: body(bodies.messages, &row.messages, messages),
+            output: body(bodies.response, &row.response, response),
+            incomplete: messages.is_some() || response.is_some(),
             row,
         }))
     }
@@ -211,7 +204,7 @@ impl SourceReader {
                 }],
             );
             return Ok(ExecutionContent {
-                partial: page.partial || incomplete.is_some(),
+                partial: page.partial || incomplete,
                 ..page
             });
         }
@@ -654,48 +647,22 @@ mod tests {
 
     const PREVIEWED: &str = "[\"…[Lens preview: 9 bytes omitted]\"]";
 
-    fn request_row(messages: &str) -> LensRequestSourceRow {
-        LensRequestSourceRow {
-            span_id: "request".into(),
-            name: "model".into(),
-            start_time: "start".into(),
-            end_time: "end".into(),
-            messages: messages.into(),
-            response: "ok".into(),
-            error_str: String::new(),
-            event_id: "evt".into(),
-            team_id: "team".into(),
-            api_key: "key".into(),
-        }
-    }
-
     #[rstest]
-    #[case::resolved(Some("full"), None, PREVIEWED, None)]
-    #[case::inline(None, None, "[\"short\"]", None)]
-    #[case::not_uploaded_yet(None, None, PREVIEWED, Some("the full body has not been stored yet"))]
+    #[case::resolved(Some("full"), Some(Unavailable::Expired), "full")]
+    #[case::complete_inline(None, None, PREVIEWED)]
     #[case::expired(
         None,
         Some(Unavailable::Expired),
-        PREVIEWED,
-        Some("the full body expired or was deleted")
+        "[\"…[Lens preview: 9 bytes omitted]\"]\n[Lens: the full body expired or was deleted; showing the stored preview]"
     )]
-    #[case::unreadable(
-        None,
-        Some(Unavailable::Unreadable),
-        PREVIEWED,
-        Some("the full body could not be read")
-    )]
-    fn unresolved_previews_say_why_the_body_is_incomplete(
+    fn unresolved_bodies_carry_the_reason_after_the_preview(
         #[case] resolved: Option<&str>,
-        #[case] unavailable: Option<Unavailable>,
-        #[case] stored: &str,
-        #[case] expected: Option<&str>,
+        #[case] missing: Option<Unavailable>,
+        #[case] expected: &str,
     ) {
-        let bodies = Bodies {
-            messages: resolved.map(str::to_owned),
-            response: None,
-            unavailable,
-        };
-        assert_eq!(incomplete(&bodies, &request_row(stored)), expected);
+        assert_eq!(
+            body(resolved.map(str::to_owned), PREVIEWED, missing),
+            expected
+        );
     }
 }

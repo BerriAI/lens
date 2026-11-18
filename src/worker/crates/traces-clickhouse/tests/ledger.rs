@@ -8,9 +8,9 @@ use lens_payloads::{Field, ObjectKey, Store, sha256_hex};
 use litellm_storage_clickhouse::fetch;
 use litellm_traces::query::named as contracts;
 use litellm_traces_clickhouse::{
-    Connection, InsertTable, PayloadRefRow, Payloads, Unavailable, insert_ledger,
-    insert_payload_ref, insert_rows, ledger_row, query::lens, query::named::SpendByResponseIds,
-    request_page, request_text,
+    ClickHouseTraces, Connection, InsertTable, PAYLOAD_INPUT, PAYLOAD_OUTPUT, PayloadRefRow,
+    Payloads, Unavailable, insert_ledger, insert_payload_ref, insert_rows, ledger_row, query::lens,
+    query::named::SpendByResponseIds, request_page, request_text,
 };
 use rstest::{fixture, rstest};
 use serde_json::{Value, json};
@@ -487,5 +487,69 @@ async fn unresolved_bodies_report_why_only_the_preview_is_available(
 
     assert_eq!((bodies.messages, bodies.unavailable), (None, Some(reason)));
     assert!(lens_payloads::is_preview(&source.messages));
+    Ok(())
+}
+
+#[rstest]
+#[case::stored(Some(ResponseTemplate::new(200).set_body_string(full_body())), None)]
+#[case::deleted(
+    Some(ResponseTemplate::new(404).set_body_string(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>NoSuchKey</Code><Message>missing</Message></Error>",
+    )),
+    Some(Unavailable::Expired)
+)]
+#[case::not_uploaded_yet(None, Some(Unavailable::Pending))]
+#[tokio::test]
+async fn span_detail_says_why_only_a_preview_of_the_gateway_body_is_shown(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    record: BTreeMap<String, Value>,
+    #[case] served: Option<ResponseTemplate>,
+    #[case] missing: Option<Unavailable>,
+) -> TestResult {
+    use litellm_traces_cache::TraceStore;
+    let fixture = migrated_database?;
+    let server = MockServer::start().await;
+    let writer = Connection::writer(&fixture.database.url)?;
+    insert_rows(
+        &fixture.database.client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![serde_json::from_value(json!({
+            "Timestamp": START_MS * 1_000_000, "TraceId": "content-trace", "SpanId": "llm-span",
+            "ParentSpanId": "root", "SpanName": "recorded call", "ObservationType": "llm",
+            "TeamId": "team-a", "ApiKeyHash": "key-a", "UserId": "user-a", "Input": "", "Output": ""
+        }))?],
+    )
+    .await?;
+    let traced = with(
+        &record,
+        &[
+            ("trace_id", json!("content-trace")),
+            ("span_id", json!("llm-span")),
+        ],
+    );
+    offload_record(&fixture, &server, &tenant_key("team-a"), traced, served).await?;
+    let detail = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    )
+    .with_payloads(Some(store(&server)))
+    .span_detail(&contracts::SpanDetailParams {
+        access: access("team-a"),
+        trace_id: "content-trace".into(),
+        trace_ref: String::new(),
+        span_id: "llm-span".into(),
+    })
+    .await?
+    .ok_or("missing visible span")?;
+
+    assert_eq!(
+        detail.attributes.get(PAYLOAD_INPUT),
+        missing.map(Unavailable::note).as_ref()
+    );
+    assert_eq!(detail.input == full_body(), missing.is_none());
+    assert_eq!(lens_payloads::is_preview(&detail.input), missing.is_some());
+    assert!(!detail.attributes.contains_key(PAYLOAD_OUTPUT));
     Ok(())
 }

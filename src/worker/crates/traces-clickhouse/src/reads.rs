@@ -1,3 +1,4 @@
+use lens_payloads::Field;
 use litellm_http::Client;
 use litellm_storage_clickhouse::{Error as StorageError, Query, fetch};
 use litellm_traces::query::named as contracts;
@@ -14,6 +15,9 @@ use crate::{
         SpendByResponseIdsParams, TraceIdentity, TracePageSpansParams,
     },
 };
+
+pub const PAYLOAD_INPUT: &str = "lens.payload.input";
+pub const PAYLOAD_OUTPUT: &str = "lens.payload.output";
 
 #[derive(Serialize)]
 struct SpendLogInputPreviewParams {
@@ -384,24 +388,44 @@ impl TraceStore for ClickHouseTraces {
                 fetch::<SpendLogContentFallback>(&self.client, &self.connection, params).await
             && let Some(mut content) = fallback.pop()
         {
-            if let Some(payloads) = &self.payloads {
-                let bodies = payloads
-                    .resolve(
-                        &self.client,
-                        &self.connection,
-                        &content.team_id,
-                        &content.api_key,
-                        &content.event_id,
-                    )
-                    .await;
+            let bodies = match &self.payloads {
+                Some(payloads) => Some(
+                    payloads
+                        .resolve(
+                            &self.client,
+                            &self.connection,
+                            &content.team_id,
+                            &content.api_key,
+                            &content.event_id,
+                        )
+                        .await,
+                ),
+                None => None,
+            };
+            let missing = |field, stored: &str| {
+                bodies
+                    .as_ref()
+                    .and_then(|bodies| bodies.missing(field, stored))
+            };
+            let input_missing = missing(Field::Messages, &content.input);
+            let output_missing = missing(Field::Response, &content.output);
+            if let Some(bodies) = bodies {
                 content.input = bodies.messages.unwrap_or(content.input);
                 content.output = bodies.response.unwrap_or(content.output);
             }
             if row.input.is_empty() && !content.input.is_empty() {
                 row.input = content.input;
+                if let Some(missing) = input_missing {
+                    row.attributes
+                        .insert(PAYLOAD_INPUT.to_owned(), missing.note());
+                }
             }
             if row.output.is_empty() && !content.output.is_empty() {
                 row.output = content.output;
+                if let Some(missing) = output_missing {
+                    row.attributes
+                        .insert(PAYLOAD_OUTPUT.to_owned(), missing.note());
+                }
             }
         }
         Ok(detail)

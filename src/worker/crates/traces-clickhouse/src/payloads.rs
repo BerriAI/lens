@@ -33,8 +33,23 @@ impl Query for PayloadRefs {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Unavailable {
+    Pending,
     Expired,
     Unreadable,
+}
+
+impl Unavailable {
+    pub fn reason(self) -> &'static str {
+        match self {
+            Self::Pending => "the full body has not been stored yet",
+            Self::Expired => "the full body expired or was deleted",
+            Self::Unreadable => "the full body could not be read",
+        }
+    }
+
+    pub fn note(self) -> String {
+        format!("[Lens: {}; showing the stored preview]", self.reason())
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -42,6 +57,18 @@ pub struct Bodies {
     pub messages: Option<String>,
     pub response: Option<String>,
     pub unavailable: Option<Unavailable>,
+}
+
+impl Bodies {
+    /// Why `stored`, the inline value of `field`, is only a preview of a body that did not resolve.
+    pub fn missing(&self, field: Field, stored: &str) -> Option<Unavailable> {
+        let resolved = match field {
+            Field::Messages => &self.messages,
+            Field::Response => &self.response,
+        };
+        (resolved.is_none() && lens_payloads::is_preview(stored))
+            .then_some(self.unavailable.unwrap_or(Unavailable::Pending))
+    }
 }
 
 #[derive(Clone)]
@@ -114,5 +141,57 @@ impl Payloads {
             response: resolved.remove("response"),
             unavailable,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    const PREVIEWED: &str = "[\"…[Lens preview: 9 bytes omitted]\"]";
+
+    #[rstest]
+    #[case::resolved(Some("full"), None, PREVIEWED, None)]
+    #[case::inline(None, None, "[\"short\"]", None)]
+    #[case::inline_despite_a_failure(None, Some(Unavailable::Expired), "[\"short\"]", None)]
+    #[case::not_stored_yet(None, None, PREVIEWED, Some(Unavailable::Pending))]
+    #[case::expired(
+        None,
+        Some(Unavailable::Expired),
+        PREVIEWED,
+        Some(Unavailable::Expired)
+    )]
+    #[case::unreadable(
+        None,
+        Some(Unavailable::Unreadable),
+        PREVIEWED,
+        Some(Unavailable::Unreadable)
+    )]
+    fn previews_of_unresolved_bodies_say_why(
+        #[case] resolved: Option<&str>,
+        #[case] unavailable: Option<Unavailable>,
+        #[case] stored: &str,
+        #[case] expected: Option<Unavailable>,
+    ) {
+        let bodies = Bodies {
+            messages: resolved.map(str::to_owned),
+            response: None,
+            unavailable,
+        };
+        assert_eq!(bodies.missing(Field::Messages, stored), expected);
+    }
+
+    #[rstest]
+    fn a_resolved_field_says_nothing_about_another_field() {
+        let bodies = Bodies {
+            messages: Some("full".into()),
+            ..Bodies::default()
+        };
+        assert_eq!(
+            bodies.missing(Field::Response, PREVIEWED),
+            Some(Unavailable::Pending)
+        );
     }
 }
