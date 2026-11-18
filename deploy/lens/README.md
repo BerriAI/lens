@@ -81,6 +81,8 @@ Lens uses the finalized amounts exported by LiteLLM. On the gateway, set `LITELL
 
 New gateway records write their recorded cost and call identifiers into compact Lens storage through the existing background export. Lens acknowledges an upload after both request-log and compact writes succeed. Trace browsing reads the compact records without selecting from `spend_logs`; it does not recalculate prices or accept amounts from agent traces. Calls made without a gateway spend record remain unpriced
 
+The gateway can instead deliver each accepted spend record as a ledger event, and Lens can keep large request and response bodies in an S3-compatible bucket you operate. Both are off by default. See [Gateway cost ledger and offloaded bodies](../../docs/ledger-payloads.md) for setup, limits, bucket permissions and how to turn them off
+
 ### Upgrade and recover historical costs
 
 Upgrade every Lens writer and wait for `/health/ready` before backfilling historical costs. Existing matched historical costs become unavailable until their retained request logs are projected into compact storage. Startup does not scan those logs, and trace browsing has no fallback to the raw table
