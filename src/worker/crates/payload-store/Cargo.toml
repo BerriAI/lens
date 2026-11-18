@@ -1,0 +1,22 @@
+[package]
+name = "lens-payloads"
+version = "0.1.0"
+description = "Request payload previews, tenant-scoped object keys and the optional S3-compatible payload store"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aws-config = { version = "1.9.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.146.1"
+base64.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tokio = { workspace = true }
+wiremock.workspace = true

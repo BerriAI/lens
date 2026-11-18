@@ -20,6 +20,7 @@ lens-datasets = { path = "../datasets" }
 lens-server = { path = "../server" }
 lens-auth = { path = "../auth" }
 lens-investigations = { path = "../investigations" }
+lens-payloads = { path = "../payload-store" }
 lens-inference = { path = "../inference" }
 lens-profiles = { path = "../profiles" }
 lens-analysis = { path = "../analysis" }

@@ -137,6 +137,25 @@ pub async fn project_spend_rows(
     Ok(())
 }
 
+pub(crate) async fn insert_into(
+    client: &Client,
+    connection: &Connection,
+    database: &str,
+    table: &str,
+    rows: &[InsertRow],
+) -> Result<(), Error> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let received_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
+    let (token, body) = prepare_insert(rows, received_ms, max_insert_bytes()?)?;
+    litellm_storage_clickhouse::insert_compressed_rows(
+        client, connection, database, table, &token, body,
+    )
+    .await?;
+    Ok(())
+}
+
 fn shared_rows(rows: Vec<BTreeMap<String, Value>>) -> Vec<InsertRow> {
     rows.into_iter()
         .map(|row| {
@@ -268,7 +287,7 @@ impl Serialize for EncodedRow<'_> {
 fn insert_value<'a>(name: &str, value: &'a Value) -> Result<Cow<'a, Value>, Error> {
     let multiplier = match name {
         "Timestamp" | "RawTimestamp" | "ObservedTimestamp" => 1,
-        "start_time" | "end_time" | "completion_start_time" => 1_000_000,
+        "start_time" | "end_time" | "completion_start_time" | "event_time" => 1_000_000,
         _ => return Ok(Cow::Borrowed(value)),
     };
     if name == "completion_start_time" && value.is_null() {

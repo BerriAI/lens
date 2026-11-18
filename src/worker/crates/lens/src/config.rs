@@ -30,6 +30,8 @@ pub struct Config {
     pub github_service_url: Option<url::Url>,
     pub github_service_enabled: bool,
     pub slack: Option<crate::slack::SlackConfig>,
+    pub payload_store: Option<lens_payloads::StoreConfig>,
+    pub payload_limits: crate::ledger::PayloadLimits,
 }
 
 fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<String, Error> {
@@ -78,7 +80,16 @@ impl Config {
                 "LITELLM_LENS_SERVICE_TOKEN must contain between 32 and 512 characters",
             ));
         }
+        let payload_store =
+            lens_payloads::StoreConfig::from_lookup(&read).map_err(|error| match error {
+                lens_payloads::Error::Configuration(message) => Error::Configuration(message),
+                other => Error::Payload(other),
+            })?;
+        let payload_limits =
+            crate::ledger::PayloadLimits::from_lookup(&read, payload_store.is_some())?;
         Ok(Self {
+            payload_store,
+            payload_limits,
             slack: crate::slack::SlackConfig::read(&read, &public_url)?,
             github_service_url: read("LENS_GITHUB_SERVICE_URL")
                 .filter(|value| !value.is_empty())

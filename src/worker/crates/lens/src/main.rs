@@ -99,11 +99,21 @@ async fn compact_state() -> Result<(), litellm_lens::Error> {
 async fn run() -> Result<(), litellm_lens::Error> {
     let config = Config::from_env()?;
     let client = http_client()?;
-    let storage = Storage::new(config.storage, client.clone(), config.query_secret.clone());
-    let state = Arc::new(match config.gateway_service_token {
-        Some(token) => State::connected(storage, token),
-        None => State::standalone(storage),
-    });
+    let payloads = match config.payload_store.clone() {
+        Some(store) => Some(litellm_traces_clickhouse::Payloads::new(Arc::new(
+            lens_payloads::Store::connect(store).await,
+        ))),
+        None => None,
+    };
+    let storage = Storage::new(config.storage, client.clone(), config.query_secret.clone())
+        .with_payloads(payloads);
+    let state = Arc::new(
+        match config.gateway_service_token {
+            Some(token) => State::connected(storage, token),
+            None => State::standalone(storage),
+        }
+        .with_payload_limits(config.payload_limits),
+    );
     let evals = api::EvalConfig {
         judge: litellm_lens::eval_judge::GatewayJudge::new(
             client.clone(),
@@ -166,6 +176,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .ok_or(litellm_lens::Error::Unavailable)?;
     tasks.spawn(signals.serve());
     tasks.spawn(provision(state.clone()));
+    tasks.spawn(litellm_lens::ledger::sweep_payloads(state.clone()));
     tasks.spawn(litellm_lens::project_trace_summaries(state.clone()));
     if litellm_lens::profiles::enabled()? {
         tasks.spawn(litellm_lens::profiles::supervise(state.clone()));

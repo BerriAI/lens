@@ -25,7 +25,7 @@ fn text<'a>(row: &'a InsertRow, key: &str) -> Result<&'a str, Error> {
         .map_or(Ok(""), |value| value.as_str().ok_or(Error::InvalidRow))
 }
 
-fn upstream(response: &str) -> String {
+pub(crate) fn upstream(response: &str) -> String {
     response
         .strip_prefix("resp_")
         .and_then(|encoded| STANDARD.decode(encoded).ok())

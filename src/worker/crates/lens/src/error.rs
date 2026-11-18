@@ -184,6 +184,12 @@ pub enum Error {
     InvalidRequest,
     #[error("trace changed; restart pagination")]
     TraceChanged,
+    #[error("unsupported ledger version; supported versions: {supported:?}")]
+    UnsupportedLedgerVersion { supported: [u32; 1] },
+    #[error("payload store is not configured")]
+    PayloadStoreDisabled,
+    #[error("payload store failed")]
+    Payload(#[from] lens_payloads::Error),
     #[error("trace storage failed")]
     Storage(#[from] StoreError),
     #[error("HTTP client configuration failed")]
@@ -218,7 +224,12 @@ impl Error {
             Self::CredentialsPending => StatusCode::TOO_MANY_REQUESTS,
             Self::TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::InvalidRequest => StatusCode::BAD_REQUEST,
-            Self::TraceChanged | Self::JobOwnershipLost => StatusCode::CONFLICT,
+            Self::TraceChanged | Self::JobOwnershipLost | Self::PayloadStoreDisabled => {
+                StatusCode::CONFLICT
+            }
+            Self::UnsupportedLedgerVersion { .. }
+            | Self::Payload(lens_payloads::Error::Integrity) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Payload(lens_payloads::Error::InvalidKey) => StatusCode::BAD_REQUEST,
             Self::Storage(error) => storage_status(error),
             _ => StatusCode::SERVICE_UNAVAILABLE,
         }
@@ -261,6 +272,9 @@ impl IntoResponse for Error {
         let status = self.status();
         let code = match (&self, status) {
             (Self::JobOwnershipLost, _) => "job_ownership_lost",
+            (Self::PayloadStoreDisabled, _) => "payload_store_disabled",
+            (Self::UnsupportedLedgerVersion { .. }, _) => "unsupported_version",
+            (Self::Payload(lens_payloads::Error::Integrity), _) => "payload_integrity",
             (_, StatusCode::BAD_REQUEST) => "invalid_request",
             (_, StatusCode::CONFLICT) => "trace_changed",
             (_, StatusCode::PAYLOAD_TOO_LARGE) => "too_large",

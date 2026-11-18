@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use crate::{
-    Connection, Error,
+    Connection, Error, Payloads,
     query::conversation::{ConversationAnchor, ConversationTurns},
     query::named::{
         ListTracesParams, ListTracesRow, SpanDetail as SpanDetailQuery, SpanError, SpanErrorParams,
@@ -104,6 +104,9 @@ fn extract_user_prompt_preview(messages: &str) -> Option<String> {
 struct SpendLogContentRow {
     input: String,
     output: String,
+    event_id: String,
+    team_id: String,
+    api_key: String,
 }
 
 struct SpendLogContentFallback;
@@ -113,7 +116,10 @@ impl Query for SpendLogContentFallback {
     type Row = SpendLogContentRow;
     const SQL: &'static str = "SELECT \
         tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 1) AS input, \
-        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 2) AS output \
+        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 2) AS output, \
+        tupleElement(argMax(tuple(s.ledger_event_id, s.team_id, s.api_key), tuple(s.start_time, s.request_id)), 1) AS event_id, \
+        tupleElement(argMax(tuple(s.ledger_event_id, s.team_id, s.api_key), tuple(s.start_time, s.request_id)), 2) AS team_id, \
+        tupleElement(argMax(tuple(s.ledger_event_id, s.team_id, s.api_key), tuple(s.start_time, s.request_id)), 3) AS api_key \
         FROM spend_logs AS s FINAL \
         CROSS JOIN ( \
             SELECT TraceId, SpanId, TeamId, ApiKeyHash, UserId, ObservationType, ParentSpanId \
@@ -153,11 +159,20 @@ impl Query for RunCandidates {
 pub struct ClickHouseTraces {
     client: Client,
     connection: Connection,
+    payloads: Option<Payloads>,
 }
 
 impl ClickHouseTraces {
     pub fn new(client: Client, connection: Connection) -> Self {
-        Self { client, connection }
+        Self {
+            client,
+            connection,
+            payloads: None,
+        }
+    }
+
+    pub fn with_payloads(self, payloads: Option<Payloads>) -> Self {
+        Self { payloads, ..self }
     }
 }
 
@@ -367,8 +382,21 @@ impl TraceStore for ClickHouseTraces {
             && (row.input.is_empty() || row.output.is_empty())
             && let Ok(mut fallback) =
                 fetch::<SpendLogContentFallback>(&self.client, &self.connection, params).await
-            && let Some(content) = fallback.pop()
+            && let Some(mut content) = fallback.pop()
         {
+            if let Some(payloads) = &self.payloads {
+                let bodies = payloads
+                    .resolve(
+                        &self.client,
+                        &self.connection,
+                        &content.team_id,
+                        &content.api_key,
+                        &content.event_id,
+                    )
+                    .await;
+                content.input = bodies.messages.unwrap_or(content.input);
+                content.output = bodies.response.unwrap_or(content.output);
+            }
             if row.input.is_empty() && !content.input.is_empty() {
                 row.input = content.input;
             }

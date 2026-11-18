@@ -15,13 +15,16 @@ mod cost_rows;
 pub mod datasets;
 mod error;
 mod insert;
+mod ledger;
 mod log_row;
 mod logs;
+mod payloads;
 pub mod profiles;
 pub mod query;
 mod query_access;
 mod reads;
 mod receipt;
+mod request_content;
 mod schema;
 mod span_batches;
 mod span_row;
@@ -36,15 +39,18 @@ pub use error::Error;
 pub use insert::{
     InsertRow, InsertTable, encode_rows, insert_rows, insert_shared_rows, project_spend_rows,
 };
+pub use ledger::{LedgerRow, PayloadRefRow, insert_ledger, insert_payload_ref, ledger_row};
 pub use litellm_storage_clickhouse::{Connection, Parameter};
 pub use litellm_traces::{QueryScope, ReadQuery};
 pub use log_row::log_rows;
 pub use logs::{get_log, list_logs};
+pub use payloads::{Bodies, Payloads};
 pub use query::evals;
 pub use query::{QueryHelp, execute_read, query_help, query_sql};
 pub use query_access::QueryReaders;
 pub use reads::ClickHouseTraces;
 pub use receipt::trace_received;
+pub use request_content::{request_page, request_text};
 pub use schema::{
     NORMALIZED_FIELD_DEFINITIONS, NormalizedFieldDefinition, apply_migrations, ensure_schema,
     reconcile_retention, schema_statements,

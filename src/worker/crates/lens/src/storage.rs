@@ -2,7 +2,7 @@ use crate::Error;
 use litellm_http::Client;
 use litellm_traces::{QueryScope, ReadQuery, query::named::ReadAccessParams};
 use litellm_traces_cache::TraceReader;
-use litellm_traces_clickhouse::{ClickHouseTraces, Config, Parameter, QueryReaders};
+use litellm_traces_clickhouse::{ClickHouseTraces, Config, Parameter, Payloads, QueryReaders};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
@@ -21,6 +21,7 @@ pub struct Storage {
     reader: Arc<TraceReader>,
     query_readers: QueryReaders,
     query_secret: String,
+    payloads: Option<Payloads>,
 }
 
 #[derive(Deserialize)]
@@ -78,7 +79,7 @@ impl Storage {
         state: litellm_storage_clickhouse::state::ClickHouseState,
     ) -> litellm_traces_clickhouse::datasets::Reader {
         litellm_traces_clickhouse::datasets::Reader::new(
-            ClickHouseTraces::new(self.client.clone(), self.config.storage().reader().clone()),
+            self.traces(),
             self.reader.clone(),
             litellm_storage_clickhouse::datasets::Findings(state),
         )
@@ -108,7 +109,21 @@ impl Storage {
             config,
             client,
             query_secret,
+            payloads: None,
         }
+    }
+
+    pub fn with_payloads(self, payloads: Option<Payloads>) -> Self {
+        Self { payloads, ..self }
+    }
+
+    pub fn payloads(&self) -> Option<&Payloads> {
+        self.payloads.as_ref()
+    }
+
+    pub(crate) fn traces(&self) -> ClickHouseTraces {
+        ClickHouseTraces::new(self.client.clone(), self.config.storage().reader().clone())
+            .with_payloads(self.payloads.clone())
     }
 
     pub async fn ensure_schema(&self) -> Result<(), Error> {
@@ -122,8 +137,7 @@ impl Storage {
     }
 
     pub async fn read(&self, request: Read) -> Result<Value, Error> {
-        let store =
-            ClickHouseTraces::new(self.client.clone(), self.config.storage().reader().clone());
+        let store = self.traces();
         match request {
             Read::List {
                 scope,

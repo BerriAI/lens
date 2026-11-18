@@ -10,6 +10,7 @@ schema = ["dep:schemars", "litellm-traces/schema"]
 
 [dependencies]
 lens-contract = { path = "../contract" }
+lens-payloads = { path = "../payload-store" }
 lens-profiles = { path = "../profiles" }
 macro_rules_attribute.workspace = true
 schemars = { workspace = true, optional = true }
@@ -36,6 +37,7 @@ tracing.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+aws-sdk-s3 = "1.146.1"
 jsonschema = { version = "0.55.1", default-features = false }
 litellm-http = { workspace = true, features = ["test-support"] }
 rstest.workspace = true

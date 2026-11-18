@@ -9,6 +9,7 @@ pub mod execution;
 pub mod feedback;
 pub mod ingestion;
 pub mod investigations;
+pub mod ledger;
 pub mod optimizations;
 pub mod schema;
 pub mod signals;

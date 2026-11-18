@@ -198,6 +198,7 @@ struct SpendKeyset {
     after_team: String,
     after_ms: i64,
     after_id: String,
+    after_event: String,
 }
 
 impl Keyset for SpendKeyset {
@@ -206,8 +207,9 @@ impl Keyset for SpendKeyset {
         "SELECT * FROM (",
         include_str!("../query/spend_by_response_ids.sql"),
         ") WHERE {has_cursor:UInt8} = 0 \
-         OR (team_id, start_ms, request_id) > ({after_team:String}, {after_ms:Int64}, {after_id:String}) \
-         ORDER BY team_id, start_ms, request_id LIMIT {page_size:UInt32}"
+         OR (team_id, start_ms, request_id, event_id) \
+            > ({after_team:String}, {after_ms:Int64}, {after_id:String}, {after_event:String}) \
+         ORDER BY team_id, start_ms, request_id, event_id LIMIT {page_size:UInt32}"
     );
 
     fn after(self, last: &SpendByResponseIdsRow) -> Self {
@@ -216,6 +218,7 @@ impl Keyset for SpendKeyset {
             after_team: last.0.team_id.clone(),
             after_ms: last.0.start_ms,
             after_id: last.0.request_id.clone(),
+            after_event: last.0.event_id.clone(),
             ..self
         }
     }
@@ -232,6 +235,7 @@ pub(crate) async fn read_spend(
         after_team: String::new(),
         after_ms: 0,
         after_id: String::new(),
+        after_event: String::new(),
     };
     let rows = read_paged(client, connection, keyset).await?;
     Ok(rows.into_iter().map(|row| row.0).collect())

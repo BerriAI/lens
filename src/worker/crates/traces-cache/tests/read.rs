@@ -682,6 +682,7 @@ async fn oversized_run_batch_falls_back_to_each_run_and_keeps_listed_summaries()
 
 fn spend_row(response_id: &str, cost: f64) -> SpendByResponseIdsRow {
     SpendByResponseIdsRow {
+        event_id: String::new(),
         request_id: response_id.into(),
         litellm_call_id: String::new(),
         response_id: response_id.into(),
@@ -733,6 +734,7 @@ async fn gateway_cost_refreshes_until_every_model_call_is_priced(
         .iter()
         .enumerate()
         .map(|(index, cost)| SpendByResponseIdsRow {
+            event_id: String::new(),
             spend: *cost,
             ..spend_row(&format!("response-{}", index + 1), 0.0)
         })

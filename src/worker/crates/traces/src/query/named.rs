@@ -240,6 +240,8 @@ pub struct SpendByResponseIdsParams {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SpendByResponseIdsRow {
     pub request_id: String,
+    #[serde(default)]
+    pub event_id: String,
     pub litellm_call_id: String,
     pub response_id: String,
     pub upstream_response_id: String,
@@ -255,8 +257,13 @@ pub struct SpendByResponseIdsRow {
 }
 
 impl SpendByResponseIdsRow {
-    pub(crate) fn identity(&self) -> (&str, i64, &str) {
-        (&self.team_id, self.start_ms, &self.request_id)
+    pub(crate) fn identity(&self) -> (&str, i64, &str, &str) {
+        (
+            &self.team_id,
+            self.start_ms,
+            &self.request_id,
+            &self.event_id,
+        )
     }
 }
 

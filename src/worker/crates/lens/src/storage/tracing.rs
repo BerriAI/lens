@@ -33,10 +33,7 @@ impl TraceApi {
     }
 
     fn traces(&self) -> ClickHouseTraces {
-        ClickHouseTraces::new(
-            self.0.storage.client.clone(),
-            self.0.storage.config.storage().reader().clone(),
-        )
+        self.0.storage.traces()
     }
 }
 

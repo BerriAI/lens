@@ -14,13 +14,16 @@ static MIGRATOR: Migrator = Migrator {
     ..sqlx::migrate!("./migrations")
 };
 
-const RETENTION: [(&str, &str); 10] = [
+const RETENTION: [(&str, &str); 13] = [
     ("otel_traces", "toDateTime(Timestamp)"),
     ("otel_logs", "toDateTime(Timestamp)"),
     ("agent_traces_by_key", "toDateTime(StartTs)"),
     ("lens_eval_traces", "toDateTime(StartTs)"),
     ("spend_logs", "toDateTime(start_time)"),
     ("lens_call_costs", "toDateTime(start_time)"),
+    ("lens_ledger_costs", "toDateTime(event_time)"),
+    ("lens_ledger_aliases", "toDateTime(event_time)"),
+    ("lens_payload_refs", "toDateTime(event_time)"),
     ("lens_feedback", "toDateTime(CreatedAt)"),
     ("lens_trace_summaries", "toDateTime(StartTs)"),
     ("lens_task_profiles", "toDateTime(StartTs)"),

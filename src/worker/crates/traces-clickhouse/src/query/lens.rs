@@ -527,3 +527,36 @@ impl Query for LensFeedbackSummary {
 
     const SQL: &'static str = include_str!("../../query/lens_feedback_summary.sql");
 }
+
+pub struct LensRequestSource;
+
+#[derive(Debug, serde::Serialize)]
+pub struct LensRequestSourceParams {
+    #[serde(flatten)]
+    pub access: LensAccessParams,
+    pub source: ContentSource,
+    pub id: String,
+    pub record_team: String,
+    pub start_time: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct LensRequestSourceRow {
+    pub span_id: String,
+    pub name: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub messages: String,
+    pub response: String,
+    pub error_str: String,
+    pub event_id: String,
+    pub team_id: String,
+    pub api_key: String,
+}
+
+impl Query for LensRequestSource {
+    type Params = LensRequestSourceParams;
+    type Row = LensRequestSourceRow;
+
+    const SQL: &'static str = include_str!("../../query/lens_request_source.sql");
+}

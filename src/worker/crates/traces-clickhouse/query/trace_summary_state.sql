@@ -16,7 +16,17 @@ summaries AS (
     FROM summaries
 ), changed_costs AS (
     SELECT DISTINCT expanded.TraceRef
-    FROM expanded INNER JOIN lens_call_costs AS costs
+    FROM expanded INNER JOIN (
+        SELECT key_kind, key_value, team_id, EngineReceivedMs FROM lens_call_costs
+        WHERE (key_kind, key_value, team_id) IN (
+            SELECT tupleElement(spend_key, 1), tupleElement(spend_key, 2), TeamId FROM expanded
+        )
+        UNION ALL
+        SELECT key_kind, key_value, team_id, EngineReceivedMs FROM lens_ledger_aliases
+        WHERE (key_kind, key_value, team_id) IN (
+            SELECT tupleElement(spend_key, 1), tupleElement(spend_key, 2), TeamId FROM expanded
+        )
+    ) AS costs
         ON costs.team_id = expanded.TeamId
        AND costs.key_kind = tupleElement(expanded.spend_key, 1)
        AND costs.key_value = tupleElement(expanded.spend_key, 2)

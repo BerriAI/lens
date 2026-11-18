@@ -216,6 +216,8 @@ impl From<contracts::SpendByResponseIdsParams> for SpendByResponseIdsParams {
 #[serde(remote = "contracts::SpendByResponseIdsRow")]
 struct SpendByResponseIdsRowEncoding {
     pub request_id: String,
+    #[serde(default)]
+    pub event_id: String,
     pub litellm_call_id: String,
     pub response_id: String,
     pub upstream_response_id: String,

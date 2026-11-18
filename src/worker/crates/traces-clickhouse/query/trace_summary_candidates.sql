@@ -22,7 +22,12 @@ WITH selected_keys AS (
 ), changed_costs AS (
     SELECT DISTINCT expanded.TeamId, expanded.ApiKeyHash, expanded.TraceId
     FROM expanded INNER JOIN (
-        SELECT * FROM lens_call_costs
+        SELECT key_kind, key_value, team_id, EngineReceivedMs FROM lens_call_costs
+        WHERE (key_kind, key_value, team_id) IN (
+            SELECT tupleElement(spend_key, 1), tupleElement(spend_key, 2), TeamId FROM expanded
+        )
+        UNION ALL
+        SELECT key_kind, key_value, team_id, EngineReceivedMs FROM lens_ledger_aliases
         WHERE (key_kind, key_value, team_id) IN (
             SELECT tupleElement(spend_key, 1), tupleElement(spend_key, 2), TeamId FROM expanded
         )

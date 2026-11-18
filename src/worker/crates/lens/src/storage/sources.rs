@@ -13,7 +13,8 @@ use litellm_storage_clickhouse::{Query, fetch};
 use litellm_traces_clickhouse::query::lens::{
     self, ContentSource, LensAccessParams, LensAgents, LensAgentsParams, LensAvailability,
     LensAvailabilityParams, LensAvailabilityRow, LensContent, LensContentParams, LensContentRow,
-    LensEvidence, LensEvidenceParams, LensFindingSource, LensFindingSourceParams, LensSample,
+    LensEvidence, LensEvidenceParams, LensFindingSource, LensFindingSourceParams,
+    LensRequestSource, LensRequestSourceParams, LensRequestSourceRow, LensSample,
     LensSampleEligibility, LensSampleParams, LensSampleRow, LensSignalSample,
 };
 
@@ -95,6 +96,48 @@ impl SourceReader {
         Ok(rows.first().map_or(0, |row| row.eligible))
     }
 
+    async fn offloaded(
+        &self,
+        scope: &Scope,
+        execution: &Execution,
+    ) -> Result<Option<(LensRequestSourceRow, String, String)>, Error> {
+        let Some(payloads) = self.0.storage.payloads() else {
+            return Ok(None);
+        };
+        if execution.source != ExecutionSource::Requests {
+            return Ok(None);
+        }
+        let Some(row) = self
+            .read::<LensRequestSource>(&LensRequestSourceParams {
+                access: access(scope),
+                source: ContentSource::Requests,
+                id: execution.trace_id.clone(),
+                record_team: execution.team_id.clone(),
+                start_time: execution.start_time.clone(),
+            })
+            .await?
+            .into_iter()
+            .next()
+        else {
+            return Ok(None);
+        };
+        let bodies = payloads
+            .resolve(
+                &self.0.storage.client,
+                self.0.storage.config.storage().reader(),
+                &row.team_id,
+                &row.api_key,
+                &row.event_id,
+            )
+            .await;
+        if bodies.messages.is_none() && bodies.response.is_none() {
+            return Ok(None);
+        }
+        let input = bodies.messages.unwrap_or_else(|| row.messages.clone());
+        let output = bodies.response.unwrap_or_else(|| row.response.clone());
+        Ok(Some((row, input, output)))
+    }
+
     pub async fn content(
         &self,
         scope: &Scope,
@@ -102,6 +145,31 @@ impl SourceReader {
         cursor: &str,
         offset: Option<u32>,
     ) -> Result<ExecutionContent, Error> {
+        let page_offset = match offset {
+            Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
+            None => 0,
+        };
+        if let Some((row, input, output)) = self.offloaded(scope, execution).await? {
+            let (content, truncated) = litellm_traces_clickhouse::request_page(
+                &input,
+                &output,
+                &row.error_str,
+                page_offset,
+            );
+            return Ok(content_page(
+                execution,
+                vec![LensContentRow {
+                    span_id: row.span_id,
+                    parent_span_id: String::new(),
+                    name: row.name,
+                    kind: "llm".into(),
+                    start_time: row.start_time,
+                    end_time: row.end_time,
+                    content,
+                    truncated: u8::from(truncated),
+                }],
+            ));
+        }
         let rows = self
             .read::<LensContent>(&LensContentParams {
                 access: access(scope),
@@ -111,10 +179,7 @@ impl SourceReader {
                 record_team: execution.team_id.clone(),
                 start_time: execution.start_time.clone(),
                 cursor: cursor.into(),
-                offset: match offset {
-                    Some(offset) => offset.checked_add(1).ok_or(Error::InvalidRequest)?,
-                    None => 0,
-                },
+                offset: page_offset,
             })
             .await?;
         Ok(content_page(execution, rows))
@@ -126,6 +191,11 @@ impl SourceReader {
         execution: &Execution,
         evidence: &Evidence,
     ) -> Result<bool, Error> {
+        if let Some((row, input, output)) = self.offloaded(scope, execution).await? {
+            return Ok(evidence.span_id == row.span_id
+                && litellm_traces_clickhouse::request_text(&input, &output, &row.error_str)
+                    .contains(evidence.quote.to_string().as_str()));
+        }
         let rows = self
             .read::<LensEvidence>(&LensEvidenceParams {
                 access: access(scope),

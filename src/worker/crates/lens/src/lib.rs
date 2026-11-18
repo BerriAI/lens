@@ -14,6 +14,7 @@ pub mod gateway;
 pub mod grouping;
 mod ingest;
 pub mod journal;
+pub mod ledger;
 pub mod local;
 pub mod local_credentials;
 pub mod model;
@@ -60,6 +61,7 @@ pub struct State {
     pub storage: Storage,
     pub schema_ready: AtomicBool,
     service_token: Option<String>,
+    payload_limits: ledger::PayloadLimits,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
@@ -79,10 +81,18 @@ impl State {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
             schema_ready: AtomicBool::new(false),
+            payload_limits: ledger::PayloadLimits::WITHOUT_STORE,
             service_token,
             ingest_slots: Arc::new(Semaphore::new(2)),
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
+        }
+    }
+
+    pub fn with_payload_limits(self, payload_limits: ledger::PayloadLimits) -> Self {
+        Self {
+            payload_limits,
+            ..self
         }
     }
 
@@ -134,6 +144,8 @@ pub fn router(state: Arc<State>) -> Router {
             Router::new()
                 .route("/internal/read", post(read))
                 .route("/internal/spend", post(spend))
+                .route("/internal/ledger", post(ledger::receive))
+                .route("/internal/ledger/payloads", post(ledger::upload))
                 .route("/internal/feedback", post(feedback))
                 .route("/internal/status", get(status)),
         )
@@ -190,6 +202,7 @@ async fn status(
         "release": std::env::var("LENS_VERSION").unwrap_or_else(|_| env!("CARGO_PKG_VERSION").into()),
         "protocol_version": wire::PROTOCOL_VERSION,
         "public_contract": 1,
+        "ledger": state.payload_limits.capabilities(state.storage.payloads().is_some()),
     })))
 }
 
