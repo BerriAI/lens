@@ -109,7 +109,7 @@ jobs:
         run: |
           docker buildx build --load --tag lens:release --file deploy/runtime/Dockerfile \
             --build-arg "LENS_VERSION=$VERSION" --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" .
+            --label "org.opencontainers.image.revision=$(git rev-parse 'HEAD^{commit}')" --label "org.opencontainers.image.version=$VERSION" .
           deploy/lens/smoke.sh lens:release "$VERSION"
       - name: Push the qualified build by digest
         if: github.event_name == 'push'
@@ -121,7 +121,7 @@ jobs:
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker buildx build --file deploy/runtime/Dockerfile --build-arg "LENS_VERSION=$VERSION" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$(git rev-parse 'HEAD^{commit}')" --label "org.opencontainers.image.version=$VERSION" \
             --output "type=image,name=$IMAGE,push-by-digest=true,name-canonical=true,push=true" \
             --provenance=false --metadata-file "$RUNNER_TEMP/image.json" .
           jq -er '."containerimage.digest" | select(test("^sha256:[a-f0-9]{64}$"))' \
@@ -194,7 +194,7 @@ jobs:
           [[ "$chart_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
           cosign sign --yes "$IMAGE@$digest" "$CHART@$chart_digest"
           cd "$assets"
-          printf 'Source: %s\nImage: %s\nChart: %s\n\n' "$GITHUB_SHA" "$IMAGE@$digest" "$CHART@$chart_digest" > manifest.txt
+          printf 'Source: %s\nImage: %s\nChart: %s\n\n' "$(git -C "$GITHUB_WORKSPACE" rev-parse 'HEAD^{commit}')" "$IMAGE@$digest" "$CHART@$chart_digest" > manifest.txt
           sha256sum "lens-$VERSION.tgz" "litellm-lens-ui-$VERSION.tgz" "lens-install-$VERSION.tar.gz" >> manifest.txt
           cosign sign-blob --yes --bundle manifest.sigstore.json manifest.txt
           notes=$(printf 'Image: `%s@%s`, chart: `oci://%s` at version `%s`.' "$IMAGE" "$digest" "$CHART" "$VERSION")
