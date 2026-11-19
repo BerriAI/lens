@@ -2431,6 +2431,110 @@ fn native_tool_log_status_accepts_boolean_and_string_values(
 }
 
 #[rstest]
+#[case::turns("session-one", "03030303030303030303030303030303", true)]
+#[case::sessions("session-two", "bdcdc41efc11004216d8d3322d5325a1", false)]
+fn opencode_session_capture_separates_sessions_and_joins_turns(
+    #[case] session: &str,
+    #[case] original_trace: &str,
+    #[case] same_session: bool,
+) {
+    let body = include_bytes!("fixtures/opencode_session.json");
+    let first = decode_otlp(body, Some("application/json")).unwrap();
+    let mut next: serde_json::Value = serde_json::from_slice(body).unwrap();
+    let spans = next["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array_mut()
+        .unwrap();
+    spans[1]["traceId"] = original_trace.into();
+    spans[1]["attributes"][0]["value"]["stringValue"] = session.into();
+    spans[2]["traceId"] = original_trace.into();
+    spans[2]["attributes"][0]["value"]["stringValue"] = session.into();
+    let second = decode_otlp(
+        &serde_json::to_vec(&next).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(first[1].trace_id == second[1].trace_id, same_session);
+    assert_eq!(first[1].trace_id, first[2].trace_id);
+    assert_eq!(second[1].trace_id, second[2].trace_id);
+    assert_eq!(first[0].trace_id, "bdcdc41efc11004216d8d3322d5325a1");
+    assert!(first[0].attributes.is_empty());
+    assert_ne!(first[0].trace_id, first[1].trace_id);
+    assert_eq!(
+        second[1].attributes["lens.original_trace_id"],
+        original_trace
+    );
+    assert_eq!(second[1].attributes["gen_ai.agent.id"], session);
+    assert_eq!(first[1].parent_span_id, first[0].span_id);
+    assert_eq!(first[2].parent_span_id, first[1].span_id);
+    assert_eq!(
+        serde_json::to_value(&second[1].normalized).unwrap(),
+        serde_json::to_value(&first[1].normalized).unwrap()
+    );
+}
+
+#[rstest]
+#[case::missing_flag(None, Some("session-one"), "opencode")]
+#[case::false_flag(Some("false"), Some("session-one"), "opencode")]
+#[case::missing_session(Some("true"), None, "opencode")]
+#[case::empty_session(Some("true"), Some(""), "opencode")]
+#[case::unrelated_scope(Some("true"), Some("session-one"), "other")]
+fn opencode_session_capture_requires_explicit_opt_in(
+    #[case] capture: Option<&str>,
+    #[case] session: Option<&str>,
+    #[case] scope: &str,
+) {
+    let mut body: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/opencode_session.json")).unwrap();
+    body["resourceSpans"][0]["resource"]["attributes"] = capture
+        .map(|value| serde_json::json!([{"key":"lens.session.capture","value":{"stringValue":value}}]))
+        .unwrap_or_else(|| serde_json::json!([]));
+    let scope_spans = &mut body["resourceSpans"][0]["scopeSpans"][0];
+    scope_spans["scope"]["name"] = scope.into();
+    scope_spans["spans"][1]["attributes"] = session
+        .map(|value| serde_json::json!([{"key":"session.id","value":{"stringValue":value}}]))
+        .unwrap_or_else(|| serde_json::json!([]));
+    let spans = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(spans[1].trace_id, "bdcdc41efc11004216d8d3322d5325a1");
+    assert!(!spans[1].attributes.contains_key("lens.original_trace_id"));
+    assert!(!spans[1].attributes.contains_key("gen_ai.agent.id"));
+}
+
+#[rstest]
+#[case::session(None)]
+#[case::agent(Some("agent-one"))]
+fn opencode_session_capture_keeps_actor_and_namespace_distinct(#[case] actor: Option<&str>) {
+    let mut body: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/opencode_session.json")).unwrap();
+    if let Some(actor) = actor {
+        body["resourceSpans"][0]["scopeSpans"][0]["spans"][1]["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"key":"agent_id","value":{"stringValue":actor}}));
+    }
+    let opencode = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    body["resourceSpans"][0]["scopeSpans"][0]["scope"]["name"] =
+        "com.anthropic.claude_code.tracing".into();
+    let claude = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_ne!(opencode[1].trace_id, claude[1].trace_id);
+    assert_eq!(
+        opencode[1].attributes["gen_ai.agent.id"],
+        actor.unwrap_or("session-one")
+    );
+}
+
+#[rstest]
 fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_span_parents() {
     use opentelemetry_proto::tonic::{
         common::v1::{AnyValue, KeyValue, any_value::Value},
