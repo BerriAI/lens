@@ -76,10 +76,12 @@ test("saved release images are preserved on restart", async (t) => {
   assert.doesNotMatch(result.calls, /^(pull|build|run) /m);
 });
 
-test("saved local images are sticky even when a release can be pulled", async (t) => {
+test("saved local images rebuild the checkout without pulling a release", async (t) => {
   const result = await start(t, { saved: "lens:local" });
   assert.equal(result.status, 0, result.stderr);
-  assert.doesNotMatch(result.calls, /^(pull|build|run) /m);
+  assert.match(result.calls, /^build .*--tag lens:local /m);
+  assert.doesNotMatch(result.calls, /^pull /m);
+  assert.match(result.calls, /lens:local init \/setup/);
   assert.equal(result.environment, "LENS_IMAGE=lens:local\n");
 });
 

@@ -22,7 +22,7 @@ Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from
 
 Rerunning the start command preserves the environment file, credentials, saved image reference and ClickHouse volume. Set `LENS_IMAGE` to use a specific image or digest. An explicit image or a release bundle's `image` file is used without source fallback, so a pull failure for either stops startup
 
-To always build and run the current checkout, including when a release image is available, run `LENS_BUILD=1 ./deploy/lens/start`. This overrides `LENS_IMAGE`, the saved image reference and the bundle image. An explicit image or forced source build updates the saved image reference so later starts and plain Compose commands use the same image. A saved `lens:local` is reused on restart without pulling a release or rebuilding; use `LENS_BUILD=1` again to rebuild it
+To always build and run the current checkout, including when a release image is available, run `LENS_BUILD=1 ./deploy/lens/start`. This overrides `LENS_IMAGE`, the saved image reference and the bundle image. An explicit image or forced source build updates the saved image reference so later starts and plain Compose commands use the same image. A saved `lens:local` rebuilds the checkout on restart using Docker's layer cache, without pulling a release. Saved non-local images are reused without rebuilding
 
 ## Record your first trace
 
