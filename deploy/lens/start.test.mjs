@@ -41,7 +41,8 @@ esac
       LENS_BUILD: build, CALLS: path.join(root, "calls"), DEPLOYMENT: directory,
       PULL_STATUS: pull, INSPECT_STATUS: inspect, BUILD_STATUS: buildStatus, SAVED_IMAGE: saved },
   });
-  return { ...result, calls: await fs.readFile(path.join(root, "calls"), "utf8") };
+  return { ...result, calls: await fs.readFile(path.join(root, "calls"), "utf8"),
+    environment: await fs.readFile(path.join(directory, ".env"), "utf8").catch(() => "") };
 }
 
 test("first start pulls the release version without building", async (t) => {
@@ -73,6 +74,21 @@ test("saved release images are preserved on restart", async (t) => {
   const result = await start(t, { saved: "saved:image" });
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.calls, /^(pull|build|run) /m);
+});
+
+test("saved local images are sticky even when a release can be pulled", async (t) => {
+  const result = await start(t, { saved: "lens:local" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.calls, /^(pull|build|run) /m);
+  assert.equal(result.environment, "LENS_IMAGE=lens:local\n");
+});
+
+test("explicit images and forced source builds replace the saved image", async (t) => {
+  for (const options of [{ image: "custom:image" }, { build: "1" }]) {
+    const result = await start(t, { ...options, saved: "saved:image" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.environment, `LENS_IMAGE=${options.image || "lens:local"}\n`);
+  }
 });
 
 test("explicit and bundled images never fall back to source", async (t) => {
