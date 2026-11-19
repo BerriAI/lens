@@ -55,7 +55,7 @@ export function ProfileDetailSheet({
   const deployments = matrix.data?.models ?? [];
   return (
     <Sheet open={!!profileId} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl xl:max-w-3xl">
+      <SheetContent className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl data-[side=right]:xl:max-w-3xl">
         <SheetHeader>
           <SheetTitle>{detail?.profile.name ?? "Profile"}</SheetTitle>
           <SheetDescription>{detail ? `${SOURCE_LABELS[detail.profile.source]} · ${agent}` : agent}</SheetDescription>
