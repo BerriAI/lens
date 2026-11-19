@@ -480,7 +480,7 @@ mod tests {
 
     #[derive(Default)]
     struct Axes {
-        models: std::sync::Mutex<Vec<String>>,
+        batches: std::sync::Mutex<Vec<(String, usize)>>,
     }
 
     impl Embeddings for Axes {
@@ -489,7 +489,10 @@ mod tests {
             model: &str,
             texts: &[String],
         ) -> Result<Vec<Vec<f32>>, DiscoveryError> {
-            self.models.lock().expect("models").push(model.to_owned());
+            self.batches
+                .lock()
+                .expect("batches")
+                .push((model.to_owned(), texts.len()));
             Ok(texts
                 .iter()
                 .enumerate()
@@ -555,8 +558,11 @@ mod tests {
             ]
         );
         assert_eq!(
-            *embeddings.models.lock().expect("models"),
-            vec!["qwen".to_owned()]
+            *embeddings.batches.lock().expect("batches"),
+            vec![
+                ("qwen".to_owned(), EMBED_BATCH),
+                ("qwen".to_owned(), samples.len() - EMBED_BATCH),
+            ]
         );
     }
 
