@@ -10,24 +10,16 @@ docker compose version >/dev/null
 lens_compose=(docker compose --project-directory "$lens_dir" --file "$lens_dir/compose.yaml")
 prepare() {
   test ! -L "$lens_dir/.env"
-  if [[ "${LENS_BUILD:-0}" != 1 && -z "${LENS_IMAGE:-}" && -f "$lens_dir/.env" ]] && \
+  if [[ -z "${LENS_IMAGE:-}" && -f "$lens_dir/.env" ]] && \
       ! "${lens_compose[@]}" config --images lens | grep -Fxq 'lens:local'; then
     return
   fi
-  if [[ "${LENS_BUILD:-0}" == 1 ]]; then
-    export LENS_IMAGE=lens:local
-    printf '%s\n' 'Building Lens from source into lens:local'
-    docker build --file "$lens_root/deploy/runtime/Dockerfile" --tag "$LENS_IMAGE" "$lens_root"
-  elif [[ -z "${LENS_IMAGE:-}" && -f "$lens_dir/image" ]]; then
+  if [[ -z "${LENS_IMAGE:-}" && -f "$lens_dir/image" ]]; then
     export LENS_IMAGE="$(cat "$lens_dir/image")"
   fi
   if [[ -z "${LENS_IMAGE:-}" ]]; then
-    export LENS_IMAGE="ghcr.io/berriai/lens:$(cat "$lens_root/VERSION")"
-    if ! docker pull "$LENS_IMAGE"; then
-      export LENS_IMAGE=lens:local
-      printf '%s\n' 'Release image unavailable; building Lens from source into lens:local'
-      docker build --file "$lens_root/deploy/runtime/Dockerfile" --tag "$LENS_IMAGE" "$lens_root"
-    fi
+    export LENS_IMAGE=lens:local
+    docker build --file "$lens_root/deploy/runtime/Dockerfile" --tag "$LENS_IMAGE" "$lens_root"
   elif ! docker image inspect "$LENS_IMAGE" >/dev/null 2>&1; then
     docker pull "$LENS_IMAGE"
   fi
