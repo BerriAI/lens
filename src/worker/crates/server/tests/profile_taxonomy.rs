@@ -682,7 +682,7 @@ fn a_result_for_a_job_that_is_not_current_is_dropped(
     let claimed = claim(started.working.as_ref().expect("working"), now()).expect("claim");
 
     let result = complete(
-        Some(claimed).filter(|_| has_taxonomy),
+        has_taxonomy.then_some(claimed),
         job_id,
         1,
         Ok((vec![task("a")], Vec::new())),
