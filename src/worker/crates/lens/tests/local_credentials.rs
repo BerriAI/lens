@@ -63,6 +63,7 @@ async fn repository() -> Repository {
         .insert(&IngestionKey {
             id: "trace-key".into(),
             name: "test".into(),
+            created_by: "test-user".into(),
             created_at: Utc::now(),
             expires_at: None,
             tenant: IngestionTenant {

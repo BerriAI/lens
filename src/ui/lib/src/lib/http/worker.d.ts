@@ -696,6 +696,47 @@ export interface Findings {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "IngestionKey".
+ */
+export interface IngestionKey {
+  created_at: string;
+  created_by: string;
+  expires_at: number | null;
+  id: string;
+  name: string;
+  tenant: IngestionTenant;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "IngestionTenant".
+ */
+export interface IngestionTenant {
+  api_key_hash: string;
+  org_id: string;
+  team_id: string;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "IngestionKeyCreated".
+ */
+export interface IngestionKeyCreated {
+  active: boolean;
+  key: string;
+  record: IngestionKey;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "IngestionKeyRequest".
+ */
+export interface IngestionKeyRequest {
+  expires_at?: string | null;
+  name?: string;
+  team_id?: string;
+  user_id?: string | null;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "InvestigatorStatus".
  */
 export interface InvestigatorStatus {

@@ -173,6 +173,72 @@ fn payload() -> Value {
 }
 
 #[rstest]
+#[case::owner("user-b", 1)]
+#[case::other("user-c", 0)]
+#[tokio::test]
+async fn assigned_key_ingests_as_user_and_scopes_trace_queries(
+    #[future(awt)] database: Database,
+    payload: Value,
+    #[case] reader: &str,
+    #[case] count: usize,
+) {
+    let server = database.serve(true).await;
+    let client = reqwest::Client::new();
+    let now = chrono::Utc::now().timestamp();
+    let token = |user: &str, role: lens_contract::auth::Role| {
+        jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+            &json!({"iss":"litellm", "aud":"litellm-lens", "sub":user, "iat":now, "exp":now+60,
+                "identity":lens_contract::auth::Identity { user_id: Some(user.into()), user_role: role, ..Default::default() }}),
+            &jsonwebtoken::EncodingKey::from_secret(datasets::support::GATEWAY.as_bytes()),
+        ).unwrap()
+    };
+    let created = client
+        .post(format!("{}/lens/tracing/keys", server.url))
+        .bearer_auth(token("admin-a", lens_contract::auth::Role::ProxyAdmin))
+        .json(&json!({"name":"Assigned sender", "user_id":"user-b"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 200, "{}", created.text().await.unwrap());
+    let created: IngestionKeyCreated = created.json().await.unwrap();
+    assert_eq!(created.record.created_by, "admin-a");
+    assert_eq!(created.record.tenant.user_id, "user-b");
+    let uploaded = client
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(&created.key)
+        .json(&payload)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(uploaded.status(), 200, "{}", uploaded.text().await.unwrap());
+    let sql = json!({"sql":"SELECT UserId AS user_id FROM otel_traces"});
+    let stored = client
+        .post(format!("{}/v1/traces/query", server.url))
+        .bearer_auth(ADMIN)
+        .json(&sql)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(stored.status(), 200, "{}", stored.text().await.unwrap());
+    let stored: Value = stored.json().await.unwrap();
+    assert_eq!(stored["data"], json!([{"user_id":"user-b"}]));
+    let scoped = client
+        .post(format!("{}/v1/traces/query", server.url))
+        .bearer_auth(token(reader, lens_contract::auth::Role::InternalUser))
+        .json(&sql)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(scoped.status(), 200, "{}", scoped.text().await.unwrap());
+    let scoped: Value = scoped.json().await.unwrap();
+    assert_eq!(scoped["data"].as_array().unwrap().len(), count);
+    if count != 0 {
+        assert_eq!(scoped["data"][0]["user_id"], "user-b");
+    }
+}
+
+#[rstest]
 #[tokio::test]
 async fn standalone_owns_sessions_keys_and_traces_across_restart(
     #[future(awt)] database: Database,

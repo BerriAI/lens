@@ -1242,6 +1242,134 @@
       ],
       "type": "object"
     },
+    "IngestionKey": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "created_by": {
+          "default": "",
+          "type": "string"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tenant": {
+          "$ref": "#/definitions/IngestionTenant"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "created_by",
+        "tenant",
+        "created_at",
+        "expires_at"
+      ],
+      "type": "object"
+    },
+    "IngestionKeyCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "default": false,
+          "type": "boolean"
+        },
+        "key": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/definitions/IngestionKey"
+        }
+      },
+      "required": [
+        "key",
+        "record",
+        "active"
+      ],
+      "type": "object"
+    },
+    "IngestionKeyRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "default": "Agent tracing",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "team_id": {
+          "default": "",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "IngestionTenant": {
+      "additionalProperties": false,
+      "properties": {
+        "api_key_hash": {
+          "type": "string"
+        },
+        "org_id": {
+          "default": "",
+          "type": "string"
+        },
+        "team_id": {
+          "default": "",
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "team_id",
+        "user_id",
+        "org_id",
+        "api_key_hash"
+      ],
+      "type": "object"
+    },
     "InvestigatorState": {
       "enum": [
         "starting",

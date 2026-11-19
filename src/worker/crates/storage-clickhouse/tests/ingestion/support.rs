@@ -157,6 +157,7 @@ pub fn key(id: &str) -> IngestionKey {
     IngestionKey {
         id: id.into(),
         name: format!("Agent {id}"),
+        created_by: "owner".into(),
         tenant: IngestionTenant {
             user_id: "owner".into(),
             team_id: "team".into(),

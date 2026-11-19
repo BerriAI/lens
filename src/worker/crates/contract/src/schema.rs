@@ -4,6 +4,7 @@ use serde_json::{Map, Value, json};
 
 pub fn worker_contract() -> Value {
     let mut generator = SchemaSettings::draft07().into_generator();
+    let _ = generator.subschema_for::<crate::ingestion::IngestionKeyRequest>();
     let _ = generator.subschema_for::<crate::optimizations::OptimizationRun>();
     let _ = generator.subschema_for::<crate::optimizations::OptimizationAssignment>();
     let _ = generator.subschema_for::<crate::optimizations::ReplayRequest>();
@@ -69,11 +70,15 @@ pub fn worker_contract() -> Value {
     let _ = generator.subschema_for::<profiles::ProfileSettingsView>();
     let _ = generator.subschema_for::<profiles::ProfileSettingsUpdate>();
     let _ = generator.subschema_for::<profiles::DiscoveryPreview>();
+    let mut response_generator = SchemaSettings::draft07().for_serialize().into_generator();
+    let _ = response_generator.subschema_for::<crate::ingestion::IngestionKeyCreated>();
+    let mut definitions = generator.take_definitions(false);
+    definitions.extend(response_generator.take_definitions(false));
     let mut schema = normalize(
         json!({
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
-            "definitions": generator.take_definitions(false),
+            "definitions": definitions,
             "x-lens-protocol-version": worker::PROTOCOL_VERSION,
         }),
         false,

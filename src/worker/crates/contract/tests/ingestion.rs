@@ -5,13 +5,21 @@ use rstest::rstest;
 use serde_json::json;
 
 #[rstest]
+#[case::omitted(json!({}))]
+#[case::null(json!({"user_id":null}))]
+fn missing_assignment_defaults_to_creator(#[case] value: serde_json::Value) {
+    let request: IngestionKeyRequest = serde_json::from_value(value).unwrap();
+    assert_eq!(request.user_id, None);
+}
+
+#[rstest]
 fn empty_request_preserves_existing_defaults() {
     let request: IngestionKeyRequest = serde_json::from_value(json!({})).unwrap();
     assert_eq!(request, IngestionKeyRequest::default());
     assert_eq!(
         serde_json::to_value(request).unwrap(),
         json!({
-            "name": "Agent tracing", "team_id": "", "expires_at": null
+            "name": "Agent tracing", "team_id": "", "user_id": null, "expires_at": null
         })
     );
 }
@@ -62,12 +70,14 @@ fn creation_and_snapshot_preserve_python_wire_fields() {
     assert!(!created.active);
     assert_eq!(created.record.tenant.team_id, "");
     assert_eq!(created.record.tenant.org_id, "");
+    assert_eq!(created.record.created_by, "");
     assert_eq!(
         serde_json::to_value(created).unwrap(),
         json!({
             "key": "returned-only-on-create", "active": false,
             "record": {
                 "id": "key-id", "name": "Agent", "created_at": "2026-03-01T12:00:00.123456Z",
+                "created_by": "",
                 "tenant": {"team_id": "", "user_id": "owner", "org_id": "", "api_key_hash": "digest"},
                 "expires_at": null
             }

@@ -9,6 +9,8 @@ pub struct IngestionKeyRequest {
     pub name: String,
     #[schemars(length(max = 256))]
     pub team_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub user_id: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
 
@@ -17,6 +19,7 @@ impl Default for IngestionKeyRequest {
         Self {
             name: "Agent tracing".into(),
             team_id: String::new(),
+            user_id: None,
             expires_at: None,
         }
     }
@@ -38,6 +41,8 @@ pub struct IngestionTenant {
 pub struct IngestionKey {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub created_by: String,
     pub tenant: IngestionTenant,
     pub created_at: DateTime<Utc>,
     #[serde(deserialize_with = "Option::deserialize")]

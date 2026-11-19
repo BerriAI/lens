@@ -57,6 +57,11 @@ impl Model {
             Self::IngestionKey => &[
                 ("name", false, Kind::String(1, Some(128))),
                 ("team_id", false, Kind::String(0, Some(256))),
+                (
+                    "user_id",
+                    false,
+                    Kind::Optional(&Kind::String(1, Some(256))),
+                ),
                 ("expires_at", false, Kind::AwareDatetime),
             ],
             Self::Create => &[

@@ -16,6 +16,76 @@ use sha2::{Digest, Sha256};
 use support::{Memory, admin, ingestion, now};
 
 #[rstest]
+#[case::assigned(Some("user-b".into()), "user-b")]
+#[case::omitted(None, "owner")]
+#[case::max_unicode(Some("λ".repeat(256)), &"λ".repeat(256))]
+#[tokio::test]
+async fn assignment_preserves_creator_in_create_and_list(
+    ingestion: Ingestion<Memory>,
+    admin: Identity,
+    now: DateTime<Utc>,
+    #[case] user_id: Option<String>,
+    #[case] expected: &str,
+) {
+    let created = ingestion
+        .create(
+            &admin,
+            IngestionKeyRequest {
+                user_id,
+                ..Default::default()
+            },
+            now,
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.record.tenant.user_id, expected);
+    assert_eq!(created.record.created_by, "owner");
+    assert_eq!(ingestion.list(&admin).await.unwrap(), vec![created.record]);
+}
+
+#[rstest]
+#[case::empty("")]
+#[case::whitespace(" \t\n")]
+#[case::too_long(&"λ".repeat(257))]
+#[tokio::test]
+async fn invalid_assignment_does_not_store_a_key(
+    ingestion: Ingestion<Memory>,
+    admin: Identity,
+    now: DateTime<Utc>,
+    #[case] user_id: &str,
+) {
+    assert!(matches!(
+        ingestion
+            .create(
+                &admin,
+                IngestionKeyRequest {
+                    user_id: Some(user_id.into()),
+                    ..Default::default()
+                },
+                now
+            )
+            .await,
+        Err(IngestionError::InvalidLength {
+            field: "user_id",
+            min: 1,
+            max: 256
+        })
+    ));
+    assert!(ingestion.list(&admin).await.unwrap().is_empty());
+}
+
+#[rstest]
+fn old_catalog_preserves_tenant_without_creator() {
+    let catalog: Vec<IngestionKey> = serde_json::from_value(serde_json::json!([{
+        "id":"old-key", "name":"Old key", "created_at":"2026-03-01T12:00:00Z",
+        "tenant":{"user_id":"owner", "api_key_hash":"digest"}, "expires_at":null
+    }]))
+    .unwrap();
+    assert_eq!(catalog[0].created_by, "");
+    assert_eq!(catalog[0].tenant.user_id, "owner");
+}
+
+#[rstest]
 #[tokio::test]
 async fn creation_returns_a_secret_once_and_persists_owner_and_digest(
     ingestion: Ingestion<Memory>,
@@ -25,6 +95,7 @@ async fn creation_returns_a_secret_once_and_persists_owner_and_digest(
     let request = IngestionKeyRequest {
         name: "Agent".into(),
         team_id: "requested-team".into(),
+        user_id: None,
         expires_at: Some(now + Duration::minutes(5)),
     };
     let created = ingestion.create(&admin, request, now).await.unwrap();
@@ -133,6 +204,7 @@ async fn request_lengths_count_unicode_characters(
     let request = IngestionKeyRequest {
         name,
         team_id,
+        user_id: None,
         expires_at: None,
     };
     let result = ingestion.create(&admin, request, now).await;
@@ -169,7 +241,14 @@ async fn other_roles_cannot_create_or_revoke_keys(
     };
     assert!(matches!(
         ingestion
-            .create(&identity, IngestionKeyRequest::default(), now)
+            .create(
+                &identity,
+                IngestionKeyRequest {
+                    user_id: Some("user-b".into()),
+                    ..Default::default()
+                },
+                now
+            )
             .await,
         Err(IngestionError::Forbidden(
             "Only proxy admins can configure or run Lens"

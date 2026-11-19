@@ -156,6 +156,8 @@ async fn key_permissions_follow_authenticated_role(
 #[rstest]
 #[case::unknown_field(json!({"extra":1}), "extra_forbidden", json!(["body","extra"]))]
 #[case::empty_name(json!({"name":""}), "string_too_short", json!(["body","name"]))]
+#[case::empty_user(json!({"user_id":""}), "string_too_short", json!(["body","user_id"]))]
+#[case::long_user(json!({"user_id":"a".repeat(257)}), "string_too_long", json!(["body","user_id"]))]
 #[case::missing_timezone(json!({"expires_at":"2030-01-01T00:00:00"}), "timezone_aware", json!(["body","expires_at"]))]
 #[case::invalid_datetime(json!({"expires_at":"bad"}), "datetime_from_date_parsing", json!(["body","expires_at"]))]
 #[tokio::test]

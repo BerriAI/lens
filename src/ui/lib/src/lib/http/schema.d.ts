@@ -33901,46 +33901,11 @@ export interface components {
             token_hash: string;
         };
         /** IngestionKey */
-        IngestionKey: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Expires At */
-            expires_at: number | null;
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            tenant: components["schemas"]["IngestionTenant"];
-        };
+        IngestionKey: import("./worker").IngestionKey;
         /** IngestionKeyCreated */
-        IngestionKeyCreated: {
-            /**
-             * Active
-             * @default false
-             */
-            active: boolean;
-            /** Key */
-            key: string;
-            record: components["schemas"]["IngestionKey"];
-        };
+        IngestionKeyCreated: import("./worker").IngestionKeyCreated;
         /** IngestionKeyRequest */
-        IngestionKeyRequest: {
-            /** Expires At */
-            expires_at?: string | null;
-            /**
-             * Name
-             * @default Agent tracing
-             */
-            name: string;
-            /**
-             * Team Id
-             * @default
-             */
-            team_id: string;
-        };
+        IngestionKeyRequest: import("./worker").IngestionKeyRequest;
         /** IngestionSnapshot */
         IngestionSnapshot: {
             /** Issued At */
@@ -33949,22 +33914,7 @@ export interface components {
             keys: components["schemas"]["IngestionCredential"][];
         };
         /** IngestionTenant */
-        IngestionTenant: {
-            /** Api Key Hash */
-            api_key_hash: string;
-            /**
-             * Org Id
-             * @default
-             */
-            org_id: string;
-            /**
-             * Team Id
-             * @default
-             */
-            team_id: string;
-            /** User Id */
-            user_id: string;
-        };
+        IngestionTenant: import("./worker").IngestionTenant;
         /** InlineSkill */
         InlineSkill: {
             /** Description */
