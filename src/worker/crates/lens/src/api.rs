@@ -28,6 +28,7 @@ pub struct Application {
     pub credentials: Arc<LocalCredentials<IngestionKeys>>,
     pub local_worker: Option<crate::local::LocalControl>,
     pub signals_worker: Option<crate::signals::SignalsWorker>,
+    pub signal_alerts: Option<Arc<crate::signal_alerts::SignalAlerts>>,
     pub profiles_worker: Option<crate::task_profiles::ProfilesWorker>,
     pub evals: EvalRuntime,
     pub optimizations: crate::optimizations::Optimizations,
@@ -35,6 +36,13 @@ pub struct Application {
 }
 
 impl Application {
+    pub fn with_signal_alerts(mut self, seed: &str, public_url: url::Url) -> Result<Self, Error> {
+        let alerts =
+            crate::signal_alerts::SignalAlerts::new(self.authentication.clone(), seed, public_url)?;
+        self.router = self.router.merge(alerts.router());
+        self.signal_alerts = Some(alerts);
+        Ok(self)
+    }
     pub fn with_github(
         mut self,
         github: Option<lens_server::github::GitHubApp>,
@@ -284,6 +292,7 @@ pub async fn initialize(
         credentials,
         local_worker: None,
         signals_worker: None,
+        signal_alerts: None,
         profiles_worker: None,
         evals: eval_runtime,
         optimizations,

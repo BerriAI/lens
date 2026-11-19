@@ -15,6 +15,9 @@ import type {
   Sample,
   Settings,
   SignalConfig,
+  SignalAlertView,
+  SignalAlertRequest,
+  SignalAlertTest,
 } from "../model/types";
 
 export type ExecutionContent = components["schemas"]["ExecutionContent"];
@@ -44,6 +47,9 @@ export interface LensApi {
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
   signalConfig(): Promise<SignalConfig>;
   saveSignalConfig(config: SignalConfig): Promise<SignalConfig>;
+  signalAlerts(): Promise<SignalAlertView>;
+  saveSignalAlerts(config: SignalAlertRequest): Promise<SignalAlertView>;
+  testSignalAlerts(config: SignalAlertTest): Promise<{ delivered: boolean }>;
   cancelRun(lensId: string): Promise<void>;
   reviewFinding(lensId: string, findingId: string, status: FindingStatus, reason: string): Promise<void>;
 }
@@ -134,6 +140,9 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     watchAll: () => required(client.POST("/lens/watch-all", { headers })),
     signalConfig: () => required(client.GET("/lens/signals", { headers })),
     saveSignalConfig: (config) => required(client.PUT("/lens/signals", { headers, body: config })),
+    signalAlerts: () => apiClient.get("/lens/signals/alerts", { accessToken }),
+    saveSignalAlerts: (body) => apiClient.put("/lens/signals/alerts", { accessToken, body }),
+    testSignalAlerts: (body) => apiClient.post("/lens/signals/alerts/test", { accessToken, body }),
     cancelRun: (lensId) => sent(client.POST("/lens/{lens_id}/cancel", lens(lensId))),
     reviewFinding: (lensId, findingId, status, reason) =>
       sent(

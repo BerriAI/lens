@@ -2729,6 +2729,7 @@ dependencies = [
  "prost",
  "rand 0.8.7",
  "reqwest 0.12.28",
+ "ring",
  "rstest",
  "serde",
  "serde_json",

@@ -3245,6 +3245,109 @@
       ],
       "type": "object"
     },
+    "SignalAlertDelivery": {
+      "properties": {
+        "at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "status"
+      ],
+      "type": "object"
+    },
+    "SignalAlertRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "signal_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "webhook_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "revision",
+        "enabled",
+        "signal_ids"
+      ],
+      "type": "object"
+    },
+    "SignalAlertTest": {
+      "additionalProperties": false,
+      "properties": {
+        "webhook_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SignalAlertView": {
+      "properties": {
+        "connected": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "last_delivery": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SignalAlertDelivery"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "signal_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "enabled",
+        "signal_ids",
+        "connected"
+      ],
+      "type": "object"
+    },
     "SignalEvidence": {
       "additionalProperties": false,
       "properties": {

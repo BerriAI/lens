@@ -10,6 +10,7 @@ pub mod investigations;
 mod migrate;
 mod read;
 pub mod sessions;
+pub mod signal_alerts;
 pub mod signals;
 pub mod state;
 

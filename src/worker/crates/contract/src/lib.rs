@@ -12,6 +12,7 @@ pub mod investigations;
 pub mod optimizations;
 pub mod profiles;
 pub mod schema;
+pub mod signal_alerts;
 pub mod signals;
 pub mod worker;
 

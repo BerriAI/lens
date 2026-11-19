@@ -232,6 +232,11 @@ impl SignalRepository for Signals {
             let before = cooldown(pause.value.clone())?;
             let after = before.after(result, classified_at);
             let mut changes = vec![Change { previous, value }];
+            changes.extend(
+                crate::signal_alerts::enqueue(&self.0, execution, config, result, classified_at)
+                    .await
+                    .map_err(failure)?,
+            );
             if after != before {
                 changes.push(Change {
                     previous: pause,

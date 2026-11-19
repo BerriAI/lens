@@ -122,6 +122,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         evals,
     )
     .await?
+    .with_signal_alerts(&config.query_secret, config.public_url.clone())?
     .with_github(
         config.github,
         config.public_url.clone(),
@@ -170,6 +171,9 @@ async fn run() -> Result<(), litellm_lens::Error> {
         .clone()
         .ok_or(litellm_lens::Error::Unavailable)?;
     tasks.spawn(signals.serve());
+    if let Some(alerts) = application.signal_alerts.clone() {
+        tasks.spawn(alerts.serve());
+    }
     if let Some(profiles) = application.profiles_worker.clone() {
         tasks.spawn(profiles.serve());
     }

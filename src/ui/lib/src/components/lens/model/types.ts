@@ -10,6 +10,9 @@ export type LensList = components["schemas"]["LensList"] & {
 };
 export type InvestigatorStatus = Wire.InvestigatorStatus;
 export type SignalConfig = components["schemas"]["SignalConfig"];
+export type SignalAlertView = Wire.SignalAlertView;
+export type SignalAlertRequest = Wire.SignalAlertRequest;
+export type SignalAlertTest = Wire.SignalAlertTest;
 export type Signal = NonNullable<SignalConfig["signals"]>[number];
 
 export type Finding = components["schemas"]["Finding"];

@@ -82,6 +82,22 @@ export LENS_EVALUATION_MODELS='[{"name":"signals","model":"your-evaluation-model
 
 Replace the model and API base with those from your service, and supply `EVALUATION_API_KEY` through your secret configuration. Do not configure an ordinary chat-completions endpoint as a Decisions endpoint. To judge with a chat model, add it as an analysis model instead
 
+## Send signal alerts to Slack
+
+In **Settings > Signals**, save your model and signal questions, then choose **Set up alerting**. An administrator can connect one Slack channel and select which saved signals should send alerts
+
+Create an incoming webhook in your [Slack app settings](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/): enable **Incoming Webhooks**, choose **Add New Webhook to Workspace**, and select the channel. Paste the resulting URL into **Slack webhook URL** in Lens. The URL contains a secret; keep it out of source control and shared messages
+
+Select the signals, choose **Send test alert**, and check the Slack channel. A successful test does not enable alerts. Choose **Save alert settings** with **Enable alerts** checked to start receiving matches. Set `LENS_PUBLIC_URL` to the Lens address your teammates can open so alert links reach the correct deployment
+
+Alerts use your saved signal threshold across all agents and teams. Each message includes the signal name, score, and a link to the trace, without captured prompts or responses. Inspect the trace to confirm a detection. A prompt injection signal reports a model judgment after classification; it does not block the original request
+
+Only traces started after alerts are enabled are eligible. Lens records each signal and trace once, so later trace updates do not normally repeat an alert. Changing the webhook or re-enabling alerts starts a new activation window and skips queued alerts from the previous window. Uncheck **Enable alerts** and save to pause delivery while keeping the connection
+
+Lens retries rate limits and server failures up to six attempts. Timeouts and interrupted delivery are marked unconfirmed instead of being blindly resent, so check the channel when that status appears. A message accepted before a server failure can still be repeated on retry. An in-flight message may finish after alerts are paused. The latest delivery status appears under alert settings
+
+The webhook is encrypted in Lens storage and is never returned by the settings API. After rotating `LENS_ADMIN_TOKEN`, re-enter the webhook because the stored connection uses that token to derive its encryption key. Slack incoming webhooks, including GovSlack, are supported. Grafana and Splunk destinations are not implemented
+
 ## Resolve setup problems
 
 If the model does not appear, confirm that the Lens process received `LENS_EVALUATION_MODELS` and its named credential, then restart it and refresh Settings. An invalid deployment configuration fails at startup rather than silently disabling evaluation
