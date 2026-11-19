@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChartNoAxesColumn, CircleAlert, List, RefreshCw } from "lucide-react";
 import { Button } from "../../ui/button";
 import { LoadingState } from "../../shared/LoadingState";
@@ -68,6 +68,7 @@ export function ProfilesView({
   const api = useProfilesApi();
   const time = useRelativeRange(false);
   const live = useTracesLive();
+  const queryClient = useQueryClient();
   const [refreshAt, setRefreshAt] = useState(Date.now);
   const [zoom, setZoom] = useZoomRouting();
   const profile = useProfileRoute();
@@ -123,7 +124,15 @@ export function ProfilesView({
               size="icon-sm"
               aria-label="Refresh usage profiles"
               disabled={fetching}
-              onClick={() => (zoom ? void Promise.all([overview.refetch(), matrix.refetch()]) : setRefreshAt(Date.now()))}
+              onClick={() =>
+                zoom
+                  ? void Promise.all([
+                      overview.refetch(),
+                      matrix.refetch(),
+                      queryClient.invalidateQueries({ queryKey: ["lens", "profile-detail", api.scope, window, agent] }),
+                    ])
+                  : setRefreshAt(Date.now())
+              }
             >
               <RefreshCw aria-hidden="true" className={`size-4 ${fetching ? "animate-spin" : ""}`} />
             </Button>

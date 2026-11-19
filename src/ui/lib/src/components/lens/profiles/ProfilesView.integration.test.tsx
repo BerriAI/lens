@@ -165,6 +165,32 @@ it("translates an older label link to the profile id and investigates it", async
   expect(url.get("tab")).toBe("findings");
 });
 
+it("shows a reopened profile's new detail after refreshing a zoomed range", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  routes(proxy);
+  const serve = proxy.get.getMockImplementation();
+  let preview = "Fix the login test";
+  proxy.get.mockImplementation(async (path, request) => {
+    if (path !== "/lens/profiles/detail") return serve?.(path, request);
+    const current = detail(String(request.query.profile_id));
+    return { ...current, runs: current.runs.map((run) => ({ ...run, input_preview: preview })) };
+  });
+  renderWithLens(<ProfilesView agents={agents} />, {
+    searchParams: "?tab=profiles&agent=assistant&from=1000&to=2000&profile=recorded:Coding",
+  });
+  expect(await screen.findByText("Fix the login test")).toBeVisible();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+  preview = "Fix the signup test";
+  await user.click(screen.getByRole("button", { name: "Refresh usage profiles" }));
+  await user.click((await ranked()).getByRole("button", { name: /Coding/ }));
+
+  expect(await screen.findByText("Fix the signup test")).toBeVisible();
+  expect(screen.queryByText("Fix the login test")).not.toBeInTheDocument();
+});
+
 it("says when request figures cover only part of the listed runs", async () => {
   const proxy = stubGateway();
   routes(proxy, { overview: overview({ coverage: { runs_listed: 5000, runs_resolved: 1200, truncated: true } }) });

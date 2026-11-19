@@ -34,7 +34,7 @@ export function ProfileDetailSheet({
     enabled: !!profileId && !!agent,
     staleTime: 30_000,
   });
-  const detail = query.data;
+  const detail = query.error ? undefined : query.data;
   return (
     <Sheet open={!!profileId} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
