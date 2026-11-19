@@ -10,10 +10,18 @@ export const maskSecret = (secret: string): string =>
     ? `${secret.slice(0, 5)}${"•".repeat(16)}${secret.slice(-4)}`
     : "•".repeat(secret.length);
 
-export async function createTracingKey(accessToken: string, name: string) {
+export async function createTracingKey(
+  accessToken: string,
+  name: string,
+  userId?: string,
+) {
+  const user_id = userId?.trim();
   const result = await apiClient.post<
     components["schemas"]["IngestionKeyCreated"]
-  >("/lens/tracing/keys", { accessToken, body: { name } });
+  >("/lens/tracing/keys", {
+    accessToken,
+    body: { name, ...(user_id ? { user_id } : {}) },
+  });
   if (!result.key) throw new Error("Lens did not return the new key");
   return result;
 }

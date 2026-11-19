@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../../ui/button";
+import { Input } from "../../../ui/input";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +15,102 @@ import { apiClient } from "../../../../lib/http/requests";
 import { useLensAccessToken } from "../../data/LensServices";
 import { useOnboarding } from "../OnboardingContext";
 import {
+  createTracingKey,
   tracingKeysQuery,
   useTracingKeys,
   type TracingKeyRecord,
 } from "./tracingKeys";
+import { CodeBlock } from "./TracingSetupCard";
+
+function CreateUserKey() {
+  const accessToken = useLensAccessToken();
+  const cache = useQueryClient();
+  const [name, setName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const create = async () => {
+    if (!name.trim() || !userId.trim() || creating) return;
+    setCreating(true);
+    setError(null);
+    setSecret(null);
+    try {
+      const created = await createTracingKey(accessToken, name.trim(), userId);
+      cache.setQueryData<TracingKeyRecord[]>(
+        tracingKeysQuery(accessToken),
+        (current) => [...(current ?? []), created.record],
+      );
+      setSecret(created.key);
+      setName("");
+      setUserId("");
+    } catch {
+      setError("Could not create the tracing key. Try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+  return (
+    <section
+      aria-label="Create key for a user"
+      className="space-y-3 rounded-lg border p-4"
+    >
+      <h3 className="text-sm font-medium">Create key for a user</h3>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void create();
+        }}
+      >
+        <label className="block space-y-1 text-sm">
+          <span>Key name</span>
+          <Input
+            required
+            maxLength={128}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            disabled={creating}
+          />
+        </label>
+        <label className="block space-y-1 text-sm">
+          <span>User ID</span>
+          <Input
+            required
+            maxLength={256}
+            value={userId}
+            onChange={(event) => setUserId(event.target.value)}
+            disabled={creating}
+          />
+        </label>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={creating || !name.trim() || !userId.trim()}
+        >
+          {creating ? "Creating…" : "Create key"}
+        </Button>
+      </form>
+      {secret && (
+        <div className="space-y-2" role="status">
+          <p className="text-sm">
+            Save this key now. It cannot be shown again after you close this
+            dialog.
+          </p>
+          <CodeBlock code={secret} copyLabel="Copy tracing key" />
+          <p className="text-xs text-muted-foreground">
+            Store this key in LITELLM_TRACING_KEY in the agent’s environment.
+          </p>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
 
 export function TracingKeysDialog({
   open,
@@ -32,6 +125,7 @@ export function TracingKeysDialog({
 }) {
   const accessToken = useLensAccessToken();
   const { canMintTracingKey, readOnly } = useOnboarding();
+  const canCreate = canMintTracingKey && !readOnly;
   const keys = useTracingKeys(accessToken, open);
   const cache = useQueryClient();
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -76,6 +170,7 @@ export function TracingKeysDialog({
             cannot be shown again.
           </DialogDescription>
         </DialogHeader>
+        {open && canCreate && <CreateUserKey />}
         {keys.isPending ? (
           <p role="status">Loading tracing keys…</p>
         ) : keys.error ? (
@@ -102,6 +197,14 @@ export function TracingKeysDialog({
                   className="rounded-lg border p-4"
                 >
                   <p className="font-medium break-words">{key.name}</p>
+                  <p className="text-xs text-muted-foreground break-words">
+                    Assigned to {key.tenant.user_id}
+                  </p>
+                  {key.created_by && key.created_by !== key.tenant.user_id && (
+                    <p className="text-xs text-muted-foreground break-words">
+                      Created by {key.created_by}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     Created {new Date(key.created_at).toLocaleString()}
                     {expired
