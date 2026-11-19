@@ -5,7 +5,7 @@ use litellm_traces_cache::TraceReader;
 use litellm_traces_clickhouse::{ClickHouseTraces, Config, Parameter, QueryReaders};
 use serde::Deserialize;
 use serde_json::Value;
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 mod tracing;
 pub use tracing::TraceApi;
@@ -93,6 +93,33 @@ impl Storage {
         )
         .await
         .map_err(litellm_traces_clickhouse::Error::from)?;
+        Ok(())
+    }
+
+    pub async fn reachable(&self, patience: Duration, pause: Duration) -> Result<(), Error> {
+        let deadline = tokio::time::Instant::now() + patience;
+        let mut announced = false;
+        while let Err(error) = self.ping().await {
+            if !matches!(
+                error,
+                Error::Storage(litellm_traces_clickhouse::Error::Storage(
+                    litellm_storage_clickhouse::Error::Transport
+                ))
+            ) {
+                break;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(error);
+            }
+            if !announced {
+                ::tracing::warn!(
+                    patience_seconds = patience.as_secs(),
+                    "Lens cannot reach ClickHouse yet; waiting for it before starting"
+                );
+                announced = true;
+            }
+            tokio::time::sleep(pause).await;
+        }
         Ok(())
     }
 

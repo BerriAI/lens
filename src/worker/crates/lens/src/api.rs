@@ -1,4 +1,7 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::{
+    sync::{Arc, atomic::Ordering},
+    time::Duration,
+};
 
 use crate::{eval_judge::GatewayJudge, eval_runtime::EvalRuntime};
 use axum::Router;
@@ -232,6 +235,10 @@ pub async fn initialize(
     traces: TraceConfig,
     evals: EvalConfig,
 ) -> Result<Application, Error> {
+    state
+        .storage
+        .reachable(Duration::from_secs(240), Duration::from_secs(2))
+        .await?;
     state.storage.ensure_schema().await?;
     let connection = state.storage.config.storage();
     let store = ClickHouseState::new(state.storage.client.clone(), connection.reader().clone());
