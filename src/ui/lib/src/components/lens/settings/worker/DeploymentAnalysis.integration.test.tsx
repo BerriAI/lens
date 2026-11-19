@@ -34,6 +34,8 @@ describe("Deployment analysis setup", () => {
         if (path === "/lens") return list;
         if (path === "/lens/model_group/info") return { data: [model] };
         if (path === "/lens/signals") return { model: "", threshold: 0.5, signals: [] };
+        if (path === "/lens/signals/alerts")
+          return { revision: 0, enabled: false, connected: false, signal_ids: [], last_delivery: null };
         if (path === "/lens/gateway")
           return {
             configured: false,
@@ -63,6 +65,7 @@ describe("Deployment analysis setup", () => {
         ...(host.surface === "standalone" ? ["/lens/gateway"] : []),
         "/lens/model_group/info",
         "/lens/signals",
+        "/lens/signals/alerts",
       ]);
       expect(gateway.post).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Connect project" }));
