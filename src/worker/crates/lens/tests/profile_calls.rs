@@ -331,14 +331,24 @@ async fn requests_are_grouped_by_the_deployment_metadata_their_ledger_rows_recor
     assert_eq!(totals.spend_usd, Some(0.875));
 }
 
-/// Two runs read in one batch reuse a cached response id hours apart, each with its own ledger
-/// row. Each call is matched only against ledger rows from its own run's time window.
+/// Two runs read in one batch reuse a cached response id. Hours apart, each call matches only the
+/// ledger row from its own run's time. Within the spend window's padding, time cannot tell whose
+/// row is whose, so the calls stay unpriced or shared instead of taking another run's cost.
 #[rstest]
+#[case::hours_apart(3 * HOUR_MS, true, (2, 2, 0), Some(0.75))]
+#[case::hours_apart_without_the_first_runs_row(3 * HOUR_MS, false, (2, 1, 0), Some(0.5))]
+#[case::within_the_hour(20 * MINUTE_MS, true, (2, 0, 0), None)]
+#[case::within_the_hour_without_the_first_runs_row(20 * MINUTE_MS, false, (0, 0, 1), None)]
 #[tokio::test]
-async fn runs_read_in_one_batch_match_only_ledger_rows_from_their_own_time() {
+async fn runs_reusing_a_response_id_are_priced_only_by_rows_no_other_run_could_own(
+    #[case] gap_ms: i64,
+    #[case] first_run_logged: bool,
+    #[case] requests_matched_shared: (u64, u64, u64),
+    #[case] spend_usd: Option<f64>,
+) {
     let isolated = profile_store::isolated().await;
     let start_ms = chrono::Utc::now().timestamp_millis() - 6 * HOUR_MS;
-    let later_ms = start_ms + 3 * HOUR_MS;
+    let later_ms = start_ms + gap_ms;
     let payload = json!({"resourceSpans": [{
         "resource": {"attributes": attributes(&[("service.name", "long-service"), ("gen_ai.agent.name", AGENT)])},
         "scopeSpans": [{"scope": {"name": "profile-calls-test"}, "spans": [
@@ -363,10 +373,18 @@ async fn runs_read_in_one_batch_match_only_ledger_rows_from_their_own_time() {
     ingest(
         &isolated,
         payload,
-        vec![
-            ledger("req-morning", "resp-cached", start_ms + 1_000, 0.25),
-            ledger("req-afternoon", "resp-cached", later_ms + 1_000, 0.5),
-        ],
+        [
+            first_run_logged.then(|| ledger("req-morning", "resp-cached", start_ms + 1_000, 0.25)),
+            Some(ledger(
+                "req-afternoon",
+                "resp-cached",
+                later_ms + 1_000,
+                0.5,
+            )),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
     )
     .await;
     let runs = isolated
@@ -389,7 +407,13 @@ async fn runs_read_in_one_batch_match_only_ledger_rows_from_their_own_time() {
     .totals();
 
     assert_eq!(runs.len(), 2);
-    assert_eq!(totals.requests, 2);
-    assert_eq!(totals.matched_requests, 2);
-    assert_eq!(totals.spend_usd, Some(0.75));
+    assert_eq!(
+        (
+            totals.requests,
+            totals.matched_requests,
+            totals.shared_requests
+        ),
+        requests_matched_shared
+    );
+    assert_eq!(totals.spend_usd, spend_usd);
 }

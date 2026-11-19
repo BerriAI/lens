@@ -392,6 +392,7 @@ impl<'a> View<'a> {
                     trace_ref: trace_ref(run),
                     start_ms: run.start_ms,
                     input_preview: run.input_preview.clone(),
+                    resolved: self.calls.contains_key(&run_key(run)),
                     request_count: requests.len() as u64,
                     spend_usd: spend,
                 }
@@ -793,6 +794,43 @@ mod tests {
         );
         assert_eq!((totals.requests, totals.cost_observations), (4, 3));
         assert_eq!(totals.spend_usd, Some(1.0));
+    }
+
+    #[rstest]
+    fn a_listed_run_left_unread_is_marked_unresolved_apart_from_a_run_with_no_requests() {
+        let runs = vec![
+            run("priced", "cluster:a", 1),
+            run("idle", "cluster:a", 1),
+            run("unread", "cluster:a", 1),
+        ];
+        let calls = RunCalls::from([
+            (
+                run_key(&runs[0]),
+                vec![call("s1", "agent", vec![charge("r1", Some(0.5))])],
+            ),
+            (run_key(&runs[1]), Vec::new()),
+        ]);
+        let view = View {
+            runs: &runs,
+            calls: &calls,
+            agent: "agent",
+            truncated: true,
+        };
+
+        let listed: Vec<_> = view
+            .runs_for("cluster:a", 10)
+            .into_iter()
+            .map(|run| (run.trace_id, run.resolved, run.request_count))
+            .collect();
+
+        assert_eq!(
+            listed,
+            [
+                ("priced".to_owned(), true, 1),
+                ("idle".to_owned(), true, 0),
+                ("unread".to_owned(), false, 0),
+            ]
+        );
     }
 
     #[rstest]

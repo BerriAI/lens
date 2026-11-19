@@ -40,6 +40,9 @@ pub struct ProfileRunRef {
     pub trace_ref: String,
     pub start_ms: i64,
     pub input_preview: String,
+    /// False when the span budget ran out before this run was read, so `request_count` and
+    /// `spend_usd` say nothing about it.
+    pub resolved: bool,
     pub request_count: u64,
     pub spend_usd: Option<f64>,
 }
