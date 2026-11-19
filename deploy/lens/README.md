@@ -2,7 +2,7 @@
 
 Lens records agent traces, investigates failures, and turns useful examples into datasets. The standalone deployment includes the UI, API and background processing in one Lens service, with ClickHouse storing its data and coordination state
 
-The source installation below builds the current checkout. For a published version, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest instead of building from source
+The quickstart below tries the prebuilt release image matching the checkout's `VERSION`, with native AMD64 and ARM64 support for Apple Silicon. If the image cannot be pulled, it builds the current checkout instead. For a published version pinned by digest, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory
 
 Prefer your coding agent to make the changes? [Set it up for me](../../docs/setup-with-agent.md#start-standalone-lens) has a copyable prompt for standalone setup, an existing LiteLLM deployment, and optional external storage. The commands below remain the shortest manual path
 
@@ -16,11 +16,13 @@ cd lens
 ./deploy/lens/start
 ```
 
-The first start builds Lens, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
+The first start tries to pull `ghcr.io/berriai/lens:<VERSION>`, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. If the release is not published yet, the registry is inaccessible, or the pull otherwise fails, it prints a message and builds Lens from source into `lens:local`. This can take several minutes and requires network access to build dependencies on a fresh machine. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
 
 Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The starter binds Lens to localhost and leaves ClickHouse off the host network
 
-Rerunning the start command preserves the environment file, credentials and ClickHouse volume. The initial image build takes longer than subsequent starts
+Rerunning the start command preserves the environment file, credentials, saved image reference and ClickHouse volume. Set `LENS_IMAGE` to use a specific image or digest. An explicit image or a release bundle's `image` file is used without source fallback, so a pull failure for either stops startup
+
+To always build and run the current checkout, including when a release image is available, run `LENS_BUILD=1 ./deploy/lens/start`. This overrides `LENS_IMAGE`, the saved image reference and the bundle image for that invocation. Keep using `LENS_BUILD=1` when starting from source if the saved image reference points to a release
 
 ## Record your first trace
 
