@@ -5,11 +5,35 @@ import {
   detailSchema,
   matrixSchema,
   overviewSchema,
+  previewSchema,
+  settingsSchema,
+  settingsViewSchema,
+  taxonomyViewSchema,
+  type DiscoveryPreview,
+  type ModelChoice,
   type ProfileDetail,
+  type ProfileSettings,
+  type ProfileSettingsView,
   type ProfilesMatrix,
   type ProfilesOverview,
+  type TaxonomyView,
 } from "./schemas";
 import { usageProfileSchema, usageProfileSql, type UsageCategory } from "./usageProfile";
+
+export interface DiscoveryInput {
+  agent: string;
+  window: TimeWindow;
+  maxRuns: number;
+}
+
+export interface SettingsUpdate {
+  agent: string;
+  revision: number;
+  enabled: boolean;
+  models: ModelChoice;
+}
+
+export type TaxonomyTarget = "draft" | "active";
 
 export interface ProfilesApi {
   readonly scope: string;
@@ -17,7 +41,22 @@ export interface ProfilesApi {
   overview(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesOverview>;
   matrix(window: TimeWindow, agent: string, signal?: AbortSignal): Promise<ProfilesMatrix>;
   detail(window: TimeWindow, agent: string, profileId: string, signal?: AbortSignal): Promise<ProfileDetail>;
+  taxonomy(agent: string, signal?: AbortSignal): Promise<TaxonomyView>;
+  settings(agent: string, signal?: AbortSignal): Promise<ProfileSettingsView>;
+  saveSettings(update: SettingsUpdate): Promise<ProfileSettings>;
+  preview(input: DiscoveryInput, signal?: AbortSignal): Promise<DiscoveryPreview>;
+  discover(input: DiscoveryInput, revision: number): Promise<TaxonomyView>;
+  activate(agent: string, revision: number, backfill: boolean): Promise<TaxonomyView>;
+  resume(agent: string, revision: number): Promise<TaxonomyView>;
+  reset(agent: string, revision: number, target: TaxonomyTarget): Promise<TaxonomyView>;
 }
+
+const discoveryBody = ({ agent, window, maxRuns }: DiscoveryInput) => ({
+  agent,
+  start_ms: Math.trunc(window.startMs),
+  end_ms: Math.trunc(window.endMs),
+  max_runs: maxRuns,
+});
 
 const windowQuery = (window: TimeWindow, agent: string) => ({
   agent,
@@ -48,6 +87,30 @@ export function liveProfilesApi(accessToken: string): ProfilesApi {
         { ...windowQuery(window, agent), profile_id: profileId },
         (value) => detailSchema.parse(value),
         signal,
+      ),
+    taxonomy: (agent, signal) => get("/lens/profiles/taxonomy", { agent }, (value) => taxonomyViewSchema.parse(value), signal),
+    settings: (agent, signal) => get("/lens/profiles/settings", { agent }, (value) => settingsViewSchema.parse(value), signal),
+    saveSettings: async (update) =>
+      settingsSchema.parse(await apiClient.put<unknown>("/lens/profiles/settings", { accessToken, body: update })),
+    preview: async (input, signal) =>
+      previewSchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/discovery/preview", { accessToken, signal, body: discoveryBody(input) }),
+      ),
+    discover: async (input, revision) =>
+      taxonomyViewSchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/discovery", { accessToken, body: { ...discoveryBody(input), revision } }),
+      ),
+    activate: async (agent, revision, backfill) =>
+      taxonomyViewSchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/taxonomy/activate", { accessToken, body: { agent, revision, backfill } }),
+      ),
+    resume: async (agent, revision) =>
+      taxonomyViewSchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/taxonomy/resume", { accessToken, body: { agent, revision } }),
+      ),
+    reset: async (agent, revision, target) =>
+      taxonomyViewSchema.parse(
+        await apiClient.post<unknown>("/lens/profiles/taxonomy/reset", { accessToken, body: { agent, revision, target } }),
       ),
   };
 }

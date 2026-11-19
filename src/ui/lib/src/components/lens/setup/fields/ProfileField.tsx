@@ -35,7 +35,7 @@ export function profileLabel(value: string, options: readonly { value: string; l
   const option = options.find((item) => item.value === value);
   if (option) return option.label;
   if (value.startsWith("recorded:")) return value.slice("recorded:".length);
-  if (value.startsWith("cluster:") || value.startsWith("task:")) return "Selected profile";
+  if (value.startsWith("task:")) return "Selected category";
   return value;
 }
 

@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChartNoAxesColumn, CircleAlert, List, RefreshCw } from "lucide-react";
+import { ChartNoAxesColumn, CircleAlert, List, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "../../ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { LoadingState } from "../../shared/LoadingState";
 import { StateMessage } from "../../shared/StateMessage";
 import { TimeRangeControls } from "../../shared/timeRange/TimeRangeControls";
@@ -14,10 +15,12 @@ import type { LensAgents } from "../agents/AgentScoped";
 import { useProfilesApi } from "../data/LensServices";
 import { useTracesLive } from "../traces/api";
 import { LensPageHeader } from "../ui/LensPageHeader";
-import { useLensRoute, useProfileRoute } from "../route";
+import { PROFILE_VIEWS, useLensRoute, useProfileRoute } from "../route";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
 import { ProfileHeatmap } from "./ProfileHeatmap";
+import { DiscoverySettingsSheet } from "./DiscoverySettingsSheet";
 import { ProfileBreakdown } from "./ProfileBreakdown";
+import { ProfileMap } from "./ProfileMap";
 import { formatCount, formatUsd, profileColors, selectedProfileId } from "./profilesData";
 import type { ProfilesOverview } from "./schemas";
 
@@ -37,16 +40,16 @@ function Totals({ overview, agent, live }: { overview: ProfilesOverview; agent: 
     },
   ];
   return (
-    <div className="space-y-2">
-      <div className="grid gap-3 sm:grid-cols-3">
+    <div className="flex flex-col gap-2">
+      <dl className="flex flex-wrap gap-x-8 gap-y-3">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{card.label}</p>
-            <p className="text-2xl font-semibold tracking-tight tabular-nums">{card.value}</p>
-            <p className="text-xs text-muted-foreground">{card.note}</p>
+          <div key={card.label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{card.label}</dt>
+            <dd className="text-lg font-semibold tabular-nums">{card.value}</dd>
+            <dd className="text-xs text-muted-foreground">{card.note}</dd>
           </div>
         ))}
-      </div>
+      </dl>
       <p className="text-xs text-muted-foreground">
         {!live && "Demo data. "}
         {coverage.runs_resolved < coverage.runs_listed &&
@@ -92,6 +95,12 @@ export function ProfilesView({
     enabled: !!agent,
     staleTime: 30_000,
   });
+  const taxonomy = useQuery({
+    queryKey: ["lens", "profile-taxonomy", api.scope, agent],
+    queryFn: ({ signal }) => api.taxonomy(agent, signal),
+    enabled: !!agent,
+  });
+  const [configuring, setConfiguring] = useState(false);
   const shown = overview.error ? undefined : overview.data;
   const heatmap = matrix.error ? undefined : matrix.data;
   const profiles = shown?.profiles ?? [];
@@ -106,6 +115,11 @@ export function ProfilesView({
         description="Understand the different tasks your agents are used for"
         actions={
           <>
+            {taxonomy.data && (taxonomy.data.can_write || taxonomy.data.active || taxonomy.data.taxonomy) && (
+              <Button variant="outline" size="sm" onClick={() => setConfiguring(true)}>
+                <Sparkles className="size-3.5" aria-hidden="true" /> Task discovery
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => route.setTab("traces")}>
               <List className="size-3.5" aria-hidden="true" /> View traces
             </Button>
@@ -171,19 +185,40 @@ export function ProfilesView({
         {shown && shown.totals.runs > 0 && (
           <>
             <Totals overview={shown} agent={agent} live={live} />
-            <div className="rounded-xl border bg-card p-5">
-              <h3 className="mb-4 text-base font-medium">Profiles</h3>
-              <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
-            </div>
-            <div className="rounded-xl border bg-card p-5">
-              <h3 className="mb-3 text-base font-medium">Profiles by model deployment</h3>
-              {matrix.error && <p role="alert" className="text-sm text-destructive">{matrix.error.message}</p>}
-              {matrix.isPending && <p className="text-sm text-muted-foreground">Loading model figures…</p>}
+            <Tabs
+              value={profile.view}
+              onValueChange={(value) => {
+                const view = PROFILE_VIEWS.find((candidate) => candidate === value);
+                if (view) profile.setView(view);
+              }}
+              className="lens-panel gap-4 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="lens-section-label">Profiles</h3>
+                <TabsList aria-label="Profile view">
+                  <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
+                  <TabsTrigger value="similarity">Similarity map</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="breakdown">
+                <ProfileBreakdown profiles={profiles} colors={colors} selected={selected} onSelect={profile.selectProfile} />
+              </TabsContent>
+              <TabsContent value="similarity">
+                <ProfileMap overview={shown} colors={colors} selected={selected} onOpenDetails={profile.selectProfile} />
+              </TabsContent>
+            </Tabs>
+            <section aria-label="Profiles by model deployment" className="lens-panel flex flex-col gap-3 p-4">
+              <h3 className="lens-section-label">Profiles by model deployment</h3>
+              {matrix.error && <p role="alert" className="text-xs text-destructive">{matrix.error.message}</p>}
+              {matrix.isPending && <p className="text-xs text-muted-foreground">Loading model figures…</p>}
               {heatmap && <ProfileHeatmap matrix={heatmap} colors={colors} selected={selected} onSelect={profile.selectProfile} />}
-            </div>
+            </section>
           </>
         )}
       </div>
+      {!!agent && (
+        <DiscoverySettingsSheet agent={agent} window={window} open={configuring} onOpenChange={setConfiguring} />
+      )}
       <ProfileDetailSheet
         agent={agent}
         window={window}
