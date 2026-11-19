@@ -7,6 +7,41 @@ use litellm_traces_cache::ReadError;
 use litellm_traces_clickhouse::Error as StoreError;
 
 #[derive(Debug, thiserror::Error)]
+pub enum SignalAlertError {
+    #[error("{0}")]
+    Invalid(&'static str),
+    #[error("Only administrators can configure signal alerts")]
+    Forbidden,
+    #[error("Authentication failed")]
+    Authentication(#[from] lens_auth::Error),
+    #[error("Alert settings changed. Refresh and try again")]
+    Conflict,
+    #[error("Alert storage is unavailable")]
+    Storage(#[from] litellm_storage_clickhouse::Error),
+    #[error("Alert settings could not be read")]
+    Json(#[from] serde_json::Error),
+    #[error("The saved webhook could not be decrypted. Re-enter it after changing the admin token")]
+    Secret,
+    #[error("Slack did not confirm delivery. Check the channel and webhook before retrying")]
+    Delivery,
+}
+
+impl IntoResponse for SignalAlertError {
+    fn into_response(self) -> Response {
+        let status = match self {
+            Self::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Authentication(_) => StatusCode::UNAUTHORIZED,
+            Self::Conflict | Self::Storage(litellm_storage_clickhouse::Error::StateConflict) => {
+                StatusCode::CONFLICT
+            }
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        (status, Json(serde_json::json!({"detail":self.to_string()}))).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum OptimizationError {
     #[error("{0}")]
     Invalid(&'static str),
@@ -72,6 +107,8 @@ pub enum GatewayError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    SignalAlert(#[from] SignalAlertError),
     #[error(transparent)]
     Optimization(#[from] OptimizationError),
     #[error(transparent)]

@@ -9,6 +9,9 @@ pub fn worker_contract() -> Value {
     let _ = generator.subschema_for::<crate::optimizations::ReplayRequest>();
     let _ = generator.subschema_for::<crate::investigations::InvestigatorStatus>();
     let _ = generator.subschema_for::<signals::TraceSignals>();
+    let _ = generator.subschema_for::<crate::signal_alerts::SignalAlertRequest>();
+    let _ = generator.subschema_for::<crate::signal_alerts::SignalAlertTest>();
+    let _ = generator.subschema_for::<crate::signal_alerts::SignalAlertView>();
     let _ = generator.subschema_for::<worker::Activity>();
     let _ = generator.subschema_for::<worker::AgentTestCase>();
     let _ = generator.subschema_for::<worker::Candidate>();

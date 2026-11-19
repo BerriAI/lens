@@ -1113,6 +1113,44 @@ export interface Result {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalAlertDelivery".
+ */
+export interface SignalAlertDelivery {
+  at: string;
+  status: string;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalAlertRequest".
+ */
+export interface SignalAlertRequest {
+  enabled: boolean;
+  revision: number;
+  signal_ids: string[];
+  webhook_url?: string | null;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalAlertTest".
+ */
+export interface SignalAlertTest {
+  webhook_url?: string | null;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalAlertView".
+ */
+export interface SignalAlertView {
+  connected: boolean;
+  enabled: boolean;
+  last_delivery?: SignalAlertDelivery | null;
+  revision: number;
+  signal_ids: string[];
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "SignalEvidence".
  */
 export interface SignalEvidence {

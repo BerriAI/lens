@@ -23,6 +23,7 @@ pub mod profiles;
 mod quote;
 pub mod sandbox;
 pub mod setup;
+pub mod signal_alerts;
 pub mod signals;
 pub mod slack;
 mod storage;

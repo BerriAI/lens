@@ -21,6 +21,8 @@ import type { SignalConfig } from "../../model/types";
 import { SettingsCard, SettingsSection } from "../SettingsSection";
 import { configFrom, draftFrom, draftProblems, newRow, type SignalDraft, type SignalRow } from "./signalDraft";
 
+import { SignalAlertSettings } from "./SignalAlertSettings";
+
 const LIBRARY_QUESTIONS: ReadonlySet<string> = new Set(SIGNAL_LIBRARY.map((signal) => signal.question));
 
 export function SignalSettings() {
@@ -45,7 +47,12 @@ function SignalConfigLoader() {
       </p>
     );
   if (!config.data) return <Skeleton aria-label="Loading signals" className="h-40 w-full" />;
-  return <SignalForm saved={config.data} />;
+  return (
+    <>
+      <SignalForm saved={config.data} />
+      <SignalAlertSettings signals={config.data} />
+    </>
+  );
 }
 
 const FieldError = ({ children }: { children?: string }) =>
