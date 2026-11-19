@@ -714,3 +714,68 @@ it("reloads the taxonomy after a rejected activation so retrying uses the newer 
     { agent: "assistant", revision: 9, backfill: false },
   ]);
 });
+
+it("says paused active categories stay paused while a rediscovery runs", async () => {
+  const proxy = stubGateway();
+  const paused = active({ windows: [{ start_ms: 20 * DAY, end_ms: 21 * DAY }] });
+  serve(proxy, { taxonomy: view({ active: paused, taxonomy: discovering() }) });
+  render();
+
+  expect(await screen.findByText("Classification of the active categories stays paused meanwhile.")).toBeVisible();
+  expect(screen.queryByText("The active categories keep classifying meanwhile.")).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Active categories" })).toHaveTextContent(/Classification is paused/);
+});
+
+const failBackfillCount = (proxy: ReturnType<typeof stubGateway>) => {
+  const write = proxy.post.getMockImplementation();
+  const state = { failing: true };
+  proxy.post.mockImplementation(async (path, request) => {
+    const body = request.body as { max_runs?: number };
+    if (path === "/lens/profiles/discovery/preview" && body.max_runs === 500 && state.failing)
+      throw new Error("Preview unavailable");
+    return write?.(path, request);
+  });
+  return state;
+};
+
+it("blocks a backfill activation until a failed count is retried successfully", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  serve(proxy, { taxonomy: view({ taxonomy: taxonomy() }), written: view({ active: active({ revision: 8 }) }) });
+  const count = failBackfillCount(proxy);
+  render();
+
+  expect(await screen.findByText("Could not count runs in this range.")).toBeVisible();
+  const start = screen.getByRole("button", { name: "Start classifying new runs" });
+  expect(start).toBeEnabled();
+  await user.click(screen.getByRole("checkbox", { name: /Also classify earlier runs/ }));
+  expect(start).toBeDisabled();
+
+  count.failing = false;
+  await user.click(screen.getByRole("button", { name: "Retry count" }));
+
+  expect(await screen.findByText("At least 140 runs, one decision model call each.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Retry count" })).not.toBeInTheDocument();
+  expect(start).toBeEnabled();
+  await user.click(start);
+  await waitFor(() =>
+    expect(posts(proxy, "/lens/profiles/taxonomy/activate")).toEqual([{ agent: "assistant", revision: 7, backfill: true }]),
+  );
+});
+
+it("still starts classifying new runs only when the backfill count fails", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  serve(proxy, { taxonomy: view({ taxonomy: taxonomy() }), written: view({ active: active({ revision: 8 }) }) });
+  failBackfillCount(proxy);
+  render();
+
+  expect(await screen.findByText("Could not count runs in this range.")).toBeVisible();
+  expect(screen.getByRole("checkbox", { name: /Also classify earlier runs/ })).not.toBeChecked();
+  await user.click(screen.getByRole("button", { name: "Start classifying new runs" }));
+
+  await waitFor(() =>
+    expect(posts(proxy, "/lens/profiles/taxonomy/activate")).toEqual([{ agent: "assistant", revision: 7, backfill: false }]),
+  );
+  expect(posts(proxy, "/lens/profiles/discovery")).toEqual([]);
+});

@@ -159,6 +159,7 @@ function DraftCategories({
   agent,
   draft,
   hasActive,
+  activeRunning,
   write,
   busy,
   onWrite,
@@ -166,6 +167,7 @@ function DraftCategories({
   agent: string;
   draft: Taxonomy;
   hasActive: boolean;
+  activeRunning: boolean;
   write: boolean;
   busy: boolean;
   onWrite: (write: ProfileWrite) => void;
@@ -209,7 +211,13 @@ function DraftCategories({
             ? `Reading up to ${formatCount(draft.job.max_runs)} runs from ${formatRange(draft.job.start_ms, draft.job.end_ms)}.`
             : "Discovery is running."}
         </p>
-        {hasActive && <p className="text-xs text-muted-foreground">The active categories keep classifying meanwhile.</p>}
+        {hasActive && (
+          <p className="text-xs text-muted-foreground">
+            {activeRunning
+              ? "The active categories keep classifying meanwhile."
+              : "Classification of the active categories stays paused meanwhile."}
+          </p>
+        )}
       </section>
     );
   }
@@ -255,12 +263,26 @@ function DraftCategories({
               <span>
                 Also classify earlier runs from {formatRange(range.start_ms, range.end_ms)}
                 <span className="block text-muted-foreground">
-                  {backfillCount.data
-                    ? `At least ${formatCount(backfillCount.data.eligible_runs)} runs, one decision model call each.`
-                    : "Counting runs in this range…"}
+                  {backfillCount.error
+                    ? "Could not count runs in this range."
+                    : backfillCount.data
+                      ? `At least ${formatCount(backfillCount.data.eligible_runs)} runs, one decision model call each.`
+                      : "Counting runs in this range…"}
                 </span>
               </span>
             </label>
+          )}
+          {range && backfillCount.error && (
+            <div>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={backfillCount.isFetching}
+                onClick={() => void backfillCount.refetch()}
+              >
+                Retry count
+              </Button>
+            </div>
           )}
           <p className="text-xs text-muted-foreground">
             {hasActive ? "Replaces the active categories. " : ""}
@@ -269,7 +291,7 @@ function DraftCategories({
           <div>
             <Button
               size="sm"
-              disabled={busy || draft.tasks.length === 0}
+              disabled={busy || draft.tasks.length === 0 || (backfill && (!backfillCount.data || !!backfillCount.error))}
               onClick={() => onWrite({ kind: "activate", revision: draft.revision, backfill })}
             >
               Start classifying new runs
@@ -302,6 +324,7 @@ export function CategoryLifecycle({
           agent={agent}
           draft={draft}
           hasActive={!!view.active}
+          activeRunning={!!view.active && classification(view.active).kind === "running"}
           write={view.can_write}
           busy={busy}
           onWrite={onWrite}
