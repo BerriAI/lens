@@ -4,26 +4,36 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
 import { ProfileDetailSheet } from "./ProfileDetailSheet";
-import type { ProfileDetail } from "./schemas";
+import type { ProfileDetail, ProfilesMatrix, TaskDefinition } from "./schemas";
+
+const definition: TaskDefinition = {
+  task_id: "charts",
+  name: "Read charts",
+  description: "Answer questions about an attached chart",
+  inclusion_criteria: "Asks about a chart or screenshot",
+  exclusion_criteria: "Plain text questions",
+  required_capabilities: ["vision", "structured_output"],
+  example_trace_ids: [],
+};
 
 const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
   window: { agent: "assistant", start_ms: 0, end_ms: 1 },
   coverage: { runs_listed: 5000, runs_resolved: 1200, truncated: true },
   profile: {
-    profile_id: "recorded:Charts",
+    profile_id: "task:charts",
     name: "Read charts",
-    source: "recorded",
+    source: "enhanced",
     run_count: 3,
     share: 0.5,
     request_count: 4,
     cost_observations: 2,
     spend_usd: 0.5,
   },
-  definition: null,
+  definition,
   runs: [{ trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 1, spend_usd: null, resolved: true }],
   models: [
     {
-      profile_id: "recorded:Charts",
+      profile_id: "task:charts",
       column_key: "id:dep-vision",
       request_count: 3,
       avg_cost_usd: 0.25,
@@ -34,7 +44,7 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
       eval_sample_count: 0,
     },
     {
-      profile_id: "recorded:Charts",
+      profile_id: "task:charts",
       column_key: "unmatched:mystery-model",
       request_count: 1,
       avg_cost_usd: null,
@@ -48,9 +58,30 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
   ...overrides,
 });
 
+const matrix: ProfilesMatrix = {
+  window: { agent: "assistant", start_ms: 0, end_ms: 1 },
+  coverage: { runs_listed: 3, runs_resolved: 3, truncated: false },
+  profiles: [],
+  models: [
+    {
+      column_key: "id:dep-vision",
+      model_config_id: "dep-vision",
+      model_name: "vision-large",
+      model_group: "vision",
+      provider: "openai",
+      configured: true,
+      capabilities: { function_calling: null, vision: null, reasoning: null, structured_output: null },
+    },
+  ],
+  cells: [],
+  compatibility: [],
+  other_agent_requests: 0,
+};
+
 function render(data: unknown, options: { canInvestigate?: boolean; investigateDisabled?: boolean } = {}) {
   const proxy = stubGateway();
-  proxy.get.mockImplementation(async () => {
+  proxy.get.mockImplementation(async (path) => {
+    if (path === "/lens/profiles/matrix") return matrix;
     if (data instanceof Error) throw data;
     return data;
   });
@@ -60,7 +91,7 @@ function render(data: unknown, options: { canInvestigate?: boolean; investigateD
     <ProfileDetailSheet
       agent="assistant"
       window={{ startMs: 0, endMs: 1 }}
-      profileId="recorded:Charts"
+      profileId="task:charts"
       canInvestigate={options.canInvestigate ?? true}
       investigateDisabled={options.investigateDisabled ?? false}
       onInvestigate={onInvestigate}
@@ -77,23 +108,30 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("shows per-model figures and partial coverage without inventing missing values", async () => {
+it("shows one category description and aligned per-model figures without inventing missing values", async () => {
   render(detail());
 
   const sheet = within(await screen.findByRole("dialog", { name: "Read charts" }));
-  expect(sheet.getByText("dep-vision")).toBeVisible();
-  expect(sheet.getByText("3 requests · $0.25 avg · 1.5 s p95")).toBeVisible();
-  expect(sheet.getByText("mystery-model")).toBeVisible();
-  expect(sheet.getByText("1 requests · cost unknown avg · latency unknown p95")).toBeVisible();
+  expect(sheet.getByText("Answer questions about an attached chart")).toBeVisible();
+  expect(sheet.queryByText(/Asks about a chart or screenshot/)).not.toBeInTheDocument();
+  expect(sheet.queryByText(/Plain text questions/)).not.toBeInTheDocument();
+  expect(sheet.queryByText(/Requires/)).not.toBeInTheDocument();
+  const models = within(sheet.getByRole("region", { name: "Models" }));
+  const named = await models.findByRole("row", { name: /vision-large/ });
+  expect(named).toHaveTextContent("dep-vision");
+  const cells = (row: HTMLElement) => within(row).getAllByRole("cell").map((cell) => cell.textContent);
+  expect(cells(named)).toEqual(["3", "$0.25", "1.5 s"]);
+  expect(cells(models.getByRole("row", { name: /mystery-model/ }))).toEqual(["1", "Unknown", "Unknown"]);
   expect(sheet.getByText("Figures cover 1,200 of at least 5,000 runs in this range.")).toBeVisible();
 });
 
-it("opens a run without a request preview by its trace id", async () => {
+it("opens a run without a request preview by its trace id and keeps its unknown cost unknown", async () => {
   const user = userEvent.setup();
   const { onUrlUpdate } = render(detail());
 
-  const run = await screen.findByRole("button", { name: /trace-quiet/ });
-  expect(run).toHaveTextContent("spend unknown");
+  const run = await within(await screen.findByRole("region", { name: "Recent runs" })).findByRole("button", { name: /trace-quiet/ });
+  expect(run).toHaveTextContent("Unknown");
+  expect(run).not.toHaveTextContent("$0");
   await user.click(run);
 
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("trace")).toBe("trace-quiet"));
@@ -106,10 +144,11 @@ it("says how many runs the figures cover without calling a complete run list a l
   expect(await screen.findByText("Figures cover 2 of 3 runs in this range.")).toBeVisible();
 });
 
-it("says when a profile has no model requests", async () => {
-  render(detail({ models: [], coverage: { runs_listed: 3, runs_resolved: 3, truncated: false } }));
+it("says when a profile has no model requests and shows no description or requirement copy without a definition", async () => {
+  render(detail({ definition: null, models: [], coverage: { runs_listed: 3, runs_resolved: 3, truncated: false } }));
 
   expect(await screen.findByText("No model requests by assistant in these runs.")).toBeVisible();
+  expect(screen.queryByText(/requirements/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/Figures cover/)).not.toBeInTheDocument();
 });
 
@@ -124,9 +163,8 @@ it("shows an unresolved run's requests and spend as unavailable rather than zero
   const unread = { trace_id: "trace-unread", trace_ref: "REF2", start_ms: 0, input_preview: "Plot sales", request_count: 0, spend_usd: 0, resolved: false };
   render(detail({ runs: [unread] }));
 
-  const run = await screen.findByRole("button", { name: /Plot sales/ });
-  expect(run).toHaveTextContent("requests and spend unavailable");
-  expect(run).not.toHaveTextContent("0 requests");
+  const run = await within(await screen.findByRole("region", { name: "Recent runs" })).findByRole("button", { name: /Plot sales/ });
+  expect(run).toHaveTextContent(/Unavailable.*Unavailable/);
   expect(run).not.toHaveTextContent("$0");
 });
 
@@ -134,31 +172,31 @@ it("treats a run from an older response without a resolved flag as resolved", as
   const older = { trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 0, spend_usd: 0 };
   render({ ...detail(), runs: [older] });
 
-  const run = await screen.findByRole("button", { name: /trace-quiet/ });
-  expect(run).toHaveTextContent("0 requests · $0.00");
-  expect(run).not.toHaveTextContent("unavailable");
+  const run = await within(await screen.findByRole("region", { name: "Recent runs" })).findByRole("button", { name: /trace-quiet/ });
+  expect(run).toHaveTextContent("$0.00");
+  expect(run).not.toHaveTextContent("Unavailable");
 });
 
 it("hides investigation from callers who cannot investigate", async () => {
   render(detail(), { canInvestigate: false });
   await screen.findByRole("dialog", { name: "Read charts" });
 
-  expect(screen.queryByRole("button", { name: "Investigate profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Investigate these runs" })).not.toBeInTheDocument();
 });
 
 it("keeps investigation disabled for a zoomed range", async () => {
   render(detail(), { investigateDisabled: true });
 
-  expect(await screen.findByRole("button", { name: "Investigate profile" })).toBeDisabled();
+  expect(await screen.findByRole("button", { name: "Investigate these runs" })).toBeDisabled();
 });
 
 it("investigates the profile shown", async () => {
   const user = userEvent.setup();
   const { onInvestigate } = render(detail());
 
-  await user.click(await screen.findByRole("button", { name: "Investigate profile" }));
+  await user.click(await screen.findByRole("button", { name: "Investigate these runs" }));
 
-  expect(onInvestigate).toHaveBeenCalledWith("recorded:Charts");
+  expect(onInvestigate).toHaveBeenCalledWith("task:charts");
 });
 
 it("stops showing earlier figures and runs when a refetch of the detail fails", async () => {

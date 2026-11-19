@@ -81,13 +81,13 @@ describe("Investigation setup", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: category, filters: [] }));
   });
 
-  it("names an automatic group in the field and summary while saving its id as the filter", async () => {
+  it("names a discovered category in the field and summary while saving its id as the filter", async () => {
     const user = userEvent.setup();
     const save = vi.fn().mockResolvedValue(undefined);
     const profile = {
-      profile_id: "cluster:charts",
+      profile_id: "task:charts",
       name: "Read charts",
-      source: "local",
+      source: "enhanced",
       run_count: 3,
       share: 1,
       request_count: 3,
@@ -106,17 +106,17 @@ describe("Investigation setup", () => {
         : gatewayResponse(path, { agents: ["assistant"] }),
     );
     renderWithProviders(
-      <InvestigationSetup mode="edit" initial={{ ...settings, agent_name: "assistant", profile: "cluster:charts" }} onClose={vi.fn()} onSave={save} />,
+      <InvestigationSetup mode="edit" initial={{ ...settings, agent_name: "assistant", profile: "task:charts" }} onClose={vi.fn()} onSave={save} />,
     );
 
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Read charts"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/assistant · Read charts · Last/)).toBeVisible();
-    expect(screen.queryByText(/cluster:charts/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/task:charts/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: "cluster:charts", agent_name: "assistant" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: "task:charts", agent_name: "assistant" }));
   });
 
   it("preserves saved manual run selections when editing and lets the preview footer clear them", async () => {

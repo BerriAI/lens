@@ -214,4 +214,3 @@ export type ModelChoice = z.infer<typeof modelChoiceSchema>;
 export type ProfileSettings = z.infer<typeof settingsSchema>;
 export type ProfileSettingsView = z.infer<typeof settingsViewSchema>;
 export type DiscoveryPreview = z.infer<typeof previewSchema>;
-export type TaskEdit = Pick<TaskDefinition, "name" | "description" | "inclusion_criteria" | "exclusion_criteria" | "required_capabilities">;

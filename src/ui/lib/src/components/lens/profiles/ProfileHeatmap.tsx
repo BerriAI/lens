@@ -3,14 +3,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "../../../lib/cva.config";
 import { SegmentedControl } from "./SegmentedControl";
-import {
-  cellReading,
-  formatCount,
-  formatReading,
-  heatIntensity,
-  type HeatMetric,
-  NEUTRAL,
-} from "./profilesData";
+import { cellReading, formatCount, formatReading, heatIntensity, type HeatMetric, NEUTRAL } from "./profilesData";
 import type { ProfilesMatrix } from "./schemas";
 
 const METRIC_OPTIONS: readonly { value: HeatMetric; label: string }[] = [
@@ -113,11 +106,11 @@ export function ProfileHeatmap({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Evaluation results are not collected yet.
-        {matrix.other_agent_requests > 0 &&
-          ` ${formatCount(matrix.other_agent_requests)} requests made by other agents in these runs are not counted.`}
-      </p>
+      {matrix.other_agent_requests > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {formatCount(matrix.other_agent_requests)} requests made by other agents in these runs are not counted.
+        </p>
+      )}
     </div>
   );
 }

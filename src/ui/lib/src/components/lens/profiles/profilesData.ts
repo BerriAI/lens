@@ -1,4 +1,4 @@
-import type { MatrixCell, ProfileSource, ProfileSummary } from "./schemas";
+import type { MatrixCell, ProfilesMatrix, ProfilesOverview, ProfileSource, ProfileSummary } from "./schemas";
 
 export const HEAT_METRICS = ["requests", "cost", "latency"] as const;
 export type HeatMetric = (typeof HEAT_METRICS)[number];
@@ -10,9 +10,9 @@ const OUTSIDE_GROUPS: readonly ProfileSource[] = ["pending", "unknown", "uncerta
 
 export const SOURCE_LABELS: Record<ProfileSource, string> = {
   recorded: "Recorded category",
-  enhanced: "Reviewed task",
+  enhanced: "Discovered category",
   pending: "Awaiting classification",
-  unknown: "Fits no reviewed task",
+  unknown: "Fits no category",
   local: "Automatic group",
   uncertain: "Automatic grouping unsure",
   unclassified: "Not grouped yet",
@@ -53,6 +53,54 @@ export function rankProfiles(profiles: readonly ProfileSummary[], rank: Rank): R
         (b.value ?? 0) - (a.value ?? 0) ||
         a.profile.name.localeCompare(b.profile.name),
     );
+}
+
+export interface SimilarityGroup {
+  profile: ProfileSummary;
+  points: { key: string; x: number; y: number }[];
+}
+
+export interface MapCoverage {
+  profile: ProfileSummary;
+  runs: number;
+  shown: number;
+  mappable: boolean;
+}
+
+export interface Similarity {
+  groups: SimilarityGroup[];
+  coverage: MapCoverage[];
+  placed: number;
+  total: number;
+}
+
+export function similarity(overview: ProfilesOverview): Similarity {
+  const mappable = new Set(
+    overview.profiles.filter((profile) => !isOutsideGroups(profile.source)).map((profile) => profile.profile_id),
+  );
+  const genuine = overview.points
+    .map(({ profile_id, trace_id, x, y }, index) => ({ key: `${index}:${trace_id}`, profile_id, x, y }))
+    .filter((point) => mappable.has(point.profile_id));
+  const groups = overview.profiles
+    .map((profile) => ({
+      profile,
+      points: genuine.filter((point) => point.profile_id === profile.profile_id).map(({ key, x, y }) => ({ key, x, y })),
+    }))
+    .filter((group) => group.points.length > 0);
+  const shownBy = new Map(groups.map((group) => [group.profile.profile_id, group.points.length]));
+  return {
+    groups,
+    coverage: overview.profiles
+      .map((profile) => ({
+        profile,
+        runs: profile.run_count,
+        shown: shownBy.get(profile.profile_id) ?? 0,
+        mappable: mappable.has(profile.profile_id),
+      }))
+      .sort((a, b) => b.runs - a.runs || a.profile.name.localeCompare(b.profile.name)),
+    placed: genuine.length,
+    total: overview.totals.runs,
+  };
 }
 
 /** Older links name a profile by its label; resolve them within the agent's current profiles. */
@@ -119,4 +167,16 @@ export function heatIntensity(value: number | null, values: readonly (number | n
   const low = Math.min(...present);
   const high = Math.max(...present);
   return high > low ? (value - low) / (high - low) : 1;
+}
+
+export interface ModelLabel {
+  name: string;
+  detail: string | null;
+}
+
+export function modelLabel(columnKey: string, models: readonly ProfilesMatrix["models"][number][]): ModelLabel {
+  const model = models.find((entry) => entry.column_key === columnKey);
+  const fallback = columnKey.replace(/^(id|group|unmatched):/, "");
+  if (!model) return { name: fallback, detail: null };
+  return { name: model.model_name || model.model_group || fallback, detail: model.model_config_id };
 }
