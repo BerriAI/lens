@@ -7,13 +7,13 @@ Lens is starting in namespace {{ .Release.Namespace }}. Watch it come up:
 Open the UI at {{ .Values.publicUrl }}
 {{- if hasPrefix "http://localhost" .Values.publicUrl }}, after forwarding the port:
 
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $name }} 4318:4318
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $name }} 4318:{{ .Values.service.port }}
 
 publicUrl is still the localhost default, which only works through that port-forward.
 Set publicUrl to the address people open in their browser once Lens has one.
 {{- end }}
 
-Other pods in this cluster reach Lens at http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:4318
+Other pods in this cluster reach Lens at http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
 {{- if not .Values.adminTokenSecret.name }}
 
 Read the generated admin token:
@@ -36,7 +36,7 @@ Connect a LiteLLM gateway with these values on its chart:
 
   lens:
     enabled: true
-    url: http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:4318
+    url: http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
     gatewaySecret:
       name: {{ include "lens.gatewaySecretName" . }}
       key: {{ .Values.gateway.secretKey }}
