@@ -81,6 +81,43 @@ describe("Investigation setup", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: category, filters: [] }));
   });
 
+  it("names an automatic group in the field and summary while saving its id as the filter", async () => {
+    const user = userEvent.setup();
+    const save = vi.fn().mockResolvedValue(undefined);
+    const profile = {
+      profile_id: "cluster:charts",
+      name: "Read charts",
+      source: "local",
+      run_count: 3,
+      share: 1,
+      request_count: 3,
+      cost_observations: 3,
+      spend_usd: 1,
+    };
+    proxy.get.mockImplementation(async (path) =>
+      path === "/lens/profiles/overview"
+        ? {
+            window: { agent: "assistant", start_ms: 0, end_ms: 1 },
+            coverage: { runs_listed: 3, runs_resolved: 3, truncated: false },
+            totals: { runs: 3, requests: 3, matched_requests: 3, cost_observations: 3, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
+            profiles: [profile],
+          }
+        : gatewayResponse(path, { agents: ["assistant"] }),
+    );
+    renderWithProviders(
+      <InvestigationSetup mode="edit" initial={{ ...settings, agent_name: "assistant", profile: "cluster:charts" }} onClose={vi.fn()} onSave={save} />,
+    );
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Read charts"));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/assistant · Read charts · Last/)).toBeVisible();
+    expect(screen.queryByText(/cluster:charts/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ profile: "cluster:charts", agent_name: "assistant" }));
+  });
+
   it("preserves saved manual run selections when editing and lets the preview footer clear them", async () => {
     const user = userEvent.setup();
     proxy.post.mockResolvedValue({

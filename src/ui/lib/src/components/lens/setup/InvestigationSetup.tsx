@@ -17,6 +17,7 @@ import {
 } from "./investigationSchema";
 import { nextSetupStep, SetupStep, SetupSteps } from "./SetupSteps";
 import { ScopeFields } from "./fields/ScopeFields";
+import { profileLabel, useProfileOptions } from "./fields/ProfileField";
 import { SampleFields } from "./fields/SampleFields";
 import { ExpectationsFields } from "./fields/ExpectationsFields";
 import { RunFields } from "./fields/RunFields";
@@ -45,10 +46,10 @@ function saveLabelFor(mode: SetupMode, repeat: boolean): string {
   return repeat ? "Run and monitor" : "Run investigation";
 }
 
-function activitySummary(selection: InvestigationInput["selection"]): string {
+function activitySummary(selection: InvestigationInput["selection"], profile: string | null): string {
   const who = selection.agent_name || selection.service || "All activity";
   const conditions = selection.filters.length ? ` · ${selection.filters.length} conditions` : "";
-  return `${who}${selection.profile ? ` · ${selection.profile}` : ""} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
+  return `${who}${profile ? ` · ${profile}` : ""} · Last ${durationLabel(selection.lookback_hours ?? 24, "hours")}${conditions}`;
 }
 
 function criteriaSummary(values: Pick<InvestigationInput, "context" | "watching" | "questions">): string {
@@ -109,6 +110,8 @@ function SetupEditor({
     control,
     name: ["selectedModel", "repeat", "selection", "context", "watching", "questions"],
   });
+  const profileOptions = useProfileOptions(selection, !!selection.profile);
+  const profileName = selection.profile ? profileLabel(selection.profile, profileOptions.data ?? []) : null;
   const activity = useMatchingActivity();
   const traceRuns = activity.preview.page.executions.filter((run) => run.source === "traces");
   const model = selectedModel ?? analysis.defaultModel ?? "";
@@ -185,7 +188,7 @@ function SetupEditor({
             id="activity"
             heading="Activity"
             description="Which traces or requests to review"
-            summary={activitySummary(selection)}
+            summary={activitySummary(selection, profileName)}
           >
             <label className="grid gap-2 text-sm font-medium">
               Investigation name

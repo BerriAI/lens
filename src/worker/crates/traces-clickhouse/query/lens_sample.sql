@@ -33,7 +33,9 @@ SELECT *, selection_key FROM (
                 toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) >= {start:UInt64}
       )
       AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
-          SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles WHERE category={profile:String}
+          SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles
+          WHERE if(match({profile:String}, '^(recorded|cluster):') OR {profile:String} IN ('unclassified', 'uncertain'),
+                   profile_id, category) = {profile:String}
       ))
     GROUP BY TeamId,ApiKeyHash,TraceId
     HAVING max(EngineReceivedMs) < {end:UInt64}
