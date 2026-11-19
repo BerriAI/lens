@@ -397,8 +397,8 @@ async fn upgrading_past_unpartitioned_assignments_keeps_their_rows_readable_with
     for statement in &statements[..=unpartitioned] {
         execute_write(&database, statement).await?;
     }
-    let start = time::OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Rfc3339)?;
+    let start =
+        time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)?;
     let assignment = serde_json::from_value(serde_json::json!({
         "TeamId": "team-1", "ApiKeyHash": "", "TraceId": "preview", "TaxonomyId": "tax",
         "TaxonomyVersion": 1, "TaskId": "notes", "Outcome": "assigned", "Attempts": 1,

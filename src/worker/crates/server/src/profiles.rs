@@ -9,8 +9,8 @@ use axum::{
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
     ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
-    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview, Taxonomy,
-    TaxonomyView,
+    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
+    Taxonomy, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;

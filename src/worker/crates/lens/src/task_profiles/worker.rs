@@ -80,8 +80,7 @@ fn renew(
     version: u32,
     now: DateTime<Utc>,
 ) -> Option<BucketLease> {
-    let lease = held(current, owner, version)
-        .filter(|lease| lease.pending.is_none())?;
+    let lease = held(current, owner, version).filter(|lease| lease.pending.is_none())?;
     Some(BucketLease {
         until: now + BUCKET_LEASE,
         ..lease.clone()
@@ -107,8 +106,8 @@ fn clear(
     version: u32,
     record: &AssignmentRecord,
 ) -> Option<BucketLease> {
-    let lease = held(current, owner, version)
-        .filter(|lease| lease.pending.as_ref() == Some(record))?;
+    let lease =
+        held(current, owner, version).filter(|lease| lease.pending.as_ref() == Some(record))?;
     Some(BucketLease {
         pending: None,
         ..lease.clone()

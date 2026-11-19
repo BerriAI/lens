@@ -902,6 +902,9 @@ export interface TaskDefinition {
   exclusion_criteria: string;
   inclusion_criteria: string;
   name: string;
+  /**
+   * Deprecated: discovery no longer generates requirements, so new categories leave it empty.
+   */
   required_capabilities: Capability[];
   task_id: string;
   [k: string]: unknown;
@@ -957,7 +960,7 @@ export interface ProfileRef {
   name: string;
   profile_id: string;
   /**
-   * `None` until a reviewed task definition states the requirements.
+   * Deprecated: always `None`; categories no longer state model requirements.
    */
   required_capabilities?: Capability[] | null;
   source: ProfileSource;
@@ -1016,6 +1019,9 @@ export interface ProfileTotals {
  */
 export interface ProfilesMatrix {
   cells: MatrixCell[];
+  /**
+   * Deprecated: always empty; requirements are not compared with deployments.
+   */
   compatibility: Compatibility[];
   coverage: ProfileCoverage;
   models: ModelColumn[];
@@ -1133,7 +1139,10 @@ export interface TaskEdit {
   exclusion_criteria: string;
   inclusion_criteria: string;
   name: string;
-  required_capabilities: Capability[];
+  /**
+   * Deprecated and ignored.
+   */
+  required_capabilities?: Capability[];
   revision: number;
 }
 /**

@@ -2361,7 +2361,7 @@
               "type": "null"
             }
           ],
-          "description": "`None` until a reviewed task definition states the requirements."
+          "description": "Deprecated: always `None`; categories no longer state model requirements."
         },
         "source": {
           "$ref": "#/definitions/ProfileSource"
@@ -2635,6 +2635,7 @@
           "type": "array"
         },
         "compatibility": {
+          "description": "Deprecated: always empty; requirements are not compared with deployments.",
           "items": {
             "$ref": "#/definitions/Compatibility"
           },
@@ -3362,6 +3363,7 @@
           "type": "string"
         },
         "required_capabilities": {
+          "description": "Deprecated: discovery no longer generates requirements, so new categories leave it empty.",
           "items": {
             "$ref": "#/definitions/Capability"
           },
@@ -3406,6 +3408,8 @@
           "type": "string"
         },
         "required_capabilities": {
+          "default": [],
+          "description": "Deprecated and ignored.",
           "items": {
             "$ref": "#/definitions/Capability"
           },
@@ -3422,8 +3426,7 @@
         "name",
         "description",
         "inclusion_criteria",
-        "exclusion_criteria",
-        "required_capabilities"
+        "exclusion_criteria"
       ],
       "type": "object"
     },

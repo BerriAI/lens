@@ -26,7 +26,10 @@ const RETENTION: [(&str, &str); 12] = [
     ("lens_task_profiles", "toDateTime(StartTs)"),
     ("lens_task_clusters", "toDateTime(UpdatedAt)"),
     ("lens_task_profile_assignments", "toDateTime(StartTs)"),
-    ("lens_task_profile_assignments_monthly", "toDateTime(StartTs)"),
+    (
+        "lens_task_profile_assignments_monthly",
+        "toDateTime(StartTs)",
+    ),
 ];
 
 fn validate_schema(database: &str, retention_days: u32) -> Result<(), Error> {
