@@ -16,6 +16,7 @@ export type ProfileWrite =
   | { kind: "resume"; revision: number }
   | { kind: "activate"; revision: number; backfill: boolean }
   | { kind: "discard"; revision: number }
+  | { kind: "cancel"; jobId: string }
   | { kind: "discover"; input: DiscoveryInput; revision: number };
 
 export const settingsKey = (scope: string, agent: string) => ["lens", "profile-settings", scope, agent];
@@ -62,6 +63,17 @@ export function useProfileWrites(agent: string) {
         return storeTaxonomy(await api.activate(agent, write.revision, write.backfill));
       case "discard":
         return storeTaxonomy(await api.reset(agent, write.revision, "draft"));
+      case "cancel": {
+        const latest = await queryClient.fetchQuery({
+          queryKey: taxonomy,
+          queryFn: ({ signal }) => api.taxonomy(agent, signal),
+          staleTime: 0,
+        });
+        const running = latest.taxonomy;
+        if (running?.status !== "discovering") throw new Error("Discovery already finished, so nothing was cancelled.");
+        if (running.job?.job_id !== write.jobId) throw new Error("A newer discovery is running, so nothing was cancelled.");
+        return storeTaxonomy(await api.reset(agent, running.revision, "draft"));
+      }
       case "discover":
         await enable();
         return storeTaxonomy(await api.discover(write.input, write.revision));
@@ -169,7 +181,18 @@ function DraftCategories({
     staleTime: 30_000,
   });
   const discard = write && (
-    <Button size="xs" variant="outline" disabled={busy} onClick={() => onWrite({ kind: "discard", revision: draft.revision })}>
+    <Button
+      size="xs"
+      variant="outline"
+      disabled={busy}
+      onClick={() =>
+        onWrite(
+          draft.status === "discovering" && draft.job
+            ? { kind: "cancel", jobId: draft.job.job_id }
+            : { kind: "discard", revision: draft.revision },
+        )
+      }
+    >
       {draft.status === "discovering" ? "Cancel discovery" : "Discard draft"}
     </Button>
   );

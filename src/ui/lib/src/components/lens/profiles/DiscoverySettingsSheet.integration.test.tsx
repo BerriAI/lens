@@ -582,28 +582,59 @@ it("pauses by turning discovery off and resumes by turning it on and then resumi
   expect(await screen.findByText(/Classifying new runs since/)).toBeVisible();
 });
 
-it("uses the revision a discovery returned for the next write before the view is read again", async () => {
+it("cancels a discovery the worker claimed after it started at the claimed revision with one click", async () => {
   const user = userEvent.setup();
   const proxy = stubGateway();
-  serve(proxy);
+  const server = serve(proxy);
   const write = proxy.post.getMockImplementation();
-  proxy.post.mockImplementation(async (path, request) =>
-    path === "/lens/profiles/discovery" ? view({ taxonomy: discovering({ revision: 8 }) }) : write?.(path, request),
-  );
+  proxy.post.mockImplementation(async (path, request) => {
+    if (path !== "/lens/profiles/discovery") return write?.(path, request);
+    server.taxonomy = view({ taxonomy: discovering({ revision: 9 }) });
+    return view({ taxonomy: discovering({ revision: 8 }) });
+  });
   render();
   await screen.findByText("140 eligible runs. Discovery reads the most recent 140.");
-  const read = proxy.get.getMockImplementation();
-  proxy.get.mockImplementation(async (path, request) =>
-    path === "/lens/profiles/taxonomy" ? new Promise(() => {}) : read?.(path, request),
-  );
 
   await user.click(screen.getByRole("button", { name: "Discover categories" }));
   await user.click(screen.getByRole("button", { name: "Start discovery" }));
   await user.click(await screen.findByRole("button", { name: "Cancel discovery" }));
 
   await waitFor(() =>
-    expect(posts(proxy, "/lens/profiles/taxonomy/reset")).toEqual([{ agent: "assistant", revision: 8, target: "draft" }]),
+    expect(posts(proxy, "/lens/profiles/taxonomy/reset")).toEqual([{ agent: "assistant", revision: 9, target: "draft" }]),
   );
+  expect(await screen.findByRole("button", { name: "Discover categories" })).toBeVisible();
+});
+
+it("does not cancel a newer discovery that replaced the one shown", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const server = serve(proxy, { taxonomy: view({ taxonomy: discovering() }) });
+  render();
+  const cancel = await screen.findByRole("button", { name: "Cancel discovery" });
+  const replacement = discovering({ revision: 12 });
+  server.taxonomy = view({ taxonomy: { ...replacement, job: replacement.job && { ...replacement.job, job_id: "job-2" } } });
+
+  await user.click(cancel);
+
+  expect(await screen.findByText("A newer discovery is running, so nothing was cancelled.")).toBeVisible();
+  expect(posts(proxy, "/lens/profiles/taxonomy/reset")).toEqual([]);
+  expect(screen.getByRole("button", { name: "Cancel discovery" })).toBeVisible();
+});
+
+it("keeps the results of a discovery that finished before it could be cancelled", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const server = serve(proxy, { taxonomy: view({ taxonomy: discovering() }) });
+  render();
+  const cancel = await screen.findByRole("button", { name: "Cancel discovery" });
+  server.taxonomy = view({ taxonomy: taxonomy({ revision: 9 }) });
+
+  await user.click(cancel);
+
+  expect(await screen.findByText("Discovery already finished, so nothing was cancelled.")).toBeVisible();
+  expect(posts(proxy, "/lens/profiles/taxonomy/reset")).toEqual([]);
+  expect(await screen.findByRole("region", { name: "Discovered categories" })).toHaveTextContent("Debug failing tests");
+  expect(inference(proxy)).toEqual([]);
 });
 
 it("uses the settings revision a save returned for the next write before the settings are read again", async () => {
