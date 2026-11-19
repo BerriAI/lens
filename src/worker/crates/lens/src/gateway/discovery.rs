@@ -26,6 +26,7 @@ struct Model {
 pub(super) struct Discovered {
     pub analysis: Vec<lens_analysis::Deployment>,
     pub evaluation: Vec<lens_decisions::Deployment>,
+    pub embedding: Vec<String>,
     pub unavailable: usize,
 }
 
@@ -68,6 +69,7 @@ pub(super) async fn fetch(
     let mut discovered = Discovered {
         analysis: Vec::new(),
         evaluation: Vec::new(),
+        embedding: Vec::new(),
         unavailable: 0,
     };
     for model in catalog.data {
@@ -113,6 +115,7 @@ pub(super) async fn fetch(
                     discovered.unavailable += 1;
                 }
             }
+            Some("embedding") => discovered.embedding.push(model.model_group),
             _ => {}
         }
     }

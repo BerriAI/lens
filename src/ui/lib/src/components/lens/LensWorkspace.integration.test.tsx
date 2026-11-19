@@ -1018,11 +1018,12 @@ it("carries a selected profile id into the real investigation setup and matching
         coverage,
         totals: { runs: 10, requests: 10, matched_requests: 10, cost_observations: 10, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
         profiles: [coding],
+        points: [],
       });
     if (request.path === "/lens/profiles/matrix")
-      return Response.json({ window, coverage, profiles: [], models: [], cells: [], other_agent_requests: 0 });
+      return Response.json({ window, coverage, profiles: [], models: [], cells: [], compatibility: [], other_agent_requests: 0 });
     if (request.path === "/lens/profiles/detail")
-      return Response.json({ window, coverage, profile: coding, runs: [], models: [] });
+      return Response.json({ window, coverage, profile: coding, definition: null, runs: [], models: [] });
     if (request.path === "/lens/preview/sample") return Response.json({ eligible: 10, selected: 10, executions: [] });
     if (request.path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
     if (request.path === "/lens/agents") return Response.json(["assistant"]);

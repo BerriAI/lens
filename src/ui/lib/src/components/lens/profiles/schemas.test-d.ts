@@ -1,7 +1,15 @@
 import { describe, expectTypeOf, test } from "vitest";
 import type { z } from "zod";
 import type * as Wire from "../../../lib/http/worker";
-import type { detailSchema, matrixSchema, overviewSchema } from "./schemas";
+import type {
+  detailSchema,
+  matrixSchema,
+  overviewSchema,
+  previewSchema,
+  settingsViewSchema,
+  taxonomySchema,
+  taxonomyViewSchema,
+} from "./schemas";
 
 /** Every field name, at every depth, with optionality and value types erased. */
 type Shape<T> = T extends readonly (infer Item)[]
@@ -24,5 +32,19 @@ describe("profile response schemas follow the generated Rust contract", () => {
   test("detail", () => {
     expectTypeOf<z.infer<typeof detailSchema>>().toExtend<Wire.ProfileDetail>();
     expectTypeOf<Shape<z.infer<typeof detailSchema>>>().toEqualTypeOf<Shape<Wire.ProfileDetail>>();
+  });
+
+  test("taxonomy", () => {
+    expectTypeOf<z.infer<typeof taxonomySchema>>().toExtend<Wire.Taxonomy>();
+    expectTypeOf<Shape<z.infer<typeof taxonomySchema>>>().toEqualTypeOf<Shape<Wire.Taxonomy>>();
+    expectTypeOf<z.infer<typeof taxonomyViewSchema>>().toExtend<Wire.TaxonomyView>();
+    expectTypeOf<Shape<z.infer<typeof taxonomyViewSchema>>>().toEqualTypeOf<Shape<Wire.TaxonomyView>>();
+  });
+
+  test("discovery settings and preview", () => {
+    expectTypeOf<z.infer<typeof settingsViewSchema>>().toExtend<Wire.ProfileSettingsView>();
+    expectTypeOf<Shape<z.infer<typeof settingsViewSchema>>>().toEqualTypeOf<Shape<Wire.ProfileSettingsView>>();
+    expectTypeOf<z.infer<typeof previewSchema>>().toExtend<Wire.DiscoveryPreview>();
+    expectTypeOf<Shape<z.infer<typeof previewSchema>>>().toEqualTypeOf<Shape<Wire.DiscoveryPreview>>();
   });
 });

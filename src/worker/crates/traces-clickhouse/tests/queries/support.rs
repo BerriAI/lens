@@ -32,6 +32,8 @@ pub async fn migrated_database(
         "lens_trace_summaries",
         "lens_task_profiles",
         "lens_task_clusters",
+        "lens_task_profile_assignments",
+        "lens_task_profile_assignments_monthly",
     ] {
         database
             .client

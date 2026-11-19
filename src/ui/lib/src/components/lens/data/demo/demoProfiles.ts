@@ -85,6 +85,7 @@ function overview(runs: DemoRun[], window: TimeWindow, agent: string): ProfilesO
       shared_requests: 0,
     },
     profiles: summaries(runs),
+    points: [],
   };
 }
 
@@ -129,6 +130,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           profile_id: profile.profile_id,
           name: profile.name,
           source: profile.source,
+          required_capabilities: null,
         })),
         models: columns.map((column) => {
           const model = column.replace(/^(group|unmatched):/, "");
@@ -143,6 +145,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           };
         }),
         cells: matrixCells,
+        compatibility: [],
         other_agent_requests: 0,
       };
     },
@@ -155,6 +158,7 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
         window: { agent, start_ms: window.startMs, end_ms: window.endMs },
         coverage: { runs_listed: runs.length, runs_resolved: runs.length, truncated: false },
         profile,
+        definition: null,
         runs: own.map((run) => ({
           trace_id: run.traceId,
           trace_ref: "",

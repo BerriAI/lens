@@ -114,6 +114,9 @@ fn query(start_ms: i64) -> RunQuery {
         agent: AGENT.into(),
         start_ms: start_ms - HOUR_MS,
         end_ms: start_ms + 10 * HOUR_MS,
+        taxonomy_id: String::new(),
+        taxonomy_version: 0,
+        windows: Vec::new(),
         limit: 10,
     }
 }

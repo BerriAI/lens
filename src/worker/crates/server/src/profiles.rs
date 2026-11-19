@@ -8,18 +8,22 @@ use axum::{
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
-    ModelCapabilities, ModelColumn, ProfileDetail, ProfileRef, ProfileSource, ProfileSummary,
-    ProfileWindow, ProfilesMatrix, ProfilesOverview,
+    ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
+    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
+    Taxonomy, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 pub use crate::error::{ProfileHttpError, ProfileStoreError};
 use crate::{auth, routing::PublicRoutes};
 
 pub mod aggregate;
+mod layout;
+pub mod taxonomy;
 
-use aggregate::{Column, Run, RunCalls, View, source};
+use aggregate::{Column, Run, RunCalls, View, display_name, source};
 
 pub const MAX_RUNS: u32 = 5_000;
 pub const MAX_SPANS: usize = 50_000;
@@ -31,6 +35,9 @@ pub struct RunQuery {
     pub agent: String,
     pub start_ms: i64,
     pub end_ms: i64,
+    pub taxonomy_id: String,
+    pub taxonomy_version: u32,
+    pub windows: Vec<ClassificationWindow>,
     pub limit: u32,
 }
 
@@ -57,22 +64,41 @@ pub trait ProfileStore: Send + Sync {
     fn configured_models(&self) -> impl Future<Output = Vec<ConfiguredModel>> + Send;
 }
 
+/// Enhanced taxonomies are built from every team's runs, so only callers who can already read
+/// every team see them; scoped callers keep the recorded and local profiles.
+pub fn taxonomy_id(scope: &ReadAccessParams, agent: &str) -> Option<String> {
+    scope.all_teams.then(|| {
+        format!(
+            "{:x}",
+            Sha256::digest(format!("global\0{agent}").as_bytes())
+        )
+    })
+}
+
 struct App<R, S> {
     authentication: Arc<Authentication<R>>,
     store: S,
+    defaults: DiscoveryModelChoice,
 }
 
-pub fn router<R: SessionRepository + 'static, S: ProfileStore + 'static>(
+pub fn router<
+    R: SessionRepository + 'static,
+    S: ProfileStore + taxonomy::TaxonomyStore + taxonomy::DiscoveryCatalog + 'static,
+>(
     authentication: Arc<Authentication<R>>,
     store: S,
+    defaults: DiscoveryModelChoice,
 ) -> Router {
     Router::new()
         .public_route("/lens/profiles/overview", get(overview::<R, S>))
         .public_route("/lens/profiles/matrix", get(matrix::<R, S>))
         .public_route("/lens/profiles/detail", get(detail::<R, S>))
+        .public_route("/lens/profiles/taxonomy", get(taxonomy_view::<R, S>))
+        .merge(taxonomy::router::<R, S>())
         .with_state(Arc::new(App {
             authentication,
             store,
+            defaults,
         }))
 }
 
@@ -128,6 +154,7 @@ struct Loaded {
     runs: Vec<Run>,
     calls: RunCalls,
     truncated: bool,
+    taxonomy: Option<Taxonomy>,
 }
 
 impl Loaded {
@@ -160,10 +187,12 @@ impl Loaded {
         if matches!(source(profile_id), ProfileSource::Uncertain) {
             return UNCERTAIN_NAME.into();
         }
-        self.runs
+        let category = self
+            .runs
             .iter()
             .find(|run| run.profile_id == profile_id)
-            .map_or_else(String::new, |run| run.category.clone())
+            .map_or("", |run| run.category.as_str());
+        display_name(profile_id, category, self.taxonomy.as_ref())
     }
 
     fn summaries(&self, agent: &str) -> Vec<ProfileSummary> {
@@ -195,11 +224,16 @@ async fn inventory<S: ProfileStore>(store: &S, scope: &ReadAccessParams) -> Vec<
     }
 }
 
-async fn load<S: ProfileStore>(
+async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
     store: &S,
     scope: &ReadAccessParams,
     query: &WindowQuery,
 ) -> Result<Loaded, ProfileHttpError> {
+    let taxonomy = match taxonomy_id(scope, &query.agent) {
+        Some(id) => store.load(&id).await?.0.active().cloned(),
+        None => None,
+    };
+    let frozen = taxonomy.as_ref();
     let mut runs = store
         .runs(
             scope.clone(),
@@ -207,6 +241,10 @@ async fn load<S: ProfileStore>(
                 agent: query.agent.clone(),
                 start_ms: query.start_ms,
                 end_ms: query.end_ms,
+                taxonomy_id: frozen
+                    .map_or_else(String::new, |taxonomy| taxonomy.taxonomy_id.clone()),
+                taxonomy_version: frozen.map_or(0, |taxonomy| taxonomy.version),
+                windows: frozen.map_or_else(Vec::new, |taxonomy| taxonomy.windows.clone()),
                 limit: MAX_RUNS + 1,
             },
         )
@@ -218,10 +256,11 @@ async fn load<S: ProfileStore>(
         runs,
         calls,
         truncated,
+        taxonomy,
     })
 }
 
-async fn overview<R: SessionRepository, S: ProfileStore>(
+async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
     State(app): State<Arc<App<R, S>>>,
     headers: HeaderMap,
     method: Method,
@@ -236,11 +275,12 @@ async fn overview<R: SessionRepository, S: ProfileStore>(
         window: query.window(),
         coverage: view.coverage(),
         totals: view.totals(),
+        points: layout::points(&loaded.runs, loaded.taxonomy.as_ref()),
         profiles: loaded.summaries(&query.agent),
     }))
 }
 
-async fn matrix<R: SessionRepository, S: ProfileStore>(
+async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
     State(app): State<Arc<App<R, S>>>,
     headers: HeaderMap,
     method: Method,
@@ -259,6 +299,7 @@ async fn matrix<R: SessionRepository, S: ProfileStore>(
         .map(|(profile_id, _)| ProfileRef {
             name: loaded.name(&profile_id),
             source: source(&profile_id),
+            required_capabilities: None,
             profile_id,
         })
         .collect();
@@ -270,10 +311,11 @@ async fn matrix<R: SessionRepository, S: ProfileStore>(
         cells: cells.into_iter().map(|(_, cell)| cell).collect(),
         profiles,
         models,
+        compatibility: Vec::new(),
     }))
 }
 
-async fn detail<R: SessionRepository, S: ProfileStore>(
+async fn detail<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
     State(app): State<Arc<App<R, S>>>,
     headers: HeaderMap,
     method: Method,
@@ -294,6 +336,18 @@ async fn detail<R: SessionRepository, S: ProfileStore>(
         .find(|profile| profile.profile_id == requested || profile.name == requested)
         .ok_or(ProfileHttpError::NotFound)?;
     let view = loaded.view(&query.agent);
+    let definition = profile
+        .profile_id
+        .strip_prefix("task:")
+        .and_then(|task_id| {
+            loaded
+                .taxonomy
+                .as_ref()?
+                .tasks
+                .iter()
+                .find(|task| task.task_id == task_id)
+                .cloned()
+        });
     Ok(Json(ProfileDetail {
         window: query.window(),
         coverage: view.coverage(),
@@ -303,8 +357,35 @@ async fn detail<R: SessionRepository, S: ProfileStore>(
             .into_iter()
             .map(|(_, cell)| cell)
             .collect(),
+        definition,
         profile,
     }))
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AgentQuery {
+    agent: String,
+}
+
+async fn taxonomy_view<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>(
+    State(app): State<Arc<App<R, S>>>,
+    headers: HeaderMap,
+    method: Method,
+    Query(query): Query<AgentQuery>,
+) -> Result<Json<TaxonomyView>, ProfileHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let scope = scope(&identity)?;
+    let Some(id) = taxonomy_id(&scope, &query.agent) else {
+        return Ok(Json(TaxonomyView {
+            taxonomy: None,
+            active: None,
+            discovery_available: false,
+            can_write: false,
+        }));
+    };
+    let (state, _) = app.store.load(&id).await?;
+    Ok(Json(taxonomy::taxonomy_view(&state, &identity)))
 }
 
 fn columns<'a>(
@@ -434,6 +515,7 @@ mod tests {
             ],
             calls: RunCalls::new(),
             truncated: false,
+            taxonomy: None,
         };
 
         let names: BTreeMap<String, String> = loaded
@@ -451,6 +533,22 @@ mod tests {
                 ("unclassified".to_owned(), "Unclassified".to_owned()),
             ])
         );
+    }
+
+    #[rstest]
+    #[case::admin(true, true)]
+    #[case::scoped(false, false)]
+    fn only_every_team_scopes_get_an_enhanced_taxonomy(
+        #[case] all_teams: bool,
+        #[case] visible: bool,
+    ) {
+        let scope = ReadAccessParams {
+            all_teams,
+            user_id: "user".into(),
+            team_ids: vec!["team".into()],
+        };
+
+        assert_eq!(taxonomy_id(&scope, "agent").is_some(), visible);
     }
 
     struct Inventory;

@@ -28,6 +28,7 @@ pub struct Application {
     pub credentials: Arc<LocalCredentials<IngestionKeys>>,
     pub local_worker: Option<crate::local::LocalControl>,
     pub signals_worker: Option<crate::signals::SignalsWorker>,
+    pub profiles_worker: Option<crate::task_profiles::ProfilesWorker>,
     pub evals: EvalRuntime,
     pub optimizations: crate::optimizations::Optimizations,
     authentication: Arc<Authentication<Sessions>>,
@@ -145,7 +146,12 @@ impl Application {
         Ok(self)
     }
 
-    pub fn with_profiles(mut self, state: Arc<State>) -> Self {
+    pub fn with_profiles(
+        mut self,
+        state: Arc<State>,
+        defaults: lens_contract::profiles::DiscoveryModelChoice,
+    ) -> Self {
+        let store = self.authentication.sessions.0.clone();
         let models = self
             .local_worker
             .as_ref()
@@ -155,8 +161,11 @@ impl Application {
             });
         self.router = self.router.merge(lens_server::profiles::router(
             self.authentication.clone(),
-            crate::task_profiles::ProfilesApi::new(state, models),
+            crate::task_profiles::ProfilesApi::new(state.clone(), store.clone(), models.clone()),
+            defaults,
         ));
+        self.profiles_worker =
+            models.map(|models| crate::task_profiles::ProfilesWorker::new(state, store, models));
         self
     }
 
@@ -275,6 +284,7 @@ pub async fn initialize(
         credentials,
         local_worker: None,
         signals_worker: None,
+        profiles_worker: None,
         evals: eval_runtime,
         optimizations,
         authentication,

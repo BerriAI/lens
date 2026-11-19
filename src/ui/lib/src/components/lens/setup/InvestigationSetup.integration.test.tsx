@@ -101,6 +101,7 @@ describe("Investigation setup", () => {
             coverage: { runs_listed: 3, runs_resolved: 3, truncated: false },
             totals: { runs: 3, requests: 3, matched_requests: 3, cost_observations: 3, spend_usd: 1, other_agent_requests: 0, shared_requests: 0 },
             profiles: [profile],
+            points: [],
           }
         : gatewayResponse(path, { agents: ["assistant"] }),
     );

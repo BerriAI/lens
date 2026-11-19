@@ -34,7 +34,7 @@ SELECT *, selection_key FROM (
       )
       AND ({profile:String}='' OR (TeamId,ApiKeyHash,TraceId) IN (
           SELECT TeamId,ApiKeyHash,TraceId FROM trace_profiles
-          WHERE if(match({profile:String}, '^(recorded|cluster):') OR {profile:String} IN ('unclassified', 'uncertain'),
+          WHERE if(match({profile:String}, '^(recorded|cluster|task):') OR {profile:String} IN ('unclassified', 'uncertain', 'pending', 'unknown'),
                    profile_id, category) = {profile:String}
       ))
     GROUP BY TeamId,ApiKeyHash,TraceId

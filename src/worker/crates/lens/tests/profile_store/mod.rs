@@ -4,7 +4,7 @@ use std::{
 };
 
 use litellm_lens::{State, Storage, config::http_client, task_profiles::ProfilesApi};
-use litellm_storage_clickhouse::{Connection, execute_statement};
+use litellm_storage_clickhouse::{Connection, execute_statement, state::ClickHouseState};
 use litellm_traces_clickhouse::Config;
 use testcontainers_modules::{
     clickhouse::ClickHouse,
@@ -13,15 +13,22 @@ use testcontainers_modules::{
 
 const SECRET: &str = "isolated-test-internal-secret-32-bytes";
 
-/// One test-owned database on the shared ClickHouse that CI exports as `CLICKHOUSE_STATE_TEST_URL`,
-/// or on a private container when it is unset. Dropped with the test.
+/// One test-owned database on the shared Keeper-backed ClickHouse that CI exports as
+/// `CLICKHOUSE_STATE_TEST_URL`, or on a private container when it is unset. Dropped with the test.
 pub struct Isolated {
     _container: Option<ContainerAsync<ClickHouse>>,
     url: String,
     database: String,
+    #[allow(dead_code)]
+    // dead_code: profile_calls.rs and profile_tasks.rs ingest through these, profile_state.rs does not
     pub client: litellm_http::Client,
+    #[allow(dead_code)]
+    // dead_code: profile_calls.rs and profile_tasks.rs ingest through these, profile_state.rs does not
     pub config: Config,
     pub profiles: ProfilesApi,
+    #[allow(dead_code)]
+    // dead_code: profile_tasks.rs reads sources through this, profile_state.rs and profile_calls.rs do not
+    pub state: Arc<State>,
 }
 
 impl Drop for Isolated {
@@ -61,6 +68,10 @@ pub async fn isolated() -> Isolated {
             let container = ClickHouse::default()
                 .with_tag("26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e")
                 .with_env_var("CLICKHOUSE_SKIP_USER_SETUP", "1")
+                .with_copy_to(
+                    "/etc/clickhouse-server/config.d/lens-keeper.xml",
+                    include_bytes!("../../../storage-clickhouse/tests/state/fixtures/keeper.xml").to_vec(),
+                )
                 .start()
                 .await
                 .expect("ClickHouse");
@@ -82,6 +93,14 @@ pub async fn isolated() -> Isolated {
     )
     .await
     .expect("database");
+    let store = ClickHouseState::new(
+        client.clone(),
+        Connection::reader(&url, &database).expect("connection"),
+    );
+    store
+        .initialize(&format!("/lens-profile-tests/{database}"))
+        .await
+        .expect("state tables");
     let config = Config::new(database.clone(), &url, 14).expect("config");
     let storage = Storage::new(config.clone(), client.clone(), SECRET.into());
     storage.ensure_schema().await.expect("schema");
@@ -93,6 +112,7 @@ pub async fn isolated() -> Isolated {
         database,
         client,
         config,
-        profiles: ProfilesApi::new(state, None),
+        profiles: ProfilesApi::new(state.clone(), store, None),
+        state,
     }
 }
