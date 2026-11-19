@@ -19,6 +19,17 @@ const saved = { revision: 0, enabled: false, connected: false, signal_ids: [], l
 describe("signal alert setup", () => {
   beforeEach(() => testQueryClient.clear());
 
+  it.each([
+    { canInvestigate: false, readOnly: false },
+    { canInvestigate: true, readOnly: true },
+  ])("keeps alert setup unavailable for a session with %j", async (onboarding) => {
+    const gateway = stubGateway();
+    renderWithLens(<SignalAlertSettings signals={signals} />, { onboarding });
+    expect(await screen.findByText("An administrator can set up signal alerts")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Set up alerting" })).not.toBeInTheDocument();
+    expect(gateway.get).not.toHaveBeenCalled();
+  });
+
   it("tests a webhook then saves only the selected signal and clears the secret", async () => {
     const gateway = stubGateway();
     gateway.get.mockReturnValue(saved);

@@ -17,7 +17,7 @@ use lens_contract::{
 use lens_signals::SignalRepository;
 use litellm_storage_clickhouse::{
     sessions::Sessions,
-    signal_alerts::{self as storage, DeliveryStatus, EVENTS, Event, SETTINGS, Settings},
+    signal_alerts::{self as storage, DeliveryStatus, Event, SETTINGS, Settings},
     signals::Signals,
     state::{Change, ClickHouseState},
 };

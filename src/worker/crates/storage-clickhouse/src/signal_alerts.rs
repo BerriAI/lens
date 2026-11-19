@@ -58,6 +58,43 @@ pub async fn settings(store: &ClickHouseState) -> Result<Settings, Error> {
     }
 }
 
+pub async fn due(
+    store: &ClickHouseState,
+    now: DateTime<Utc>,
+    limit: u32,
+) -> Result<Vec<String>, Error> {
+    let body = store
+        .command(
+            "SELECT b.key AS key FROM lens_state_blobs AS b \
+             INNER JOIN lens_state_heads AS h USING (key, revision, digest) \
+             WHERE startsWith(b.key, {prefix:String}) \
+             AND JSONExtractString(b.data, 'status') IN ('pending', 'sending') \
+             AND parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'retry_at'), 6, 'UTC') \
+                 <= parseDateTime64BestEffort({now:String}, 6, 'UTC') \
+             GROUP BY b.key \
+             ORDER BY min(parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'retry_at'), 6, 'UTC')), b.key \
+             LIMIT {limit:UInt32} FORMAT JSONEachRow",
+            &[
+                ("prefix", EVENTS.to_owned()),
+                ("now", now.to_rfc3339()),
+                ("limit", limit.to_string()),
+            ],
+            String::new(),
+        )
+        .await?;
+    #[derive(Deserialize)]
+    struct Key {
+        key: String,
+    }
+    body.lines()
+        .map(|line| {
+            serde_json::from_str::<Key>(line)
+                .map(|row| row.key)
+                .map_err(|_| Error::InvalidResponse)
+        })
+        .collect()
+}
+
 fn eligible(settings: &Settings, execution: &Execution, attempt: &SignalAttempt) -> bool {
     settings.enabled
         && attempt.status == SignalAttemptStatus::Classified

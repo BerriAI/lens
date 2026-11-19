@@ -13,7 +13,8 @@ import { SettingsCard } from "../SettingsSection";
 export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
   const api = useLensApi();
   const [expanded, setExpanded] = useState(false);
-  const readOnly = useOptionalOnboarding()?.readOnly ?? false;
+  const onboarding = useOptionalOnboarding();
+  const readOnly = !onboarding?.canInvestigate || onboarding.readOnly;
   const query = useQuery({
     queryKey: ["signal-alerts", api.scope],
     queryFn: () => api.signalAlerts(),

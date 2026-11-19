@@ -3,15 +3,12 @@ use super::*;
 impl SignalAlerts {
     pub async fn serve(self: Arc<Self>) {
         let client = &self.client;
-        let mut cursor = String::new();
         let mut interval = tokio::time::interval(Duration::from_secs(15));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             interval.tick().await;
             if self
-                .tick(&mut cursor, &|url, body| async move {
-                    send(client, &url, body).await
-                })
+                .tick(&|url, body| async move { send(client, &url, body).await })
                 .await
                 .is_err()
             {
@@ -20,7 +17,7 @@ impl SignalAlerts {
         }
     }
 
-    async fn tick<F, T>(&self, cursor: &mut String, deliver: &F) -> Result<(), Error>
+    async fn tick<F, T>(&self, deliver: &F) -> Result<(), Error>
     where
         F: Fn(Url, Value) -> T,
         T: std::future::Future<Output = Outcome>,
@@ -50,7 +47,7 @@ impl SignalAlerts {
             Err(litellm_storage_clickhouse::Error::StateConflict) => return Ok(()),
             Err(error) => return Err(error.into()),
         }
-        let result = self.deliver_page(cursor, deliver).await;
+        let result = self.deliver_page(deliver).await;
         if result.is_ok() {
             let lease = self.store.read(LEASE).await?;
             if lease.value == reserved_until {
@@ -65,16 +62,15 @@ impl SignalAlerts {
         result
     }
 
-    async fn deliver_page<F, T>(&self, cursor: &mut String, deliver: &F) -> Result<(), Error>
+    async fn deliver_page<F, T>(&self, deliver: &F) -> Result<(), Error>
     where
         F: Fn(Url, Value) -> T,
         T: std::future::Future<Output = Outcome>,
     {
-        let keys = self.store.keys(EVENTS, cursor, 100).await?;
+        let keys = storage::due(&self.store, Utc::now(), 100).await?;
         let mut attempted = 0;
         for key in &keys {
             let previous = self.store.read(key).await?;
-            *cursor = key.clone();
             if previous.value.is_null() {
                 continue;
             }
@@ -179,9 +175,6 @@ impl SignalAlerts {
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
-        if keys.len() < 100 {
-            cursor.clear();
-        }
         Ok(())
     }
 }
@@ -250,6 +243,7 @@ mod tests {
         signals::{SignalAttempt, SignalConfig},
         worker::Execution,
     };
+    use litellm_storage_clickhouse::{signal_alerts::EVENTS, state::Snapshot};
     use rstest::{fixture, rstest};
     use testcontainers_modules::{
         clickhouse::ClickHouse,
@@ -434,12 +428,7 @@ mod tests {
             let url = url.clone();
             async move { send(client, &url, body).await }
         };
-        let mut first = String::new();
-        let mut second = String::new();
-        let (a, b) = tokio::join!(
-            app.alerts.tick(&mut first, &deliver),
-            app.alerts.tick(&mut second, &deliver)
-        );
+        let (a, b) = tokio::join!(app.alerts.tick(&deliver), app.alerts.tick(&deliver));
         a.unwrap();
         b.unwrap();
         let event: Event =
@@ -457,7 +446,7 @@ mod tests {
             .update(LEASE, |_| json!(0), 1)
             .await
             .unwrap();
-        restarted.tick(&mut String::new(), &deliver).await.unwrap();
+        restarted.tick(&deliver).await.unwrap();
         let requests = server.received_requests().await.unwrap();
         assert_eq!(requests.len(), 1);
         let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
@@ -479,6 +468,78 @@ mod tests {
         );
     }
 
+    #[fixture]
+    async fn app_with_history(#[future(awt)] app: App) -> (App, String) {
+        let key = classify(&app).await;
+        let pending = app.alerts.store.read(&key).await.unwrap().value;
+        let keys: Vec<_> = (0..101)
+            .map(|index| format!("{EVENTS}!archive-{index:03}"))
+            .collect();
+        app.alerts
+            .store
+            .commit(
+                keys.iter()
+                    .map(|key| Change {
+                        previous: Snapshot::empty(key),
+                        value: pending.clone(),
+                    })
+                    .collect(),
+            )
+            .await
+            .unwrap();
+        let records = app
+            .alerts
+            .store
+            .read_many(&keys.iter().map(String::as_str).collect::<Vec<_>>())
+            .await
+            .unwrap();
+        app.alerts
+            .store
+            .commit(
+                records
+                    .into_iter()
+                    .map(|previous| {
+                        let mut event: Event =
+                            serde_json::from_value(previous.value.clone()).unwrap();
+                        event.status = DeliveryStatus::Delivered;
+                        Change {
+                            previous,
+                            value: serde_json::to_value(event).unwrap(),
+                        }
+                    })
+                    .collect(),
+            )
+            .await
+            .unwrap();
+        (app, key)
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn matching_alert_bypasses_completed_history(
+        #[future(awt)] app_with_history: (App, String),
+    ) {
+        let (app, key) = app_with_history;
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        app.alerts
+            .tick(&|_: Url, _: Value| {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                std::future::ready(Outcome::Delivered)
+            })
+            .await
+            .unwrap();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
+        let event: Event =
+            serde_json::from_value(app.alerts.store.read(&key).await.unwrap().value).unwrap();
+        assert_eq!(event.status, DeliveryStatus::Delivered);
+        assert!(
+            storage::due(&app.alerts.store, Utc::now(), 100)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
     #[rstest]
     #[case::rate_limit(Outcome::Retry(300), DeliveryStatus::Pending, "retrying")]
     #[case::ambiguous(Outcome::Unconfirmed, DeliveryStatus::Unconfirmed, "unconfirmed")]
@@ -496,8 +557,8 @@ mod tests {
             attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             std::future::ready(outcome)
         };
-        app.alerts.tick(&mut String::new(), &deliver).await.unwrap();
-        app.alerts.tick(&mut String::new(), &deliver).await.unwrap();
+        app.alerts.tick(&deliver).await.unwrap();
+        app.alerts.tick(&deliver).await.unwrap();
         let event: Event =
             serde_json::from_value(app.alerts.store.read(&key).await.unwrap().value).unwrap();
         assert_eq!(event.status, expected);
@@ -547,10 +608,7 @@ mod tests {
             attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             std::future::ready(Outcome::Failed)
         };
-        app.alerts
-            .tick(&mut String::new(), &never_send)
-            .await
-            .unwrap();
+        app.alerts.tick(&never_send).await.unwrap();
         assert_eq!(
             request(
                 &app.alerts,
@@ -562,10 +620,7 @@ mod tests {
             .0,
             200
         );
-        app.alerts
-            .tick(&mut String::new(), &never_send)
-            .await
-            .unwrap();
+        app.alerts.tick(&never_send).await.unwrap();
         let event: Event =
             serde_json::from_value(app.alerts.store.read(&key).await.unwrap().value).unwrap();
         assert_eq!(event.status, DeliveryStatus::Cancelled);
