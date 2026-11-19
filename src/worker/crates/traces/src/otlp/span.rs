@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     Error, Shared,
-    normalize::{CLAUDE_CODE_EVENTS_SCOPE, CLAUDE_CODE_SCOPE, SpanContext, normalize},
+    normalize::{SpanContext, normalize},
 };
 
 pub(super) fn flatten(
@@ -396,14 +396,15 @@ fn decoded_span(
     let parent_span_id = hex_bytes(&span.parent_span_id);
     let mut span_attributes = attributes(span.attributes, budget)?;
     let original_trace_id = hex_bytes(&span.trace_id);
-    let trace_id = if matches!(
-        scope_name.as_str(),
-        CLAUDE_CODE_SCOPE | CLAUDE_CODE_EVENTS_SCOPE
-    ) && resource_attributes
+    let session_attribute = resource_attributes
+        .get("lens.session.attribute")
+        .filter(|value| !value.is_empty())
+        .map_or("session.id", String::as_str);
+    let trace_id = if resource_attributes
         .get("lens.session.capture")
         .is_some_and(|value| value == "true")
         && let Some(session) = span_attributes
-            .get("session.id")
+            .get(session_attribute)
             .filter(|value| !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));

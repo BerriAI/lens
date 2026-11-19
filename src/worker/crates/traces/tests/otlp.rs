@@ -2431,6 +2431,141 @@ fn native_tool_log_status_accepts_boolean_and_string_values(
 }
 
 #[rstest]
+#[case::turns("session-one", "03030303030303030303030303030303", true)]
+#[case::sessions("session-two", "bdcdc41efc11004216d8d3322d5325a1", false)]
+fn opencode_session_capture_separates_sessions_and_joins_turns(
+    #[case] session: &str,
+    #[case] original_trace: &str,
+    #[case] same_session: bool,
+) {
+    let body = include_bytes!("fixtures/opencode_session.json");
+    let first = decode_otlp(body, Some("application/json")).unwrap();
+    let mut next: serde_json::Value = serde_json::from_slice(body).unwrap();
+    let spans = next["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array_mut()
+        .unwrap();
+    spans[1]["traceId"] = original_trace.into();
+    spans[1]["attributes"][0]["value"]["stringValue"] = session.into();
+    spans[2]["traceId"] = original_trace.into();
+    spans[2]["attributes"][0]["value"]["stringValue"] = session.into();
+    let second = decode_otlp(
+        &serde_json::to_vec(&next).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(first[1].trace_id == second[1].trace_id, same_session);
+    assert_eq!(first[1].trace_id, first[2].trace_id);
+    assert_eq!(second[1].trace_id, second[2].trace_id);
+    assert_eq!(first[0].trace_id, "bdcdc41efc11004216d8d3322d5325a1");
+    assert!(first[0].attributes.is_empty());
+    assert_ne!(first[0].trace_id, first[1].trace_id);
+    assert_eq!(
+        second[1].attributes["lens.original_trace_id"],
+        original_trace
+    );
+    assert_eq!(second[1].attributes["gen_ai.agent.id"], session);
+    assert_eq!(first[1].parent_span_id, first[0].span_id);
+    assert_eq!(first[2].parent_span_id, first[1].span_id);
+    assert_eq!(
+        serde_json::to_value(&second[1].normalized).unwrap(),
+        serde_json::to_value(&first[1].normalized).unwrap()
+    );
+}
+
+#[rstest]
+#[case::default_key(None, None)]
+#[case::empty_key(Some(""), None)]
+#[case::explicit_key(Some("session.id"), Some("agent-one"))]
+#[case::custom_key(Some("harness.conversation"), None)]
+fn configurable_session_capture_uses_selected_attribute(
+    #[case] key: Option<&str>,
+    #[case] actor: Option<&str>,
+) {
+    let mut body: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/opencode_session.json")).unwrap();
+    if let Some(key) = key {
+        body["resourceSpans"][0]["resource"]["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"key":"lens.session.attribute","value":{"stringValue":key}}));
+    }
+    let attributes = body["resourceSpans"][0]["scopeSpans"][0]["spans"][1]["attributes"]
+        .as_array_mut()
+        .unwrap();
+    attributes.push(
+        serde_json::json!({"key":"harness.conversation","value":{"stringValue":"session-one"}}),
+    );
+    if key == Some("harness.conversation") {
+        attributes[0]["value"]["stringValue"] = "ignored".into();
+    }
+    if let Some(actor) = actor {
+        attributes.push(serde_json::json!({"key":"agent_id","value":{"stringValue":actor}}));
+    }
+    let spans = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(spans[1].trace_id, "5fddf060372c8501dca4f331b9da882b");
+    assert_eq!(
+        spans[1].attributes["gen_ai.agent.id"],
+        actor.unwrap_or("session-one")
+    );
+    assert_eq!(
+        spans[1].attributes["lens.original_trace_id"],
+        "bdcdc41efc11004216d8d3322d5325a1"
+    );
+}
+
+#[rstest]
+#[case::missing_flag(None, "session.id", Some("session-one"))]
+#[case::false_flag(Some("false"), "session.id", Some("session-one"))]
+#[case::missing_default(Some("true"), "session.id", None)]
+#[case::empty_default(Some("true"), "session.id", Some(""))]
+#[case::missing_custom(Some("true"), "harness.conversation", None)]
+#[case::empty_custom(Some("true"), "harness.conversation", Some(""))]
+fn configurable_session_capture_leaves_ineligible_spans_unchanged(
+    #[case] capture: Option<&str>,
+    #[case] key: &str,
+    #[case] session: Option<&str>,
+) {
+    let mut body: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/opencode_session.json")).unwrap();
+    body["resourceSpans"][0]["resource"]["attributes"] =
+        serde_json::json!([{"key":"lens.session.attribute","value":{"stringValue":key}}]);
+    if let Some(capture) = capture {
+        body["resourceSpans"][0]["resource"]["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .push(
+                serde_json::json!({"key":"lens.session.capture","value":{"stringValue":capture}}),
+            );
+    }
+    let attributes = &mut body["resourceSpans"][0]["scopeSpans"][0]["spans"][1]["attributes"];
+    *attributes = serde_json::json!([]);
+    if key != "session.id" {
+        attributes
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"key":"session.id","value":{"stringValue":"must-ignore"}}));
+    }
+    if let Some(session) = session {
+        attributes
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"key":key,"value":{"stringValue":session}}));
+    }
+    let spans = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(spans[1].trace_id, "bdcdc41efc11004216d8d3322d5325a1");
+    assert!(!spans[1].attributes.contains_key("lens.original_trace_id"));
+    assert!(!spans[1].attributes.contains_key("gen_ai.agent.id"));
+}
+
+#[rstest]
 fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_span_parents() {
     use opentelemetry_proto::tonic::{
         common::v1::{AnyValue, KeyValue, any_value::Value},
