@@ -292,6 +292,20 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
   },
   { id: "input", header: "Input", cell: ({ row }) => <InputCell run={row.original} /> },
   {
+    id: "cost",
+    size: 80,
+    header: "Cost",
+    cell: ({ row }) => <CostCell run={row.original} />,
+    meta: { numeric: true, className: NUM },
+  },
+  {
+    id: "duration",
+    size: 86,
+    header: "Duration",
+    cell: ({ row }) => fmtMs(row.original.duration_ms),
+    meta: { numeric: true, className: NUM },
+  },
+  {
     id: "signals",
     size: 300,
     header: () => <SignalsHeader />,
@@ -311,20 +325,6 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     header: "Steps",
     cell: ({ row }) => row.original.span_count.toLocaleString(),
     meta: { numeric: true, className: MUTED_NUM },
-  },
-  {
-    id: "duration",
-    size: 86,
-    header: "Duration",
-    cell: ({ row }) => fmtMs(row.original.duration_ms),
-    meta: { numeric: true, className: NUM },
-  },
-  {
-    id: "cost",
-    size: 80,
-    header: "Cost",
-    cell: ({ row }) => <CostCell run={row.original} />,
-    meta: { numeric: true, className: NUM },
   },
   {
     id: "findings",
