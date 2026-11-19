@@ -61,6 +61,28 @@ LENS_IMAGE=lens:local-test npm run dev
 
 The source binary can also run on macOS, but its confined Python calculation tool requires a supported native Linux kernel. Use the container for end-to-end investigation checks
 
+### Container build parallelism
+
+The first source build compiles the Rust dependencies and can take many minutes. The container chooses Cargo parallelism from the Docker VM's CPU count and memory limit. It uses at most two jobs on VMs with 8 GiB or less, matching the previous cap, and allows roughly one job per 4 GiB on larger VMs, up to the available CPU count. This is a conservative concurrency policy, not a hard memory limit. The server and migration command build together so Cargo can share dependencies with the same feature set
+
+On a Docker VM with more memory, override the job count explicitly when building, then use the resulting image:
+
+```sh
+docker build --build-arg LENS_BUILD_JOBS=4 -f deploy/runtime/Dockerfile -t lens:local .
+LENS_IMAGE=lens:local ./deploy/lens/start
+```
+
+Choose the job count for the CPUs and memory assigned to Docker, not the host's advertised core count. More jobs can reduce compilation time but increase peak memory use. Keep the default on an 8 GB laptop unless you have measured spare Docker VM memory, or set `LENS_BUILD_JOBS=1` to reduce concurrency further. Normal rebuilds use Docker's layer cache; `--no-cache` forces a fresh compile
+
+Sequential cold builder-stage runs on an 8-CPU, 31-GiB Linux VM took 25m30s before this change and 15m08s with automatic selection of seven jobs, including image export. Combining the production binaries while keeping two jobs took 24m11s. These are single-run observations, not Apple Silicon measurements. Small-memory Docker VMs retain the two-job cap and should not expect the same speedup
+
+To check automatic selection and overrides without recompiling Rust, build the builder stage once, then run the resource-limit tests against it:
+
+```sh
+docker build --target builder -f deploy/runtime/Dockerfile -t lens:builder .
+node --test deploy/runtime/build-jobs.test.mjs
+```
+
 ## UI and contract checks
 
 ```sh

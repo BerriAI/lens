@@ -34,10 +34,29 @@ COPY src/worker/ src/worker/
 WORKDIR /src/src/worker
 ENV CARGO_BUILD_JOBS=2 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols \
     CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
-RUN cargo build --locked --release -p litellm-lens
-RUN TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+ARG LENS_BUILD_JOBS=auto
+RUN jobs="$LENS_BUILD_JOBS"; \
+    if [ "$jobs" = auto ]; then \
+        memory_kib="$(awk '/MemTotal:/ {print $2}' /proc/meminfo)"; \
+        for limit in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do \
+            if [ -r "$limit" ]; then \
+                bytes="$(cat "$limit")"; \
+                case "$bytes" in *[!0-9]*) ;; \
+                    *) [ "$((bytes / 1024))" -ge "$memory_kib" ] || memory_kib="$((bytes / 1024))" ;; \
+                esac; \
+            fi; \
+        done; \
+        jobs="$((memory_kib / 4194304))"; \
+        [ "$jobs" -ge 2 ] || jobs=2; \
+        cores="$(nproc)"; \
+        [ "$jobs" -le "$cores" ] || jobs="$cores"; \
+    fi; \
+    case "$jobs" in ''|0|*[!0-9]*) echo 'LENS_BUILD_JOBS must be auto or a positive integer' >&2; exit 1 ;; esac; \
+    export CARGO_BUILD_JOBS="$jobs"; \
+    printf 'Building Rust with %s Cargo jobs\n' "$jobs"; \
+    cargo build --locked --release -p litellm-lens -p lens-migrate && \
+    TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
     LENS_PROFILE_MODEL_CACHE=/opt/lens-profile-model cargo run --locked --release -p lens-profiles --example resource_probe -- 1
-RUN cargo build --locked --release -p lens-migrate
 RUN cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror crates/lens/sandbox/python_policy.c -lseccomp -o /tmp/python-policy && \
     /tmp/python-policy /tmp/python.seccomp
 
