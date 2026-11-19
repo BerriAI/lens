@@ -628,3 +628,58 @@ it("uses the settings revision a save returned for the next write before the set
     { agent: "assistant", revision: 4, enabled: false, models: { ...models, discovery: "claude-sonnet" } },
   ]);
 });
+
+it("reloads settings after a rejected save so retrying uses the newer revision and keeps the edited models", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const server = serve(proxy);
+  proxy.put.mockImplementationOnce(async () => {
+    server.settings = configured({ revision: 5 });
+    throw new Error("Task discovery changed since it was loaded; reload and try again");
+  });
+  render();
+  await screen.findByText("140 eligible runs. Discovery reads the most recent 140.");
+
+  await choose(user, "Discovery model", "claude-sonnet");
+  await user.click(screen.getByRole("button", { name: "Save models" }));
+  expect(await screen.findByText("Task discovery changed since it was loaded; reload and try again")).toBeVisible();
+  await waitFor(() =>
+    expect(testQueryClient.getQueryData<ProfileSettingsView>(["lens", "profile-settings", "test", "assistant"])?.settings.revision).toBe(5),
+  );
+  await user.click(screen.getByRole("button", { name: "Save models" }));
+
+  await waitFor(() => expect(proxy.put).toHaveBeenCalledTimes(2));
+  expect(proxy.put.mock.calls.map(([, request]) => request.body)).toEqual([
+    { agent: "assistant", revision: 3, enabled: true, models: { ...models, discovery: "claude-sonnet" } },
+    { agent: "assistant", revision: 5, enabled: true, models: { ...models, discovery: "claude-sonnet" } },
+  ]);
+  expect(inference(proxy)).toEqual([]);
+});
+
+it("reloads the taxonomy after a rejected activation so retrying uses the newer draft revision", async () => {
+  const user = userEvent.setup();
+  const proxy = stubGateway();
+  const server = serve(proxy, { taxonomy: view({ taxonomy: taxonomy() }), written: view({ active: active({ revision: 10 }) }) });
+  const write = proxy.post.getMockImplementation();
+  let rejected = false;
+  proxy.post.mockImplementation(async (path, request) => {
+    if (path !== "/lens/profiles/taxonomy/activate" || rejected) return write?.(path, request);
+    rejected = true;
+    server.taxonomy = view({ taxonomy: taxonomy({ version: 3, revision: 9 }) });
+    throw new Error("Task discovery changed since it was loaded; reload and try again");
+  });
+  render();
+
+  await user.click(await screen.findByRole("button", { name: "Start classifying new runs" }));
+  expect(await screen.findByText("Task discovery changed since it was loaded; reload and try again")).toBeVisible();
+  await waitFor(() =>
+    expect(testQueryClient.getQueryData<TaxonomyView>(["lens", "profile-taxonomy", "test", "assistant"])?.taxonomy?.revision).toBe(9),
+  );
+  await user.click(screen.getByRole("button", { name: "Start classifying new runs" }));
+
+  await waitFor(() => expect(posts(proxy, "/lens/profiles/taxonomy/activate")).toHaveLength(2));
+  expect(posts(proxy, "/lens/profiles/taxonomy/activate")).toEqual([
+    { agent: "assistant", revision: 7, backfill: false },
+    { agent: "assistant", revision: 9, backfill: false },
+  ]);
+});

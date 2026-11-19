@@ -69,6 +69,11 @@ export function useProfileWrites(agent: string) {
   };
   return useMutation({
     mutationFn: run,
+    onError: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: settings }),
+        queryClient.invalidateQueries({ queryKey: taxonomy }),
+      ]),
     onSettled: () =>
       queryClient.invalidateQueries({ predicate: ({ queryKey }) => isProfileQuery(queryKey) && !isLifecycleQuery(queryKey) }),
   });
