@@ -4,22 +4,17 @@ This chart installs the complete Lens API, UI and investigation runtime with Cli
 
 For optional help from your coding agent, use [Set it up for me](../../docs/setup-with-agent.md). Include that this deployment uses Helm; there are separate prompts for an existing gateway and external ClickHouse
 
-Until a Lens release is published, build from the repository root and push the image to a registry your cluster can read. Replace the example repository with your own, and configure the cluster's image pull credentials if that registry is private
+Install the public Lens 0.1.0 chart. It pulls the release image by digest without a source checkout or build. Your cluster needs a default StorageClass, or set `clickhouse.storageClassName` explicitly. On EKS, install the [EBS CSI driver add-on](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html) and configure a StorageClass first
 
 ```sh
-LENS_IMAGE_REPOSITORY=registry.example.com/your-team/lens
-LENS_IMAGE_TAG=$(git rev-parse HEAD)
-docker build --build-arg LENS_VERSION="$LENS_IMAGE_TAG" -f deploy/runtime/Dockerfile \
-  -t "$LENS_IMAGE_REPOSITORY:$LENS_IMAGE_TAG" .
-docker push "$LENS_IMAGE_REPOSITORY:$LENS_IMAGE_TAG"
-helm upgrade --install lens ./helm/lens --namespace lens --create-namespace \
-  --set image.repository="$LENS_IMAGE_REPOSITORY" --set image.tag="$LENS_IMAGE_TAG"
+helm upgrade --install lens oci://ghcr.io/berriai/charts/lens \
+  --version 0.1.0 --namespace lens --create-namespace --wait --timeout 10m
 kubectl --namespace lens port-forward service/lens 4318:4318
 ```
 
 Open `http://localhost:4318/ui/`. Obtain the generated private login credential locally with `kubectl --namespace lens get secret lens-admin -o jsonpath='{.data.admin-token}' | base64 --decode`. Keep this credential private. Helm reuses generated credentials on upgrades, and uninstall retains them and the ClickHouse volume
 
-The source chart defaults to the version in its `appVersion`. Before a public release exists, provide a built image through `image.repository` and `image.tag`. A published release is installed from `oci://ghcr.io/berriai/charts/lens` with an exact `--version` and defaults to the release image digest. [Verify the signed release manifest](../../docs/releasing.md#verify-a-release) before adopting it
+On first start, Lens can restart a few times with `Error: Storage(Storage(Transport))` until ClickHouse is Ready. Persistent failures after that need the storage checks below. [Verify the signed release manifest](../../docs/releasing.md#verify-a-release) before adopting a release
 
 The bundled ClickHouse deployment includes an ingress NetworkPolicy that permits TCP 8123 only from this release's Lens pods in the same namespace. Keeper and Raft ports are not exposed to other pods by that policy. Your cluster must use a CNI that enforces NetworkPolicy, and other policies selecting the ClickHouse pod must not grant broader access because Kubernetes combines their allowed traffic. External ClickHouse deployments need equivalent storage isolation managed by their operator
 
@@ -58,25 +53,27 @@ serviceTokenSecret:
   key: service-token
 ```
 
-Create `lens-connection` through your existing secret manager. Generate each value independently with `openssl rand -hex 32`. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. In either LiteLLM chart, the corresponding settings are `lensWorker.gateway.secretName`, `lensWorker.gateway.secretKey` and `lensWorker.serviceTokenSecret`. Bundled Helm installations generate separate credentials when these references are unset; external mode requires both references
+Create `lens-connection` through your secret manager. Generate each value independently with `openssl rand -hex 32`. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. If the services use different namespaces, create the Secret with identical values in both namespaces
 
 `publicUrl` is the Lens browser origin. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
 
-The LiteLLM charts consume this exact chart as a dependency with `library=true` and render its named templates through a small adapter. `lensWorker.mode` selects `bundled`, `external` or `disabled`; the legacy `lensWorker.enabled` switch still works when mode is empty. Both gateway charts keep the existing service and deployment names. An external Lens deployment can preserve `/lens-ingest` with `lensWorker.externalServiceName` in either gateway chart
+The gateway chart at `oci://ghcr.io/berriai/litellm/chart/litellm` does not deploy Lens or PostgreSQL. For chart version `1.111.0-rc.2`, set `lens.enabled: true`, `lens.url`, `lens.publicUrl`, `lens.gatewaySecret.name` and `lens.serviceTokenSecret.name`. The Secret keys default to `gateway-secret` and `service-token`. Removed `lensWorker.*` values are not supported and enabling them fails the render
+
+For Lens in namespace `lens`, the gateway's `lens.url` can be `http://lens.lens.svc.cluster.local:4318`. With port-forward only, use `http://localhost:4318` for Lens `publicUrl` and gateway `lens.publicUrl`. This address works only for browsers and agents on the computer with the open tunnel. Use reachable HTTPS addresses for team access. The [complete Kubernetes example](https://docs.litellm.ai/docs/proxy/lens/deployment/kubernetes#existing-deployment) includes both namespaces, gateway database and master key setup
 
 ## Render with GitOps
 
 Helm installations generate credentials once and reuse them through a live cluster lookup. Argo CD and other offline renderers cannot perform that lookup. For those deployments, provision secrets through your existing secret manager and set `adminTokenSecret.name`, `gateway.secretName` and `serviceTokenSecret.name` before rendering. The gateway references are needed only when `gateway.enabled=true`
 
-The bundled database also generates a password. Use `clickhouseSecret.name` with your existing supported ClickHouse deployment for deterministic GitOps rendering. In the LiteLLM charts, prefix these settings with `lensWorker.`. Verify two consecutive renders produce identical Secret references before syncing; do not commit rendered secret values to Git
+The bundled database also generates a password. Use `clickhouseSecret.name` with your existing supported ClickHouse deployment for deterministic GitOps rendering. These settings belong to the separate Lens release, not the gateway chart. Verify two consecutive renders produce identical Secret references before syncing; do not commit rendered secret values to Git
 
 ## Select versions independently
 
-`image.digest=sha256:<64 lowercase hex characters>` takes precedence over `image.tag`. Official paired releases use the same Lens and gateway version. Existing deployments can select Lens separately when their API contracts remain compatible. Changing the Lens image leaves gateway pod templates unchanged, and changing the gateway image leaves the Lens pod template unchanged
+`image.digest=sha256:<64 lowercase hex characters>` takes precedence over `image.tag`. Select Lens and gateway versions independently when their API contracts are compatible. Changing the Lens image leaves gateway pod templates unchanged, and changing the gateway image leaves the Lens pod template unchanged
 
 Use one release owner per resource. Moving a bundled deployment into a separate Helm release or Argo application requires retaining its storage and credentials, stopping old writers, transferring ownership, and then starting the new runtime. Do not enable two controllers for the same deployment
 
-For a Helm ownership transfer, first upgrade the old gateway release with `lensWorker.retainResources=true` and stop its Lens writers. Upgrade that release to external mode so its saved manifest no longer owns Lens resources, while Helm retains them. Install the independent Lens release with `--take-ownership`, copying `fullnameOverride`, `nameOverride`, `component` and `clickhouse.nameOverride` from the existing resources. Set `instanceOverride` to the old release name to preserve immutable deployment and storage selectors. Reuse the existing secrets, restore the replica count and verify data before retiring the old ownership. The new release defaults `retainResources=false`, so later uninstalls follow normal Helm behavior while preserving credentials and PVCs
+For a Helm ownership transfer from a legacy gateway chart that bundled Lens, first use that old chart's `lensWorker.retainResources=true` and stop its Lens writers. Move that old release to external mode so its saved manifest no longer owns Lens resources, while Helm retains them. Do this before adopting the current gateway chart, which rejects `lensWorker.*`. Install the independent Lens release with `--take-ownership`, copying `fullnameOverride`, `nameOverride`, `component` and `clickhouse.nameOverride` from the existing resources. Set `instanceOverride` to the old release name to preserve immutable deployment and storage selectors. Reuse the existing secrets, restore the replica count and verify data before retiring the old ownership. The new release defaults `retainResources=false`, so later uninstalls follow normal Helm behavior while preserving credentials and PVCs
 
 ## Check the chart
 
