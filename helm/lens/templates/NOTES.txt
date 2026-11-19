@@ -1,0 +1,49 @@
+{{- if not .Values.library }}
+{{- $name := include "lens.fullname" . }}
+Lens is starting in namespace {{ .Release.Namespace }}. Watch it come up:
+
+  kubectl get pods -n {{ .Release.Namespace }} -w
+
+Open the UI at {{ .Values.publicUrl }}
+{{- if hasPrefix "http://localhost" .Values.publicUrl }}, after forwarding the port:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $name }} 4318:4318
+
+publicUrl is still the localhost default, which only works through that port-forward.
+Set publicUrl to the address people open in their browser once Lens has one.
+{{- end }}
+
+Other pods in this cluster reach Lens at http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:4318
+{{- if not .Values.adminTokenSecret.name }}
+
+Read the generated admin token:
+
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "lens.adminTokenSecretName" . }} -o jsonpath='{.data.{{ .Values.adminTokenSecret.key }}}' | base64 -d
+{{- end }}
+{{- if include "lens.bundledClickhouse" . }}
+
+If {{ include "lens.clickhouseName" . }}-0 stays Pending, its volume claim has no storage to bind to:
+
+  kubectl get pvc -n {{ .Release.Namespace }}
+  kubectl get storageclass
+
+The cluster needs a default StorageClass, or set clickhouse.storageClassName to one that exists.
+On a new EKS cluster, install the EBS CSI driver add-on and mark a StorageClass as default.
+{{- end }}
+{{- if .Values.gateway.enabled }}
+
+Connect a LiteLLM gateway with these values on its chart:
+
+  lens:
+    enabled: true
+    url: http://{{ $name }}.{{ .Release.Namespace }}.svc.cluster.local:4318
+    gatewaySecret:
+      name: {{ include "lens.gatewaySecretName" . }}
+      key: {{ .Values.gateway.secretKey }}
+    serviceTokenSecret:
+      name: {{ include "lens.serviceTokenSecretName" . }}
+      key: {{ .Values.serviceTokenSecret.key }}
+
+The gateway reads both Secrets from its own namespace, so copy them there when it is not {{ .Release.Namespace }}.
+{{- end }}
+{{- end }}
