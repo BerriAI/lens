@@ -205,7 +205,7 @@ async fn list<R: SessionRepository, B: TraceReader>(
     method: Method,
     RawQuery(query): RawQuery,
 ) -> Result<Json<TracePage>, TraceHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
     let request = validation::list(query.as_deref(), app.config)?;
     let now = Utc::now().timestamp_millis();
     let page = app
@@ -285,7 +285,7 @@ async fn trace<R: SessionRepository, B: TraceReader>(
     method: Method,
     RawQuery(query): RawQuery,
 ) -> Result<Json<Trace>, TraceHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
     let request = validation::detail(query.as_deref())?;
     let trace = app
         .reader
@@ -303,7 +303,7 @@ async fn span<R: SessionRepository, B: TraceReader>(
     method: Method,
     RawQuery(query): RawQuery,
 ) -> Result<Json<SpanDetail>, TraceHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
     let request = validation::span(query.as_deref());
     let value = app
         .reader

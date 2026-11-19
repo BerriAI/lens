@@ -116,7 +116,12 @@ export function findingThreads(
   env: NodeJS.ProcessEnv,
 ): FindingThreads {
   const scope = digest(
-    JSON.stringify([config.workspace, config.channel, config.agent]),
+    JSON.stringify([
+      config.workspace,
+      config.channel,
+      config.agent,
+      ...(config.teamId ? [config.teamId] : []),
+    ]),
   );
   return new FindingThreads((thread) => {
     if (!/^\d+\.\d+$/.test(thread)) throw new Error("Invalid finding thread");
@@ -135,7 +140,7 @@ export async function bootstrapThreads(
   config: Config,
   raw?: string,
 ): Promise<void> {
-  if (!raw) return;
+  if (!raw || config.teamId) return;
   if (raw.length > 64_000) throw new Error("Finding bootstrap exceeds limit");
   const seeds = z
     .array(

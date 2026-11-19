@@ -233,6 +233,58 @@ async fn unauthenticated_queries_enforce_body_limits_before_storage(
 }
 
 #[rstest]
+#[case::list("/v1/traces", 200, true)]
+#[case::detail("/v1/traces/trace-id", 404, true)]
+#[case::span("/v1/traces/trace-id/spans/span-id", 404, true)]
+#[case::unneeded_route("/v1/traces/agents", 401, false)]
+#[tokio::test]
+async fn slack_credential_cannot_expand_trace_scope(
+    #[case] path: &str,
+    #[case] status: u16,
+    #[case] reads: bool,
+) {
+    use axum::{body::Body, http::Request};
+    use lens_auth::{Authentication, Settings};
+    use litellm_storage_clickhouse::{Connection, sessions::Sessions, state::ClickHouseState};
+    use tower::ServiceExt;
+
+    const KEY: &str = "slack-investigator-test-token-only";
+    let authentication = Arc::new(Authentication {
+        settings: Settings::new(ADMIN, None, "http://localhost")
+            .unwrap()
+            .with_slack_investigator(KEY, "docs-team")
+            .unwrap(),
+        sessions: Sessions(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::reader("http://127.0.0.1:9", "unused").unwrap(),
+        )),
+    });
+    let reader = Reader::default();
+    let app = lens_server::tracing::router(authentication, reader.clone(), TraceConfig::default());
+    let response = app
+        .oneshot(
+            Request::get(format!(
+                "{path}?all_teams=1&team_ids=other-team&user_id=other-user"
+            ))
+            .header("authorization", format!("Bearer {KEY}"))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), status);
+    let calls = reader.calls.lock().unwrap();
+    if reads {
+        assert_eq!(calls.len(), 1);
+        assert!(!calls[0].scope.all_teams);
+        assert!(calls[0].scope.user_id.is_empty());
+        assert_eq!(calls[0].scope.team_ids, vec!["docs-team"]);
+    } else {
+        assert!(calls.is_empty());
+    }
+}
+
+#[rstest]
 #[case::list("GET", "/v1/traces", 200)]
 #[case::logs("GET", "/v1/logs", 200)]
 #[case::lens_logs("GET", "/lens/logs", 200)]

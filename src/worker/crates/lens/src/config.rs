@@ -78,6 +78,23 @@ impl Config {
                 "LITELLM_LENS_SERVICE_TOKEN must contain between 32 and 512 characters",
             ));
         }
+        let authentication = lens_auth::Settings::new(
+            &admin_token,
+            read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
+            &public_url,
+        )?;
+        let authentication = match read("LENS_SLACK_TEAM_ID") {
+            Some(team)
+                if read("LENS_SLACK_CHAT_ENABLED").as_deref() == Some("true")
+                    && !team.trim().is_empty() =>
+            {
+                authentication.with_slack_investigator(
+                    required(&read, "LENS_SLACK_LENS_API_KEY")?.trim(),
+                    team.trim(),
+                )?
+            }
+            _ => authentication,
+        };
         Ok(Self {
             slack: crate::slack::SlackConfig::read(&read, &public_url)?,
             github_service_url: read("LENS_GITHUB_SERVICE_URL")
@@ -103,11 +120,7 @@ impl Config {
             gateway_models: gateway_models(&read)?,
             datasets: dataset_config(&read),
             traces: trace_config(&read)?,
-            authentication: lens_auth::Settings::new(
-                &admin_token,
-                read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
-                &public_url,
-            )?,
+            authentication,
             address: read("LITELLM_LENS_LISTEN")
                 .unwrap_or_else(|| "0.0.0.0:4318".into())
                 .parse()

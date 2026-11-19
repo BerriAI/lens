@@ -49,7 +49,9 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 LENS_SLACK_MODEL=gpt-6-luna
 ```
 
-The model and base URL can point to an OpenAI-compatible gateway; use the model alias configured on that gateway. Lens reads use `LENS_SLACK_LENS_API_KEY` when set, otherwise the existing `LENS_ADMIN_TOKEN`. The internal address comes from the server's `LITELLM_LENS_LISTEN` setting, including its port, with wildcard listeners mapped to loopback. Optional `LENS_SLACK_SERVICE` defaults to the selected agent; trace scope includes that exact service or exact agent membership
+The model and base URL can point to an OpenAI-compatible gateway; use the model alias configured on that gateway. In all-team mode, Lens reads use `LENS_SLACK_LENS_API_KEY` when set, otherwise `LENS_ADMIN_TOKEN`. The internal address comes from the server's `LITELLM_LENS_LISTEN` setting, including its port, with wildcard listeners mapped to loopback. Optional `LENS_SLACK_SERVICE` defaults to the selected agent; trace scope includes that exact service or exact agent membership
+
+For one team, replace `LENS_SLACK_ALL_TEAMS=true` with `LENS_SLACK_TEAM_ID=<Lens tenant ID>` and set `LENS_SLACK_LENS_API_KEY` to a dedicated random secret of at least 32 characters, different from the admin token. Set both variables for the Lens server and the sidecar. The server limits trace reads, eval summaries and native findings to that team. Create the native Lens for that team with the scoped key (`POST /lens`) and set `LENS_FINDINGS_LENS_ID` to its ID. Existing Slack finding history and bootstrap seeds from all-team mode are not reused
 
 Mention Lens to ask about recent runs, open findings, or eval counts. Replies stay in the source thread. Ordinary mention conversations retain the last two exchanges for up to an hour, with at most 100 threads in memory. Explicit time windows, such as the last 12 hours, filter trace reads using a fixed end time for that answer. A missing time window keeps the existing retained-history behavior. Finding-thread follow-ups remain scoped to their cited traces and cannot present that selected cohort as a global time-window report
 
@@ -86,6 +88,8 @@ LENS_INVESTIGATOR_REPOSITORY=your-org/your-agent
 LENS_INVESTIGATOR_DAILY_RUN_LIMIT=144
 LENS_FINDINGS_LENS_ID=<existing Lens ID, optional when the agent has exactly one Lens>
 ```
+
+For a primary documentation target that records reader questions as plain-text root inputs, set `LENS_SLACK_FOCUS=documentation` and `LENS_SLACK_ROOT_INPUT=text`
 
 Use the appropriate gateway model alias when applicable. `CLICKHOUSE_URL` (or `CLICKHOUSE_HOST`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`), `CLICKHOUSE_DATABASE`, `LENS_GITHUB_CLIENT_ID` and `LENS_GITHUB_PRIVATE_KEY` reuse the server settings. The GitHub App must have contents access to the explicitly configured repository. Each investigation mints a short-lived installation token restricted to that repository with contents-read permission, resolves its default branch to a commit SHA, and reads source files at that fixed SHA
 

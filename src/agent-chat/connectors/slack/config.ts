@@ -9,6 +9,7 @@ export interface Config extends AgentConfig {
   readonly appToken: string;
   readonly workspace: string;
   readonly channel: string;
+  readonly teamId?: string;
   readonly repository?: string;
   readonly repositoryAccess?: "public";
   readonly intervalMinutes?: number;
@@ -113,11 +114,20 @@ function endpoint(value: string, name: string, loopback = false): string {
 
 export function configFrom(env: NodeJS.ProcessEnv): Config | undefined {
   if (env.LENS_SLACK_CHAT_ENABLED !== "true") return undefined;
-  if (env.LENS_SLACK_ALL_TEAMS !== "true" || env.LENS_SLACK_TEAM_ID?.trim()) {
+  const team = env.LENS_SLACK_TEAM_ID?.trim();
+  const allTeams = env.LENS_SLACK_ALL_TEAMS === "true";
+  if (
+    (env.LENS_SLACK_ALL_TEAMS &&
+      !["true", "false"].includes(env.LENS_SLACK_ALL_TEAMS)) ||
+    Boolean(team) === allTeams
+  ) {
     throw new Error(
-      "Slack chat currently requires explicit LENS_SLACK_ALL_TEAMS=true without LENS_SLACK_TEAM_ID",
+      "Set LENS_SLACK_TEAM_ID or explicitly set LENS_SLACK_ALL_TEAMS=true",
     );
   }
+  const lensKey = team
+    ? required(env, "LENS_SLACK_LENS_API_KEY")
+    : env.LENS_SLACK_LENS_API_KEY?.trim() || required(env, "LENS_ADMIN_TOKEN");
   const workspace = required(env, "LENS_SLACK_WORKSPACE_ID");
   const channel = required(env, "LENS_SLACK_CHANNEL_ID");
   if (!/^T[A-Z0-9]+$/.test(workspace) || !/^[CG][A-Z0-9]+$/.test(channel)) {
@@ -128,13 +138,13 @@ export function configFrom(env: NodeJS.ProcessEnv): Config | undefined {
     appToken: required(env, "LENS_SLACK_APP_TOKEN"),
     workspace,
     channel,
+    teamId: team || undefined,
     agent: required(env, "LENS_SLACK_AGENT"),
     service:
       env.LENS_SLACK_SERVICE?.trim() || required(env, "LENS_SLACK_AGENT"),
     publicUrl: endpoint(required(env, "LENS_PUBLIC_URL"), "LENS_PUBLIC_URL"),
     apiUrl: localApiUrl(env.LITELLM_LENS_LISTEN),
-    lensKey:
-      env.LENS_SLACK_LENS_API_KEY?.trim() || required(env, "LENS_ADMIN_TOKEN"),
+    lensKey,
     openaiKey: required(env, "OPENAI_API_KEY"),
     openaiBaseUrl: endpoint(
       env.OPENAI_BASE_URL || "https://api.openai.com/v1",
@@ -143,6 +153,8 @@ export function configFrom(env: NodeJS.ProcessEnv): Config | undefined {
     ),
     model: env.LENS_SLACK_MODEL?.trim() || "gpt-6-luna",
     findingLensId: env.LENS_FINDINGS_LENS_ID?.trim() || undefined,
+    focus: targetSchema.shape.focus.parse(env.LENS_SLACK_FOCUS),
+    rootInput: targetSchema.shape.rootInput.parse(env.LENS_SLACK_ROOT_INPUT),
   };
 }
 
@@ -167,11 +179,18 @@ export function investigatorOptions(
     intervalMinutes: config.intervalMinutes,
     maxFindings: config.maxFindings,
     model: env.LENS_INVESTIGATOR_MODEL?.trim() || "gpt-6-astra",
-    scope: [config.workspace, config.channel, config.agent, repository],
+    scope: [
+      config.workspace,
+      config.channel,
+      config.agent,
+      repository,
+      ...(config.teamId ? [config.teamId] : []),
+    ],
     stateConnection: clickhouseConnection(env),
     stateDatabase: env.CLICKHOUSE_DATABASE || "lens",
-    knownFindings: config.repository
-      ? undefined
-      : env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
+    knownFindings:
+      config.repository || config.teamId
+        ? undefined
+        : env.LENS_INVESTIGATOR_KNOWN_FINDINGS,
   };
 }

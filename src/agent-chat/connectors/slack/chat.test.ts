@@ -152,12 +152,50 @@ test("disabled chat needs no credentials; enabled chat rejects ambiguous tenant 
       configFrom({
         LENS_SLACK_CHAT_ENABLED: "true",
         LENS_SLACK_TEAM_ID: "tenant",
+        LENS_SLACK_ALL_TEAMS: "true",
       }),
     /ALL_TEAMS/,
   );
   assert.equal(localApiUrl("0.0.0.0:4100"), "http://127.0.0.1:4100");
   assert.equal(localApiUrl("[::]:4101"), "http://[::1]:4101");
   assert.throws(() => localApiUrl("example.com:4318"));
+});
+
+test("team-scoped chat requires a dedicated key and separates investigator state", () => {
+  const env = {
+    LENS_SLACK_CHAT_ENABLED: "true",
+    LENS_SLACK_TEAM_ID: " tenant ",
+    LENS_ADMIN_TOKEN: "setup-token",
+    LENS_SLACK_WORKSPACE_ID: "T123",
+    LENS_SLACK_CHANNEL_ID: "C123",
+    LENS_SLACK_AGENT: "docs",
+    LENS_SLACK_FOCUS: "documentation",
+    LENS_SLACK_ROOT_INPUT: "text",
+    LENS_SLACK_BOT_TOKEN: "bot",
+    LENS_SLACK_APP_TOKEN: "app",
+    LENS_PUBLIC_URL: "https://lens.example.com",
+    OPENAI_API_KEY: "model-key",
+    LENS_INVESTIGATOR_ENABLED: "true",
+    LENS_INVESTIGATOR_REPOSITORY: "example/docs",
+    LENS_GITHUB_CLIENT_ID: "client",
+    LENS_GITHUB_PRIVATE_KEY: "key",
+    CLICKHOUSE_URL: "http://localhost:8123",
+    LENS_INVESTIGATOR_KNOWN_FINDINGS: "legacy-seed",
+  };
+  assert.throws(() => configFrom(env), /Missing LENS_SLACK_LENS_API_KEY/);
+  const config = configFrom({ ...env, LENS_SLACK_LENS_API_KEY: "scoped-key" })!;
+  assert.equal(agentConfig(config).lensKey, "scoped-key");
+  assert.equal(agentConfig(config).focus, "documentation");
+  assert.equal(agentConfig(config).rootInput, "text");
+  const options = investigatorOptions(config, env)!;
+  assert.deepEqual(options.scope, [
+    "T123",
+    "C123",
+    "docs",
+    "example/docs",
+    "tenant",
+  ]);
+  assert.equal(options.knownFindings, undefined);
 });
 
 test("additional channels keep their own agent, repository and native findings destination", () => {

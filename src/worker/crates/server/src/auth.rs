@@ -22,6 +22,19 @@ pub async fn identity<R: lens_auth::SessionRepository>(
     .await
 }
 
+pub(crate) async fn slack_identity<R: lens_auth::SessionRepository>(
+    auth: &lens_auth::Authentication<R>,
+    headers: &HeaderMap,
+    method: &Method,
+) -> Result<lens_contract::auth::Identity, lens_auth::Error> {
+    let session = session_cookie(headers);
+    auth.authenticate_slack(
+        credentials(headers, method, session.as_deref())?,
+        chrono::Utc::now(),
+    )
+    .await
+}
+
 pub(crate) fn credentials<'a>(
     headers: &'a HeaderMap,
     method: &'a Method,

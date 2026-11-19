@@ -42,6 +42,7 @@ pub trait SessionRepository: Send + Sync {
 
 pub struct Settings {
     admin_hash: [u8; 32],
+    slack_investigator: Option<([u8; 32], String)>,
     gateway_secret: Option<String>,
     origin: String,
     secure_cookie: bool,
@@ -86,10 +87,25 @@ impl Settings {
             .ok_or(Error::Configuration("public URL"))?;
         Ok(Self {
             admin_hash: Sha256::digest(admin_token.as_bytes()).into(),
+            slack_investigator: None,
             gateway_secret,
             origin: format!("{}://{}", url.scheme(), authority),
             secure_cookie: public_url.starts_with("https://"),
         })
+    }
+
+    pub fn with_slack_investigator(mut self, key: &str, team_id: &str) -> Result<Self, Error> {
+        if !(32..=512).contains(&key.len())
+            || self.is_admin_token(key)
+            || team_id.is_empty()
+            || team_id.len() > 256
+        {
+            return Err(Error::Configuration(
+                "invalid Slack investigator key or team",
+            ));
+        }
+        self.slack_investigator = Some((Sha256::digest(key.as_bytes()).into(), team_id.into()));
+        Ok(self)
     }
 
     pub fn secure_cookie(&self) -> bool {
@@ -139,6 +155,23 @@ impl<R: SessionRepository> Authentication<R> {
         credentials: Credentials<'_>,
         now: DateTime<Utc>,
     ) -> Result<Identity, Error> {
+        self.authenticate_request(credentials, now, false).await
+    }
+
+    pub async fn authenticate_slack(
+        &self,
+        credentials: Credentials<'_>,
+        now: DateTime<Utc>,
+    ) -> Result<Identity, Error> {
+        self.authenticate_request(credentials, now, true).await
+    }
+
+    async fn authenticate_request(
+        &self,
+        credentials: Credentials<'_>,
+        now: DateTime<Utc>,
+        allow_slack: bool,
+    ) -> Result<Identity, Error> {
         if let Some(header) = credentials
             .authorization
             .filter(|header| !header.is_empty())
@@ -151,6 +184,18 @@ impl<R: SessionRepository> Authentication<R> {
             }
             if self.settings.is_admin_token(token) {
                 return Ok(local_admin());
+            }
+            if let Some((hash, team_id)) = &self.settings.slack_investigator
+                && bool::from(hash.ct_eq(&Sha256::digest(token.as_bytes())))
+            {
+                if !allow_slack {
+                    return Err(Error::Unauthorized("Invalid Lens credential"));
+                }
+                return Ok(Identity {
+                    user_role: Role::SlackInvestigator,
+                    team_id: Some(team_id.clone()),
+                    ..Identity::default()
+                });
             }
             let secret = self
                 .settings
@@ -217,6 +262,13 @@ pub enum ReadScope {
 }
 
 pub fn trace_read_scope(identity: &Identity) -> Option<ReadScope> {
+    if identity.user_role == Role::SlackInvestigator {
+        let team_id = identity.team_id.as_ref().filter(|id| !id.is_empty())?;
+        return Some(ReadScope::OwnedRows {
+            user_id: String::new(),
+            team_ids: vec![team_id.clone()],
+        });
+    }
     if matches!(
         identity.user_role,
         Role::ProxyAdmin | Role::ProxyAdminViewer

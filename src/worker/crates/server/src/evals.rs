@@ -206,14 +206,14 @@ async fn authorize<R: SessionRepository>(
     } else {
         return Err(EvalApiError::ContractVersion);
     };
-    let session = crate::auth::session_cookie(request.headers());
-    let identity = state
-        .authentication
-        .authenticate(
-            crate::auth::credentials(request.headers(), request.method(), session.as_deref())?,
-            Utc::now(),
-        )
-        .await?;
+    let identity = if request.method() == http::Method::GET
+        && request.uri().path() == "/lens/evals/runs"
+    {
+        crate::auth::slack_identity(&state.authentication, request.headers(), request.method())
+            .await?
+    } else {
+        crate::auth::identity(&state.authentication, request.headers(), request.method()).await?
+    };
     let scope = match identity.team_id.filter(|team| !team.is_empty()) {
         Some(team) => team,
         None if matches!(
