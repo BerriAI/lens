@@ -8,7 +8,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from . import _native
+from . import _native, local
 from .client import Lens
 from .config import Execution, Settings
 from .discovery import discover
@@ -25,6 +25,12 @@ class Arguments(BaseModel):
     name: str | None = None
     eval_name: str | None = None
     ci: bool = False
+    fast: bool = False
+    tasks: str | None = None
+    config: str | None = None
+    concurrency: int = 16
+    run_id: str | None = None
+    only: tuple[str, ...] = ()
     json_output: bool = Field(default=False, alias="json")
     code: int = 0
     text: str = ""
@@ -94,6 +100,30 @@ def display(outcomes: tuple[Report | LensError, ...], args: Arguments) -> int:
     return 2 if errors else (0 if all(report.summary.gate.passed for report in reports) else 1)
 
 
+def run_local(args: Arguments) -> int:
+    if args.tasks is None or args.config is None:
+        raise LensError("lens run needs a tasks file and --config")
+    command: Final = " ".join(
+        ("lens run", args.tasks, "--config", args.config, *(f"--only {key}" for key in args.only))
+    )
+    asyncio.run(local.run(command, Path(args.config), args.concurrency, args.fast, tasks=args.tasks, only=args.only))
+    return 0
+
+
+def resume_local(args: Arguments) -> int:
+    if args.run_id is None:
+        raise LensError("lens resume needs a run id")
+    meta: Final = RunMeta.model_validate_json(_native.run_meta(args.run_id))
+    command: Final = f"lens resume {args.run_id}"
+    asyncio.run(local.run(command, Path(meta.config_file), args.concurrency, args.fast, resume=args.run_id))
+    return 0
+
+
+class RunMeta(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore")
+    config_file: str
+
+
 def main(argv: list[str] | None = None) -> int:
     raw: Final = _native.parse_cli(["lens", *(sys.argv[1:] if argv is None else argv)])
     args: Final = Arguments.model_validate_json(raw)
@@ -105,6 +135,16 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(evaluate(args, "eval"))
         if args.command == "doctor":
             return asyncio.run(evaluate(args, "doctor"))
+        if args.command == "demo":
+            _native.demo(args.fast)
+            return 0
+        if args.command == "run":
+            return run_local(args)
+        if args.command == "resume":
+            return resume_local(args)
+        if args.command == "show":
+            _native.show(args.run_id)
+            return 0
         print(_native.control(raw))
         return 0
     except (LensError, ValidationError, OSError, ValueError) as error:

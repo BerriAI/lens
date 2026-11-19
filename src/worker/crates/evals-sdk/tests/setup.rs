@@ -163,3 +163,18 @@ fn saved_name_is_distinct_from_local_discovery(#[case] arguments: Vec<&str>, #[c
         assert_eq!(result["eval_name"], "saved");
     }
 }
+
+#[rstest]
+#[case::all(vec![], Vec::<&str>::new())]
+#[case::one(vec!["--only", "a/x"], vec!["a/x"])]
+#[case::repeated(vec!["--only", "a/x", "--only", "b/provider/model"], vec!["a/x", "b/provider/model"])]
+fn run_preserves_target_filters(#[case] selection: Vec<&str>, #[case] expected: Vec<&str>) {
+    let arguments = ["lens", "run", "tasks.csv", "--config", "evals.py"]
+        .into_iter()
+        .chain(selection)
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let parsed = setup::parse(&arguments);
+    assert_eq!(parsed["command"], "run");
+    assert_eq!(parsed["only"], serde_json::json!(expected));
+}

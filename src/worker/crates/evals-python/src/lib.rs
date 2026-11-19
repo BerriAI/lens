@@ -2,6 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use lens_evals_sdk::{
     Error, client, doctor, engine, github,
+    local::{self, AgentResult, Outcome, RunMeta, Target, Task, run, view},
     model::{Case, CaseResult, EvalSpec, Execution, Report},
     setup::{self, InitOptions, Operation, Settings},
 };
@@ -159,6 +160,179 @@ fn control(py: Python<'_>, command: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+fn demo(py: Python<'_>, fast: bool) -> PyResult<()> {
+    lens_evals_sdk::demo::run(lens_evals_sdk::demo::Options::detect(fast), &mut || {
+        py.check_signals().map_err(std::io::Error::other)
+    })
+    .map_err(|failure| match failure.downcast::<PyErr>() {
+        Ok(interrupt) => interrupt,
+        Err(failure) => error(Error::Io(failure)),
+    })
+}
+
+fn here() -> PyResult<std::path::PathBuf> {
+    std::env::current_dir().map_err(Error::Io).map_err(error)
+}
+
+fn view_error(failure: std::io::Error) -> PyErr {
+    error(Error::Io(failure))
+}
+
+fn saved_run(
+    root: &Path,
+    run_id: &str,
+) -> PyResult<(RunMeta, Vec<lens_evals_sdk::local::Attempt>)> {
+    if !root
+        .join(".lens/runs")
+        .join(run_id)
+        .join("meta.json")
+        .is_file()
+    {
+        return Err(error(Error::Invalid {
+            message: "No saved run with this id in .lens/runs",
+            value: run_id.to_owned(),
+        }));
+    }
+    run::load_run(root, run_id).map_err(error)
+}
+
+#[pyfunction]
+fn run_meta(run_id: &str) -> PyResult<String> {
+    encode(&saved_run(&here()?, run_id)?.0)
+}
+
+#[pyfunction]
+fn latest_run() -> PyResult<Option<String>> {
+    Ok(run::latest_run(&here()?))
+}
+
+#[pyfunction]
+fn show(run_id: Option<String>) -> PyResult<()> {
+    let root = here()?;
+    let id = run_id.or_else(|| run::latest_run(&root)).ok_or_else(|| {
+        error(Error::Configuration(
+            "No saved runs in .lens/runs. Start one with lens run",
+        ))
+    })?;
+    let (meta, attempts) = saved_run(&root, &id)?;
+    view::print_report(
+        lens_evals_sdk::demo::Options::detect(true),
+        &format!("lens show {id}"),
+        &run::summarize(&meta, &attempts),
+    )
+    .map_err(view_error)
+}
+
+fn call_agent(
+    locals: &pyo3_async_runtimes::TaskLocals,
+    callback: &Py<PyAny>,
+    task: &Task,
+    target: &Target,
+) -> PyResult<impl std::future::Future<Output = PyResult<Py<PyAny>>> + Send + use<>> {
+    Python::attach(|py| {
+        let awaitable = callback.call1(py, (encode(task)?, encode(target)?))?;
+        pyo3_async_runtimes::into_future_with_locals(locals, awaitable.into_bound(py))
+    })
+}
+
+fn boundary_failure(message: &str) -> AgentResult {
+    AgentResult {
+        outcome: Outcome::Error {
+            kind: "TaskError".to_owned(),
+            message: message.to_owned(),
+        },
+        output: String::new(),
+        cost: 0.0,
+        judge_cost: 0.0,
+        tool_calls: Vec::new(),
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (command, targets, concurrency, fast, callback, tasks=None, config=None, resume=None))]
+#[allow(clippy::too_many_arguments)]
+fn run_local<'py>(
+    py: Python<'py>,
+    command: String,
+    targets: String,
+    concurrency: usize,
+    fast: bool,
+    callback: Py<PyAny>,
+    tasks: Option<String>,
+    config: Option<String>,
+    resume: Option<String>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let root = here()?;
+    let targets: Vec<Target> = decode(&targets)?;
+    let meta = match (resume, tasks, config) {
+        (Some(id), _, _) => RunMeta {
+            concurrency,
+            ..saved_run(&root, &id)?.0
+        },
+        (None, Some(tasks), Some(config)) => RunMeta {
+            id: run::new_run_id(),
+            task_count: 0,
+            tasks_file: tasks,
+            config_file: config,
+            targets,
+            concurrency,
+        },
+        _ => {
+            return Err(error(Error::Configuration(
+                "lens run needs a tasks file and --config",
+            )));
+        }
+    };
+    let tasks = run::load_tasks(&root.join(&meta.tasks_file)).map_err(error)?;
+    let meta = RunMeta {
+        task_count: tasks.len(),
+        ..meta
+    };
+    let locals = Arc::new(pyo3_async_runtimes::tokio::get_current_locals(py)?);
+    let callback = Arc::new(callback);
+    pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        let invoke = |task: Task, target: Target| {
+            let locals = locals.clone();
+            let callback = callback.clone();
+            async move {
+                let output = match call_agent(&locals, &callback, &task, &target) {
+                    Ok(future) => future.await,
+                    Err(failure) => Err(failure),
+                };
+                match output.and_then(|value| Python::attach(|py| value.extract::<String>(py))) {
+                    Ok(json) => serde_json::from_str::<AgentResult>(&json).unwrap_or_else(|_| {
+                        boundary_failure("Agent boundary returned an invalid result")
+                    }),
+                    Err(_) => boundary_failure("Python agent could not be awaited"),
+                }
+            }
+        };
+        let mut live =
+            view::Live::start(lens_evals_sdk::demo::Options::detect(fast), &command, &meta)
+                .map_err(view_error)?;
+        let mut failure: Option<std::io::Error> = None;
+        let summary = run::execute(
+            &root,
+            meta,
+            tasks,
+            invoke,
+            &mut |progress: local::Progress| {
+                if failure.is_none() {
+                    failure = live.update(&progress).err();
+                }
+            },
+        )
+        .await
+        .map_err(error)?;
+        if let Some(failure) = failure {
+            return Err(view_error(failure));
+        }
+        live.finish(&summary).map_err(view_error)?;
+        encode(&summary)
+    })
+}
+
+#[pyfunction]
 fn diagnose(py: Python<'_>, specs: String, ci: bool) -> PyResult<Bound<'_, PyAny>> {
     let specs: Vec<EvalSpec> = decode(&specs)?;
     pyo3_async_runtimes::tokio::future_into_py(py, async move {
@@ -272,7 +446,12 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(parse_cli, module)?)?;
     module.add_function(wrap_pyfunction!(render, module)?)?;
     module.add_function(wrap_pyfunction!(control, module)?)?;
+    module.add_function(wrap_pyfunction!(demo, module)?)?;
     module.add_function(wrap_pyfunction!(diagnose, module)?)?;
+    module.add_function(wrap_pyfunction!(run_local, module)?)?;
+    module.add_function(wrap_pyfunction!(run_meta, module)?)?;
+    module.add_function(wrap_pyfunction!(latest_run, module)?)?;
+    module.add_function(wrap_pyfunction!(show, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate, module)?)?;
     module.add_function(wrap_pyfunction!(run_named, module)?)?;
     Ok(())

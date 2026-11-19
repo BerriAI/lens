@@ -165,6 +165,38 @@ pub enum Operation {
         #[arg(long, default_value = ACTION)]
         action_ref: String,
     },
+    #[command(about = "Run a sample eval and show the results")]
+    Demo {
+        #[arg(long, help = "Print the results without animation")]
+        fast: bool,
+    },
+    #[command(about = "Run every task against every harness and model in your config")]
+    Run {
+        tasks: PathBuf,
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long, default_value_t = 16)]
+        concurrency: usize,
+        #[arg(long, help = "Print the results without animation")]
+        fast: bool,
+        #[arg(
+            long,
+            value_name = "HARNESS/MODEL",
+            help = "Only run these targets, repeatable"
+        )]
+        #[serde(default)]
+        only: Vec<String>,
+    },
+    #[command(about = "Finish an interrupted run")]
+    Resume {
+        run_id: String,
+        #[arg(long, default_value_t = 16)]
+        concurrency: usize,
+        #[arg(long, help = "Print the results without animation")]
+        fast: bool,
+    },
+    #[command(about = "Show the report for a saved run")]
+    Show { run_id: Option<String> },
     DevServer {
         #[arg(long, default_value = "127.0.0.1")]
         host: String,
