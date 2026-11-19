@@ -52,6 +52,23 @@ impl LocalJob {
         Ok((lens, job))
     }
 
+    pub(super) async fn release_at(&self, now: DateTime<Utc>) -> Result<(), Error> {
+        let assigned = self.clone();
+        self.control
+            .update(&self.lens_id, move |lens| {
+                let active = assigned.active(lens, now)?;
+                Ok(replace_job(
+                    lens,
+                    Job {
+                        lease_until: Some(now),
+                        ..active.clone()
+                    },
+                ))
+            })
+            .await?;
+        Ok(())
+    }
+
     async fn read_sample(&self) -> Result<Sample, Error> {
         let (lens, job) = self.assigned().await?;
         if let Some(sample) = job.sample {

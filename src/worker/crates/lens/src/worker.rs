@@ -1,7 +1,23 @@
 use crate::{Error, control::JobClient, pipeline, wire};
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
-pub async fn execute(mut claim: wire::Claim, client: JobClient) -> Result<(), Error> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum Execution {
+    Finished,
+    Interrupted,
+}
+
+pub async fn execute(claim: wire::Claim, client: JobClient) -> Result<(), Error> {
+    execute_until(claim, client, std::future::pending())
+        .await
+        .map(|_| ())
+}
+
+pub async fn execute_until(
+    mut claim: wire::Claim,
+    client: JobClient,
+    deadline: impl Future<Output = ()>,
+) -> Result<Execution, Error> {
     let work = async {
         let sample = client.sample().await?;
         claim.reviews = Some(client.reviews().await?);
@@ -23,7 +39,11 @@ pub async fn execute(mut claim: wire::Claim, client: JobClient) -> Result<(), Er
             }
         }
     };
-    let outcome = tokio::select! { result = work => result, result = pulse => result };
+    let outcome = tokio::select! {
+        result = work => result,
+        result = pulse => result,
+        () = deadline => return Ok(Execution::Interrupted),
+    };
     match outcome {
         Ok(()) => {}
         Err(Error::JobOwnershipLost) => {
@@ -34,7 +54,7 @@ pub async fn execute(mut claim: wire::Claim, client: JobClient) -> Result<(), Er
             failure(&client, &claim.job.id, &error.to_string()).await?;
         }
     }
-    Ok(())
+    Ok(Execution::Finished)
 }
 
 async fn failure(client: &JobClient, job_id: &str, message: &str) -> Result<(), Error> {
