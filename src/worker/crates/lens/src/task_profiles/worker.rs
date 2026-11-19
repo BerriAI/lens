@@ -395,7 +395,7 @@ impl ProfilesWorker {
         DiscoveryError,
     > {
         if !self.decision_supported(&taxonomy.models.decision) {
-            return Err(DiscoveryError::Unconfigured("Jev decision"));
+            return Err(DiscoveryError::Unconfigured("decision"));
         }
         let job = taxonomy
             .job

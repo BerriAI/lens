@@ -645,7 +645,7 @@ impl From<TransitionError> for ProfileHttpError {
             ),
             TransitionError::UnavailableModel(ModelRole::Classification) => {
                 ProfileHttpError::Invalid(
-                    "The classification model is not an available Jev decisions model on the gateway",
+                    "The classification model is not an available decision model on the gateway",
                 )
             }
             TransitionError::AlreadyClassifying => {

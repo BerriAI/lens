@@ -410,7 +410,7 @@ async fn settings_start_off_and_show_deployment_defaults_to_every_team_admins(
 }
 
 #[rstest]
-#[case::chat_model_as_classifier(json!({"discovery": "haiku", "embedding": "qwen", "classification": "haiku"}), "The classification model is not an available Jev decisions model on the gateway")]
+#[case::chat_model_as_classifier(json!({"discovery": "haiku", "embedding": "qwen", "classification": "haiku"}), "The classification model is not an available decision model on the gateway")]
 #[case::unknown_embedding(json!({"discovery": "haiku", "embedding": "gone", "classification": "jev"}), "The embedding model is not an available embedding model on the gateway")]
 #[case::missing_discovery_model(json!({"discovery": "", "embedding": "qwen", "classification": "jev"}), "Choose a model for each step before turning on task discovery")]
 #[tokio::test]
