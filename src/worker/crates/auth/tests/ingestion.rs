@@ -17,8 +17,10 @@ use support::{Memory, admin, ingestion, now};
 
 #[rstest]
 #[case::assigned(Some("user-b".into()), "user-b")]
+#[case::padded(Some(" \tuser-b \n".into()), "user-b")]
 #[case::omitted(None, "owner")]
 #[case::max_unicode(Some("λ".repeat(256)), &"λ".repeat(256))]
+#[case::padded_max_unicode(Some(format!(" {} ", "λ".repeat(256))), &"λ".repeat(256))]
 #[tokio::test]
 async fn assignment_preserves_creator_in_create_and_list(
     ingestion: Ingestion<Memory>,

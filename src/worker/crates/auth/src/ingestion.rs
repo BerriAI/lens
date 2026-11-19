@@ -36,15 +36,9 @@ impl<R: IngestionRepository> Ingestion<R> {
         authorize(identity, true)?;
         validate_length("name", &request.name, 1, 128)?;
         validate_length("team_id", &request.team_id, 0, 256)?;
-        if let Some(user_id) = &request.user_id {
+        let user_id = request.user_id.map(|user_id| user_id.trim().to_owned());
+        if let Some(user_id) = &user_id {
             validate_length("user_id", user_id, 1, 256)?;
-            if user_id.trim().is_empty() {
-                return Err(IngestionError::InvalidLength {
-                    field: "user_id",
-                    min: 1,
-                    max: 256,
-                });
-            }
         }
         if request.expires_at.is_some_and(|expires| expires <= now) {
             return Err(IngestionError::InvalidExpiry);
@@ -64,9 +58,7 @@ impl<R: IngestionRepository> Ingestion<R> {
             created_by: identity.user_id.clone().unwrap_or_default(),
             tenant: IngestionTenant {
                 team_id: request.team_id,
-                user_id: request
-                    .user_id
-                    .unwrap_or_else(|| identity.user_id.clone().unwrap_or_default()),
+                user_id: user_id.unwrap_or_else(|| identity.user_id.clone().unwrap_or_default()),
                 org_id: String::new(),
                 api_key_hash: format!("{:x}", Sha256::digest(key.as_bytes())),
             },
