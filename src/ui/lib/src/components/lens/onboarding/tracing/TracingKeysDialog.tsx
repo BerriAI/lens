@@ -53,7 +53,7 @@ function CreateUserKey() {
   return (
     <section
       aria-label="Create key for a user"
-      className="space-y-3 rounded-lg border p-4"
+      className="min-w-0 space-y-3 rounded-lg border p-4"
     >
       <h3 className="text-sm font-medium">Create key for a user</h3>
       <form
@@ -92,12 +92,12 @@ function CreateUserKey() {
         </Button>
       </form>
       {secret && (
-        <div className="space-y-2" role="status">
+        <div className="min-w-0 space-y-2" role="status">
           <p className="text-sm">
             Save this key now. It cannot be shown again after you close this
             dialog.
           </p>
-          <CodeBlock code={secret} copyLabel="Copy tracing key" />
+          <CodeBlock code={secret} wrap copyLabel="Copy tracing key" />
           <p className="text-xs text-muted-foreground">
             Store this key in LITELLM_TRACING_KEY in the agent’s environment.
           </p>
@@ -162,7 +162,7 @@ export function TracingKeysDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="min-w-0 sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Manage tracing keys</DialogTitle>
           <DialogDescription>
