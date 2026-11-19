@@ -202,6 +202,7 @@ it("investigates the profile shown", async () => {
 it("stops showing earlier figures and runs when a refetch of the detail fails", async () => {
   const { proxy } = render(detail());
   expect(await screen.findByRole("button", { name: /trace-quiet/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Investigate these runs" })).toBeVisible();
   proxy.get.mockRejectedValue(new Error("Profiles unavailable"));
 
   await testQueryClient.refetchQueries({ queryKey: ["lens", "profile-detail"] });
@@ -209,7 +210,7 @@ it("stops showing earlier figures and runs when a refetch of the detail fails", 
   expect(await screen.findByRole("alert")).toHaveTextContent("Profiles unavailable");
   expect(screen.queryByRole("button", { name: /trace-quiet/ })).not.toBeInTheDocument();
   expect(screen.queryByText("Known spend")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Investigate profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Investigate these runs" })).not.toBeInTheDocument();
 });
 
 it("reports a failed detail load", async () => {
