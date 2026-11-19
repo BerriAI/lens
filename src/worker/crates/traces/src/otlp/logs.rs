@@ -117,7 +117,7 @@ fn message(record: LogRecord) -> (Span, LogContext) {
         if session.is_empty() {
             identity[..16].to_vec()
         } else {
-            span::session_trace_id(session)
+            span::session_trace_id("litellm.claude.session.v1", session)
         }
     } else {
         record.trace_id
@@ -199,7 +199,7 @@ fn codex_message(mut record: LogRecord, timestamp: u64) -> (Span, LogContext) {
         if session.is_empty() {
             identity[..16].to_vec()
         } else {
-            span::session_trace_id(session)
+            span::session_trace_id("litellm.claude.session.v1", session)
         }
     } else {
         record.trace_id
