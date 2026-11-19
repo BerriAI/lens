@@ -574,14 +574,21 @@ fn a_finished_discovery_records_its_range_and_actual_sample(enabled: AgentState)
     };
 
     let done = complete(
-        Some(claimed),
+        Some(claimed.clone()),
         "job",
         1,
-        Ok((vec![task("a")], vec![point.clone(), point])),
-        now(),
+        Ok((vec![task("a")], vec![point.clone(), point.clone()])),
+        later(7),
     )
     .expect("draft");
 
+    assert_eq!(done.status, TaxonomyStatus::Draft);
+    assert_eq!(done.revision, claimed.revision + 1);
+    assert_eq!(done.job, None);
+    assert_eq!(done.tasks, vec![task("a")]);
+    assert_eq!(done.points, vec![point.clone(), point]);
+    assert_eq!(done.discovered_at, Some(later(7)));
+    assert_eq!(done.error, None);
     assert_eq!(
         done.discovery,
         Some(DiscoveryRun {
@@ -597,7 +604,15 @@ fn a_finished_discovery_records_its_range_and_actual_sample(enabled: AgentState)
 fn an_older_attempt_cannot_finish_a_reclaimed_job(enabled: AgentState) {
     let started = start(&enabled, "job").expect("start");
     let first = claim(started.working.as_ref().expect("working"), now()).expect("first claim");
-    let second = claim(&first, now() + LEASE + Duration::seconds(1)).expect("reclaim");
+    let reclaimed_at = now() + LEASE + Duration::seconds(1);
+    let second = claim(&first, reclaimed_at).expect("reclaim");
+    let leases = [&first, &second].map(|claimed| {
+        claimed
+            .job
+            .as_ref()
+            .map(|job| (job.attempts, job.lease_until))
+    });
+    let reclaimed_revision = second.revision;
 
     let late = complete(
         Some(second.clone()),
@@ -614,10 +629,102 @@ fn an_older_attempt_cannot_finish_a_reclaimed_job(enabled: AgentState) {
         now(),
     );
 
+    assert_eq!(
+        leases,
+        [
+            Some((1, Some(now() + LEASE))),
+            Some((2, Some(reclaimed_at + LEASE)))
+        ]
+    );
+    assert_eq!(reclaimed_revision, first.revision + 1);
     assert_eq!(late, Err(TransitionError::Stale));
     assert_eq!(
         current.map(|taxonomy| taxonomy.status),
         Ok(TaxonomyStatus::Draft)
+    );
+}
+
+#[rstest]
+fn a_failed_discovery_keeps_its_reason_and_releases_the_job(enabled: AgentState) {
+    let started = start(&enabled, "job").expect("start");
+    let claimed = claim(started.working.as_ref().expect("working"), now()).expect("claim");
+
+    let failed = complete(
+        Some(claimed.clone()),
+        "job",
+        1,
+        Err("the embedding model call failed".into()),
+        now(),
+    )
+    .expect("failed");
+
+    assert_eq!(failed.status, TaxonomyStatus::Failed);
+    assert_eq!(
+        failed.error.as_deref(),
+        Some("the embedding model call failed")
+    );
+    assert_eq!(failed.job, None);
+    assert_eq!(failed.revision, claimed.revision + 1);
+    assert!(failed.tasks.is_empty());
+    assert_eq!(failed.discovery, None);
+    assert_eq!(claim(&failed, now()), None);
+}
+
+#[rstest]
+#[case::another_job("job-2", true)]
+#[case::no_taxonomy("job", false)]
+fn a_result_for_a_job_that_is_not_current_is_dropped(
+    enabled: AgentState,
+    #[case] job_id: &str,
+    #[case] has_taxonomy: bool,
+) {
+    let started = start(&enabled, "job").expect("start");
+    let claimed = claim(started.working.as_ref().expect("working"), now()).expect("claim");
+
+    let result = complete(
+        Some(claimed).filter(|_| has_taxonomy),
+        job_id,
+        1,
+        Ok((vec![task("a")], Vec::new())),
+        now(),
+    );
+
+    assert_eq!(result, Err(TransitionError::Stale));
+}
+
+#[rstest]
+fn a_discarded_discovery_cannot_be_claimed_or_finished(enabled: AgentState) {
+    let started = start(&enabled, "job").expect("start");
+    let claimed = claim(started.working.as_ref().expect("working"), now()).expect("claim");
+    let running = AgentState {
+        working: Some(claimed.clone()),
+        ..started
+    };
+    let discarded = applied(
+        &running,
+        reset(
+            &running,
+            &ResetRequest {
+                agent: "agent".into(),
+                revision: claimed.revision,
+                target: TaxonomyTarget::Draft,
+            },
+        )
+        .expect("discard"),
+    );
+    let cleared = discarded.working.clone().expect("cleared");
+
+    assert_eq!(cleared.job, None);
+    assert_eq!(claim(&cleared, later(60)), None);
+    assert_eq!(
+        complete(
+            Some(cleared),
+            "job",
+            1,
+            Ok((vec![task("a")], Vec::new())),
+            now()
+        ),
+        Err(TransitionError::Stale)
     );
 }
 
@@ -662,4 +769,7 @@ fn a_held_lease_is_not_reclaimed_and_exhausted_jobs_fail(enabled: AgentState) {
 
     assert_eq!(claim(&first, now()), None);
     assert_eq!(exhausted.status, TaxonomyStatus::Failed);
+    assert_eq!(exhausted.job, None);
+    assert_eq!(exhausted.revision, third.revision + 1);
+    assert_eq!(claim(&exhausted, after(4)), None);
 }
