@@ -2012,6 +2012,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "resolved": {
+          "description": "False when the span budget ran out before this run was read, so `request_count` and\n`spend_usd` say nothing about it.",
+          "type": "boolean"
+        },
         "spend_usd": {
           "anyOf": [
             {
@@ -2037,6 +2041,7 @@
         "trace_ref",
         "start_ms",
         "input_preview",
+        "resolved",
         "request_count"
       ],
       "type": "object"

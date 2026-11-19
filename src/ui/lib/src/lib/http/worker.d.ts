@@ -753,6 +753,11 @@ export interface ProfileSummary {
 export interface ProfileRunRef {
   input_preview: string;
   request_count: number;
+  /**
+   * False when the span budget ran out before this run was read, so `request_count` and
+   * `spend_usd` say nothing about it.
+   */
+  resolved: boolean;
   spend_usd?: number | null;
   start_ms: number;
   trace_id: string;
