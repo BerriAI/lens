@@ -90,6 +90,7 @@ export const detailSchema = z.object({
       input_preview: z.string(),
       request_count: count,
       spend_usd: money,
+      resolved: z.boolean().default(true),
     }),
   ),
   models: z.array(matrixCellSchema),

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLensDemo } from "./createLensDemo";
+import { demoProfilesApi } from "./demoProfiles";
+import { createLensDemoData } from "./fixtures";
 
 const NOW = Date.UTC(2026, 10, 13, 12);
 const everything = { startMs: 0, endMs: NOW + 1 };
@@ -15,6 +17,38 @@ describe("demo profiles", () => {
     expect(matrix.cells.length).toBeGreaterThan(0);
     expect(matrix.cells.every((cell) => (cell.avg_cost_usd === null) === (cell.cost_observations === 0))).toBe(true);
     expect(new Set(matrix.models.map((model) => model.column_key))).toEqual(new Set(matrix.cells.map((cell) => cell.column_key)));
+  });
+
+  it("attributes each model call once and counts cost observations per request, not per run", async () => {
+    const data = createLensDemoData(NOW);
+    const [first, ...rest] = data.runs;
+    const llm = first.trace.spans.find((span) => span.type === "llm");
+    if (!llm) throw new Error("demo run has no model call");
+    const extra = [
+      { ...llm, span_id: "extra-priced", model: "demo-small-model", spend: 0.01 },
+      { ...llm, span_id: "extra-unpriced", model: "demo-small-model", spend: null },
+    ];
+    const multi = { ...first, trace: { ...first.trace, spans: [...first.trace.spans, ...extra] } };
+    const api = demoProfilesApi({ ...data, runs: [multi, ...rest] }, async () => []);
+    const agent = first.trace.summary.agent_names[0];
+
+    const overview = await api.overview(everything, agent);
+    const matrix = await api.matrix(everything, agent);
+    const calls = [multi, ...rest]
+      .filter((run) => run.trace.summary.agent_names.includes(agent))
+      .flatMap((run) => run.trace.spans.filter((span) => span.type === "llm"));
+    const pricedCalls = calls.filter((call) => call.spend !== null);
+    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+
+    expect(overview.totals.requests).toBe(calls.length);
+    expect(overview.totals.cost_observations).toBe(pricedCalls.length);
+    expect(sum(overview.profiles.map((profile) => profile.cost_observations))).toBe(pricedCalls.length);
+    expect(sum(matrix.cells.map((cell) => cell.request_count))).toBe(calls.length);
+    expect(sum(matrix.cells.map((cell) => (cell.avg_cost_usd ?? 0) * cell.cost_observations))).toBeCloseTo(
+      sum(pricedCalls.map((call) => call.spend ?? 0)),
+      10,
+    );
+    expect(overview.totals.spend_usd).toBeCloseTo(sum(pricedCalls.map((call) => call.spend ?? 0)), 10);
   });
 
   it("opens a profile by id or by its older label link", async () => {

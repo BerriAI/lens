@@ -11,11 +11,23 @@ interface DemoRun {
   preview: string;
   profileId: string;
   name: string;
-  requests: number;
+  calls: DemoCall[];
   spend: number | null;
-  models: string[];
-  durationMs: number;
 }
+
+interface DemoCall {
+  model: string;
+  spend: number | null;
+}
+
+const pricedSpend = (calls: readonly DemoCall[]): number | null => {
+  const priced = calls.flatMap((call) => (call.spend === null ? [] : [call.spend]));
+  return priced.length ? priced.reduce((sum, spend) => sum + spend, 0) : null;
+};
+
+const priced = (runs: readonly DemoRun[]) => runs.flatMap((run) => run.calls).filter((call) => call.spend !== null).length;
+const requests = (runs: readonly DemoRun[]) => runs.reduce((sum, run) => sum + run.calls.length, 0);
+const spendOf = (runs: readonly DemoRun[]) => pricedSpend(runs.flatMap((run) => run.calls));
 
 function demoRuns(data: LensDemoData, window: TimeWindow, agent: string): DemoRun[] {
   return data.runs.flatMap((run) => {
@@ -24,6 +36,9 @@ function demoRuns(data: LensDemoData, window: TimeWindow, agent: string): DemoRu
     if (startMs < window.startMs || startMs >= window.endMs) return [];
     if (agent && !traceAgentNames(trace).includes(agent)) return [];
     const category = run.details.map((detail) => usageCategory(detail.attributes)).find(Boolean);
+    const calls = run.trace.spans
+      .filter((span) => span.type === "llm")
+      .map((span) => ({ model: span.model ?? "", spend: span.spend }));
     return [
       {
         traceId: trace.trace_id,
@@ -31,10 +46,8 @@ function demoRuns(data: LensDemoData, window: TimeWindow, agent: string): DemoRu
         preview: trace.input_preview,
         profileId: category ? `recorded:${category}` : "unclassified",
         name: category ?? "Unclassified",
-        requests: trace.llm_calls,
-        spend: trace.spend,
-        models: trace.models,
-        durationMs: trace.duration_ms,
+        calls,
+        spend: pricedSpend(calls),
       },
     ];
   });
@@ -44,32 +57,30 @@ function summaries(runs: DemoRun[]): ProfileSummary[] {
   const groups = new Map<string, DemoRun[]>();
   for (const run of runs) groups.set(run.profileId, [...(groups.get(run.profileId) ?? []), run]);
   const ranked = [...groups.values()].sort((a, b) => b.length - a.length || a[0].profileId.localeCompare(b[0].profileId));
-  return ranked.map((group): ProfileSummary => {
-    const priced = group.filter((run) => run.spend !== null);
-    return {
+  return ranked.map(
+    (group): ProfileSummary => ({
       profile_id: group[0].profileId,
       name: group[0].name,
       source: group[0].profileId === "unclassified" ? "unclassified" : "recorded",
       run_count: group.length,
       share: group.length / runs.length,
-      request_count: group.reduce((sum, run) => sum + run.requests, 0),
-      cost_observations: priced.length,
-      spend_usd: priced.length ? priced.reduce((sum, run) => sum + (run.spend ?? 0), 0) : null,
-    };
-  });
+      request_count: requests(group),
+      cost_observations: priced(group),
+      spend_usd: spendOf(group),
+    }),
+  );
 }
 
 function overview(runs: DemoRun[], window: TimeWindow, agent: string): ProfilesOverview {
-  const priced = runs.filter((run) => run.spend !== null);
   return {
     window: { agent, start_ms: window.startMs, end_ms: window.endMs },
     coverage: { runs_listed: runs.length, runs_resolved: runs.length, truncated: false },
     totals: {
       runs: runs.length,
-      requests: runs.reduce((sum, run) => sum + run.requests, 0),
-      matched_requests: priced.length,
-      cost_observations: priced.length,
-      spend_usd: priced.length ? priced.reduce((sum, run) => sum + (run.spend ?? 0), 0) : null,
+      requests: requests(runs),
+      matched_requests: priced(runs),
+      cost_observations: priced(runs),
+      spend_usd: spendOf(runs),
       other_agent_requests: 0,
       shared_requests: 0,
     },
@@ -78,21 +89,22 @@ function overview(runs: DemoRun[], window: TimeWindow, agent: string): ProfilesO
 }
 
 function cells(runs: DemoRun[]): MatrixCell[] {
-  const grouped = new Map<string, DemoRun[]>();
+  const grouped = new Map<string, DemoCall[]>();
   for (const run of runs)
-    for (const model of run.models) {
-      const key = `${run.profileId}\u0000group:${model}`;
-      grouped.set(key, [...(grouped.get(key) ?? []), run]);
+    for (const call of run.calls) {
+      const key = `${run.profileId}\u0000${call.model ? `group:${call.model}` : "unmatched:"}`;
+      grouped.set(key, [...(grouped.get(key) ?? []), call]);
     }
-  return [...grouped].map(([key, group]) => {
+  return [...grouped].map(([key, calls]) => {
     const [profileId, columnKey] = key.split("\u0000");
-    const priced = group.filter((run) => run.spend !== null);
+    const observations = calls.filter((call) => call.spend !== null).length;
+    const spend = pricedSpend(calls);
     return {
       profile_id: profileId,
       column_key: columnKey,
-      request_count: group.length,
-      avg_cost_usd: priced.length ? priced.reduce((sum, run) => sum + (run.spend ?? 0), 0) / priced.length : null,
-      cost_observations: priced.length,
+      request_count: calls.length,
+      avg_cost_usd: spend === null ? null : spend / observations,
+      cost_observations: observations,
       p95_latency_ms: null,
       latency_observations: 0,
       eval_success_rate: null,
@@ -108,7 +120,8 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
     overview: async (window, agent) => overview(demoRuns(data, window, agent), window, agent),
     matrix: async (window, agent) => {
       const runs = demoRuns(data, window, agent);
-      const models = [...new Set(runs.flatMap((run) => run.models))].sort();
+      const matrixCells = cells(runs);
+      const columns = [...new Set(matrixCells.map((cell) => cell.column_key))].sort();
       return {
         window: { agent, start_ms: window.startMs, end_ms: window.endMs },
         coverage: { runs_listed: runs.length, runs_resolved: runs.length, truncated: false },
@@ -117,16 +130,19 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           name: profile.name,
           source: profile.source,
         })),
-        models: models.map((model) => ({
-          column_key: `group:${model}`,
-          model_config_id: null,
-          model_name: model,
-          model_group: model,
-          provider: "",
-          configured: false,
-          capabilities: { function_calling: null, vision: null, reasoning: null, structured_output: null },
-        })),
-        cells: cells(runs),
+        models: columns.map((column) => {
+          const model = column.replace(/^(group|unmatched):/, "");
+          return {
+            column_key: column,
+            model_config_id: null,
+            model_name: model,
+            model_group: model,
+            provider: "",
+            configured: false,
+            capabilities: { function_calling: null, vision: null, reasoning: null, structured_output: null },
+          };
+        }),
+        cells: matrixCells,
         other_agent_requests: 0,
       };
     },
@@ -144,8 +160,9 @@ export function demoProfilesApi(data: LensDemoData, usage: ProfilesApi["usage"])
           trace_ref: "",
           start_ms: run.startMs,
           input_preview: run.preview,
-          request_count: run.requests,
+          request_count: run.calls.length,
           spend_usd: run.spend,
+          resolved: true,
         })),
         models: cells(own),
       };

@@ -85,7 +85,7 @@ const detail = (profileId: string): ProfileDetail => ({
   window: { agent: "assistant", start_ms: 0, end_ms: 1 },
   coverage: { runs_listed: 20, runs_resolved: 20, truncated: false },
   profile: summary(profileId, "Coding"),
-  runs: [{ trace_id: "trace-1", trace_ref: "REF1", start_ms: 0, input_preview: "Fix the login test", request_count: 2, spend_usd: 0.4 }],
+  runs: [{ trace_id: "trace-1", trace_ref: "REF1", start_ms: 0, input_preview: "Fix the login test", request_count: 2, spend_usd: 0.4, resolved: true }],
   models: [],
 });
 

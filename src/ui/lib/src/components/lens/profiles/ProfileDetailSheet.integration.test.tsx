@@ -19,7 +19,7 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
     cost_observations: 2,
     spend_usd: 0.5,
   },
-  runs: [{ trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 1, spend_usd: null }],
+  runs: [{ trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 1, spend_usd: null, resolved: true }],
   models: [
     {
       profile_id: "recorded:Charts",
@@ -47,7 +47,7 @@ const detail = (overrides: Partial<ProfileDetail> = {}): ProfileDetail => ({
   ...overrides,
 });
 
-function render(data: ProfileDetail | Error, options: { canInvestigate?: boolean; investigateDisabled?: boolean } = {}) {
+function render(data: unknown, options: { canInvestigate?: boolean; investigateDisabled?: boolean } = {}) {
   const proxy = stubGateway();
   proxy.get.mockImplementation(async () => {
     if (data instanceof Error) throw data;
@@ -110,6 +110,32 @@ it("says when a profile has no model requests", async () => {
 
   expect(await screen.findByText("No model requests by assistant in these runs.")).toBeVisible();
   expect(screen.queryByText(/Figures cover/)).not.toBeInTheDocument();
+});
+
+it("says model figures are unavailable instead of zero when the runs were not fully read", async () => {
+  render(detail({ models: [], coverage: { runs_listed: 3, runs_resolved: 1, truncated: false } }));
+
+  expect(await screen.findByText("Model figures are unavailable for these runs.")).toBeVisible();
+  expect(screen.queryByText(/No model requests/)).not.toBeInTheDocument();
+});
+
+it("shows an unresolved run's requests and spend as unavailable rather than zero", async () => {
+  const unread = { trace_id: "trace-unread", trace_ref: "REF2", start_ms: 0, input_preview: "Plot sales", request_count: 0, spend_usd: 0, resolved: false };
+  render(detail({ runs: [unread] }));
+
+  const run = await screen.findByRole("button", { name: /Plot sales/ });
+  expect(run).toHaveTextContent("requests and spend unavailable");
+  expect(run).not.toHaveTextContent("0 requests");
+  expect(run).not.toHaveTextContent("$0");
+});
+
+it("treats a run from an older response without a resolved flag as resolved", async () => {
+  const older = { trace_id: "trace-quiet", trace_ref: "REF9", start_ms: 0, input_preview: "", request_count: 0, spend_usd: 0 };
+  render({ ...detail(), runs: [older] });
+
+  const run = await screen.findByRole("button", { name: /trace-quiet/ });
+  expect(run).toHaveTextContent("0 requests · $0.00");
+  expect(run).not.toHaveTextContent("unavailable");
 });
 
 it("hides investigation from callers who cannot investigate", async () => {

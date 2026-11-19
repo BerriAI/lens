@@ -66,7 +66,11 @@ export function ProfileDetailSheet({
               <section className="space-y-2">
                 <h3 className="lens-section-label">Models</h3>
                 {detail.models.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No model requests by {agent} in these runs.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {detail.coverage.runs_resolved < detail.coverage.runs_listed
+                      ? "Model figures are unavailable for these runs."
+                      : `No model requests by ${agent} in these runs.`}
+                  </p>
                 ) : (
                   <ul className="divide-y rounded-md border text-sm">
                     {detail.models.map((cell) => (
@@ -93,8 +97,10 @@ export function ProfileDetailSheet({
                       >
                         <span className="line-clamp-2">{run.input_preview || run.trace_id}</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(run.start_ms).toLocaleString()} · {formatCount(run.request_count)} requests ·{" "}
-                          {formatUsd(run.spend_usd) ?? "spend unknown"}
+                          {new Date(run.start_ms).toLocaleString()} ·{" "}
+                          {run.resolved
+                            ? `${formatCount(run.request_count)} requests · ${formatUsd(run.spend_usd) ?? "spend unknown"}`
+                            : "requests and spend unavailable"}
                         </span>
                       </button>
                     </li>
