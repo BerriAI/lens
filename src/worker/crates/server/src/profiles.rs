@@ -291,7 +291,10 @@ async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStor
         window: query.window(),
         coverage: view.coverage(),
         totals: view.totals(),
-        points: layout::points(&loaded.runs, loaded.taxonomy.as_ref().or(loaded.draft.as_ref())),
+        points: layout::points(
+            &loaded.runs,
+            loaded.taxonomy.as_ref().or(loaded.draft.as_ref()),
+        ),
         profiles: loaded.summaries(&query.agent),
     }))
 }
@@ -591,8 +594,16 @@ mod tests {
     #[rstest]
     #[case::active_only(None, Some("active"), Some("active"))]
     #[case::completed_draft_without_active(Some(TaxonomyStatus::Draft), None, Some("working"))]
-    #[case::active_preferred_over_completed_draft(Some(TaxonomyStatus::Draft), Some("active"), Some("active"))]
-    #[case::active_preferred_during_rediscovery(Some(TaxonomyStatus::Discovering), Some("active"), Some("active"))]
+    #[case::active_preferred_over_completed_draft(
+        Some(TaxonomyStatus::Draft),
+        Some("active"),
+        Some("active")
+    )]
+    #[case::active_preferred_during_rediscovery(
+        Some(TaxonomyStatus::Discovering),
+        Some("active"),
+        Some("active")
+    )]
     #[case::running_discovery_has_no_layout(Some(TaxonomyStatus::Discovering), None, None)]
     #[case::failed_discovery_has_no_layout(Some(TaxonomyStatus::Failed), None, None)]
     #[case::nothing_stored(None, None, None)]
