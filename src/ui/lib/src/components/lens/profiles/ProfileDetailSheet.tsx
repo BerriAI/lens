@@ -7,13 +7,14 @@ import { cn } from "../../../lib/cva.config";
 import { LoadingState } from "../../shared/LoadingState";
 import { Button } from "../../ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../../ui/sheet";
-import { formatActivityTimestamp, formatRunTimestamp } from "../../../utils/activityTimestamp";
+import { formatActivityTimestamp } from "../../../utils/activityTimestamp";
 import { useProfilesApi } from "../data/LensServices";
 import { useOpenSourceTrace } from "../route";
 import { formatCount, formatLatency, formatUsd, modelLabel, SOURCE_LABELS } from "./profilesData";
 
 const NUM = "shrink-0 text-right tabular-nums";
-const RUN_GRID = "grid h-9 grid-cols-[6.5rem_minmax(0,1fr)_3.5rem_4.5rem_0.75rem] items-center gap-3 px-2 text-xs";
+const RUN_GRID = "grid min-h-9 grid-cols-[6.5rem_minmax(0,1fr)_3.5rem_4.5rem_0.75rem] items-start gap-3 px-2 py-2 text-xs";
+const RUN_TIME: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 
 const unavailable = <span className="text-muted-foreground">Unavailable</span>;
 
@@ -54,7 +55,7 @@ export function ProfileDetailSheet({
   const deployments = matrix.data?.models ?? [];
   return (
     <Sheet open={!!profileId} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl xl:max-w-3xl">
         <SheetHeader>
           <SheetTitle>{detail?.profile.name ?? "Profile"}</SheetTitle>
           <SheetDescription>{detail ? `${SOURCE_LABELS[detail.profile.source]} · ${agent}` : agent}</SheetDescription>
@@ -111,20 +112,16 @@ export function ProfileDetailSheet({
                       {detail.models.map((cell) => {
                         const label = modelLabel(cell.column_key, deployments);
                         return (
-                          <tr key={cell.column_key} className="h-9 border-b border-border/60 last:border-0">
-                            <th scope="row" className="px-2 text-left font-normal">
-                              <span className="block truncate font-mono" title={label.name}>
-                                {label.name}
-                              </span>
+                          <tr key={cell.column_key} className="border-b border-border/60 align-top last:border-0">
+                            <th scope="row" className="px-2 py-2 text-left font-normal">
+                              <span className="block font-mono break-all">{label.name}</span>
                               {label.detail && label.detail !== label.name && (
-                                <span className="block truncate text-muted-foreground" title={label.detail}>
-                                  {label.detail}
-                                </span>
+                                <span className="block break-all text-muted-foreground">{label.detail}</span>
                               )}
                             </th>
-                            <td className={`px-2 ${NUM}`}>{formatCount(cell.request_count)}</td>
-                            <td className={`px-2 ${NUM}`}>{unknown(formatUsd(cell.avg_cost_usd))}</td>
-                            <td className={`px-2 ${NUM}`}>{unknown(formatLatency(cell.p95_latency_ms))}</td>
+                            <td className={`px-2 py-2 ${NUM}`}>{formatCount(cell.request_count)}</td>
+                            <td className={`px-2 py-2 ${NUM}`}>{unknown(formatUsd(cell.avg_cost_usd))}</td>
+                            <td className={`px-2 py-2 ${NUM}`}>{unknown(formatLatency(cell.p95_latency_ms))}</td>
                           </tr>
                         );
                       })}
@@ -138,7 +135,7 @@ export function ProfileDetailSheet({
                   <p className="text-xs text-muted-foreground">No runs to show.</p>
                 ) : (
                   <>
-                    <div aria-hidden="true" className={cn(RUN_GRID, "h-8 border-b border-border/60 text-muted-foreground")}>
+                    <div aria-hidden="true" className={cn(RUN_GRID, "min-h-8 items-center border-b border-border/60 py-0 text-muted-foreground")}>
                       <span>Time</span>
                       <span>Input</span>
                       <span className="text-right">Requests</span>
@@ -147,7 +144,7 @@ export function ProfileDetailSheet({
                     </div>
                     <ul>
                       {detail.runs.map((run) => {
-                        const started = new Date(run.start_ms).toISOString();
+                        const started = new Date(run.start_ms);
                         return (
                           <li key={run.trace_ref || run.trace_id} className="border-b border-border/60 last:border-0">
                             <button
@@ -155,13 +152,17 @@ export function ProfileDetailSheet({
                               className={cn(RUN_GRID, "w-full text-left hover:bg-trace-row-hover focus-visible:outline-2 focus-visible:outline-ring")}
                               onClick={() => openTrace({ agent, traceId: run.trace_id, traceRef: run.trace_ref, spanId: "" })}
                             >
-                              <span className="font-mono text-muted-foreground tabular-nums" title={formatActivityTimestamp(started)}>
-                                {formatRunTimestamp(started)}
-                              </span>
+                              <time
+                                dateTime={started.toISOString()}
+                                className="text-muted-foreground tabular-nums"
+                                title={formatActivityTimestamp(started.toISOString())}
+                              >
+                                {started.toLocaleString(undefined, RUN_TIME)}
+                              </time>
                               {run.input_preview ? (
-                                <span className="truncate">{run.input_preview}</span>
+                                <span className="break-words whitespace-pre-line">{run.input_preview}</span>
                               ) : (
-                                <span className="truncate font-mono text-muted-foreground">{run.trace_id}</span>
+                                <span className="font-mono break-all text-muted-foreground">{run.trace_id}</span>
                               )}
                               <span className={NUM}>{run.resolved ? formatCount(run.request_count) : unavailable}</span>
                               <span className={NUM}>{run.resolved ? unknown(formatUsd(run.spend_usd)) : unavailable}</span>

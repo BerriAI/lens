@@ -183,7 +183,7 @@ function PlottedMap({ data, colors, selected, onOpenDetails }: MapProps & { data
         <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
             {formatCount(data.placed)} of {formatCount(data.total)} runs on the map. The map shows runs from the
-            discovery sample; the breakdown counts every run.
+            discovery sample, grouped by their current profile; the breakdown counts every run.
           </span>
           {current !== null && currentOnMap && (
             <span className="flex gap-2">

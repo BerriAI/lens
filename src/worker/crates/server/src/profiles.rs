@@ -10,7 +10,7 @@ use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
     ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
     ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview,
-    Taxonomy, TaxonomyView,
+    Taxonomy, TaxonomyStatus, TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -155,6 +155,15 @@ struct Loaded {
     calls: RunCalls,
     truncated: bool,
     taxonomy: Option<Taxonomy>,
+    draft: Option<Taxonomy>,
+}
+
+fn map_layout(state: &taxonomy::AgentState) -> Option<&Taxonomy> {
+    state.active().or_else(|| {
+        state
+            .under_review()
+            .filter(|working| working.status == TaxonomyStatus::Draft)
+    })
 }
 
 impl Loaded {
@@ -229,10 +238,16 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
     scope: &ReadAccessParams,
     query: &WindowQuery,
 ) -> Result<Loaded, ProfileHttpError> {
-    let taxonomy = match taxonomy_id(scope, &query.agent) {
-        Some(id) => store.load(&id).await?.0.active().cloned(),
+    let state = match taxonomy_id(scope, &query.agent) {
+        Some(id) => Some(store.load(&id).await?.0),
         None => None,
     };
+    let taxonomy = state.as_ref().and_then(|state| state.active().cloned());
+    let draft = state
+        .as_ref()
+        .filter(|_| taxonomy.is_none())
+        .and_then(map_layout)
+        .cloned();
     let frozen = taxonomy.as_ref();
     let mut runs = store
         .runs(
@@ -257,6 +272,7 @@ async fn load<S: ProfileStore + taxonomy::TaxonomyStore>(
         calls,
         truncated,
         taxonomy,
+        draft,
     })
 }
 
@@ -275,7 +291,7 @@ async fn overview<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStor
         window: query.window(),
         coverage: view.coverage(),
         totals: view.totals(),
-        points: layout::points(&loaded.runs, loaded.taxonomy.as_ref()),
+        points: layout::points(&loaded.runs, loaded.taxonomy.as_ref().or(loaded.draft.as_ref())),
         profiles: loaded.summaries(&query.agent),
     }))
 }
@@ -455,6 +471,7 @@ fn columns<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lens_contract::profiles::TaxonomyModels;
     use rstest::rstest;
 
     #[rstest]
@@ -516,6 +533,7 @@ mod tests {
             calls: RunCalls::new(),
             truncated: false,
             taxonomy: None,
+            draft: None,
         };
 
         let names: BTreeMap<String, String> = loaded
@@ -549,6 +567,50 @@ mod tests {
         };
 
         assert_eq!(taxonomy_id(&scope, "agent").is_some(), visible);
+    }
+
+    fn stored(taxonomy_id: &str, status: TaxonomyStatus) -> Taxonomy {
+        Taxonomy {
+            taxonomy_id: taxonomy_id.into(),
+            agent: "agent".into(),
+            version: 1,
+            revision: 1,
+            status,
+            tasks: Vec::new(),
+            points: Vec::new(),
+            job: None,
+            discovered_at: None,
+            frozen_at: None,
+            error: None,
+            models: TaxonomyModels::default(),
+            discovery: None,
+            windows: Vec::new(),
+        }
+    }
+
+    #[rstest]
+    #[case::active_only(None, Some("active"), Some("active"))]
+    #[case::completed_draft_without_active(Some(TaxonomyStatus::Draft), None, Some("working"))]
+    #[case::active_preferred_over_completed_draft(Some(TaxonomyStatus::Draft), Some("active"), Some("active"))]
+    #[case::active_preferred_during_rediscovery(Some(TaxonomyStatus::Discovering), Some("active"), Some("active"))]
+    #[case::running_discovery_has_no_layout(Some(TaxonomyStatus::Discovering), None, None)]
+    #[case::failed_discovery_has_no_layout(Some(TaxonomyStatus::Failed), None, None)]
+    #[case::nothing_stored(None, None, None)]
+    fn the_map_prefers_the_active_taxonomy_and_falls_back_only_to_a_completed_draft(
+        #[case] working: Option<TaxonomyStatus>,
+        #[case] active: Option<&str>,
+        #[case] expected: Option<&str>,
+    ) {
+        let state = taxonomy::AgentState {
+            working: working.map(|status| stored("working", status)),
+            active: active.map(|id| stored(id, TaxonomyStatus::Frozen)),
+            settings: None,
+        };
+
+        assert_eq!(
+            map_layout(&state).map(|taxonomy| taxonomy.taxonomy_id.as_str()),
+            expected
+        );
     }
 
     struct Inventory;

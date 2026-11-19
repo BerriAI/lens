@@ -138,6 +138,17 @@ it("opens a run without a request preview by its trace id and keeps its unknown 
   expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).get("trace_ref")).toBe("REF9");
 });
 
+it("shows a run's start to the minute with the exact time kept machine readable", async () => {
+  const startMs = Date.UTC(2026, 10, 18, 9, 41, 27, 512);
+  render(detail({ runs: [{ ...detail().runs[0], start_ms: startMs, input_preview: "Plot quarterly revenue" }] }));
+
+  const run = await screen.findByRole("button", { name: /Plot quarterly revenue/ });
+  const time = run.querySelector("time");
+  expect(time).toHaveAttribute("datetime", new Date(startMs).toISOString());
+  expect(time?.textContent).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  expect(time?.textContent).not.toContain("512");
+});
+
 it("says how many runs the figures cover without calling a complete run list a lower bound", async () => {
   render(detail({ coverage: { runs_listed: 3, runs_resolved: 2, truncated: false } }));
 

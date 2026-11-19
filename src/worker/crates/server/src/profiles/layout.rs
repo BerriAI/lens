@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use lens_contract::profiles::{DiscoveryPoint, MapPoint, Taxonomy};
+use lens_contract::profiles::{DiscoveryPoint, MapPoint, Taxonomy, TaxonomyStatus};
 
 use super::aggregate::Run;
 
-/// Positions that discovery computed for its sample, for the sampled runs still assigned to the
-/// task they were discovered in.
+/// Positions discovery computed for its sample. An active layout keeps only runs still in the
+/// task they were discovered in; a completed draft groups sampled runs by their current profile.
 pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
     let Some(taxonomy) = taxonomy else {
         return Vec::new();
@@ -27,14 +27,17 @@ pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
     let mut placed = HashSet::new();
     runs.iter()
         .filter_map(|run| {
-            let task_id = run.profile_id.strip_prefix("task:")?;
             let identity = (
                 run.team_id.as_str(),
                 run.api_key_hash.as_str(),
                 run.trace_id.as_str(),
             );
             let point = sampled.get(&identity)?;
-            let current = point.task_id.as_deref() == Some(task_id);
+            let current = taxonomy.status == TaxonomyStatus::Draft
+                || run
+                    .profile_id
+                    .strip_prefix("task:")
+                    .is_some_and(|task_id| point.task_id.as_deref() == Some(task_id));
             (current && placed.insert(identity)).then(|| MapPoint {
                 trace_id: run.trace_id.clone(),
                 profile_id: run.profile_id.clone(),
@@ -48,7 +51,7 @@ pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lens_contract::profiles::{TaxonomyModels, TaxonomyStatus};
+    use lens_contract::profiles::TaxonomyModels;
     use rstest::rstest;
 
     fn run(team_id: &str, trace_id: &str, profile_id: &str) -> Run {
@@ -137,6 +140,65 @@ mod tests {
                 .map(|point| (point.x, point.y))
                 .collect::<Vec<_>>(),
             expected
+        );
+    }
+
+    fn draft() -> Taxonomy {
+        Taxonomy {
+            status: TaxonomyStatus::Draft,
+            points: taxonomy()
+                .points
+                .into_iter()
+                .chain([DiscoveryPoint {
+                    team_id: "team".into(),
+                    api_key_hash: "key".into(),
+                    trace_id: "earlier".into(),
+                    task_id: Some("b".into()),
+                    x: 50.0,
+                    y: 60.0,
+                }])
+                .collect(),
+            ..taxonomy()
+        }
+    }
+
+    #[rstest]
+    #[case::automatic_group(run("team", "sampled", "cluster:c1"), Some(("cluster:c1", 10.0, 20.0)))]
+    #[case::recorded_category(run("team", "sampled", "recorded:Coding"), Some(("recorded:Coding", 10.0, 20.0)))]
+    #[case::not_grouped_yet(run("team", "sampled", "unclassified"), Some(("unclassified", 10.0, 20.0)))]
+    #[case::not_in_the_sample(run("team", "later", "cluster:c1"), None)]
+    #[case::same_trace_in_another_team(run("other", "sampled", "cluster:c1"), None)]
+    fn a_completed_draft_places_its_sampled_runs_under_their_current_profile(
+        #[case] listed: Run,
+        #[case] expected: Option<(&str, f64, f64)>,
+    ) {
+        let points = points(&[listed], Some(&draft()));
+
+        assert_eq!(
+            points
+                .first()
+                .map(|point| (point.profile_id.as_str(), point.x, point.y)),
+            expected
+        );
+    }
+
+    #[rstest]
+    fn a_completed_draft_places_only_the_runs_listed_for_the_window() {
+        let points = points(&[run("team", "earlier", "cluster:c2")], Some(&draft()));
+
+        assert_eq!(
+            points
+                .iter()
+                .map(|point| {
+                    (
+                        point.trace_id.as_str(),
+                        point.profile_id.as_str(),
+                        point.x,
+                        point.y,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![("earlier", "cluster:c2", 50.0, 60.0)]
         );
     }
 
