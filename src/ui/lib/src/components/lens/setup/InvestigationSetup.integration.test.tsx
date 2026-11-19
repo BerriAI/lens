@@ -108,7 +108,7 @@ describe("Investigation setup", () => {
       <InvestigationSetup mode="edit" initial={{ ...settings, agent_name: "assistant", profile: "cluster:charts" }} onClose={vi.fn()} onSave={save} />,
     );
 
-    expect(await screen.findByRole("combobox", { name: "Profile" })).toHaveTextContent("Read charts");
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Profile" })).toHaveTextContent("Read charts"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/assistant · Read charts · Last/)).toBeVisible();
     expect(screen.queryByText(/cluster:charts/)).not.toBeInTheDocument();
