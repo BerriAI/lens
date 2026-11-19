@@ -12,8 +12,8 @@ use lens_server::profiles::{
 };
 use litellm_storage_clickhouse::state::{Change, ClickHouseState};
 use litellm_traces_clickhouse::profiles::{
-    AssignmentOutcome, BucketingParams, TaskAssignment, bucketing_candidates, discovery_samples,
-    record_assignment,
+    AssignmentOutcome, AssignmentRecord, BucketingParams, TaskAssignment, assignment_start,
+    bucketing_candidates, discovery_samples, record_assignment,
 };
 use serde::{Deserialize, Serialize};
 
@@ -36,11 +36,16 @@ const BUCKET_LEASE: chrono::Duration = chrono::Duration::minutes(5);
 const BUCKET_PREFIX: &str = "profiles/bucketing/";
 const SETTLE_MS: i64 = 60_000;
 
+/// `pending` is the one decided assignment whose insert is not confirmed yet. It is queued before
+/// the insert and survives takeovers and version changes, and whoever holds the lease next
+/// replays it before anything else, so a stalled insert and its replay are the same row.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct BucketLease {
     owner: String,
     version: u32,
     until: DateTime<Utc>,
+    #[serde(default)]
+    pending: Option<AssignmentRecord>,
 }
 
 /// One replica buckets a taxonomy at a time; another may take over once the lease lapses.
@@ -57,6 +62,56 @@ fn take_lease(
         owner: owner.to_owned(),
         version,
         until: now + BUCKET_LEASE,
+        pending: current.and_then(|lease| lease.pending.clone()),
+    })
+}
+
+fn held<'a>(
+    current: Option<&'a BucketLease>,
+    owner: &str,
+    version: u32,
+) -> Option<&'a BucketLease> {
+    current.filter(|lease| lease.owner == owner && lease.version == version)
+}
+
+fn renew(
+    current: Option<&BucketLease>,
+    owner: &str,
+    version: u32,
+    now: DateTime<Utc>,
+) -> Option<BucketLease> {
+    let lease = held(current, owner, version)
+        .filter(|lease| lease.pending.is_none())?;
+    Some(BucketLease {
+        until: now + BUCKET_LEASE,
+        ..lease.clone()
+    })
+}
+
+fn queue(
+    current: Option<&BucketLease>,
+    owner: &str,
+    version: u32,
+    record: &AssignmentRecord,
+    now: DateTime<Utc>,
+) -> Option<BucketLease> {
+    renew(current, owner, version, now).map(|lease| BucketLease {
+        pending: Some(record.clone()),
+        ..lease
+    })
+}
+
+fn clear(
+    current: Option<&BucketLease>,
+    owner: &str,
+    version: u32,
+    record: &AssignmentRecord,
+) -> Option<BucketLease> {
+    let lease = held(current, owner, version)
+        .filter(|lease| lease.pending.as_ref() == Some(record))?;
+    Some(BucketLease {
+        pending: None,
+        ..lease.clone()
     })
 }
 
@@ -382,23 +437,41 @@ impl ProfilesWorker {
         .await
     }
 
-    async fn lease(&self, taxonomy: &Taxonomy) -> bool {
-        let key = format!("{BUCKET_PREFIX}{}", taxonomy.taxonomy_id);
-        let Ok(previous) = self.store.read(&key).await else {
-            return false;
-        };
+    async fn update_lease(
+        &self,
+        taxonomy_id: &str,
+        next: impl FnOnce(Option<&BucketLease>) -> Option<BucketLease>,
+    ) -> Option<BucketLease> {
+        let key = format!("{BUCKET_PREFIX}{taxonomy_id}");
+        let previous = self.store.read(&key).await.ok()?;
         let current: Option<BucketLease> = serde_json::from_value(previous.value.clone()).ok();
-        let Some(next) = take_lease(current.as_ref(), &self.owner, taxonomy.version, Utc::now())
-        else {
-            return false;
-        };
-        let Ok(value) = serde_json::to_value(next) else {
-            return false;
-        };
+        let lease = next(current.as_ref())?;
+        let value = serde_json::to_value(&lease).ok()?;
         self.store
             .commit(vec![Change { previous, value }])
             .await
-            .is_ok()
+            .ok()
+            .map(|_| lease)
+    }
+
+    async fn store_assignment(
+        &self,
+        taxonomy_id: &str,
+        version: u32,
+        record: &AssignmentRecord,
+    ) -> bool {
+        let client = &self.state.storage.client;
+        if record_assignment(client, &self.state.storage.config, record)
+            .await
+            .is_err()
+        {
+            return false;
+        }
+        self.update_lease(taxonomy_id, |current| {
+            clear(current, &self.owner, version, record)
+        })
+        .await
+        .is_some()
     }
 
     async fn still_current(&self, snapshot: &Taxonomy) -> bool {
@@ -408,22 +481,50 @@ impl ProfilesWorker {
         )
     }
 
-    /// Settles a bounded batch of the agent's unrecorded runs that start inside the taxonomy's
-    /// classification windows.
+    /// Replays a pending assignment before anything else, also while classification is paused,
+    /// since its model call was already made.
     async fn bucket(&self, taxonomy_id: &str) -> bool {
         let Ok((state, _)) = load_state(&self.store, taxonomy_id).await else {
             return false;
         };
-        let Some(taxonomy) = classifiable(&state).cloned() else {
+        let Some(version) = state.active.as_ref().map(|active| active.version) else {
             return false;
         };
-        if !self.decision_supported(&taxonomy.models.decision) || !self.lease(&taxonomy).await {
+        let taxonomy = classifiable(&state)
+            .filter(|taxonomy| self.decision_supported(&taxonomy.models.decision))
+            .cloned();
+        let Some(lease) = self
+            .update_lease(taxonomy_id, |current| {
+                let pending = current.is_some_and(|lease| lease.pending.is_some());
+                if !pending && taxonomy.is_none() {
+                    return None;
+                }
+                take_lease(current, &self.owner, version, Utc::now())
+            })
+            .await
+        else {
             return false;
+        };
+        if let Some(pending) = &lease.pending {
+            if !pending.insertable() {
+                return self
+                    .update_lease(taxonomy_id, |current| {
+                        clear(current, &self.owner, version, pending)
+                    })
+                    .await
+                    .is_some();
+            }
+            return self.store_assignment(taxonomy_id, version, pending).await;
         }
+        let Some(taxonomy) = taxonomy else {
+            return false;
+        };
         let windows = ranges(&taxonomy.windows, Utc::now().timestamp_millis() + SETTLE_MS);
+        let client = &self.state.storage.client;
+        let config = &self.state.storage.config;
         let Ok(candidates) = bucketing_candidates(
-            &self.state.storage.client,
-            &self.state.storage.config,
+            client,
+            config,
             &BucketingParams {
                 taxonomy_id: taxonomy.taxonomy_id.clone(),
                 taxonomy_version: taxonomy.version,
@@ -437,8 +538,30 @@ impl ProfilesWorker {
             return false;
         };
         let evaluation = self.models.evaluation();
+        let longest_task = taxonomy
+            .tasks
+            .iter()
+            .map(|task| task.task_id.as_str())
+            .max_by_key(|task_id| task_id.len())
+            .unwrap_or_default();
         for candidate in &candidates {
-            if !self.still_current(&taxonomy).await || !self.lease(&taxonomy).await {
+            let largest = TaskAssignment {
+                candidate,
+                agent: &taxonomy.agent,
+                taxonomy_id: &taxonomy.taxonomy_id,
+                taxonomy_version: taxonomy.version,
+                task_id: longest_task,
+                outcome: AssignmentOutcome::Assigned,
+            };
+            if !largest.record(candidate.start_ms, u64::MAX).insertable() {
+                continue;
+            }
+            let renewed = self
+                .update_lease(taxonomy_id, |current| {
+                    renew(current, &self.owner, version, Utc::now())
+                })
+                .await;
+            if !self.still_current(&taxonomy).await || renewed.is_none() {
                 return true;
             }
             let decided = bucketing::decide(
@@ -448,28 +571,37 @@ impl ProfilesWorker {
                 &candidate.input_preview,
             )
             .await;
-            if !self.still_current(&taxonomy).await || !self.lease(&taxonomy).await {
+            if !self.still_current(&taxonomy).await {
                 return true;
             }
+            let Ok(stored) = assignment_start(client, config, candidate).await else {
+                return true;
+            };
             let (outcome, task_id) = match &decided {
                 Ok(Decision::Assigned(task_id)) => (AssignmentOutcome::Assigned, task_id.as_str()),
                 Ok(Decision::Unknown) => (AssignmentOutcome::Unknown, ""),
                 Err(_) => (AssignmentOutcome::Failed, ""),
             };
-            let recorded = record_assignment(
-                &self.state.storage.client,
-                &self.state.storage.config,
-                &TaskAssignment {
-                    candidate,
-                    agent: &taxonomy.agent,
-                    taxonomy_id: &taxonomy.taxonomy_id,
-                    taxonomy_version: taxonomy.version,
-                    task_id,
-                    outcome,
-                },
-            )
-            .await;
-            if recorded.is_err() {
+            let assignment = TaskAssignment {
+                candidate,
+                agent: &taxonomy.agent,
+                taxonomy_id: &taxonomy.taxonomy_id,
+                taxonomy_version: taxonomy.version,
+                task_id,
+                outcome,
+            };
+            let start_ms = stored.unwrap_or(candidate.start_ms);
+            let computed_at = Utc::now().timestamp_millis().unsigned_abs();
+            let record = assignment.record(start_ms, computed_at);
+            if !record.insertable() {
+                continue;
+            }
+            let queued = self
+                .update_lease(taxonomy_id, |current| {
+                    queue(current, &self.owner, version, &record, Utc::now())
+                })
+                .await;
+            if queued.is_none() || !self.store_assignment(taxonomy_id, version, &record).await {
                 return true;
             }
         }
@@ -483,6 +615,7 @@ mod tests {
     use lens_contract::profiles::{
         ClassificationWindow, DiscoveryJob, DiscoveryModelChoice, ProfileSettings, TaxonomyModels,
     };
+    use litellm_traces_clickhouse::profiles::BucketingCandidate;
     use rstest::rstest;
 
     fn taxonomy(status: TaxonomyStatus, windows: Vec<ClassificationWindow>) -> Taxonomy {
@@ -649,6 +782,114 @@ mod tests {
         assert_eq!(
             renewed.map(|lease| lease.owner),
             Some("replica-a".to_owned())
+        );
+    }
+
+    const FEBRUARY_MS: i64 = 1_769_990_400_000;
+    const LATE_JANUARY_MS: i64 = 1_769_731_200_000;
+
+    fn decided(version: u32, start_ms: i64) -> AssignmentRecord {
+        TaskAssignment {
+            candidate: &BucketingCandidate {
+                team_id: "team".into(),
+                api_key_hash: "key".into(),
+                trace_id: "run".into(),
+                user_ids: vec!["user".into()],
+                start_ms: LATE_JANUARY_MS,
+                input_preview: "private request text".into(),
+                attempts: 0,
+            },
+            agent: "agent",
+            taxonomy_id: "tax",
+            taxonomy_version: version,
+            task_id: "release",
+            outcome: AssignmentOutcome::Assigned,
+        }
+        .record(start_ms, 7)
+    }
+
+    fn queued(owner: &str, record: &AssignmentRecord) -> BucketLease {
+        let version = record.taxonomy_version;
+        let lease = take_lease(None, owner, version, now());
+        let queued = queue(lease.as_ref(), owner, version, record, now());
+        queued.expect("queued")
+    }
+
+    fn lapsed() -> DateTime<Utc> {
+        now() + BUCKET_LEASE + chrono::Duration::seconds(1)
+    }
+
+    #[rstest]
+    fn a_takeover_replays_the_exact_stalled_assignment_before_new_work() {
+        let record = decided(2, FEBRUARY_MS);
+        let stalled = queued("replica-a", &record);
+
+        let early = take_lease(Some(&stalled), "replica-b", 2, now());
+        let taken = take_lease(Some(&stalled), "replica-b", 2, lapsed());
+        let taken = taken.expect("taken");
+        let new_work = renew(Some(&taken), "replica-b", 2, lapsed());
+        let other = queue(
+            Some(&taken),
+            "replica-b",
+            2,
+            &decided(2, LATE_JANUARY_MS),
+            lapsed(),
+        );
+        let late_stalled_holder = clear(Some(&taken), "replica-a", 2, &record);
+
+        assert_eq!(early, None);
+        assert_eq!(taken.pending.as_ref(), Some(&record));
+        assert_eq!(new_work, None);
+        assert_eq!(other, None);
+        assert_eq!(late_stalled_holder, None);
+    }
+
+    #[rstest]
+    fn a_confirmed_insert_clears_only_its_own_payload() {
+        let record = decided(2, FEBRUARY_MS);
+        let lease = queued("replica-a", &record);
+
+        let mismatched = clear(Some(&lease), "replica-a", 2, &decided(2, LATE_JANUARY_MS));
+        let cleared = clear(Some(&lease), "replica-a", 2, &record);
+        let cleared = cleared.expect("cleared");
+
+        assert_eq!(mismatched, None);
+        assert_eq!(cleared.pending, None);
+        assert!(renew(Some(&cleared), "replica-a", 2, now()).is_some());
+    }
+
+    #[rstest]
+    #[case::same_replica_retries("replica-a", 2)]
+    #[case::another_replica_takes_over("replica-b", 2)]
+    #[case::a_new_version_is_activated("replica-a", 3)]
+    fn an_unconfirmed_insert_keeps_its_month_and_version_until_replayed(
+        #[case] owner: &str,
+        #[case] version: u32,
+    ) {
+        let record = decided(2, FEBRUARY_MS);
+        let failed = queued("replica-a", &record);
+
+        let next = take_lease(Some(&failed), owner, version, lapsed());
+        let next = next.expect("lease");
+        let pending = next.pending.clone().expect("still pending");
+
+        assert_eq!(pending, record);
+        assert_eq!(pending.start_ts, litellm_traces::iso_time(FEBRUARY_MS));
+        assert_eq!(pending.taxonomy_version, 2);
+        assert_eq!(renew(Some(&next), owner, version, lapsed()), None);
+        assert!(clear(Some(&next), owner, version, &record).is_some());
+    }
+
+    #[rstest]
+    fn the_queued_payload_carries_no_request_text() {
+        let lease = queued("replica-a", &decided(2, FEBRUARY_MS));
+
+        let stored = serde_json::to_string(&lease).expect("lease json");
+
+        assert!(!stored.contains("private request text"));
+        assert_eq!(
+            serde_json::from_str::<BucketLease>(&stored).ok(),
+            Some(lease)
         );
     }
 

@@ -5,7 +5,7 @@ use lens_contract::profiles::{DiscoveryPoint, MapPoint, Taxonomy};
 use super::aggregate::Run;
 
 /// Positions that discovery computed for its sample, for the sampled runs still assigned to the
-/// task they were discovered in, once per run even if the run is listed again.
+/// task they were discovered in.
 pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
     let Some(taxonomy) = taxonomy else {
         return Vec::new();

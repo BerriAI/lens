@@ -286,14 +286,14 @@ async fn reviewed() -> Reviewed {
                     start_ms: run_start(index),
                     input_preview: String::new(),
                     attempts: 0,
-                    assignment_start_ms: run_start(index),
                 },
                 agent: AGENT,
                 taxonomy_id: &id,
                 taxonomy_version: 1,
                 task_id,
                 outcome,
-            },
+            }
+            .record(run_start(index), 1),
         )
         .await
         .expect("assignment");

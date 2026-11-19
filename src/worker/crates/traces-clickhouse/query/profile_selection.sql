@@ -13,7 +13,6 @@ WHERE (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId F
   AND (TeamId, ApiKeyHash, TraceId) NOT IN (
       SELECT TeamId, ApiKeyHash, TraceId FROM lens_task_profile_assignment_rows
       WHERE TaxonomyId = {taxonomy_id:String} AND TaxonomyVersion = {taxonomy_version:UInt32}
-        AND StartTs >= fromUnixTimestamp64Milli({start_ms:Int64})
         AND (Outcome IN ('assigned', 'unknown')
              OR (Outcome = 'failed' AND (Attempts >= {max_attempts:UInt8}
                  OR ComputedAt > toUInt64(toUnixTimestamp64Milli(now64(3))) - 600000))))
@@ -44,14 +43,6 @@ failed AS (
 SELECT TeamId, ApiKeyHash, TraceId, max(Attempts) AS attempts
 FROM lens_task_profile_assignment_rows
 WHERE TaxonomyId = {taxonomy_id:String} AND TaxonomyVersion = {taxonomy_version:UInt32} AND Outcome = 'failed'
-  AND StartTs >= fromUnixTimestamp64Milli({start_ms:Int64})
-  AND (TeamId, ApiKeyHash, TraceId) IN (SELECT TeamId, ApiKeyHash, TraceId FROM spans)
-GROUP BY TeamId, ApiKeyHash, TraceId
-),
-pinned AS (
-SELECT TeamId, ApiKeyHash, TraceId, toUnixTimestamp64Milli(min(StartTs)) AS first_start_ms
-FROM lens_task_profile_assignment_rows
-WHERE StartTs >= fromUnixTimestamp64Milli({start_ms:Int64})
   AND (TeamId, ApiKeyHash, TraceId) IN (SELECT TeamId, ApiKeyHash, TraceId FROM spans)
 GROUP BY TeamId, ApiKeyHash, TraceId
 )

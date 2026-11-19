@@ -115,7 +115,6 @@ pub trait DiscoveryCatalog: Send + Sync {
         request: DiscoveryRequest,
     ) -> impl Future<Output = Result<DiscoveryPreview, ProfileStoreError>> + Send;
 
-    /// Runs discovery could sample for `request`, ignoring its size.
     fn eligible(
         &self,
         request: &DiscoveryRequest,
@@ -249,8 +248,6 @@ fn with_active(active: Taxonomy) -> Changes {
     }
 }
 
-/// `eligible` is the number of runs the request could sample when it was checked; the worker
-/// counts its sample again before any model call.
 pub fn start_discovery(
     state: &AgentState,
     taxonomy_id: &str,

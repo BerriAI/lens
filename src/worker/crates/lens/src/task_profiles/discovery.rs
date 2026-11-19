@@ -46,7 +46,6 @@ pub trait Language: Send + Sync {
 }
 
 pub trait Embeddings: Send + Sync {
-    /// Embeds one batch of at most `EMBED_BATCH` texts.
     fn embed(
         &self,
         model: &str,

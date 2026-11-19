@@ -2,8 +2,8 @@ use litellm_storage_clickhouse::fetch;
 use litellm_traces_clickhouse::{
     Config, InsertTable, insert_rows,
     profiles::{
-        AssignmentOutcome, BucketingParams, TaskAssignment, bucketing_candidates,
-        discovery_eligible, discovery_samples, record_assignment,
+        AssignmentOutcome, BucketingCandidate, BucketingParams, TaskAssignment, assignment_start,
+        bucketing_candidates, discovery_eligible, discovery_samples, record_assignment,
     },
     query::profiles::{ProfileRuns, ProfileRunsParams},
 };
@@ -218,7 +218,8 @@ async fn classification_skips_runs_its_version_settled_while_rediscovery_still_s
             taxonomy_version: 1,
             task_id: "notes",
             outcome: AssignmentOutcome::Assigned,
-        },
+        }
+        .record(third.start_ms, 1),
     )
     .await?;
 
@@ -394,26 +395,27 @@ async fn assign(
     config: &Config,
     version: u32,
     task_id: &str,
-) -> TestResult<litellm_traces_clickhouse::profiles::BucketingCandidate> {
-    let candidate = bucketing_candidates(&fixture.database.client, config, &reclassify(version))
+) -> TestResult<(BucketingCandidate, Option<i64>)> {
+    let client = &fixture.database.client;
+    let candidate = bucketing_candidates(client, config, &reclassify(version))
         .await?
         .into_iter()
         .find(|row| row.trace_id == "boundary")
         .expect("boundary run is a candidate");
-    record_assignment(
-        &fixture.database.client,
-        config,
-        &TaskAssignment {
-            candidate: &candidate,
-            agent: "assistant",
-            taxonomy_id: "tax",
-            taxonomy_version: version,
-            task_id,
-            outcome: AssignmentOutcome::Assigned,
-        },
-    )
-    .await?;
-    Ok(candidate)
+    let stored = assignment_start(client, config, &candidate).await?;
+    let assignment = TaskAssignment {
+        candidate: &candidate,
+        agent: "assistant",
+        taxonomy_id: "tax",
+        taxonomy_version: version,
+        task_id,
+        outcome: AssignmentOutcome::Assigned,
+    };
+    let computed_at = (FIRST_START_MS + i64::from(version) * DAY_MS).unsigned_abs();
+    let start_ms = stored.unwrap_or(candidate.start_ms);
+    let record = assignment.record(start_ms, computed_at);
+    record_assignment(client, config, &record).await?;
+    Ok((candidate, stored))
 }
 
 async fn resolved(fixture: &SeededDatabase, config: &Config, version: u32) -> TestResult<String> {
@@ -487,8 +489,13 @@ async fn retries_and_reclassification_keep_the_first_stored_month_after_a_late_e
     )
     .await?;
 
-    let retry = assign(&fixture, &config, 1, "release").await?;
-    let next_version = assign(&fixture, &config, 2, "notes").await?;
+    let (retry, retry_start) = assign(&fixture, &config, 1, "release").await?;
+    let (_, next_version_start) = assign(&fixture, &config, 2, "notes").await?;
+    let other_team = BucketingCandidate {
+        team_id: "other".into(),
+        ..retry.clone()
+    };
+    let unscoped = assignment_start(&fixture.database.client, &config, &other_team).await?;
     let settled = bucketing_candidates(&fixture.database.client, &config, &reclassify(1)).await?;
     let partitions = execute(
         &fixture,
@@ -502,8 +509,9 @@ async fn retries_and_reclassification_keep_the_first_stored_month_after_a_late_e
 
     assert_eq!(retry.start_ms, LATE_SPAN_MS);
     assert_eq!(retry.attempts, 1);
-    assert_eq!(retry.assignment_start_ms, FIRST_START_MS);
-    assert_eq!(next_version.assignment_start_ms, FIRST_START_MS);
+    assert_eq!(retry_start, Some(FIRST_START_MS));
+    assert_eq!(next_version_start, Some(FIRST_START_MS));
+    assert_eq!(unscoped, None);
     assert!(settled.iter().all(|row| row.trace_id != "boundary"));
     assert_eq!(
         serde_json::from_str::<Value>(partitions.trim())?["months"],

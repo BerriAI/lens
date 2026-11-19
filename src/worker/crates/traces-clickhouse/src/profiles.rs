@@ -161,16 +161,23 @@ fn descriptor(inputs: &[TaskInput]) -> String {
     text
 }
 
+const MAX_ROW_BYTES: usize = 16 * 1024;
+
+fn encoded(row: &impl Serialize) -> Result<String, Error> {
+    let body = serde_json::to_string(row).map_err(|_| Error::InvalidRow)?;
+    if body.len() > MAX_ROW_BYTES {
+        return Err(Error::InsertTooLarge);
+    }
+    Ok(body)
+}
+
 async fn insert(
     client: &Client,
     config: &Config,
     table: &str,
     row: &impl Serialize,
 ) -> Result<(), Error> {
-    let body = serde_json::to_string(row).map_err(|_| Error::InvalidRow)?;
-    if body.len() > 16 * 1024 {
-        return Err(Error::InsertTooLarge);
-    }
+    let body = encoded(row)?;
     let token = format!("{:x}", Sha256::digest(body.as_bytes()));
     insert_encoded_rows(
         client,
@@ -320,10 +327,6 @@ pub struct BucketingCandidate {
     pub input_preview: String,
     #[serde(default, deserialize_with = "crate::query::number::deserialize")]
     pub attempts: u8,
-    /// The start already stored for this run in any taxonomy version, else `start_ms`, so late
-    /// spans that move `start_ms` earlier cannot split a run's rows across monthly partitions.
-    #[serde(deserialize_with = "crate::query::number::deserialize")]
-    pub assignment_start_ms: i64,
 }
 
 /// Assignments expire with their run's start like every trace table, so runs past retention are
@@ -434,7 +437,7 @@ pub async fn bucketing_candidates(
     )
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssignmentOutcome {
     Assigned,
@@ -442,21 +445,23 @@ pub enum AssignmentOutcome {
     Failed,
 }
 
-#[derive(Serialize)]
+/// The exact row an assignment is stored as. Replaying it is idempotent: the insert token is
+/// its hash, and every version of it shares a sorting key, `StartTs` month and `ComputedAt`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "PascalCase")]
-struct AssignmentRow<'a> {
-    team_id: &'a str,
-    api_key_hash: &'a str,
-    trace_id: &'a str,
-    user_ids: &'a [String],
-    agent_name: &'a str,
-    taxonomy_id: &'a str,
-    taxonomy_version: u32,
-    task_id: &'a str,
-    outcome: AssignmentOutcome,
-    attempts: u8,
-    start_ts: String,
-    computed_at: u64,
+pub struct AssignmentRecord {
+    pub team_id: String,
+    pub api_key_hash: String,
+    pub trace_id: String,
+    pub user_ids: Vec<String>,
+    pub agent_name: String,
+    pub taxonomy_id: String,
+    pub taxonomy_version: u32,
+    pub task_id: String,
+    pub outcome: AssignmentOutcome,
+    pub attempts: u8,
+    pub start_ts: String,
+    pub computed_at: u64,
 }
 
 pub struct TaskAssignment<'a> {
@@ -468,38 +473,130 @@ pub struct TaskAssignment<'a> {
     pub outcome: AssignmentOutcome,
 }
 
+impl AssignmentRecord {
+    pub fn insertable(&self) -> bool {
+        encoded(self).is_ok()
+    }
+}
+
+impl TaskAssignment<'_> {
+    pub fn record(&self, start_ms: i64, computed_at: u64) -> AssignmentRecord {
+        AssignmentRecord {
+            team_id: self.candidate.team_id.clone(),
+            api_key_hash: self.candidate.api_key_hash.clone(),
+            trace_id: self.candidate.trace_id.clone(),
+            user_ids: self.candidate.user_ids.clone(),
+            agent_name: self.agent.to_owned(),
+            taxonomy_id: self.taxonomy_id.to_owned(),
+            taxonomy_version: self.taxonomy_version,
+            task_id: self.task_id.to_owned(),
+            outcome: self.outcome,
+            attempts: self.candidate.attempts.saturating_add(1),
+            start_ts: litellm_traces::iso_time(start_ms),
+            computed_at,
+        }
+    }
+}
+
 pub async fn record_assignment(
     client: &Client,
     config: &Config,
-    assignment: &TaskAssignment<'_>,
+    record: &AssignmentRecord,
 ) -> Result<(), Error> {
-    let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
     insert(
         client,
         config,
         "lens_task_profile_assignments_monthly",
-        &AssignmentRow {
-            team_id: &assignment.candidate.team_id,
-            api_key_hash: &assignment.candidate.api_key_hash,
-            trace_id: &assignment.candidate.trace_id,
-            user_ids: &assignment.candidate.user_ids,
-            agent_name: assignment.agent,
-            taxonomy_id: assignment.taxonomy_id,
-            taxonomy_version: assignment.taxonomy_version,
-            task_id: assignment.task_id,
-            outcome: assignment.outcome,
-            attempts: assignment.candidate.attempts.saturating_add(1),
-            start_ts: litellm_traces::iso_time(assignment.candidate.assignment_start_ms),
-            computed_at: now,
-        },
+        record,
     )
     .await
 }
 
+#[derive(Serialize)]
+struct RunKey {
+    team_id: String,
+    api_key_hash: String,
+    trace_id: String,
+}
+
+#[derive(Deserialize)]
+struct StoredStart {
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    start_ms: i64,
+}
+
+struct AssignmentStart;
+
+impl Query for AssignmentStart {
+    type Params = RunKey;
+    type Row = StoredStart;
+    const READ_LIMITS: ReadLimits = LIMITS;
+    const SQL: &'static str = "SELECT toUnixTimestamp64Milli(min(StartTs)) AS start_ms \
+        FROM lens_task_profile_assignment_rows \
+        WHERE TeamId={team_id:String} AND ApiKeyHash={api_key_hash:String} \
+          AND TraceId={trace_id:String} \
+        HAVING count() > 0";
+}
+
+pub async fn assignment_start(
+    client: &Client,
+    config: &Config,
+    candidate: &BucketingCandidate,
+) -> Result<Option<i64>, Error> {
+    Ok(fetch::<AssignmentStart>(
+        client,
+        config.storage().reader(),
+        &RunKey {
+            team_id: candidate.team_id.clone(),
+            api_key_hash: candidate.api_key_hash.clone(),
+            trace_id: candidate.trace_id.clone(),
+        },
+    )
+    .await?
+    .first()
+    .map(|row| row.start_ms))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{TaskInput, descriptor, ownership_hash};
+    use super::{
+        AssignmentOutcome, AssignmentRecord, BucketingCandidate, MAX_ROW_BYTES, TaskAssignment,
+        TaskInput, descriptor, encoded, ownership_hash,
+    };
     use rstest::rstest;
+
+    fn with_user(user: String) -> AssignmentRecord {
+        TaskAssignment {
+            candidate: &BucketingCandidate {
+                team_id: "team".into(),
+                api_key_hash: "key".into(),
+                trace_id: "trace".into(),
+                user_ids: vec![user],
+                start_ms: 1,
+                input_preview: String::new(),
+                attempts: 0,
+            },
+            agent: "agent",
+            taxonomy_id: "tax",
+            taxonomy_version: 1,
+            task_id: "task",
+            outcome: AssignmentOutcome::Assigned,
+        }
+        .record(1, 1)
+    }
+
+    #[rstest]
+    #[case::at_the_limit(0, true)]
+    #[case::one_byte_over(1, false)]
+    fn an_assignment_is_insertable_only_within_the_row_limit(
+        #[case] over: usize,
+        #[case] expected: bool,
+    ) {
+        let small = encoded(&with_user(String::new())).expect("small row");
+        let record = with_user("u".repeat(MAX_ROW_BYTES - small.len() + over));
+
+        assert_eq!(record.insertable(), expected);
+    }
 
     #[rstest]
     #[case::ascii("x")]
