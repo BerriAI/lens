@@ -10,6 +10,7 @@ pub mod feedback;
 pub mod github;
 pub mod ingestion;
 pub mod investigations;
+pub mod profiles;
 pub mod routing;
 pub mod service;
 pub mod sessions;
