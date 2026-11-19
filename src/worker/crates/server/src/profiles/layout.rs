@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use lens_contract::profiles::{DiscoveryPoint, MapPoint, Taxonomy};
 
 use super::aggregate::Run;
 
 /// Positions that discovery computed for its sample, for the sampled runs still assigned to the
-/// task they were discovered in.
+/// task they were discovered in, once per run even if the run is listed again.
 pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
     let Some(taxonomy) = taxonomy else {
         return Vec::new();
@@ -24,15 +24,18 @@ pub fn points(runs: &[Run], taxonomy: Option<&Taxonomy>) -> Vec<MapPoint> {
             )
         })
         .collect();
+    let mut placed = HashSet::new();
     runs.iter()
         .filter_map(|run| {
             let task_id = run.profile_id.strip_prefix("task:")?;
-            let point = sampled.get(&(
+            let identity = (
                 run.team_id.as_str(),
                 run.api_key_hash.as_str(),
                 run.trace_id.as_str(),
-            ))?;
-            (point.task_id.as_deref() == Some(task_id)).then(|| MapPoint {
+            );
+            let point = sampled.get(&identity)?;
+            let current = point.task_id.as_deref() == Some(task_id);
+            (current && placed.insert(identity)).then(|| MapPoint {
                 trace_id: run.trace_id.clone(),
                 profile_id: run.profile_id.clone(),
                 x: point.x,
@@ -101,6 +104,40 @@ mod tests {
         let points = points(&[listed], Some(&taxonomy()));
 
         assert_eq!(points.first().map(|point| (point.x, point.y)), expected);
+    }
+
+    #[rstest]
+    #[case::listed_twice(vec![run("team", "sampled", "task:a"), run("team", "sampled", "task:a")], vec![(10.0, 20.0)])]
+    #[case::same_trace_sampled_in_two_teams(vec![run("team", "sampled", "task:a"), run("other", "sampled", "task:a")], vec![(10.0, 20.0), (30.0, 40.0)])]
+    fn each_sampled_run_is_placed_once(
+        #[case] listed: Vec<Run>,
+        #[case] expected: Vec<(f64, f64)>,
+    ) {
+        let taxonomy = Taxonomy {
+            points: taxonomy()
+                .points
+                .into_iter()
+                .chain([DiscoveryPoint {
+                    team_id: "other".into(),
+                    api_key_hash: "key".into(),
+                    trace_id: "sampled".into(),
+                    task_id: Some("a".into()),
+                    x: 30.0,
+                    y: 40.0,
+                }])
+                .collect(),
+            ..taxonomy()
+        };
+
+        let points = points(&listed, Some(&taxonomy));
+
+        assert_eq!(
+            points
+                .iter()
+                .map(|point| (point.x, point.y))
+                .collect::<Vec<_>>(),
+            expected
+        );
     }
 
     #[rstest]

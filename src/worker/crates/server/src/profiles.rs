@@ -8,9 +8,9 @@ use axum::{
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
-    Capability, ClassificationWindow, Compatibility, CompatibilityStatus, DiscoveryModelChoice,
-    ModelCapabilities, ModelColumn, ProfileDetail, ProfileRef, ProfileSource, ProfileSummary, ProfileWindow,
-    ProfilesMatrix, ProfilesOverview, Taxonomy, TaxonomyView,
+    ClassificationWindow, DiscoveryModelChoice, ModelCapabilities, ModelColumn, ProfileDetail,
+    ProfileRef, ProfileSource, ProfileSummary, ProfileWindow, ProfilesMatrix, ProfilesOverview, Taxonomy,
+    TaxonomyView,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -212,16 +212,6 @@ impl Loaded {
             })
             .collect()
     }
-
-    fn required(&self, profile_id: &str) -> Option<Vec<Capability>> {
-        let task_id = profile_id.strip_prefix("task:")?;
-        self.taxonomy
-            .as_ref()?
-            .tasks
-            .iter()
-            .find(|task| task.task_id == task_id)
-            .map(|task| task.required_capabilities.clone())
-    }
 }
 
 /// Idle configured deployments reveal the gateway's inventory, so only callers who can read every
@@ -309,19 +299,11 @@ async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
         .map(|(profile_id, _)| ProfileRef {
             name: loaded.name(&profile_id),
             source: source(&profile_id),
-            required_capabilities: loaded.required(&profile_id),
+            required_capabilities: None,
             profile_id,
         })
         .collect();
     let models = columns(&configured, cells.iter().map(|(column, _)| column));
-    let compatibilities = profiles
-        .iter()
-        .flat_map(|profile| {
-            models
-                .iter()
-                .map(move |model| compatibility(profile, model))
-        })
-        .collect();
     Ok(Json(ProfilesMatrix {
         window: query.window(),
         coverage: view.coverage(),
@@ -329,7 +311,7 @@ async fn matrix<R: SessionRepository, S: ProfileStore + taxonomy::TaxonomyStore>
         cells: cells.into_iter().map(|(_, cell)| cell).collect(),
         profiles,
         models,
-        compatibility: compatibilities,
+        compatibility: Vec::new(),
     }))
 }
 
@@ -470,95 +452,10 @@ fn columns<'a>(
     columns.into_values().collect()
 }
 
-fn supports(capabilities: &ModelCapabilities, capability: Capability) -> Option<bool> {
-    match capability {
-        Capability::FunctionCalling => capabilities.function_calling,
-        Capability::Vision => capabilities.vision,
-        Capability::Reasoning => capabilities.reasoning,
-        Capability::StructuredOutput => capabilities.structured_output,
-    }
-}
-
-fn compatibility(profile: &ProfileRef, model: &ModelColumn) -> Compatibility {
-    let Some(required) = &profile.required_capabilities else {
-        return Compatibility {
-            profile_id: profile.profile_id.clone(),
-            column_key: model.column_key.clone(),
-            status: CompatibilityStatus::Unknown,
-            missing: Vec::new(),
-            unknown: Vec::new(),
-        };
-    };
-    let missing: Vec<Capability> = required
-        .iter()
-        .copied()
-        .filter(|capability| supports(&model.capabilities, *capability) == Some(false))
-        .collect();
-    let unknown: Vec<Capability> = required
-        .iter()
-        .copied()
-        .filter(|capability| supports(&model.capabilities, *capability).is_none())
-        .collect();
-    let status = if !missing.is_empty() {
-        CompatibilityStatus::Incompatible
-    } else if !unknown.is_empty() {
-        CompatibilityStatus::Unknown
-    } else {
-        CompatibilityStatus::Compatible
-    };
-    Compatibility {
-        profile_id: profile.profile_id.clone(),
-        column_key: model.column_key.clone(),
-        status,
-        missing,
-        unknown,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lens_contract::profiles::ProfileSource;
     use rstest::rstest;
-
-    fn column(capabilities: ModelCapabilities) -> ModelColumn {
-        ModelColumn {
-            column_key: "id:dep".into(),
-            model_config_id: Some("dep".into()),
-            model_name: "model".into(),
-            model_group: "model".into(),
-            provider: "provider".into(),
-            configured: true,
-            capabilities,
-        }
-    }
-
-    fn profile(required: Option<Vec<Capability>>) -> ProfileRef {
-        ProfileRef {
-            profile_id: "task:a".into(),
-            name: "Task".into(),
-            source: ProfileSource::Enhanced,
-            required_capabilities: required,
-        }
-    }
-
-    #[rstest]
-    #[case::supported(Some(true), CompatibilityStatus::Compatible)]
-    #[case::unsupported(Some(false), CompatibilityStatus::Incompatible)]
-    #[case::undeclared(None, CompatibilityStatus::Unknown)]
-    fn compatibility_follows_declared_metadata(
-        #[case] vision: Option<bool>,
-        #[case] expected: CompatibilityStatus,
-    ) {
-        let model = column(ModelCapabilities {
-            vision,
-            ..ModelCapabilities::default()
-        });
-
-        let result = compatibility(&profile(Some(vec![Capability::Vision])), &model);
-
-        assert_eq!(result.status, expected);
-    }
 
     #[rstest]
     fn configured_models_without_traffic_stay_as_columns() {
@@ -652,30 +549,6 @@ mod tests {
         };
 
         assert_eq!(taxonomy_id(&scope, "agent").is_some(), visible);
-    }
-
-    #[rstest]
-    fn a_profile_without_a_reviewed_definition_has_unknown_compatibility() {
-        let model = column(ModelCapabilities {
-            vision: Some(true),
-            function_calling: Some(true),
-            reasoning: Some(true),
-            structured_output: Some(true),
-        });
-
-        let result = compatibility(&profile(None), &model);
-
-        assert_eq!(result.status, CompatibilityStatus::Unknown);
-    }
-
-    #[rstest]
-    fn a_reviewed_definition_with_no_requirements_is_compatible() {
-        let result = compatibility(
-            &profile(Some(Vec::new())),
-            &column(ModelCapabilities::default()),
-        );
-
-        assert_eq!(result.status, CompatibilityStatus::Compatible);
     }
 
     struct Inventory;

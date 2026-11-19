@@ -1,8 +1,10 @@
 use std::{collections::BTreeMap, future::Future};
 
-use lens_contract::profiles::{Capability, DiscoveryPoint, TaskDefinition, TaxonomyModels};
+use lens_contract::profiles::{DiscoveryPoint, TaskDefinition, TaxonomyModels};
+use lens_profiles::clustering::Layout;
 use serde::Deserialize;
 
+use super::gateway::EMBED_BATCH;
 use crate::error::DiscoveryError;
 
 pub const MAX_TASKS: usize = 12;
@@ -22,16 +24,15 @@ Items:
 ";
 
 const SYNTHESIS_PROMPT: &str = "You are naming one group of requests that people sent to an AI agent.
-Read the numbered requests and describe the kind of work they share.
+Read the requests, numbered from 0, and describe the kind of work they share.
 
 Rules:
 - Name the kind of work, such as \"Summarize documents\" or \"Debug failing tests\", in at most 6 words.
 - Never use product, company, person, repository or file names. Describe the work, not the subject it was done for.
 - inclusion_criteria says what a request must ask for to belong. exclusion_criteria names the nearest kinds of work that do not belong.
-- required_capabilities lists only what every request needs from a model, chosen from function_calling, vision, reasoning and structured_output. Leave it empty when unsure.
-- example_indices lists up to 3 request numbers that best represent the group.
+- example_indices lists the numbers, exactly as shown and starting at 0, of up to 3 requests that best represent the group.
 
-Reply with only a JSON object. name, description, inclusion_criteria and exclusion_criteria are strings of one or two sentences, required_capabilities is an array of strings, and example_indices is an array of integers.
+Reply with only a JSON object. name, description, inclusion_criteria and exclusion_criteria are strings of one or two sentences, and example_indices is an array of integers.
 
 Requests:
 ";
@@ -45,6 +46,7 @@ pub trait Language: Send + Sync {
 }
 
 pub trait Embeddings: Send + Sync {
+    /// Embeds one batch of at most `EMBED_BATCH` texts.
     fn embed(
         &self,
         model: &str,
@@ -158,19 +160,7 @@ struct Synthesis {
     #[serde(default)]
     exclusion_criteria: Text,
     #[serde(default)]
-    required_capabilities: Vec<String>,
-    #[serde(default)]
     example_indices: Vec<usize>,
-}
-
-fn capability(name: &str) -> Option<Capability> {
-    match name.trim() {
-        "function_calling" => Some(Capability::FunctionCalling),
-        "vision" => Some(Capability::Vision),
-        "reasoning" => Some(Capability::Reasoning),
-        "structured_output" => Some(Capability::StructuredOutput),
-        _ => None,
-    }
 }
 
 fn clipped(text: String, limit: usize) -> String {
@@ -206,26 +196,35 @@ fn definition(reply: &str, task_id: String, members: &[&Sample]) -> TaskDefiniti
         .take(KEPT_EXAMPLES)
         .map(|sample| sample.trace_id.clone())
         .collect();
-    let mut capabilities: Vec<Capability> = synthesis
-        .required_capabilities
-        .iter()
-        .filter_map(|name| capability(name))
-        .collect();
-    capabilities.sort();
-    capabilities.dedup();
     TaskDefinition {
         task_id,
         name: synthesis.name.trim().to_owned(),
         description: clipped(synthesis.description.sentence(), 600),
         inclusion_criteria: clipped(synthesis.inclusion_criteria.sentence(), 600),
         exclusion_criteria: clipped(synthesis.exclusion_criteria.sentence(), 600),
-        required_capabilities: capabilities,
+        required_capabilities: Vec::new(),
         example_trace_ids: if examples.is_empty() {
             fallback_examples()
         } else {
             examples
         },
     }
+}
+
+async fn embed(
+    embeddings: &impl Embeddings,
+    model: &str,
+    texts: &[String],
+) -> Result<Vec<Vec<f32>>, DiscoveryError> {
+    let mut vectors = Vec::with_capacity(texts.len());
+    for batch in texts.chunks(EMBED_BATCH) {
+        let embedded = embeddings.embed(model, batch).await?;
+        if embedded.len() != batch.len() {
+            return Err(DiscoveryError::InvalidReply("embedding"));
+        }
+        vectors.extend(embedded);
+    }
+    Ok(vectors)
 }
 
 /// Distill, embed, cluster, then name each of the largest groups. Paid stages run in order and a
@@ -235,23 +234,33 @@ pub async fn discover(
     embeddings: &impl Embeddings,
     models: &TaxonomyModels,
     samples: &[Sample],
-    mut task_id: impl FnMut() -> String,
+    task_id: impl FnMut() -> String,
 ) -> Result<(Vec<TaskDefinition>, Vec<DiscoveryPoint>), DiscoveryError> {
     let texts: Vec<String> = samples.iter().map(|sample| sample.text.clone()).collect();
     let intents = distill(language, &models.distill, &texts).await?;
-    let vectors = embeddings.embed(&models.embedding, &intents).await?;
-    if vectors.len() != samples.len() {
-        return Err(DiscoveryError::InvalidReply("embedding"));
-    }
+    let vectors = embed(embeddings, &models.embedding, &intents).await?;
     let layout = tokio::task::spawn_blocking(move || lens_profiles::clustering::cluster(&vectors))
         .await
         .map_err(|_| DiscoveryError::Clustering)?
         .map_err(|_| DiscoveryError::Clustering)?;
+    name_groups(language, models, samples, &layout, task_id).await
+}
+
+async fn name_groups(
+    language: &impl Language,
+    models: &TaxonomyModels,
+    samples: &[Sample],
+    layout: &Layout,
+    mut task_id: impl FnMut() -> String,
+) -> Result<(Vec<TaskDefinition>, Vec<DiscoveryPoint>), DiscoveryError> {
     let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for (index, label) in layout.labels.iter().enumerate() {
         if let Some(label) = label {
             groups.entry(*label).or_default().push(index);
         }
+    }
+    if groups.is_empty() {
+        return Err(DiscoveryError::NoGroups);
     }
     let mut ranked: Vec<(usize, Vec<usize>)> = groups.into_iter().collect();
     ranked.sort_by(|(left_label, left), (right_label, right)| {
@@ -341,16 +350,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case::bulleted(r#"{"name": " Debug failing tests ", "inclusion_criteria": ["Asks to fix a test", "Mentions a failure."], "required_capabilities": ["function_calling", "telepathy", "function_calling"], "example_indices": [1, 9]}"#,
-        "Debug failing tests", "Asks to fix a test. Mentions a failure.", vec![Capability::FunctionCalling], vec!["b"])]
-    #[case::wrapped_in_prose("Here you go: {\"name\": \"Write tests\"} thanks", "Write tests", "", vec![], vec!["a", "b"])]
-    #[case::invalid("not json", "Unnamed group", "", vec![], vec!["a", "b"])]
-    #[case::overlong_name(r#"{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#, "Unnamed group", "", vec![], vec!["a", "b"])]
+    #[case::bulleted(r#"{"name": " Debug failing tests ", "inclusion_criteria": ["Asks to fix a test", "Mentions a failure."], "required_capabilities": ["function_calling"], "example_indices": [1, 9]}"#,
+        "Debug failing tests", "Asks to fix a test. Mentions a failure.", vec!["b"])]
+    #[case::wrapped_in_prose("Here you go: {\"name\": \"Write tests\"} thanks", "Write tests", "", vec!["a", "b"])]
+    #[case::invalid("not json", "Unnamed group", "", vec!["a", "b"])]
+    #[case::overlong_name(r#"{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#, "Unnamed group", "", vec!["a", "b"])]
     fn synthesis_replies_become_bounded_definitions(
         #[case] reply: &str,
         #[case] name: &str,
         #[case] inclusion: &str,
-        #[case] capabilities: Vec<Capability>,
         #[case] examples: Vec<&str>,
     ) {
         let members = [sample("a"), sample("b")];
@@ -360,8 +368,34 @@ mod tests {
 
         assert_eq!(task.name, name);
         assert_eq!(task.inclusion_criteria, inclusion);
-        assert_eq!(task.required_capabilities, capabilities);
+        assert!(task.required_capabilities.is_empty());
         assert_eq!(task.example_trace_ids, examples);
+    }
+
+    #[rstest]
+    fn example_numbers_shown_to_the_model_map_back_to_their_requests() {
+        let members = [sample("a"), sample("b"), sample("c")];
+        let refs: Vec<&Sample> = members.iter().collect();
+        let listing = numbered(members.iter().map(|member| member.text.as_str()));
+        let number_of = |trace: &str| {
+            listing
+                .lines()
+                .find(|line| line.contains(&format!("request {trace}")))
+                .and_then(|line| line.split('.').next())
+                .expect("listed request")
+                .to_owned()
+        };
+        let reply = format!(
+            r#"{{"name": "Group", "example_indices": [{}, {}, {}]}}"#,
+            number_of("a"),
+            number_of("c"),
+            members.len()
+        );
+
+        let task = definition(&reply, "task-1".into(), &refs);
+
+        assert_eq!(number_of("a"), "0");
+        assert_eq!(task.example_trace_ids, vec!["a", "c"]);
     }
 
     #[rstest]
@@ -508,7 +542,7 @@ mod tests {
             names,
             ["Answer billing questions", "Fix login problems"].into()
         );
-        assert_eq!(tasks[0].required_capabilities, vec![Capability::Vision]);
+        assert!(tasks[0].required_capabilities.is_empty());
         assert_eq!(points.len(), 30);
         assert_eq!(billing, 15);
         assert_ne!(points[0].task_id, points[29].task_id);
@@ -542,6 +576,67 @@ mod tests {
         .await;
 
         assert_eq!(result, Err(DiscoveryError::InvalidReply("embedding")));
+    }
+
+    #[derive(Default)]
+    struct CancelledAfterFirstBatch {
+        requests: std::sync::Mutex<Vec<usize>>,
+    }
+
+    impl Embeddings for CancelledAfterFirstBatch {
+        async fn embed(&self, _: &str, texts: &[String]) -> Result<Vec<Vec<f32>>, DiscoveryError> {
+            let mut requests = self.requests.lock().expect("requests");
+            if !requests.is_empty() {
+                return Err(DiscoveryError::Cancelled);
+            }
+            requests.push(texts.len());
+            Ok(texts.iter().map(|_| vec![1.0, 0.0]).collect())
+        }
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_discovery_cancelled_after_one_embedding_batch_requests_no_more_batches() {
+        let samples: Vec<Sample> = (0..50).map(|index| sample(&index.to_string())).collect();
+        let embeddings = CancelledAfterFirstBatch::default();
+
+        let result = discover(
+            &Reply(r#"{"intents": []}"#),
+            &embeddings,
+            &TaxonomyModels::default(),
+            &samples,
+            || "id".into(),
+        )
+        .await;
+
+        assert_eq!(result, Err(DiscoveryError::Cancelled));
+        assert_eq!(
+            *embeddings.requests.lock().expect("requests"),
+            vec![EMBED_BATCH]
+        );
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn a_sample_that_is_all_noise_fails_without_naming_any_group() {
+        let samples: Vec<Sample> = (0..20).map(|index| sample(&index.to_string())).collect();
+        let language = Recording::default();
+        let layout = Layout {
+            labels: vec![None; samples.len()],
+            points: vec![(50.0, 50.0); samples.len()],
+        };
+
+        let result = name_groups(
+            &language,
+            &TaxonomyModels::default(),
+            &samples,
+            &layout,
+            || "id".into(),
+        )
+        .await;
+
+        assert_eq!(result, Err(DiscoveryError::NoGroups));
+        assert!(language.calls().is_empty());
     }
 
     struct Failing;

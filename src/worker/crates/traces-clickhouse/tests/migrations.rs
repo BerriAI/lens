@@ -384,6 +384,52 @@ async fn existing_schema_without_ledger_is_adopted(
 
 #[rstest]
 #[tokio::test]
+async fn upgrading_past_unpartitioned_assignments_keeps_their_rows_readable_without_copying(
+    #[future(awt)] database: TestResult<ClickHouseDatabase>,
+) -> TestResult {
+    let database = database?;
+    let writer = Connection::writer(&database.url)?;
+    let statements = schema_statements("trace_test", 7)?;
+    let unpartitioned = statements
+        .iter()
+        .position(|statement| statement.contains("lens_task_profile_assignments\n"))
+        .expect("0028 creates the unpartitioned table");
+    for statement in &statements[..=unpartitioned] {
+        execute_write(&database, statement).await?;
+    }
+    let start = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)?;
+    let assignment = serde_json::from_value(serde_json::json!({
+        "TeamId": "team-1", "ApiKeyHash": "", "TraceId": "preview", "TaxonomyId": "tax",
+        "TaxonomyVersion": 1, "TaskId": "notes", "Outcome": "assigned", "Attempts": 1,
+        "StartTs": start, "ComputedAt": 1
+    }))?;
+    insert_rows(&database, "lens_task_profile_assignments", vec![assignment]).await?;
+
+    ensure_schema(&database.client, &writer, "trace_test", 7).await?;
+    let rows = read_json(
+        &database,
+        "SELECT TraceId, TaskId FROM trace_test.lens_task_profile_assignment_rows",
+    )
+    .await?;
+
+    assert_eq!(
+        rows["data"],
+        serde_json::json!([{"TraceId": "preview", "TaskId": "notes"}])
+    );
+    assert_eq!(
+        table_rows(&database, "lens_task_profile_assignments").await?,
+        1
+    );
+    assert_eq!(
+        table_rows(&database, "lens_task_profile_assignments_monthly").await?,
+        0
+    );
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn normalized_fields_match_clickhouse_catalog(
     #[future(awt)] database: TestResult<ClickHouseDatabase>,
 ) -> TestResult {
@@ -1055,6 +1101,7 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
             {"name": "lens_feedback"},
             {"name": "lens_task_clusters"},
             {"name": "lens_task_profile_assignments"},
+            {"name": "lens_task_profile_assignments_monthly"},
             {"name": "lens_task_profiles"},
             {"name": "lens_trace_summaries"},
             {"name": "otel_logs"},
@@ -1096,6 +1143,21 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     }))?;
     insert_rows(&database, "lens_trace_summaries", vec![summary]).await?;
     assert_eq!(table_rows(&database, "lens_trace_summaries").await?, 1);
+    for table in [
+        "lens_task_profile_assignments",
+        "lens_task_profile_assignments_monthly",
+    ] {
+        let assignment = serde_json::from_value(serde_json::json!({
+            "TeamId": "team-1", "ApiKeyHash": "", "TraceId": "expired", "TaxonomyId": "tax",
+            "TaxonomyVersion": 1, "TaskId": "notes", "Outcome": "assigned", "Attempts": 1,
+            "StartTs": old_iso, "ComputedAt": 1
+        }))?;
+        insert_rows(&database, table, vec![assignment]).await?;
+    }
+    assert_eq!(
+        table_rows(&database, "lens_task_profile_assignment_rows").await?,
+        2
+    );
     assert_eq!(table_rows(&database, "agent_traces_by_key").await?, 1);
     assert_eq!(table_rows(&database, "lens_call_costs").await?, 2);
     ensure_schema(&database.client, &writer, "trace_test", 14).await?;
@@ -1139,6 +1201,20 @@ async fn retention_changes_materialize_existing_rows_and_remain_idempotent(
     )
     .await?;
     assert_eq!(table_rows(&database, "lens_trace_summaries").await?, 0);
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_task_profile_assignments FINAL",
+    )
+    .await?;
+    execute_write(
+        &database,
+        "OPTIMIZE TABLE trace_test.lens_task_profile_assignments_monthly FINAL",
+    )
+    .await?;
+    assert_eq!(
+        table_rows(&database, "lens_task_profile_assignment_rows").await?,
+        0
+    );
     let mutation_count = mutation_rows(&database).await?;
     ensure_schema(&database.client, &writer, "trace_test", 14).await?;
     assert_eq!(mutation_rows(&database).await?, mutation_count);

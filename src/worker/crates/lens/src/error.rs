@@ -303,6 +303,8 @@ pub enum DiscoveryError {
     TooFewRuns,
     #[error("clustering failed on this sample")]
     Clustering,
+    #[error("no recurring kind of work was found in this sample; try a longer range or more runs")]
+    NoGroups,
     #[error("the {0} model is not configured on the gateway")]
     Unconfigured(&'static str),
     #[error("discovery did not finish within its time budget")]

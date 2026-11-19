@@ -114,6 +114,12 @@ pub trait DiscoveryCatalog: Send + Sync {
         &self,
         request: DiscoveryRequest,
     ) -> impl Future<Output = Result<DiscoveryPreview, ProfileStoreError>> + Send;
+
+    /// Runs discovery could sample for `request`, ignoring its size.
+    fn eligible(
+        &self,
+        request: &DiscoveryRequest,
+    ) -> impl Future<Output = Result<u64, ProfileStoreError>> + Send;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -139,6 +145,8 @@ pub enum TransitionError {
     InvalidEdit,
     #[error("Discovery reads between 20 and 500 runs from a non-empty range")]
     InvalidSize,
+    #[error("Discovery needs at least 20 eligible runs in this range")]
+    TooFewRuns,
     #[error("Turn on task discovery for this agent first")]
     Disabled,
     #[error("Choose a model for each step before turning on task discovery")]
@@ -190,6 +198,15 @@ pub fn validate_models(
     })
 }
 
+fn valid_size(request: &DiscoveryRequest) -> Result<(), TransitionError> {
+    if !(MIN_DISCOVERY_RUNS..=MAX_DISCOVERY_RUNS).contains(&request.max_runs)
+        || request.end_ms <= request.start_ms
+    {
+        return Err(TransitionError::InvalidSize);
+    }
+    Ok(())
+}
+
 fn active_job(taxonomy: &Taxonomy, now: DateTime<Utc>) -> bool {
     taxonomy.status == TaxonomyStatus::Discovering
         && taxonomy.job.as_ref().is_some_and(|job| {
@@ -232,17 +249,19 @@ fn with_active(active: Taxonomy) -> Changes {
     }
 }
 
+/// `eligible` is the number of runs the request could sample when it was checked; the worker
+/// counts its sample again before any model call.
 pub fn start_discovery(
     state: &AgentState,
     taxonomy_id: &str,
     request: &DiscoveryRequest,
+    eligible: u64,
     job_id: String,
     now: DateTime<Utc>,
 ) -> Result<Changes, TransitionError> {
-    if !(MIN_DISCOVERY_RUNS..=MAX_DISCOVERY_RUNS).contains(&request.max_runs)
-        || request.end_ms <= request.start_ms
-    {
-        return Err(TransitionError::InvalidSize);
+    valid_size(request)?;
+    if eligible < u64::from(MIN_DISCOVERY_RUNS) {
+        return Err(TransitionError::TooFewRuns);
     }
     if !state.enabled() {
         return Err(TransitionError::Disabled);
@@ -338,7 +357,7 @@ pub fn edit_task(
                 description: edit.description.trim().to_owned(),
                 inclusion_criteria: edit.inclusion_criteria.trim().to_owned(),
                 exclusion_criteria: edit.exclusion_criteria.trim().to_owned(),
-                required_capabilities: edit.required_capabilities.clone(),
+                required_capabilities: Vec::new(),
                 example_trace_ids: task.example_trace_ids.clone(),
             }
         })
@@ -612,6 +631,9 @@ impl From<TransitionError> for ProfileHttpError {
             TransitionError::InvalidSize => ProfileHttpError::Invalid(
                 "Discovery reads between 20 and 500 runs from a non-empty range",
             ),
+            TransitionError::TooFewRuns => {
+                ProfileHttpError::Invalid("Discovery needs at least 20 eligible runs in this range")
+            }
             TransitionError::Disabled => {
                 ProfileHttpError::Invalid("Turn on task discovery for this agent first")
             }
@@ -773,11 +795,7 @@ async fn preview<R: SessionRepository, S: DiscoveryCatalog>(
     Json(request): Json<DiscoveryRequest>,
 ) -> Result<Json<DiscoveryPreview>, ProfileHttpError> {
     reader(&app, &headers, &method, &request.agent).await?;
-    if !(MIN_DISCOVERY_RUNS..=MAX_DISCOVERY_RUNS).contains(&request.max_runs)
-        || request.end_ms <= request.start_ms
-    {
-        return Err(TransitionError::InvalidSize.into());
-    }
+    valid_size(&request)?;
     Ok(Json(app.store.preview(request).await?))
 }
 
@@ -788,6 +806,8 @@ async fn discover<R: SessionRepository, S: TaxonomyStore + DiscoveryCatalog>(
     Json(request): Json<DiscoveryRequest>,
 ) -> Result<Json<lens_contract::profiles::TaxonomyView>, ProfileHttpError> {
     let id = writer(&app, &headers, &method, &request.agent).await?;
+    valid_size(&request)?;
+    let eligible = app.store.eligible(&request).await?;
     let options = app.store.options().await;
     let state = apply(&app, &id, |state| {
         let models = state
@@ -800,6 +820,7 @@ async fn discover<R: SessionRepository, S: TaxonomyStore + DiscoveryCatalog>(
             state,
             &id,
             &request,
+            eligible,
             uuid::Uuid::new_v4().to_string(),
             Utc::now(),
         )

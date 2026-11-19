@@ -140,7 +140,7 @@ pub struct ProfileRef {
     pub profile_id: String,
     pub name: String,
     pub source: ProfileSource,
-    /// `None` until a reviewed task definition states the requirements.
+    /// Deprecated: always `None`; categories no longer state model requirements.
     pub required_capabilities: Option<Vec<Capability>>,
 }
 
@@ -151,6 +151,7 @@ pub struct ProfilesMatrix {
     pub profiles: Vec<ProfileRef>,
     pub models: Vec<ModelColumn>,
     pub cells: Vec<MatrixCell>,
+    /// Deprecated: always empty; requirements are not compared with deployments.
     pub compatibility: Vec<Compatibility>,
     pub other_agent_requests: u64,
 }
@@ -162,6 +163,7 @@ pub struct TaskDefinition {
     pub description: String,
     pub inclusion_criteria: String,
     pub exclusion_criteria: String,
+    /// Deprecated: discovery no longer generates requirements, so new categories leave it empty.
     pub required_capabilities: Vec<Capability>,
     pub example_trace_ids: Vec<String>,
 }
@@ -354,6 +356,8 @@ pub struct TaskEdit {
     pub inclusion_criteria: String,
     #[schemars(length(max = 600))]
     pub exclusion_criteria: String,
+    /// Deprecated and ignored.
+    #[serde(default)]
     pub required_capabilities: Vec<Capability>,
 }
 

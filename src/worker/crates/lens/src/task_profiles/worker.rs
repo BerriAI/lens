@@ -448,7 +448,7 @@ impl ProfilesWorker {
                 &candidate.input_preview,
             )
             .await;
-            if !self.still_current(&taxonomy).await {
+            if !self.still_current(&taxonomy).await || !self.lease(&taxonomy).await {
                 return true;
             }
             let (outcome, task_id) = match &decided {

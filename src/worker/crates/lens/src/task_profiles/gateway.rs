@@ -132,49 +132,44 @@ fn ordered(reply: EmbeddingResponse, expected: usize) -> Result<Vec<Vec<f32>>, E
     Ok(data.into_iter().map(|item| item.embedding).collect())
 }
 
-/// Embeds through the gateway's OpenAI-compatible endpoint in batches of at most 20, the
-/// largest batch every supported embedding provider accepts. Requests are signed as internal
-/// Lens traffic like the other discovery calls when gateway signing is configured.
+/// Embeds one batch of at most `EMBED_BATCH` texts through the gateway's OpenAI-compatible
+/// endpoint, signed as internal Lens traffic when gateway signing is configured.
 pub async fn embed(
     client: &reqwest::Client,
     connection: &GatewayConfig,
     signing: Option<&GatewayIdentity>,
     model: &str,
-    texts: &[String],
+    batch: &[String],
 ) -> Result<Vec<Vec<f32>>, EmbedError> {
     let endpoint =
         Url::parse(&connection.endpoint("/v1/embeddings")).map_err(|_| EmbedError::Connection)?;
-    let mut embeddings = Vec::with_capacity(texts.len());
-    for batch in texts.chunks(EMBED_BATCH) {
-        let marker = signing
-            .map(|signing| signing.token(&endpoint, GatewayPurpose::Analysis, Utc::now()))
-            .transpose()
-            .map_err(|_| EmbedError::Unsigned)?
-            .flatten();
-        let request = client
-            .post(endpoint.clone())
-            .bearer_auth(connection.key())
-            .timeout(TIMEOUT)
-            .json(&EmbeddingRequest {
-                model,
-                input: batch,
-                metadata: InternalMetadata::new(),
-            });
-        let request = match marker {
-            Some(marker) => request.header(GATEWAY_HEADER, marker),
-            None => request,
-        };
-        let response = request.send().await.map_err(|_| EmbedError::Connection)?;
-        if !response.status().is_success() {
-            return Err(EmbedError::Rejected(response.status().as_u16()));
-        }
-        let reply = response
-            .json::<EmbeddingResponse>()
-            .await
-            .map_err(|_| EmbedError::InvalidReply)?;
-        embeddings.extend(ordered(reply, batch.len())?);
+    let marker = signing
+        .map(|signing| signing.token(&endpoint, GatewayPurpose::Analysis, Utc::now()))
+        .transpose()
+        .map_err(|_| EmbedError::Unsigned)?
+        .flatten();
+    let request = client
+        .post(endpoint)
+        .bearer_auth(connection.key())
+        .timeout(TIMEOUT)
+        .json(&EmbeddingRequest {
+            model,
+            input: batch,
+            metadata: InternalMetadata::new(),
+        });
+    let request = match marker {
+        Some(marker) => request.header(GATEWAY_HEADER, marker),
+        None => request,
+    };
+    let response = request.send().await.map_err(|_| EmbedError::Connection)?;
+    if !response.status().is_success() {
+        return Err(EmbedError::Rejected(response.status().as_u16()));
     }
-    Ok(embeddings)
+    let reply = response
+        .json::<EmbeddingResponse>()
+        .await
+        .map_err(|_| EmbedError::InvalidReply)?;
+    ordered(reply, batch.len())
 }
 
 #[cfg(test)]
@@ -227,22 +222,13 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
-    async fn embeddings_are_requested_in_tagged_batches_and_returned_in_input_order() {
+    async fn a_batch_is_one_tagged_request_returned_in_input_order() {
         let gateway = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
             .and(header("authorization", "Bearer fixture-key"))
             .and(body_partial_json(json!({"model": "qwen", "input": texts(EMBED_BATCH), "metadata": {"litellm_lens_internal": true, "tags": [INTERNAL_TAG]}})))
             .respond_with(ResponseTemplate::new(200).set_body_json(vectors(EMBED_BATCH, 0)))
-            .expect(1)
-            .mount(&gateway)
-            .await;
-        Mock::given(method("POST"))
-            .and(path("/v1/embeddings"))
-            .and(body_partial_json(
-                json!({"input": ["request 20", "request 21"]}),
-            ))
-            .respond_with(ResponseTemplate::new(200).set_body_json(vectors(2, EMBED_BATCH)))
             .expect(1)
             .mount(&gateway)
             .await;
@@ -254,14 +240,14 @@ mod tests {
             &connection,
             None,
             "qwen",
-            &texts(EMBED_BATCH + 2),
+            &texts(EMBED_BATCH),
         )
         .await
         .expect("embeddings");
 
-        assert_eq!(embedded.len(), EMBED_BATCH + 2);
+        assert_eq!(embedded.len(), EMBED_BATCH);
         assert_eq!(embedded[0], vec![0.0, 1.0]);
-        assert_eq!(embedded[EMBED_BATCH + 1], vec![21.0, 1.0]);
+        assert_eq!(embedded[EMBED_BATCH - 1], vec![19.0, 1.0]);
     }
 
     #[rstest]

@@ -43,7 +43,7 @@ trace_profiles AS (
     LEFT JOIN (
         SELECT TeamId, ApiKeyHash, TraceId,
                argMax(TaskId, ComputedAt) AS task_id, argMax(Outcome, ComputedAt) AS outcome
-        FROM lens_task_profile_assignments
+        FROM lens_task_profile_assignment_rows
         WHERE TaxonomyId={taxonomy_id:String} AND TaxonomyVersion={taxonomy_version:UInt32}
           AND (TeamId,ApiKeyHash,TraceId) IN (SELECT TeamId,ApiKeyHash,TraceId FROM profile_candidates)
         GROUP BY TeamId,ApiKeyHash,TraceId

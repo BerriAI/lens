@@ -286,6 +286,7 @@ async fn reviewed() -> Reviewed {
                     start_ms: run_start(index),
                     input_preview: String::new(),
                     attempts: 0,
+                    assignment_start_ms: run_start(index),
                 },
                 agent: AGENT,
                 taxonomy_id: &id,

@@ -337,3 +337,179 @@ async fn runs_past_retention_are_never_sampled_or_classified(
     assert!(!traces(&candidates).contains(&"team/expiring".to_owned()));
     Ok(())
 }
+
+const FIRST_START_MS: i64 = 1_769_990_400_000;
+const LATE_SPAN_MS: i64 = 1_769_731_200_000;
+
+async fn execute(fixture: &SeededDatabase, sql: String) -> TestResult<String> {
+    Ok(fixture
+        .database
+        .client
+        .post(&fixture.database.url)
+        .query(&[("date_time_input_format", "best_effort")])
+        .body(sql)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?)
+}
+
+fn spanning(
+    trace: &str,
+    timestamp_ms: i64,
+    span_id: &str,
+    parent: &str,
+) -> BTreeMap<String, Value> {
+    let mut row = span(
+        trace,
+        0,
+        "Plan the release",
+        json!({}),
+        ("team", "key"),
+        "assistant",
+    );
+    row.insert("Timestamp".into(), json!(timestamp_ms * 1_000_000));
+    row.insert("SpanId".into(), json!(span_id));
+    row.insert("ParentSpanId".into(), json!(parent));
+    row
+}
+
+fn reclassify(version: u32) -> BucketingParams {
+    BucketingParams {
+        taxonomy_id: "tax".into(),
+        taxonomy_version: version,
+        require_input: 0,
+        max_attempts: 3,
+        ..BucketingParams::windows(
+            "assistant",
+            &[(LATE_SPAN_MS - 15 * DAY_MS, FIRST_START_MS + 15 * DAY_MS)],
+            20,
+        )
+    }
+}
+
+async fn assign(
+    fixture: &SeededDatabase,
+    config: &Config,
+    version: u32,
+    task_id: &str,
+) -> TestResult<litellm_traces_clickhouse::profiles::BucketingCandidate> {
+    let candidate = bucketing_candidates(&fixture.database.client, config, &reclassify(version))
+        .await?
+        .into_iter()
+        .find(|row| row.trace_id == "boundary")
+        .expect("boundary run is a candidate");
+    record_assignment(
+        &fixture.database.client,
+        config,
+        &TaskAssignment {
+            candidate: &candidate,
+            agent: "assistant",
+            taxonomy_id: "tax",
+            taxonomy_version: version,
+            task_id,
+            outcome: AssignmentOutcome::Assigned,
+        },
+    )
+    .await?;
+    Ok(candidate)
+}
+
+async fn resolved(fixture: &SeededDatabase, config: &Config, version: u32) -> TestResult<String> {
+    let rows = fetch::<ProfileRuns>(
+        &fixture.database.client,
+        config.storage().reader(),
+        &ProfileRunsParams {
+            all_teams: true,
+            user_id: String::new(),
+            team_ids: Vec::new(),
+            agent: "assistant".into(),
+            start_ms: LATE_SPAN_MS - DAY_MS,
+            end_ms: FIRST_START_MS + DAY_MS,
+            taxonomy_id: "tax".into(),
+            taxonomy_version: version,
+            window_starts: vec![LATE_SPAN_MS - DAY_MS],
+            window_ends: vec![i64::MAX],
+            limit: 10,
+        },
+    )
+    .await?;
+    Ok(rows
+        .into_iter()
+        .find(|row| row.trace_id == "boundary")
+        .map(|row| row.profile_id)
+        .unwrap_or_default())
+}
+
+#[rstest]
+#[case::attempt_stored_before_monthly_partitions("lens_task_profile_assignments")]
+#[case::attempt_stored_monthly("lens_task_profile_assignments_monthly")]
+#[tokio::test]
+async fn retries_and_reclassification_keep_the_first_stored_month_after_a_late_earlier_span(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] first_attempt_table: &str,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 3650)?;
+    insert_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![spanning("boundary", FIRST_START_MS, "boundary-root", "")],
+    )
+    .await?;
+    execute(
+        &fixture,
+        format!(
+            "INSERT INTO {DATABASE}.{first_attempt_table} FORMAT JSONEachRow {}",
+            json!({
+                "TeamId": "team", "ApiKeyHash": "key", "TraceId": "boundary",
+                "AgentName": "assistant", "TaxonomyId": "tax", "TaxonomyVersion": 1, "TaskId": "",
+                "Outcome": "failed", "Attempts": 1, "StartTs": "2026-02-02T00:00:00Z",
+                "ComputedAt": FIRST_START_MS + MINUTE_MS
+            })
+        ),
+    )
+    .await?;
+    insert_rows(
+        &fixture.database.client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![spanning(
+            "boundary",
+            LATE_SPAN_MS,
+            "boundary-late",
+            "boundary-root",
+        )],
+    )
+    .await?;
+
+    let retry = assign(&fixture, &config, 1, "release").await?;
+    let next_version = assign(&fixture, &config, 2, "notes").await?;
+    let settled = bucketing_candidates(&fixture.database.client, &config, &reclassify(1)).await?;
+    let partitions = execute(
+        &fixture,
+        format!(
+            "SELECT arraySort(groupUniqArray(_partition_id)) AS months, count() AS rows \
+             FROM {DATABASE}.lens_task_profile_assignments_monthly \
+             WHERE TraceId = 'boundary' FORMAT JSONEachRow"
+        ),
+    )
+    .await?;
+
+    assert_eq!(retry.start_ms, LATE_SPAN_MS);
+    assert_eq!(retry.attempts, 1);
+    assert_eq!(retry.assignment_start_ms, FIRST_START_MS);
+    assert_eq!(next_version.assignment_start_ms, FIRST_START_MS);
+    assert!(settled.iter().all(|row| row.trace_id != "boundary"));
+    assert_eq!(
+        serde_json::from_str::<Value>(partitions.trim())?["months"],
+        json!(["202602"])
+    );
+    assert_eq!(resolved(&fixture, &config, 1).await?, "task:release");
+    assert_eq!(resolved(&fixture, &config, 2).await?, "task:notes");
+    Ok(())
+}

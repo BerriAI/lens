@@ -45,6 +45,8 @@ fn settings(enabled: bool) -> ProfileSettings {
     }
 }
 
+const ELIGIBLE: u64 = 42;
+
 fn request(max_runs: u32) -> DiscoveryRequest {
     DiscoveryRequest {
         agent: "agent".into(),
@@ -83,7 +85,7 @@ fn shown(state: &AgentState) -> DiscoveryRequest {
 }
 
 fn start(state: &AgentState, job_id: &str) -> Result<AgentState, TransitionError> {
-    start_discovery(state, "tax", &shown(state), job_id.into(), now())
+    start_discovery(state, "tax", &shown(state), ELIGIBLE, job_id.into(), now())
         .map(|changes| applied(state, changes))
 }
 
@@ -202,9 +204,39 @@ fn a_second_discovery_is_refused_while_one_is_running(enabled: AgentState) {
 #[case::too_small(19)]
 #[case::too_large(501)]
 fn discovery_size_is_bounded(enabled: AgentState, #[case] max_runs: u32) {
-    let result = start_discovery(&enabled, "tax", &request(max_runs), "job".into(), now());
+    let result = start_discovery(
+        &enabled,
+        "tax",
+        &request(max_runs),
+        ELIGIBLE,
+        "job".into(),
+        now(),
+    );
 
     assert_eq!(result, Err(TransitionError::InvalidSize));
+}
+
+#[rstest]
+#[case::one_short(19, Err(TransitionError::TooFewRuns))]
+#[case::exactly_enough(20, Ok(TaxonomyStatus::Discovering))]
+fn discovery_needs_twenty_eligible_runs_even_when_the_size_allows_it(
+    enabled: AgentState,
+    #[case] eligible: u64,
+    #[case] expected: Result<TaxonomyStatus, TransitionError>,
+) {
+    let result = start_discovery(
+        &enabled,
+        "tax",
+        &request(300),
+        eligible,
+        "job".into(),
+        now(),
+    );
+
+    assert_eq!(
+        result.map(|changes| changes.working.map(|working| working.status)),
+        expected.map(Some)
+    );
 }
 
 #[rstest]
@@ -257,8 +289,22 @@ fn a_live_draft_cannot_be_activated_after_discovery_is_turned_off(drafted: Agent
 
 #[rstest]
 fn a_new_discovery_replaces_only_the_draft_the_caller_last_saw(drafted: AgentState) {
-    let unseen = start_discovery(&drafted, "tax", &request(100), "job-2".into(), now());
-    let seen = start_discovery(&drafted, "tax", &shown(&drafted), "job-2".into(), now());
+    let unseen = start_discovery(
+        &drafted,
+        "tax",
+        &request(100),
+        ELIGIBLE,
+        "job-2".into(),
+        now(),
+    );
+    let seen = start_discovery(
+        &drafted,
+        "tax",
+        &shown(&drafted),
+        ELIGIBLE,
+        "job-2".into(),
+        now(),
+    );
 
     assert_eq!(unseen, Err(TransitionError::Stale));
     assert_eq!(
@@ -597,6 +643,7 @@ fn the_last_attempt_blocks_a_new_discovery_until_its_lease_ends(
         &running,
         "tax",
         &shown(&running),
+        ELIGIBLE,
         "job-2".into(),
         after(leases_later),
     );

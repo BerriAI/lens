@@ -320,6 +320,10 @@ pub struct BucketingCandidate {
     pub input_preview: String,
     #[serde(default, deserialize_with = "crate::query::number::deserialize")]
     pub attempts: u8,
+    /// The start already stored for this run in any taxonomy version, else `start_ms`, so late
+    /// spans that move `start_ms` earlier cannot split a run's rows across monthly partitions.
+    #[serde(deserialize_with = "crate::query::number::deserialize")]
+    pub assignment_start_ms: i64,
 }
 
 /// Assignments expire with their run's start like every trace table, so runs past retention are
@@ -473,7 +477,7 @@ pub async fn record_assignment(
     insert(
         client,
         config,
-        "lens_task_profile_assignments",
+        "lens_task_profile_assignments_monthly",
         &AssignmentRow {
             team_id: &assignment.candidate.team_id,
             api_key_hash: &assignment.candidate.api_key_hash,
@@ -485,7 +489,7 @@ pub async fn record_assignment(
             task_id: assignment.task_id,
             outcome: assignment.outcome,
             attempts: assignment.candidate.attempts.saturating_add(1),
-            start_ts: litellm_traces::iso_time(assignment.candidate.start_ms),
+            start_ts: litellm_traces::iso_time(assignment.candidate.assignment_start_ms),
             computed_at: now,
         },
     )

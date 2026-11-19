@@ -301,7 +301,26 @@ impl TaxonomyStore for ProfilesApi {
     }
 }
 
+fn discovery_params(request: &DiscoveryRequest) -> BucketingParams {
+    BucketingParams::windows(
+        &request.agent,
+        &[(request.start_ms, request.end_ms)],
+        request.max_runs,
+    )
+}
+
 impl DiscoveryCatalog for ProfilesApi {
+    async fn eligible(&self, request: &DiscoveryRequest) -> Result<u64, ProfileStoreError> {
+        let _permit = self.permit().await?;
+        discovery_eligible(
+            &self.state.storage.client,
+            &self.state.storage.config,
+            &discovery_params(request),
+        )
+        .await
+        .map_err(|_| ProfileStoreError::Unavailable)
+    }
+
     async fn options(&self) -> DiscoveryModelOptions {
         self.models
             .as_ref()
@@ -313,17 +332,11 @@ impl DiscoveryCatalog for ProfilesApi {
         &self,
         request: DiscoveryRequest,
     ) -> Result<DiscoveryPreview, ProfileStoreError> {
+        let eligible = self.eligible(&request).await?;
         let _permit = self.permit().await?;
-        let params = BucketingParams::windows(
-            &request.agent,
-            &[(request.start_ms, request.end_ms)],
-            request.max_runs,
-        );
+        let params = discovery_params(&request);
         let client = &self.state.storage.client;
         let config = &self.state.storage.config;
-        let eligible = discovery_eligible(client, config, &params)
-            .await
-            .map_err(|_| ProfileStoreError::Unavailable)?;
         let sampled = discovery_samples(
             client,
             config,

@@ -41,6 +41,7 @@ struct Memory {
     runs: Vec<Run>,
     calls: RunCalls,
     unavailable: bool,
+    scarce: bool,
 }
 
 impl Memory {
@@ -162,6 +163,10 @@ impl DiscoveryCatalog for Memory {
                 input_preview: "Why was I charged twice?".into(),
             }],
         })
+    }
+
+    async fn eligible(&self, _: &DiscoveryRequest) -> Result<u64, ProfileStoreError> {
+        Ok(if self.scarce { 19 } else { 42 })
     }
 }
 
@@ -596,6 +601,38 @@ async fn discovery_starts_only_for_an_opted_in_agent_with_available_models(
 
 #[rstest]
 #[tokio::test]
+async fn discovery_is_refused_before_a_job_exists_when_fewer_than_twenty_runs_are_eligible(
+    #[future(awt)] database: Database,
+    admin: Option<Role>,
+) {
+    let store = Memory {
+        scarce: true,
+        ..Memory::with(AgentState {
+            settings: Some(settings(true)),
+            ..AgentState::default()
+        })
+    };
+    let server = serve(&database, store.clone()).await;
+
+    let (status, body) = call(
+        &server,
+        Method::POST,
+        "/lens/profiles/discovery",
+        admin,
+        Some(json!({"agent": AGENT, "start_ms": 0, "end_ms": 10, "max_runs": 300})),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["detail"],
+        json!("Discovery needs at least 20 eligible runs in this range")
+    );
+    assert_eq!(store.state().working, None);
+}
+
+#[rstest]
+#[tokio::test]
 async fn a_discovery_snapshots_the_saved_models_and_refuses_a_second_one(
     #[future(awt)] database: Database,
     admin: Option<Role>,
@@ -684,7 +721,7 @@ async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(
         ..AgentState::default()
     });
     let server = serve(&database, store.clone()).await;
-    let edit = json!({"agent": AGENT, "revision": 5, "name": "Billing", "description": "", "inclusion_criteria": "", "exclusion_criteria": "", "required_capabilities": []});
+    let edit = json!({"agent": AGENT, "revision": 5, "name": "Billing", "description": "", "inclusion_criteria": "", "exclusion_criteria": "", "required_capabilities": ["vision"]});
 
     let (edited, body) = call(
         &server,
@@ -705,6 +742,10 @@ async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(
 
     assert_eq!(edited, StatusCode::OK);
     assert_eq!(body["taxonomy"]["tasks"][0]["name"], json!("Billing"));
+    assert_eq!(
+        body["taxonomy"]["tasks"][0]["required_capabilities"],
+        json!([])
+    );
     assert_eq!(activated, StatusCode::OK);
     assert_eq!(view["taxonomy"], Value::Null);
     assert_eq!(view["active"]["tasks"][0]["name"], json!("Billing"));
@@ -716,7 +757,7 @@ async fn an_admin_edits_and_activates_a_draft_with_a_backfill_over_http(
 }
 
 #[rstest]
-#[case::missing_task("/lens/profiles/taxonomy/tasks/unknown", Method::PATCH, json!({"agent": AGENT, "revision": 5, "name": "x", "description": "", "inclusion_criteria": "", "exclusion_criteria": "", "required_capabilities": []}), StatusCode::NOT_FOUND)]
+#[case::missing_task("/lens/profiles/taxonomy/tasks/unknown", Method::PATCH, json!({"agent": AGENT, "revision": 5, "name": "x", "description": "", "inclusion_criteria": "", "exclusion_criteria": ""}), StatusCode::NOT_FOUND)]
 #[case::blank_name("/lens/profiles/taxonomy/tasks/billing", Method::PATCH, json!({"agent": AGENT, "revision": 5, "name": " ", "description": "", "inclusion_criteria": "", "exclusion_criteria": "", "required_capabilities": []}), StatusCode::BAD_REQUEST)]
 #[case::stale_activation("/lens/profiles/taxonomy/activate", Method::POST, json!({"agent": AGENT, "revision": 4, "backfill": false}), StatusCode::CONFLICT)]
 #[case::nothing_to_resume("/lens/profiles/taxonomy/resume", Method::POST, json!({"agent": AGENT, "revision": 5}), StatusCode::NOT_FOUND)]
@@ -930,14 +971,13 @@ async fn only_a_capped_run_list_is_reported_as_truncated(
 }
 
 #[rstest]
-#[case::admin(Role::ProxyAdmin, 2, Some(json!("incompatible")))]
-#[case::scoped_user(Role::InternalUser, 1, None)]
+#[case::admin(Role::ProxyAdmin, 2)]
+#[case::scoped_user(Role::InternalUser, 1)]
 #[tokio::test]
-async fn the_matrix_lists_idle_deployments_only_to_every_team_callers_and_compares_requirements(
+async fn the_matrix_lists_idle_deployments_only_to_every_team_callers_without_requirement_verdicts(
     #[future(awt)] database: Database,
     #[case] role: Role,
     #[case] columns: usize,
-    #[case] idle_fit: Option<Value>,
 ) {
     let server = serve(
         &database,
@@ -956,22 +996,19 @@ async fn the_matrix_lists_idle_deployments_only_to_every_team_callers_and_compar
         None,
     )
     .await;
-    let fit = |column: &str| {
-        body["compatibility"]
-            .as_array()
-            .and_then(|entries| {
-                entries.iter().find(|entry| {
-                    entry["profile_id"] == json!("task:billing")
-                        && entry["column_key"] == json!(column)
-                })
-            })
-            .map(|entry| entry["status"].clone())
-    };
+    let billing = body["profiles"].as_array().and_then(|profiles| {
+        profiles
+            .iter()
+            .find(|profile| profile["profile_id"] == json!("task:billing"))
+    });
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["models"].as_array().map(Vec::len), Some(columns));
-    assert_eq!(fit("id:dep-vision"), Some(json!("unknown")));
-    assert_eq!(fit("id:dep-text"), idle_fit);
+    assert_eq!(
+        billing.map(|profile| profile["required_capabilities"].clone()),
+        Some(Value::Null)
+    );
+    assert_eq!(body["compatibility"], json!([]));
 }
 
 #[rstest]
