@@ -8,8 +8,8 @@ use axum::{
 };
 use lens_auth::{Authentication, ReadScope, SessionRepository, trace_read_scope};
 use lens_contract::profiles::{
-    ModelCapabilities, ModelColumn, ProfileDetail, ProfileRef, ProfileSummary, ProfileWindow,
-    ProfilesMatrix, ProfilesOverview,
+    ModelCapabilities, ModelColumn, ProfileDetail, ProfileRef, ProfileSource, ProfileSummary,
+    ProfileWindow, ProfilesMatrix, ProfilesOverview,
 };
 use litellm_traces::query::named::ReadAccessParams;
 use serde::Deserialize;
@@ -24,6 +24,7 @@ use aggregate::{Column, Run, RunCalls, View, source};
 pub const MAX_RUNS: u32 = 5_000;
 pub const MAX_SPANS: usize = 50_000;
 const DETAIL_RUNS: usize = 50;
+const UNCERTAIN_NAME: &str = "Other / uncertain";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RunQuery {
@@ -156,6 +157,9 @@ impl Loaded {
     }
 
     fn name(&self, profile_id: &str) -> String {
+        if matches!(source(profile_id), ProfileSource::Uncertain) {
+            return UNCERTAIN_NAME.into();
+        }
         self.runs
             .iter()
             .find(|run| run.profile_id == profile_id)
@@ -396,6 +400,56 @@ mod tests {
             models
                 .iter()
                 .any(|model| model.model_config_id.is_none() && !model.configured)
+        );
+    }
+
+    fn listed(trace_id: &str, profile_id: &str, category: &str) -> Run {
+        Run {
+            team_id: "team".into(),
+            api_key_hash: "key".into(),
+            trace_id: trace_id.into(),
+            start_ms: 1,
+            end_ms: 1,
+            profile_id: profile_id.into(),
+            category: category.into(),
+            input_preview: String::new(),
+            agent_count: 1,
+        }
+    }
+
+    #[rstest]
+    #[case::stored_catch_all_label_first(["Other / uncertain", "Maybe billing"])]
+    #[case::new_label_first(["Maybe billing", "Other / uncertain"])]
+    #[case::only_new_labels(["Maybe billing", "Draft refunds"])]
+    fn the_uncertain_profile_keeps_its_name_whatever_labels_its_runs_carry(
+        #[case] uncertain_labels: [&str; 2],
+    ) {
+        let loaded = Loaded {
+            runs: vec![
+                listed("t1", "uncertain", uncertain_labels[0]),
+                listed("t2", "recorded:Coding", "Coding"),
+                listed("t3", "uncertain", uncertain_labels[1]),
+                listed("t4", "cluster:c1", "Summarize sources"),
+                listed("t5", "unclassified", "Unclassified"),
+            ],
+            calls: RunCalls::new(),
+            truncated: false,
+        };
+
+        let names: BTreeMap<String, String> = loaded
+            .summaries("agent")
+            .into_iter()
+            .map(|profile| (profile.profile_id, profile.name))
+            .collect();
+
+        assert_eq!(
+            names,
+            BTreeMap::from([
+                ("cluster:c1".to_owned(), "Summarize sources".to_owned()),
+                ("recorded:Coding".to_owned(), "Coding".to_owned()),
+                ("uncertain".to_owned(), "Other / uncertain".to_owned()),
+                ("unclassified".to_owned(), "Unclassified".to_owned()),
+            ])
         );
     }
 
