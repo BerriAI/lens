@@ -59,7 +59,7 @@ pub fn load_tasks(path: &Path) -> Result<Vec<Task>> {
 }
 
 pub fn new_run_id() -> String {
-    format!("eval_{}", uuid::Uuid::new_v4().simple())
+    format!("eval_{}", &uuid::Uuid::new_v4().simple().to_string()[..8])
 }
 
 fn percentile(sorted: &[f64], rank: f64) -> f64 {

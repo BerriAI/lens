@@ -322,10 +322,9 @@ mod report {
         },
         local::{Summary, run::new_run_id},
     };
-    use rstest::{fixture as rs_fixture, rstest};
+    use rstest::rstest;
 
-    #[rs_fixture]
-    fn report_summary(#[default(4)] count: usize) -> Summary {
+    fn report_summary(count: usize) -> Summary {
         let source = fixture::summary();
         Summary {
             run_id: new_run_id(),
@@ -335,11 +334,12 @@ mod report {
     }
     #[rstest]
     fn report_fits_the_frame(
-        #[values(1, 4, 8)] _count: usize,
+        #[values(1, 4, 8)] count: usize,
         #[values(78, 100, 118)] width: usize,
-        #[with(_count)] report_summary: Summary,
     ) {
-        let widest = lines(&report_summary, width)
+        let summary = report_summary(count);
+        assert_eq!(summary.stats.len(), count);
+        let widest = lines(&summary, width)
             .iter()
             .map(Line::width)
             .max()

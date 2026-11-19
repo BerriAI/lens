@@ -106,11 +106,12 @@ fn load_tasks_rejects_ambiguous_checkpoint_ids(#[case] contents: &str, #[case] i
 }
 
 #[rstest]
-fn run_id_has_eval_prefix_and_random_uuid() {
+fn run_id_is_short_hex_and_unique() {
     let id = new_run_id();
     let suffix = id.strip_prefix("eval_").expect("run prefix");
-    let uuid = uuid::Uuid::parse_str(suffix).expect("random UUID");
-    assert_eq!(uuid.get_version(), Some(uuid::Version::Random));
+    assert_eq!(suffix.len(), 8);
+    assert!(suffix.chars().all(|ch| ch.is_ascii_hexdigit()));
+    assert_ne!(id, new_run_id());
 }
 
 #[rstest]
