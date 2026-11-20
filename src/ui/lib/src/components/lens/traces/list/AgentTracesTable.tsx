@@ -155,7 +155,6 @@ function TraceIdCell({ run }: { run: TraceSummary }) {
         event.stopPropagation();
         void copyToClipboard(run.trace_id, "Trace ID copied");
       }}
-      onKeyDown={(event) => event.stopPropagation()}
       className="-mx-1 flex h-6 w-[calc(100%+0.5rem)] min-w-0 items-center gap-1 rounded px-1 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
     >
       <span className="truncate">{run.trace_id}</span>
