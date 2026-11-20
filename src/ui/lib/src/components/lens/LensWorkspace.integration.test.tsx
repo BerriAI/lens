@@ -9,7 +9,7 @@ import { liveTracesApi } from "./traces/api";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
 import { LensHostProvider } from "../../host/LensHost";
-import { useWorkspaceScope } from "./route";
+import { useLensNavigation, useWorkspaceScope } from "./route";
 import { WorkspaceSwitchers, type WorkspacePicker } from "./workspace/WorkspaceSwitchers";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
@@ -1279,6 +1279,44 @@ it("shows one hierarchy and horizontal Lens tabs without nested branding or navi
   expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "Lens", level: 1 })).not.toBeInTheDocument();
   expect(within(workspace).queryByRole("img", { name: "LiteLLM" })).not.toBeInTheDocument();
+});
+
+it("leaves Lens page navigation to its host while retaining workspace controls and page actions", async () => {
+  const kinds: WorkspacePicker["kind"][] = ["organization", "team", "project", "key"];
+  const pickers: WorkspacePicker[] = kinds.map((kind) => ({ kind, value: null, items: [] }));
+  const WorkspaceSwitcher = () => <WorkspaceSwitchers pickers={pickers} onSelect={vi.fn()} />;
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", navigation: "host", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=traces" },
+  );
+  expect(within(await screen.findByRole("banner", { name: "Lens workspace" })).getAllByRole("combobox")).toHaveLength(4);
+  expect(screen.queryByRole("tablist", { name: "Lens" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(screen.getByRole("banner", { name: "Lens actions" })).toBeVisible();
+  expect(screen.getByRole("group", { name: "Page actions" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
+});
+
+it("navigates from a host menu without losing workspace filters or making backend requests", async () => {
+  function HostMenu() {
+    const { tab, navigate } = useLensNavigation();
+    return <button aria-pressed={tab === "evals"} onClick={() => navigate("evals")}>Evals</button>;
+  }
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(<HostMenu />, {
+    searchParams: "?tab=traces&organization_id=org-a&team_id=team-a&project_id=project-a&api_key_hash=hash-a&hours=168&agent=coding&q=review&status=error&trace=old-trace&trace_ref=old-ref&span=old-span&setup=lens",
+    onUrlUpdate,
+  });
+  await user.click(screen.getByRole("button", { name: "Evals" }));
+  await expectUrl(onUrlUpdate, (params) => expect(params.get("tab")).toBe("evals"));
+  expect(screen.getByRole("button", { name: "Evals" })).toHaveAttribute("aria-pressed", "true");
+  expect(Object.fromEntries(lastUrl(onUrlUpdate))).toEqual({
+    tab: "evals", organization_id: "org-a", team_id: "team-a", project_id: "project-a", api_key_hash: "hash-a", hours: "168", agent: "coding", q: "review", status: "error",
+  });
+  expect(network).not.toHaveBeenCalled();
 });
 
 it("closes the previous trace immediately when switching workspaces", async () => {

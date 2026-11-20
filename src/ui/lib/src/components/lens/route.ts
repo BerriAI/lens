@@ -129,8 +129,9 @@ const nulls = <K extends string>(keys: readonly K[]) =>
 /** Switching the sample session clears every Lens key but the tab so ids never cross between live and sample data. */
 const CLEARED_SESSION = nulls(Object.keys(SESSION_PARSERS).filter((key) => key !== "tab"));
 const CLEARED_RESULTS = nulls(Object.keys(RESULT_PARSERS));
+const CLEARED_TRACE = nulls(Object.keys(OPEN_TRACE_PARSERS));
 const CLEARED_AGENT_VIEW = {
-  ...nulls(Object.keys(OPEN_TRACE_PARSERS)),
+  ...CLEARED_TRACE,
   ...nulls(Object.keys(RESULT_PARSERS)),
   ...nulls(Object.keys(DATASET_PARSERS)),
   ...nulls(Object.keys(EVAL_PARSERS)),
@@ -213,6 +214,18 @@ export function useLensRoute(): LensRoute {
     setDemo,
     setSetup,
   };
+}
+
+export function useLensNavigation(): { tab: LensTab; navigate: (tab: LensTab) => void } {
+  const route = useLensRoute();
+  const [, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
+  const selected = route.tab ?? (route.defaultTab === "home" ? "traces" : route.defaultTab);
+  const tab = selected === "investigations" ? "findings" : selected;
+  const navigate = useCallback(
+    (next: LensTab) => void setParams({ ...CLEARED_TRACE, setup: null, tab: next }),
+    [setParams],
+  );
+  return { tab, navigate };
 }
 
 export function useAgentSearchRoute(): [string, (search: string) => void] {

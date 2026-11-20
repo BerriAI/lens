@@ -215,11 +215,13 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
               {!demo && WorkspaceSwitcher && <WorkspaceSwitcher />}
               {embedded ? (
-                <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
+                <header aria-label={host.navigation === "host" ? "Lens actions" : "Lens navigation and actions"} className="lens-embedded-toolbar">
                   {(demo || !WorkspaceSwitcher) && <h1 className="sr-only">Lens</h1>}
-                  <div className="min-w-0 max-w-full overflow-x-auto">
-                    <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
-                  </div>
+                  {host.navigation !== "host" && (
+                    <div className="min-w-0 max-w-full overflow-x-auto">
+                      <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
+                    </div>
+                  )}
                   <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
                     {agents.agent && activeTab !== "optimizations" && (
                       <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
