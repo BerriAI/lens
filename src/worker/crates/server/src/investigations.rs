@@ -16,7 +16,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE};
 use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    auth::{Identity, Role},
+    auth::{Identity, Role, Scope as AuthScope},
     investigations::{
         FindingImport, FindingImported, FindingSource, FindingUpdate, Lens, LensList, Public,
         ReviewPage, RunRequest, Scope, WatchAllResult, WatchSkipped, Worker,
@@ -111,13 +111,10 @@ where
 }
 
 fn scope(identity: &Identity, write: bool) -> Result<Scope, InvestigationError> {
-    if write && identity.user_role != Role::ProxyAdmin {
+    if write && !identity.allows(AuthScope::InvestigationsWrite) {
         return Err(InvestigationError::ForbiddenWrite);
     }
-    if matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if identity.allows(AuthScope::InvestigationsRead) && identity.user_role.reads_all_rows() {
         return Ok(Scope {
             all_teams: true,
             ..Scope::default()
@@ -127,7 +124,11 @@ fn scope(identity: &Identity, write: bool) -> Result<Scope, InvestigationError> 
 }
 
 fn investigator_scope(identity: &Identity, write: bool) -> Result<Scope, InvestigationError> {
-    if identity.user_role == Role::SlackInvestigator
+    if identity.allows(if write {
+        AuthScope::InvestigationsWrite
+    } else {
+        AuthScope::InvestigationsRead
+    }) && identity.user_role == Role::SlackInvestigator
         && let Some(team_id) = identity.team_id.as_ref().filter(|id| !id.is_empty())
     {
         return Ok(Scope {

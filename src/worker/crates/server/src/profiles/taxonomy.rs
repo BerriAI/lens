@@ -9,7 +9,7 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use lens_auth::SessionRepository;
 use lens_contract::{
-    auth::{Identity, Role},
+    auth::{Identity, Scope as AuthScope},
     profiles::{
         ActivationRequest, ClassificationWindow, DiscoveryJob, DiscoveryModelChoice,
         DiscoveryModelOptions, DiscoveryPoint, DiscoveryPreview, DiscoveryRequest, DiscoveryRun,
@@ -599,14 +599,11 @@ pub fn complete(
 }
 
 pub fn can_write(identity: &Identity) -> bool {
-    identity.user_role == Role::ProxyAdmin
+    identity.allows(AuthScope::ProfilesWrite)
 }
 
 fn can_read(identity: &Identity) -> bool {
-    matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    )
+    identity.allows(AuthScope::ProfilesRead)
 }
 
 impl From<TransitionError> for ProfileHttpError {

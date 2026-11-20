@@ -7,7 +7,10 @@ use axum::{
     routing::get,
 };
 use lens_auth::{Authentication, SessionRepository};
-use lens_contract::{activity::AnalysisModelInfo, auth::Role};
+use lens_contract::{
+    activity::AnalysisModelInfo,
+    auth::{Identity, Scope},
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -90,15 +93,12 @@ async fn authorize<R: SessionRepository, M>(
     app: &App<R, M>,
     headers: &HeaderMap,
     method: &Method,
-) -> Result<Role, InvestigationError> {
+) -> Result<Identity, InvestigationError> {
     let identity = auth::identity(&app.authentication, headers, method).await?;
-    if !matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if !identity.allows(Scope::ModelsRead) {
         return Err(InvestigationError::ForbiddenRead);
     }
-    Ok(identity.user_role)
+    Ok(identity)
 }
 
 async fn models<R: SessionRepository, M: ModelCatalog>(
@@ -144,7 +144,10 @@ async fn refresh<R: SessionRepository, M: ModelCatalog>(
     headers: HeaderMap,
     method: Method,
 ) -> Result<Json<GatewayStatus>, InvestigationError> {
-    if authorize(&app, &headers, &method).await? != Role::ProxyAdmin {
+    if !authorize(&app, &headers, &method)
+        .await?
+        .allows(Scope::ModelsWrite)
+    {
         return Err(InvestigationError::ForbiddenWrite);
     }
     Ok(Json(app.models.refresh().await))

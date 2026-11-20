@@ -13,7 +13,7 @@ use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     AGENT_IO_CONTRACT_VERSION, CONTRACT_HEADER, CONTRACT_VERSION,
-    auth::Role,
+    auth::Scope as AuthScope,
     eval::{
         CaseResult, CreateEvalRun, EvalDefinition, EvalRun, EvalSpec, ResolvedDataset, RunCase,
         RunCaseSummary, RunStatus, Scorer, ScorerCheck, ToolStep, TrialSteps,
@@ -214,23 +214,16 @@ async fn authorize<R: SessionRepository>(
     } else {
         crate::auth::identity(&state.authentication, request.headers(), request.method()).await?
     };
+    let can_write = identity.allows(AuthScope::EvalsWrite);
+    if !identity.allows(AuthScope::EvalsRead) {
+        return Err(EvalApiError::Unauthorized);
+    }
     let scope = match identity.team_id.filter(|team| !team.is_empty()) {
         Some(team) => team,
-        None if matches!(
-            identity.user_role,
-            Role::ProxyAdmin | Role::ProxyAdminViewer
-        ) =>
-        {
-            String::new()
-        }
+        None if identity.user_role.reads_all_rows() => String::new(),
         None => return Err(EvalApiError::Unauthorized),
     };
-    if !matches!(request.method().as_str(), "GET" | "HEAD" | "OPTIONS")
-        && matches!(
-            identity.user_role,
-            Role::ProxyAdminViewer | Role::InternalUserViewer
-        )
-    {
+    if !matches!(request.method().as_str(), "GET" | "HEAD" | "OPTIONS") && !can_write {
         return Err(EvalApiError::Authentication(
             lens_auth::Error::Unauthorized("This credential is read-only"),
         ));

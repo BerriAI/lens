@@ -5,7 +5,7 @@ mod gateway;
 pub mod ingestion;
 
 use chrono::{DateTime, Utc};
-use lens_contract::auth::{Identity, Role, SessionView};
+use lens_contract::auth::{Identity, Role, Scope, SessionView};
 use sha2::{Digest, Sha256};
 use std::future::Future;
 use subtle::ConstantTimeEq;
@@ -262,6 +262,9 @@ pub enum ReadScope {
 }
 
 pub fn trace_read_scope(identity: &Identity) -> Option<ReadScope> {
+    if !identity.allows(Scope::TracesRead) {
+        return None;
+    }
     if identity.user_role == Role::SlackInvestigator {
         let team_id = identity.team_id.as_ref().filter(|id| !id.is_empty())?;
         return Some(ReadScope::OwnedRows {
@@ -269,10 +272,7 @@ pub fn trace_read_scope(identity: &Identity) -> Option<ReadScope> {
             team_ids: vec![team_id.clone()],
         });
     }
-    if matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if identity.user_role.reads_all_rows() {
         return Some(ReadScope::AllRows);
     }
     let user_id = identity.user_id.as_ref().filter(|id| !id.is_empty())?;

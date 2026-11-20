@@ -15,7 +15,7 @@ use axum::{
 };
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    auth::Role,
+    auth::{Identity, Scope},
     feedback::TraceFeedbackRequest,
     signals::{SignalConfig, TraceSignals},
 };
@@ -78,11 +78,18 @@ where
         }))
 }
 
-fn authorize(role: Role, write: bool) -> Result<(), InvestigationError> {
-    match (role, write) {
-        (Role::ProxyAdmin, _) | (Role::ProxyAdminViewer, false) => Ok(()),
-        (_, true) => Err(InvestigationError::ForbiddenWrite),
-        (_, false) => Err(InvestigationError::ForbiddenRead),
+fn authorize(identity: &Identity, write: bool) -> Result<(), InvestigationError> {
+    if identity.allows(if write {
+        Scope::SignalsWrite
+    } else {
+        Scope::SignalsRead
+    }) {
+        return Ok(());
+    }
+    if write {
+        Err(InvestigationError::ForbiddenWrite)
+    } else {
+        Err(InvestigationError::ForbiddenRead)
     }
 }
 
@@ -92,7 +99,7 @@ async fn read<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
     method: Method,
 ) -> Result<Json<SignalConfig>, SignalError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    authorize(identity.user_role, false)?;
+    authorize(&identity, false)?;
     Ok(Json(app.repository.get_config().await?))
 }
 
@@ -108,7 +115,7 @@ async fn save<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
         parsed,
         body_validation::Model::Signals(validation::Model::Config),
     )?;
-    authorize(identity.user_role, true)?;
+    authorize(&identity, true)?;
     if !config.model.is_empty()
         && !app.models.model_groups().iter().any(|model| {
             (lens_contract::activity::is_decisions_mode(&model.mode) || model.mode == "chat")
@@ -133,7 +140,7 @@ async fn traces<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
         parsed,
         body_validation::Model::Feedback(crate::feedback::validation::Model::Summary),
     )?;
-    authorize(identity.user_role, false)?;
+    authorize(&identity, false)?;
     let config = app.repository.get_config().await?;
     let existing = app.repository.traces(&request.traces).await?;
     let rows: BTreeMap<_, _> = existing

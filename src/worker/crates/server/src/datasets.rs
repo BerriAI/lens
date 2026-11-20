@@ -15,7 +15,7 @@ use axum::{
 use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    auth::{Identity, Role},
+    auth::{Identity, Scope as AuthScope},
     datasets::{
         BuildRequest, BuildResult, Dataset, DatasetCreate, DatasetSummary, EvalCases, RevisionSave,
     },
@@ -89,15 +89,12 @@ where
 }
 
 fn user_scope(identity: &Identity, write: bool) -> Result<Scope, DatasetError> {
-    if write && identity.user_role != Role::ProxyAdmin {
+    if write && !identity.allows(AuthScope::DatasetsWrite) {
         return Err(DatasetError::ForbiddenWrite);
     }
-    if matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if identity.allows(AuthScope::DatasetsRead) {
         return Ok(Scope {
-            all_teams: true,
+            all_teams: identity.user_role.reads_all_rows(),
             ..Scope::default()
         });
     }
