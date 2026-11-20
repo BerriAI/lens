@@ -1,21 +1,56 @@
 name: lens
 
 services:
+  credentials:
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.1.0}
+    user: "0:0"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        /usr/local/bin/litellm-lens init /setup
+        chown "$$(stat -c %u:%g /setup)" /setup/.env
+        cp /setup/.env /credentials/.env
+        chown 65532:65532 /credentials/.env
+        echo "Sign in at http://localhost:4318/ui/ with LENS_ADMIN_TOKEN from deploy/lens/.env"
+    volumes:
+      - .:/setup
+      - credentials:/credentials
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+
   lens:
-    image: ${LENS_IMAGE:-lens:local}
-    env_file: .env
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.1.0}
+    env_file:
+      - path: .env
+        required: false
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        export LENS_ADMIN_TOKEN="$$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /credentials/.env)"
+        export CLICKHOUSE_PASSWORD="$$(sed -n 's/^CLICKHOUSE_PASSWORD=//p' /credentials/.env)"
+        exec /usr/local/bin/node /app/agent-chat/dist/supervisor.js "$$@"
+      - lens
     environment:
       LENS_MODE: standalone
-      LENS_ADMIN_TOKEN: ${LENS_ADMIN_TOKEN:?Run ./deploy/lens/start to create deployment credentials}
       LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_USER: lens
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run ./deploy/lens/start to create deployment credentials}
       CLICKHOUSE_DATABASE: lens
       AGENT_TRACING_RETENTION_DAYS: ${AGENT_TRACING_RETENTION_DAYS:-14}
+    volumes:
+      - credentials:/credentials:ro
     ports:
       - "${LENS_BIND_ADDRESS:-127.0.0.1}:${LENS_PORT:-4318}:4318"
     depends_on:
+      credentials:
+        condition: service_completed_successfully
       clickhouse:
         condition: service_healthy
     networks: [default, storage]
@@ -31,16 +66,27 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:26.9.6.6@sha256:eb4870e7ca7ed70c259eebfcfbee6cf797017f6b5436c2926bbbfe3d4d28486e
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        export CLICKHOUSE_PASSWORD="$$(sed -n 's/^CLICKHOUSE_PASSWORD=//p' /credentials/.env)"
+        exec /entrypoint.sh "$$@"
+      - clickhouse
     environment:
       CLICKHOUSE_USER: lens
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run ./deploy/lens/start to create deployment credentials}
       CLICKHOUSE_DB: lens
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ../clickhouse/keeper.xml:/etc/clickhouse-server/config.d/lens-keeper.xml:ro
+      - credentials:/credentials:ro
+    depends_on:
+      credentials:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --host clickhouse --user lens --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' >/dev/null"]
+      test: ["CMD-SHELL", "clickhouse-client --host clickhouse --user lens --password \"$$(sed -n 's/^CLICKHOUSE_PASSWORD=//p' /credentials/.env)\" --query 'SELECT 1' >/dev/null"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -53,3 +99,4 @@ networks:
 
 volumes:
   clickhouse_data:
+  credentials:
