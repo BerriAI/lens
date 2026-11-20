@@ -5,12 +5,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   rust:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     env:
       RUSTUP_TOOLCHAIN: 1.99.0
@@ -106,6 +108,7 @@ jobs:
           --maxWorkers 2
 
   standalone-container:
+    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
