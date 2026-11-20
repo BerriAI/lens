@@ -54,7 +54,8 @@ export function Workspace() {
   });
   const client = useQueryClient();
   useEffect(() => {
-    const signIn = () => void client.invalidateQueries({ queryKey: sessionKey });
+    const signIn = () =>
+      void client.invalidateQueries({ queryKey: sessionKey });
     window.addEventListener("hashchange", signIn);
     return () => window.removeEventListener("hashchange", signIn);
   }, [client]);
@@ -121,7 +122,9 @@ function Surface({
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensHostProvider host={{ analysis: "deployment", surface: "standalone", user }}>
+      <LensHostProvider
+        host={{ analysis: "deployment", surface: "standalone", user }}
+      >
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
     </div>
@@ -198,7 +201,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
             again.
           </p>
         )}
-        {litellmLoginUrl ? (
+        {methods.isPending ? null : litellmLoginUrl ? (
           <>
             <a
               href={litellmLoginUrl}
@@ -217,7 +220,11 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
                   stroke="currentColor"
                   strokeWidth="1.5"
                 >
-                  <path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="m4 6 4 4 4-4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </summary>
               <div className="pt-4">{form}</div>
