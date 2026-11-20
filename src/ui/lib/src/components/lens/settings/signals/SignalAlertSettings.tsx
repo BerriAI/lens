@@ -25,7 +25,7 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
     <SettingsCard>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h3 className="text-sm font-medium">Alerts</h3>
+          <h3 className="text-sm font-medium">Slack notifications</h3>
           <p className="text-xs text-muted-foreground">
             {readOnly
               ? "An administrator can set up signal alerts"

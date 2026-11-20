@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Flag, Trash2 } from "lucide-react";
+import { Bell, Flag, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 import { useLensHost } from "../../../../host/LensHost";
@@ -26,18 +26,6 @@ import { SignalAlertSettings } from "./SignalAlertSettings";
 const LIBRARY_QUESTIONS: ReadonlySet<string> = new Set(SIGNAL_LIBRARY.map((signal) => signal.question));
 
 export function SignalSettings() {
-  return (
-    <SettingsSection
-      heading="Signals"
-      icon={<Flag aria-hidden="true" className="size-4" />}
-      description="Set once for every trace. A System 1 model checks each run and Traces flags matches in red."
-    >
-      <SignalConfigLoader />
-    </SettingsSection>
-  );
-}
-
-function SignalConfigLoader() {
   const api = useLensApi();
   const config = useQuery(lensQueries.signalConfig(api));
   if (config.error)
@@ -49,8 +37,20 @@ function SignalConfigLoader() {
   if (!config.data) return <Skeleton aria-label="Loading signals" className="h-40 w-full" />;
   return (
     <>
-      <SignalForm saved={config.data} />
-      <SignalAlertSettings signals={config.data} />
+      <SettingsSection
+        heading="Signals"
+        icon={<Flag aria-hidden="true" className="size-4" />}
+        description="Choose what Lens looks for in each captured trace."
+      >
+        <SignalForm saved={config.data} />
+      </SettingsSection>
+      <SettingsSection
+        heading="Slack delivery"
+        icon={<Bell aria-hidden="true" className="size-4" />}
+        description="Choose which signals send a Slack alert when they match a new trace."
+      >
+        <SignalAlertSettings signals={config.data} />
+      </SettingsSection>
     </>
   );
 }
@@ -186,6 +186,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
       setDraftBase(config);
       setSavedElsewhere(false);
       void queryClient.invalidateQueries({ queryKey: ["traceSignals"] });
+      void queryClient.invalidateQueries({ queryKey: lensKeys.signalOverview(api.scope) });
     },
   });
   const setRows = (rows: readonly SignalRow[]) => setDraft((current) => ({ ...current, rows }));

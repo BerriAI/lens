@@ -13,11 +13,12 @@ use axum::{
     http::{HeaderMap, Method},
     routing::{get, post},
 };
+use chrono::{TimeDelta, Utc};
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     auth::Role,
-    feedback::TraceFeedbackRequest,
-    signals::{SignalConfig, TraceSignals},
+    feedback::{TraceFeedbackRequest, TraceIdentity},
+    signals::{SignalConfig, SignalFlag, SignalOverview, TraceSignalStatus, TraceSignals},
 };
 use lens_signals::{SignalRepository, trace_signals};
 use std::{collections::BTreeMap, sync::Arc};
@@ -66,6 +67,7 @@ where
 {
     Router::new()
         .public_route("/lens/signals", get(read::<R, S, M>).put(save::<R, S, M>))
+        .public_route("/lens/signals/overview", get(overview::<R, S, M>))
         .public_route("/lens/traces/signals", post(traces::<R, S, M>))
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
@@ -119,6 +121,63 @@ async fn save<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
     }
     app.repository.save_config(&config).await?;
     Ok(Json(config))
+}
+
+async fn overview<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(
+    State(app): State<Arc<App<R, S, M>>>,
+    headers: HeaderMap,
+    method: Method,
+) -> Result<Json<SignalOverview>, SignalError> {
+    const LIMIT: u32 = 500;
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    authorize(identity.user_role, false)?;
+    let since = Utc::now() - TimeDelta::hours(24);
+    let config = app.repository.get_config().await?;
+    let rows = if lens_signals::enabled(&config) {
+        app.repository
+            .recent_results(&config, since, LIMIT + 1)
+            .await?
+    } else {
+        Vec::new()
+    };
+    let mut result = SignalOverview {
+        since,
+        limit: LIMIT,
+        truncated: rows.len() > LIMIT as usize,
+        evaluated: 0,
+        failed: 0,
+        partial: 0,
+        matches: Vec::new(),
+    };
+    for row in rows.iter().take(LIMIT as usize) {
+        let trace = TraceIdentity {
+            trace_id: row.trace_id.clone(),
+            trace_ref: row.trace_ref.clone(),
+        };
+        let signals = trace_signals(&trace, Some(row), &config)?;
+        match signals.status {
+            TraceSignalStatus::Classified => {
+                result.evaluated += 1;
+                result.partial += u32::from(signals.partial);
+                if !signals.flags.is_empty() {
+                    result.matches.push(TraceSignals {
+                        flags: signals
+                            .flags
+                            .into_iter()
+                            .map(|flag| SignalFlag {
+                                evidence: None,
+                                ..flag
+                            })
+                            .collect(),
+                        ..signals
+                    });
+                }
+            }
+            TraceSignalStatus::Failed => result.failed += 1,
+            TraceSignalStatus::Pending | TraceSignalStatus::Unclassified => (),
+        }
+    }
+    Ok(Json(result))
 }
 
 async fn traces<R: SessionRepository, S: SignalRepository, M: ModelCatalog>(

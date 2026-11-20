@@ -111,6 +111,17 @@ pub struct TraceSignals {
     pub classified_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub struct SignalOverview {
+    pub since: DateTime<Utc>,
+    pub limit: u32,
+    pub truncated: bool,
+    pub evaluated: u32,
+    pub failed: u32,
+    pub partial: u32,
+    pub matches: Vec<TraceSignals>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SignalStep {

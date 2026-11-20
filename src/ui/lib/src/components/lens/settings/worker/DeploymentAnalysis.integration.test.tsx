@@ -64,8 +64,6 @@ describe("Deployment analysis setup", () => {
         "/lens",
         ...(host.surface === "standalone" ? ["/lens/gateway"] : []),
         "/lens/model_group/info",
-        "/lens/signals",
-        "/lens/signals/alerts",
       ]);
       expect(gateway.post).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Connect project" }));

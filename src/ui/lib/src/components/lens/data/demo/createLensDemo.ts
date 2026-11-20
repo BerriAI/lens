@@ -118,6 +118,15 @@ function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
     saveSignalAlerts: async () => { throw new Error("Connect a Lens deployment to save alert settings"); },
     testSignalAlerts: async () => { throw new Error("Demo mode cannot send Slack messages"); },
     signalConfig: async () => signalConfig,
+    signalOverview: async () => ({
+      since: new Date(Date.now() - 86_400_000).toISOString(),
+      limit: 500,
+      truncated: false,
+      evaluated: 0,
+      failed: 0,
+      partial: 0,
+      matches: [],
+    }),
     saveSignalConfig: async (config) => {
       signalConfig = config;
       return config;

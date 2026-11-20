@@ -43,6 +43,11 @@ export type OptimizationStatus = "running" | "paused" | "completed";
 export type ProfileSource = "recorded" | "enhanced" | "pending" | "unknown" | "local" | "uncertain" | "unclassified";
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TraceSignalStatus".
+ */
+export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TaxonomyStatus".
  */
 export type TaxonomyStatus = "discovering" | "draft" | "frozen" | "failed" | "cleared";
@@ -51,11 +56,6 @@ export type TaxonomyStatus = "discovering" | "draft" | "frozen" | "failed" | "cl
  * via the `definition` "TaxonomyTarget".
  */
 export type TaxonomyTarget = "draft" | "active";
-/**
- * This interface was referenced by `LensWorker`'s JSON-Schema
- * via the `definition` "TraceSignalStatus".
- */
-export type TraceSignalStatus = "unclassified" | "pending" | "classified" | "failed";
 
 export interface LensWorker {
   [k: string]: unknown;
@@ -1169,6 +1169,33 @@ export interface SignalFlag {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "SignalOverview".
+ */
+export interface SignalOverview {
+  evaluated: number;
+  failed: number;
+  limit: number;
+  matches: TraceSignals[];
+  partial: number;
+  since: string;
+  truncated: boolean;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "TraceSignals".
+ */
+export interface TraceSignals {
+  classified_at?: string | null;
+  flags?: SignalFlag[];
+  model?: string;
+  partial?: boolean;
+  status: TraceSignalStatus;
+  trace_id: string;
+  trace_ref?: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "TaskEdit".
  */
 export interface TaskEdit {
@@ -1245,17 +1272,4 @@ export interface TaxonomyView {
    */
   taxonomy?: Taxonomy | null;
   [k: string]: unknown;
-}
-/**
- * This interface was referenced by `LensWorker`'s JSON-Schema
- * via the `definition` "TraceSignals".
- */
-export interface TraceSignals {
-  classified_at?: string | null;
-  flags?: SignalFlag[];
-  model?: string;
-  partial?: boolean;
-  status: TraceSignalStatus;
-  trace_id: string;
-  trace_ref?: string;
 }

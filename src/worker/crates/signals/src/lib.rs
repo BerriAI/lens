@@ -49,6 +49,12 @@ pub trait SignalRepository: Send + Sync {
         &self,
         identities: &[TraceIdentity],
     ) -> impl Future<Output = Result<Vec<StoredTraceSignal>, RepositoryError>> + Send;
+    fn recent_results(
+        &self,
+        config: &SignalConfig,
+        since: DateTime<Utc>,
+        limit: u32,
+    ) -> impl Future<Output = Result<Vec<StoredTraceSignal>, RepositoryError>> + Send;
     fn claim(
         &self,
         execution: &Execution,

@@ -10,6 +10,7 @@ export const LENS_TABS = {
   home: "Home",
   agents: "Agents",
   traces: "Traces",
+  alerts: "Alerts",
   profiles: "Profiles",
   findings: "Findings",
   investigations: "Investigations",

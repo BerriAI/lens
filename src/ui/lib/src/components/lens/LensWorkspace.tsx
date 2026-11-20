@@ -45,6 +45,7 @@ import { ProfilesView } from "./profiles/ProfilesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
+import { AlertsView } from "./alerts/AlertsView";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -112,9 +113,10 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const github = useGitHubRoute();
   const { dialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
-  const { trace, openTrace } = useOpenTraceRouting();
+  const { trace, openTrace, openSignal } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
   const canViewInvestigations = isProxyAdminTierRole(userRole);
+  const canViewAlerts = canViewInvestigations && !demo;
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
   const connectGitHub =
@@ -124,7 +126,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
         }
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
-  const requestedTab = tab === "settings" && !canConfigure ? defaultTab : (tab ?? defaultTab);
+  const requestedTab =
+    (tab === "settings" && !canConfigure) || (tab === "alerts" && !canViewAlerts) ? defaultTab : (tab ?? defaultTab);
   const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
   useEffect(() => {
     if (requestedTab === "investigations") setTab("findings");
@@ -209,13 +212,27 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             onValueChange={(value) => navigate(value as LensTab)}
             className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
           >
-            {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
+            {!embedded && (
+              <LensSidebar
+                agents={agents}
+                activity={activity}
+                workers={workers}
+                canViewAlerts={canViewAlerts}
+                onNavigate={navigate}
+              />
+            )}
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
               {embedded ? (
                 <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
                   <h1 className="sr-only">Lens</h1>
                   <div className="min-w-0 max-w-full overflow-x-auto">
-                    <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
+                    <LensTabs
+                      orientation="horizontal"
+                      activity={activity}
+                      workers={workers}
+                      canViewAlerts={canViewAlerts}
+                      onNavigate={navigate}
+                    />
                   </div>
                   <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
                     {agents.agent && activeTab !== "optimizations" && (
@@ -330,10 +347,21 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         readOnly={readOnly}
                         canMintTracingKey={isAdmin}
                         canViewFindings={canViewInvestigations}
-                        onSetUpSignals={canConfigure ? showSettings : undefined}
+                        onSetUpSignals={canConfigure && isAdmin && canViewAlerts ? () => navigate("alerts") : undefined}
                         onConnectAgent={connectProject}
                       />
                     </TabsContent>
+                    {canViewAlerts && activeTab === "alerts" && (
+                      <TabsContent value="alerts" className={PANEL}>
+                        <AlertsView
+                          canConfigure={canConfigure && isAdmin}
+                          onOpenSignal={(ref, signal) => {
+                            navigate("traces");
+                            openSignal(ref, signal);
+                          }}
+                        />
+                      </TabsContent>
+                    )}
                     <TabsContent value="profiles" className={PANEL}>
                       <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} />
                     </TabsContent>
@@ -377,6 +405,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         ) : undefined
                       }
                       onConnectProject={connectProject}
+                      onOpenAlerts={canViewAlerts ? () => navigate("alerts") : undefined}
                       onSetup={canConfigure ? startSetup : undefined}
                     />
                   </TabsContent>

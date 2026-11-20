@@ -1,9 +1,10 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
+import { LensHostProvider } from "../../host/LensHost";
 
 const admin = { accessToken: "test-token", userRole: "Admin", readOnly: false };
 vi.mock("./traces/list/AgentTracesPage", () => ({
@@ -79,6 +80,74 @@ describe("Lens navigation", () => {
     });
     expect(screen.getByRole("tab", { name: "Traces" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByText("Trace polling active")).toBeVisible();
+  });
+
+  it("filters matches, links to the selected trace and Signal, and keeps configuration and Slack together", async () => {
+    const user = userEvent.setup();
+    const onUrlUpdate = vi.fn();
+    const at = "2026-11-20T04:00:00Z";
+    const flag = { signal_id: "timeout", name: "Provider timeout", score: 0.9 };
+    const other = { signal_id: "refusal", name: "Wrong refusal", score: 0.8 };
+    const alerts = {
+      since: at, limit: 500, truncated: true, evaluated: 2, failed: 1, partial: 1,
+      matches: [
+        { trace_id: "timed-out-trace", trace_ref: "project-a", classified_at: at, flags: [flag] },
+        { trace_id: "refused-trace", trace_ref: "project-b", classified_at: at, flags: [other] },
+      ],
+    };
+    const original = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation((input, init) => {
+      const path = requestPath(input);
+      if (path === "/lens/signals/overview") return Promise.resolve(Response.json(alerts));
+      if (path === "/lens/signals")
+        return Promise.resolve(Response.json({
+          model: "judge", threshold: 0.7, signals: [{ id: "timeout", name: flag.name, question: "Did an upstream attempt time out?" }],
+        }));
+      if (path === "/lens/signals/alerts")
+        return Promise.resolve(Response.json({ connected: false, enabled: false, revision: 0, signal_ids: [] }));
+      return original(input, init);
+    });
+    renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?tab=traces", onUrlUpdate });
+    await user.click(screen.getByRole("tab", { name: "Alerts" }));
+    expect(await screen.findByText("Counts cover only the latest 500 results in this window.")).toBeVisible();
+    expect(screen.getByText(/Signals and Slack work in standalone Lens/)).toBeVisible();
+    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(70);
+    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
+    expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
+    expect(screen.getByRole("button", { name: "refused-trace" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Provider timeout (1)" }));
+    expect(screen.queryByRole("button", { name: "refused-trace" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "timed-out-trace" }));
+    await waitFor(() => expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toMatchObject({
+      tab: "traces", trace: "timed-out-trace", trace_ref: "project-a", signal: "timeout",
+    }));
+  });
+
+  it("shows a read-only empty dashboard for a Gateway admin viewer", async () => {
+    const original = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation((input, init) =>
+      requestPath(input) === "/lens/signals/overview"
+        ? Promise.resolve(Response.json({
+            since: "2026-11-20T04:00:00Z", limit: 500, truncated: false,
+            evaluated: 1, failed: 0, partial: 0, matches: [],
+          }))
+        : original(input, init),
+    );
+    renderWithProviders(
+      <LensHostProvider host={{ surface: "embedded" }}>
+        <LensWorkspace {...admin} userRole="Admin Viewer" readOnly />
+      </LensHostProvider>,
+      { searchParams: "?tab=alerts" },
+    );
+    expect(await screen.findByText("No Signal matches in this window.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Slack delivery" })).not.toBeInTheDocument();
+  });
+
+  it("does not request deployment-wide alerts when a team user follows an Alerts link", async () => {
+    renderWithProviders(<LensWorkspace {...admin} userRole="Internal User" />, { searchParams: "?tab=alerts" });
+    expect(await screen.findByRole("tab", { name: "Home", selected: true })).toBeVisible();
+    expect(screen.queryByRole("tab", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input) === "/lens/signals/overview")).toBe(false);
   });
 
   it.each(["Internal User", "Internal Viewer", "Org Admin"])(

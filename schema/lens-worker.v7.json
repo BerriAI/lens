@@ -3396,6 +3396,49 @@
       ],
       "type": "object"
     },
+    "SignalOverview": {
+      "properties": {
+        "evaluated": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "matches": {
+          "items": {
+            "$ref": "#/definitions/TraceSignals"
+          },
+          "type": "array"
+        },
+        "partial": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "since": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "since",
+        "limit",
+        "truncated",
+        "evaluated",
+        "failed",
+        "partial",
+        "matches"
+      ],
+      "type": "object"
+    },
     "Step": {
       "additionalProperties": false,
       "properties": {

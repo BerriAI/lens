@@ -15,6 +15,7 @@ import type {
   Sample,
   Settings,
   SignalConfig,
+  SignalOverview,
   SignalAlertView,
   SignalAlertRequest,
   SignalAlertTest,
@@ -46,6 +47,7 @@ export interface LensApi {
   startRun(lensId: string, request?: RunWindow): Promise<void>;
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
   signalConfig(): Promise<SignalConfig>;
+  signalOverview(): Promise<SignalOverview>;
   saveSignalConfig(config: SignalConfig): Promise<SignalConfig>;
   signalAlerts(): Promise<SignalAlertView>;
   saveSignalAlerts(config: SignalAlertRequest): Promise<SignalAlertView>;
@@ -139,6 +141,7 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     startRun: (lensId, request = {}) => sent(client.POST("/lens/{lens_id}/runs", { ...lens(lensId), body: request })),
     watchAll: () => required(client.POST("/lens/watch-all", { headers })),
     signalConfig: () => required(client.GET("/lens/signals", { headers })),
+    signalOverview: () => apiClient.get("/lens/signals/overview", { accessToken }),
     saveSignalConfig: (config) => required(client.PUT("/lens/signals", { headers, body: config })),
     signalAlerts: () => apiClient.get("/lens/signals/alerts", { accessToken }),
     saveSignalAlerts: (body) => apiClient.put("/lens/signals/alerts", { accessToken, body }),
