@@ -118,7 +118,11 @@ async fn receive_authorized(
     body: Body,
     logs: bool,
 ) -> Result<(), Error> {
-    let tenant = state.credentials.tenant(headers)?;
+    let tenant = if !logs && state.authorize_service(headers).is_ok() {
+        None
+    } else {
+        Some(state.credentials.tenant(headers)?)
+    };
     state.require_storage()?;
     let permit = state
         .ingest_slots
@@ -155,12 +159,16 @@ async fn store(
     payload: bytes::Bytes,
     encoding: Option<String>,
     content_type: Option<String>,
-    tenant: Tenant,
+    tenant: Option<Tenant>,
     logs: bool,
     permit: OwnedSemaphorePermit,
 ) -> Result<(), Error> {
     let (logs, spans, _permit) = tokio::task::spawn_blocking(move || {
         let payload = decompress(&payload, encoding.as_deref())?;
+        let Some(tenant) = tenant else {
+            let spans = gateway_span_rows(&payload, content_type.as_deref())?;
+            return Ok((Vec::new(), spans, permit));
+        };
         let (logs, spans) = if logs {
             let batch = litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
                 .map_err(litellm_traces_clickhouse::Error::from)?;
@@ -250,56 +258,6 @@ fn gateway_span_rows(
             litellm_traces_clickhouse::span_rows(spans, &owner)
         })
         .collect())
-}
-
-pub async fn receive_gateway(
-    state: Arc<State>,
-    headers: HeaderMap,
-    body: Body,
-) -> Result<StatusCode, Error> {
-    state.authorize_service(&headers)?;
-    state.require_storage()?;
-    let permit = state
-        .export_slots
-        .clone()
-        .try_acquire_owned()
-        .map_err(|_| Error::Unavailable)?;
-    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, MAX_UPLOAD_BYTES))
-        .await
-        .map_err(|_| Error::Unavailable)?
-        .map_err(|_| Error::TooLarge)?;
-    let content_type = headers
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
-    let encoding = headers
-        .get("content-encoding")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
-    tokio::spawn(async move {
-        let (spans, _permit) = tokio::task::spawn_blocking(move || {
-            Ok::<_, Error>((
-                gateway_span_rows(
-                    &decompress(&payload, encoding.as_deref())?,
-                    content_type.as_deref(),
-                )?,
-                permit,
-            ))
-        })
-        .await
-        .map_err(|_| Error::Unavailable)??;
-        insert_shared_rows(
-            &state.storage.client,
-            state.storage.config.storage().writer(),
-            state.storage.config.storage().database(),
-            InsertTable::OtelTraces,
-            spans,
-        )
-        .await?;
-        Ok(StatusCode::NO_CONTENT)
-    })
-    .await
-    .map_err(|_| Error::Unavailable)?
 }
 
 #[cfg(test)]

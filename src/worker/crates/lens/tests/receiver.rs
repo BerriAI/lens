@@ -81,7 +81,11 @@ fn export() -> serde_json::Value {
     ]}, "scopeSpans": [{"spans": [{
         "traceId": "1234567890abcdef1234567890abcdef", "spanId": "1234567890abcdef",
         "name": "receiver boundary", "startTimeUnixNano": "1791388800000000000",
-        "endTimeUnixNano": "1791388801000000000", "status": {"code": 1}
+        "endTimeUnixNano": "1791388801000000000", "status": {"code": 1},
+        "attributes": [
+            {"key": "litellm.api_key.hash", "value": {"stringValue": "spoofed-key"}},
+            {"key": "litellm.team.id", "value": {"stringValue": "spoofed-team"}}
+        ]
     }]}]}]})
 }
 
@@ -528,12 +532,7 @@ async fn ingestion_key_cannot_read_or_export_gateway_records() {
     let store = MockServer::start().await;
     let server = serve(&store.uri(), true).await;
     let client = http_client().unwrap();
-    for path in [
-        "/internal/read",
-        "/internal/spend",
-        "/internal/traces",
-        "/internal/feedback",
-    ] {
+    for path in ["/internal/read", "/internal/spend", "/internal/feedback"] {
         let response = client
             .post(format!("{}{path}", server.url))
             .bearer_auth(KEY)

@@ -150,7 +150,7 @@ async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(
     ]}))
     .unwrap();
     let mut request = reqwest::Client::new()
-        .post(format!("{}/internal/traces", server.url))
+        .post(format!("{}/v1/traces", server.url))
         .bearer_auth(SERVICE_TOKEN)
         .header("content-type", "application/json");
     let body = if gzip {
@@ -162,7 +162,7 @@ async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(
         bytes
     };
     let response = request.body(body).send().await.unwrap();
-    assert_eq!(response.status(), 204);
+    assert_eq!(response.status(), 200);
     let requests = server.storage.received_requests().await.unwrap();
     let mut decoded = String::new();
     std::io::Read::read_to_string(
@@ -250,7 +250,7 @@ async fn rejected_gateway_traces_never_reach_storage(
     #[case] expected: u16,
 ) {
     let response = reqwest::Client::new()
-        .post(format!("{}/internal/traces", server.url))
+        .post(format!("{}/v1/traces", server.url))
         .bearer_auth(token)
         .header("content-type", "application/json")
         .body(body)
