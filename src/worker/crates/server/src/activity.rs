@@ -14,7 +14,7 @@ use chrono::{DateTime, Datelike, TimeDelta, Utc};
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
     activity::{ActivityAvailability, ActivitySelection, Preview},
-    auth::{Identity, Role},
+    auth::{Identity, Scope as AuthScope},
     execution::ExecutionId,
     investigations::{Public, Scope},
     worker::{Execution, ExecutionContent, ExecutionSource, Sample},
@@ -111,14 +111,11 @@ async fn findings<R: SessionRepository, D: TraceFindingsRepository, S: ActivityR
 }
 
 fn scope(identity: &Identity) -> Result<Scope, InvestigationError> {
-    if !matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if !identity.allows(AuthScope::ActivityRead) {
         return Err(InvestigationError::ForbiddenRead);
     }
     Ok(Scope {
-        all_teams: true,
+        all_teams: identity.user_role.reads_all_rows(),
         ..Scope::default()
     })
 }

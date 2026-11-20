@@ -18,7 +18,7 @@ use axum::{
 use chrono::{TimeDelta, Utc};
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    auth::{Identity, Role},
+    auth::{Identity, Scope as AuthScope},
     github::{Authorization, AuthorizationState, Connection, Owner},
 };
 use litellm_storage_clickhouse::github::{GitHubStore, StoredAuthorization};
@@ -141,23 +141,16 @@ pub fn router<R: SessionRepository + 'static>(
 }
 
 fn owner(identity: &Identity, write: bool) -> Result<Owner, GitHubError> {
-    if write
-        && matches!(
-            identity.user_role,
-            Role::ProxyAdminViewer | Role::InternalUserViewer | Role::Customer
-        )
-    {
+    if !identity.allows(if write {
+        AuthScope::GithubWrite
+    } else {
+        AuthScope::GithubRead
+    }) {
         return Err(GitHubError::Forbidden);
     }
     let scope = match identity.team_id.as_ref().filter(|team| !team.is_empty()) {
         Some(team) => team.clone(),
-        None if matches!(
-            identity.user_role,
-            Role::ProxyAdmin | Role::ProxyAdminViewer
-        ) =>
-        {
-            String::new()
-        }
+        None if identity.user_role.reads_all_rows() => String::new(),
         None => return Err(GitHubError::Forbidden),
     };
     let subject = identity

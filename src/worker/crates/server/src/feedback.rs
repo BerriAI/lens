@@ -13,7 +13,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use lens_auth::{Authentication, SessionRepository};
 use lens_contract::{
-    auth::{Identity, Role},
+    auth::{Identity, Scope as AuthScope},
     feedback::{
         Feedback, FeedbackDeletion, FeedbackSubmission, FeedbackTarget, TraceFeedback,
         TraceFeedbackRequest, TraceFeedbackSummary, TraceIdentity,
@@ -82,29 +82,23 @@ pub fn router<R: SessionRepository + 'static, S: FeedbackStore + 'static>(
 }
 
 fn read_scope(identity: &Identity) -> Result<Scope, FeedbackError> {
-    if !matches!(
-        identity.user_role,
-        Role::ProxyAdmin | Role::ProxyAdminViewer
-    ) {
+    if !identity.allows(AuthScope::FeedbackRead) {
         return Err(FeedbackError::ForbiddenRead);
     }
     Ok(Scope {
-        all_teams: true,
+        all_teams: identity.user_role.reads_all_rows(),
         ..Scope::default()
     })
 }
 
 fn write_scope(identity: &Identity) -> Result<Scope, FeedbackError> {
-    if identity.user_role == Role::ProxyAdmin {
+    if identity.user_role.reads_all_rows() && identity.allows(AuthScope::FeedbackWrite) {
         return Ok(Scope {
-            all_teams: true,
+            all_teams: identity.user_role.reads_all_rows(),
             ..Scope::default()
         });
     }
-    if matches!(
-        identity.user_role,
-        Role::ProxyAdminViewer | Role::InternalUserViewer | Role::Customer
-    ) {
+    if !identity.allows(AuthScope::FeedbackWrite) {
         return Err(FeedbackError::ForbiddenViewer);
     }
     let team = identity.team_id.as_deref().unwrap_or_default();
@@ -239,6 +233,7 @@ async fn summary<R: SessionRepository, S: FeedbackStore>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lens_contract::auth::Role;
     use rstest::rstest;
 
     #[rstest]
