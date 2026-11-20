@@ -95,7 +95,7 @@ export const agentHandoffText = (
 export function liveTracesApi(accessToken: string, filters: TraceFilters = {}): TracesApi {
   return {
     live: true,
-    scope: JSON.stringify([filters.team_id || "", filters.api_key_hash || ""]),
+    scope: JSON.stringify([filters.organization_id || "", filters.team_id || "", filters.project_id || "", filters.api_key_hash || ""]),
     filters,
     handoff: (traceId, spanId, traceRef) => ({
       text: agentHandoffText(traceId, spanId, traceRef, filters),

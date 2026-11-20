@@ -8,6 +8,7 @@ WITH candidates AS (
            OR has({team_ids:Array(String)}, team_id))
       AND ({filter_team_id:String} = '' OR team_id = {filter_team_id:String})
       AND ({filter_api_key_hash:String} = '' OR api_key = {filter_api_key_hash:String})
+      AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, api_key))
       AND ((key_kind = 'provider_request' AND key_value IN {provider_request_ids:Array(String)})
         OR (key_kind = 'provider_response' AND key_value IN {response_ids:Array(String)})
         OR (key_kind = 'litellm_request' AND key_value IN {request_ids:Array(String)})
@@ -26,6 +27,7 @@ WHERE key_kind = 'canonical'
        OR has({team_ids:Array(String)}, team_id))
   AND ({filter_team_id:String} = '' OR team_id = {filter_team_id:String})
   AND ({filter_api_key_hash:String} = '' OR api_key = {filter_api_key_hash:String})
+  AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, api_key))
   AND (provider_request_id IN {provider_request_ids:Array(String)}
     OR response_id IN {response_ids:Array(String)}
     OR upstream_response_id IN {response_ids:Array(String)}

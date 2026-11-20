@@ -38,3 +38,10 @@ it("keeps team and key constraints in the copied trace command", () => {
   });
   expect(text).toContain("team_id=team%26a&api_key_hash=hash-a&trace_ref=ref-a&page_size=200");
 });
+
+it("keeps organization and project constraints in the copied trace command", () => {
+  const text = agentHandoffText("trace-one", undefined, "ref-a", {
+    organization_id: "org-a", team_id: "team-a", project_id: "project-a", api_key_hash: "hash-a",
+  });
+  expect(text).toContain("organization_id=org-a&team_id=team-a&project_id=project-a&api_key_hash=hash-a&trace_ref=ref-a&page_size=200");
+});

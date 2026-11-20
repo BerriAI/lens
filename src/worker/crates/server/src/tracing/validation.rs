@@ -51,7 +51,14 @@ fn cursor(params: &HashMap<String, String>, errors: &mut Vec<ValidationError>) -
 
 fn filters(params: &HashMap<String, String>, errors: &mut Vec<ValidationError>) -> TraceFilters {
     TraceFilters {
+        organization_id: bounded_text(
+            params,
+            "organization_id",
+            TRACE_TENANT_FILTER_MAX_LENGTH,
+            errors,
+        ),
         team_id: bounded_text(params, "team_id", TRACE_TENANT_FILTER_MAX_LENGTH, errors),
+        project_id: bounded_text(params, "project_id", TRACE_TENANT_FILTER_MAX_LENGTH, errors),
         api_key_hash: bounded_text(
             params,
             "api_key_hash",

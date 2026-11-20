@@ -2,6 +2,31 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyHashFilterMode {
+    #[default]
+    All,
+    Only,
+}
+
+#[macro_rules_attribute::apply(crate::wire_type)]
+#[derive(Clone, Debug, Default)]
+pub struct KeyHashFilter {
+    #[serde(default)]
+    pub filter_api_key_hashes_mode: KeyHashFilterMode,
+    #[serde(default)]
+    pub filter_api_key_hashes: Vec<String>,
+}
+
+impl KeyHashFilter {
+    pub const ALL: Self = Self {
+        filter_api_key_hashes_mode: KeyHashFilterMode::All,
+        filter_api_key_hashes: Vec::new(),
+    };
+}
+
+#[macro_rules_attribute::apply(crate::wire_type)]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "schema", schemars(rename = "TraceScope"))]
 pub struct ReadAccessParams {
@@ -17,6 +42,8 @@ pub struct ReadAccessParams {
     pub filter_team_id: String,
     #[serde(default)]
     pub filter_api_key_hash: String,
+    #[serde(flatten)]
+    pub key_filter: KeyHashFilter,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -20,6 +20,7 @@ fn access(all_teams: bool, user_id: &str, teams: &[&str]) -> ReadAccessParams {
     ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams,
         user_id: user_id.into(),
         team_ids: teams.iter().map(|team| (*team).into()).collect(),
@@ -456,6 +457,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams,
         user_id: String::new(),
         team_ids: vec![team_id.to_owned()],

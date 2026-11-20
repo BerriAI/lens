@@ -24,7 +24,9 @@ export const traceShareUrl = (ref: TraceRef, location: Pick<Location, "origin" |
   const demo = current.get("demo") === "true";
   const params = new URLSearchParams({
     ...(demo ? { demo: "true" } : {}),
+    ...(current.get("organization_id") ? { organization_id: current.get("organization_id")! } : {}),
     ...(current.get("team_id") ? { team_id: current.get("team_id")! } : {}),
+    ...(current.get("project_id") ? { project_id: current.get("project_id")! } : {}),
     ...(current.get("api_key_hash") ? { api_key_hash: current.get("api_key_hash")! } : {}),
     trace: ref.traceId,
     ...(ref.traceRef ? { trace_ref: ref.traceRef } : {}),
@@ -62,18 +64,22 @@ export const OPEN_TRACE_PARSERS = {
 };
 
 export const TRACE_SCOPE_PARSERS = {
+  organization_id: parseAsString,
   team_id: parseAsString,
+  project_id: parseAsString,
   api_key_hash: parseAsString,
 };
 
 export function useTraceScope(): TraceFilters {
-  const [{ team_id, api_key_hash }] = useQueryStates(TRACE_SCOPE_PARSERS);
+  const [{ organization_id, team_id, project_id, api_key_hash }] = useQueryStates(TRACE_SCOPE_PARSERS);
   return useMemo(
     () => ({
+      organization_id: organization_id || undefined,
       team_id: team_id || undefined,
+      project_id: project_id || undefined,
       api_key_hash: api_key_hash || undefined,
     }),
-    [team_id, api_key_hash],
+    [organization_id, team_id, project_id, api_key_hash],
   );
 }
 

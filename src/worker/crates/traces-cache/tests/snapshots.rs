@@ -53,6 +53,7 @@ fn access() -> ReadAccessParams {
     ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team".into()],
@@ -93,15 +94,18 @@ fn trace() -> Trace {
 }
 
 #[rstest]
-#[case::different_team(false, "", "other-team")]
-#[case::different_user(false, "other-user", "team")]
-#[case::different_scope(true, "", "team")]
+#[case::different_team(false, "", "other-team", None)]
+#[case::different_user(false, "other-user", "team", None)]
+#[case::different_scope(true, "", "team", None)]
+#[case::empty_key_selection(false, "", "team", Some(vec![]))]
+#[case::selected_key(false, "", "team", Some(vec!["key-a"]))]
 #[tokio::test]
 async fn cached_trace_is_isolated_by_access_scope(
     trace: Trace,
     #[case] all_teams: bool,
     #[case] user_id: &str,
     #[case] team_id: &str,
+    #[case] keys: Option<Vec<&str>>,
 ) {
     let cache = SnapshotCache::new(1024 * 1024, TTL);
     let stored = key("source", &access(), "trace", "ref", 100);
@@ -111,6 +115,13 @@ async fn cached_trace_is_isolated_by_access_scope(
     let other_access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: match keys {
+            None => Default::default(),
+            Some(keys) => litellm_traces::query::named::KeyHashFilter {
+                filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+                filter_api_key_hashes: keys.into_iter().map(String::from).collect(),
+            },
+        },
         all_teams,
         user_id: user_id.into(),
         team_ids: vec![team_id.into()],

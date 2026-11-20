@@ -202,6 +202,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
             access: contracts::ReadAccessParams {
                 filter_team_id: String::new(),
                 filter_api_key_hash: String::new(),
+                key_filter: Default::default(),
                 all_teams: false,
                 user_id: String::new(),
                 team_ids: vec!["team-lens".into()],
@@ -515,6 +516,7 @@ async fn run_candidates_filter_agents_before_pagination(
     let access = contracts::ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -939,6 +941,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
     let access = contracts::ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-lens".into()],
@@ -965,6 +968,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         &TraceAgentsParams {
             filter_team_id: String::new(),
             filter_api_key_hash: String::new(),
+            key_filter: Default::default(),
             all_teams: false,
             user_id: String::new(),
             team_ids: vec!["team-lens".into()],

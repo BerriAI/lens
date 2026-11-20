@@ -33,6 +33,7 @@ pub async fn project_run<S: TraceStore>(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),

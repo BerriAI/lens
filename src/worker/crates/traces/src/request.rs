@@ -12,7 +12,13 @@ pub const LOG_FILTER_MAX_LENGTH: usize = 256;
 pub struct TraceFilters {
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = TRACE_TENANT_FILTER_MAX_LENGTH)))]
+    pub organization_id: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(length(max = TRACE_TENANT_FILTER_MAX_LENGTH)))]
     pub team_id: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(length(max = TRACE_TENANT_FILTER_MAX_LENGTH)))]
+    pub project_id: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = TRACE_TENANT_FILTER_MAX_LENGTH)))]
     pub api_key_hash: Option<String>,
@@ -139,5 +145,7 @@ pub struct TraceErrorPageRequest {
 #[derive(Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct TraceQueryRequest {
+    #[serde(flatten)]
+    pub filters: TraceFilters,
     pub sql: String,
 }

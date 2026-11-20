@@ -134,6 +134,7 @@ async fn list_costs_match_each_run_when_response_ids_are_reused(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: user_id.into(),
         team_ids: vec!["team-a".into()],
@@ -262,6 +263,7 @@ async fn large_runs_remain_complete_under_default_reader_limits(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-a".into()],
@@ -410,6 +412,7 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -461,6 +464,7 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
     let denied = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["not-this-team".into()],
@@ -574,6 +578,7 @@ async fn a_large_span_keeps_the_run_list_and_trace_complete(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -746,6 +751,7 @@ async fn assigned_call_ids_require_shared_ownership_through_detail_and_batch_rea
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-a".into(), "team-b".into()],
@@ -861,6 +867,7 @@ async fn native_cost_correlation_survives_session_grouping_and_excludes_other_ow
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -949,6 +956,7 @@ async fn spend_content_requires_the_authorized_trace_and_call(
             access: ReadAccessParams {
                 filter_team_id: String::new(),
                 filter_api_key_hash: String::new(),
+                key_filter: Default::default(),
                 all_teams: false,
                 user_id: String::new(),
                 team_ids: vec!["team-a".into()],
@@ -1016,6 +1024,7 @@ async fn spend_input_preview_preserves_trace_ownership(
     let access = ReadAccessParams {
         filter_team_id: String::new(),
         filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: if user_only {
             "user-a".into()
@@ -1075,15 +1084,20 @@ async fn spend_input_preview_preserves_trace_ownership(
 }
 
 #[rstest]
-#[case::team("filter-team-a", "", 2)]
-#[case::key("filter-team-a", "filter-key-a1", 1)]
-#[case::owned_other_team("filter-team-b", "", 1)]
-#[case::foreign_team("filter-team-c", "filter-key-c", 0)]
+#[case::team("filter-team-a", "", None, 2)]
+#[case::key("filter-team-a", "filter-key-a1", None, 1)]
+#[case::owned_other_team("filter-team-b", "", None, 1)]
+#[case::foreign_team("filter-team-c", "filter-key-c", None, 0)]
+#[case::selected_keys("filter-team-a", "", Some(vec!["filter-key-a1", "filter-key-a2"]), 2)]
+#[case::selected_key("filter-team-a", "", Some(vec!["filter-key-a1"]), 1)]
+#[case::empty_key_selection("", "", Some(vec![]), 0)]
+#[case::foreign_key_selection("", "", Some(vec!["filter-key-c"]), 0)]
 #[tokio::test]
 async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
     #[future(awt)] migrated_database: TestResult<SeededDatabase>,
     #[case] team: &str,
     #[case] key: &str,
+    #[case] keys: Option<Vec<&str>>,
     #[case] expected_runs: usize,
 ) -> TestResult {
     use litellm_traces_clickhouse::query::lens::{TraceAgents, TraceAgentsParams};
@@ -1154,6 +1168,13 @@ async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
         team_ids: vec!["filter-team-a".into()],
         filter_team_id: team.into(),
         filter_api_key_hash: key.into(),
+        key_filter: match keys {
+            None => Default::default(),
+            Some(keys) => litellm_traces::query::named::KeyHashFilter {
+                filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+                filter_api_key_hashes: keys.into_iter().map(String::from).collect(),
+            },
+        },
     };
     let page = reader
         .list_traces(&store, &access, "", start_ms - 1, start_ms + 1, None, 1)
@@ -1183,6 +1204,7 @@ async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
             team_ids: access.team_ids.clone(),
             filter_team_id: access.filter_team_id.clone(),
             filter_api_key_hash: access.filter_api_key_hash.clone(),
+            key_filter: access.key_filter.clone(),
             start_ms: start_ms - 1,
             end_ms: start_ms + 1,
             limit: 50,
@@ -1197,6 +1219,7 @@ async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
     let first_scope = ReadAccessParams {
         filter_team_id: "filter-team-a".into(),
         filter_api_key_hash: "filter-key-a1".into(),
+        key_filter: Default::default(),
         ..access.clone()
     };
     let first = reader
@@ -1208,6 +1231,32 @@ async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
         filter_api_key_hash: "filter-key-a2".into(),
         ..first_scope.clone()
     };
+    let excluded_keys = ReadAccessParams {
+        key_filter: litellm_traces::query::named::KeyHashFilter {
+            filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+            filter_api_key_hashes: vec!["filter-key-a2".into()],
+        },
+        ..first_scope.clone()
+    };
+    assert!(
+        reader
+            .get_trace(&store, &excluded_keys, trace_id, &first_ref)
+            .await?
+            .is_none()
+    );
+    let empty_keys = ReadAccessParams {
+        key_filter: litellm_traces::query::named::KeyHashFilter {
+            filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+            filter_api_key_hashes: vec![],
+        },
+        ..first_scope.clone()
+    };
+    assert!(
+        reader
+            .get_trace(&store, &empty_keys, trace_id, &first_ref)
+            .await?
+            .is_none()
+    );
     assert!(
         reader
             .get_trace(&store, &other_scope, trace_id, &first_ref)

@@ -131,6 +131,8 @@ pub struct TraceAgentsParams {
     pub filter_team_id: String,
     #[serde(default)]
     pub filter_api_key_hash: String,
+    #[serde(flatten)]
+    pub key_filter: litellm_traces::query::named::KeyHashFilter,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
     #[serde(deserialize_with = "super::number::deserialize")]

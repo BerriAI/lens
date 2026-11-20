@@ -30,6 +30,7 @@ export interface SpendLogDrawerProps {
 
 export interface LensHost {
   readonly surface?: "standalone" | "embedded";
+  readonly WorkspaceSwitcher?: ComponentType;
   readonly analysis?: "deployment";
   readonly signOut?: () => void;
   readonly spendLogs?: {

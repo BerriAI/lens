@@ -105,7 +105,9 @@ const PANEL =
   "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
-  const embedded = useLensHost().surface === "embedded";
+  const host = useLensHost();
+  const embedded = host.surface === "embedded";
+  const WorkspaceSwitcher = host.WorkspaceSwitcher;
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
@@ -211,6 +213,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           >
             {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
+              {!demo && WorkspaceSwitcher && <WorkspaceSwitcher />}
               {embedded ? (
                 <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
                   <h1 className="sr-only">Lens</h1>

@@ -346,6 +346,7 @@ mod tests {
             &ReadAccessParams {
                 filter_team_id: String::new(),
                 filter_api_key_hash: String::new(),
+                key_filter: Default::default(),
                 all_teams: false,
                 user_id: String::new(),
                 team_ids: vec!["team".into()],

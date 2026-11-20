@@ -168,10 +168,16 @@ fn scope(
     identity: &lens_contract::auth::Identity,
     filters: &TraceFilters,
 ) -> Result<ReadAccessParams, TraceHttpError> {
+    if filters.organization_id.is_some() || filters.project_id.is_some() {
+        return Err(TraceHttpError::Query(TraceReadError::InvalidRequest(
+            "Organization and project filters require the AI Gateway".into(),
+        )));
+    }
     match trace_read_scope(identity) {
         Some(ReadScope::AllRows) => Ok(ReadAccessParams {
             filter_team_id: filters.team_id.clone().unwrap_or_default(),
             filter_api_key_hash: filters.api_key_hash.clone().unwrap_or_default(),
+            key_filter: Default::default(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),
@@ -179,6 +185,7 @@ fn scope(
         Some(ReadScope::OwnedRows { user_id, team_ids }) => Ok(ReadAccessParams {
             filter_team_id: filters.team_id.clone().unwrap_or_default(),
             filter_api_key_hash: filters.api_key_hash.clone().unwrap_or_default(),
+            key_filter: Default::default(),
             all_teams: false,
             user_id,
             team_ids,
@@ -371,8 +378,11 @@ async fn query<R: SessionRepository, B: TraceReader>(
     use crate::datasets::validation::{Model, parse_body, request};
     let parsed = parse_body(&body, &headers)?;
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let scope = query_scope(&identity)?;
+    query_scope(&identity)?;
     let request: litellm_traces::request::TraceQueryRequest = request(parsed, Model::Query)?;
+    let scope = QueryScope::Scoped {
+        scope: scope(&identity, &request.filters)?,
+    };
     Ok(Json(
         app.reader
             .query(scope, request.sql)

@@ -1,4 +1,4 @@
-use crate::InvalidScope;
+use crate::{InvalidScope, query::named::ReadAccessParams};
 
 #[macro_rules_attribute::apply(crate::wire_type)]
 #[derive(Clone, Debug)]
@@ -11,12 +11,21 @@ pub enum QueryScope {
         user_id: String,
         team_ids: Vec<String>,
     },
+    #[cfg_attr(feature = "schema", schemars(title = "ScopedQueryScope"))]
+    Scoped { scope: ReadAccessParams },
 }
 
 impl QueryScope {
     pub fn validate(&self) -> Result<(), InvalidScope> {
         match self {
             Self::All => Ok(()),
+            Self::Scoped { scope }
+                if scope.all_teams
+                    || ((!scope.user_id.is_empty() || !scope.team_ids.is_empty())
+                        && scope.team_ids.iter().all(|team| !team.is_empty())) =>
+            {
+                Ok(())
+            }
             Self::Owned { user_id, team_ids }
                 if (!user_id.is_empty() || !team_ids.is_empty())
                     && team_ids.iter().all(|team| !team.is_empty()) =>

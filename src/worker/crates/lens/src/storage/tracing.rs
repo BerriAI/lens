@@ -119,6 +119,7 @@ impl TraceReader for TraceApi {
             &TraceAgentsParams {
                 filter_team_id: scope.filter_team_id,
                 filter_api_key_hash: scope.filter_api_key_hash,
+                key_filter: scope.key_filter,
                 all_teams: scope.all_teams,
                 user_id: scope.user_id,
                 team_ids: scope.team_ids,

@@ -1,4 +1,6 @@
 export { LensWorkspace } from "./components/lens/LensWorkspace";
+export { WorkspaceSwitchers, type WorkspacePicker, type WorkspaceItem, type WorkspaceKind } from "./components/lens/workspace/WorkspaceSwitchers";
+export { useWorkspaceScope } from "./components/lens/route";
 export { LensHostProvider, type LensHost, type SpendLogLookup, type SpendLogDrawerProps } from "./host/LensHost";
 export { configureLensHttp, type LensHttpConfig } from "./lib/http/configure";
 export { takeSignInToken } from "./components/lens/onboarding/signInLink";

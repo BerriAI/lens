@@ -73,15 +73,15 @@ export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow, fi
 }
 
 /** Runs `sql` through the trace query API; the quoted heredoc keeps the SQL's own quotes intact. */
-export const traceQueryCommand = (sql: string): string =>
+export const traceQueryCommand = (sql: string, filters: TraceFilters = {}): string =>
   [
     `curl -s "${getProxyBaseUrl().replace(/\/$/, "")}/v1/traces/query" \\`,
     `  -H "Authorization: Bearer $LITELLM_API_KEY" -H "Content-Type: application/json" -d @- <<'EOF'`,
-    JSON.stringify({ sql } satisfies TraceQueryBody),
+    JSON.stringify({ sql, ...filters } satisfies TraceQueryBody),
     "EOF",
   ].join("\n");
 
 export const runQueryCommand =
   (range?: TimeWindow, filters: TraceFilters = {}) =>
   (query: SearchQuery<RunField>): string =>
-    traceQueryCommand(runQuerySql(query, range, filters));
+    traceQueryCommand(runQuerySql(query, range, filters), filters);

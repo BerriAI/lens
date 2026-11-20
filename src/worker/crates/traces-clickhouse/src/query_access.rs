@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use hmac::{Hmac, Mac};
 use litellm_http::Client;
 use litellm_storage_clickhouse::ADHOC_QUERY_LIMITS;
-use litellm_traces::QueryScope;
+use litellm_traces::{QueryScope, query::named::KeyHashFilterMode};
 use moka::future::Cache;
 use strum::IntoEnumIterator;
 
@@ -203,7 +203,11 @@ fn predicate(scope: &QueryScope, table: TraceTable) -> String {
         | TraceTable::LensTaskProfiles => "TeamId",
         TraceTable::SpendLogs => "team_id",
     };
-    scoped(scope, team, |owner| match table {
+    let key = match table {
+        TraceTable::SpendLogs => "api_key",
+        _ => "ApiKeyHash",
+    };
+    scoped(scope, team, key, |owner| match table {
         TraceTable::OtelTraces | TraceTable::OtelLogs => format!("UserId = {owner}"),
         TraceTable::AgentTracesByKey | TraceTable::LensTaskProfiles => {
             format!("UserIds = [{owner}]")
@@ -213,28 +217,71 @@ fn predicate(scope: &QueryScope, table: TraceTable) -> String {
 }
 
 fn eval_predicate(scope: &QueryScope) -> String {
-    scoped(scope, "TeamId", |owner| format!("has(UserIds, {owner})"))
+    scoped(scope, "TeamId", "ApiKeyHash", |owner| {
+        format!("has(UserIds, {owner})")
+    })
 }
 
-fn scoped(scope: &QueryScope, team: &str, user_clause: impl Fn(&str) -> String) -> String {
+fn scoped(
+    scope: &QueryScope,
+    team: &str,
+    key: &str,
+    user_clause: impl Fn(&str) -> String,
+) -> String {
     match scope {
         QueryScope::All => "1".to_owned(),
-        QueryScope::Owned { user_id, team_ids } => {
-            let owner = literal(user_id);
-            let user_clause = user_clause(&owner);
-            let teams = team_ids
-                .iter()
-                .map(|value| literal(value))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let team_clause = if team_ids.is_empty() {
-                "0".to_owned()
+        QueryScope::Owned { user_id, team_ids } => owned(user_id, team_ids, team, user_clause),
+        QueryScope::Scoped { scope } => {
+            let ownership = if scope.all_teams {
+                "1".to_owned()
             } else {
-                format!("{team} IN ({teams})")
+                owned(&scope.user_id, &scope.team_ids, team, user_clause)
             };
-            format!("({owner} != '' AND {user_clause}) OR ({team_clause})")
+            let selected_team = optional_selection(team, &scope.filter_team_id);
+            let selected_key = optional_selection(key, &scope.filter_api_key_hash);
+            let keys = &scope.key_filter.filter_api_key_hashes;
+            let selected_keys = match scope.key_filter.filter_api_key_hashes_mode {
+                KeyHashFilterMode::All => "1".to_owned(),
+                KeyHashFilterMode::Only if keys.is_empty() => "0".to_owned(),
+                KeyHashFilterMode::Only => format!("{key} IN ({})", literals(keys)),
+            };
+            format!(
+                "({ownership}) AND ({selected_team}) AND ({selected_key}) AND ({selected_keys})"
+            )
         }
     }
+}
+
+fn owned(
+    user_id: &str,
+    team_ids: &[String],
+    team: &str,
+    user_clause: impl Fn(&str) -> String,
+) -> String {
+    let owner = literal(user_id);
+    let user_clause = user_clause(&owner);
+    let team_clause = if team_ids.is_empty() {
+        "0".to_owned()
+    } else {
+        format!("{team} IN ({})", literals(team_ids))
+    };
+    format!("({owner} != '' AND {user_clause}) OR ({team_clause})")
+}
+
+fn optional_selection(column: &str, value: &str) -> String {
+    if value.is_empty() {
+        "1".to_owned()
+    } else {
+        format!("{column} = {}", literal(value))
+    }
+}
+
+fn literals(values: &[String]) -> String {
+    values
+        .iter()
+        .map(|value| literal(value))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn eval_exclusion(database: &str, table: TraceTable) -> String {

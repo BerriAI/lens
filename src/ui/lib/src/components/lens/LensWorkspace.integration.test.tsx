@@ -1196,7 +1196,7 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
 });
 
-it("opens a key deep link with the same scope on the runs list and agent picker", async () => {
+it("opens a workspace deep link with the same scope on the runs list and agent picker", async () => {
   network.mockImplementation(async (input) => {
     const path = requestPath(input);
     if (path === "/v1/traces") return Response.json({ data: [], next_cursor: null });
@@ -1204,7 +1204,7 @@ it("opens a key deep link with the same scope on the runs list and agent picker"
     return defaultResponse(path, true);
   });
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />, {
-    searchParams: "?tab=traces&team_id=team-a&api_key_hash=key-a",
+    searchParams: "?tab=traces&organization_id=org-a&team_id=team-a&project_id=project-a&api_key_hash=key-a",
   });
   expect(await screen.findByLabelText("Trace scope")).toHaveTextContent("Team: team-a");
   expect(screen.getByLabelText("Trace scope")).toHaveTextContent("Key: key-a");
@@ -1212,15 +1212,17 @@ it("opens a key deep link with the same scope on the runs list and agent picker"
   const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
   const scoped = requests.filter(({ path }) => path === "/v1/traces" || path === "/v1/traces/agents");
   expect(scoped.length).toBeGreaterThanOrEqual(2);
-  expect(scoped.map(({ query }) => [query.get("team_id"), query.get("api_key_hash")])).toEqual(
-    scoped.map(() => ["team-a", "key-a"]),
+  expect(scoped.map(({ query }) => [query.get("organization_id"), query.get("team_id"), query.get("project_id"), query.get("api_key_hash")])).toEqual(
+    scoped.map(() => ["org-a", "team-a", "project-a", "key-a"]),
   );
 });
 
-it("preserves the selected key and team on paged trace and span HTTP reads", async () => {
+it("preserves the workspace on paged trace and span HTTP reads", async () => {
   network.mockImplementation(async () => Response.json({ data: [], agents: [], next_cursor: null }));
   const api = liveTracesApi("live-token", {
+    organization_id: "org-a",
     team_id: "team-a",
+    project_id: "project-a",
     api_key_hash: "key-a",
   });
   await api.list({ startMs: 1, endMs: 2, cursor: "next-page" }, "");
@@ -1235,10 +1237,22 @@ it("preserves the selected key and team on paged trace and span HTTP reads", asy
   await api.anyRecorded();
   const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
   expect(requests).toHaveLength(7);
-  expect(requests.map(({ query }) => [query.get("team_id"), query.get("api_key_hash")])).toEqual(
-    Array.from({ length: 7 }, () => ["team-a", "key-a"]),
+  expect(requests.map(({ query }) => [query.get("organization_id"), query.get("team_id"), query.get("project_id"), query.get("api_key_hash")])).toEqual(
+    Array.from({ length: 7 }, () => ["org-a", "team-a", "project-a", "key-a"]),
   );
   expect(requests[0].query.get("cursor")).toBe("next-page");
   expect(requests[2].query.get("cursor")).toBe("next-span-page");
   expect(requests[5].query.get("cursor")).toBe("next-turn-page");
+});
+
+it.each([false, true])("mounts host workspace switching only in the live session (demo: %s)", async (demo) => {
+  const WorkspaceSwitcher = () => <nav aria-label="Host workspace switching">Workspace switching</nav>;
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: `?tab=traces${demo ? "&demo=true" : ""}` },
+  );
+  if (demo) expect(screen.queryByRole("navigation", { name: "Host workspace switching" })).not.toBeInTheDocument();
+  else expect(await screen.findByRole("navigation", { name: "Host workspace switching" })).toBeVisible();
 });

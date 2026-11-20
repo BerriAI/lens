@@ -2,7 +2,9 @@
 
 import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
-import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
+import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS, TRACE_SCOPE_PARSERS, useTraceScope } from "./traces/routing";
+import { workspaceScopeAfterSelect, type WorkspaceItem, type WorkspaceKind } from "./workspace/scope";
+import type { TraceFilters } from "./traces/types";
 import { TIME_RANGE_PARSERS } from "../shared/timeRange/routing";
 import { isRangeHours } from "../shared/timeRange/timeRange";
 
@@ -107,6 +109,7 @@ const SESSION_PARSERS = {
   ...LENS_PARSERS,
   ...OPEN_TRACE_PARSERS,
   ...RUN_FILTER_PARSERS,
+  ...TRACE_SCOPE_PARSERS,
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
   ...PROFILE_PARSERS,
@@ -156,6 +159,17 @@ export interface LensRoute {
   setLensId(lensId: string | null): void;
   setDemo(demo: boolean): void;
   setSetup(settingUp: boolean): void;
+}
+
+export function useWorkspaceScope() {
+  const scope = useTraceScope();
+  const [, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
+  const select = useCallback(
+    (kind: WorkspaceKind, item: WorkspaceItem | null, effectiveScope: TraceFilters = scope) =>
+      void setParams({ ...CLEARED_AGENT_VIEW, ...workspaceScopeAfterSelect(effectiveScope, kind, item), agent: null }),
+    [scope, setParams],
+  );
+  return { scope, select };
 }
 
 /** Lens navigation lives in the URL, sample session included, so any view is a shareable link. */

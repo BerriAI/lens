@@ -55,9 +55,11 @@ impl Reader {
 
 fn read_scope(scope: QueryScope) -> ReadAccessParams {
     match scope {
+        QueryScope::Scoped { scope } => scope,
         QueryScope::All => ReadAccessParams {
             filter_team_id: String::new(),
             filter_api_key_hash: String::new(),
+            key_filter: Default::default(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),
@@ -65,6 +67,7 @@ fn read_scope(scope: QueryScope) -> ReadAccessParams {
         QueryScope::Owned { user_id, team_ids } => ReadAccessParams {
             filter_team_id: String::new(),
             filter_api_key_hash: String::new(),
+            key_filter: Default::default(),
             all_teams: false,
             user_id,
             team_ids,
@@ -689,6 +692,8 @@ async fn selected_team_and_key_narrow_each_authenticated_read(
 #[rstest]
 #[case::team("team_id")]
 #[case::key("api_key_hash")]
+#[case::organization("organization_id")]
+#[case::project("project_id")]
 #[tokio::test]
 async fn overlong_tenant_filter_is_rejected_before_storage(#[case] field: &str) {
     use axum::{body::Body, http::Request};
@@ -718,5 +723,37 @@ async fn overlong_tenant_filter_is_rejected_before_storage(#[case] field: &str) 
         .await
         .unwrap();
     assert_eq!(response.status(), 422);
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::organization("organization_id")]
+#[case::project("project_id")]
+#[tokio::test]
+async fn unresolved_workspace_selection_never_reaches_storage(#[case] field: &str) {
+    use axum::{body::Body, http::Request};
+    use lens_auth::{Authentication, Settings};
+    use litellm_storage_clickhouse::{Connection, sessions::Sessions, state::ClickHouseState};
+    use tower::ServiceExt;
+
+    let authentication = Arc::new(Authentication {
+        settings: Settings::new(ADMIN, None, "http://localhost").unwrap(),
+        sessions: Sessions(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::reader("http://127.0.0.1:9", "unused").unwrap(),
+        )),
+    });
+    let reader = Reader::default();
+    let app = lens_server::tracing::router(authentication, reader.clone(), TraceConfig::default());
+    let response = app
+        .oneshot(
+            Request::get(format!("/v1/traces?{field}=selected"))
+                .header("authorization", format!("Bearer {ADMIN}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 400);
     assert!(reader.calls.lock().unwrap().is_empty());
 }

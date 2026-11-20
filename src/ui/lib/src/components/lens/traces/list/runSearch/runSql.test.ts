@@ -100,3 +100,9 @@ it("keeps exact tenant filters in copied queries and quotes their values", () =>
   expect(sql).toContain("WHERE TeamId = 'team\\'one' AND ApiKeyHash = 'hash-a'");
   expect(sql).toContain("GROUP BY TeamId, ApiKeyHash, TraceId");
 });
+
+it("keeps the complete workspace scope in the copied query request", () => {
+  const filters = { organization_id: "org-a", team_id: "team-a", project_id: "project-a", api_key_hash: "hash-a" };
+  const command = runQueryCommand(RANGE, filters)(query("status:error"));
+  expect(JSON.parse(command.split("\n")[2])).toEqual({ sql: runQuerySql(query("status:error"), RANGE, filters), ...filters });
+});
