@@ -146,7 +146,6 @@ function InputCell({ run }: { run: TraceSummary }) {
 }
 
 function TraceIdCell({ run }: { run: TraceSummary }) {
-  if (!run.trace_id) return "—";
   return (
     <button
       type="button"
