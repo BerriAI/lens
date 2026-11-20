@@ -127,28 +127,41 @@ fn gateway_call(trace_id: &str, owner: &[(&str, &str)]) -> Value {
 }
 
 #[rstest]
+#[case::plain(false)]
+#[case::gzip(true)]
 #[tokio::test]
-async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(#[future(awt)] server: Server) {
+async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(
+    #[future(awt)] server: Server,
+    #[case] gzip: bool,
+) {
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server.storage)
         .await;
-    let response = reqwest::Client::new()
+    let bytes = serde_json::to_vec(&json!({"resourceSpans": [
+        gateway_call("0af7651916cd43dd8448eb211c80319a", &[
+            ("litellm.api_key.hash", "key-a"),
+            ("litellm.team.id", "team-a"),
+            ("litellm.metadata.user_api_key_user_id", "user-a"),
+            ("litellm.metadata.user_api_key_org_id", "org-a"),
+        ]),
+        gateway_call("0af7651916cd43dd8448eb211c80319b", &[("litellm.api_key.hash", "key-b")]),
+        gateway_call("0af7651916cd43dd8448eb211c80319c", &[]),
+    ]}))
+    .unwrap();
+    let mut request = reqwest::Client::new()
         .post(format!("{}/internal/traces", server.url))
         .bearer_auth(SERVICE_TOKEN)
-        .json(&json!({"resourceSpans": [
-            gateway_call("0af7651916cd43dd8448eb211c80319a", &[
-                ("litellm.api_key.hash", "key-a"),
-                ("litellm.team.id", "team-a"),
-                ("litellm.metadata.user_api_key_user_id", "user-a"),
-                ("litellm.metadata.user_api_key_org_id", "org-a"),
-            ]),
-            gateway_call("0af7651916cd43dd8448eb211c80319b", &[("litellm.api_key.hash", "key-b")]),
-            gateway_call("0af7651916cd43dd8448eb211c80319c", &[]),
-        ]}))
-        .send()
-        .await
-        .unwrap();
+        .header("content-type", "application/json");
+    let body = if gzip {
+        request = request.header("content-encoding", "gzip");
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        std::io::Write::write_all(&mut encoder, &bytes).unwrap();
+        encoder.finish().unwrap()
+    } else {
+        bytes
+    };
+    let response = request.body(body).send().await.unwrap();
     assert_eq!(response.status(), 204);
     let requests = server.storage.received_requests().await.unwrap();
     let mut decoded = String::new();
@@ -167,7 +180,7 @@ async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(#[future(awt
                 row["TeamId"],
                 row["ApiKeyHash"],
                 row["UserId"],
-                row["OrgId"]
+                row["ResourceAttributes"]["litellm.org_id"]
             ])
         })
         .collect();

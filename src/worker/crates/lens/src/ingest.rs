@@ -272,10 +272,17 @@ pub async fn receive_gateway(
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
+    let encoding = headers
+        .get("content-encoding")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     tokio::spawn(async move {
         let (spans, _permit) = tokio::task::spawn_blocking(move || {
             Ok::<_, Error>((
-                gateway_span_rows(&payload, content_type.as_deref())?,
+                gateway_span_rows(
+                    &decompress(&payload, encoding.as_deref())?,
+                    content_type.as_deref(),
+                )?,
                 permit,
             ))
         })
