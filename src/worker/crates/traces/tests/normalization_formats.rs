@@ -1338,3 +1338,22 @@ fn responses_message_items_keep_their_roles(span: Span) {
         .collect();
     assert_eq!(roles, ["developer", "user", "user"]);
 }
+
+#[rstest]
+#[case::model_call("ai.streamText")]
+#[case::provider_call("ai.streamText.doStream")]
+#[case::tool_call("ai.toolCall")]
+fn opencode_own_ai_sdk_span_is_named_opencode(span: Span, #[case] operation: &str) {
+    let decoded = decode(span, "opencode", &[("ai.operationId", operation)], vec![]).unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(Integration::Opencode));
+    assert_eq!(decoded.normalized.agent_name.as_deref(), Some("opencode"));
+}
+
+#[rstest]
+fn opencode_internal_span_is_not_an_agent_run(span: Span) {
+    let decoded = decode(span, "opencode", &[("db.system", "sqlite")], vec![]).unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(decoded.normalized.agent_name, None);
+}
