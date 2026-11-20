@@ -4,7 +4,7 @@ import { useState } from "react";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useIsClient, useMediaQuery } from "usehooks-ts";
-import { ArrowUpRight, BookOpen, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { ArrowUpRight, BookOpen, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import { Button } from "../ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { cn } from "../../lib/cva.config";
@@ -118,7 +118,8 @@ function SidebarNavigation({
   readonly collapsed: boolean;
   readonly onSelectAgent: (agent: string) => void;
 }) {
-  const standalone = useLensHost().surface === "standalone";
+  const host = useLensHost();
+  const standalone = host.surface === "standalone";
   return (
     <>
       {!collapsed && agents.agent && (
@@ -150,6 +151,20 @@ function SidebarNavigation({
         <span className={cn(collapsed && "sr-only")}>Documentation</span>
         {!collapsed && <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />}
       </a>
+      {host.signOut && (
+        <Button
+          variant="ghost"
+          title={collapsed ? "Sign out" : undefined}
+          onClick={host.signOut}
+          className={cn(
+            "mt-1 h-9 w-full shrink-0 justify-start gap-2.5 px-2.5 text-[13px] font-normal text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            collapsed && "justify-center px-0",
+          )}
+        >
+          <LogOut aria-hidden="true" className="size-4" />
+          <span className={cn(collapsed && "sr-only")}>Sign out</span>
+        </Button>
+      )}
     </>
   );
 }

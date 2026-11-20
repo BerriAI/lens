@@ -1046,6 +1046,31 @@ it("carries a selected profile id into the real investigation setup and matching
   }));
 });
 
+it("should offer Sign out in the sidebar only when the host can end the session", async () => {
+  const user = userEvent.setup();
+  const signOut = vi.fn();
+  const view = renderWithProviders(
+    <LensHostProvider host={{ surface: "standalone", signOut }}>
+      <LensWorkspace accessToken="" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  const sidebar = within(await screen.findByRole("complementary", { name: "Lens navigation" }));
+  await user.click(sidebar.getByRole("button", { name: "Sign out" }));
+  expect(signOut).toHaveBeenCalledOnce();
+
+  await user.click(sidebar.getByRole("button", { name: "Collapse navigation" }));
+  await user.click(sidebar.getByRole("button", { name: "Sign out" }));
+  expect(signOut).toHaveBeenCalledTimes(2);
+
+  view.rerender(
+    <LensHostProvider host={{ surface: "standalone" }}>
+      <LensWorkspace accessToken="" userRole="Admin" readOnly={false} />
+    </LensHostProvider>,
+  );
+  expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
+  expect(sidebar.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+});
+
 it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();

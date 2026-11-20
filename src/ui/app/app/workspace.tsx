@@ -44,6 +44,10 @@ export function Workspace() {
     window.addEventListener("hashchange", signIn);
     return () => window.removeEventListener("hashchange", signIn);
   }, [client]);
+  const signOut = async () => {
+    await api.delete("/auth/session").catch(() => null);
+    await client.resetQueries({ queryKey: sessionKey });
+  };
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;
   if (session.isPending)
     return (
@@ -56,6 +60,7 @@ export function Workspace() {
       <Surface
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
+        signOut={() => void signOut()}
       />
     );
   if (session.error instanceof ApiError && session.error.status === 401)
@@ -86,13 +91,15 @@ export function Workspace() {
 function Surface({
   userRole,
   readOnly,
+  signOut,
 }: {
   userRole: string;
   readOnly: boolean;
+  signOut?: () => void;
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensHostProvider host={{ analysis: "deployment", surface: "standalone" }}>
+      <LensHostProvider host={{ analysis: "deployment", surface: "standalone", signOut }}>
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
     </div>
