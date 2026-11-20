@@ -136,6 +136,7 @@ pub fn router(state: Arc<State>) -> Router {
             Router::new()
                 .route("/internal/read", post(read))
                 .route("/internal/spend", post(spend))
+                .route("/internal/traces", post(gateway_traces))
                 .route("/internal/feedback", post(feedback))
                 .route("/internal/status", get(status)),
         )
@@ -249,6 +250,14 @@ async fn spend(
     body: Body,
 ) -> Result<StatusCode, Error> {
     insert(state, headers, body, InsertTable::SpendLogs).await
+}
+
+async fn gateway_traces(
+    AppState(state): AppState<Arc<State>>,
+    headers: HeaderMap,
+    body: Body,
+) -> Result<StatusCode, Error> {
+    ingest::receive_gateway(state, headers, body).await
 }
 
 async fn feedback(

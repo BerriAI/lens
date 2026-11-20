@@ -97,3 +97,153 @@ async fn connected_gateway_reads_using_its_authenticated_user_scope(#[future(awt
     assert_eq!(response.status(), 200);
     assert_eq!(response.json::<Value>().await.unwrap(), result);
 }
+
+fn gateway_call(trace_id: &str, owner: &[(&str, &str)]) -> Value {
+    let owner: Vec<Value> = owner
+        .iter()
+        .map(|(key, value)| json!({"key": key, "value": {"stringValue": value}}))
+        .collect();
+    json!({
+        "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "litellm"}}]},
+        "scopeSpans": [{"scope": {"name": "litellm"}, "spans": [
+            {
+                "traceId": trace_id,
+                "spanId": "b7ad6b7169203331",
+                "name": "chat gpt-4o-mini",
+                "startTimeUnixNano": "1791405060000000000",
+                "endTimeUnixNano": "1791405061000000000",
+                "attributes": owner,
+            },
+            {
+                "traceId": trace_id,
+                "spanId": "b7ad6b7169203332",
+                "parentSpanId": "b7ad6b7169203331",
+                "name": "execute_guardrail",
+                "startTimeUnixNano": "1791405060000000000",
+                "endTimeUnixNano": "1791405061000000000",
+            },
+        ]}],
+    })
+}
+
+#[rstest]
+#[tokio::test]
+async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(#[future(awt)] server: Server) {
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server.storage)
+        .await;
+    let response = reqwest::Client::new()
+        .post(format!("{}/internal/traces", server.url))
+        .bearer_auth(SERVICE_TOKEN)
+        .json(&json!({"resourceSpans": [
+            gateway_call("0af7651916cd43dd8448eb211c80319a", &[
+                ("litellm.api_key.hash", "key-a"),
+                ("litellm.team.id", "team-a"),
+                ("litellm.metadata.user_api_key_user_id", "user-a"),
+                ("litellm.metadata.user_api_key_org_id", "org-a"),
+            ]),
+            gateway_call("0af7651916cd43dd8448eb211c80319b", &[("litellm.api_key.hash", "key-b")]),
+            gateway_call("0af7651916cd43dd8448eb211c80319c", &[]),
+        ]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 204);
+    let requests = server.storage.received_requests().await.unwrap();
+    let mut decoded = String::new();
+    std::io::Read::read_to_string(
+        &mut flate2::read::GzDecoder::new(requests[0].body.as_slice()),
+        &mut decoded,
+    )
+    .unwrap();
+    let owners: Vec<Value> = decoded
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .map(|row| {
+            json!([
+                row["TraceId"],
+                row["SpanName"],
+                row["TeamId"],
+                row["ApiKeyHash"],
+                row["UserId"],
+                row["OrgId"]
+            ])
+        })
+        .collect();
+    assert_eq!(
+        Value::Array(owners),
+        json!([
+            [
+                "0af7651916cd43dd8448eb211c80319a",
+                "chat gpt-4o-mini",
+                "team-a",
+                "key-a",
+                "user-a",
+                "org-a"
+            ],
+            [
+                "0af7651916cd43dd8448eb211c80319a",
+                "execute_guardrail",
+                "team-a",
+                "key-a",
+                "user-a",
+                "org-a"
+            ],
+            [
+                "0af7651916cd43dd8448eb211c80319b",
+                "chat gpt-4o-mini",
+                "",
+                "key-b",
+                "",
+                ""
+            ],
+            [
+                "0af7651916cd43dd8448eb211c80319b",
+                "execute_guardrail",
+                "",
+                "key-b",
+                "",
+                ""
+            ],
+            [
+                "0af7651916cd43dd8448eb211c80319c",
+                "chat gpt-4o-mini",
+                "",
+                "",
+                "",
+                ""
+            ],
+            [
+                "0af7651916cd43dd8448eb211c80319c",
+                "execute_guardrail",
+                "",
+                "",
+                "",
+                ""
+            ],
+        ])
+    );
+}
+
+#[rstest]
+#[case::wrong_token("incorrect-secret", r#"{"resourceSpans":[]}"#, 401)]
+#[case::malformed(SERVICE_TOKEN, "{", 400)]
+#[tokio::test]
+async fn rejected_gateway_traces_never_reach_storage(
+    #[future(awt)] server: Server,
+    #[case] token: &str,
+    #[case] body: &'static str,
+    #[case] expected: u16,
+) {
+    let response = reqwest::Client::new()
+        .post(format!("{}/internal/traces", server.url))
+        .bearer_auth(token)
+        .header("content-type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), expected);
+    assert!(server.storage.received_requests().await.unwrap().is_empty());
+}

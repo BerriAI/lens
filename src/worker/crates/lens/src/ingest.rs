@@ -8,7 +8,7 @@ use flate2::read::MultiGzDecoder;
 use litellm_traces::Tenant;
 use litellm_traces_clickhouse::{InsertTable, insert_shared_rows};
 use prost::Message;
-use std::{io::Read, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, io::Read, sync::Arc, time::Duration};
 use tokio::sync::OwnedSemaphorePermit;
 
 pub const UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
@@ -215,6 +215,84 @@ async fn store(
     )
     .await?;
     Ok(())
+}
+
+fn gateway_owner(attributes: &BTreeMap<String, String>) -> Option<Tenant> {
+    let stamp = |key: &str| attributes.get(key).cloned().unwrap_or_default();
+    attributes
+        .contains_key("litellm.api_key.hash")
+        .then(|| Tenant {
+            team_id: stamp("litellm.team.id"),
+            api_key_hash: stamp("litellm.api_key.hash"),
+            org_id: stamp("litellm.metadata.user_api_key_org_id"),
+            user_id: stamp("litellm.metadata.user_api_key_user_id"),
+        })
+}
+
+fn gateway_span_rows(
+    payload: &[u8],
+    content_type: Option<&str>,
+) -> Result<Vec<litellm_traces_clickhouse::InsertRow>, Error> {
+    let spans = litellm_traces::decode_otlp(payload, content_type)
+        .map_err(litellm_traces_clickhouse::Error::from)?;
+    let owners: BTreeMap<String, Tenant> = spans
+        .iter()
+        .filter_map(|span| Some((span.trace_id.clone(), gateway_owner(&span.attributes)?)))
+        .collect();
+    let mut traces: BTreeMap<String, Vec<litellm_traces::DecodedSpan>> = BTreeMap::new();
+    for span in spans {
+        traces.entry(span.trace_id.clone()).or_default().push(span);
+    }
+    Ok(traces
+        .into_iter()
+        .flat_map(|(trace_id, spans)| {
+            let owner = owners.get(&trace_id).cloned().unwrap_or_default();
+            litellm_traces_clickhouse::span_rows(spans, &owner)
+        })
+        .collect())
+}
+
+pub async fn receive_gateway(
+    state: Arc<State>,
+    headers: HeaderMap,
+    body: Body,
+) -> Result<StatusCode, Error> {
+    state.authorize_service(&headers)?;
+    state.require_storage()?;
+    let permit = state
+        .export_slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| Error::Unavailable)?;
+    let payload = tokio::time::timeout(UPLOAD_TIMEOUT, to_bytes(body, MAX_UPLOAD_BYTES))
+        .await
+        .map_err(|_| Error::Unavailable)?
+        .map_err(|_| Error::TooLarge)?;
+    let content_type = headers
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    tokio::spawn(async move {
+        let (spans, _permit) = tokio::task::spawn_blocking(move || {
+            Ok::<_, Error>((
+                gateway_span_rows(&payload, content_type.as_deref())?,
+                permit,
+            ))
+        })
+        .await
+        .map_err(|_| Error::Unavailable)??;
+        insert_shared_rows(
+            &state.storage.client,
+            state.storage.config.storage().writer(),
+            state.storage.config.storage().database(),
+            InsertTable::OtelTraces,
+            spans,
+        )
+        .await?;
+        Ok(StatusCode::NO_CONTENT)
+    })
+    .await
+    .map_err(|_| Error::Unavailable)?
 }
 
 #[cfg(test)]

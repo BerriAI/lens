@@ -528,7 +528,12 @@ async fn ingestion_key_cannot_read_or_export_gateway_records() {
     let store = MockServer::start().await;
     let server = serve(&store.uri(), true).await;
     let client = http_client().unwrap();
-    for path in ["/internal/read", "/internal/spend", "/internal/feedback"] {
+    for path in [
+        "/internal/read",
+        "/internal/spend",
+        "/internal/traces",
+        "/internal/feedback",
+    ] {
         let response = client
             .post(format!("{}{path}", server.url))
             .bearer_auth(KEY)
