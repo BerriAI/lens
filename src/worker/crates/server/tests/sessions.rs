@@ -68,7 +68,7 @@ async fn browser_session_survives_server_restart_and_cannot_be_replayed_after_lo
     assert_eq!(token.len(), 64);
     assert_eq!(
         login.json::<Value>().await.unwrap(),
-        json!({"user_id":"lens-admin", "user_role":"proxy_admin"})
+        json!({"user_id":"lens-admin", "user_name":"Setup token", "user_role":"proxy_admin"})
     );
     let expires = Sessions(database.store.clone())
         .find(&SessionId::for_token(token))
@@ -90,7 +90,7 @@ async fn browser_session_survives_server_restart_and_cannot_be_replayed_after_lo
     assert_eq!(info.status(), 200);
     assert_eq!(
         info.json::<Value>().await.unwrap(),
-        json!({"user_id":"lens-admin", "user_role":"proxy_admin"})
+        json!({"user_id":"lens-admin", "user_name":"Setup token", "user_role":"proxy_admin"})
     );
     let denied = restarted
         .client
@@ -159,7 +159,7 @@ fn litellm_login_token(audience: &str) -> String {
         &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
         &json!({
             "iss": "litellm", "aud": audience, "sub": "user", "iat": now, "exp": now + 60,
-            "identity": {"user_id": "user", "user_role": "internal_user", "team_id": null, "org_id": null,
+            "identity": {"user_id": "user", "user_name": "user@example.com", "user_role": "internal_user", "team_id": null, "org_id": null,
                 "token": "hash", "models": [], "log_team_ids": ["alpha"]}
         }),
         &jsonwebtoken::EncodingKey::from_secret(SECRET.as_bytes()),
@@ -193,7 +193,7 @@ async fn litellm_login_token_opens_a_browser_session_as_the_gateway_user(
         .unwrap();
     assert_eq!(
         info.json::<Value>().await.unwrap(),
-        json!({"user_id":"user", "user_role":"internal_user"})
+        json!({"user_id":"user", "user_name":"user@example.com", "user_role":"internal_user"})
     );
     let request_token = server
         .client
