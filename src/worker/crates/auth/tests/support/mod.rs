@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
-use lens_auth::{Authentication, Credentials, SessionId, SessionRepository, Settings, StoreError};
+use lens_auth::{
+    Authentication, Credentials, Session, SessionId, SessionRepository, Settings, StoreError,
+};
 use rstest::fixture;
 use std::{
     collections::BTreeMap,
@@ -12,7 +14,8 @@ pub const ORIGIN: &str = "https://lens.test";
 
 #[derive(Clone, Default)]
 pub struct Memory {
-    pub values: Arc<Mutex<BTreeMap<String, DateTime<Utc>>>>,
+    pub values: Arc<Mutex<BTreeMap<String, Session>>>,
+    pub spent: Arc<Mutex<BTreeMap<String, DateTime<Utc>>>>,
     pub unavailable: bool,
 }
 
@@ -29,22 +32,35 @@ impl Memory {
 }
 
 impl SessionRepository for Memory {
-    async fn create(&self, id: &SessionId, expires: DateTime<Utc>) -> Result<(), StoreError> {
+    async fn create(&self, id: &SessionId, session: &Session) -> Result<(), StoreError> {
         self.ready()?;
         let mut values = self.values.lock().unwrap();
         if values.contains_key(id.as_str()) {
             return Err(StoreError::Conflict);
         }
-        values.insert(id.as_str().to_owned(), expires);
+        values.insert(id.as_str().to_owned(), session.clone());
         Ok(())
     }
-    async fn expires_at(&self, id: &SessionId) -> Result<Option<DateTime<Utc>>, StoreError> {
+    async fn find(&self, id: &SessionId) -> Result<Option<Session>, StoreError> {
         self.ready()?;
-        Ok(self.values.lock().unwrap().get(id.as_str()).copied())
+        Ok(self.values.lock().unwrap().get(id.as_str()).cloned())
     }
     async fn revoke(&self, id: &SessionId) -> Result<(), StoreError> {
         self.ready()?;
         self.values.lock().unwrap().remove(id.as_str());
+        Ok(())
+    }
+    async fn spend_login(
+        &self,
+        login: &SessionId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<(), StoreError> {
+        self.ready()?;
+        let mut spent = self.spent.lock().unwrap();
+        if spent.contains_key(login.as_str()) {
+            return Err(StoreError::Conflict);
+        }
+        spent.insert(login.as_str().to_owned(), expires_at);
         Ok(())
     }
 }

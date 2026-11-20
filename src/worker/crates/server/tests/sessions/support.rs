@@ -109,9 +109,23 @@ impl Database {
             .await
     }
 
+    pub async fn serve_with_gateway(&self, gateway: Option<&str>) -> Server {
+        self.serve_settings(false, gateway, lens_server::sessions::router_with_auth)
+            .await
+    }
+
     pub async fn serve_router(
         &self,
         secure: bool,
+        router: impl FnOnce(Arc<Authentication<Sessions>>) -> axum::Router,
+    ) -> Server {
+        self.serve_settings(secure, None, router).await
+    }
+
+    async fn serve_settings(
+        &self,
+        secure: bool,
+        gateway: Option<&str>,
         router: impl FnOnce(Arc<Authentication<Sessions>>) -> axum::Router,
     ) -> Server {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -123,8 +137,12 @@ impl Database {
         } else {
             url.as_str()
         };
+        let settings = Settings::new(ADMIN, Some(SECRET.to_owned()), origin).unwrap();
         let auth = Authentication {
-            settings: Settings::new(ADMIN, Some(SECRET.to_owned()), origin).unwrap(),
+            settings: match gateway {
+                Some(gateway) => settings.with_gateway_login(gateway).unwrap(),
+                None => settings,
+            },
             sessions: Sessions(ClickHouseState::new(
                 Client::no_redirect_for_test(),
                 self.connection.clone(),
@@ -144,7 +162,10 @@ impl Database {
         Sessions(self.store.clone())
             .create(
                 &SessionId::for_token("parity-expired-session"),
-                Utc::now() - Interval::hours(1),
+                &lens_auth::Session {
+                    expires_at: Utc::now() - Interval::hours(1),
+                    identity: None,
+                },
             )
             .await
             .unwrap();

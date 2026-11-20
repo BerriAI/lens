@@ -6,6 +6,8 @@ use serde::{Deserialize, Deserializer};
 use crate::Error;
 
 const CLOCK_SKEW_SECONDS: i64 = 5;
+const MAX_LIFETIME_SECONDS: i64 = 60;
+pub(super) const LOGIN_LIFETIME_SECONDS: i64 = MAX_LIFETIME_SECONDS + CLOCK_SKEW_SECONDS;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21,9 +23,26 @@ struct Claims {
 }
 
 pub(super) fn identity(token: &str, secret: &str, now: DateTime<Utc>) -> Result<Identity, Error> {
+    verified(token, secret, now, "litellm-lens")
+}
+
+pub(super) fn login_identity(
+    token: &str,
+    secret: &str,
+    now: DateTime<Utc>,
+) -> Result<Identity, Error> {
+    verified(token, secret, now, "litellm-lens-login")
+}
+
+fn verified(
+    token: &str,
+    secret: &str,
+    now: DateTime<Utc>,
+    audience: &str,
+) -> Result<Identity, Error> {
     let mut validation = Validation::new(Algorithm::HS256);
     validation.set_issuer(&["litellm"]);
-    validation.set_audience(&["litellm-lens"]);
+    validation.set_audience(&[audience]);
     validation.set_required_spec_claims(&["iss", "aud", "sub"]);
     validation.validate_exp = false;
     validation.validate_nbf = false;
@@ -35,7 +54,7 @@ pub(super) fn identity(token: &str, secret: &str, now: DateTime<Utc>) -> Result<
     .map_err(|_| Error::Unauthorized("Invalid or expired gateway identity"))?
     .claims;
     if claims.iss != "litellm"
-        || claims.aud != "litellm-lens"
+        || claims.aud != audience
         || claims.iat > now.timestamp().saturating_add(CLOCK_SKEW_SECONDS)
         || claims.exp <= now.timestamp()
     {
@@ -50,7 +69,7 @@ pub(super) fn identity(token: &str, secret: &str, now: DateTime<Utc>) -> Result<
     if claims
         .exp
         .checked_sub(claims.iat)
-        .is_none_or(|lifetime| !(1..=60).contains(&lifetime))
+        .is_none_or(|lifetime| !(1..=MAX_LIFETIME_SECONDS).contains(&lifetime))
         || subject != Some(claims.sub.as_str())
     {
         return Err(Error::Unauthorized("Invalid gateway identity scope"));

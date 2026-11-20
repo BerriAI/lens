@@ -44,3 +44,9 @@ pub struct SessionView {
 pub struct SessionRequest {
     pub token: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SignInMethods {
+    pub litellm_login_url: Option<String>,
+}

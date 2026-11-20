@@ -2,8 +2,8 @@ mod support;
 
 use chrono::{DateTime, Duration, Utc};
 use lens_auth::{
-    Authentication, Error, ReadScope, SessionId, Settings, StoreError, local_admin, session_view,
-    trace_read_scope,
+    Authentication, Error, ReadScope, Session, SessionId, Settings, StoreError, local_admin,
+    session_view, trace_read_scope,
 };
 use lens_contract::auth::{Identity, Role};
 use rstest::rstest;
@@ -116,17 +116,21 @@ async fn sign_in_stores_a_hash_with_eight_hour_expiry(
     authentication: Authentication<Memory>,
     now: DateTime<Utc>,
 ) {
-    let view = authentication
+    let signed_in = authentication
         .sign_in(ADMIN, "new-session", now)
         .await
         .unwrap();
-    assert_eq!(view.user_id, "lens-admin");
-    assert_eq!(view.user_role, Role::ProxyAdmin);
+    assert_eq!(signed_in.view.user_id, "lens-admin");
+    assert_eq!(signed_in.view.user_role, Role::ProxyAdmin);
+    assert_eq!(signed_in.lifetime_seconds, 8 * 60 * 60);
     let values = authentication.sessions.values.lock().unwrap();
     assert_eq!(values.len(), 1);
     assert_eq!(
         values.get(SessionId::for_token("new-session").as_str()),
-        Some(&(now + Duration::hours(8)))
+        Some(&Session {
+            expires_at: now + Duration::hours(8),
+            identity: None,
+        })
     );
     assert!(!values.contains_key("new-session"));
     assert_eq!(
@@ -651,5 +655,176 @@ async fn gateway_requires_expected_signature(
             .unwrap_err()
             .to_string(),
         "Invalid or expired gateway identity"
+    );
+}
+
+fn login_token(now: DateTime<Utc>, audience: &str, lifetime: i64) -> String {
+    let mut claims = claims(now);
+    claims["aud"] = serde_json::json!(audience);
+    claims["exp"] = serde_json::json!(now.timestamp() + lifetime);
+    jwt(&claims, jsonwebtoken::Algorithm::HS256, support::SECRET)
+}
+
+#[rstest]
+#[tokio::test]
+async fn litellm_login_opens_a_one_hour_session_with_the_gateway_identity(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let signed_in = authentication
+        .sign_in(&login_token(now, "litellm-lens-login", 60), "browser", now)
+        .await
+        .unwrap();
+    assert_eq!(signed_in.view.user_id, "user");
+    assert_eq!(signed_in.view.user_role, Role::InternalUser);
+    assert_eq!(signed_in.lifetime_seconds, 60 * 60);
+    let identity = authentication
+        .authenticate(cookie("browser"), now + Duration::minutes(59))
+        .await
+        .unwrap();
+    assert_eq!(
+        trace_read_scope(&identity),
+        Some(ReadScope::OwnedRows {
+            user_id: "user".into(),
+            team_ids: vec!["alpha".into(), "beta".into()],
+        })
+    );
+    assert_eq!(
+        authentication
+            .authenticate(cookie("browser"), now + Duration::hours(1))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Lens session has expired"
+    );
+}
+
+#[rstest]
+#[case::request_token("litellm-lens", 30, support::SECRET)]
+#[case::too_long("litellm-lens-login", 61, support::SECRET)]
+#[case::expired("litellm-lens-login", 0, support::SECRET)]
+#[case::unsigned_by_gateway("litellm-lens-login", 60, "another-gateway-secret-32-characters")]
+#[tokio::test]
+async fn litellm_login_rejects_tokens_not_issued_for_sign_in(
+    now: DateTime<Utc>,
+    #[case] audience: &str,
+    #[case] lifetime: i64,
+    #[case] secret: &str,
+) {
+    let authentication = Authentication {
+        settings: Settings::new(ADMIN, Some(secret.to_owned()), ORIGIN).unwrap(),
+        sessions: Memory::default(),
+    };
+    assert_eq!(
+        authentication
+            .sign_in(&login_token(now, audience, lifetime), "browser", now)
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Invalid Lens setup token"
+    );
+    assert!(authentication.sessions.values.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn litellm_login_is_off_without_a_gateway_secret(now: DateTime<Utc>) {
+    let authentication = Authentication {
+        settings: Settings::new(ADMIN, None, ORIGIN).unwrap(),
+        sessions: Memory::default(),
+    };
+    assert!(
+        authentication
+            .sign_in(&login_token(now, "litellm-lens-login", 60), "browser", now)
+            .await
+            .is_err()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn sign_in_tokens_cannot_authorize_requests(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let token = login_token(now, "litellm-lens-login", 60);
+    assert!(
+        authentication
+            .authenticate(bearer(&format!("Bearer {token}")), now)
+            .await
+            .is_err()
+    );
+}
+
+#[rstest]
+#[case::public_url(
+    Some(support::SECRET),
+    "https://gateway.test",
+    Some("https://gateway.test/lens/login")
+)]
+#[case::root_path(
+    Some(support::SECRET),
+    "https://gateway.test/litellm/",
+    Some("https://gateway.test/litellm/lens/login")
+)]
+#[case::openai_base(
+    Some(support::SECRET),
+    "http://litellm:4000/v1",
+    Some("http://litellm:4000/lens/login")
+)]
+#[case::no_secret(None, "https://gateway.test", None)]
+fn litellm_login_link_needs_the_gateway_secret(
+    #[case] secret: Option<&str>,
+    #[case] gateway: &str,
+    #[case] link: Option<&str>,
+) {
+    let settings = Settings::new(ADMIN, secret.map(str::to_owned), ORIGIN)
+        .unwrap()
+        .with_gateway_login(gateway)
+        .unwrap();
+    assert_eq!(settings.gateway_login_url(), link);
+}
+
+#[rstest]
+#[case::not_a_url("gateway")]
+#[case::wrong_scheme("ftp://gateway.test")]
+#[case::credentials("https://user:pass@gateway.test")]
+#[case::query("https://gateway.test?next=evil")]
+#[case::fragment("https://gateway.test#x")]
+fn litellm_login_rejects_unsafe_gateway_urls(#[case] gateway: &str) {
+    assert!(
+        Settings::new(ADMIN, Some(support::SECRET.to_owned()), ORIGIN)
+            .unwrap()
+            .with_gateway_login(gateway)
+            .is_err()
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn litellm_login_token_opens_only_one_session(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let token = login_token(now, "litellm-lens-login", 60);
+    authentication
+        .sign_in(&token, "first-browser", now)
+        .await
+        .unwrap();
+    assert_eq!(
+        authentication
+            .sign_in(&token, "second-browser", now + Duration::seconds(1))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Invalid Lens setup token"
+    );
+    assert_eq!(
+        authentication
+            .authenticate(cookie("second-browser"), now + Duration::seconds(2))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Lens session has expired"
     );
 }

@@ -33,10 +33,11 @@ async fn python_fixtures_replay_over_real_http_and_clickhouse(
     assert_eq!(report.passed, count);
     assert!(
         Sessions(database.store.clone())
-            .expires_at(&SessionId::for_token("parity-expired-session"))
+            .find(&SessionId::for_token("parity-expired-session"))
             .await
             .unwrap()
             .unwrap()
+            .expires_at
             < chrono::Utc::now()
     );
 }
@@ -70,10 +71,11 @@ async fn browser_session_survives_server_restart_and_cannot_be_replayed_after_lo
         json!({"user_id":"lens-admin", "user_role":"proxy_admin"})
     );
     let expires = Sessions(database.store.clone())
-        .expires_at(&SessionId::for_token(token))
+        .find(&SessionId::for_token(token))
         .await
         .unwrap()
-        .unwrap();
+        .unwrap()
+        .expires_at;
     assert!(expires >= before + chrono::Duration::hours(8));
     assert!(expires <= chrono::Utc::now() + chrono::Duration::hours(8));
     drop(server);
@@ -149,4 +151,76 @@ async fn browser_session_survives_server_restart_and_cannot_be_replayed_after_lo
     let record = database.store.read(&keys[0]).await.unwrap();
     assert!(record.value.is_null());
     assert_eq!(record.head.revision, 2);
+}
+
+fn litellm_login_token(audience: &str) -> String {
+    let now = chrono::Utc::now().timestamp();
+    jsonwebtoken::encode(
+        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+        &json!({
+            "iss": "litellm", "aud": audience, "sub": "user", "iat": now, "exp": now + 60,
+            "identity": {"user_id": "user", "user_role": "internal_user", "team_id": null, "org_id": null,
+                "token": "hash", "models": [], "log_team_ids": ["alpha"]}
+        }),
+        &jsonwebtoken::EncodingKey::from_secret(SECRET.as_bytes()),
+    )
+    .unwrap()
+}
+
+#[rstest]
+#[tokio::test]
+async fn litellm_login_token_opens_a_browser_session_as_the_gateway_user(
+    #[future(awt)] database: Database,
+) {
+    let server = database.serve(false).await;
+    let login = server
+        .client
+        .post(server.endpoint())
+        .json(&json!({"token": litellm_login_token("litellm-lens-login")}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(login.status(), 200);
+    let cookie = login.headers()["set-cookie"].to_str().unwrap().to_owned();
+    assert!(cookie.contains("HttpOnly; Max-Age=3600; Path=/; SameSite=strict"));
+    let pair = cookie.split(';').next().unwrap().to_owned();
+    let info = server
+        .client
+        .get(server.endpoint())
+        .header("cookie", &pair)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        info.json::<Value>().await.unwrap(),
+        json!({"user_id":"user", "user_role":"internal_user"})
+    );
+    let request_token = server
+        .client
+        .post(server.endpoint())
+        .json(&json!({"token": litellm_login_token("litellm-lens")}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(request_token.status(), 401);
+}
+
+#[rstest]
+#[case::configured(Some("https://gateway.test"), json!({"litellm_login_url": "https://gateway.test/lens/login"}))]
+#[case::not_configured(None, json!({"litellm_login_url": null}))]
+#[tokio::test]
+async fn sign_in_methods_are_public_and_name_the_gateway_login(
+    #[future(awt)] database: Database,
+    #[case] gateway: Option<&'static str>,
+    #[case] methods: Value,
+) {
+    let server = database.serve_with_gateway(gateway).await;
+    let response = server
+        .client
+        .get(server.url.join("/auth/methods").unwrap())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.json::<Value>().await.unwrap(), methods);
 }

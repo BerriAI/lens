@@ -104,6 +104,19 @@ impl Config {
             read("LENS_GATEWAY_SECRET").filter(|value| !value.is_empty()),
             &public_url,
         )?;
+        let authentication = match [
+            "LENS_GATEWAY_PUBLIC_URL",
+            "LENS_GATEWAY_URL",
+            "LENS_GATEWAY_API_BASE",
+        ]
+        .into_iter()
+        .find_map(|name| Some((name, read(name).filter(|value| !value.trim().is_empty())?)))
+        {
+            Some((name, url)) => authentication
+                .with_gateway_login(url.trim())
+                .map_err(|_| Error::Configuration(name))?,
+            None => authentication,
+        };
         let authentication = match read("LENS_SLACK_TEAM_ID") {
             Some(team)
                 if read("LENS_SLACK_CHAT_ENABLED").as_deref() == Some("true")

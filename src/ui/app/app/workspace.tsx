@@ -20,17 +20,30 @@ const api = createApiClient({
 });
 const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
 const sessionKey = ["lens-session"];
+const signInMethodsSchema = z.object({
+  litellm_login_url: z.string().nullable(),
+});
 
 configureLensHttp({ getBaseUrl: baseUrl, getAuthToken: () => null });
 
 export function Workspace() {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
+  const [linkRejected, setLinkRejected] = useState(false);
   const session = useQuery({
     queryKey: sessionKey,
     queryFn: async () => {
       const token = takeSignInToken(window.location, window.history);
       const signedIn = token
-        ? await api.post("/auth/session", { body: { token } }).catch(() => null)
+        ? await api
+            .post("/auth/session", { body: { token } })
+            .then((opened) => {
+              setLinkRejected(false);
+              return opened;
+            })
+            .catch(() => {
+              setLinkRejected(true);
+              return null;
+            })
         : null;
       return sessionSchema.parse(
         signedIn ?? (await api.get("/auth/session", { cache: "no-store" })),
@@ -46,6 +59,7 @@ export function Workspace() {
     return () => window.removeEventListener("hashchange", signIn);
   }, [client]);
   const signOut = async () => {
+    setLinkRejected(false);
     await api.delete("/auth/session").catch(() => null);
     await client.resetQueries({ queryKey: sessionKey });
   };
@@ -72,7 +86,7 @@ export function Workspace() {
       />
     );
   if (session.error instanceof ApiError && session.error.status === 401)
-    return <SignIn />;
+    return <SignIn linkRejected={linkRejected} />;
   return (
     <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
       <header className="lens-page-header">
@@ -114,7 +128,7 @@ function Surface({
   );
 }
 
-function SignIn() {
+function SignIn({ linkRejected }: { linkRejected: boolean }) {
   const client = useQueryClient();
   const [token, setToken] = useState("");
   const login = useMutation({
@@ -130,6 +144,13 @@ function SignIn() {
       client.setQueryData(sessionKey, session);
     },
   });
+  const methods = useQuery({
+    queryKey: ["lens-sign-in-methods"],
+    queryFn: async () =>
+      signInMethodsSchema.parse(await api.get("/auth/methods")),
+    retry: false,
+  });
+  const litellmLoginUrl = methods.data?.litellm_login_url;
   const submit = (event: FormEvent) => {
     event.preventDefault();
     login.mutate(token);
@@ -140,6 +161,25 @@ function SignIn() {
         <h1 className="lens-page-title">Sign in to Lens</h1>
       </header>
       <div className="lens-page-body flex flex-col gap-5">
+        {linkRejected && (
+          <p role="alert" className="text-sm text-destructive">
+            That sign-in link was not accepted. It may have expired. Sign in
+            again.
+          </p>
+        )}
+        {litellmLoginUrl && (
+          <>
+            <a
+              href={litellmLoginUrl}
+              className="rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground"
+            >
+              Log in with LiteLLM
+            </a>
+            <p className="text-center text-xs text-muted-foreground">
+              or use the setup token
+            </p>
+          </>
+        )}
         <form onSubmit={submit} className="flex flex-col gap-3">
           <label htmlFor="setup-token" className="text-sm font-medium">
             Setup token
@@ -155,7 +195,11 @@ function SignIn() {
           />
           <button
             disabled={login.isPending}
-            className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            className={
+              litellmLoginUrl
+                ? "rounded-md border px-3 py-2 text-sm"
+                : "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            }
           >
             {login.isPending ? "Signing in…" : "Sign in"}
           </button>

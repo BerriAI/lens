@@ -407,11 +407,11 @@ async fn sessions_preserve_python_keys_conflicts_and_tombstones(#[future(awt)] d
         .unwrap()
         .to_utc();
     let sessions = Sessions(database.store.clone());
-    assert!(sessions.expires_at(&id).await.unwrap().is_none());
-    sessions.create(&id, expires).await.unwrap();
+    assert!(sessions.find(&id).await.unwrap().is_none());
+    sessions.create(&id, &admin_session(expires)).await.unwrap();
     assert!(matches!(
         sessions
-            .create(&id, expires + chrono::Duration::days(1))
+            .create(&id, &admin_session(expires + chrono::Duration::days(1)))
             .await,
         Err(StoreError::Conflict)
     ));
@@ -422,16 +422,13 @@ async fn sessions_preserve_python_keys_conflicts_and_tombstones(#[future(awt)] d
         json!({"expires_at":"2026-10-08T12:00:00.123456Z"})
     );
     assert_eq!(
-        Sessions(database.independent())
-            .expires_at(&id)
-            .await
-            .unwrap(),
-        Some(expires)
+        Sessions(database.independent()).find(&id).await.unwrap(),
+        Some(admin_session(expires))
     );
     sessions.revoke(&id).await.unwrap();
     assert!(
         Sessions(database.independent())
-            .expires_at(&id)
+            .find(&id)
             .await
             .unwrap()
             .is_none()
@@ -464,10 +461,10 @@ async fn stored_session_validation(
         .commit(vec![initial(&key, value)])
         .await
         .unwrap();
-    let result = Sessions(database.independent()).expires_at(&id).await;
+    let result = Sessions(database.independent()).find(&id).await;
     if valid {
         assert_eq!(
-            result.unwrap().unwrap().to_rfc3339(),
+            result.unwrap().unwrap().expires_at.to_rfc3339(),
             "2026-10-08T12:00:00+00:00"
         );
     } else {
@@ -485,14 +482,17 @@ async fn session_authentication_survives_forced_clickhouse_restart(
     let id = SessionId::for_token("persisted-session");
     let expires = chrono::Utc::now() + chrono::Duration::hours(8);
     Sessions(isolated_database.store.clone())
-        .create(&id, expires)
+        .create(&id, &admin_session(expires))
         .await
         .unwrap();
     let restarted = Sessions(isolated_database.restart().await);
-    assert_eq!(restarted.expires_at(&id).await.unwrap(), Some(expires));
+    assert_eq!(
+        restarted.find(&id).await.unwrap(),
+        Some(admin_session(expires))
+    );
     restarted.revoke(&id).await.unwrap();
     let restarted = Sessions(isolated_database.restart().await);
-    assert!(restarted.expires_at(&id).await.unwrap().is_none());
+    assert!(restarted.find(&id).await.unwrap().is_none());
 }
 
 #[rstest]
@@ -504,10 +504,13 @@ async fn session_storage_failure_does_not_look_like_missing_session(
     use litellm_storage_clickhouse::sessions::Sessions;
     let id = SessionId::for_token("session");
     let sessions = Sessions(database.store.clone());
-    sessions.create(&id, chrono::Utc::now()).await.unwrap();
+    sessions
+        .create(&id, &admin_session(chrono::Utc::now()))
+        .await
+        .unwrap();
     database.sql("DROP TABLE lens_state_blobs SYNC").await;
     assert!(matches!(
-        sessions.expires_at(&id).await,
+        sessions.find(&id).await,
         Err(StoreError::Unavailable(_))
     ));
     assert!(matches!(
@@ -516,8 +519,71 @@ async fn session_storage_failure_does_not_look_like_missing_session(
     ));
     assert!(matches!(
         sessions
-            .create(&SessionId::for_token("new"), chrono::Utc::now())
+            .create(
+                &SessionId::for_token("new"),
+                &admin_session(chrono::Utc::now()),
+            )
             .await,
         Err(StoreError::Unavailable(_))
     ));
+}
+
+fn admin_session(expires_at: chrono::DateTime<chrono::Utc>) -> lens_auth::Session {
+    lens_auth::Session {
+        expires_at,
+        identity: None,
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn gateway_sessions_keep_the_signed_in_identity(#[future(awt)] database: Database) {
+    use lens_auth::{Session, SessionId, SessionRepository};
+    use lens_contract::auth::{Identity, Role};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let id = SessionId::for_token("gateway-session");
+    let session = Session {
+        expires_at: chrono::DateTime::parse_from_rfc3339("2026-10-08T12:00:00Z")
+            .unwrap()
+            .to_utc(),
+        identity: Some(Identity {
+            user_role: Role::InternalUser,
+            user_id: Some("user".into()),
+            log_team_ids: vec!["alpha".into()],
+            ..Identity::default()
+        }),
+    };
+    Sessions(database.store.clone())
+        .create(&id, &session)
+        .await
+        .unwrap();
+    assert_eq!(
+        Sessions(database.independent()).find(&id).await.unwrap(),
+        Some(session)
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_spent_login_is_refused_by_every_replica(#[future(awt)] database: Database) {
+    use lens_auth::{SessionId, SessionRepository, StoreError};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let login = SessionId::for_token("gateway-login-token");
+    let expires = chrono::DateTime::parse_from_rfc3339("2026-10-08T12:00:00Z")
+        .unwrap()
+        .to_utc();
+    Sessions(database.store.clone())
+        .spend_login(&login, expires)
+        .await
+        .unwrap();
+    assert!(matches!(
+        Sessions(database.independent())
+            .spend_login(&login, expires)
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    assert_eq!(
+        Sessions(database.independent()).find(&login).await.unwrap(),
+        None
+    );
 }
