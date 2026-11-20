@@ -1,7 +1,7 @@
 "use client";
 
 import { getCoreRowModel, useReactTable, type ColumnDef, type TableOptions } from "@tanstack/react-table";
-import { ArrowDown, ChevronRight, Plus, Star } from "lucide-react";
+import { ArrowDown, ChevronRight, Copy, Plus, Star } from "lucide-react";
 import { createContext, useContext, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 
@@ -16,6 +16,7 @@ import {
   formatRunTimestamp,
   localTimeZoneAbbreviation,
 } from "../../../../utils/activityTimestamp";
+import { copyToClipboard } from "../../../../utils/dataUtils";
 
 import { SpanIcon } from "../ui/SpanIcon";
 import type { TraceFindingState } from "./useTraceFindings";
@@ -140,10 +141,25 @@ function InputCell({ run }: { run: TraceSummary }) {
           Partial totals
         </span>
       )}
-      <span className="hidden max-w-32 min-w-0 shrink-[100] truncate font-mono text-xs text-muted-foreground 2xl:inline">
-        {run.trace_id}
-      </span>
     </div>
+  );
+}
+
+function TraceIdCell({ run }: { run: TraceSummary }) {
+  return (
+    <button
+      type="button"
+      aria-label="Copy trace ID"
+      title={run.trace_id}
+      onClick={(event) => {
+        event.stopPropagation();
+        void copyToClipboard(run.trace_id, "Trace ID copied");
+      }}
+      className="-mx-1 flex h-6 w-[calc(100%+0.5rem)] min-w-0 items-center gap-1 rounded px-1 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <span className="truncate">{run.trace_id}</span>
+      <Copy className="size-3 shrink-0" />
+    </button>
   );
 }
 
@@ -291,6 +307,13 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     },
   },
   { id: "input", header: "Input", cell: ({ row }) => <InputCell run={row.original} /> },
+  {
+    id: "traceId",
+    size: 140,
+    header: "Trace ID",
+    cell: ({ row }) => <TraceIdCell run={row.original} />,
+    meta: { className: MUTED_NUM },
+  },
   {
     id: "cost",
     size: 80,

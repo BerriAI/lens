@@ -206,6 +206,66 @@ describe("AgentTracesTable input cell", () => {
   });
 });
 
+describe("AgentTracesTable trace ID column", () => {
+  const template = (traceList as TracePage).data[0] as TraceSummary;
+  const run = { ...template, trace_id: "0b8359ab2c99662c0f1e2d3c4b5a6978", input_preview: "How do I configure caching?" };
+  const renderRun = () => {
+    const onSelectedChange = vi.fn();
+    renderWithProviders(
+      <Inspector.Root
+        items={[]}
+        itemKey={traceKey}
+        selected={null}
+        onSelectedChange={onSelectedChange}
+        noun="trace"
+        storageKey="test"
+      >
+        <AgentTracesTable
+          traces={[run]}
+          findings={new Map()}
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSetUpTracing={vi.fn()}
+        />
+      </Inspector.Root>,
+    );
+    return onSelectedChange;
+  };
+  const cellUnder = (header: string) => {
+    const index = screen.getAllByRole("columnheader").findIndex((cell) => cell.textContent === header);
+    return within(screen.getByTestId("agent-trace-row")).getAllByRole("cell")[index];
+  };
+
+  it("shows the whole trace ID under its own header and keeps it out of the input cell", () => {
+    renderRun();
+    expect(cellUnder("Trace ID")).toHaveTextContent(run.trace_id);
+    expect(cellUnder("Input")).toHaveTextContent(run.input_preview);
+    expect(cellUnder("Input")).not.toHaveTextContent(run.trace_id);
+  });
+
+  it("copies the full trace ID without opening the run", async () => {
+    const user = userEvent.setup();
+    const onSelectedChange = renderRun();
+    await user.click(screen.getByRole("button", { name: "Copy trace ID" }));
+    expect(await navigator.clipboard.readText()).toBe(run.trace_id);
+    expect(onSelectedChange).not.toHaveBeenCalled();
+
+    await user.click(cellUnder("Input"));
+    expect(onSelectedChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("copies from the keyboard without opening the run", async () => {
+    const user = userEvent.setup();
+    const onSelectedChange = renderRun();
+    screen.getByRole("button", { name: "Copy trace ID" }).focus();
+    await user.keyboard("{Enter}");
+    expect(await navigator.clipboard.readText()).toBe(run.trace_id);
+    expect(onSelectedChange).not.toHaveBeenCalled();
+  });
+});
+
 describe("AgentTracesTable column picker", () => {
   const runs = (traceList as TracePage).data as TraceSummary[];
   const renderRuns = () =>
