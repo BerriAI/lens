@@ -31,7 +31,11 @@ export interface SpendLogDrawerProps {
 export interface LensHost {
   readonly surface?: "standalone" | "embedded";
   readonly analysis?: "deployment";
-  readonly signOut?: () => void;
+  readonly user?: {
+    readonly name: string;
+    readonly role: string;
+    readonly signOut: () => void;
+  };
   readonly spendLogs?: {
     readonly lookup: (
       query: SpendLogLookup,
