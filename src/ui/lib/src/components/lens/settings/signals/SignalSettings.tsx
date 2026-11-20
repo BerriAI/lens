@@ -38,6 +38,7 @@ export function SignalSettings() {
   return (
     <>
       <SettingsSection
+        layout="stacked"
         heading="Signals"
         icon={<Flag aria-hidden="true" className="size-4" />}
         description="Choose what Lens looks for in each captured trace."
@@ -45,6 +46,7 @@ export function SignalSettings() {
         <SignalForm saved={config.data} />
       </SettingsSection>
       <SettingsSection
+        layout="stacked"
         heading="Slack delivery"
         icon={<Bell aria-hidden="true" className="size-4" />}
         description="Choose which signals send a Slack alert when they match a new trace."
@@ -273,6 +275,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
               disabled={details.isPending}
               emptyText={discoveryError ? "Model list unavailable" : "No evaluation or chat models configured for Lens"}
+              className="h-9 [&>[data-slot=input-group-addon]:has(>button)]:mr-0"
               allowClear
             />
             <p className="text-xs text-muted-foreground">

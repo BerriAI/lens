@@ -21,7 +21,7 @@ export function AlertsView({ canConfigure, onOpenSignal }: { canConfigure: boole
   const api = useLensApi();
   const overview = useQuery(lensQueries.signalOverview(api));
   return (
-    <div aria-label="Alerts" role="region" className="flex w-full flex-col">
+    <div aria-label="Alerts" role="region" className="flex w-full min-w-0 flex-col">
       <LensPageHeader
         page="alerts"
         title="Alerts"
@@ -32,8 +32,9 @@ export function AlertsView({ canConfigure, onOpenSignal }: { canConfigure: boole
           </Button>
         }
       />
-      <div className="lens-page-body w-full max-w-6xl divide-y divide-border">
+      <div className="lens-page-body w-full min-w-0 divide-y divide-border">
         <SettingsSection
+          layout="stacked"
           heading="Signal activity"
           description="Signals and Slack work in standalone Lens. An optional LiteLLM Gateway can supply traces and judge models. Lens can only check what the trace captured."
           icon={<Flag aria-hidden="true" className="size-4" />}
@@ -102,6 +103,7 @@ function SignalActivity({ data, onOpenSignal }: { data: SignalOverview; onOpenSi
                 key={id}
                 variant={filter === id ? "secondary" : "outline"}
                 size="sm"
+                className="h-auto max-w-full whitespace-normal wrap-anywhere text-left"
                 aria-pressed={filter === id}
                 onClick={() => select(id)}
               >
