@@ -1479,11 +1479,16 @@ async fn lens_request_sample_does_not_trust_caller_tags(
     let writer = Connection::writer(&database.url)?;
     ensure_schema(&database.client, &writer, "trace_test", 7).await?;
     let timestamp = time::OffsetDateTime::now_utc().unix_timestamp_nanos() as i64 / 1_000_000;
-    for (id, internal) in [("external", false), ("internal", true)] {
+    for (id, internal, user_agent) in [
+        ("external", false, "claude-cli/2.0.1 (external, cli)"),
+        ("internal", true, "claude-cli/2.0.1 (external, cli)"),
+        ("lens_agent", false, "lens-signals"),
+        ("lens_agent_versioned", false, "Lens-Signals/1.2.3"),
+    ] {
         let row = serde_json::from_value(serde_json::json!({
             "request_id": id, "team_id": "team", "start_time": timestamp, "end_time": timestamp,
             "request_tags": ["litellm-engine"],
-            "metadata": serde_json::json!({"litellm_lens_internal": internal}).to_string()
+            "metadata": serde_json::json!({"litellm_lens_internal": internal, "user_agent": user_agent}).to_string()
         }))?;
         insert_rows(&database, "spend_logs", vec![row]).await?;
     }
