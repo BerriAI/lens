@@ -224,3 +224,84 @@ async fn sign_in_methods_are_public_and_name_the_gateway_login(
     assert_eq!(response.status(), 200);
     assert_eq!(response.json::<Value>().await.unwrap(), methods);
 }
+
+async fn login_url(server: &support::Server) -> Value {
+    server
+        .client
+        .get(server.url.join("/auth/methods").unwrap())
+        .send()
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap()["litellm_login_url"]
+        .clone()
+}
+
+async fn connect(server: &support::Server, token: &str, gateway: &str) -> reqwest::Response {
+    server
+        .client
+        .post(server.url.join("/auth/gateway").unwrap())
+        .json(&json!({"token": token, "gateway_url": gateway}))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[rstest]
+#[tokio::test]
+async fn connecting_a_gateway_turns_on_litellm_login_and_survives_a_restart(
+    #[future(awt)] database: Database,
+) {
+    let server = database.serve_standalone().await;
+    assert_eq!(login_url(&server).await, Value::Null);
+    let response = connect(&server, ADMIN, "https://gateway.test/v1").await;
+    assert_eq!(response.status(), 200);
+    let connected = response.json::<Value>().await.unwrap();
+    assert_eq!(
+        connected["litellm_login_url"],
+        "https://gateway.test/lens/login"
+    );
+    let lens = server.url.as_str().trim_end_matches('/');
+    let lines = connected["gateway_environment"].as_array().unwrap();
+    assert_eq!(lines[0], format!("LITELLM_LENS_URL={lens}"));
+    assert_eq!(lines[1], format!("LITELLM_LENS_PUBLIC_URL={lens}"));
+    let secret = lines[2]
+        .as_str()
+        .unwrap()
+        .strip_prefix("LENS_GATEWAY_SECRET=")
+        .unwrap();
+    assert!(secret.len() >= 32);
+    assert_eq!(
+        login_url(&database.serve_standalone().await).await,
+        "https://gateway.test/lens/login"
+    );
+}
+
+#[rstest]
+#[case::wrong_token("another-admin-token-32-characters-long", "https://gateway.test", 401)]
+#[case::not_a_url(ADMIN, "gateway", 422)]
+#[tokio::test]
+async fn connecting_a_gateway_needs_the_admin_token_and_a_url(
+    #[future(awt)] database: Database,
+    #[case] token: &str,
+    #[case] gateway: &str,
+    #[case] status: u16,
+) {
+    let server = database.serve_standalone().await;
+    assert_eq!(connect(&server, token, gateway).await.status(), status);
+    assert_eq!(login_url(&server).await, Value::Null);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_gateway_set_in_the_environment_is_not_replaced(#[future(awt)] database: Database) {
+    let server = database
+        .serve_with_gateway(Some("https://gateway.test"))
+        .await;
+    assert_eq!(
+        connect(&server, ADMIN, "https://other.test").await.status(),
+        409
+    );
+    assert_eq!(login_url(&server).await, "https://gateway.test/lens/login");
+}

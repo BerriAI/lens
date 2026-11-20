@@ -21,8 +21,14 @@ const api = createApiClient({
 });
 const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
 const sessionKey = ["lens-session"];
+const signInMethodsKey = ["lens-sign-in-methods"];
 const signInMethodsSchema = z.object({
   litellm_login_url: z.string().nullable(),
+});
+
+const gatewayConnectedSchema = z.object({
+  litellm_login_url: z.string(),
+  gateway_environment: z.array(z.string()),
 });
 
 configureLensHttp({ getBaseUrl: baseUrl, getAuthToken: () => null });
@@ -65,7 +71,9 @@ export function Workspace() {
     const signedOut = await api
       .delete("/auth/session")
       .then(() => true)
-      .catch((error: unknown) => error instanceof ApiError && error.status === 401);
+      .catch(
+        (error: unknown) => error instanceof ApiError && error.status === 401,
+      );
     if (!signedOut) {
       toast.error("Sign out did not complete. You are still signed in.", {
         description: "Reload the page and try again.",
@@ -141,9 +149,128 @@ function Surface({
   );
 }
 
+const primaryButton =
+  "rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground";
+
+function ConnectGateway() {
+  const client = useQueryClient();
+  const [token, setToken] = useState("");
+  const [gatewayUrl, setGatewayUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const connect = useMutation({
+    mutationFn: async () =>
+      gatewayConnectedSchema.parse(
+        await api.post("/auth/gateway", {
+          body: {
+            token,
+            gateway_url: gatewayUrl,
+            api_key: apiKey.trim() || null,
+          },
+        }),
+      ),
+    onSuccess: () => {
+      setToken("");
+      setApiKey("");
+      void client.invalidateQueries({ queryKey: signInMethodsKey });
+    },
+  });
+  if (connect.isSuccess) {
+    const lines = connect.data.gateway_environment.join("\n");
+    return (
+      <section
+        aria-label="Gateway connected"
+        className="flex flex-col gap-3 rounded-md border p-3"
+      >
+        <p className="text-sm font-medium">Lens is connected</p>
+        <p className="text-xs text-muted-foreground">
+          Add these lines to your LiteLLM gateway&apos;s environment and restart
+          it. Then log in with LiteLLM. The secret is shown only once.
+        </p>
+        <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+          {lines}
+        </pre>
+        <button
+          type="button"
+          className="rounded-md border px-3 py-2 text-sm"
+          onClick={() =>
+            void navigator.clipboard
+              .writeText(lines)
+              .then(() => toast.success("Copied"))
+          }
+        >
+          Copy
+        </button>
+      </section>
+    );
+  }
+  return (
+    <form
+      aria-label="Set up your gateway"
+      onSubmit={(event) => {
+        event.preventDefault();
+        connect.mutate();
+      }}
+      className="flex flex-col gap-3 rounded-md border p-3"
+    >
+      <label htmlFor="connect-token" className="text-sm font-medium">
+        Admin token
+      </label>
+      <input
+        id="connect-token"
+        type="password"
+        autoComplete="current-password"
+        required
+        value={token}
+        onChange={(event) => setToken(event.target.value)}
+        className="rounded-md border px-3 py-2"
+      />
+      <label htmlFor="connect-gateway-url" className="text-sm font-medium">
+        Gateway address
+      </label>
+      <input
+        id="connect-gateway-url"
+        type="url"
+        required
+        placeholder="https://litellm.example.com"
+        value={gatewayUrl}
+        onChange={(event) => setGatewayUrl(event.target.value)}
+        className="rounded-md border px-3 py-2"
+      />
+      <label htmlFor="connect-api-key" className="text-sm font-medium">
+        Gateway API key{" "}
+        <span className="font-normal text-muted-foreground">(optional)</span>
+      </label>
+      <input
+        id="connect-api-key"
+        type="password"
+        autoComplete="off"
+        value={apiKey}
+        onChange={(event) => setApiKey(event.target.value)}
+        className="rounded-md border px-3 py-2"
+      />
+      <p className="text-xs text-muted-foreground">
+        With a key, Lens also uses the gateway&apos;s models for signals and
+        findings.
+      </p>
+      <button
+        disabled={connect.isPending}
+        className="rounded-md border px-3 py-2 text-sm"
+      >
+        {connect.isPending ? "Connecting…" : "Connect gateway"}
+      </button>
+      {connect.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {connect.error.message}
+        </p>
+      )}
+    </form>
+  );
+}
+
 function SignIn({ linkRejected }: { linkRejected: boolean }) {
   const client = useQueryClient();
   const [token, setToken] = useState("");
+  const [settingUp, setSettingUp] = useState(false);
   const login = useMutation({
     mutationFn: async (value: string) =>
       sessionSchema.parse(
@@ -158,7 +285,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
     },
   });
   const methods = useQuery({
-    queryKey: ["lens-sign-in-methods"],
+    queryKey: signInMethodsKey,
     queryFn: async () =>
       signInMethodsSchema.parse(await api.get("/auth/methods")),
     retry: false,
@@ -184,11 +311,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
       />
       <button
         disabled={login.isPending}
-        className={
-          litellmLoginUrl
-            ? "rounded-md border px-3 py-2 text-sm"
-            : "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-        }
+        className="rounded-md border px-3 py-2 text-sm"
       >
         {login.isPending ? "Signing in…" : "Sign in"}
       </button>
@@ -211,14 +334,33 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
             again.
           </p>
         )}
-        {methods.isPending ? null : litellmLoginUrl ? (
+        {methods.isPending ? null : (
           <>
-            <a
-              href={litellmLoginUrl}
-              className="rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground"
-            >
-              Log in with LiteLLM
-            </a>
+            {litellmLoginUrl ? (
+              <a href={litellmLoginUrl} className={primaryButton}>
+                Log in with LiteLLM
+              </a>
+            ) : (
+              <button
+                type="button"
+                className={primaryButton}
+                onClick={() => setSettingUp(true)}
+              >
+                Log in with LiteLLM
+              </button>
+            )}
+            <p className="text-center text-xs text-muted-foreground">
+              Don&apos;t have your gateway set up?{" "}
+              <button
+                type="button"
+                aria-expanded={settingUp}
+                className="text-foreground underline underline-offset-4"
+                onClick={() => setSettingUp(!settingUp)}
+              >
+                Set up
+              </button>
+            </p>
+            {settingUp && <ConnectGateway />}
             <details className="group">
               <summary className="flex cursor-pointer list-none items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                 Legacy admin token
@@ -240,8 +382,6 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
               <div className="pt-4">{form}</div>
             </details>
           </>
-        ) : (
-          form
         )}
         <a href="?demo=true" className="text-sm underline">
           Explore demo data
