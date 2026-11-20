@@ -123,6 +123,16 @@ describe("Lens navigation", () => {
     }));
   });
 
+  it("keeps demo Signal and Slack settings available without requesting live activity", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?demo=true&tab=alerts" });
+    expect(await screen.findByText("No evaluated traces in this window.")).toBeVisible();
+    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(50);
+    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
+    expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/signals"))).toBe(false);
+  });
+
   it("shows a read-only empty dashboard for a Gateway admin viewer", async () => {
     const original = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation((input, init) =>

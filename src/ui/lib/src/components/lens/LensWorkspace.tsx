@@ -116,7 +116,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const { trace, openTrace, openSignal } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
   const canViewInvestigations = isProxyAdminTierRole(userRole);
-  const canViewAlerts = canViewInvestigations && !demo;
+  const canViewAlerts = canViewInvestigations;
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
   const connectGitHub =
