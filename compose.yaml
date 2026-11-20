@@ -1,4 +1,0 @@
-name: lens
-
-include:
-  - deploy/lens/compose.yaml

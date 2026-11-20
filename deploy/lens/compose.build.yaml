@@ -1,8 +1,0 @@
-services:
-  lens:
-    build:
-      context: ../..
-      dockerfile: deploy/runtime/Dockerfile
-      args:
-        LENS_VERSION: ${LENS_VERSION:-0.1.0}
-    image: ${LENS_IMAGE:-lens:local}
