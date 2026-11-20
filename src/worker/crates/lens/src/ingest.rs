@@ -8,7 +8,7 @@ use flate2::read::MultiGzDecoder;
 use litellm_traces::Tenant;
 use litellm_traces_clickhouse::{InsertTable, insert_shared_rows};
 use prost::Message;
-use std::{io::Read, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, io::Read, sync::Arc, time::Duration};
 use tokio::sync::OwnedSemaphorePermit;
 
 pub const UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
@@ -118,7 +118,11 @@ async fn receive_authorized(
     body: Body,
     logs: bool,
 ) -> Result<(), Error> {
-    let tenant = state.credentials.tenant(headers)?;
+    let tenant = if !logs && state.authorize_service(headers).is_ok() {
+        None
+    } else {
+        Some(state.credentials.tenant(headers)?)
+    };
     state.require_storage()?;
     let permit = state
         .ingest_slots
@@ -155,12 +159,16 @@ async fn store(
     payload: bytes::Bytes,
     encoding: Option<String>,
     content_type: Option<String>,
-    tenant: Tenant,
+    tenant: Option<Tenant>,
     logs: bool,
     permit: OwnedSemaphorePermit,
 ) -> Result<(), Error> {
     let (logs, spans, _permit) = tokio::task::spawn_blocking(move || {
         let payload = decompress(&payload, encoding.as_deref())?;
+        let Some(tenant) = tenant else {
+            let spans = gateway_span_rows(&payload, content_type.as_deref())?;
+            return Ok((Vec::new(), spans, permit));
+        };
         let (logs, spans) = if logs {
             let batch = litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
                 .map_err(litellm_traces_clickhouse::Error::from)?;
@@ -215,6 +223,41 @@ async fn store(
     )
     .await?;
     Ok(())
+}
+
+fn gateway_owner(attributes: &BTreeMap<String, String>) -> Option<Tenant> {
+    let stamp = |key: &str| attributes.get(key).cloned().unwrap_or_default();
+    attributes
+        .contains_key("litellm.api_key.hash")
+        .then(|| Tenant {
+            team_id: stamp("litellm.team.id"),
+            api_key_hash: stamp("litellm.api_key.hash"),
+            org_id: stamp("litellm.metadata.user_api_key_org_id"),
+            user_id: stamp("litellm.metadata.user_api_key_user_id"),
+        })
+}
+
+fn gateway_span_rows(
+    payload: &[u8],
+    content_type: Option<&str>,
+) -> Result<Vec<litellm_traces_clickhouse::InsertRow>, Error> {
+    let spans = litellm_traces::decode_otlp(payload, content_type)
+        .map_err(litellm_traces_clickhouse::Error::from)?;
+    let owners: BTreeMap<String, Tenant> = spans
+        .iter()
+        .filter_map(|span| Some((span.trace_id.clone(), gateway_owner(&span.attributes)?)))
+        .collect();
+    let mut traces: BTreeMap<String, Vec<litellm_traces::DecodedSpan>> = BTreeMap::new();
+    for span in spans {
+        traces.entry(span.trace_id.clone()).or_default().push(span);
+    }
+    Ok(traces
+        .into_iter()
+        .flat_map(|(trace_id, spans)| {
+            let owner = owners.get(&trace_id).cloned().unwrap_or_default();
+            litellm_traces_clickhouse::span_rows(spans, &owner)
+        })
+        .collect())
 }
 
 #[cfg(test)]

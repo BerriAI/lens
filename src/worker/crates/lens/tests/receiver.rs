@@ -81,7 +81,11 @@ fn export() -> serde_json::Value {
     ]}, "scopeSpans": [{"spans": [{
         "traceId": "1234567890abcdef1234567890abcdef", "spanId": "1234567890abcdef",
         "name": "receiver boundary", "startTimeUnixNano": "1791388800000000000",
-        "endTimeUnixNano": "1791388801000000000", "status": {"code": 1}
+        "endTimeUnixNano": "1791388801000000000", "status": {"code": 1},
+        "attributes": [
+            {"key": "litellm.api_key.hash", "value": {"stringValue": "spoofed-key"}},
+            {"key": "litellm.team.id", "value": {"stringValue": "spoofed-team"}}
+        ]
     }]}]}]})
 }
 
