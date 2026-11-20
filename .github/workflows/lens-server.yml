@@ -161,6 +161,7 @@ jobs:
           LENS_IMAGE=lens:ci docker compose up --detach --wait --wait-timeout 180
           lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' .env)"
           curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
+          docker compose logs -n1 credentials | grep --fixed-strings --quiet "http://localhost:4318/ui/ and paste this setup token: $lens_token"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1

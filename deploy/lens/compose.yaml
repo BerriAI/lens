@@ -13,7 +13,7 @@ services:
         chown "$$(stat -c %u:%g /setup)" /setup/.env
         cp /setup/.env /credentials/.env
         chown 65532:65532 /credentials/.env
-        echo "Sign in at http://localhost:4318/ui/ with LENS_ADMIN_TOKEN from deploy/lens/.env"
+        echo "Open http://localhost:4318/ui/ and paste this setup token: $$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /setup/.env)"
     volumes:
       - .:/setup
       - credentials:/credentials
