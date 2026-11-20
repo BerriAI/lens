@@ -562,3 +562,28 @@ async fn gateway_sessions_keep_the_signed_in_identity(#[future(awt)] database: D
         Some(session)
     );
 }
+
+#[rstest]
+#[tokio::test]
+async fn a_spent_login_is_refused_by_every_replica(#[future(awt)] database: Database) {
+    use lens_auth::{SessionId, SessionRepository, StoreError};
+    use litellm_storage_clickhouse::sessions::Sessions;
+    let login = SessionId::for_token("gateway-login-token");
+    let expires = chrono::DateTime::parse_from_rfc3339("2026-10-08T12:00:00Z")
+        .unwrap()
+        .to_utc();
+    Sessions(database.store.clone())
+        .spend_login(&login, expires)
+        .await
+        .unwrap();
+    assert!(matches!(
+        Sessions(database.independent())
+            .spend_login(&login, expires)
+            .await,
+        Err(StoreError::Conflict)
+    ));
+    assert_eq!(
+        Sessions(database.independent()).find(&login).await.unwrap(),
+        None
+    );
+}

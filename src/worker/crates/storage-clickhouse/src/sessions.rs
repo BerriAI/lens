@@ -24,6 +24,15 @@ fn key(id: &SessionId) -> String {
     format!("session/%5B%22{}%22%5D", id.as_str())
 }
 
+#[derive(Serialize)]
+struct SpentLogin {
+    expires_at: DateTime<Utc>,
+}
+
+fn login_key(login: &SessionId) -> String {
+    format!("login/%5B%22{}%22%5D", login.as_str())
+}
+
 fn failure(error: Error) -> StoreError {
     match error {
         Error::StateConflict | Error::StateExists => StoreError::Conflict,
@@ -67,5 +76,22 @@ impl SessionRepository for Sessions {
             .await
             .map_err(failure)?;
         Ok(())
+    }
+
+    async fn spend_login(
+        &self,
+        login: &SessionId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<(), StoreError> {
+        let previous = self.0.read(&login_key(login)).await.map_err(failure)?;
+        if !previous.value.is_null() {
+            return Err(StoreError::Conflict);
+        }
+        let value = serde_json::to_value(SpentLogin { expires_at })
+            .map_err(|error| StoreError::Unavailable(Box::new(error)))?;
+        self.0
+            .commit(vec![Change { previous, value }])
+            .await
+            .map_err(failure)
     }
 }

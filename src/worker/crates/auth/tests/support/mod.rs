@@ -15,6 +15,7 @@ pub const ORIGIN: &str = "https://lens.test";
 #[derive(Clone, Default)]
 pub struct Memory {
     pub values: Arc<Mutex<BTreeMap<String, Session>>>,
+    pub spent: Arc<Mutex<BTreeMap<String, DateTime<Utc>>>>,
     pub unavailable: bool,
 }
 
@@ -47,6 +48,19 @@ impl SessionRepository for Memory {
     async fn revoke(&self, id: &SessionId) -> Result<(), StoreError> {
         self.ready()?;
         self.values.lock().unwrap().remove(id.as_str());
+        Ok(())
+    }
+    async fn spend_login(
+        &self,
+        login: &SessionId,
+        expires_at: DateTime<Utc>,
+    ) -> Result<(), StoreError> {
+        self.ready()?;
+        let mut spent = self.spent.lock().unwrap();
+        if spent.contains_key(login.as_str()) {
+            return Err(StoreError::Conflict);
+        }
+        spent.insert(login.as_str().to_owned(), expires_at);
         Ok(())
     }
 }

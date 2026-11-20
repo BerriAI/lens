@@ -58,6 +58,7 @@ export function Workspace() {
     return () => window.removeEventListener("hashchange", signIn);
   }, [client]);
   const signOut = async () => {
+    setLinkRejected(false);
     await api.delete("/auth/session").catch(() => null);
     await client.resetQueries({ queryKey: sessionKey });
   };

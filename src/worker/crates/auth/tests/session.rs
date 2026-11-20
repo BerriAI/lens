@@ -799,3 +799,32 @@ fn litellm_login_rejects_unsafe_gateway_urls(#[case] gateway: &str) {
             .is_err()
     );
 }
+
+#[rstest]
+#[tokio::test]
+async fn litellm_login_token_opens_only_one_session(
+    authentication: Authentication<Memory>,
+    now: DateTime<Utc>,
+) {
+    let token = login_token(now, "litellm-lens-login", 60);
+    authentication
+        .sign_in(&token, "first-browser", now)
+        .await
+        .unwrap();
+    assert_eq!(
+        authentication
+            .sign_in(&token, "second-browser", now + Duration::seconds(1))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Invalid Lens setup token"
+    );
+    assert_eq!(
+        authentication
+            .authenticate(cookie("second-browser"), now + Duration::seconds(2))
+            .await
+            .unwrap_err()
+            .to_string(),
+        "Lens session has expired"
+    );
+}

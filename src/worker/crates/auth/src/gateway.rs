@@ -6,6 +6,8 @@ use serde::{Deserialize, Deserializer};
 use crate::Error;
 
 const CLOCK_SKEW_SECONDS: i64 = 5;
+const MAX_LIFETIME_SECONDS: i64 = 60;
+pub(super) const LOGIN_LIFETIME_SECONDS: i64 = MAX_LIFETIME_SECONDS + CLOCK_SKEW_SECONDS;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,7 +69,7 @@ fn verified(
     if claims
         .exp
         .checked_sub(claims.iat)
-        .is_none_or(|lifetime| !(1..=60).contains(&lifetime))
+        .is_none_or(|lifetime| !(1..=MAX_LIFETIME_SECONDS).contains(&lifetime))
         || subject != Some(claims.sub.as_str())
     {
         return Err(Error::Unauthorized("Invalid gateway identity scope"));

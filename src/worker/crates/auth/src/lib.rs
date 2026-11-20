@@ -51,6 +51,11 @@ pub trait SessionRepository: Send + Sync {
         id: &SessionId,
     ) -> impl Future<Output = Result<Option<Session>, StoreError>> + Send;
     fn revoke(&self, id: &SessionId) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn spend_login(
+        &self,
+        login: &SessionId,
+        expires_at: DateTime<Utc>,
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
 }
 
 pub struct Settings {
@@ -188,6 +193,16 @@ impl<R: SessionRepository> Authentication<R> {
                 .ok_or(Error::Unauthorized("Invalid Lens setup token"))?;
             let identity = gateway::login_identity(token, secret, now)
                 .map_err(|_| Error::Unauthorized("Invalid Lens setup token"))?;
+            self.sessions
+                .spend_login(
+                    &SessionId::for_token(token),
+                    now + chrono::Duration::seconds(gateway::LOGIN_LIFETIME_SECONDS),
+                )
+                .await
+                .map_err(|error| match error {
+                    StoreError::Conflict => Error::Unauthorized("Invalid Lens setup token"),
+                    error => Error::from(error),
+                })?;
             (Some(identity), GATEWAY_SESSION_LIFETIME_SECONDS)
         };
         self.sessions
