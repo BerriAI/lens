@@ -2,8 +2,8 @@ mod support;
 
 use chrono::{DateTime, Duration, Utc};
 use lens_auth::{
-    Authentication, Error, ReadScope, Session, SessionId, Settings, StoreError, local_admin,
-    session_view, trace_read_scope,
+    Authentication, Error, GatewayConnection, ReadScope, Session, SessionId, Settings, StoreError,
+    local_admin, session_view, trace_read_scope,
 };
 use lens_contract::auth::{Identity, Role};
 use rstest::rstest;
@@ -782,7 +782,7 @@ fn litellm_login_link_needs_the_gateway_secret(
         .unwrap()
         .with_gateway_login(gateway)
         .unwrap();
-    assert_eq!(settings.gateway_login_url(), link);
+    assert_eq!(settings.gateway_login_url().as_deref(), link);
 }
 
 #[rstest]
@@ -827,4 +827,121 @@ async fn litellm_login_token_opens_only_one_session(
             .to_string(),
         "Lens session has expired"
     );
+}
+
+fn standalone() -> Authentication<Memory> {
+    Authentication {
+        settings: Settings::new(ADMIN, None, ORIGIN).unwrap(),
+        sessions: Memory::default(),
+    }
+}
+
+fn connection(url: &str, api_key: Option<&str>) -> GatewayConnection {
+    GatewayConnection {
+        url: url.to_owned(),
+        secret: support::SECRET.to_owned(),
+        api_key: api_key.map(str::to_owned),
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn connecting_a_gateway_turns_on_litellm_login(now: DateTime<Utc>) {
+    let authentication = standalone();
+    authentication
+        .connect_gateway(ADMIN, connection("http://litellm:4000/v1", None))
+        .await
+        .unwrap();
+    assert_eq!(
+        authentication.settings.gateway_login_url().as_deref(),
+        Some("http://litellm:4000/lens/login")
+    );
+    assert!(
+        authentication
+            .sign_in(&login_token(now, "litellm-lens-login", 60), "browser", now)
+            .await
+            .is_ok()
+    );
+}
+
+#[rstest]
+#[case::with_key(Some("sk-gateway"), Some(("https://gateway.test".to_owned(), "sk-gateway".to_owned())))]
+#[case::login_only(None, None)]
+#[tokio::test]
+async fn connected_gateway_serves_models_only_with_a_key(
+    #[case] api_key: Option<&str>,
+    #[case] models: Option<(String, String)>,
+) {
+    let authentication = standalone();
+    authentication
+        .connect_gateway(ADMIN, connection("https://gateway.test", api_key))
+        .await
+        .unwrap();
+    assert_eq!(authentication.settings.connected_model_gateway(), models);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_restarted_lens_loads_the_saved_gateway() {
+    let first = standalone();
+    first
+        .connect_gateway(ADMIN, connection("https://gateway.test", None))
+        .await
+        .unwrap();
+    let restarted = Authentication {
+        settings: Settings::new(ADMIN, None, ORIGIN).unwrap(),
+        sessions: first.sessions.clone(),
+    };
+    assert_eq!(restarted.settings.gateway_login_url(), None);
+    restarted.refresh_gateway().await.unwrap();
+    assert_eq!(
+        restarted.settings.gateway_login_url().as_deref(),
+        Some("https://gateway.test/lens/login")
+    );
+}
+
+#[rstest]
+#[case::wrong_token(
+    "another-admin-token-32-characters-long",
+    "https://gateway.test",
+    "Invalid Lens admin token"
+)]
+#[case::not_a_url(ADMIN, "gateway", "Enter the gateway address as an http or https URL")]
+#[case::credentials(
+    ADMIN,
+    "https://user:pass@gateway.test",
+    "Enter the gateway address as an http or https URL"
+)]
+#[tokio::test]
+async fn connecting_a_gateway_rejects_bad_requests(
+    #[case] token: &str,
+    #[case] url: &str,
+    #[case] message: &str,
+) {
+    let authentication = standalone();
+    assert_eq!(
+        authentication
+            .connect_gateway(token, connection(url, None))
+            .await
+            .unwrap_err()
+            .to_string(),
+        message
+    );
+    assert_eq!(authentication.settings.gateway_login_url(), None);
+    assert_eq!(*authentication.sessions.gateway.lock().unwrap(), None);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_gateway_set_in_the_environment_cannot_be_replaced(
+    authentication: Authentication<Memory>,
+) {
+    assert!(matches!(
+        authentication
+            .connect_gateway(ADMIN, connection("https://other.test", Some("sk-other")))
+            .await,
+        Err(Error::GatewayLocked)
+    ));
+    assert_eq!(authentication.settings.connected_model_gateway(), None);
+    assert_eq!(*authentication.sessions.gateway.lock().unwrap(), None);
 }

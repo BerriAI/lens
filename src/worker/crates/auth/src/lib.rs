@@ -186,6 +186,14 @@ impl Settings {
         &self.origin
     }
 
+    pub fn connected_model_gateway(&self) -> Option<(String, String)> {
+        if self.gateway_secret.is_some() {
+            return None;
+        }
+        let gateway = self.connected()?;
+        Some((gateway.url, gateway.api_key?))
+    }
+
     fn connected(&self) -> Option<GatewayConnection> {
         self.connected_gateway
             .read()

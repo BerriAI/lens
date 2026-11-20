@@ -64,6 +64,15 @@ impl SessionRepository for Memory {
         spent.insert(login.as_str().to_owned(), expires_at);
         Ok(())
     }
+    async fn save_gateway(&self, gateway: &lens_auth::GatewayConnection) -> Result<(), StoreError> {
+        self.ready()?;
+        *self.gateway.lock().unwrap() = Some(gateway.clone());
+        Ok(())
+    }
+    async fn gateway(&self) -> Result<Option<lens_auth::GatewayConnection>, StoreError> {
+        self.ready()?;
+        Ok(self.gateway.lock().unwrap().clone())
+    }
 }
 
 #[fixture]
@@ -94,14 +103,5 @@ pub fn bearer(authorization: &str) -> Credentials<'_> {
         session: Some("active"),
         method: "DELETE",
         origin: None,
-    }
-    async fn save_gateway(&self, gateway: &lens_auth::GatewayConnection) -> Result<(), StoreError> {
-        self.ready()?;
-        *self.gateway.lock().unwrap() = Some(gateway.clone());
-        Ok(())
-    }
-    async fn gateway(&self) -> Result<Option<lens_auth::GatewayConnection>, StoreError> {
-        self.ready()?;
-        Ok(self.gateway.lock().unwrap().clone())
     }
 }

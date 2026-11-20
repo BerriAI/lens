@@ -64,10 +64,13 @@ struct Registry {
     refresh: Mutex<()>,
     client: reqwest::Client,
     connection: Option<GatewayConfig>,
+    connected: RwLock<Option<Connected>>,
     signing: Option<lens_inference::GatewayBase>,
     analysis: Vec<lens_analysis::Deployment>,
     evaluation: Vec<lens_decisions::Deployment>,
 }
+
+type Connected = Arc<dyn Fn() -> Option<GatewayConfig> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Models(Arc<Registry>);
@@ -76,9 +79,7 @@ impl Models {
     pub(crate) fn optimization_config(
         &self,
     ) -> Option<(GatewayConfig, Option<lens_inference::GatewayBase>)> {
-        self.0
-            .connection
-            .clone()
+        self.connection()
             .map(|connection| (connection, self.0.signing.clone()))
     }
     pub fn new(
@@ -112,6 +113,7 @@ impl Models {
             refresh: Mutex::new(()),
             client,
             connection,
+            connected: RwLock::new(None),
             signing,
             analysis,
             evaluation,
@@ -127,7 +129,27 @@ impl Models {
     }
 
     pub(crate) fn connection(&self) -> Option<GatewayConfig> {
-        self.0.connection.clone()
+        self.0.connection.clone().or_else(|| {
+            let connected = self
+                .0
+                .connected
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            connected.and_then(|connected| connected())
+        })
+    }
+
+    pub fn connected_by(
+        self,
+        connected: impl Fn() -> Option<GatewayConfig> + Send + Sync + 'static,
+    ) -> Self {
+        *self
+            .0
+            .connected
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Arc::new(connected));
+        self
     }
 
     pub(crate) fn client(&self) -> reqwest::Client {
@@ -193,10 +215,21 @@ impl ModelCatalog for Models {
             .collect()
     }
     fn gateway(&self) -> GatewayStatus {
-        self.snapshot().status.clone()
+        let mut status = self.snapshot().status.clone();
+        let api_base = self
+            .connection()
+            .map(|connection| connection.base.to_string().trim_end_matches('/').to_owned());
+        if status.api_base != api_base {
+            status.connected = false;
+            status.analysis_models = 0;
+            status.evaluation_models = 0;
+        }
+        status.configured = api_base.is_some();
+        status.api_base = api_base;
+        status
     }
     async fn refresh(&self) -> GatewayStatus {
-        let Some(connection) = &self.0.connection else {
+        let Some(connection) = &self.connection() else {
             return self.gateway();
         };
         let _refresh = self.0.refresh.lock().await;
@@ -260,7 +293,7 @@ pub enum AnalysisSource {
 
 impl AnalysisSource {
     pub(crate) fn refreshes(&self) -> bool {
-        matches!(self, Self::Connected(models) if models.0.connection.is_some())
+        matches!(self, Self::Connected(models) if models.connection().is_some())
     }
 
     pub fn get(&self) -> Arc<AnalysisModels> {
