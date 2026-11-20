@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
@@ -38,6 +38,12 @@ export function Workspace() {
     enabled: !demo,
     retry: false,
   });
+  const client = useQueryClient();
+  useEffect(() => {
+    const signIn = () => void client.invalidateQueries({ queryKey: sessionKey });
+    window.addEventListener("hashchange", signIn);
+    return () => window.removeEventListener("hashchange", signIn);
+  }, [client]);
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;
   if (session.isPending)
     return (
