@@ -74,7 +74,8 @@ export interface OpenTraceRouting {
   setFullScreen: (fullScreen: boolean) => void;
 }
 
-const FRESH_RUN = { span: null, signal: null, view: null, span_tab: null, steps_q: null, errors: null };
+const FRESH_STEPS = { span: null, signal: null, span_tab: null, steps_q: null, errors: null };
+const FRESH_RUN = { ...FRESH_STEPS, view: null };
 
 const signalSelection = (signal: SignalFlag | null) => ({
   ...FRESH_RUN,
@@ -89,7 +90,7 @@ export function useOpenTraceRouting(): OpenTraceRouting {
   const openTrace = useCallback(
     (ref: TraceRef | null) => {
       const run = { trace: ref?.traceId ?? null, trace_ref: ref?.traceRef || null };
-      void setParams(ref === null ? { ...FRESH_RUN, ...run, fullscreen: null } : { ...FRESH_RUN, ...run });
+      void setParams(ref === null ? { ...FRESH_RUN, ...run, fullscreen: null } : { ...FRESH_STEPS, ...run });
     },
     [setParams],
   );

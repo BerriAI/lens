@@ -657,6 +657,26 @@ describe("AgentTracesSection", () => {
     expect(screen.getByTestId("run-view")).toHaveTextContent(`run ${runs[1].trace_id}`);
   });
 
+  it("keeps the Thread view when switching to another run and drops it on close", async () => {
+    vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
+    const onUrlUpdate = vi.fn();
+    renderWithProviders(<AgentTracesSection accessToken="sk-test" isActive range={ROLLING_DAY} />, {
+      searchParams: `?trace=${runs[0].trace_id}&view=thread&span=step-1&steps_q=tool`,
+      onUrlUpdate,
+    });
+    const rows = await screen.findAllByTestId("agent-trace-row");
+
+    fireEvent.click(rows[1]);
+    await waitFor(() => expect(lastUrl(onUrlUpdate).get("trace")).toBe(runs[1].trace_id));
+    expect(lastUrl(onUrlUpdate).get("view")).toBe("thread");
+    expect(lastUrl(onUrlUpdate).has("span")).toBe(false);
+    expect(lastUrl(onUrlUpdate).has("steps_q")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close trace (Esc)" }));
+    await waitFor(() => expect(lastUrl(onUrlUpdate).has("trace")).toBe(false));
+    expect(lastUrl(onUrlUpdate).has("view")).toBe(false);
+  });
+
   it("opens full screen from a shared link and drops it from the URL on close", async () => {
     vi.mocked(agentTraceListCall).mockResolvedValue(traceList as TracePage);
     const onUrlUpdate = vi.fn();
