@@ -23,6 +23,8 @@ pub struct Identity {
     #[serde(default)]
     pub user_role: Role,
     pub user_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_name: Option<String>,
     pub team_id: Option<String>,
     pub org_id: Option<String>,
     pub token: Option<String>,
@@ -36,6 +38,8 @@ pub struct Identity {
 #[serde(deny_unknown_fields)]
 pub struct SessionView {
     pub user_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_name: Option<String>,
     pub user_role: Role,
 }
 

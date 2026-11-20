@@ -19,7 +19,11 @@ const api = createApiClient({
   getBaseUrl: baseUrl,
   getAuthHeaderName: () => "Authorization",
 });
-const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
+const sessionSchema = z.object({
+  user_id: z.string(),
+  user_name: z.string().optional(),
+  user_role: z.string(),
+});
 const sessionKey = ["lens-session"];
 const signInMethodsKey = ["lens-sign-in-methods"];
 const signInMethodsSchema = z.object({
@@ -95,10 +99,7 @@ export function Workspace() {
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
         user={{
-          name:
-            session.data.user_id === "lens-admin"
-              ? "Setup token"
-              : session.data.user_id,
+          name: session.data.user_name ?? session.data.user_id,
           role: session.data.user_role,
           signOut: () => void signOut(),
         }}
