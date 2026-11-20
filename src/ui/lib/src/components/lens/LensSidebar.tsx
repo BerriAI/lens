@@ -4,10 +4,11 @@ import { useState } from "react";
 import { STANDALONE_DOCS_URL, useLensHost, type LensHost } from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useIsClient, useMediaQuery } from "usehooks-ts";
-import { ArrowUpRight, BookOpen, ChevronsUpDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, ChevronsUpDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/cva.config";
 import { AgentPicker } from "./agents/AgentPicker";
 import type { LensAgents } from "./agents/AgentScoped";
@@ -152,6 +153,32 @@ function SidebarNavigation({
         <span className={cn(collapsed && "sr-only")}>Documentation</span>
         {!collapsed && <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />}
       </a>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <a
+                href="https://calendly.com/d/dtr8-nnr-3yy/litellm-product-team-feedback"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "mt-1 flex h-9 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                  collapsed && "justify-center px-0",
+                )}
+              />
+            }
+          >
+            <CalendarDays aria-hidden="true" className="size-4" />
+            <span className={cn(collapsed && "sr-only")}>Book a call</span>
+            {!collapsed && (
+              <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />
+            )}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            Book a call with LiteLLM founders
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       {host.user && <UserMenu user={host.user} collapsed={collapsed} />}
     </>
   );

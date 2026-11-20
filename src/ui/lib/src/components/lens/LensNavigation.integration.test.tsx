@@ -36,6 +36,33 @@ describe("Lens navigation", () => {
     );
   });
 
+  it("offers a founder call from expanded and collapsed navigation", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LensWorkspace {...admin} />, {
+      searchParams: "?tab=traces",
+    });
+    const booking = screen.getByRole("link", { name: "Book a call" });
+    expect(booking).toHaveAttribute(
+      "href",
+      "https://calendly.com/d/dtr8-nnr-3yy/litellm-product-team-feedback",
+    );
+    expect(booking).toHaveAttribute("target", "_blank");
+    expect(booking).toHaveAttribute("rel", "noopener noreferrer");
+    await user.hover(booking);
+    expect(
+      await screen.findByText("Book a call with LiteLLM founders"),
+    ).toBeVisible();
+    await user.unhover(booking);
+    await user.click(
+      screen.getByRole("button", { name: "Collapse navigation" }),
+    );
+    expect(screen.getByRole("link", { name: "Book a call" })).toBeVisible();
+    await user.hover(screen.getByRole("link", { name: "Book a call" }));
+    expect(
+      await screen.findByText("Book a call with LiteLLM founders"),
+    ).toBeVisible();
+  });
+
   it("keeps traces accessible and hides the separate investigations tab", async () => {
     const user = userEvent.setup();
     const onUrlUpdate = vi.fn();
