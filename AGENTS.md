@@ -12,7 +12,7 @@ Where code lives:
 
 The other exception is the sandboxed interpreter the investigation agent uses to run model-written analysis code (`python_runtime.py` and `python_policy.c` under `src/worker/crates/lens/sandbox/`). Do not add anything else beside it
 
-Merge a PR only after its CI run is green
+Merge a PR only after its CI run is green, except for the `rust` check and the two `standalone-container` checks. Those three are optional for now. They still run on every PR and on `main`, but do not wait for them and do not hold a merge because one is pending or red
 
 Do not write comments unless they are any of:
 - absolutely necessary to explain some very complex business logic (in which case, keep it concise and clear)
