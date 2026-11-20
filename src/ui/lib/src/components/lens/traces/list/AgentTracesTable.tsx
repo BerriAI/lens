@@ -6,8 +6,9 @@ import { createContext, useContext, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 
 import { DataTableViewOptions } from "../../../shared/DataTable/DataTableViewOptions";
+import { usePersistedColumnSizing } from "../../../shared/DataTable/usePersistedColumnSizing";
 import { usePersistedColumnVisibility } from "../../../shared/DataTable/usePersistedColumnVisibility";
-import { InspectorTable, useInspectorTable } from "../../../shared/InspectorTable";
+import { InspectorTable, columnWidth, useInspectorTable } from "../../../shared/InspectorTable";
 import { Button } from "../../../ui/button";
 import { Skeleton } from "../../../ui/skeleton";
 import { cn } from "../../../../lib/cva.config";
@@ -371,6 +372,7 @@ const RUN_COLUMNS: ColumnDef<TraceSummary>[] = [
     id: "open",
     size: 32,
     enableHiding: false,
+    enableResizing: false,
     header: ({ table }) => <DataTableViewOptions table={table} label="Columns" iconOnly />,
     cell: () => <ChevronRight className="size-3 text-muted-foreground/60" />,
     meta: { className: "px-0", headerClassName: "px-1", renderSkeleton: () => null },
@@ -424,6 +426,14 @@ function rowFlags(
   return { lowFeedback, flagged: lowFeedback || signalled };
 }
 
+const FLUID_COLUMN_MIN_WIDTH = 240;
+
+/** With a fluid column the grid fills the pane; once every column has a width the grid is exactly their sum. */
+export function gridWidth(widths: readonly (number | undefined)[]): { minWidth: number; width?: number } {
+  const minWidth = widths.reduce<number>((total, width) => total + (width ?? FLUID_COLUMN_MIN_WIDTH), 0);
+  return widths.includes(undefined) ? { minWidth } : { minWidth, width: minWidth };
+}
+
 const bodyClassName = (blurred?: boolean) => cn("transition-[filter]", blurred && "blur-[1.5px]");
 
 /** Devtool-dense runs list: one row per agent run, newest first. */
@@ -452,6 +462,7 @@ export function AgentTracesTable({
   const canContinue = settled && hasMore && !isPlaceholder;
   const autoContinue = canContinue && traces.length > 0;
   const { columnVisibility, onColumnVisibilityChange } = usePersistedColumnVisibility("lens-traces");
+  const { columnSizing, onColumnSizingChange } = usePersistedColumnSizing("lens-traces");
   const tableOptions: TableOptions<TraceSummary> = {
     data: traces,
     columns: RUN_COLUMNS.filter(
@@ -460,8 +471,10 @@ export function AgentTracesTable({
     defaultColumn: { size: undefined },
     getRowId: runKey,
     autoResetAll: false,
-    state: { columnVisibility },
+    enableColumnResizing: true,
+    state: { columnVisibility, columnSizing },
     onColumnVisibilityChange,
+    onColumnSizingChange,
     getCoreRowModel: getCoreRowModel(),
   };
   const table = useReactTable(tableOptions);
@@ -481,11 +494,7 @@ export function AgentTracesTable({
                 aria-label="Agent runs"
                 aria-busy={isFetching}
                 className="text-xs"
-                style={{
-                  minWidth: table
-                    .getVisibleLeafColumns()
-                    .reduce((width, column) => width + (column.columnDef.size ?? 240), 0),
-                }}
+                style={gridWidth(table.getVisibleLeafColumns().map((column) => columnWidth(table, column)))}
               >
                 <InspectorTable.Header />
                 <InspectorTable.Body<TraceSummary>

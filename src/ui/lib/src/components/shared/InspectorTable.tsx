@@ -2,10 +2,23 @@
 
 import "./DataTable/columnMeta";
 
-import { flexRender, type Row as TanStackRow, type Table as TanStackTable } from "@tanstack/react-table";
+import {
+  flexRender,
+  type Column,
+  type Row as TanStackRow,
+  type Table as TanStackTable,
+} from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronRight } from "lucide-react";
-import { createContext, Fragment, useContext, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  createContext,
+  Fragment,
+  useContext,
+  useState,
+  type ComponentProps,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 
 import { Inspector } from "./Inspector";
 import { Skeleton } from "../ui/skeleton";
@@ -13,6 +26,7 @@ import { TableBody, TableCell, TableHead, TableHeader } from "../ui/table";
 import { cn } from "../../lib/cva.config";
 
 const OVERSCAN_ROWS = 12;
+export const MIN_COLUMN_WIDTH = 48;
 const NUMERIC = "text-right tabular-nums";
 const ROW =
   "cursor-pointer border-b border-border/60 transition-colors duration-150 hover:bg-trace-row-hover focus-visible:outline-2 focus-visible:outline-ring data-[state=selected]:bg-trace-row-selected data-[state=selected]:shadow-[inset_2px_0_0_var(--trace-brand)] data-[state=selected]:hover:bg-trace-row-selected motion-reduce:transition-none";
@@ -48,18 +62,59 @@ function Root<T>({ table, className, children, ...props }: RootProps<T>) {
   );
 }
 
-/** A column without `size` takes the remaining width. */
+/** The width the user dragged a column to, else its `size`. A column with neither takes the remaining width. */
+export function columnWidth<T>(table: TanStackTable<T>, column: Column<T>): number | undefined {
+  return table.getState().columnSizing[column.id] ?? column.columnDef.size;
+}
+
 function Grid({ className, children, ...props }: ComponentProps<"table">) {
   const { table } = useInspectorTable();
   return (
     <table data-slot="table" className={cn("w-full table-fixed border-collapse text-left", className)} {...props}>
       <colgroup>
         {table.getVisibleLeafColumns().map((column) => (
-          <col key={column.id} style={{ width: column.columnDef.size }} />
+          <col key={column.id} style={{ width: columnWidth(table, column) }} />
         ))}
       </colgroup>
       {children}
     </table>
+  );
+}
+
+const headerTitle = <T,>(column: Column<T>): string =>
+  column.columnDef.meta?.title ?? (typeof column.columnDef.header === "string" ? column.columnDef.header : column.id);
+
+/** Drag sets the column's width, double-click puts it back to its default. */
+function ResizeHandle<T>({ column }: { readonly column: Column<T> }) {
+  const { table } = useInspectorTable<T>();
+  const [drag, setDrag] = useState<{ readonly x: number; readonly width: number } | null>(null);
+  const start = (event: PointerEvent<HTMLSpanElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag({ x: event.clientX, width: event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0 });
+  };
+  const move = (event: PointerEvent<HTMLSpanElement>) => {
+    if (!drag) return;
+    const width = Math.max(MIN_COLUMN_WIDTH, Math.round(drag.width + event.clientX - drag.x));
+    table.setColumnSizing((sizing) => ({ ...sizing, [column.id]: width }));
+  };
+  const reset = () =>
+    table.setColumnSizing((sizing) => Object.fromEntries(Object.entries(sizing).filter(([id]) => id !== column.id)));
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${headerTitle(column)} column`}
+      title="Drag to resize, double-click to reset"
+      data-resizing={drag ? true : undefined}
+      onPointerDown={start}
+      onPointerMove={move}
+      onPointerUp={() => setDrag(null)}
+      onPointerCancel={() => setDrag(null)}
+      onDoubleClick={reset}
+      className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none select-none after:absolute after:inset-y-1.5 after:right-0 after:w-px after:bg-border hover:after:inset-y-0 hover:after:w-0.5 hover:after:bg-ring data-resizing:after:inset-y-0 data-resizing:after:w-0.5 data-resizing:after:bg-ring"
+    />
   );
 }
 
@@ -75,12 +130,13 @@ function Header({ hidden = false }: { readonly hidden?: boolean }) {
             <TableHead
               key={id}
               className={cn(
-                "h-auto px-3 text-muted-foreground",
+                "relative h-auto px-3 text-muted-foreground",
                 column.columnDef.meta?.numeric && NUMERIC,
                 column.columnDef.meta?.headerClassName,
               )}
             >
               {isPlaceholder ? null : flexRender(column.columnDef.header, getContext())}
+              {table.options.enableColumnResizing && column.getCanResize() && <ResizeHandle column={column} />}
             </TableHead>
           ))}
         </tr>
