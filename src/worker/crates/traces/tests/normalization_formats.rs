@@ -1357,3 +1357,28 @@ fn opencode_internal_span_is_not_an_agent_run(span: Span) {
     assert_eq!(decoded.normalized.framework, None);
     assert_eq!(decoded.normalized.agent_name, None);
 }
+
+#[rstest]
+#[case::session_title(
+    r#"{"messages":[{"role":"system","content":"You are a title generator. You output ONLY a thread title."},{"role":"user","content":"Generate a title for this conversation:"}]}"#,
+    ""
+)]
+#[case::user_turn(
+    r#"{"messages":[{"role":"system","content":"You are OpenCode, the best coding agent on the planet."},{"role":"user","content":"Count the words in notes.txt"}]}"#,
+    "Count the words in notes.txt"
+)]
+fn opencode_session_title_call_is_not_what_the_run_was_asked(
+    span: Span,
+    #[case] prompt: &str,
+    #[case] preview: &str,
+) {
+    let decoded = decode(
+        span,
+        "opencode",
+        &[("ai.operationId", "ai.streamText"), ("ai.prompt", prompt)],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.input_preview, preview);
+}
