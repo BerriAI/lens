@@ -47,6 +47,8 @@ impl SourceReader {
             return ProfileTaxonomyParams::default();
         }
         let access = litellm_traces::query::named::ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams: scope.all_teams,
             user_id: String::new(),
             team_ids: Vec::new(),

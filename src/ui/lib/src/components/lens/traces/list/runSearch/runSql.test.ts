@@ -55,7 +55,7 @@ describe("runQuerySql", () => {
         "       if(sum(ErrorCount) > 0 OR ifNull(any(RootStatus), '') IN ('STATUS_CODE_ERROR', 'error'), 'error', 'ok') AS status,",
         "       groupUniqArrayArray(AgentNames) AS agents, groupUniqArrayArray(Models) AS models",
         "FROM agent_traces_by_key",
-        "GROUP BY TraceId",
+        "GROUP BY TeamId, ApiKeyHash, TraceId",
         `HAVING min(StartTs) >= fromUnixTimestamp64Milli(${RANGE.startMs}) AND min(StartTs) < fromUnixTimestamp64Milli(${RANGE.endMs})`,
         "   AND arrayExists(x -> x ILIKE 'researcher', agents)",
         "   AND status = 'error'",
@@ -90,4 +90,13 @@ describe("runQueryCommand", () => {
     expect(command).toContain("arrayExists(x -> x ILIKE 'researcher', agents)");
     expect(command).toContain("status = 'error'");
   });
+});
+
+it("keeps exact tenant filters in copied queries and quotes their values", () => {
+  const sql = runQuerySql(query("status:error"), RANGE, {
+    team_id: "team'one",
+    api_key_hash: "hash-a",
+  });
+  expect(sql).toContain("WHERE TeamId = 'team\\'one' AND ApiKeyHash = 'hash-a'");
+  expect(sql).toContain("GROUP BY TeamId, ApiKeyHash, TraceId");
 });

@@ -1,6 +1,6 @@
 import { getProxyBaseUrl } from "../../../../../lib/http/requests";
 import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
-import type { TraceQueryBody } from "../../types";
+import type { TraceFilters, TraceQueryBody } from "../../types";
 
 import { isNegatedOp, valueMatcher } from "../../../../shared/search/language";
 import type { SearchFilter, SearchQuery } from "../../../../shared/search/searchQuery";
@@ -9,8 +9,7 @@ import type { RunField } from "./runQuery";
 const RUN_ROWS = `SELECT TraceId AS trace_id, any(RootName) AS name, any(RootInput) AS input, sum(ErrorCount) AS errors,
        if(sum(ErrorCount) > 0 OR ifNull(any(RootStatus), '') IN ('STATUS_CODE_ERROR', 'error'), 'error', 'ok') AS status,
        groupUniqArrayArray(AgentNames) AS agents, groupUniqArrayArray(Models) AS models
-FROM agent_traces_by_key
-GROUP BY TraceId`;
+FROM agent_traces_by_key`;
 
 const sqlString = (value: string): string => `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 
@@ -63,9 +62,14 @@ export const runPredicates = (query: SearchQuery<RunField>): string[] => [
 ];
 
 /** The runs list as a trace query: one row per trace from the per-key rollup, filtered like the list. */
-export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow): string {
+export function runQuerySql(query: SearchQuery<RunField>, range?: TimeWindow, filters: TraceFilters = {}): string {
+  const scope = [
+    ...(filters.team_id ? [`TeamId = ${sqlString(filters.team_id)}`] : []),
+    ...(filters.api_key_hash ? [`ApiKeyHash = ${sqlString(filters.api_key_hash)}`] : []),
+  ];
+  const where = scope.length ? `\nWHERE ${scope.join(" AND ")}` : "";
   const having = [timeBound(range), ...runPredicates(query)].join("\n   AND ");
-  return `${RUN_ROWS}\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
+  return `${RUN_ROWS}${where}\nGROUP BY TeamId, ApiKeyHash, TraceId\nHAVING ${having}\nORDER BY min(StartTs) DESC\nLIMIT 100`;
 }
 
 /** Runs `sql` through the trace query API; the quoted heredoc keeps the SQL's own quotes intact. */
@@ -78,6 +82,6 @@ export const traceQueryCommand = (sql: string): string =>
   ].join("\n");
 
 export const runQueryCommand =
-  (range?: TimeWindow) =>
+  (range?: TimeWindow, filters: TraceFilters = {}) =>
   (query: SearchQuery<RunField>): string =>
-    traceQueryCommand(runQuerySql(query, range));
+    traceQueryCommand(runQuerySql(query, range, filters));

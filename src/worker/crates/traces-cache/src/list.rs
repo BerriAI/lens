@@ -31,6 +31,8 @@ pub async fn project_run<S: TraceStore>(
     snapshot_ms: u64,
 ) -> Result<Vec<SummaryProjection>, ReadError<S::Error>> {
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),

@@ -51,6 +51,8 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
 
 fn access() -> ReadAccessParams {
     ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team".into()],
@@ -107,6 +109,8 @@ async fn cached_trace_is_isolated_by_access_scope(
     insert(&cache, stored.clone(), trace.clone()).await.unwrap();
 
     let other_access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams,
         user_id: user_id.into(),
         team_ids: vec![team_id.into()],

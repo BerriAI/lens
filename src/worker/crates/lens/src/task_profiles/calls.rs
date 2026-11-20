@@ -316,6 +316,8 @@ mod tests {
             &crate::config::http_client().expect("client"),
             &Connection::reader("http://127.0.0.1:9", "unused").expect("connection"),
             &ReadAccessParams {
+                filter_team_id: String::new(),
+                filter_api_key_hash: String::new(),
                 all_teams: true,
                 user_id: String::new(),
                 team_ids: Vec::new(),

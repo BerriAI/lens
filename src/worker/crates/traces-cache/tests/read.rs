@@ -329,6 +329,8 @@ impl TraceStore for FakeStore {
 
 fn access() -> ReadAccessParams {
     ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),

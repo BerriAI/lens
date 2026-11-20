@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
+import { liveTracesApi } from "./traces/api";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
 import { LensHostProvider } from "../../host/LensHost";
@@ -1193,4 +1194,51 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
+});
+
+it("opens a key deep link with the same scope on the runs list and agent picker", async () => {
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/v1/traces") return Response.json({ data: [], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />, {
+    searchParams: "?tab=traces&team_id=team-a&api_key_hash=key-a",
+  });
+  expect(await screen.findByLabelText("Trace scope")).toHaveTextContent("Team: team-a");
+  expect(screen.getByLabelText("Trace scope")).toHaveTextContent("Key: key-a");
+  await waitFor(() => expect(network.mock.calls.some(([input]) => requestPath(input) === "/v1/traces")).toBe(true));
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  const scoped = requests.filter(({ path }) => path === "/v1/traces" || path === "/v1/traces/agents");
+  expect(scoped.length).toBeGreaterThanOrEqual(2);
+  expect(scoped.map(({ query }) => [query.get("team_id"), query.get("api_key_hash")])).toEqual(
+    scoped.map(() => ["team-a", "key-a"]),
+  );
+});
+
+it("preserves the selected key and team on paged trace and span HTTP reads", async () => {
+  network.mockImplementation(async () => Response.json({ data: [], agents: [], next_cursor: null }));
+  const api = liveTracesApi("live-token", {
+    team_id: "team-a",
+    api_key_hash: "key-a",
+  });
+  await api.list({ startMs: 1, endMs: 2, cursor: "next-page" }, "");
+  await api.agents({ startMs: 1, endMs: 2 });
+  await api.trace("shared-trace", "ref-a", "next-span-page");
+  await api.span("shared-trace", "span-a", "ref-a");
+  await api.spanError("shared-trace", "span-a", {
+    traceRef: "ref-a",
+    cursor: "next-error-page",
+  });
+  await api.conversation("shared-trace", "ref-a", "next-turn-page");
+  await api.anyRecorded();
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  expect(requests).toHaveLength(7);
+  expect(requests.map(({ query }) => [query.get("team_id"), query.get("api_key_hash")])).toEqual(
+    Array.from({ length: 7 }, () => ["team-a", "key-a"]),
+  );
+  expect(requests[0].query.get("cursor")).toBe("next-page");
+  expect(requests[2].query.get("cursor")).toBe("next-span-page");
+  expect(requests[5].query.get("cursor")).toBe("next-turn-page");
 });

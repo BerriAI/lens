@@ -1,8 +1,8 @@
 import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
-import type { SignalFlag, TraceSummary } from "./types";
+import type { SignalFlag, TraceFilters, TraceSummary } from "./types";
 
 export const TRACE_VIEWS = ["steps", "thread"] as const;
 export type TraceView = (typeof TRACE_VIEWS)[number];
@@ -20,9 +20,12 @@ export const traceKey = (ref: TraceRef): string => ref.traceRef || ref.traceId;
 
 /** A shareable link that opens just this run on the current page, dropping list filters and step selection. */
 export const traceShareUrl = (ref: TraceRef, location: Pick<Location, "origin" | "pathname" | "search">): string => {
-  const demo = new URLSearchParams(location.search).get("demo") === "true";
+  const current = new URLSearchParams(location.search);
+  const demo = current.get("demo") === "true";
   const params = new URLSearchParams({
     ...(demo ? { demo: "true" } : {}),
+    ...(current.get("team_id") ? { team_id: current.get("team_id")! } : {}),
+    ...(current.get("api_key_hash") ? { api_key_hash: current.get("api_key_hash")! } : {}),
     trace: ref.traceId,
     ...(ref.traceRef ? { trace_ref: ref.traceRef } : {}),
   });
@@ -57,6 +60,22 @@ export const OPEN_TRACE_PARSERS = {
   errors: parseAsBoolean.withDefault(false),
   fullscreen: parseAsBoolean.withDefault(false),
 };
+
+export const TRACE_SCOPE_PARSERS = {
+  team_id: parseAsString,
+  api_key_hash: parseAsString,
+};
+
+export function useTraceScope(): TraceFilters {
+  const [{ team_id, api_key_hash }] = useQueryStates(TRACE_SCOPE_PARSERS);
+  return useMemo(
+    () => ({
+      team_id: team_id || undefined,
+      api_key_hash: api_key_hash || undefined,
+    }),
+    [team_id, api_key_hash],
+  );
+}
 
 export const RUN_FILTER_PARSERS = {
   q: parseAsString.withDefault(""),

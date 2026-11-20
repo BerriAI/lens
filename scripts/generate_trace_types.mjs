@@ -10,6 +10,7 @@ const definitions = JSON.parse(await readFile(schema, "utf8"));
 const options = { bannerComment: "", ignoreMinAndMaxItems: true };
 const content =
   "/* Generated from schema/lens-traces.json. Run npm run generate:trace-contract. */\n" +
+  (await compile(definitions.TraceFilters, "TraceFilters", options)) +
   (await compile(
     definitions.TraceConversationPage,
     "TraceConversationPage",

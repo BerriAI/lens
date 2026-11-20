@@ -4,6 +4,8 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { apiClient } from "../../../lib/http/requests";
 import { fetchClient } from "../../../lib/http/api";
 import { liveTracesApi, TracesApiContext, type TracesApi } from "../traces/api";
+import type { TraceFilters } from "../traces/types";
+import { useTraceScope } from "../traces/routing";
 import { liveLensApi, type LensApi } from "./service";
 import { liveProfilesApi, type ProfilesApi } from "../profiles/api";
 import type { OptimizationStore } from "./demo/demoOptimizations";
@@ -19,11 +21,11 @@ export interface LensServices {
 
 const LensServicesContext = createContext<LensServices | null>(null);
 
-export function liveLensServices(accessToken: string): LensServices {
+export function liveLensServices(accessToken: string, filters: TraceFilters = {}): LensServices {
   return {
     accessToken,
     lens: liveLensApi(fetchClient, apiClient, accessToken),
-    traces: liveTracesApi(accessToken),
+    traces: liveTracesApi(accessToken, filters),
     profiles: liveProfilesApi(accessToken),
     optimizations: liveOptimizationStore(accessToken),
   };
@@ -44,7 +46,8 @@ export const useProfilesApi = (): ProfilesApi => useLensServices().profiles;
 export const useOptimizationStore = () => useLensServices().optimizations;
 
 export function useLiveLensServices(accessToken: string): LensServices {
-  return useMemo(() => liveLensServices(accessToken), [accessToken]);
+  const filters = useTraceScope();
+  return useMemo(() => liveLensServices(accessToken, filters), [accessToken, filters]);
 }
 
 export function LensServicesProvider({ services, children }: { services: LensServices; children: ReactNode }) {

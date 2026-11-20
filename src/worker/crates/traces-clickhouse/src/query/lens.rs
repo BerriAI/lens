@@ -127,6 +127,10 @@ pub struct TraceAgentsParams {
     pub all_teams: bool,
     pub user_id: String,
     pub team_ids: Vec<String>,
+    #[serde(default)]
+    pub filter_team_id: String,
+    #[serde(default)]
+    pub filter_api_key_hash: String,
     #[serde(deserialize_with = "super::number::deserialize")]
     pub start_ms: i64,
     #[serde(deserialize_with = "super::number::deserialize")]

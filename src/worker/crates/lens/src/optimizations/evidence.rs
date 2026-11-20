@@ -37,6 +37,8 @@ pub(super) struct Source {
 
 pub(super) fn scope(team: &str) -> ReadAccessParams {
     ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec![team.into()],
@@ -93,6 +95,7 @@ impl Optimizations {
                 scope(&config.team_id),
                 trace_id.into(),
                 TraceDetailRequest {
+                    filters: Default::default(),
                     trace_ref: trace_ref.to_string(),
                     cursor: None,
                     page_size: Some(500),
@@ -126,6 +129,7 @@ impl Optimizations {
                 trace_id.into(),
                 last.span_id.clone(),
                 TraceSpanRequest {
+                    filters: Default::default(),
                     trace_ref: trace_ref.to_string(),
                 },
             )

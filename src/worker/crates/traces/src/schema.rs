@@ -73,6 +73,10 @@ pub fn schemas() -> BTreeMap<&'static str, Schema> {
 pub fn request_schemas() -> BTreeMap<&'static str, Schema> {
     BTreeMap::from([
         (
+            "TraceAgentsRequest",
+            requested::<crate::request::TraceAgentsRequest>(),
+        ),
+        (
             "TraceConversationRequest",
             requested::<crate::request::TraceConversationRequest>(),
         ),
@@ -133,6 +137,7 @@ pub fn conversation_schemas() -> BTreeMap<&'static str, Schema> {
 
 pub fn ui_schemas() -> BTreeMap<&'static str, Schema> {
     BTreeMap::from([
+        ("TraceFilters", requested::<crate::request::TraceFilters>()),
         (
             "TraceConversationPage",
             emitted::<crate::TraceConversationPage>(),

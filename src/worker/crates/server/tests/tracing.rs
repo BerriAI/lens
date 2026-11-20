@@ -56,11 +56,15 @@ impl Reader {
 fn read_scope(scope: QueryScope) -> ReadAccessParams {
     match scope {
         QueryScope::All => ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),
         },
         QueryScope::Owned { user_id, team_ids } => ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams: false,
             user_id,
             team_ids,
@@ -633,5 +637,86 @@ async fn trace_trailing_slashes_preserve_redirect_location(
         response.headers()["location"],
         server.url.join(target).unwrap().as_str()
     );
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::list("/v1/traces", 200)]
+#[case::agents("/v1/traces/agents", 200)]
+#[case::detail("/v1/traces/shared", 404)]
+#[case::span("/v1/traces/shared/spans/step", 404)]
+#[case::error("/v1/traces/shared/spans/step/error", 404)]
+#[case::conversation("/v1/traces/shared/conversation", 404)]
+#[tokio::test]
+async fn selected_team_and_key_narrow_each_authenticated_read(
+    #[case] path: &str,
+    #[case] status: u16,
+) {
+    use axum::{body::Body, http::Request};
+    use lens_auth::{Authentication, Settings};
+    use litellm_storage_clickhouse::{Connection, sessions::Sessions, state::ClickHouseState};
+    use tower::ServiceExt;
+
+    let authentication = Arc::new(Authentication {
+        settings: Settings::new(ADMIN, Some(support::SECRET.into()), "http://localhost").unwrap(),
+        sessions: Sessions(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::reader("http://127.0.0.1:9", "unused").unwrap(),
+        )),
+    });
+    let reader = Reader::default();
+    let app = lens_server::tracing::router(authentication, reader.clone(), TraceConfig::default());
+    let token = identity::delegated(Identity {
+        user_id: Some("owner".into()),
+        log_team_ids: vec!["permitted-team".into()],
+        ..Identity::default()
+    });
+    let response = app.oneshot(
+        Request::get(format!("{path}?team_id=selected-team&api_key_hash=selected-key&all_teams=1&team_ids=forged-team"))
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty()).unwrap(),
+    ).await.unwrap();
+    assert_eq!(response.status(), status);
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert!(!calls[0].scope.all_teams);
+    assert_eq!(calls[0].scope.user_id, "owner");
+    assert_eq!(calls[0].scope.team_ids, ["permitted-team"]);
+    assert_eq!(calls[0].scope.filter_team_id, "selected-team");
+    assert_eq!(calls[0].scope.filter_api_key_hash, "selected-key");
+}
+
+#[rstest]
+#[case::team("team_id")]
+#[case::key("api_key_hash")]
+#[tokio::test]
+async fn overlong_tenant_filter_is_rejected_before_storage(#[case] field: &str) {
+    use axum::{body::Body, http::Request};
+    use lens_auth::{Authentication, Settings};
+    use litellm_storage_clickhouse::{Connection, sessions::Sessions, state::ClickHouseState};
+    use tower::ServiceExt;
+
+    let authentication = Arc::new(Authentication {
+        settings: Settings::new(ADMIN, None, "http://localhost").unwrap(),
+        sessions: Sessions(ClickHouseState::new(
+            litellm_http::Client::no_redirect_for_test(),
+            Connection::reader("http://127.0.0.1:9", "unused").unwrap(),
+        )),
+    });
+    let reader = Reader::default();
+    let app = lens_server::tracing::router(authentication, reader.clone(), TraceConfig::default());
+    let response = app
+        .oneshot(
+            Request::get(format!(
+                "/v1/traces?{field}={}",
+                "a".repeat(litellm_traces::request::TRACE_TENANT_FILTER_MAX_LENGTH + 1)
+            ))
+            .header("authorization", format!("Bearer {ADMIN}"))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 422);
     assert!(reader.calls.lock().unwrap().is_empty());
 }

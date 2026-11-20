@@ -2,6 +2,7 @@ import { createApiClient } from "./client";
 import { getAuthHeaderName, getRequestBaseUrl, reportError } from "./runtime";
 import type {
   Trace,
+  TraceFilters,
   TracePage,
   SpanDetail,
   SpanErrorPage,
@@ -34,6 +35,7 @@ export const agentTraceListCall = async ({
   cursor,
   agent,
   signal,
+  filters = {},
 }: {
   accessToken: string;
   startMs: number;
@@ -41,8 +43,10 @@ export const agentTraceListCall = async ({
   cursor?: string | null;
   agent?: string;
   signal?: AbortSignal;
+  filters?: TraceFilters;
 }): Promise<TracePage> => {
   const query = {
+    ...filters,
     start_ms: startMs,
     end_ms: endMs,
     cursor: cursor ?? undefined,
@@ -56,10 +60,12 @@ export const agentTraceCall = async (
   traceId: string,
   traceRef?: string,
   cursor?: string | null,
+  filters: TraceFilters = {},
 ): Promise<Trace> =>
   apiClient.get<Trace>(`/v1/traces/${encodeURIComponent(traceId)}`, {
     accessToken,
     query: {
+      ...filters,
       trace_ref: traceRef || undefined,
       cursor: cursor ?? undefined,
       page_size: 200,
@@ -72,12 +78,16 @@ export const agentTraceSpanCall = async (
   spanId: string,
   traceRef?: string,
   signal?: AbortSignal,
+  filters: TraceFilters = {},
 ): Promise<SpanDetail> =>
   apiClient.get<SpanDetail>(
     `/v1/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}`,
     {
       accessToken,
-      query: { trace_ref: traceRef || undefined } satisfies SpanQuery,
+      query: {
+        ...filters,
+        trace_ref: traceRef || undefined,
+      } satisfies SpanQuery,
       signal,
     },
   );
@@ -87,12 +97,14 @@ export const agentTraceSpanErrorCall = async (
   traceId: string,
   spanId: string,
   options: { traceRef?: string; cursor?: string | null },
+  filters: TraceFilters = {},
 ): Promise<SpanErrorPage> =>
   apiClient.get<SpanErrorPage>(
     `/v1/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}/error`,
     {
       accessToken,
       query: {
+        ...filters,
         trace_ref: options.traceRef || undefined,
         cursor: options.cursor || undefined,
       } satisfies SpanErrorQuery,

@@ -11,6 +11,7 @@ import {
 } from "../../../lib/http/requests";
 import type { AgentSummary } from "../agents/agentRollup";
 import type {
+  TraceFilters,
   SpanDetail,
   SpanQuery,
   TraceDetailQuery,
@@ -45,6 +46,8 @@ export interface TraceHandoff {
 export interface TracesApi {
   /** False for a fixed snapshot: nothing new arrives, so live tail and tracing setup don't apply. */
   readonly live: boolean;
+  readonly scope?: string;
+  readonly filters?: TraceFilters;
   handoff(traceId: string, spanId?: string | null, traceRef?: string): TraceHandoff;
   list(window: TraceWindow, agent: string, signal?: AbortSignal): Promise<TracePage>;
   agents(window: TraceWindow, signal?: AbortSignal): Promise<AgentSummary[]>;
@@ -64,12 +67,17 @@ export interface TracesApi {
 }
 
 /** A one-liner Claude Code / Codex can run to read the trace. */
-export const agentHandoffText = (traceId: string, spanId?: string | null, traceRef?: string): string => {
+export const agentHandoffText = (
+  traceId: string,
+  spanId?: string | null,
+  traceRef?: string,
+  filters: TraceFilters = {},
+): string => {
   const base = `${getProxyBaseUrl().replace(/\/$/, "")}/v1/traces/${encodeURIComponent(traceId)}`;
   const path = spanId ? `${base}/spans/${encodeURIComponent(spanId)}` : base;
   const query = spanId
-    ? ({ trace_ref: traceRef } satisfies SpanQuery)
-    : ({ trace_ref: traceRef, page_size: 200 } satisfies TraceDetailQuery);
+    ? ({ ...filters, trace_ref: traceRef } satisfies SpanQuery)
+    : ({ ...filters, trace_ref: traceRef, page_size: 200 } satisfies TraceDetailQuery);
   const params = new URLSearchParams(
     Object.entries(query)
       .filter(([, value]) => value !== undefined)
@@ -84,18 +92,20 @@ export const agentHandoffText = (traceId: string, spanId?: string | null, traceR
   return `Read ${what}, explain what happened, and investigate any issues:\ncurl --fail-with-body -sS -H "Authorization: Bearer $LITELLM_API_KEY" ${quotedUrl}\n${guidance}`;
 };
 
-export function liveTracesApi(accessToken: string): TracesApi {
+export function liveTracesApi(accessToken: string, filters: TraceFilters = {}): TracesApi {
   return {
     live: true,
+    scope: JSON.stringify([filters.team_id || "", filters.api_key_hash || ""]),
+    filters,
     handoff: (traceId, spanId, traceRef) => ({
-      text: agentHandoffText(traceId, spanId, traceRef),
+      text: agentHandoffText(traceId, spanId, traceRef, filters),
       copied: "Command copied",
     }),
-    list: (window, agent, signal) => agentTraceListCall({ accessToken, ...window, agent, signal }),
+    list: (window, agent, signal) => agentTraceListCall({ accessToken, ...window, agent, signal, filters }),
     agents: async ({ startMs, endMs }, signal) => {
       const page = await apiClient.get<TraceAgentList>("/v1/traces/agents", {
         accessToken,
-        query: { start_ms: startMs, end_ms: endMs } satisfies TraceAgentsQuery,
+        query: { ...filters, start_ms: startMs, end_ms: endMs } satisfies TraceAgentsQuery,
         signal,
       });
       return page.agents ?? [];
@@ -123,18 +133,18 @@ export function liveTracesApi(accessToken: string): TracesApi {
     anyRecorded: async () => {
       const page = await apiClient.get<TracePage>("/v1/traces", {
         accessToken,
-        query: { start_ms: 0 } satisfies TraceListQuery,
+        query: { ...filters, start_ms: 0 } satisfies TraceListQuery,
       });
       return page.data.length > 0;
     },
-    trace: (traceId, traceRef, cursor) => agentTraceCall(accessToken, traceId, traceRef, cursor),
+    trace: (traceId, traceRef, cursor) => agentTraceCall(accessToken, traceId, traceRef, cursor, filters),
     conversation: (traceId, traceRef, cursor) =>
       apiClient.get<TraceConversationPage>(`/v1/traces/${encodeURIComponent(traceId)}/conversation`, {
         accessToken,
-        query: { trace_ref: traceRef, cursor: cursor ?? undefined } satisfies TraceConversationRequest,
+        query: { ...filters, trace_ref: traceRef, cursor: cursor ?? undefined } satisfies TraceConversationRequest,
       }),
-    span: (traceId, spanId, traceRef, signal) => agentTraceSpanCall(accessToken, traceId, spanId, traceRef, signal),
-    spanError: (traceId, spanId, options) => agentTraceSpanErrorCall(accessToken, traceId, spanId, options),
+    span: (traceId, spanId, traceRef, signal) => agentTraceSpanCall(accessToken, traceId, spanId, traceRef, signal, filters),
+    spanError: (traceId, spanId, options) => agentTraceSpanErrorCall(accessToken, traceId, spanId, options, filters),
   };
 }
 

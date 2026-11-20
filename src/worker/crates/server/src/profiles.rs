@@ -135,11 +135,15 @@ impl WindowQuery {
 fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, ProfileHttpError> {
     match trace_read_scope(identity) {
         Some(ReadScope::AllRows) => Ok(ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),
         }),
         Some(ReadScope::OwnedRows { user_id, team_ids }) => Ok(ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams: false,
             user_id,
             team_ids,
@@ -564,6 +568,8 @@ mod tests {
         #[case] visible: bool,
     ) {
         let scope = ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams,
             user_id: "user".into(),
             team_ids: vec!["team".into()],
@@ -663,6 +669,8 @@ mod tests {
         #[case] expected: usize,
     ) {
         let scope = ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
             all_teams,
             user_id: "user".into(),
             team_ids: vec!["team".into()],

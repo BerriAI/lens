@@ -15,7 +15,7 @@ use litellm_traces::{
     query::named::ReadAccessParams,
     request::{
         LogListRequest, TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest,
-        TraceSpanRequest,
+        TraceFilters, TraceSpanRequest,
     },
 };
 use serde::Serialize;
@@ -164,14 +164,21 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         }))
 }
 
-fn scope(identity: &lens_contract::auth::Identity) -> Result<ReadAccessParams, TraceHttpError> {
+fn scope(
+    identity: &lens_contract::auth::Identity,
+    filters: &TraceFilters,
+) -> Result<ReadAccessParams, TraceHttpError> {
     match trace_read_scope(identity) {
         Some(ReadScope::AllRows) => Ok(ReadAccessParams {
+            filter_team_id: filters.team_id.clone().unwrap_or_default(),
+            filter_api_key_hash: filters.api_key_hash.clone().unwrap_or_default(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),
         }),
         Some(ReadScope::OwnedRows { user_id, team_ids }) => Ok(ReadAccessParams {
+            filter_team_id: filters.team_id.clone().unwrap_or_default(),
+            filter_api_key_hash: filters.api_key_hash.clone().unwrap_or_default(),
             all_teams: false,
             user_id,
             team_ids,
@@ -211,7 +218,7 @@ async fn list<R: SessionRepository, B: TraceReader>(
     let page = app
         .reader
         .list(
-            scope(&identity)?,
+            scope(&identity, &request.filters)?,
             request.agent.unwrap_or_default(),
             request.start_ms.unwrap_or(now - 86_400_000),
             request.end_ms.unwrap_or(now),
@@ -262,15 +269,15 @@ async fn agents<R: SessionRepository, B: TraceReader>(
     RawQuery(query): RawQuery,
 ) -> Result<Json<TraceAgentList>, TraceHttpError> {
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let (start_ms, end_ms) = validation::agents(query.as_deref(), app.config)?;
+    let request = validation::agents(query.as_deref(), app.config)?;
     let now = Utc::now().timestamp_millis();
     let start = now.saturating_sub(app.config.retention_days.saturating_mul(86_400_000));
     let agents = app
         .reader
         .agents(
-            scope(&identity)?,
-            start_ms.unwrap_or(start),
-            end_ms.unwrap_or(now),
+            scope(&identity, &request.filters)?,
+            request.start_ms.unwrap_or(start),
+            request.end_ms.unwrap_or(now),
             app.config.agent_limit,
         )
         .await
@@ -289,7 +296,7 @@ async fn trace<R: SessionRepository, B: TraceReader>(
     let request = validation::detail(query.as_deref())?;
     let trace = app
         .reader
-        .trace(scope(&identity)?, id.clone(), request)
+        .trace(scope(&identity, &request.filters)?, id.clone(), request)
         .await
         .map_err(|error| read_error(error, app.config))?
         .ok_or(TraceHttpError::MissingTrace(id))?;
@@ -304,10 +311,15 @@ async fn span<R: SessionRepository, B: TraceReader>(
     RawQuery(query): RawQuery,
 ) -> Result<Json<SpanDetail>, TraceHttpError> {
     let identity = auth::slack_identity(&app.authentication, &headers, &method).await?;
-    let request = validation::span(query.as_deref());
+    let request = validation::span(query.as_deref())?;
     let value = app
         .reader
-        .span(scope(&identity)?, id, span.clone(), request)
+        .span(
+            scope(&identity, &request.filters)?,
+            id,
+            span.clone(),
+            request,
+        )
         .await
         .map_err(|error| read_error(error, app.config))?
         .ok_or(TraceHttpError::MissingSpan(span))?;
@@ -325,7 +337,7 @@ async fn conversation<R: SessionRepository, B: TraceReader>(
     let request = validation::conversation(query.as_deref())?;
     let value = app
         .reader
-        .conversation(scope(&identity)?, id.clone(), request)
+        .conversation(scope(&identity, &request.filters)?, id.clone(), request)
         .await
         .map_err(|error| read_error(error, app.config))?
         .ok_or(TraceHttpError::MissingTrace(id))?;
@@ -343,7 +355,7 @@ async fn span_error<R: SessionRepository, B: TraceReader>(
     let request = validation::error_page(query.as_deref())?;
     let value = app
         .reader
-        .span_error(scope(&identity)?, id, span, request)
+        .span_error(scope(&identity, &request.filters)?, id, span, request)
         .await
         .map_err(|error| read_error(error, app.config))?
         .ok_or(TraceHttpError::MissingDiagnostic)?;

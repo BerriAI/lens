@@ -170,6 +170,8 @@ async fn schema_supports_span_rollups_and_spend_joins(
             &reader,
             &litellm_traces_clickhouse::query::named::SpanDetailParams {
                 access: litellm_traces_clickhouse::query::named::ReadAccessParams {
+                    filter_team_id: String::new(),
+                    filter_api_key_hash: String::new(),
                     all_teams: false,
                     user_id: String::new(),
                     team_ids: vec!["team-1".into()],
@@ -2637,6 +2639,8 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
     let params = litellm_traces_clickhouse::query::named::ListTracesParams::from(
         litellm_traces::query::named::ListTracesParams {
             access: litellm_traces::query::named::ReadAccessParams {
+                filter_team_id: String::new(),
+                filter_api_key_hash: String::new(),
                 all_teams: false,
                 user_id: "".into(),
                 team_ids: vec!["team".into()],
@@ -2658,6 +2662,8 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
     let owned_params = litellm_traces_clickhouse::query::named::ListTracesParams::from(
         litellm_traces::query::named::ListTracesParams {
             access: litellm_traces::query::named::ReadAccessParams {
+                filter_team_id: String::new(),
+                filter_api_key_hash: String::new(),
                 user_id: "owner".into(),
                 team_ids: vec![],
                 all_teams: false,
@@ -2757,6 +2763,8 @@ async fn agent_final_answer_preserves_visibility_and_trace_ownership(
         &reader,
         &SpanDetailParams {
             access: ReadAccessParams {
+                filter_team_id: String::new(),
+                filter_api_key_hash: String::new(),
                 all_teams: all_teams == 1,
                 user_id: user.into(),
                 team_ids: teams.into_iter().map(str::to_owned).collect(),

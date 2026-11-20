@@ -18,6 +18,8 @@ const HOUR_MS: i64 = 60 * MINUTE_MS;
 
 fn every_team() -> ReadAccessParams {
     ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),

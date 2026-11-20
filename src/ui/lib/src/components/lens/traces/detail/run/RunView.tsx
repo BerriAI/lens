@@ -149,7 +149,7 @@ function LoadedRun({
   const queryClient = useQueryClient();
   const [live, setLive] = useState(traces.live);
   const [manualRead, setManualRead] = useState(false);
-  const queryKey = ["agentTrace", traceId, traceRef, accessToken];
+  const queryKey = ["agentTrace", traceId, traceRef, traces.scope, accessToken];
   const traceQueryOptions = {
     queryKey,
     queryFn: ({ pageParam }: { pageParam: string | null }) =>
@@ -227,7 +227,7 @@ function LoadedRun({
           predicate: (query) => query.queryKey.at(-1) === accessToken,
         }),
         queryClient.invalidateQueries({
-          queryKey: ["traceConversation", traceId, contentRef, accessToken],
+          queryKey: ["traceConversation", traceId, contentRef, traces.scope, accessToken],
         }),
       ]);
     });
