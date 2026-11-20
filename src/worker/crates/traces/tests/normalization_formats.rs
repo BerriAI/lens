@@ -1207,6 +1207,7 @@ fn gateway_tool_step_carries_the_calling_agent(span: Span) {
         &[
             ("gen_ai.operation.name", "execute_tool"),
             ("gen_ai.agent.name", "codex"),
+            ("lens.task", "Count the words in notes.txt"),
             ("gen_ai.tool.call.arguments", r#"{"cmd":"wc -w notes.txt"}"#),
         ],
         vec![],
@@ -1237,6 +1238,58 @@ fn gateway_model_call_from_any_agent_shows_its_task(span: Span, #[case] agent: &
     .unwrap();
 
     assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "List the files in this directory"
+    );
+}
+
+#[rstest]
+#[case::claude_code("claude-code", "claude-code", Integration::ClaudeCode)]
+#[case::codex("codex", "openai-codex", Integration::OpenaiCodex)]
+#[case::opencode("opencode", "opencode", Integration::Opencode)]
+#[case::pi("pi", "pi", Integration::Pi)]
+fn gateway_sent_framework_and_task_win_over_what_lens_would_guess(
+    span: Span,
+    #[case] agent: &str,
+    #[case] sent_framework: &str,
+    #[case] framework: Integration,
+) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", agent),
+            ("langsmith.metadata.ls_integration", sent_framework),
+            ("lens.task", "Count the words in notes.txt"),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(framework));
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "Count the words in notes.txt"
+    );
+}
+
+#[rstest]
+fn gateway_blank_sent_task_falls_back_to_the_guess(span: Span) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("lens.task", "  "),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
     assert_eq!(
         decoded.normalized.input_preview,
         "List the files in this directory"
