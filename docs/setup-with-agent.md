@@ -2,7 +2,7 @@
 
 Use the [local quickstart](../deploy/lens/README.md#start-locally) to start Lens with Git and Docker. If you want your coding agent to configure the project as well, copy the applicable prompt below into a session with access to that project. These prompts are optional. They do not require a separate Lens setup tool
 
-Lens runs with ClickHouse and includes its UI, API and background processing. Your agent keeps its existing model connection. Recording and inspecting traces does not require an analysis provider. The standalone quickstart runs the published Lens image for the checkout's version and builds from source only with `--build` or when that image cannot be pulled
+Lens runs with ClickHouse and includes its UI, API and background processing. Your agent keeps its existing model connection. Recording and inspecting traces does not require an analysis provider. The standalone quickstart is `docker compose up --wait` in a clone of this repository. It runs the published Lens image; `./deploy/lens/start --build` builds from source instead
 
 ## Start standalone Lens
 

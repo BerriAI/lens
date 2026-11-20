@@ -2,33 +2,33 @@
 
 Lens records agent traces, investigates failures, and turns useful examples into datasets. The standalone deployment includes the UI, API and background processing in one Lens service, with ClickHouse storing its data and coordination state
 
-The quickstart below runs the published Lens image for the version in this checkout. To pin and verify a release, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest
+The quickstart below is plain Docker Compose and runs the published Lens image. To pin and verify a release, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest
 
 Prefer your coding agent to make the changes? [Set it up for me](../../docs/setup-with-agent.md#start-standalone-lens) has a copyable prompt for standalone setup, an existing LiteLLM deployment, and optional external storage. The commands below remain the shortest manual path
 
 ## Start locally
 
-Install Git and Docker with Docker Compose v2, then run:
+Install Git and Docker with Docker Compose 2.24 or newer, then run:
 
 ```sh
 git clone https://github.com/BerriAI/lens.git
 cd lens
-./deploy/lens/start
+docker compose up --wait
 ```
 
-The first start pulls the published image `ghcr.io/berriai/lens` at the version in the `VERSION` file, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. It takes about a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
+The first start pulls the latest released image, `ghcr.io/berriai/lens`, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. It takes under a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
 
-Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The starter binds Lens to localhost and leaves ClickHouse off the host network
+Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The deployment binds Lens to localhost and leaves ClickHouse off the host network
 
-Rerunning the start command preserves the environment file, credentials, ClickHouse volume and the image the installation started with
+The credentials are generated once, by a short-lived `credentials` container that writes `deploy/lens/.env` and exits. Starting again keeps that file and the ClickHouse volume. `docker compose down` stops Lens and keeps its data; adding `--volumes` deletes the stored traces
 
-To run the code in your checkout instead of the published image, build it from source. The build compiles the Rust backend and can take 20 minutes or more:
+`./deploy/lens/start` starts the same Compose project and remains available. It also records the image it started with in `deploy/lens/.env`, and it is how you run the code in your checkout instead of the published image. The build compiles the Rust backend and can take 20 minutes or more:
 
 ```sh
 ./deploy/lens/start --build
 ```
 
-A fresh installation started with `--build` keeps rebuilding from source on each start. If the published image for the checkout's version cannot be pulled, the start command falls back to the same source build
+A fresh installation started with `--build` keeps rebuilding from source on each start. Set `LENS_IMAGE` in `deploy/lens/.env` to run a different image with either command
 
 ## Record your first trace
 
@@ -147,7 +147,7 @@ Use [Back up and restore Lens](../../docs/backup.md) before changing a persisten
 
 | Symptom | Check and action |
 | --- | --- |
-| Docker is unavailable | Start Docker, verify `docker info`, and rerun `./deploy/lens/start` |
+| Docker is unavailable | Start Docker, verify `docker info`, and rerun `docker compose up --wait` |
 | Port 4318 is in use | Set a free `LENS_PORT` and corresponding `LENS_PUBLIC_URL` in `deploy/lens/.env`, then apply the configuration |
 | A required secret is missing | Check the existing environment file. Setup deliberately preserves it rather than rotating credentials behind your back |
 | ClickHouse is unhealthy | Run `docker compose -f deploy/lens/compose.yaml logs --tail=100 clickhouse`; check disk space and the mounted Keeper configuration |

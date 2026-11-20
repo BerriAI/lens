@@ -14,7 +14,7 @@ case "$1 ${2:-}" in
   "run "*) [[ -f "$setup_dir/.env" ]] || printf 'LENS_ADMIN_TOKEN=stub\n' > "$setup_dir/.env" ;;
   "compose "*)
     case "$*" in
-      *"config --images"*) sed -n 's/^LENS_IMAGE=//p' "$setup_dir/.env" | grep . || printf 'lens:local\n' ;;
+      *"config --images"*) sed -n 's/^LENS_IMAGE=//p' "$setup_dir/.env" | grep . || printf 'ghcr.io/berriai/lens:1.2.3\n' ;;
       *" up "*) printf '%s\n' "up ${LENS_IMAGE:-$(sed -n 's/^LENS_IMAGE=//p' "$setup_dir/.env")}" >> "$STUB_LOG" ;;
       *" exec "*) printf 'http://localhost:4318' ;;
     esac ;;
@@ -67,7 +67,7 @@ expect 'a failed pull falls back to a source build' lens:local yes
 new_checkout
 printf 'LENS_ADMIN_TOKEN=stub\n' > "$work/root/deploy/lens/.env"
 start
-expect 'an installation created before published images keeps building' lens:local yes
+expect 'an installation without a recorded image starts the compose default without building' '' no
 
 new_checkout
 start LENS_IMAGE=example.test/lens:custom
@@ -81,6 +81,12 @@ expect 'a release bundle image file wins' example.test/lens@sha256:abc no
 new_checkout
 if start_arguments=--unknown start; then
   printf 'FAIL an unknown argument is rejected\n' >&2
+  failures=$((failures + 1))
+fi
+
+compose_default="$(sed -n 's/^    image: ${LENS_IMAGE:-\(.*\)}$/\1/p' "$lens_dir/compose.yaml" | sort -u)"
+if [[ "$compose_default" != "ghcr.io/berriai/lens:$(tr -d '[:space:]' < "$lens_dir/../../VERSION")" ]]; then
+  printf 'FAIL the compose default image is the release in VERSION, found %s\n' "$compose_default" >&2
   failures=$((failures + 1))
 fi
 

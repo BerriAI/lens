@@ -140,6 +140,16 @@ jobs:
         run: deploy/lens/start-test.sh
       - name: Start and restart with ClickHouse
         run: deploy/lens/smoke.sh lens:ci ci
+      - name: Start with plain Docker Compose
+        run: |
+          set -euo pipefail
+          trap 'docker compose logs --tail 60 || true; docker compose down --volumes; rm -f deploy/lens/.env' EXIT
+          LENS_IMAGE=lens:ci docker compose up --detach --wait --wait-timeout 180
+          curl --fail --silent --output /dev/null http://localhost:4318/health/ready
+          test "$(stat -c %u deploy/lens/.env)" = "$(id -u)"
+          lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' deploy/lens/.env)"
+          curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:4318/lens)" = 401
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1
