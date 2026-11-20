@@ -2,7 +2,9 @@
 
 import { parseAsBoolean, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useCallback } from "react";
-import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS } from "./traces/routing";
+import { OPEN_TRACE_PARSERS, RUN_FILTER_PARSERS, TRACE_SCOPE_PARSERS, useTraceScope } from "./traces/routing";
+import { workspaceScopeAfterSelect, type WorkspaceItem, type WorkspaceKind } from "./workspace/scope";
+import type { TraceFilters } from "./traces/types";
 import { TIME_RANGE_PARSERS } from "../shared/timeRange/routing";
 import { isRangeHours } from "../shared/timeRange/timeRange";
 
@@ -107,6 +109,7 @@ const SESSION_PARSERS = {
   ...LENS_PARSERS,
   ...OPEN_TRACE_PARSERS,
   ...RUN_FILTER_PARSERS,
+  ...TRACE_SCOPE_PARSERS,
   ...ISSUE_PARSERS,
   ...LIST_PARSERS,
   ...PROFILE_PARSERS,
@@ -126,8 +129,9 @@ const nulls = <K extends string>(keys: readonly K[]) =>
 /** Switching the sample session clears every Lens key but the tab so ids never cross between live and sample data. */
 const CLEARED_SESSION = nulls(Object.keys(SESSION_PARSERS).filter((key) => key !== "tab"));
 const CLEARED_RESULTS = nulls(Object.keys(RESULT_PARSERS));
+const CLEARED_TRACE = nulls(Object.keys(OPEN_TRACE_PARSERS));
 const CLEARED_AGENT_VIEW = {
-  ...nulls(Object.keys(OPEN_TRACE_PARSERS)),
+  ...CLEARED_TRACE,
   ...nulls(Object.keys(RESULT_PARSERS)),
   ...nulls(Object.keys(DATASET_PARSERS)),
   ...nulls(Object.keys(EVAL_PARSERS)),
@@ -156,6 +160,17 @@ export interface LensRoute {
   setLensId(lensId: string | null): void;
   setDemo(demo: boolean): void;
   setSetup(settingUp: boolean): void;
+}
+
+export function useWorkspaceScope() {
+  const scope = useTraceScope();
+  const [, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
+  const select = useCallback(
+    (kind: WorkspaceKind, item: WorkspaceItem | null, effectiveScope: TraceFilters = scope) =>
+      void setParams({ ...CLEARED_AGENT_VIEW, ...workspaceScopeAfterSelect(effectiveScope, kind, item), agent: null }),
+    [scope, setParams],
+  );
+  return { scope, select };
 }
 
 /** Lens navigation lives in the URL, sample session included, so any view is a shareable link. */
@@ -199,6 +214,18 @@ export function useLensRoute(): LensRoute {
     setDemo,
     setSetup,
   };
+}
+
+export function useLensNavigation(): { tab: LensTab; navigate: (tab: LensTab) => void } {
+  const route = useLensRoute();
+  const [, setParams] = useQueryStates(SESSION_PARSERS, { history: "push" });
+  const selected = route.tab ?? (route.defaultTab === "home" ? "traces" : route.defaultTab);
+  const tab = selected === "investigations" ? "findings" : selected;
+  const navigate = useCallback(
+    (next: LensTab) => void setParams({ ...CLEARED_TRACE, setup: null, tab: next }),
+    [setParams],
+  );
+  return { tab, navigate };
 }
 
 export function useAgentSearchRoute(): [string, (search: string) => void] {

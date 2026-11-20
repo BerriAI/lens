@@ -20,6 +20,9 @@ FROM (
       AND ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserId = {user_id:String})
            OR has({team_ids:Array(String)}, TeamId))
+      AND ({filter_team_id:String} = '' OR TeamId = {filter_team_id:String})
+      AND ({filter_api_key_hash:String} = '' OR ApiKeyHash = {filter_api_key_hash:String})
+      AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, ApiKeyHash))
       AND ({trace_ref:String} = '' OR trace_ref = {trace_ref:String})
     ORDER BY TeamId, ApiKeyHash, SpanId,
              (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),

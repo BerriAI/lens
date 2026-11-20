@@ -315,6 +315,7 @@ describe("DetailPane", () => {
       "llm1",
       undefined,
       expect.any(AbortSignal),
+      {},
     );
   });
 
@@ -772,5 +773,6 @@ it("retrieves the retained diagnostic one section at a time", async () => {
       traceRef: undefined,
       cursor: "next-section",
     },
+    {},
   );
 });

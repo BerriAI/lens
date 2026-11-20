@@ -72,13 +72,14 @@ export function useAgentTraces({ accessToken, range, enabled, agent }: UseAgentT
     return { ...(await traces.list(window, agent, signal)), window };
   };
   const queryOptions: Parameters<typeof useInfiniteQuery<LoadedTracePage, Error>>[0] = {
-    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs, agent],
+    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs, agent, traces.scope],
     queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
     initialPageParam: null,
     getNextPageParam: (lastPage) =>
       lastPage.next_cursor ? { ...lastPage.window, cursor: lastPage.next_cursor } : undefined,
     enabled,
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey.at(-1) === traces.scope ? keepPreviousData(previous) : undefined,
     staleTime: LIVE_TAIL_INTERVAL_MS,
     retry: (failureCount, error) => !requiresUserAction(error) && failureCount < 1,
     refetchInterval: (q) => (isLive(range) && !requiresUserAction(q.state.error) ? LIVE_TAIL_INTERVAL_MS : false),
@@ -110,7 +111,7 @@ export function useAgentTraces({ accessToken, range, enabled, agent }: UseAgentT
 export function useTraceAvailability(accessToken: string, enabled: boolean) {
   const traces = useTracesApi(accessToken);
   const options: UseQueryOptions<boolean, Error> = {
-    queryKey: ["trace-availability", accessToken],
+    queryKey: ["trace-availability", accessToken, traces.scope],
     queryFn: () => traces.anyRecorded(),
     enabled,
     retry: false,

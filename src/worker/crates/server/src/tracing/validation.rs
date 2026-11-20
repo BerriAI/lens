@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use litellm_traces::request::{
     CONVERSATION_PAGE_SIZE_MAX, LOG_FILTER_MAX_LENGTH, LOG_PAGE_SIZE_MAX, LogListRequest,
-    TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest,
-    TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
+    TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX, TRACE_TENANT_FILTER_MAX_LENGTH,
+    TraceAgentsRequest, TraceConversationRequest, TraceDetailRequest, TraceErrorPageRequest,
+    TraceFilters, TraceListRequest, TraceSpanRequest,
 };
 use serde_json::json;
 
@@ -48,6 +49,25 @@ fn cursor(params: &HashMap<String, String>, errors: &mut Vec<ValidationError>) -
     Some(value.clone())
 }
 
+fn filters(params: &HashMap<String, String>, errors: &mut Vec<ValidationError>) -> TraceFilters {
+    TraceFilters {
+        organization_id: bounded_text(
+            params,
+            "organization_id",
+            TRACE_TENANT_FILTER_MAX_LENGTH,
+            errors,
+        ),
+        team_id: bounded_text(params, "team_id", TRACE_TENANT_FILTER_MAX_LENGTH, errors),
+        project_id: bounded_text(params, "project_id", TRACE_TENANT_FILTER_MAX_LENGTH, errors),
+        api_key_hash: bounded_text(
+            params,
+            "api_key_hash",
+            TRACE_TENANT_FILTER_MAX_LENGTH,
+            errors,
+        ),
+    }
+}
+
 fn finish(errors: Vec<ValidationError>) -> Result<(), TraceHttpError> {
     if errors.is_empty() {
         Ok(())
@@ -89,8 +109,10 @@ pub(super) fn list(
             )
         });
     errors.extend(agent_error);
+    let filters = filters(&params, &mut errors);
     finish(errors)?;
     Ok(TraceListRequest {
+        filters,
         start_ms: exact(start, config)?,
         end_ms: exact(end, config)?,
         cursor,
@@ -207,13 +229,18 @@ fn bounded_text(
 pub(super) fn agents(
     query: Option<&str>,
     config: TraceConfig,
-) -> Result<(Option<i64>, Option<i64>), TraceHttpError> {
+) -> Result<TraceAgentsRequest, TraceHttpError> {
     let params = parameters(query);
     let mut errors = Vec::new();
     let start = number(&params, "start_ms", &mut errors);
     let end = number(&params, "end_ms", &mut errors);
+    let filters = filters(&params, &mut errors);
     finish(errors)?;
-    Ok((exact(start, config)?, exact(end, config)?))
+    Ok(TraceAgentsRequest {
+        start_ms: exact(start, config)?,
+        end_ms: exact(end, config)?,
+        filters,
+    })
 }
 
 pub(super) fn detail(query: Option<&str>) -> Result<TraceDetailRequest, TraceHttpError> {
@@ -225,6 +252,7 @@ pub(super) fn conversation(
 ) -> Result<TraceConversationRequest, TraceHttpError> {
     let request = paged(query, CONVERSATION_PAGE_SIZE_MAX)?;
     Ok(TraceConversationRequest {
+        filters: request.filters,
         trace_ref: request.trace_ref,
         cursor: request.cursor,
         page_size: request.page_size,
@@ -264,26 +292,35 @@ fn paged(query: Option<&str>, max_size: u16) -> Result<TraceDetailRequest, Trace
         ));
         None
     });
+    let filters = filters(&params, &mut errors);
     finish(errors)?;
     Ok(TraceDetailRequest {
+        filters,
         trace_ref: params.get("trace_ref").cloned().unwrap_or_default(),
         cursor,
         page_size,
     })
 }
 
-pub(super) fn span(query: Option<&str>) -> TraceSpanRequest {
-    TraceSpanRequest {
-        trace_ref: parameters(query).remove("trace_ref").unwrap_or_default(),
-    }
+pub(super) fn span(query: Option<&str>) -> Result<TraceSpanRequest, TraceHttpError> {
+    let params = parameters(query);
+    let mut errors = Vec::new();
+    let filters = filters(&params, &mut errors);
+    finish(errors)?;
+    Ok(TraceSpanRequest {
+        filters,
+        trace_ref: params.get("trace_ref").cloned().unwrap_or_default(),
+    })
 }
 
 pub(super) fn error_page(query: Option<&str>) -> Result<TraceErrorPageRequest, TraceHttpError> {
     let params = parameters(query);
     let mut errors = Vec::new();
     let cursor = cursor(&params, &mut errors);
+    let filters = filters(&params, &mut errors);
     finish(errors)?;
     Ok(TraceErrorPageRequest {
+        filters,
         trace_ref: params.get("trace_ref").cloned().unwrap_or_default(),
         cursor,
     })

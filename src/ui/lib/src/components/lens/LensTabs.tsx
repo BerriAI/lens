@@ -26,7 +26,7 @@ interface LensTabsProps {
   readonly collapsed?: boolean;
 }
 
-const NAVIGATION_ITEMS = [
+export const LENS_NAVIGATION_ITEMS = [
   { value: "home", label: "Home", icon: House },
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },
@@ -39,6 +39,7 @@ const NAVIGATION_ITEMS = [
     label: "Model optimizations",
     icon: ChartNoAxesColumn,
   },
+  { value: "settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function LensTabs({ activity, workers, onNavigate, orientation, collapsed = false }: LensTabsProps) {
@@ -93,10 +94,11 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
           : "h-9 w-max justify-start gap-1",
       )}
     >
-      {NAVIGATION_ITEMS.map(({ value, label, icon }) =>
-        item(value, label, icon),
+      {LENS_NAVIGATION_ITEMS.map(({ value, label, icon }) =>
+        value === "settings"
+          ? workers && item(value, label, icon, connected ? "Analysis configured" : "Configure analysis")
+          : item(value, label, icon),
       )}
-      {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
     </TabsList>
   );
 }

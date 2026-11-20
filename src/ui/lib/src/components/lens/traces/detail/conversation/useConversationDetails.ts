@@ -13,7 +13,7 @@ export function useConversationDetails(trace: Trace, accessToken: string) {
   const { trace_id: traceId, trace_ref: traceRef } = trace.summary;
   const spanQuery = useCallback(
     (span: Span) => ({
-      queryKey: ["agentTraceSpan", traceId, traceRef, span.span_id, accessToken],
+      queryKey: ["agentTraceSpan", traceId, traceRef, span.span_id, traces.scope, accessToken],
       queryFn: ({ signal }: { signal: AbortSignal }): Promise<SpanDetail> => traces.span(traceId, span.span_id, traceRef, signal),
       staleTime: Infinity,
       retry: false as const,

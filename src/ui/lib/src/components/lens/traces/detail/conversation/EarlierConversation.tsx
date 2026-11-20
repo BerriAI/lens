@@ -14,7 +14,7 @@ export function useEarlierConversation(trace: Trace, accessToken: string) {
   const api = useTracesApi(accessToken);
   const { trace_id, trace_ref } = trace.summary;
   return useInfiniteQuery({
-    queryKey: ["traceConversation", trace_id, trace_ref, accessToken],
+    queryKey: ["traceConversation", trace_id, trace_ref, api.scope, accessToken],
     queryFn: ({ pageParam }) => api.conversation(trace_id, trace_ref, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (page) => page.next_cursor ?? undefined,

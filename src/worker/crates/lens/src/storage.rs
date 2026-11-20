@@ -42,6 +42,13 @@ pub enum Read {
         cursor: Option<String>,
         page_size: Option<u32>,
     },
+    Conversation {
+        scope: ReadAccessParams,
+        trace_id: String,
+        trace_ref: String,
+        cursor: Option<String>,
+        page_size: Option<u16>,
+    },
     Span {
         scope: ReadAccessParams,
         trace_id: String,
@@ -175,6 +182,25 @@ impl Storage {
                         .await?,
                 )
             }
+            Read::Conversation {
+                scope,
+                trace_id,
+                trace_ref,
+                cursor,
+                page_size,
+            } => encode(
+                self.reader
+                    .get_conversation(
+                        &store,
+                        &scope,
+                        &trace_id,
+                        &trace_ref,
+                        cursor.as_deref(),
+                        page_size
+                            .unwrap_or(litellm_traces::request::CONVERSATION_PAGE_SIZE_DEFAULT),
+                    )
+                    .await?,
+            ),
             Read::Span {
                 scope,
                 trace_id,

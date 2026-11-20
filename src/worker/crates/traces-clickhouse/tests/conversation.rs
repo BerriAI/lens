@@ -82,6 +82,9 @@ fn span() -> Span<'static> {
 #[fixture]
 fn access() -> ReadAccessParams {
     ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -500,6 +503,9 @@ async fn both_queries_apply_normal_read_access(
     )
     .await?;
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: user.into(),
         team_ids: teams.into_iter().map(String::from).collect(),

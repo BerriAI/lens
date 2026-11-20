@@ -7,6 +7,9 @@ WITH conversation_candidates AS (
       AND ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserId = {user_id:String})
            OR has({team_ids:Array(String)}, TeamId))
+      AND ({filter_team_id:String} = '' OR TeamId = {filter_team_id:String})
+      AND ({filter_api_key_hash:String} = '' OR ApiKeyHash = {filter_api_key_hash:String})
+      AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, ApiKeyHash))
       AND ParentSpanId IN ('', '0000000000000000')
       AND {session_id:String} != ''
       AND coalesce(nullIf(SpanAttributes['session.id'], ''), ResourceAttributes['session.id']) = {session_id:String}
@@ -34,6 +37,9 @@ FROM (
       AND ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserId = {user_id:String})
            OR has({team_ids:Array(String)}, TeamId))
+      AND ({filter_team_id:String} = '' OR TeamId = {filter_team_id:String})
+      AND ({filter_api_key_hash:String} = '' OR ApiKeyHash = {filter_api_key_hash:String})
+      AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, ApiKeyHash))
     ORDER BY TraceId, SpanId,
              (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['event.name'] = 'codex.user_prompt'),
              (SpanAttributes['lens.codex.root'] = '1' AND SpanAttributes['lens.codex.prompt_kind'] = 'title'),

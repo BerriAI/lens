@@ -5,9 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { readRequest, requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
+import { liveTracesApi } from "./traces/api";
 import { lensKeys } from "./data/queries";
 import { createLensDemoData } from "./data/demo/fixtures";
 import { LensHostProvider } from "../../host/LensHost";
+import { useLensNavigation, useWorkspaceScope } from "./route";
+import { WorkspaceSwitchers, type WorkspacePicker } from "./workspace/WorkspaceSwitchers";
 
 const lastUrl = (onUrlUpdate: ReturnType<typeof vi.fn>) =>
   new URLSearchParams(String(onUrlUpdate.mock.lastCall?.[0].queryString ?? ""));
@@ -1204,4 +1207,164 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
+});
+
+it("opens a workspace deep link with the same scope on the runs list and agent picker", async () => {
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/v1/traces") return Response.json({ data: [], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />, {
+    searchParams: "?tab=traces&organization_id=org-a&team_id=team-a&project_id=project-a&api_key_hash=key-a",
+  });
+  expect(await screen.findByLabelText("Trace scope")).toHaveTextContent("Team: team-a");
+  expect(screen.getByLabelText("Trace scope")).toHaveTextContent("Key: key-a");
+  await waitFor(() => expect(network.mock.calls.some(([input]) => requestPath(input) === "/v1/traces")).toBe(true));
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  const scoped = requests.filter(({ path }) => path === "/v1/traces" || path === "/v1/traces/agents");
+  expect(scoped.length).toBeGreaterThanOrEqual(2);
+  expect(scoped.map(({ query }) => [query.get("organization_id"), query.get("team_id"), query.get("project_id"), query.get("api_key_hash")])).toEqual(
+    scoped.map(() => ["org-a", "team-a", "project-a", "key-a"]),
+  );
+});
+
+it("preserves the workspace on paged trace and span HTTP reads", async () => {
+  network.mockImplementation(async () => Response.json({ data: [], agents: [], next_cursor: null }));
+  const api = liveTracesApi("live-token", {
+    organization_id: "org-a",
+    team_id: "team-a",
+    project_id: "project-a",
+    api_key_hash: "key-a",
+  });
+  await api.list({ startMs: 1, endMs: 2, cursor: "next-page" }, "");
+  await api.agents({ startMs: 1, endMs: 2 });
+  await api.trace("shared-trace", "ref-a", "next-span-page");
+  await api.span("shared-trace", "span-a", "ref-a");
+  await api.spanError("shared-trace", "span-a", {
+    traceRef: "ref-a",
+    cursor: "next-error-page",
+  });
+  await api.conversation("shared-trace", "ref-a", "next-turn-page");
+  await api.anyRecorded();
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  expect(requests).toHaveLength(7);
+  expect(requests.map(({ query }) => [query.get("organization_id"), query.get("team_id"), query.get("project_id"), query.get("api_key_hash")])).toEqual(
+    Array.from({ length: 7 }, () => ["org-a", "team-a", "project-a", "key-a"]),
+  );
+  expect(requests[0].query.get("cursor")).toBe("next-page");
+  expect(requests[2].query.get("cursor")).toBe("next-span-page");
+  expect(requests[5].query.get("cursor")).toBe("next-turn-page");
+});
+
+it.each([false, true])("mounts host workspace switching only in the live session (demo: %s)", async (demo) => {
+  const WorkspaceSwitcher = () => <nav aria-label="Host workspace switching">Workspace switching</nav>;
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: `?tab=traces${demo ? "&demo=true" : ""}` },
+  );
+  if (demo) expect(screen.queryByRole("navigation", { name: "Host workspace switching" })).not.toBeInTheDocument();
+  else expect(await screen.findByRole("navigation", { name: "Host workspace switching" })).toBeVisible();
+});
+
+it("shows one hierarchy and horizontal Lens tabs without nested branding or navigation when embedded", async () => {
+  const kinds: WorkspacePicker["kind"][] = ["organization", "team", "project", "key"];
+  const pickers: WorkspacePicker[] = kinds.map((kind) => ({
+    kind, value: null, items: [],
+  }));
+  const WorkspaceSwitcher = () => <WorkspaceSwitchers pickers={pickers} onSelect={vi.fn()} />;
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=traces" },
+  );
+  const workspace = await screen.findByRole("banner", { name: "Lens workspace" });
+  expect(within(workspace).getByRole("navigation", { name: "Workspace hierarchy" })).toBeVisible();
+  expect(within(workspace).getAllByRole("combobox")).toHaveLength(4);
+  expect(within(screen.getByRole("tablist", { name: "Lens" })).getByRole("tab", { name: "Traces", selected: true })).toBeVisible();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Lens", level: 1 })).not.toBeInTheDocument();
+  expect(within(workspace).queryByRole("img", { name: "LiteLLM" })).not.toBeInTheDocument();
+});
+
+it("leaves Lens page navigation to its host while retaining workspace controls and page actions", async () => {
+  const kinds: WorkspacePicker["kind"][] = ["organization", "team", "project", "key"];
+  const pickers: WorkspacePicker[] = kinds.map((kind) => ({ kind, value: null, items: [] }));
+  const WorkspaceSwitcher = () => <WorkspaceSwitchers pickers={pickers} onSelect={vi.fn()} />;
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", navigation: "host", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: "?tab=traces" },
+  );
+  expect(within(await screen.findByRole("banner", { name: "Lens workspace" })).getAllByRole("combobox")).toHaveLength(4);
+  expect(screen.queryByRole("tablist", { name: "Lens" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(screen.getByRole("banner", { name: "Lens actions" })).toBeVisible();
+  expect(screen.getByRole("group", { name: "Page actions" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
+});
+
+it("navigates from a host menu without losing workspace filters or making backend requests", async () => {
+  function HostMenu() {
+    const { tab, navigate } = useLensNavigation();
+    return <button aria-pressed={tab === "evals"} onClick={() => navigate("evals")}>Evals</button>;
+  }
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(<HostMenu />, {
+    searchParams: "?tab=traces&organization_id=org-a&team_id=team-a&project_id=project-a&api_key_hash=hash-a&hours=168&agent=coding&q=review&status=error&trace=old-trace&trace_ref=old-ref&span=old-span&setup=lens",
+    onUrlUpdate,
+  });
+  await user.click(screen.getByRole("button", { name: "Evals" }));
+  await expectUrl(onUrlUpdate, (params) => expect(params.get("tab")).toBe("evals"));
+  expect(screen.getByRole("button", { name: "Evals" })).toHaveAttribute("aria-pressed", "true");
+  expect(Object.fromEntries(lastUrl(onUrlUpdate))).toEqual({
+    tab: "evals", organization_id: "org-a", team_id: "team-a", project_id: "project-a", api_key_hash: "hash-a", hours: "168", agent: "coding", q: "review", status: "error",
+  });
+  expect(network).not.toHaveBeenCalled();
+});
+
+it("closes the previous trace immediately when switching workspaces", async () => {
+  const run = createLensDemoData().runs[0];
+  const detailPath = `/v1/traces/${run.trace.summary.trace_id}`;
+  network.mockImplementation(async (input, init) => {
+    const request = await readRequest(input, init);
+    if (request.path === "/v1/traces") return Response.json({ data: [run.trace.summary], next_cursor: null });
+    if (request.path === "/v1/traces/agents") return Response.json({ agents: [] });
+    if (request.path === detailPath) {
+      if (request.query.get("team_id") === "team-b") return Response.json({ detail: "Trace not found" }, { status: 404 });
+      return Response.json(run.trace);
+    }
+    if (request.path.startsWith(`${detailPath}/spans/`)) return Response.json(run.details[0]);
+    if (request.path === `${detailPath}/conversation`) return Response.json({ turns: [], next_cursor: null });
+    if (request.path === "/lens/feedback") return Response.json({ feedback: [], trace_id: run.trace.summary.trace_id, trace_ref: "" });
+    if (request.path === "/lens/feedback/summary") return Response.json([]);
+    return defaultResponse(request.path, true);
+  });
+  function WorkspaceSwitcher() {
+    const { select } = useWorkspaceScope();
+    return <button onClick={() => select("team", { id: "team-b", name: "Engineering" })}>Switch workspace</button>;
+  }
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  renderWithProviders(
+    <LensHostProvider host={{ surface: "embedded", WorkspaceSwitcher }}>
+      <LensWorkspace accessToken="live-token" userRole="Internal User" readOnly={false} />
+    </LensHostProvider>,
+    { searchParams: `?tab=traces&team_id=team-a&trace=${run.trace.summary.trace_id}`, onUrlUpdate },
+  );
+  expect(await screen.findByRole("complementary", { name: "Trace details" })).toBeVisible();
+  expect(await screen.findByRole("tab", { name: "Thread" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Switch workspace" }));
+  await expectUrl(onUrlUpdate, (params) => expect(params.get("team_id")).toBe("team-b"));
+  expect(screen.queryByRole("complementary", { name: "Trace details" })).not.toBeInTheDocument();
+  expect(lastUrl(onUrlUpdate).has("trace")).toBe(false);
+  const requests = await Promise.all(network.mock.calls.map(([input, init]) => readRequest(input, init)));
+  expect(requests.filter(({ path, query }) => path === detailPath && query.get("team_id") === "team-b")).toEqual([]);
 });

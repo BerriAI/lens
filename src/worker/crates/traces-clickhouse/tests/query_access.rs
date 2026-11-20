@@ -130,7 +130,29 @@ async fn database() -> Result<Database, Box<dyn std::error::Error>> {
     })
 }
 
+fn selected_keys(team: &str, key: &str, keys: &[&str]) -> QueryScope {
+    use litellm_traces::query::named::{KeyHashFilter, KeyHashFilterMode, ReadAccessParams};
+    QueryScope::Scoped {
+        scope: ReadAccessParams {
+            all_teams: false,
+            user_id: "owner".into(),
+            team_ids: vec!["team-a".into()],
+            filter_team_id: team.into(),
+            filter_api_key_hash: key.into(),
+            key_filter: KeyHashFilter {
+                filter_api_key_hashes_mode: KeyHashFilterMode::Only,
+                filter_api_key_hashes: keys.iter().map(|key| (*key).into()).collect(),
+            },
+        },
+    }
+}
+
 #[rstest]
+#[case::selected_keys(selected_keys("", "", &["key-a1", "key-b"]), vec!["a1", "b"])]
+#[case::selected_team_key(selected_keys("team-a", "key-a2", &["key-a1", "key-a2"]), vec!["a2"])]
+#[case::empty_keys(selected_keys("", "", &[]), vec![])]
+#[case::incompatible_selection(selected_keys("team-a", "key-b", &["key-b"]), vec![])]
+#[case::quoted_key(selected_keys("", "", &["key-a1' OR 1=1 --"]), vec![])]
 #[case::own_user(QueryScope::Owned { user_id: "owner".into(), team_ids: vec![] }, vec!["a1", "b"])]
 #[case::own_user_and_permitted_team(QueryScope::Owned { user_id: "owner".into(), team_ids: vec!["team-a".into()] }, vec!["a1", "a2", "b"])]
 #[case::quoted_user(QueryScope::Owned { user_id: "owner' OR 1=1 --".into(), team_ids: vec![] }, vec![])]

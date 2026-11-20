@@ -1232,6 +1232,18 @@ describe("RunView", () => {
   });
 });
 
+it("retains the selected key and team in a shared trace link", () => {
+  const url = traceShareUrl(
+    { traceId: "shared", traceRef: "ref-a" },
+    {
+      origin: "https://gw.test",
+      pathname: "/ui/lens",
+      search: "?team_id=team-a&api_key_hash=hash-a&status=error",
+    },
+  );
+  expect(url).toBe("https://gw.test/ui/lens?team_id=team-a&api_key_hash=hash-a&trace=shared&trace_ref=ref-a");
+});
+
 describe("initialRunSelection", () => {
   const base = research.spans.find((s) => s.parent_span_id === null) as Span;
   const child = (over: Partial<Span>): Span => {

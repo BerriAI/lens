@@ -1,4 +1,6 @@
 import type { components, paths } from "../../../lib/http/schema";
+import type { TraceFilters } from "../../../lib/http/traces";
+export type { TraceFilters } from "../../../lib/http/traces";
 import type { TraceSignals as WorkerTraceSignals } from "../../../lib/http/worker";
 export type {
   TraceConversationPage,
@@ -18,22 +20,22 @@ export type SpanErrorPage =
   paths["/v1/traces/{trace_id}/spans/{span_id}/error"]["get"]["responses"][200]["content"]["application/json"];
 export type TraceListQuery = NonNullable<
   paths["/v1/traces"]["get"]["parameters"]["query"]
->;
+> & TraceFilters;
 export type TraceDetailQuery = NonNullable<
   paths["/v1/traces/{trace_id}"]["get"]["parameters"]["query"]
->;
+> & TraceFilters;
 export type SpanQuery = NonNullable<
   paths["/v1/traces/{trace_id}/spans/{span_id}"]["get"]["parameters"]["query"]
->;
+> & TraceFilters;
 export type SpanErrorQuery = NonNullable<
   paths["/v1/traces/{trace_id}/spans/{span_id}/error"]["get"]["parameters"]["query"]
->;
-export type TraceQueryBody = components["schemas"]["TraceQueryRequest"];
+> & TraceFilters;
+export type TraceQueryBody = components["schemas"]["TraceQueryRequest"] & TraceFilters;
 export type TraceAgent = components["schemas"]["TraceAgent"];
 export type TraceAgentList = components["schemas"]["TraceAgentList"];
 export type TraceAgentsQuery = NonNullable<
   paths["/v1/traces/agents"]["get"]["parameters"]["query"]
->;
+> & TraceFilters;
 export type TraceFindingsRequest =
   components["schemas"]["TraceFindingsRequest"];
 export type TraceFindingCount = components["schemas"]["TraceFindingCount"];

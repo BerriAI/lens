@@ -18,7 +18,7 @@ fn named_requests_preserve_all_access_cases(
     #[case] user: &str,
     #[case] teams: Vec<&str>,
 ) {
-    let access = json!({"all_teams": all_teams, "user_id": user, "team_ids": teams});
+    let access = json!({"all_teams": all_teams, "user_id": user, "team_ids": teams, "filter_team_id": "", "filter_api_key_hash": "", "filter_api_key_hashes_mode": "all", "filter_api_key_hashes": []});
     round_trip::<ReadAccessParams>(access.clone());
     let request = |specific: Value| {
         Value::Object(
@@ -64,4 +64,21 @@ fn result_contracts_preserve_public_field_names() {
     round_trip::<SpendByResponseIdsRow>(
         json!({"request_id": "request", "litellm_call_id": "gateway", "response_id": "response", "upstream_response_id": "upstream", "provider_request_id": "req_provider", "trace_id": "trace", "span_id": "span", "team_id": "team", "api_key": "key", "user": "user", "spend": 0.125, "start_ms": -1}),
     );
+}
+
+#[rstest]
+fn old_read_scopes_default_to_unfiltered_reads() {
+    let scope: ReadAccessParams = serde_json::from_value(json!({
+        "all_teams": 0, "user_id": "owner", "team_ids": ["team-a"]
+    }))
+    .unwrap();
+    assert!(scope.filter_team_id.is_empty());
+    assert!(scope.filter_api_key_hash.is_empty());
+    assert_eq!(
+        scope.key_filter.filter_api_key_hashes_mode,
+        KeyHashFilterMode::All
+    );
+    assert!(scope.key_filter.filter_api_key_hashes.is_empty());
+    assert_eq!(scope.user_id, "owner");
+    assert_eq!(scope.team_ids, ["team-a"]);
 }

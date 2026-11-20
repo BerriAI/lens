@@ -132,6 +132,9 @@ async fn list_costs_match_each_run_when_response_ids_are_reused(
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection);
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: user_id.into(),
         team_ids: vec!["team-a".into()],
@@ -258,6 +261,9 @@ async fn large_runs_remain_complete_under_default_reader_limits(
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection);
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-a".into()],
@@ -404,6 +410,9 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection.clone());
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -453,6 +462,9 @@ async fn cursor_pages_keep_a_tenant_scoped_snapshot_when_more_spans_arrive(
     )
     .await?;
     let denied = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["not-this-team".into()],
@@ -564,6 +576,9 @@ async fn a_large_span_keeps_the_run_list_and_trace_complete(
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection.clone());
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -734,6 +749,9 @@ async fn assigned_call_ids_require_shared_ownership_through_detail_and_batch_rea
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection);
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-a".into(), "team-b".into()],
@@ -847,6 +865,9 @@ async fn native_cost_correlation_survives_session_grouping_and_excludes_other_ow
     let connection = Connection::reader(&fixture.database.url, DATABASE)?;
     let (reader, store) = make_reader(client, connection);
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: true,
         user_id: String::new(),
         team_ids: Vec::new(),
@@ -933,6 +954,9 @@ async fn spend_content_requires_the_authorized_trace_and_call(
     let detail = store
         .span_detail(&litellm_traces::query::named::SpanDetailParams {
             access: ReadAccessParams {
+                filter_team_id: String::new(),
+                filter_api_key_hash: String::new(),
+                key_filter: Default::default(),
                 all_teams: false,
                 user_id: String::new(),
                 team_ids: vec!["team-a".into()],
@@ -998,6 +1022,9 @@ async fn spend_input_preview_preserves_trace_ownership(
         Connection::reader(&fixture.database.url, DATABASE)?,
     );
     let access = ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: if user_only {
             "user-a".into()
@@ -1052,6 +1079,219 @@ async fn spend_input_preview_preserves_trace_ownership(
     assert_eq!(
         page_spans[0].input_preview, expected_preview,
         "page preview"
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::team("filter-team-a", "", None, 2)]
+#[case::key("filter-team-a", "filter-key-a1", None, 1)]
+#[case::owned_other_team("filter-team-b", "", None, 1)]
+#[case::foreign_team("filter-team-c", "filter-key-c", None, 0)]
+#[case::selected_keys("filter-team-a", "", Some(vec!["filter-key-a1", "filter-key-a2"]), 2)]
+#[case::selected_key("filter-team-a", "", Some(vec!["filter-key-a1"]), 1)]
+#[case::empty_key_selection("", "", Some(vec![]), 0)]
+#[case::foreign_key_selection("", "", Some(vec!["filter-key-c"]), 0)]
+#[tokio::test]
+async fn tenant_filters_intersect_ownership_before_paging_and_cached_details(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] team: &str,
+    #[case] key: &str,
+    #[case] keys: Option<Vec<&str>>,
+    #[case] expected_runs: usize,
+) -> TestResult {
+    use litellm_traces_clickhouse::query::lens::{TraceAgents, TraceAgentsParams};
+    use sha2::{Digest, Sha256};
+
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let start_ms = 1_790_000_000_000_i64;
+    let trace_id = "filter-shared-trace";
+    let identities = [
+        (
+            "filter-team-a",
+            "filter-key-a1",
+            "filter-owner",
+            "first-agent",
+        ),
+        (
+            "filter-team-a",
+            "filter-key-a2",
+            "filter-owner",
+            "second-agent",
+        ),
+        (
+            "filter-team-b",
+            "filter-key-b",
+            "filter-owner",
+            "other-owned-agent",
+        ),
+        (
+            "filter-team-c",
+            "filter-key-c",
+            "foreign-owner",
+            "private-agent",
+        ),
+    ];
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        identities
+            .into_iter()
+            .map(|(team, key, user, agent)| {
+                BTreeMap::from([
+                    ("Timestamp".into(), json!(start_ms * 1_000_000)),
+                    ("TraceId".into(), json!(trace_id)),
+                    ("SpanId".into(), json!("same-span")),
+                    ("SpanName".into(), json!(agent)),
+                    ("AgentName".into(), json!(agent)),
+                    ("ObservationType".into(), json!("agent")),
+                    ("TeamId".into(), json!(team)),
+                    ("ApiKeyHash".into(), json!(key)),
+                    ("UserId".into(), json!(user)),
+                    ("Duration".into(), json!(1_000_000)),
+                    ("Input".into(), json!(agent)),
+                    ("Output".into(), json!("done")),
+                ])
+            })
+            .collect(),
+    )
+    .await?;
+    let connection = Connection::reader(&fixture.database.url, DATABASE)?;
+    let (reader, store) = make_reader(client, connection.clone());
+    let access = ReadAccessParams {
+        all_teams: false,
+        user_id: "filter-owner".into(),
+        team_ids: vec!["filter-team-a".into()],
+        filter_team_id: team.into(),
+        filter_api_key_hash: key.into(),
+        key_filter: match keys {
+            None => Default::default(),
+            Some(keys) => litellm_traces::query::named::KeyHashFilter {
+                filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+                filter_api_key_hashes: keys.into_iter().map(String::from).collect(),
+            },
+        },
+    };
+    let page = reader
+        .list_traces(&store, &access, "", start_ms - 1, start_ms + 1, None, 1)
+        .await?;
+    assert_eq!(page.data.len(), expected_runs.min(1));
+    if expected_runs == 2 {
+        let next = reader
+            .list_traces(
+                &store,
+                &access,
+                "",
+                start_ms - 1,
+                start_ms + 1,
+                page.next_cursor.as_deref(),
+                1,
+            )
+            .await?;
+        assert_eq!(next.data.len(), 1);
+        assert_ne!(page.data[0].trace_ref, next.data[0].trace_ref);
+    }
+    let agents = litellm_storage_clickhouse::fetch::<TraceAgents>(
+        client,
+        &connection,
+        &TraceAgentsParams {
+            all_teams: access.all_teams,
+            user_id: access.user_id.clone(),
+            team_ids: access.team_ids.clone(),
+            filter_team_id: access.filter_team_id.clone(),
+            filter_api_key_hash: access.filter_api_key_hash.clone(),
+            key_filter: access.key_filter.clone(),
+            start_ms: start_ms - 1,
+            end_ms: start_ms + 1,
+            limit: 50,
+        },
+    )
+    .await?;
+    assert_eq!(agents.len(), expected_runs);
+    let first_ref = format!(
+        "{:X}",
+        Sha256::digest(format!("filter-team-a\0filter-key-a1\0{trace_id}").as_bytes())
+    );
+    let first_scope = ReadAccessParams {
+        filter_team_id: "filter-team-a".into(),
+        filter_api_key_hash: "filter-key-a1".into(),
+        key_filter: Default::default(),
+        ..access.clone()
+    };
+    let first = reader
+        .get_trace(&store, &first_scope, trace_id, &first_ref)
+        .await?
+        .ok_or("missing first run")?;
+    assert_eq!(first.summary.name, "first-agent");
+    let other_scope = ReadAccessParams {
+        filter_api_key_hash: "filter-key-a2".into(),
+        ..first_scope.clone()
+    };
+    let excluded_keys = ReadAccessParams {
+        key_filter: litellm_traces::query::named::KeyHashFilter {
+            filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+            filter_api_key_hashes: vec!["filter-key-a2".into()],
+        },
+        ..first_scope.clone()
+    };
+    assert!(
+        reader
+            .get_trace(&store, &excluded_keys, trace_id, &first_ref)
+            .await?
+            .is_none()
+    );
+    let empty_keys = ReadAccessParams {
+        key_filter: litellm_traces::query::named::KeyHashFilter {
+            filter_api_key_hashes_mode: litellm_traces::query::named::KeyHashFilterMode::Only,
+            filter_api_key_hashes: vec![],
+        },
+        ..first_scope.clone()
+    };
+    assert!(
+        reader
+            .get_trace(&store, &empty_keys, trace_id, &first_ref)
+            .await?
+            .is_none()
+    );
+    assert!(
+        reader
+            .get_trace(&store, &other_scope, trace_id, &first_ref)
+            .await?
+            .is_none()
+    );
+    assert!(
+        reader
+            .get_span(&store, &other_scope, trace_id, "same-span", &first_ref)
+            .await?
+            .is_none()
+    );
+    let second_ref = format!(
+        "{:X}",
+        Sha256::digest(format!("filter-team-a\0filter-key-a2\0{trace_id}").as_bytes())
+    );
+    let second = reader
+        .get_trace(&store, &other_scope, trace_id, &second_ref)
+        .await?
+        .ok_or("missing second run")?;
+    assert_eq!(second.summary.name, "second-agent");
+    let foreign_scope = ReadAccessParams {
+        filter_team_id: "filter-team-c".into(),
+        filter_api_key_hash: "filter-key-c".into(),
+        ..access
+    };
+    let foreign_ref = format!(
+        "{:X}",
+        Sha256::digest(format!("filter-team-c\0filter-key-c\0{trace_id}").as_bytes())
+    );
+    assert!(
+        reader
+            .get_trace(&store, &foreign_scope, trace_id, &foreign_ref)
+            .await?
+            .is_none()
     );
     Ok(())
 }

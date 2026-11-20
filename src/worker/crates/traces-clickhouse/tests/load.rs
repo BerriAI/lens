@@ -439,6 +439,9 @@ async fn listed_span_reads_skip_unrelated_traces(
     let store = ClickHouseTraces::new(fixture.database.client.clone(), connection);
     let params = TracePageSpansParams {
         access: ReadAccessParams {
+            filter_team_id: String::new(),
+            filter_api_key_hash: String::new(),
+            key_filter: Default::default(),
             all_teams: true,
             user_id: String::new(),
             team_ids: Vec::new(),

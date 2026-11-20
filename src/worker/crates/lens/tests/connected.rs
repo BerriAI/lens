@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::sync::{Arc, atomic::Ordering};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, query_param},
+    matchers::{body_string_contains, method, query_param},
 };
 
 const SERVICE_TOKEN: &str = "optional-gateway-service-token-32-chars";
@@ -96,6 +96,75 @@ async fn connected_gateway_reads_using_its_authenticated_user_scope(#[future(awt
         }})).send().await.unwrap();
     assert_eq!(response.status(), 200);
     assert_eq!(response.json::<Value>().await.unwrap(), result);
+}
+
+#[rstest]
+#[case::default(None, Some(u32::from(litellm_traces::request::CONVERSATION_PAGE_SIZE_DEFAULT) + 1))]
+#[case::paged(Some(2), Some(3))]
+#[case::zero(Some(0), None)]
+#[case::over_limit(Some(litellm_traces::request::CONVERSATION_PAGE_SIZE_MAX + 1), None)]
+#[tokio::test]
+async fn connected_conversation_reads_preserve_scope_and_page_bounds(
+    #[future(awt)] server: Server,
+    #[case] page_size: Option<u16>,
+    #[case] expected_limit: Option<u32>,
+) {
+    if let Some(limit) = expected_limit {
+        Mock::given(method("POST"))
+            .and(body_string_contains("AS session_id"))
+            .and(query_param("param_all_teams", "0"))
+            .and(query_param("param_user_id", "caller"))
+            .and(query_param("param_team_ids", "['allowed-team']"))
+            .and(query_param("param_filter_team_id", "allowed-team"))
+            .and(query_param("param_filter_api_key_hash", "selected-key"))
+            .and(query_param("param_trace_ref", "selected-ref"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": [{
+                "trace_ref": "selected-ref", "team_id": "allowed-team",
+                "api_key_hash": "selected-key", "session_id": "session", "start_ns": 123
+            }]})))
+            .expect(1)
+            .mount(&server.storage)
+            .await;
+        Mock::given(method("POST"))
+            .and(body_string_contains("WITH conversation_candidates"))
+            .and(query_param("param_all_teams", "0"))
+            .and(query_param("param_user_id", "caller"))
+            .and(query_param("param_team_ids", "['allowed-team']"))
+            .and(query_param("param_filter_team_id", "allowed-team"))
+            .and(query_param("param_filter_api_key_hash", "selected-key"))
+            .and(query_param("param_limit", limit.to_string()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": []})))
+            .expect(1)
+            .mount(&server.storage)
+            .await;
+    }
+    let response = reqwest::Client::new()
+        .post(format!("{}/internal/read", server.url))
+        .bearer_auth(SERVICE_TOKEN)
+        .json(&json!({
+            "operation": "conversation",
+            "scope": {
+                "all_teams": 0, "user_id": "caller", "team_ids": ["allowed-team"],
+                "filter_team_id": "allowed-team", "filter_api_key_hash": "selected-key"
+            },
+            "trace_id": "trace", "trace_ref": "selected-ref", "cursor": null,
+            "page_size": page_size
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        if expected_limit.is_some() { 200 } else { 400 }
+    );
+    if expected_limit.is_some() {
+        assert_eq!(
+            response.json::<Value>().await.unwrap(),
+            json!({"turns": [], "next_cursor": null})
+        );
+    } else {
+        assert!(server.storage.received_requests().await.unwrap().is_empty());
+    }
 }
 
 fn gateway_call(trace_id: &str, owner: &[(&str, &str)]) -> Value {

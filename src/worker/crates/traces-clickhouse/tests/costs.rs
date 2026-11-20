@@ -39,6 +39,9 @@ fn cost_row() -> BTreeMap<String, Value> {
 
 fn access() -> contracts::ReadAccessParams {
     contracts::ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: String::new(),
         team_ids: vec!["team-a".into()],
@@ -273,6 +276,9 @@ async fn canonical_updates_fence_stale_aliases_and_owners(
     deliver(&fixture, vec![newer]).await?;
     deliver(&fixture, vec![cost_row]).await?;
     let old_access = contracts::ReadAccessParams {
+        filter_team_id: String::new(),
+        filter_api_key_hash: String::new(),
+        key_filter: Default::default(),
         all_teams: false,
         user_id: "user-a".into(),
         team_ids: Vec::new(),

@@ -1,4 +1,11 @@
 /* Generated from schema/lens-traces.json. Run npm run generate:trace-contract. */
+export interface TraceFilters {
+  organization_id?: string | null;
+  team_id?: string | null;
+  project_id?: string | null;
+  api_key_hash?: string | null;
+  [k: string]: unknown;
+}
 export type UIContent = UIMessages | UIFields | UIText;
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
@@ -51,6 +58,10 @@ export interface UIText {
   [k: string]: unknown;
 }
 export interface TraceConversationRequest {
+  organization_id?: string | null;
+  team_id?: string | null;
+  project_id?: string | null;
+  api_key_hash?: string | null;
   trace_ref?: string;
   cursor?: string | null;
   page_size?: number | null;

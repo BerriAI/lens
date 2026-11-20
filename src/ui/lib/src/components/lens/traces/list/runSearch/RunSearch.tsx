@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useContext } from "react";
+import { TracesApiContext } from "../../api";
 
 import type { TraceSummary } from "../../types";
 import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
@@ -24,7 +25,8 @@ interface RunSearchProps {
 
 /** The runs list query box: free text plus `key:value` filters over run fields, copyable as a trace query. */
 export function RunSearch({ value, onChange, runs, range, busy = false }: RunSearchProps) {
-  const command = useMemo(() => runQueryCommand(range), [range]);
+  const filters = useContext(TracesApiContext)?.filters;
+  const command = useMemo(() => runQueryCommand(range, filters), [range, filters]);
   return (
     <SearchBox.Root
       language={RUN_QUERY}

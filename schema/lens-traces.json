@@ -788,6 +788,38 @@
     "title": "TraceConversationRequest",
     "type": "object",
     "properties": {
+      "organization_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "team_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "project_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "api_key_hash": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
       "trace_ref": {
         "type": "string",
         "default": ""
@@ -808,6 +840,45 @@
         "format": "uint16",
         "minimum": 1,
         "maximum": 50,
+        "default": null
+      }
+    }
+  },
+  "TraceFilters": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TraceFilters",
+    "type": "object",
+    "properties": {
+      "organization_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "team_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "project_id": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
+        "default": null
+      },
+      "api_key_hash": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 256,
         "default": null
       }
     }

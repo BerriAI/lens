@@ -27,6 +27,9 @@ WHERE o.Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
   AND ({all_teams:UInt8} = 1
        OR ({user_id:String} != '' AND o.UserId = {user_id:String})
        OR has({team_ids:Array(String)}, o.TeamId))
+  AND ({filter_team_id:String} = '' OR o.TeamId = {filter_team_id:String})
+  AND ({filter_api_key_hash:String} = '' OR o.ApiKeyHash = {filter_api_key_hash:String})
+  AND ({filter_api_key_hashes_mode:String} = 'all' OR has({filter_api_key_hashes:Array(String)}, o.ApiKeyHash))
   AND hex(SHA256(concat(o.TeamId, char(0), o.ApiKeyHash, char(0), o.TraceId))) IN {trace_refs:Array(String)}
   AND o.EngineReceivedMs <= {snapshot_ms:UInt64}
   AND (o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId) > ({after_team:String}, {after_key:String}, {after_trace:String}, {after_span:String})

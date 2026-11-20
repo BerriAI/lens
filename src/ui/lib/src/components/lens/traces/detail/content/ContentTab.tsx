@@ -18,7 +18,7 @@ const COLLAPSE_INPUT_ABOVE = 8;
 export function useSpanDetail(accessToken: string, traceId: string, spanId: string | null, traceRef?: string) {
   const traces = useTracesApi(accessToken);
   const queryOptions: UseQueryOptions<SpanDetail, Error> = {
-    queryKey: ["agentTraceSpan", traceId, traceRef, spanId, accessToken],
+    queryKey: ["agentTraceSpan", traceId, traceRef, spanId, traces.scope, accessToken],
     queryFn: ({ signal }) => traces.span(traceId, spanId as string, traceRef, signal),
     enabled: spanId !== null,
     staleTime: Infinity,

@@ -105,7 +105,9 @@ const PANEL =
   "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
-  const embedded = useLensHost().surface === "embedded";
+  const host = useLensHost();
+  const embedded = host.surface === "embedded";
+  const WorkspaceSwitcher = host.WorkspaceSwitcher;
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
@@ -211,12 +213,15 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
           >
             {!embedded && <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />}
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
+              {!demo && WorkspaceSwitcher && <WorkspaceSwitcher />}
               {embedded ? (
-                <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
-                  <h1 className="sr-only">Lens</h1>
-                  <div className="min-w-0 max-w-full overflow-x-auto">
-                    <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
-                  </div>
+                <header aria-label={host.navigation === "host" ? "Lens actions" : "Lens navigation and actions"} className="lens-embedded-toolbar">
+                  {(demo || !WorkspaceSwitcher) && <h1 className="sr-only">Lens</h1>}
+                  {host.navigation !== "host" && (
+                    <div className="min-w-0 max-w-full overflow-x-auto">
+                      <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
+                    </div>
+                  )}
                   <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
                     {agents.agent && activeTab !== "optimizations" && (
                       <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
