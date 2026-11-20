@@ -38,6 +38,27 @@ fn required(read: &impl Fn(&str) -> Option<String>, name: &'static str) -> Resul
         .ok_or(Error::Configuration(name))
 }
 
+pub fn sign_in_link(
+    read: impl Fn(&str) -> Option<String>,
+    public_url: &url::Url,
+    admin_token: &str,
+) -> Option<url::Url> {
+    let local = match public_url.host()? {
+        url::Host::Domain(domain) => domain == "localhost",
+        url::Host::Ipv4(address) => address.is_loopback(),
+        url::Host::Ipv6(address) => address.is_loopback(),
+    };
+    if !local || read("LENS_SIGN_IN_LINK").as_deref() != Some("true") {
+        return None;
+    }
+    let mut link: url::Url = format!("{}/ui/", public_url.as_str().trim_end_matches('/'))
+        .parse()
+        .ok()?;
+    let token: String = url::form_urlencoded::byte_serialize(admin_token.as_bytes()).collect();
+    link.set_fragment(Some(&format!("token={token}")));
+    Some(link)
+}
+
 impl Config {
     pub fn from_env() -> Result<Self, Error> {
         Self::read(|name| std::env::var(name).ok())
@@ -336,6 +357,45 @@ mod tests {
         if valid {
             assert_eq!(result.unwrap().is_some(), configured);
         }
+    }
+
+    #[rstest]
+    #[case::localhost(
+        "http://localhost:4318",
+        Some("true"),
+        Some("http://localhost:4318/ui/#token=setup-token+%26%23")
+    )]
+    #[case::trailing_slash(
+        "http://localhost:4318/",
+        Some("true"),
+        Some("http://localhost:4318/ui/#token=setup-token+%26%23")
+    )]
+    #[case::loopback_ipv4(
+        "http://127.0.0.1:4320",
+        Some("true"),
+        Some("http://127.0.0.1:4320/ui/#token=setup-token+%26%23")
+    )]
+    #[case::loopback_ipv6(
+        "http://[::1]:4318",
+        Some("true"),
+        Some("http://[::1]:4318/ui/#token=setup-token+%26%23")
+    )]
+    #[case::not_requested("http://localhost:4318", None, None)]
+    #[case::switched_off("http://localhost:4318", Some("false"), None)]
+    #[case::public_host("https://lens.example.com", Some("true"), None)]
+    #[case::private_address("http://10.0.0.5:4318", Some("true"), None)]
+    #[case::localhost_lookalike("http://localhost.example.com", Some("true"), None)]
+    fn sign_in_link_is_only_printed_for_a_requested_local_deployment(
+        #[case] public_url: &str,
+        #[case] requested: Option<&str>,
+        #[case] expected: Option<&str>,
+    ) {
+        let link = super::sign_in_link(
+            |name| (name == "LENS_SIGN_IN_LINK").then(|| requested.map(str::to_owned))?,
+            &public_url.parse().unwrap(),
+            "setup-token &#",
+        );
+        assert_eq!(link.as_ref().map(url::Url::as_str), expected);
     }
 
     #[fixture]

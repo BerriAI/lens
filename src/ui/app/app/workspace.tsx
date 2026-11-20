@@ -8,6 +8,7 @@ import {
   configureLensHttp,
   LensHostProvider,
   LensWorkspace,
+  takeSignInToken,
 } from "@litellm/lens-ui";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 
@@ -25,10 +26,15 @@ export function Workspace() {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
   const session = useQuery({
     queryKey: sessionKey,
-    queryFn: async () =>
-      sessionSchema.parse(
-        await api.get("/auth/session", { cache: "no-store" }),
-      ),
+    queryFn: async () => {
+      const token = takeSignInToken(window.location, window.history);
+      const signedIn = token
+        ? await api.post("/auth/session", { body: { token } }).catch(() => null)
+        : null;
+      return sessionSchema.parse(
+        signedIn ?? (await api.get("/auth/session", { cache: "no-store" })),
+      );
+    },
     enabled: !demo,
     retry: false,
   });

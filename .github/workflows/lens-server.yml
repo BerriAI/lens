@@ -150,6 +150,7 @@ jobs:
           lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' deploy/lens/.env)"
           curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:4318/lens)" = 401
+          test "$(docker compose logs --no-log-prefix lens | sed -n 's|^Sign in: http://localhost:4318/ui/#token=||p' | tail -n 1)" = "$lens_token"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1
