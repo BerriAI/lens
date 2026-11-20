@@ -242,6 +242,7 @@ pub async fn initialize(
         settings,
         sessions: Sessions(store.clone()),
     });
+    authentication.refresh_gateway().await?;
     let traces_reader = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
     let optimizations = crate::optimizations::Optimizations::new(state.clone(), store.clone());
     let eval_runtime = EvalRuntime::new(

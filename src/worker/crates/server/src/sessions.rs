@@ -6,12 +6,14 @@ use axum::{
     extract::State,
     http::{HeaderMap, Method, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
-use lens_auth::{Authentication, SessionRepository, session_view};
-use lens_contract::auth::{SessionRequest, SessionView, SignInMethods};
+use lens_auth::{Authentication, GatewayConnection, SessionRepository, session_view};
+use lens_contract::auth::{
+    GatewayConnectRequest, GatewayConnected, SessionRequest, SessionView, SignInMethods,
+};
 use rand::RngCore;
 use serde_json::{Value, json};
 
@@ -31,15 +33,58 @@ pub fn router_with_auth<R: SessionRepository + 'static>(
             get(info::<R>).post(sign_in::<R>).delete(sign_out::<R>),
         )
         .route("/auth/methods", get(methods::<R>))
+        .route("/auth/gateway", post(connect_gateway::<R>))
         .with_state(authentication)
 }
 
 async fn methods<R: SessionRepository>(
     State(auth): State<Arc<Authentication<R>>>,
 ) -> Json<SignInMethods> {
+    let _ = auth.refresh_gateway().await;
     Json(SignInMethods {
         litellm_login_url: auth.settings.gateway_login_url(),
     })
+}
+
+fn random_token() -> Result<String, SessionError> {
+    let mut bytes = [0u8; 48];
+    rand::rngs::OsRng
+        .try_fill_bytes(&mut bytes)
+        .map_err(SessionError::Entropy)?;
+    Ok(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+async fn connect_gateway<R: SessionRepository>(
+    State(auth): State<Arc<Authentication<R>>>,
+    body: Bytes,
+) -> Result<Json<GatewayConnected>, SessionError> {
+    let request: GatewayConnectRequest = serde_json::from_slice(&body).map_err(|error| {
+        SessionError::Validation(vec![validation(
+            "json_invalid",
+            vec![json!("body")],
+            &error.to_string(),
+            json!({}),
+        )])
+    })?;
+    let secret = random_token()?;
+    let gateway = GatewayConnection {
+        url: request.gateway_url.trim().to_owned(),
+        secret: secret.clone(),
+        api_key: request
+            .api_key
+            .map(|key| key.trim().to_owned())
+            .filter(|key| !key.is_empty()),
+    };
+    auth.connect_gateway(&request.token, gateway).await?;
+    let lens = auth.settings.origin();
+    Ok(Json(GatewayConnected {
+        litellm_login_url: auth.settings.gateway_login_url().unwrap_or_default(),
+        gateway_environment: vec![
+            format!("LITELLM_LENS_URL={lens}"),
+            format!("LITELLM_LENS_PUBLIC_URL={lens}"),
+            format!("LENS_GATEWAY_SECRET={secret}"),
+        ],
+    }))
 }
 
 async fn sign_in<R: SessionRepository>(
@@ -48,11 +93,7 @@ async fn sign_in<R: SessionRepository>(
     body: Bytes,
 ) -> Result<Response, SessionError> {
     let request = request(&body, &headers)?;
-    let mut bytes = [0u8; 48];
-    rand::rngs::OsRng
-        .try_fill_bytes(&mut bytes)
-        .map_err(SessionError::Entropy)?;
-    let token = URL_SAFE_NO_PAD.encode(bytes);
+    let token = random_token()?;
     let signed_in = auth.sign_in(&request.token, &token, Utc::now()).await?;
     let secure = if auth.settings.secure_cookie() {
         "; Secure"
