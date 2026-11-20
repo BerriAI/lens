@@ -1118,3 +1118,223 @@ fn native_claude_preserves_the_provider_id_family(
         CallEvidence::Complete(std::collections::BTreeSet::from([key]))
     );
 }
+
+const CLAUDE_CODE_GATEWAY_INPUT: &str = r#"[{"role":"system","content":"You are a Claude agent"},{"role":"user","content":[{"type":"text","text":"<system-reminder>\n# Environment\nPlatform: linux\n</system-reminder>\n\n<system-reminder>\nToday's date is 2026-11-20.\n</system-reminder>\n\n\nList the files in this directory"}]}]"#;
+const CODEX_GATEWAY_INPUT: &str = r#"[{"type":"message","role":"developer","content":[{"type":"input_text","text":"You are a coding agent running in the Codex CLI"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/work</cwd>\n</environment_context>"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":"Count the words in notes.txt"}]}]"#;
+const CODEX_GATEWAY_FOLLOW_UP_INPUT: &str = r#"[{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/work</cwd>\n</environment_context>"}]},{"type":"message","role":"user","content":[{"type":"input_text","text":"Count the words in notes.txt"}]},{"type":"function_call","name":"exec_command","arguments":"{}","call_id":"call_1"},{"type":"function_call_output","call_id":"call_1","output":"1 notes.txt"}]"#;
+
+#[rstest]
+#[case::claude_code(
+    "claude-code",
+    CLAUDE_CODE_GATEWAY_INPUT,
+    Integration::ClaudeCode,
+    "List the files in this directory"
+)]
+#[case::codex(
+    "codex",
+    CODEX_GATEWAY_INPUT,
+    Integration::OpenaiCodex,
+    "Count the words in notes.txt"
+)]
+#[case::codex_after_a_tool_call(
+    "codex",
+    CODEX_GATEWAY_FOLLOW_UP_INPUT,
+    Integration::OpenaiCodex,
+    "Count the words in notes.txt"
+)]
+#[case::only_harness_text(
+    "claude-code",
+    r#"[{"role":"user","content":"<system-reminder>\nsetup\n</system-reminder>"}]"#,
+    Integration::ClaudeCode,
+    "<system-reminder>\nsetup\n</system-reminder>"
+)]
+#[case::unclosed_tag_is_the_task(
+    "claude-code",
+    r#"[{"role":"user","content":"<div> does not render"}]"#,
+    Integration::ClaudeCode,
+    "<div> does not render"
+)]
+fn gateway_model_call_shows_the_calling_agent_and_its_task(
+    span: Span,
+    #[case] agent: &str,
+    #[case] input: &str,
+    #[case] framework: Integration,
+    #[case] task: &str,
+) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", agent),
+            ("gen_ai.input.messages", input),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(framework));
+    assert_eq!(decoded.normalized.input_preview, task);
+}
+
+#[rstest]
+fn gateway_task_follows_any_number_of_harness_blocks(span: Span) {
+    let content = format!(
+        "{}Fix the build",
+        "<system-reminder>setup</system-reminder>\n".repeat(200_000)
+    );
+    let input = json!([{"role": "user", "content": content}]).to_string();
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", "claude-code"),
+            ("gen_ai.input.messages", &input),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.input_preview, "Fix the build");
+}
+
+#[rstest]
+fn gateway_tool_step_carries_the_calling_agent(span: Span) {
+    let decoded = decode(
+        span,
+        "litellm.lens.tool_steps",
+        &[
+            ("gen_ai.operation.name", "execute_tool"),
+            ("gen_ai.agent.name", "codex"),
+            ("lens.task", "Count the words in notes.txt"),
+            ("gen_ai.tool.call.arguments", r#"{"cmd":"wc -w notes.txt"}"#),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(Integration::OpenaiCodex));
+    assert_eq!(
+        decoded.normalized.input_preview,
+        r#"{"cmd":"wc -w notes.txt"}"#
+    );
+}
+
+#[rstest]
+#[case::agent_lens_has_no_logo_for("opencode")]
+#[case::no_agent("")]
+fn gateway_model_call_from_any_agent_shows_its_task(span: Span, #[case] agent: &str) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", agent),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "List the files in this directory"
+    );
+}
+
+#[rstest]
+#[case::claude_code("claude-code", "claude-code", Integration::ClaudeCode)]
+#[case::codex("codex", "openai-codex", Integration::OpenaiCodex)]
+#[case::opencode("opencode", "opencode", Integration::Opencode)]
+#[case::pi("pi", "pi", Integration::Pi)]
+fn gateway_sent_framework_and_task_win_over_what_lens_would_guess(
+    span: Span,
+    #[case] agent: &str,
+    #[case] sent_framework: &str,
+    #[case] framework: Integration,
+) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", agent),
+            ("langsmith.metadata.ls_integration", sent_framework),
+            ("lens.task", "Count the words in notes.txt"),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, Some(framework));
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "Count the words in notes.txt"
+    );
+}
+
+#[rstest]
+fn gateway_blank_sent_task_falls_back_to_the_guess(span: Span) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("lens.task", "  "),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "List the files in this directory"
+    );
+}
+
+#[rstest]
+fn gateway_rule_leaves_other_emitters_alone(span: Span) {
+    let decoded = decode(
+        span,
+        "my-app",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", "claude-code"),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert!(
+        decoded
+            .normalized
+            .input_preview
+            .starts_with("<system-reminder>")
+    );
+}
+
+#[rstest]
+fn responses_message_items_keep_their_roles(span: Span) {
+    let decoded = decode(
+        span,
+        "unrecognized-scope",
+        &[("gen_ai.input.messages", CODEX_GATEWAY_INPUT)],
+        vec![],
+    )
+    .unwrap();
+
+    let messages: Value = serde_json::from_str(&decoded.normalized.input).unwrap();
+    let roles: Vec<_> = messages
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|message| message["role"].as_str().unwrap())
+        .collect();
+    assert_eq!(roles, ["developer", "user", "user"]);
+}

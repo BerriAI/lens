@@ -17,6 +17,7 @@ pub(super) mod google_adk;
 pub(super) mod hermes;
 pub(super) mod http_client;
 pub(super) mod langchain;
+pub(super) mod litellm_gateway;
 pub(super) mod llama_index;
 pub(super) mod openai_codex;
 pub(super) mod pydantic_ai;
@@ -88,9 +89,10 @@ impl Rule for OpenInference {
     }
 }
 
-const RULES: [&dyn Rule; 10] = [
+const RULES: [&dyn Rule; 11] = [
     &claude_code::ClaudeCode,
     &openai_codex::OpenaiCodex,
+    &litellm_gateway::LitellmGateway,
     &hermes::Hermes,
     &OpenInference,
     &http_client::HttpClient,
