@@ -926,11 +926,15 @@ describe("Lens agent selector", () => {
     const tabs = screen.getByRole("tablist", { name: "Lens" });
     expect(tabs).toHaveAttribute("aria-orientation", "vertical");
     const traces = within(tabs).getByRole("tab", { name: "Traces" });
+    const alerts = within(tabs).getByRole("tab", { name: "Alerts" });
     const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
     const findings = within(tabs).getByRole("tab", { name: "Findings" });
     await user.click(traces);
     await user.keyboard("{ArrowDown}");
 
+    expect(alerts).toHaveFocus();
+    expect(alerts).toHaveAttribute("aria-selected", "false");
+    await user.keyboard("{ArrowDown}");
     expect(profiles).toHaveFocus();
     expect(profiles).toHaveAttribute("aria-selected", "false");
     await user.keyboard("{ArrowDown}");
@@ -1101,9 +1105,12 @@ it("uses horizontal tabs in the embedded header and restores the selected view f
   expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
   const tabs = screen.getByRole("tablist", { name: "Lens" });
   const traces = within(tabs).getByRole("tab", { name: "Traces" });
+  const alerts = within(tabs).getByRole("tab", { name: "Alerts" });
   const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
   const findings = within(tabs).getByRole("tab", { name: "Findings" });
   await user.click(traces);
+  await user.keyboard("{ArrowRight}");
+  expect(alerts).toHaveFocus();
   await user.keyboard("{ArrowRight}");
   expect(profiles).toHaveFocus();
   await user.keyboard("{ArrowRight}");
