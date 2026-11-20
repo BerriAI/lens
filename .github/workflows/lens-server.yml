@@ -136,6 +136,8 @@ jobs:
           name: lens-vulnerabilities-${{ runner.arch }}
           path: ${{ runner.temp }}/lens-vulnerabilities.json
           if-no-files-found: warn
+      - name: Check start script image selection
+        run: deploy/lens/start-test.sh
       - name: Start and restart with ClickHouse
         run: deploy/lens/smoke.sh lens:ci ci
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
