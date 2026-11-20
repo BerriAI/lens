@@ -962,3 +962,23 @@ fn session_view_names_the_user_only_when_the_identity_carries_a_name(
     assert_eq!(view.user_id, "user");
     assert_eq!(view.user_name.as_deref(), shown);
 }
+
+#[rstest]
+#[tokio::test]
+async fn another_replica_accepts_a_login_after_a_gateway_is_connected(now: DateTime<Utc>) {
+    let first = standalone();
+    let replica = Authentication {
+        settings: Settings::new(ADMIN, None, ORIGIN).unwrap(),
+        sessions: first.sessions.clone(),
+    };
+    first
+        .connect_gateway(ADMIN, connection("https://gateway.test", None))
+        .await
+        .unwrap();
+    assert!(
+        replica
+            .sign_in(&login_token(now, "litellm-lens-login", 60), "browser", now)
+            .await
+            .is_ok()
+    );
+}

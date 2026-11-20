@@ -248,8 +248,8 @@ impl<R: SessionRepository> Authentication<R> {
             (None, SESSION_LIFETIME_SECONDS)
         } else {
             let secret = self
-                .settings
-                .secret()
+                .secret_for(|secret| gateway::login_identity(token, secret, now).is_ok())
+                .await
                 .ok_or(Error::Unauthorized("Invalid Lens setup token"))?;
             let identity = gateway::login_identity(token, &secret, now)
                 .map_err(|_| Error::Unauthorized("Invalid Lens setup token"))?;
@@ -297,6 +297,17 @@ impl<R: SessionRepository> Authentication<R> {
         self.sessions.save_gateway(&gateway).await?;
         self.settings.connect(Some(gateway));
         Ok(())
+    }
+
+    async fn secret_for(&self, accepts: impl Fn(&str) -> bool) -> Option<String> {
+        let secret = self.settings.secret();
+        if self.settings.gateway_set_by_environment()
+            || secret.as_deref().is_some_and(&accepts)
+            || self.refresh_gateway().await.is_err()
+        {
+            return secret;
+        }
+        self.settings.secret()
     }
 
     pub async fn refresh_gateway(&self) -> Result<(), Error> {
@@ -356,8 +367,8 @@ impl<R: SessionRepository> Authentication<R> {
                 });
             }
             let secret = self
-                .settings
-                .secret()
+                .secret_for(|secret| gateway::identity(token, secret, now).is_ok())
+                .await
                 .ok_or(Error::Unauthorized("Invalid Lens credential"))?;
             return gateway::identity(token, &secret, now);
         }
