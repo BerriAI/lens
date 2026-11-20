@@ -51,7 +51,7 @@ pub(super) struct LitellmGateway;
 
 impl Rule for LitellmGateway {
     fn matches(&self, context: &SpanContext<'_>) -> bool {
-        SCOPES.contains(&context.scope) && calling_agent(context).is_some()
+        SCOPES.contains(&context.scope)
     }
 
     fn integration(&self, context: &SpanContext<'_>) -> Option<Integration> {

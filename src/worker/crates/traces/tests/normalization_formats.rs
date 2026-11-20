@@ -1221,20 +1221,36 @@ fn gateway_tool_step_carries_the_calling_agent(span: Span) {
 }
 
 #[rstest]
-#[case::other_agent("litellm", "my-agent")]
-#[case::no_agent("litellm", "")]
-#[case::other_emitter("my-app", "claude-code")]
-fn gateway_rule_needs_a_known_agent_on_a_gateway_span(
-    span: Span,
-    #[case] scope: &str,
-    #[case] agent: &str,
-) {
+#[case::agent_lens_has_no_logo_for("opencode")]
+#[case::no_agent("")]
+fn gateway_model_call_from_any_agent_shows_its_task(span: Span, #[case] agent: &str) {
     let decoded = decode(
         span,
-        scope,
+        "litellm",
         &[
             ("gen_ai.operation.name", "chat"),
             ("gen_ai.agent.name", agent),
+            ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "List the files in this directory"
+    );
+}
+
+#[rstest]
+fn gateway_rule_leaves_other_emitters_alone(span: Span) {
+    let decoded = decode(
+        span,
+        "my-app",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", "claude-code"),
             ("gen_ai.input.messages", CLAUDE_CODE_GATEWAY_INPUT),
         ],
         vec![],
