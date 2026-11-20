@@ -19,6 +19,7 @@ import {
   ComboboxTrigger,
 } from "../../ui/combobox";
 import { LensBrand } from "../LensBrand";
+import { useLensHost } from "../../../host/LensHost";
 import type { WorkspaceItem, WorkspaceKind } from "./scope";
 
 export type { WorkspaceItem, WorkspaceKind } from "./scope";
@@ -172,13 +173,18 @@ export function WorkspaceSwitchers({
   readonly pickers: readonly WorkspacePicker[];
   readonly onSelect: (kind: WorkspaceKind, item: WorkspaceItem | null) => void;
 }) {
+  const embedded = useLensHost().surface === "embedded";
   const key = pickers.find((picker) => picker.kind === "key")?.value;
   return (
     <header
       aria-label="Lens workspace"
       className="flex shrink-0 flex-col gap-2 border-b bg-background px-3 py-2 sm:flex-row sm:items-center sm:gap-4 sm:px-4"
     >
-      <LensBrand className="px-1 [&_.lens-brand-name]:text-lg" />
+      {!embedded && (
+        <h1 className="px-1">
+          <LensBrand showLiteLLM={false} className="[&_.lens-brand-name]:text-lg" />
+        </h1>
+      )}
       <nav
         aria-label="Workspace hierarchy"
         className="grid min-w-0 flex-1 grid-cols-2 gap-1 sm:flex sm:items-center"

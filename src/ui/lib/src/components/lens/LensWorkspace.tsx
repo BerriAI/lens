@@ -216,7 +216,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
               {!demo && WorkspaceSwitcher && <WorkspaceSwitcher />}
               {embedded ? (
                 <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
-                  <h1 className="sr-only">Lens</h1>
+                  {(demo || !WorkspaceSwitcher) && <h1 className="sr-only">Lens</h1>}
                   <div className="min-w-0 max-w-full overflow-x-auto">
                     <LensTabs orientation="horizontal" activity={activity} workers={workers} onNavigate={navigate} />
                   </div>

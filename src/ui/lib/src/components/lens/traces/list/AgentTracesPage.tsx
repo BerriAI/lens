@@ -24,7 +24,8 @@ export default function AgentTracesPage({
   onConnectAgent?: () => void;
 }) {
   const time = useRelativeRange(useTracesLive());
-  const filters = useTracesApi(accessToken).filters;
+  const api = useTracesApi(accessToken);
+  const filters = api.filters;
   const { WorkspaceSwitcher } = useLensHost();
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -40,6 +41,7 @@ export default function AgentTracesPage({
         </div>
       )}
       <AgentTracesSection
+        key={api.scope}
         accessToken={accessToken}
         isActive={isActive}
         range={time.range}

@@ -11,6 +11,12 @@ const teams = [
 ];
 
 describe("WorkspaceSwitchers", () => {
+  it("identifies the workspace with one Lens wordmark", () => {
+    renderWithProviders(<WorkspaceSwitchers pickers={[]} onSelect={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "Lens", level: 1 })).toBeVisible();
+    expect(screen.queryByRole("img", { name: "LiteLLM" })).not.toBeInTheDocument();
+  });
+
   it("searches by the visible name and selects with the keyboard", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
