@@ -381,15 +381,15 @@ mod tests {
     #[case::quoted(true)]
     fn parameters_preserve_flattened_multi_team_access(#[case] quoted: bool) {
         round_trip::<ListTracesParams>(
-            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "agent": "", "start_ms": -1, "end_ms": 10, "cursor_ms": 0, "cursor_trace_id": "", "limit": u32::MAX}),
+            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "filter_team_id": "", "filter_api_key_hash": "", "agent": "", "start_ms": -1, "end_ms": 10, "cursor_ms": 0, "cursor_trace_id": "", "limit": u32::MAX}),
             quoted,
         );
         round_trip::<SpanErrorParams>(
-            json!({"all_teams": 0, "user_id": "", "team_ids": [], "trace_id": "trace", "trace_ref": "ref", "span_id": "span", "error_offset": u64::MAX, "error_version": "version"}),
+            json!({"all_teams": 0, "user_id": "", "team_ids": [], "filter_team_id": "", "filter_api_key_hash": "", "trace_id": "trace", "trace_ref": "ref", "span_id": "span", "error_offset": u64::MAX, "error_version": "version"}),
             quoted,
         );
         round_trip::<SpendByResponseIdsParams>(
-            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "response_ids": ["response"], "provider_request_ids": [], "request_ids": ["request"], "trace_ids": ["trace"], "start_ms": -1, "end_ms": 10}),
+            json!({"all_teams": 0, "user_id": "user", "team_ids": ["team-a", "team-b"], "filter_team_id": "", "filter_api_key_hash": "", "response_ids": ["response"], "provider_request_ids": [], "request_ids": ["request"], "trace_ids": ["trace"], "start_ms": -1, "end_ms": 10}),
             quoted,
         );
     }
