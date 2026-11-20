@@ -2,7 +2,7 @@
 
 Lens records agent traces, investigates failures, and turns useful examples into datasets. The standalone deployment includes the UI, API and background processing in one Lens service, with ClickHouse storing its data and coordination state
 
-The source installation below builds the current checkout. For a published version, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest instead of building from source
+The quickstart below runs the published Lens image for the version in this checkout. To pin and verify a release, download `lens-install-VERSION.tar.gz` from [GitHub Releases](https://github.com/BerriAI/lens/releases), [verify it](../../docs/releasing.md#verify-a-release), extract it, and run `./start` inside the extracted directory. The bundle pulls the release image by digest
 
 Prefer your coding agent to make the changes? [Set it up for me](../../docs/setup-with-agent.md#start-standalone-lens) has a copyable prompt for standalone setup, an existing LiteLLM deployment, and optional external storage. The commands below remain the shortest manual path
 
@@ -16,11 +16,19 @@ cd lens
 ./deploy/lens/start
 ```
 
-The first start builds Lens, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
+The first start pulls the published image `ghcr.io/berriai/lens` at the version in the `VERSION` file, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. It takes about a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
 
 Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The starter binds Lens to localhost and leaves ClickHouse off the host network
 
-Rerunning the start command preserves the environment file, credentials and ClickHouse volume. The initial image build takes longer than subsequent starts
+Rerunning the start command preserves the environment file, credentials, ClickHouse volume and the image the installation started with
+
+To run the code in your checkout instead of the published image, build it from source. The build compiles the Rust backend and can take 20 minutes or more:
+
+```sh
+./deploy/lens/start --build
+```
+
+A fresh installation started with `--build` keeps rebuilding from source on each start. If the published image for the checkout's version cannot be pulled, the start command falls back to the same source build
 
 ## Record your first trace
 
