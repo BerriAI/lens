@@ -12,6 +12,7 @@ import {
   takeSignInToken,
 } from "@litellm/lens-ui";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
+import { toast } from "sonner";
 
 const baseUrl = () => process.env.NEXT_PUBLIC_LENS_API_URL ?? "";
 const api = createApiClient({
@@ -61,7 +62,16 @@ export function Workspace() {
   }, [client]);
   const signOut = async () => {
     setLinkRejected(false);
-    await api.delete("/auth/session").catch(() => null);
+    const signedOut = await api
+      .delete("/auth/session")
+      .then(() => true)
+      .catch((error: unknown) => error instanceof ApiError && error.status === 401);
+    if (!signedOut) {
+      toast.error("Sign out did not complete. You are still signed in.", {
+        description: "Reload the page and try again.",
+      });
+      return;
+    }
     await client.resetQueries({ queryKey: sessionKey });
   };
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;

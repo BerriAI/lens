@@ -20,6 +20,7 @@ pub(super) mod langchain;
 pub(super) mod litellm_gateway;
 pub(super) mod llama_index;
 pub(super) mod openai_codex;
+pub(super) mod opencode;
 pub(super) mod pydantic_ai;
 
 pub(super) trait Rule: Sync {
@@ -89,10 +90,11 @@ impl Rule for OpenInference {
     }
 }
 
-const RULES: [&dyn Rule; 11] = [
+const RULES: [&dyn Rule; 12] = [
     &claude_code::ClaudeCode,
     &openai_codex::OpenaiCodex,
     &litellm_gateway::LitellmGateway,
+    &opencode::Opencode,
     &hermes::Hermes,
     &OpenInference,
     &http_client::HttpClient,
