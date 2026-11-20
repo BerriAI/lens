@@ -65,6 +65,7 @@ struct Registry {
     client: reqwest::Client,
     connection: Option<GatewayConfig>,
     connected: RwLock<Option<Connected>>,
+    attempted: RwLock<Option<(String, String)>>,
     signing: Option<lens_inference::GatewayBase>,
     analysis: Vec<lens_analysis::Deployment>,
     evaluation: Vec<lens_decisions::Deployment>,
@@ -114,6 +115,7 @@ impl Models {
             client,
             connection,
             connected: RwLock::new(None),
+            attempted: RwLock::new(None),
             signing,
             analysis,
             evaluation,
@@ -216,16 +218,23 @@ impl ModelCatalog for Models {
     }
     fn gateway(&self) -> GatewayStatus {
         let mut status = self.snapshot().status.clone();
-        let api_base = self
-            .connection()
-            .map(|connection| connection.base.to_string().trim_end_matches('/').to_owned());
-        if status.api_base != api_base {
+        let connection = self.connection();
+        let attempted = self
+            .0
+            .attempted
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if attempted != connection.as_ref().map(attempt) {
             status.connected = false;
             status.analysis_models = 0;
             status.evaluation_models = 0;
+            status.error = None;
+            status.last_refreshed = None;
         }
-        status.configured = api_base.is_some();
-        status.api_base = api_base;
+        status.configured = connection.is_some();
+        status.api_base = connection
+            .map(|connection| connection.base.to_string().trim_end_matches('/').to_owned());
         status
     }
     async fn refresh(&self) -> GatewayStatus {
@@ -248,14 +257,22 @@ impl ModelCatalog for Models {
                 }
             }
         };
-        let status = snapshot.status.clone();
         *self
             .0
             .snapshot
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(snapshot);
-        status
+        *self
+            .0
+            .attempted
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(attempt(connection));
+        self.gateway()
     }
+}
+
+fn attempt(connection: &GatewayConfig) -> (String, String) {
+    (connection.base.to_string(), connection.key.clone())
 }
 
 fn compile(
