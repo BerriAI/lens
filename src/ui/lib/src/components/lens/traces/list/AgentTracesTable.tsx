@@ -196,6 +196,8 @@ function SignalsHeader() {
   );
 }
 
+const LENS_AGENT = "lens-signals";
+
 const mutedCell = (label: string, title: string) => (
   <span className="text-muted-foreground" title={title}>
     {label}
@@ -212,6 +214,8 @@ function SignalsCell({ run }: { run: TraceSummary }) {
   if (state.status === "error")
     return muted("Unavailable", "Could not load signals");
   const { status } = state.signals;
+  if (status === "unclassified" && run.agent_names?.includes(LENS_AGENT))
+    return <span title="Lens does not check its own model calls" />;
   if (status === "unclassified" || status === "pending")
     return muted("Checking", "The System 1 model is checking this run");
   if (status === "failed")

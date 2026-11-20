@@ -401,6 +401,30 @@ describe("AgentTracesTable signals", () => {
     expect(within(rows[2]).getByText("Checking")).toBeInTheDocument();
   });
 
+  it("shows no signal state for a run made by Lens itself, which is never checked", () => {
+    const lensRun = { ...queuedRun, agent_names: ["lens-signals"] };
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={[lensRun]}
+          findings={new Map()}
+          signals={new Map([[key(lensRun), result(lensRun, "unclassified")]])}
+          showSignals
+          signalsColumn
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          rangeEmpty={false}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+    const row = screen.getByTestId("agent-trace-row");
+    expect(within(row).queryByText("Checking")).not.toBeInTheDocument();
+    expect(within(row).getByTitle("Lens does not check its own model calls")).toBeInTheDocument();
+  });
+
   it.each([
     [],
     [{ signal_id: "user_frustration", name: "Frustration", score: 0.9 }],
