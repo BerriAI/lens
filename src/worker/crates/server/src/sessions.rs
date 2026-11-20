@@ -11,7 +11,7 @@ use axum::{
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use lens_auth::{Authentication, SessionRepository, session_view};
-use lens_contract::auth::{SessionRequest, SessionView};
+use lens_contract::auth::{SessionRequest, SessionView, SignInMethods};
 use rand::RngCore;
 use serde_json::{Value, json};
 
@@ -30,7 +30,16 @@ pub fn router_with_auth<R: SessionRepository + 'static>(
             "/auth/session",
             get(info::<R>).post(sign_in::<R>).delete(sign_out::<R>),
         )
+        .route("/auth/methods", get(methods::<R>))
         .with_state(authentication)
+}
+
+async fn methods<R: SessionRepository>(
+    State(auth): State<Arc<Authentication<R>>>,
+) -> Json<SignInMethods> {
+    Json(SignInMethods {
+        litellm_login_url: auth.settings.gateway_login_url().map(str::to_owned),
+    })
 }
 
 async fn sign_in<R: SessionRepository>(
@@ -44,7 +53,7 @@ async fn sign_in<R: SessionRepository>(
         .try_fill_bytes(&mut bytes)
         .map_err(SessionError::Entropy)?;
     let token = URL_SAFE_NO_PAD.encode(bytes);
-    let view = auth.sign_in(&request.token, &token, Utc::now()).await?;
+    let signed_in = auth.sign_in(&request.token, &token, Utc::now()).await?;
     let secure = if auth.settings.secure_cookie() {
         "; Secure"
     } else {
@@ -52,9 +61,9 @@ async fn sign_in<R: SessionRepository>(
     };
     let cookie = format!(
         "lens_session={token}; HttpOnly; Max-Age={}; Path=/; SameSite=strict{secure}",
-        lens_auth::SESSION_LIFETIME_SECONDS
+        signed_in.lifetime_seconds
     );
-    Ok(([(header::SET_COOKIE, cookie)], Json(view)).into_response())
+    Ok(([(header::SET_COOKIE, cookie)], Json(signed_in.view)).into_response())
 }
 
 async fn info<R: SessionRepository>(

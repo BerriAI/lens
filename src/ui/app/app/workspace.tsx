@@ -19,6 +19,9 @@ const api = createApiClient({
 });
 const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
 const sessionKey = ["lens-session"];
+const signInMethodsSchema = z.object({
+  litellm_login_url: z.string().nullable(),
+});
 
 configureLensHttp({ getBaseUrl: baseUrl, getAuthToken: () => null });
 
@@ -122,6 +125,13 @@ function SignIn() {
       client.setQueryData(sessionKey, session);
     },
   });
+  const methods = useQuery({
+    queryKey: ["lens-sign-in-methods"],
+    queryFn: async () =>
+      signInMethodsSchema.parse(await api.get("/auth/methods")),
+    retry: false,
+  });
+  const litellmLoginUrl = methods.data?.litellm_login_url;
   const submit = (event: FormEvent) => {
     event.preventDefault();
     login.mutate(token);
@@ -132,6 +142,19 @@ function SignIn() {
         <h1 className="lens-page-title">Sign in to Lens</h1>
       </header>
       <div className="lens-page-body flex flex-col gap-5">
+        {litellmLoginUrl && (
+          <>
+            <a
+              href={litellmLoginUrl}
+              className="rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground"
+            >
+              Log in with LiteLLM
+            </a>
+            <p className="text-center text-xs text-muted-foreground">
+              or use the setup token
+            </p>
+          </>
+        )}
         <form onSubmit={submit} className="flex flex-col gap-3">
           <label htmlFor="setup-token" className="text-sm font-medium">
             Setup token
@@ -147,7 +170,11 @@ function SignIn() {
           />
           <button
             disabled={login.isPending}
-            className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            className={
+              litellmLoginUrl
+                ? "rounded-md border px-3 py-2 text-sm"
+                : "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+            }
           >
             {login.isPending ? "Signing in…" : "Sign in"}
           </button>

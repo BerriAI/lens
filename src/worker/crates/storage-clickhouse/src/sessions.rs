@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use lens_auth::{SessionId, SessionRepository, StoreError};
+use lens_contract::auth::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -15,6 +16,8 @@ pub struct Sessions(pub ClickHouseState);
 #[serde(deny_unknown_fields)]
 struct Session {
     expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    identity: Option<Identity>,
 }
 
 fn key(id: &SessionId) -> String {
@@ -29,27 +32,33 @@ fn failure(error: Error) -> StoreError {
 }
 
 impl SessionRepository for Sessions {
-    async fn create(&self, id: &SessionId, expires_at: DateTime<Utc>) -> Result<(), StoreError> {
+    async fn create(&self, id: &SessionId, session: &lens_auth::Session) -> Result<(), StoreError> {
         let previous = self.0.read(&key(id)).await.map_err(failure)?;
         if !previous.value.is_null() {
             return Err(StoreError::Conflict);
         }
-        let value = serde_json::to_value(Session { expires_at })
-            .map_err(|error| StoreError::Unavailable(Box::new(error)))?;
+        let value = serde_json::to_value(Session {
+            expires_at: session.expires_at,
+            identity: session.identity.clone(),
+        })
+        .map_err(|error| StoreError::Unavailable(Box::new(error)))?;
         self.0
             .commit(vec![Change { previous, value }])
             .await
             .map_err(failure)
     }
 
-    async fn expires_at(&self, id: &SessionId) -> Result<Option<DateTime<Utc>>, StoreError> {
+    async fn find(&self, id: &SessionId) -> Result<Option<lens_auth::Session>, StoreError> {
         let stored = self.0.read(&key(id)).await.map_err(failure)?;
         if stored.value.is_null() {
             return Ok(None);
         }
         let session: Session = serde_json::from_value(stored.value)
             .map_err(|error| StoreError::Unavailable(Box::new(error)))?;
-        Ok(Some(session.expires_at))
+        Ok(Some(lens_auth::Session {
+            expires_at: session.expires_at,
+            identity: session.identity,
+        }))
     }
 
     async fn revoke(&self, id: &SessionId) -> Result<(), StoreError> {

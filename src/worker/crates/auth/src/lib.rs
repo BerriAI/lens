@@ -13,6 +13,19 @@ use subtle::ConstantTimeEq;
 pub use error::{Error, IngestionError, StoreError};
 
 pub const SESSION_LIFETIME_SECONDS: i64 = 8 * 60 * 60;
+pub const GATEWAY_SESSION_LIFETIME_SECONDS: i64 = 60 * 60;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Session {
+    pub expires_at: DateTime<Utc>,
+    pub identity: Option<Identity>,
+}
+
+#[derive(Debug)]
+pub struct SignIn {
+    pub view: SessionView,
+    pub lifetime_seconds: i64,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SessionId(String);
@@ -31,12 +44,12 @@ pub trait SessionRepository: Send + Sync {
     fn create(
         &self,
         id: &SessionId,
-        expires_at: DateTime<Utc>,
+        session: &Session,
     ) -> impl Future<Output = Result<(), StoreError>> + Send;
-    fn expires_at(
+    fn find(
         &self,
         id: &SessionId,
-    ) -> impl Future<Output = Result<Option<DateTime<Utc>>, StoreError>> + Send;
+    ) -> impl Future<Output = Result<Option<Session>, StoreError>> + Send;
     fn revoke(&self, id: &SessionId) -> impl Future<Output = Result<(), StoreError>> + Send;
 }
 
@@ -44,6 +57,7 @@ pub struct Settings {
     admin_hash: [u8; 32],
     slack_investigator: Option<([u8; 32], String)>,
     gateway_secret: Option<String>,
+    gateway_login_url: Option<String>,
     origin: String,
     secure_cookie: bool,
 }
@@ -89,6 +103,7 @@ impl Settings {
             admin_hash: Sha256::digest(admin_token.as_bytes()).into(),
             slack_investigator: None,
             gateway_secret,
+            gateway_login_url: None,
             origin: format!("{}://{}", url.scheme(), authority),
             secure_cookie: public_url.starts_with("https://"),
         })
@@ -106,6 +121,31 @@ impl Settings {
         }
         self.slack_investigator = Some((Sha256::digest(key.as_bytes()).into(), team_id.into()));
         Ok(self)
+    }
+
+    pub fn with_gateway_login(mut self, gateway_url: &str) -> Result<Self, Error> {
+        let url =
+            url::Url::parse(gateway_url).map_err(|_| Error::Configuration("gateway public URL"))?;
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+        {
+            return Err(Error::Configuration("gateway public URL"));
+        }
+        let base = url.as_str().trim_end_matches('/');
+        let base = base.strip_suffix("/v1").unwrap_or(base);
+        self.gateway_login_url = self
+            .gateway_secret
+            .is_some()
+            .then(|| format!("{base}/lens/login"));
+        Ok(self)
+    }
+
+    pub fn gateway_login_url(&self) -> Option<&str> {
+        self.gateway_login_url.as_deref()
     }
 
     pub fn secure_cookie(&self) -> bool {
@@ -137,17 +177,32 @@ impl<R: SessionRepository> Authentication<R> {
         token: &str,
         session: &str,
         now: DateTime<Utc>,
-    ) -> Result<SessionView, Error> {
-        if !self.settings.is_admin_token(token) {
-            return Err(Error::Unauthorized("Invalid Lens setup token"));
-        }
+    ) -> Result<SignIn, Error> {
+        let (identity, lifetime_seconds) = if self.settings.is_admin_token(token) {
+            (None, SESSION_LIFETIME_SECONDS)
+        } else {
+            let secret = self
+                .settings
+                .gateway_secret
+                .as_deref()
+                .ok_or(Error::Unauthorized("Invalid Lens setup token"))?;
+            let identity = gateway::login_identity(token, secret, now)
+                .map_err(|_| Error::Unauthorized("Invalid Lens setup token"))?;
+            (Some(identity), GATEWAY_SESSION_LIFETIME_SECONDS)
+        };
         self.sessions
             .create(
                 &SessionId::for_token(session),
-                now + chrono::Duration::seconds(SESSION_LIFETIME_SECONDS),
+                &Session {
+                    expires_at: now + chrono::Duration::seconds(lifetime_seconds),
+                    identity: identity.clone(),
+                },
             )
             .await?;
-        Ok(session_view(local_admin()))
+        Ok(SignIn {
+            view: session_view(identity.unwrap_or_else(local_admin)),
+            lifetime_seconds,
+        })
     }
 
     pub async fn authenticate(
@@ -212,15 +267,13 @@ impl<R: SessionRepository> Authentication<R> {
         {
             return Err(Error::OriginMismatch);
         }
-        if self
+        let stored = self
             .sessions
-            .expires_at(&SessionId::for_token(session))
+            .find(&SessionId::for_token(session))
             .await?
-            .is_none_or(|expires| expires <= now)
-        {
-            return Err(Error::Unauthorized("Lens session has expired"));
-        }
-        Ok(local_admin())
+            .filter(|stored| stored.expires_at > now)
+            .ok_or(Error::Unauthorized("Lens session has expired"))?;
+        Ok(stored.identity.unwrap_or_else(local_admin))
     }
 
     pub async fn sign_out(

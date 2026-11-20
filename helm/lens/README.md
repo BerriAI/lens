@@ -55,6 +55,8 @@ serviceTokenSecret:
 
 Create `lens-connection` through your secret manager. Generate each value independently with `openssl rand -hex 32`. Its `gateway-secret` value must match the gateway's `LENS_GATEWAY_SECRET`; its `service-token` value must match `LITELLM_LENS_SERVICE_TOKEN`. Both values must contain at least 32 characters. If the services use different namespaces, create the Secret with identical values in both namespaces
 
+With `gateway.enabled`, the standalone sign-in page offers Log in with LiteLLM once Lens knows the gateway's browser address: set `LENS_GATEWAY_PUBLIC_URL` through `extraEnv` (it falls back to `LENS_GATEWAY_URL`, then `LENS_GATEWAY_API_BASE`), and make the gateway's `lens.publicUrl` the Lens browser origin, since the gateway sends the browser back there after sign-in
+
 `publicUrl` is the Lens browser origin. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
 
 The gateway chart at `oci://ghcr.io/berriai/litellm/chart/litellm` does not deploy Lens or PostgreSQL. For chart version `1.111.0-rc.2`, set `lens.enabled: true`, `lens.url`, `lens.publicUrl`, `lens.gatewaySecret.name` and `lens.serviceTokenSecret.name`. The Secret keys default to `gateway-secret` and `service-token`. Removed `lensWorker.*` values are not supported and enabling them fails the render
