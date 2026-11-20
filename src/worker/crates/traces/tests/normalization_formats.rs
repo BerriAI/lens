@@ -1178,6 +1178,28 @@ fn gateway_model_call_shows_the_calling_agent_and_its_task(
 }
 
 #[rstest]
+fn gateway_task_follows_any_number_of_harness_blocks(span: Span) {
+    let content = format!(
+        "{}Fix the build",
+        "<system-reminder>setup</system-reminder>\n".repeat(200_000)
+    );
+    let input = json!([{"role": "user", "content": content}]).to_string();
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", "claude-code"),
+            ("gen_ai.input.messages", &input),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(decoded.normalized.input_preview, "Fix the build");
+}
+
+#[rstest]
 fn gateway_tool_step_carries_the_calling_agent(span: Span) {
     let decoded = decode(
         span,

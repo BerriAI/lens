@@ -24,12 +24,16 @@ fn text(content: &Value) -> String {
 }
 
 fn without_harness_blocks(text: &str) -> &str {
-    let text = text.trim_start();
-    text.strip_prefix('<')
+    let mut remaining = text.trim_start();
+    while let Some((_, rest)) = remaining
+        .strip_prefix('<')
         .and_then(|rest| rest.split_once('>'))
         .filter(|(tag, _)| !tag.is_empty() && !tag.starts_with('/'))
         .and_then(|(tag, rest)| rest.split_once(&format!("</{tag}>")))
-        .map_or(text, |(_, rest)| without_harness_blocks(rest))
+    {
+        remaining = rest.trim_start();
+    }
+    remaining
 }
 
 fn task(input: &str) -> Option<String> {
