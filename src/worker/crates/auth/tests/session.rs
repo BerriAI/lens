@@ -828,3 +828,20 @@ async fn litellm_login_token_opens_only_one_session(
         "Lens session has expired"
     );
 }
+
+#[rstest]
+#[case::named(Some("kerry@example.com"), Some("kerry@example.com"))]
+#[case::blank(Some("  "), None)]
+#[case::unnamed(None, None)]
+fn session_view_names_the_user_only_when_the_identity_carries_a_name(
+    #[case] name: Option<&str>,
+    #[case] shown: Option<&str>,
+) {
+    let view = lens_auth::session_view(Identity {
+        user_id: Some("user".into()),
+        user_name: name.map(Into::into),
+        ..Identity::default()
+    });
+    assert_eq!(view.user_id, "user");
+    assert_eq!(view.user_name.as_deref(), shown);
+}

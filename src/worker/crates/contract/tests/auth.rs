@@ -40,11 +40,19 @@ fn identity_rejects_invalid_scope(#[case] value: Value) {
 fn session_contract_retains_exact_response() {
     let view = SessionView {
         user_id: "user".into(),
+        user_name: None,
         user_role: Role::Team,
     };
     let value = json!({"user_id":"user", "user_role":"team"});
     assert_eq!(serde_json::to_value(&view).unwrap(), value);
     assert_eq!(serde_json::from_value::<SessionView>(value).unwrap(), view);
+    let named = SessionView {
+        user_name: Some("user@example.com".into()),
+        ..view
+    };
+    let value = json!({"user_id":"user", "user_name":"user@example.com", "user_role":"team"});
+    assert_eq!(serde_json::to_value(&named).unwrap(), value);
+    assert_eq!(serde_json::from_value::<SessionView>(value).unwrap(), named);
     assert_eq!(
         serde_json::from_value::<SessionRequest>(json!({"token":"setup"}))
             .unwrap()

@@ -308,6 +308,7 @@ impl<R: SessionRepository> Authentication<R> {
 pub fn local_admin() -> Identity {
     Identity {
         user_id: Some("lens-admin".into()),
+        user_name: Some("Setup token".into()),
         user_role: Role::ProxyAdmin,
         ..Identity::default()
     }
@@ -316,6 +317,7 @@ pub fn local_admin() -> Identity {
 pub fn session_view(identity: Identity) -> SessionView {
     SessionView {
         user_id: identity.user_id.unwrap_or_default(),
+        user_name: identity.user_name.filter(|name| !name.trim().is_empty()),
         user_role: identity.user_role,
     }
 }
