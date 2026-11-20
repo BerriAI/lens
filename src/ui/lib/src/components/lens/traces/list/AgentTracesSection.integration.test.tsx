@@ -666,7 +666,7 @@ describe("AgentTracesSection", () => {
     });
     const rows = await screen.findAllByTestId("agent-trace-row");
 
-    fireEvent.click(rows[1]);
+    await userEvent.click(rows[1]);
     await waitFor(() => expect(lastUrl(onUrlUpdate).get("trace")).toBe(runs[1].trace_id));
     expect(lastUrl(onUrlUpdate).get("view")).toBe("thread");
     expect(lastUrl(onUrlUpdate).has("span")).toBe(false);

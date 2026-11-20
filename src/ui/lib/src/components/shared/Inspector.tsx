@@ -27,7 +27,8 @@ const DEFAULT_FRACTION = 0.56;
 const KEY_STEP = 32;
 const ROW_SLOT = "inspector-row";
 const OVERLAYS = "[data-slot='sheet-overlay'], [data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']";
-const KEEPS_PANEL_OPEN = `[data-slot='${ROW_SLOT}'], [role='dialog'], [role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], ${OVERLAYS}`;
+const ROW_MARK = "data-inspector-row";
+const KEEPS_PANEL_OPEN = `[${ROW_MARK}], [role='dialog'], [role='menu'], [role='listbox'], [data-radix-popper-content-wrapper], ${OVERLAYS}`;
 
 export const clampPanelWidth = (width: number, viewport: number): number => {
   const max = Math.max(Math.min(MIN_WIDTH, viewport), viewport - MIN_LEFT_GAP);
@@ -140,6 +141,7 @@ function Row<T>({ item, render, ...props }: InspectorRowProps<T>) {
   const { itemKey, selected, toggle } = useInspector<T>();
   const isSelected = selected !== null && itemKey(selected) === itemKey(item);
   const own = {
+    [ROW_MARK]: "",
     "aria-selected": isSelected,
     onClick: () => toggle(item),
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
