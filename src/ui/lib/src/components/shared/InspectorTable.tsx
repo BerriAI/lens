@@ -132,6 +132,7 @@ function Header({ hidden = false }: { readonly hidden?: boolean }) {
               key={id}
               className={cn(
                 "relative h-auto px-3 text-muted-foreground",
+                table.options.enableColumnResizing && "overflow-hidden",
                 column.columnDef.meta?.numeric && NUMERIC,
                 column.columnDef.meta?.headerClassName,
               )}
@@ -182,12 +183,18 @@ function Body<T>({ rowHeight, children, after, className }: BodyProps<T>) {
 type RowProps<T> = ComponentProps<"tr"> & { readonly row: TanStackRow<T>; readonly item: unknown };
 
 function Row<T>({ row, item, className, ...props }: RowProps<T>) {
+  const { table } = useInspectorTable<T>();
   return (
     <Inspector.Row item={item} render={<tr data-slot="table-row" className={cn(ROW, className)} {...props} />}>
       {row.getVisibleCells().map(({ id, column, getContext }) => (
         <TableCell
           key={id}
-          className={cn("px-3 py-0", column.columnDef.meta?.numeric && NUMERIC, column.columnDef.meta?.className)}
+          className={cn(
+            "px-3 py-0",
+            column.columnDef.meta?.numeric && NUMERIC,
+            column.columnDef.meta?.className,
+            table.options.enableColumnResizing && "overflow-hidden",
+          )}
         >
           {flexRender(column.columnDef.cell, getContext())}
         </TableCell>
