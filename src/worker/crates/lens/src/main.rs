@@ -197,6 +197,13 @@ async fn run() -> Result<(), litellm_lens::Error> {
         lens_server::routing::redirect_trailing_slash,
     ));
     let listener = tokio::net::TcpListener::bind(config.address).await?;
+    if let Some(link) = litellm_lens::config::sign_in_link(
+        |name| std::env::var(name).ok(),
+        &config.public_url,
+        &config.query_secret,
+    ) {
+        println!("Sign in: {link}");
+    }
     let (shutdown, stopping) = tokio::sync::oneshot::channel::<()>();
     let mut server = tokio::spawn(async move {
         axum::serve(listener, routes)

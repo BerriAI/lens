@@ -36,6 +36,7 @@ const ABSOLUTE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
+  timeZone: "UTC",
   timeZoneName: "short",
 };
 const ABSOLUTE_TIME = new Intl.DateTimeFormat("en-US", ABSOLUTE_TIME_OPTIONS);

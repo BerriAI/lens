@@ -93,28 +93,24 @@ function Bar({
   );
 }
 
-interface RowFrameProps {
+interface RowFrameProps extends React.ComponentProps<"button"> {
   id: string;
   depth: number;
   guide: TreeGuide;
   selected: boolean;
   expanded: boolean | undefined;
-  onClick: () => void;
-  onDoubleClick?: () => void;
-  children: React.ReactNode;
 }
 
-function RowFrame({ id, depth, guide, selected, expanded, onClick, onDoubleClick, children }: RowFrameProps) {
+function RowFrame({ id, depth, guide, selected, expanded, children, className, ...trigger }: RowFrameProps) {
   return (
     <button
+      {...trigger}
       type="button"
       role="treeitem"
       aria-expanded={expanded}
       aria-selected={selected}
       data-row-id={id}
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={cn(ROW, rowTone(selected))}
+      className={cn(ROW, rowTone(selected), className)}
     >
       <Guides depth={depth} guide={guide} />
       {children}

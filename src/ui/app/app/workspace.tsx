@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { z } from "zod";
@@ -8,6 +8,7 @@ import {
   configureLensHttp,
   LensHostProvider,
   LensWorkspace,
+  takeSignInToken,
 } from "@litellm/lens-ui";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 
@@ -25,13 +26,24 @@ export function Workspace() {
   const [demo] = useQueryState("demo", parseAsBoolean.withDefault(false));
   const session = useQuery({
     queryKey: sessionKey,
-    queryFn: async () =>
-      sessionSchema.parse(
-        await api.get("/auth/session", { cache: "no-store" }),
-      ),
+    queryFn: async () => {
+      const token = takeSignInToken(window.location, window.history);
+      const signedIn = token
+        ? await api.post("/auth/session", { body: { token } }).catch(() => null)
+        : null;
+      return sessionSchema.parse(
+        signedIn ?? (await api.get("/auth/session", { cache: "no-store" })),
+      );
+    },
     enabled: !demo,
     retry: false,
   });
+  const client = useQueryClient();
+  useEffect(() => {
+    const signIn = () => void client.invalidateQueries({ queryKey: sessionKey });
+    window.addEventListener("hashchange", signIn);
+    return () => window.removeEventListener("hashchange", signIn);
+  }, [client]);
   if (demo) return <Surface userRole="proxy_admin_viewer" readOnly />;
   if (session.isPending)
     return (

@@ -8,17 +8,27 @@ Prefer your coding agent to make the changes? [Set it up for me](../../docs/setu
 
 ## Start locally
 
-Install Git and Docker with Docker Compose 2.24 or newer, then run:
+Install Docker with Docker Compose 2.24 or newer and make sure Docker is running. Then run this in an empty directory:
 
 ```sh
-git clone https://github.com/BerriAI/lens.git
-cd lens
+curl -fsSLO https://raw.githubusercontent.com/BerriAI/lens/main/deploy/lens/compose.yaml
 docker compose up --wait
+docker compose logs -n1 credentials
 ```
 
-The first start pulls the latest released image, `ghcr.io/berriai/lens`, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. It takes under a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
+The last command prints the address to open and the setup token to paste there:
 
-Open [Lens](http://localhost:4318/ui/) and sign in using `LENS_ADMIN_TOKEN` from `deploy/lens/.env`. Read that file locally; do not paste it into shared logs or commit it. The deployment binds Lens to localhost and leaves ClickHouse off the host network
+```
+credentials-1  | Open http://localhost:4318/ui/ and paste this setup token: <your token>
+```
+
+The Compose file is self-contained, so nothing else has to be downloaded and no checkout is needed. It writes its credentials to `.env` beside itself. In a checkout of this repository, `docker compose up --wait` from the repository root starts the same file and writes `deploy/lens/.env`; the paths below assume a checkout
+
+The first start pulls the latest released image, `ghcr.io/berriai/lens`, generates private credentials in `.env`, and starts Lens plus ClickHouse. It takes under a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
+
+Open [Lens](http://localhost:4318/ui/), paste the printed token into the **Setup token** field, and select **Sign in**. The same token is saved as `LENS_ADMIN_TOKEN` in `.env`. The token is printed only when `LENS_PUBLIC_URL` is a localhost address and `LENS_SIGN_IN_LINK` is not `false`. Otherwise the line names the address and tells you to read the token from `.env`. To look around without a token, select **Explore demo data** on the sign-in page, which opens Lens with sample data only. In a checkout the file is `deploy/lens/.env`. Do not paste the token into shared logs or commit it
+
+Lens releases after 0.1.0 also print a link that signs you in without copying the token. Find it with `docker compose logs lens | grep "Sign in"`. The link is printed only when `LENS_PUBLIC_URL` is a localhost address, and setting `LENS_SIGN_IN_LINK=false` in `deploy/lens/.env` turns it off The deployment binds Lens to localhost and leaves ClickHouse off the host network
 
 The credentials are generated once, by a short-lived `credentials` container that writes `deploy/lens/.env` and exits. Starting again keeps that file and the ClickHouse volume. `docker compose down` stops Lens and keeps its data; adding `--volumes` deletes the stored traces
 

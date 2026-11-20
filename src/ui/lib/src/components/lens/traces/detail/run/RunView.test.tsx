@@ -21,6 +21,7 @@ import type { ComponentProps } from "react";
 import { ShortcutHints } from "../../../../shared/ShortcutHints";
 import { RunView } from "./RunView";
 import { initialRunSelection } from "./useRunTree";
+import { absoluteTime } from "../tree/SpanHoverCard";
 import { tickLabel, timeTicks } from "../tree/timeline";
 import { traceShareUrl, useOpenTraceRouting } from "../../routing";
 import { agentHandoffText, liveTracesApi, TracesApiContext } from "../../api";
@@ -106,6 +107,27 @@ describe("RunView", () => {
     testQueryClient.setQueryDefaults(["agentTrace"], {});
     vi.mocked(copyToClipboard).mockClear();
     vi.mocked(logListCall).mockClear();
+  });
+
+  it("opens the step card with its start and end time when a step row is hovered", async () => {
+    const user = userEvent.setup();
+    renderRun(research);
+    const root = research.spans.find((s) => s.parent_span_id === null)!;
+    const traceStartMs = Date.parse(research.summary.start_time);
+
+    await user.hover(
+      await screen.findByRole("treeitem", { name: new RegExp(root.name) }),
+    );
+
+    const time = within(
+      await screen.findByTestId("span-hover-card", {}, { timeout: 2000 }),
+    ).getByRole("region", { name: "Time" });
+    expect(time).toHaveTextContent(
+      `Start${absoluteTime(traceStartMs, root.start_offset_ms)}`,
+    );
+    expect(time).toHaveTextContent(
+      `End${absoluteTime(traceStartMs, root.start_offset_ms + root.duration_ms)}`,
+    );
   });
 
   it("shows the run name, copyable ID and run totals", async () => {

@@ -150,6 +150,23 @@ jobs:
           lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' deploy/lens/.env)"
           curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:4318/lens)" = 401
+          test "$(docker compose logs --no-log-prefix lens | sed -n 's|^Sign in: http://localhost:4318/ui/#token=||p' | tail -n 1)" = "$lens_token"
+      - name: Start from the Compose file alone
+        run: |
+          set -euo pipefail
+          lens_alone="$(mktemp -d)"
+          cp deploy/lens/compose.yaml "$lens_alone/compose.yaml"
+          cd "$lens_alone"
+          trap 'docker compose logs --tail 60 || true; docker compose down --volumes' EXIT
+          LENS_IMAGE=lens:ci docker compose up --detach --wait --wait-timeout 180
+          lens_token="$(sed -n 's/^LENS_ADMIN_TOKEN=//p' .env)"
+          curl --fail --silent --output /dev/null --header "Authorization: Bearer $lens_token" http://localhost:4318/lens
+          docker compose logs -n1 credentials | grep --fixed-strings --quiet "http://localhost:4318/ui/ and paste this setup token: $lens_token"
+          for lens_setting in LENS_SIGN_IN_LINK=false LENS_PUBLIC_URL=https://lens.example.com LENS_PUBLIC_URL=http://localhost.example.com; do
+            lens_line="$(env "$lens_setting" LENS_IMAGE=lens:ci docker compose run --rm credentials)"
+            grep --quiet "/ui/ and paste the LENS_ADMIN_TOKEN value from .env" <<<"$lens_line"
+            if grep --fixed-strings --quiet "$lens_token" <<<"$lens_line"; then exit 1; fi
+          done
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.14.1

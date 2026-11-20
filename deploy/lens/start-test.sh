@@ -90,5 +90,10 @@ if [[ "$compose_default" != "ghcr.io/berriai/lens:$(tr -d '[:space:]' < "$lens_d
   failures=$((failures + 1))
 fi
 
+if ! diff <(sed -n '/^    content: |$/,$p' "$lens_dir/compose.yaml" | sed '1d; s/^      //') "$lens_dir/../clickhouse/keeper.xml" >&2; then
+  printf 'FAIL the Keeper configuration in compose.yaml matches deploy/clickhouse/keeper.xml\n' >&2
+  failures=$((failures + 1))
+fi
+
 [[ "$failures" == 0 ]]
 printf 'start image selection passed\n'
