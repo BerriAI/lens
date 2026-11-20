@@ -6,8 +6,10 @@ pub mod ingestion;
 
 use chrono::{DateTime, Utc};
 use lens_contract::auth::{Identity, Role, SessionView};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::future::Future;
+use std::sync::RwLock;
 use subtle::ConstantTimeEq;
 
 pub use error::{Error, IngestionError, StoreError};
@@ -56,6 +58,38 @@ pub trait SessionRepository: Send + Sync {
         login: &SessionId,
         expires_at: DateTime<Utc>,
     ) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn save_gateway(
+        &self,
+        gateway: &GatewayConnection,
+    ) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn gateway(&self)
+    -> impl Future<Output = Result<Option<GatewayConnection>, StoreError>> + Send;
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GatewayConnection {
+    pub url: String,
+    pub secret: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+}
+
+fn login_url(gateway_url: &str) -> Result<String, Error> {
+    let url =
+        url::Url::parse(gateway_url).map_err(|_| Error::Configuration("gateway public URL"))?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(Error::Configuration("gateway public URL"));
+    }
+    let base = url.as_str().trim_end_matches('/');
+    let base = base.strip_suffix("/v1").unwrap_or(base);
+    Ok(format!("{base}/lens/login"))
 }
 
 pub struct Settings {
@@ -63,6 +97,7 @@ pub struct Settings {
     slack_investigator: Option<([u8; 32], String)>,
     gateway_secret: Option<String>,
     gateway_login_url: Option<String>,
+    connected_gateway: RwLock<Option<GatewayConnection>>,
     origin: String,
     secure_cookie: bool,
 }
@@ -109,6 +144,7 @@ impl Settings {
             slack_investigator: None,
             gateway_secret,
             gateway_login_url: None,
+            connected_gateway: RwLock::new(None),
             origin: format!("{}://{}", url.scheme(), authority),
             secure_cookie: public_url.starts_with("https://"),
         })
@@ -129,28 +165,45 @@ impl Settings {
     }
 
     pub fn with_gateway_login(mut self, gateway_url: &str) -> Result<Self, Error> {
-        let url =
-            url::Url::parse(gateway_url).map_err(|_| Error::Configuration("gateway public URL"))?;
-        if !matches!(url.scheme(), "http" | "https")
-            || url.host_str().is_none()
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(Error::Configuration("gateway public URL"));
-        }
-        let base = url.as_str().trim_end_matches('/');
-        let base = base.strip_suffix("/v1").unwrap_or(base);
-        self.gateway_login_url = self
-            .gateway_secret
-            .is_some()
-            .then(|| format!("{base}/lens/login"));
+        let link = login_url(gateway_url)?;
+        self.gateway_login_url = self.gateway_secret.is_some().then_some(link);
         Ok(self)
     }
 
-    pub fn gateway_login_url(&self) -> Option<&str> {
-        self.gateway_login_url.as_deref()
+    pub fn gateway_login_url(&self) -> Option<String> {
+        if self.gateway_secret.is_some() {
+            return self.gateway_login_url.clone();
+        }
+        self.connected()
+            .and_then(|gateway| login_url(&gateway.url).ok())
+    }
+
+    pub fn gateway_set_by_environment(&self) -> bool {
+        self.gateway_secret.is_some()
+    }
+
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
+
+    fn connected(&self) -> Option<GatewayConnection> {
+        self.connected_gateway
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    fn connect(&self, gateway: Option<GatewayConnection>) {
+        *self
+            .connected_gateway
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = gateway;
+    }
+
+    fn secret(&self) -> Option<String> {
+        self.gateway_secret
+            .clone()
+            .or_else(|| self.connected().map(|gateway| gateway.secret))
     }
 
     pub fn secure_cookie(&self) -> bool {
@@ -188,10 +241,9 @@ impl<R: SessionRepository> Authentication<R> {
         } else {
             let secret = self
                 .settings
-                .gateway_secret
-                .as_deref()
+                .secret()
                 .ok_or(Error::Unauthorized("Invalid Lens setup token"))?;
-            let identity = gateway::login_identity(token, secret, now)
+            let identity = gateway::login_identity(token, &secret, now)
                 .map_err(|_| Error::Unauthorized("Invalid Lens setup token"))?;
             self.sessions
                 .spend_login(
@@ -218,6 +270,34 @@ impl<R: SessionRepository> Authentication<R> {
             view: session_view(identity.unwrap_or_else(local_admin)),
             lifetime_seconds,
         })
+    }
+
+    pub async fn connect_gateway(
+        &self,
+        admin_token: &str,
+        gateway: GatewayConnection,
+    ) -> Result<(), Error> {
+        if !self.settings.is_admin_token(admin_token) {
+            return Err(Error::Unauthorized("Invalid Lens admin token"));
+        }
+        if self.settings.gateway_set_by_environment() {
+            return Err(Error::GatewayLocked);
+        }
+        if login_url(&gateway.url).is_err() || gateway.secret.chars().count() < 32 {
+            return Err(Error::InvalidGateway);
+        }
+        self.sessions.save_gateway(&gateway).await?;
+        self.settings.connect(Some(gateway));
+        Ok(())
+    }
+
+    pub async fn refresh_gateway(&self) -> Result<(), Error> {
+        if self.settings.gateway_set_by_environment() {
+            return Ok(());
+        }
+        let gateway = self.sessions.gateway().await?;
+        self.settings.connect(gateway);
+        Ok(())
     }
 
     pub async fn authenticate(
@@ -269,10 +349,9 @@ impl<R: SessionRepository> Authentication<R> {
             }
             let secret = self
                 .settings
-                .gateway_secret
-                .as_deref()
+                .secret()
                 .ok_or(Error::Unauthorized("Invalid Lens credential"))?;
-            return gateway::identity(token, secret, now);
+            return gateway::identity(token, &secret, now);
         }
         let session = credentials
             .session

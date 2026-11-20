@@ -38,7 +38,7 @@ async fn methods<R: SessionRepository>(
     State(auth): State<Arc<Authentication<R>>>,
 ) -> Json<SignInMethods> {
     Json(SignInMethods {
-        litellm_login_url: auth.settings.gateway_login_url().map(str::to_owned),
+        litellm_login_url: auth.settings.gateway_login_url(),
     })
 }
 

@@ -14,6 +14,10 @@ pub enum Error {
     OriginMismatch,
     #[error("invalid authentication configuration: {0}")]
     Configuration(&'static str),
+    #[error("The gateway is set in the Lens environment and cannot be changed here")]
+    GatewayLocked,
+    #[error("Enter the gateway address as an http or https URL")]
+    InvalidGateway,
     #[error(transparent)]
     Store(#[from] StoreError),
 }
