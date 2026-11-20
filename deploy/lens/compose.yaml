@@ -13,7 +13,18 @@ services:
         chown "$$(stat -c %u:%g /setup)" /setup/.env
         cp /setup/.env /credentials/.env
         chown 65532:65532 /credentials/.env
-        echo "Open http://localhost:4318/ui/ and paste this setup token: $$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /setup/.env)"
+        lens_host="$${LENS_PUBLIC_URL#*://}"
+        case "$$LENS_SIGN_IN_LINK $$lens_host" in
+          "true localhost" | "true localhost"[:/]* | "true 127.0.0.1" | "true 127.0.0.1"[:/]* | "true [::1]"*)
+            echo "Open $${LENS_PUBLIC_URL%/}/ui/ and paste this setup token: $$(sed -n 's/^LENS_ADMIN_TOKEN=//p' /setup/.env)"
+            ;;
+          *)
+            echo "Open $${LENS_PUBLIC_URL%/}/ui/ and paste the LENS_ADMIN_TOKEN value from .env"
+            ;;
+        esac
+    environment:
+      LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
+      LENS_SIGN_IN_LINK: ${LENS_SIGN_IN_LINK:-true}
     volumes:
       - .:/setup
       - credentials:/credentials
