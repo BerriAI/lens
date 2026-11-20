@@ -1,5 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
@@ -1082,7 +1084,7 @@ it("should show the signed in user in the sidebar and log out from its menu", as
   expect(sidebar.queryByRole("button", { name: /^Account:/ })).not.toBeInTheDocument();
 });
 
-it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {
+it("uses the vertical sidebar when embedded and restores the selected view from its URL", async () => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();
   const workspace = (
@@ -1095,23 +1097,32 @@ it("uses horizontal tabs in the embedded header and restores the selected view f
     onUrlUpdate,
   });
   expect(screen.getByRole("heading", { name: "Lens", level: 1 })).toBeVisible();
-  expect(await screen.findByRole("button", { name: "Agent: support_agent" })).toBeVisible();
-  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Documentation" })).toBeVisible();
-  const tabs = screen.getByRole("tablist", { name: "Lens" });
+  const sidebar = within(screen.getByRole("complementary", { name: "Lens navigation" }));
+  expect(await sidebar.findByRole("button", { name: "Agent: support_agent" })).toBeVisible();
+  expect(sidebar.getByRole("link", { name: "Documentation" })).toHaveAttribute(
+    "href",
+    "https://docs.litellm.ai/docs/proxy/lens",
+  );
+  const tabs = sidebar.getByRole("tablist", { name: "Lens" });
+  expect(tabs).toHaveAttribute("aria-orientation", "vertical");
   const traces = within(tabs).getByRole("tab", { name: "Traces" });
   const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
   const findings = within(tabs).getByRole("tab", { name: "Findings" });
   await user.click(traces);
-  await user.keyboard("{ArrowRight}");
+  await user.keyboard("{ArrowDown}");
   expect(profiles).toHaveFocus();
-  await user.keyboard("{ArrowRight}");
+  expect(profiles).toHaveAttribute("aria-selected", "false");
+  await user.keyboard("{ArrowDown}");
   expect(findings).toHaveFocus();
   expect(traces).toHaveAttribute("aria-selected", "true");
   await user.keyboard("{Enter}");
   expect(findings).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  await user.click(sidebar.getByRole("button", { name: "Collapse navigation" }));
+  expect(sidebar.queryByRole("button", { name: "Agent: support_agent" })).not.toBeInTheDocument();
+  expect(sidebar.getByRole("tab", { name: "Findings", selected: true })).toBeVisible();
+  await user.click(sidebar.getByRole("button", { name: "Expand navigation" }));
+  expect(sidebar.getByRole("button", { name: "Agent: support_agent" })).toBeVisible();
   await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("findings"));
   const searchParams = lastUrl(onUrlUpdate);
   expect(searchParams.get("agent")).toBe("support_agent");
@@ -1120,6 +1131,73 @@ it("uses horizontal tabs in the embedded header and restores the selected view f
   renderWithProviders(workspace, { searchParams });
   expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
   expect(await screen.findByRole("grid", { name: "Findings" })).toBeVisible();
+  expect(network).not.toHaveBeenCalled();
+});
+
+it("renders navigation in the gateway sidebar and follows its collapsed state", async () => {
+  const user = userEvent.setup();
+  const onUrlUpdate = vi.fn();
+  const onNavigate = vi.fn();
+  function Gateway() {
+    const [target, setTarget] = useState<HTMLElement | null>(null);
+    const [collapsed, setCollapsed] = useState(false);
+    const Container = useMemo(
+      () => function NavigationContainer({ children }: { readonly children: ReactNode }) {
+        return target ? createPortal(children, target) : null;
+      },
+      [target],
+    );
+    return (
+      <>
+        <aside aria-label="Gateway navigation" ref={setTarget} />
+        <button onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? "Expand gateway navigation" : "Collapse gateway navigation"}
+        </button>
+        <LensHostProvider host={{ surface: "embedded", navigation: { Container, collapsed, onNavigate } }}>
+          <LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />
+        </LensHostProvider>
+      </>
+    );
+  }
+  renderWithProviders(<Gateway />, {
+    searchParams: "?demo=true&agent=support_agent&tab=traces",
+    onUrlUpdate,
+  });
+  const sidebar = within(screen.getByRole("complementary", { name: "Gateway navigation" }));
+  const workspace = within(screen.getByRole("main"));
+  expect(await sidebar.findByRole("button", { name: "Agent: support_agent" })).toBeVisible();
+  expect(workspace.queryByRole("tablist", { name: "Lens" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("complementary", { name: "Lens navigation" })).not.toBeInTheDocument();
+  expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
+  expect(sidebar.queryByRole("group", { name: "Color theme" })).not.toBeInTheDocument();
+  const tabs = sidebar.getByRole("tablist", { name: "Lens" });
+  expect(tabs).toHaveAttribute("aria-orientation", "vertical");
+  await user.click(within(tabs).getByRole("tab", { name: "Traces" }));
+  expect(onNavigate).toHaveBeenCalled();
+  onNavigate.mockClear();
+  await user.keyboard("{ArrowDown}");
+  expect(within(tabs).getByRole("tab", { name: "Profiles" })).toHaveFocus();
+  await user.keyboard("{Enter}");
+  expect(within(tabs).getByRole("tab", { name: "Profiles", selected: true })).toBeVisible();
+  expect(onNavigate).toHaveBeenCalled();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("profiles"));
+  onNavigate.mockClear();
+  await user.click(sidebar.getByRole("button", { name: "Agent: support_agent" }));
+  await user.click(within(screen.getByRole("list", { name: "Agents" })).getByRole("button", { name: /release_agent/ }));
+  expect(onNavigate).toHaveBeenCalled();
+  await expectUrl(onUrlUpdate, (url) => expect(url.get("agent")).toBe("release_agent"));
+  await user.click(screen.getByRole("button", { name: "Collapse gateway navigation" }));
+  expect(sidebar.queryByRole("button", { name: "Agent: release_agent" })).not.toBeInTheDocument();
+  expect(sidebar.getByRole("tab", { name: "Traces" })).toHaveAttribute("title", "Traces");
+  await user.click(sidebar.getByRole("tab", { name: "Traces" }));
+  expect(sidebar.getByRole("tab", { name: "Traces", selected: true })).toBeVisible();
+  expect(await workspace.findByRole("table", { name: "Agent runs" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Expand gateway navigation" }));
+  expect(sidebar.getByRole("button", { name: "Agent: release_agent" })).toBeVisible();
+  expect(sidebar.getByRole("tab", { name: "Traces" })).not.toHaveAttribute("title");
+  onNavigate.mockClear();
+  await user.click(sidebar.getByRole("link", { name: "Documentation" }));
+  expect(onNavigate).toHaveBeenCalled();
   expect(network).not.toHaveBeenCalled();
 });
 
