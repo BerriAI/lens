@@ -1046,29 +1046,40 @@ it("carries a selected profile id into the real investigation setup and matching
   }));
 });
 
-it("should offer Sign out in the sidebar only when the host can end the session", async () => {
+it("should show the signed in user in the sidebar and log out from its menu", async () => {
   const user = userEvent.setup();
   const signOut = vi.fn();
   const view = renderWithProviders(
-    <LensHostProvider host={{ surface: "standalone", signOut }}>
-      <LensWorkspace accessToken="" userRole="Admin" readOnly={false} />
+    <LensHostProvider
+      host={{ surface: "standalone", user: { name: "kerry@berri.ai", role: "proxy_admin_viewer", signOut } }}
+    >
+      <LensWorkspace accessToken="" userRole="proxy_admin_viewer" readOnly />
     </LensHostProvider>,
   );
   const sidebar = within(await screen.findByRole("complementary", { name: "Lens navigation" }));
-  await user.click(sidebar.getByRole("button", { name: "Sign out" }));
+  const account = sidebar.getByRole("button", { name: "Account: kerry@berri.ai, Admin Viewer" });
+  expect(account).toHaveTextContent("KE");
+  expect(within(account).getByText("kerry@berri.ai")).toBeVisible();
+  expect(within(account).getByText("Admin Viewer")).toBeVisible();
+  expect(screen.queryByRole("menuitem", { name: "Logout" })).not.toBeInTheDocument();
+  await user.click(account);
+  await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
   expect(signOut).toHaveBeenCalledOnce();
 
   await user.click(sidebar.getByRole("button", { name: "Collapse navigation" }));
-  await user.click(sidebar.getByRole("button", { name: "Sign out" }));
+  const collapsed = sidebar.getByRole("button", { name: "Account: kerry@berri.ai, Admin Viewer" });
+  expect(within(collapsed).queryByText("kerry@berri.ai")).not.toBeInTheDocument();
+  await user.click(collapsed);
+  await user.click(await screen.findByRole("menuitem", { name: "Logout" }));
   expect(signOut).toHaveBeenCalledTimes(2);
 
   view.rerender(
     <LensHostProvider host={{ surface: "standalone" }}>
-      <LensWorkspace accessToken="" userRole="Admin" readOnly={false} />
+      <LensWorkspace accessToken="" userRole="proxy_admin_viewer" readOnly />
     </LensHostProvider>,
   );
   expect(sidebar.getByRole("link", { name: "Documentation" })).toBeVisible();
-  expect(sidebar.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+  expect(sidebar.queryByRole("button", { name: /^Account:/ })).not.toBeInTheDocument();
 });
 
 it("uses horizontal tabs in the embedded header and restores the selected view from its URL", async () => {

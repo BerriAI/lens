@@ -8,6 +8,7 @@ import {
   configureLensHttp,
   LensHostProvider,
   LensWorkspace,
+  type LensHost,
   takeSignInToken,
 } from "@litellm/lens-ui";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
@@ -60,7 +61,14 @@ export function Workspace() {
       <Surface
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
-        signOut={() => void signOut()}
+        user={{
+          name:
+            session.data.user_id === "lens-admin"
+              ? "Setup token"
+              : session.data.user_id,
+          role: session.data.user_role,
+          signOut: () => void signOut(),
+        }}
       />
     );
   if (session.error instanceof ApiError && session.error.status === 401)
@@ -91,15 +99,15 @@ export function Workspace() {
 function Surface({
   userRole,
   readOnly,
-  signOut,
+  user,
 }: {
   userRole: string;
   readOnly: boolean;
-  signOut?: () => void;
+  user?: LensHost["user"];
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensHostProvider host={{ analysis: "deployment", surface: "standalone", signOut }}>
+      <LensHostProvider host={{ analysis: "deployment", surface: "standalone", user }}>
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
     </div>

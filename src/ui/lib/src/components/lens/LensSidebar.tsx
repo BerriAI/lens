@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { STANDALONE_DOCS_URL, useLensHost } from "../../host/LensHost";
+import { STANDALONE_DOCS_URL, useLensHost, type LensHost } from "../../host/LensHost";
 import { useTheme } from "next-themes";
 import { useIsClient, useMediaQuery } from "usehooks-ts";
-import { ArrowUpRight, BookOpen, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import { ArrowUpRight, BookOpen, ChevronsUpDown, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 import { Button } from "../ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { cn } from "../../lib/cva.config";
 import { AgentPicker } from "./agents/AgentPicker";
@@ -151,21 +152,66 @@ function SidebarNavigation({
         <span className={cn(collapsed && "sr-only")}>Documentation</span>
         {!collapsed && <ArrowUpRight aria-hidden="true" className="ml-auto size-3.5" />}
       </a>
-      {host.signOut && (
-        <Button
-          variant="ghost"
-          title={collapsed ? "Sign out" : undefined}
-          onClick={host.signOut}
-          className={cn(
-            "mt-1 h-9 w-full shrink-0 justify-start gap-2.5 px-2.5 text-[13px] font-normal text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-            collapsed && "justify-center px-0",
-          )}
-        >
-          <LogOut aria-hidden="true" className="size-4" />
-          <span className={cn(collapsed && "sr-only")}>Sign out</span>
-        </Button>
-      )}
+      {host.user && <UserMenu user={host.user} collapsed={collapsed} />}
     </>
+  );
+}
+
+const roleLabel = (role: string) =>
+  role
+    .replace(/^proxy_/, "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+function UserMenu({
+  user,
+  collapsed,
+}: {
+  readonly user: NonNullable<LensHost["user"]>;
+  readonly collapsed: boolean;
+}) {
+  const role = roleLabel(user.role);
+  return (
+    <div className="mt-3 border-t border-sidebar-border pt-3">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              aria-label={`Account: ${user.name}, ${role}`}
+              title={collapsed ? user.name : undefined}
+              className={cn(
+                "h-auto w-full justify-start gap-2.5 bg-muted/50 px-2 py-1.5 text-left font-normal hover:bg-sidebar-accent",
+                collapsed && "justify-center bg-transparent px-0",
+              )}
+            />
+          }
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-medium text-primary-foreground"
+          >
+            {user.name.slice(0, 2).toUpperCase()}
+          </span>
+          {!collapsed && (
+            <>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[13px] text-foreground">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{role}</span>
+              </span>
+              <ChevronsUpDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+            </>
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" className={cn(collapsed && "w-40")}>
+          <DropdownMenuItem onClick={user.signOut}>
+            <LogOut />
+            Logout
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
