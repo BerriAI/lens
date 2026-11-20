@@ -365,7 +365,7 @@ describe("AgentTracesTable column resizing", () => {
         />,
       ),
     );
-  const handle = (column: string) => screen.getByRole("separator", { name: `Resize ${column} column` });
+  const handle = (column: string) => screen.getByLabelText(`Resize ${column} column`);
   const widthOf = (column: string) => {
     const index = screen.getAllByRole("columnheader").findIndex((header) => header.textContent?.startsWith(column));
     return document.querySelectorAll("col")[index].style.width;
@@ -386,7 +386,8 @@ describe("AgentTracesTable column resizing", () => {
   it("gives every data column a handle and none to the column picker", () => {
     renderRuns();
     const dataColumns = screen.getAllByRole("columnheader").length - 1;
-    expect(screen.getAllByRole("separator")).toHaveLength(dataColumns);
+    expect(screen.getAllByRole("separator", { hidden: true })).toHaveLength(dataColumns);
+    expect(screen.getByRole("columnheader", { name: "Agent" })).toBeInTheDocument();
   });
 
   it("widens a column by the dragged distance and keeps the width after a remount", () => {

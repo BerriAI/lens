@@ -105,6 +105,7 @@ function ResizeHandle<T>({ column }: { readonly column: Column<T> }) {
     <span
       role="separator"
       aria-orientation="vertical"
+      aria-hidden
       aria-label={`Resize ${headerTitle(column)} column`}
       title="Drag to resize, double-click to reset"
       data-resizing={drag ? true : undefined}
