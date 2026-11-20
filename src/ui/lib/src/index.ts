@@ -1,6 +1,7 @@
 export { LensWorkspace } from "./components/lens/LensWorkspace";
 export { LensHostProvider, type LensHost, type SpendLogLookup, type SpendLogDrawerProps } from "./host/LensHost";
 export { configureLensHttp, type LensHttpConfig } from "./lib/http/configure";
+export { takeSignInToken } from "./components/lens/onboarding/signInLink";
 export { LensServicesProvider, liveLensServices, type LensServices } from "./components/lens/data/LensServices";
 export type { LogEntry } from "./components/logs/types";
 export { Toaster } from "./components/ui/sonner";
