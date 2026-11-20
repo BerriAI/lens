@@ -8,13 +8,14 @@ Prefer your coding agent to make the changes? [Set it up for me](../../docs/setu
 
 ## Start locally
 
-Install Git and Docker with Docker Compose 2.24 or newer, then run:
+Install Docker with Docker Compose 2.24 or newer and make sure Docker is running. Then run this in an empty directory:
 
 ```sh
-git clone https://github.com/BerriAI/lens.git
-cd lens
+curl -fsSLO https://raw.githubusercontent.com/BerriAI/lens/main/deploy/lens/compose.yaml
 docker compose up --wait
 ```
+
+The Compose file is self-contained, so nothing else has to be downloaded and no checkout is needed. It writes its credentials to `.env` beside itself. In a checkout of this repository, `docker compose up --wait` from the repository root starts the same file and writes `deploy/lens/.env`; the paths below assume a checkout
 
 The first start pulls the latest released image, `ghcr.io/berriai/lens`, generates private credentials in `deploy/lens/.env`, and starts Lens plus ClickHouse. It takes under a minute and compiles nothing. ClickHouse includes the Keeper configuration Lens needs. You do not need a LiteLLM gateway, PostgreSQL, host Python, Node.js, or provider credentials to record and inspect traces
 
