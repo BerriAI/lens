@@ -21,7 +21,7 @@ Open **Settings > LiteLLM gateway** to check the connection and refresh the mode
 
 A failed refresh shows an error and keeps the previous usable models. Explicit `LENS_ANALYSIS_MODELS` deployments remain available and take precedence over discovered aliases with the same name. Changing the gateway key or URL requires a restart; the browser never receives the key
 
-`LENS_GATEWAY_URL` and `LENS_GATEWAY_SECRET` are separate optional settings for signing internal Lens traffic. They do not provide model discovery or replace the gateway API key
+`LENS_GATEWAY_URL` is a separate optional setting that tells Lens which analysis endpoint is the gateway, so Lens attaches its internal metadata only to calls sent there. It does not provide model discovery or replace the gateway API key. Every model call Lens makes names the agent `lens-signals` in its `User-Agent`, and Lens does not analyze traces from that agent
 
 ## Add a provider
 

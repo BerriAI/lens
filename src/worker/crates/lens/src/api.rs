@@ -77,7 +77,7 @@ impl Application {
         deployments: Vec<lens_analysis::Deployment>,
         evaluation_deployments: Vec<lens_decisions::Deployment>,
         seed: &str,
-        gateway: Option<lens_inference::GatewayIdentity>,
+        gateway: Option<lens_inference::GatewayBase>,
     ) -> Result<Self, Error> {
         let models =
             crate::gateway::Models::new(deployments, evaluation_deployments, gateway, None)?;

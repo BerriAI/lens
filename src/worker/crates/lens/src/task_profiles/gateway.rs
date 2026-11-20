@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use chrono::Utc;
 use lens_contract::profiles::ModelCapabilities;
-use lens_inference::{GATEWAY_HEADER, GatewayIdentity, GatewayPurpose};
+use lens_inference::LENS_AGENT;
 use lens_server::profiles::ConfiguredModel;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -133,21 +132,15 @@ fn ordered(reply: EmbeddingResponse, expected: usize) -> Result<Vec<Vec<f32>>, E
 }
 
 /// Embeds one batch of at most `EMBED_BATCH` texts through the gateway's OpenAI-compatible
-/// endpoint, signed as internal Lens traffic when gateway signing is configured.
+/// endpoint, naming Lens as the calling agent.
 pub async fn embed(
     client: &reqwest::Client,
     connection: &GatewayConfig,
-    signing: Option<&GatewayIdentity>,
     model: &str,
     batch: &[String],
 ) -> Result<Vec<Vec<f32>>, EmbedError> {
     let endpoint =
         Url::parse(&connection.endpoint("/v1/embeddings")).map_err(|_| EmbedError::Connection)?;
-    let marker = signing
-        .map(|signing| signing.token(&endpoint, GatewayPurpose::Analysis, Utc::now()))
-        .transpose()
-        .map_err(|_| EmbedError::Unsigned)?
-        .flatten();
     let request = client
         .post(endpoint)
         .bearer_auth(connection.key())
@@ -157,10 +150,7 @@ pub async fn embed(
             input: batch,
             metadata: InternalMetadata::new(),
         });
-    let request = match marker {
-        Some(marker) => request.header(GATEWAY_HEADER, marker),
-        None => request,
-    };
+    let request = request.header(reqwest::header::USER_AGENT, LENS_AGENT);
     let response = request.send().await.map_err(|_| EmbedError::Connection)?;
     if !response.status().is_success() {
         return Err(EmbedError::Rejected(response.status().as_u16()));
@@ -179,7 +169,7 @@ mod tests {
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{body_partial_json, header, header_exists, method, path},
+        matchers::{body_partial_json, header, method, path},
     };
 
     #[rstest]
@@ -238,7 +228,6 @@ mod tests {
         let embedded = embed(
             &reqwest::Client::new(),
             &connection,
-            None,
             "qwen",
             &texts(EMBED_BATCH),
         )
@@ -267,14 +256,7 @@ mod tests {
         let connection =
             GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
 
-        let result = embed(
-            &reqwest::Client::new(),
-            &connection,
-            None,
-            "qwen",
-            &texts(2),
-        )
-        .await;
+        let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(2)).await;
 
         assert_eq!(result, Err(expected));
     }
@@ -294,14 +276,7 @@ mod tests {
         let connection = GatewayConfig::new(&format!("http://{address}"), "fixture-key".into())
             .expect("connection");
 
-        let result = embed(
-            &reqwest::Client::new(),
-            &connection,
-            None,
-            "qwen",
-            &texts(1),
-        )
-        .await;
+        let result = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
         closer.abort();
 
         assert!(closer.await.is_err_and(|error| error.is_cancelled()));
@@ -310,31 +285,18 @@ mod tests {
 
     #[rstest]
     #[tokio::test]
-    async fn embeddings_are_signed_as_internal_lens_traffic_when_signing_is_configured() {
+    async fn embeddings_name_lens_as_the_calling_agent() {
         let gateway = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
-            .and(header_exists(GATEWAY_HEADER))
+            .and(header("user-agent", LENS_AGENT))
             .respond_with(ResponseTemplate::new(200).set_body_json(vectors(1, 0)))
             .expect(1)
             .mount(&gateway)
             .await;
         let connection =
             GatewayConfig::new(&gateway.uri(), "fixture-key".into()).expect("connection");
-        let signing = GatewayIdentity::new(
-            Url::parse(&gateway.uri()).expect("gateway url"),
-            "fixture-signing-secret-of-32-bytes!",
-        )
-        .expect("signing");
-
-        let embedded = embed(
-            &reqwest::Client::new(),
-            &connection,
-            Some(&signing),
-            "qwen",
-            &texts(1),
-        )
-        .await;
+        let embedded = embed(&reqwest::Client::new(), &connection, "qwen", &texts(1)).await;
 
         assert_eq!(embedded.map(|vectors| vectors.len()), Ok(1));
     }

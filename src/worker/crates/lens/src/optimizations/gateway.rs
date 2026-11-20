@@ -7,7 +7,7 @@ use std::time::Duration;
 #[derive(Clone)]
 pub(super) struct Gateway {
     config: GatewayConfig,
-    identity: Option<lens_inference::GatewayIdentity>,
+    identity: Option<lens_inference::GatewayBase>,
     client: reqwest::Client,
 }
 
@@ -57,7 +57,7 @@ pub(super) struct JudgeEvidence<'a> {
 impl Gateway {
     pub fn new(
         config: GatewayConfig,
-        identity: Option<lens_inference::GatewayIdentity>,
+        identity: Option<lens_inference::GatewayBase>,
     ) -> Result<Self, Error> {
         Ok(Self {
             config,
@@ -88,20 +88,14 @@ impl Gateway {
             None => self.client.get(endpoint.clone()),
         }
         .bearer_auth(&self.config.key);
-        let request = match &self.identity {
-            Some(identity) => match identity
-                .token(
-                    &endpoint,
-                    lens_inference::GatewayPurpose::Analysis,
-                    chrono::Utc::now(),
-                )
-                .map_err(|_| Error::Gateway)?
-            {
-                Some(token) => request.header(lens_inference::GATEWAY_HEADER, token),
-                None => return Err(Error::Gateway),
-            },
-            None => request,
-        };
+        if self
+            .identity
+            .as_ref()
+            .is_some_and(|gateway| !gateway.covers(&endpoint))
+        {
+            return Err(Error::Gateway);
+        }
+        let request = request.header(reqwest::header::USER_AGENT, lens_inference::LENS_AGENT);
         let mut response = request.send().await.map_err(|_| Error::Gateway)?;
         if !response.status().is_success() {
             return Err(Error::Gateway);

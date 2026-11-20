@@ -219,3 +219,50 @@ async fn source_sampling_and_evidence_preserve_scopes(
             .unwrap()
     );
 }
+
+#[rstest]
+#[tokio::test]
+async fn traces_of_lens_own_model_calls_are_never_offered_for_analysis(
+    #[future(awt)] database: Database,
+    payload: Value,
+) {
+    let server = database.serve(false).await;
+    let mut own = payload;
+    own["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["attributes"][1]["value"]["stringValue"] =
+        json!(lens_inference::LENS_AGENT);
+    let response = reqwest::Client::new()
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(INGEST)
+        .json(&own)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200, "{}", response.text().await.unwrap());
+    let scope = Scope {
+        all_teams: true,
+        ..Default::default()
+    };
+    assert_ne!(server.sources.availability(&scope).await.unwrap().traces, 0);
+    assert!(server.sources.agents(&scope).await.unwrap().is_empty());
+    let settings: LensSettings =
+        serde_json::from_value(json!({"name":"Every agent","model":"test-model"})).unwrap();
+    let selection = (&settings).into();
+    let sample = server
+        .sources
+        .sample(
+            &scope,
+            SampleRequest {
+                selection: &selection,
+                start: 0,
+                end: chrono::Utc::now().timestamp_millis() as u64 + 1000,
+                offset: 0,
+                page_size: 100,
+                preview: false,
+                cursor: "",
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(sample.eligible, 0);
+    assert!(sample.executions.is_empty());
+}

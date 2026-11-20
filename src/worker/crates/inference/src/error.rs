@@ -1,9 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Gateway inference requires a valid HTTP URL and a signing secret of 32 to 512 bytes")]
+    #[error("Gateway inference requires a valid HTTP URL")]
     GatewayConfiguration,
-    #[error("Gateway inference identity could not be signed")]
-    GatewayIdentity(#[from] jsonwebtoken::errors::Error),
     #[error("Monthly lens budget reached; increase it or wait for next month")]
     MonthlyBudget,
     #[error(

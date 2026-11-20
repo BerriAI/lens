@@ -20,7 +20,7 @@ pub struct AnalysisModels {
     models: BTreeMap<String, DeploymentGroup>,
     client: reqwest::Client,
     limits: TransportLimits,
-    gateway: Option<lens_inference::GatewayIdentity>,
+    gateway: Option<lens_inference::GatewayBase>,
 }
 
 struct DeploymentGroup {
@@ -112,7 +112,7 @@ impl AnalysisModels {
         })
     }
 
-    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
+    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayBase>) -> Self {
         self.gateway = gateway;
         self
     }
@@ -337,13 +337,11 @@ impl AnalysisModels {
         &self,
         deployment: &catalog::ResolvedDeployment,
         body: &Value,
-        marker: Option<&str>,
+        internal: bool,
         metadata: Option<&Value>,
     ) -> Result<Reply, Error> {
         let mut body = Cow::Borrowed(body);
-        if marker.is_some()
-            && let Some(metadata) = metadata
-        {
+        if internal && let Some(metadata) = metadata {
             body.to_mut()["metadata"] = metadata.clone();
         }
         let builder = self
@@ -358,10 +356,7 @@ impl AnalysisModels {
                 builder.bearer_auth(deployment.config.api_key.expose())
             }
         };
-        let builder = match marker {
-            Some(marker) => builder.header(lens_inference::GATEWAY_HEADER, marker),
-            None => builder,
-        };
+        let builder = builder.header(reqwest::header::USER_AGENT, lens_inference::LENS_AGENT);
         let mut response = builder.send().await.map_err(Error::Transport)?;
         let status = response.status();
         let headers = response.headers().clone();
@@ -389,14 +384,14 @@ impl AnalysisModels {
         &self,
         request: &PreparedRequest,
         first: Reply,
-        marker: Option<&str>,
+        internal: bool,
         metadata: Option<&Value>,
     ) -> Result<Reply, Error> {
         let deployment = &request.deployment;
         let mut reply = first;
         for fallback in &request.fallbacks {
             reply = self
-                .exchange(deployment, &fallback.body, marker, metadata)
+                .exchange(deployment, &fallback.body, internal, metadata)
                 .await?;
             if reply.status.is_success() {
                 deployment
@@ -420,36 +415,23 @@ impl AnalysisModels {
         metadata: Option<Value>,
     ) -> Result<AnalysisCompletion, Error> {
         let deployment = &request.deployment;
-        let marker = self
+        let internal = self
             .gateway
             .as_ref()
-            .map(|gateway| {
-                gateway.token(
-                    &deployment.endpoint,
-                    lens_inference::GatewayPurpose::Analysis,
-                    chrono::Utc::now(),
-                )
-            })
-            .transpose()?
-            .flatten();
+            .is_some_and(|gateway| gateway.covers(&deployment.endpoint));
         let provider = deployment.config.provider;
         let first = self
-            .exchange(
-                deployment,
-                &request.body,
-                marker.as_deref(),
-                metadata.as_ref(),
-            )
+            .exchange(deployment, &request.body, internal, metadata.as_ref())
             .await?;
         let timed_out = matches!(first.status.as_u16(), 408 | 504 | 524);
         let reply = match &request.quick {
             _ if refused(provider, &first) => {
-                self.fall_back(request, first, marker.as_deref(), metadata.as_ref())
+                self.fall_back(request, first, internal, metadata.as_ref())
                     .await?
             }
             Some(quick) if timed_out => {
                 let retried = self
-                    .exchange(deployment, quick, marker.as_deref(), metadata.as_ref())
+                    .exchange(deployment, quick, internal, metadata.as_ref())
                     .await?;
                 if retried.status.is_success() {
                     deployment.reduced_reasoning.store(true, Ordering::Relaxed);

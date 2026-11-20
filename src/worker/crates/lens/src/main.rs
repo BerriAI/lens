@@ -110,8 +110,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
             config.public_url.clone(),
             config.eval_judge_api_key.clone(),
             config.eval_judge_model.clone(),
-        )
-        .with_gateway(config.gateway_inference.clone()),
+        ),
         public_url: config.public_url.to_string(),
     };
     let application = api::initialize(

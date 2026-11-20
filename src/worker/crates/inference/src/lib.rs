@@ -12,7 +12,7 @@ pub use budget::{
     reserve_attempt, settle_amount,
 };
 pub use error::Error;
-pub use gateway::{GATEWAY_HEADER, GatewayIdentity, GatewayPurpose};
+pub use gateway::{GatewayBase, LENS_AGENT};
 pub use messages::{cache_injection_points, request_messages};
 pub use pricing::{
     DeploymentEstimate, ModelCapacity, OutputLimits, Prices, deployment_exceeds_context,

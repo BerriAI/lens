@@ -2285,7 +2285,6 @@ name = "lens-analysis"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "jsonwebtoken",
  "lens-contract",
  "lens-inference",
  "litellm-core-utils",
@@ -2361,7 +2360,6 @@ name = "lens-decisions"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "jsonwebtoken",
  "lens-contract",
  "lens-inference",
  "lens-signals",
@@ -2435,7 +2433,6 @@ dependencies = [
  "chrono",
  "indexmap 2.14.0",
  "jiter",
- "jsonwebtoken",
  "lens-contract",
  "lens-investigations",
  "rstest",

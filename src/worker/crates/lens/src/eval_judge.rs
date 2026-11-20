@@ -38,11 +38,6 @@ impl GatewayJudge {
         self
     }
 
-    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
-        self.control = self.control.map(|control| control.with_gateway(gateway));
-        self
-    }
-
     pub fn unconfigured() -> Self {
         Self {
             models: None,

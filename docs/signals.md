@@ -25,7 +25,7 @@ Discovered analysis models start each call with an output allowance of 16,384 to
 
 An unsuccessful refresh shows the connection error and keeps the last usable models. A successful refresh replaces the discovered list. Explicit `LENS_ANALYSIS_MODELS` and `LENS_EVALUATION_MODELS` remain available and take precedence over a discovered alias with the same name
 
-These API connection variables are separate from `LENS_GATEWAY_URL` and `LENS_GATEWAY_SECRET`, which optionally sign internal Lens traffic. Do not use the signing secret as a gateway API key
+These API connection variables are separate from `LENS_GATEWAY_URL`, which tells Lens which analysis endpoint is the gateway. Signal calls name the agent `lens-signals` in their `User-Agent`, and Lens does not run signals on traces from that agent
 
 ## Add an evaluation provider
 
