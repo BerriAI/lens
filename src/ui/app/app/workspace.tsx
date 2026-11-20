@@ -212,18 +212,6 @@ function ConnectGateway() {
       }}
       className="flex flex-col gap-3 rounded-md border p-3"
     >
-      <label htmlFor="connect-token" className="text-sm font-medium">
-        Admin token
-      </label>
-      <input
-        id="connect-token"
-        type="password"
-        autoComplete="current-password"
-        required
-        value={token}
-        onChange={(event) => setToken(event.target.value)}
-        className="rounded-md border px-3 py-2"
-      />
       <label htmlFor="connect-gateway-url" className="text-sm font-medium">
         Gateway address
       </label>
@@ -251,6 +239,21 @@ function ConnectGateway() {
       <p className="text-xs text-muted-foreground">
         With a key, Lens also uses the gateway&apos;s models for signals and
         findings.
+      </p>
+      <label htmlFor="connect-token" className="text-sm font-medium">
+        Admin token
+      </label>
+      <input
+        id="connect-token"
+        type="password"
+        autoComplete="current-password"
+        required
+        value={token}
+        onChange={(event) => setToken(event.target.value)}
+        className="rounded-md border px-3 py-2"
+      />
+      <p className="text-xs text-muted-foreground">
+        The admin token proves you run this Lens.
       </p>
       <button
         disabled={connect.isPending}
