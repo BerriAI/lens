@@ -88,14 +88,12 @@ struct EmbeddingRequest<'a> {
 
 #[derive(Serialize)]
 pub struct InternalMetadata {
-    pub litellm_lens_internal: bool,
     pub tags: [&'static str; 1],
 }
 
 impl InternalMetadata {
     pub fn new() -> Self {
         Self {
-            litellm_lens_internal: true,
             tags: [INTERNAL_TAG],
         }
     }
@@ -217,7 +215,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/v1/embeddings"))
             .and(header("authorization", "Bearer fixture-key"))
-            .and(body_partial_json(json!({"model": "qwen", "input": texts(EMBED_BATCH), "metadata": {"litellm_lens_internal": true, "tags": [INTERNAL_TAG]}})))
+            .and(body_partial_json(json!({"model": "qwen", "input": texts(EMBED_BATCH), "metadata": {"tags": [INTERNAL_TAG]}})))
             .respond_with(ResponseTemplate::new(200).set_body_json(vectors(EMBED_BATCH, 0)))
             .expect(1)
             .mount(&gateway)

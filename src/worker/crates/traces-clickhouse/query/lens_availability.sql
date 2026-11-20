@@ -8,7 +8,6 @@ SELECT
     EXISTS(SELECT 1 FROM spend_logs
         WHERE ({all_teams:UInt8}=1 OR team_id={team:String})
           AND ({key_hash:String}='' OR api_key={key_hash:String})
-          AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
           AND splitByRegexp('[/ ]', lower(trimBoth(JSONExtractString(metadata,'user_agent'))))[1] != 'lens-signals'
           AND (team_id,api_key,trace_id) NOT IN eval_traces
           AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),

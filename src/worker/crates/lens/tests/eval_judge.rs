@@ -153,7 +153,6 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
         lens_inference::LENS_AGENT
     );
     assert!(!requests[0].headers.contains_key("x-lens-internal"));
-    assert_eq!(request["metadata"]["litellm_lens_internal"], true);
     assert_eq!(request["metadata"]["deployment.environment"], "lens-eval");
     assert_eq!(request["metadata"]["lens_team_id"], input.run.team);
     assert_eq!(request["metadata"]["lens_eval_run_id"], input.run.run.id);
@@ -582,7 +581,6 @@ async fn standalone_judge_uses_configured_models_and_only_marks_the_explicit_gat
     );
     assert!(!requests[0].headers.contains_key("x-lens-internal"));
     if connected {
-        assert_eq!(body["metadata"]["litellm_lens_internal"], true);
         assert_eq!(body["metadata"]["deployment.environment"], "lens-eval");
         assert_eq!(body["metadata"]["lens_team_id"], input.run.team);
         assert_eq!(body["metadata"]["lens_eval_run_id"], input.run.run.id);

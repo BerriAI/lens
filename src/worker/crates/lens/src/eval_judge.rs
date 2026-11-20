@@ -69,7 +69,6 @@ struct ResponseFormat {
 
 #[derive(Serialize)]
 struct Metadata<'a> {
-    litellm_lens_internal: bool,
     #[serde(rename = "deployment.environment")]
     deployment_environment: &'static str,
     lens_team_id: &'a str,
@@ -196,7 +195,6 @@ impl Judge for RunJudge<'_> {
                     .complete_with_gateway_metadata(
                         &prepared,
                         &Metadata {
-                            litellm_lens_internal: true,
                             deployment_environment: "lens-eval",
                             lens_team_id: &self.input.run.team,
                             lens_eval_run_id: &self.input.run.run.id,
@@ -245,7 +243,6 @@ impl Judge for RunJudge<'_> {
                                 r#type: "json_object",
                             },
                             metadata: Metadata {
-                                litellm_lens_internal: true,
                                 deployment_environment: "lens-eval",
                                 lens_team_id: &self.input.run.team,
                                 lens_eval_run_id: &self.input.run.run.id,

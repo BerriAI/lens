@@ -66,7 +66,6 @@ SELECT *, selection_key FROM (
           {filter_keys:Array(String)},{filter_values:Array(String)})
       AND ({service:String}='' OR model_group={service:String})
       AND {agent_name:String}=''
-      AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
       AND splitByRegexp('[/ ]', lower(trimBoth(JSONExtractString(metadata,'user_agent'))))[1] != 'lens-signals'
       AND (team_id,api_key,spend_logs.trace_id) NOT IN eval_traces
       AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),

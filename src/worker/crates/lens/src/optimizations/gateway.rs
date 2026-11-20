@@ -140,7 +140,7 @@ impl Gateway {
         body.insert("messages".into(), json!(request.messages));
         body.insert("model".into(), json!(model));
         body.insert("stream".into(), json!(false));
-        body.insert("metadata".into(), json!({"litellm_lens_internal":true,"deployment.environment":"lens-eval","lens_optimization_id":run,"lens_case_id":case}));
+        body.insert("metadata".into(), json!({"deployment.environment":"lens-eval","lens_optimization_id":run,"lens_case_id":case}));
         let start = std::time::Instant::now();
         let (response, cost) = self
             .request::<Completion>("chat/completions", Some(&Value::Object(body)))
