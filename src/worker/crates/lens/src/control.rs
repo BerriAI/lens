@@ -10,7 +10,6 @@ pub struct Control {
     client: Client,
     base: Url,
     token: Arc<str>,
-    gateway: Option<lens_inference::GatewayIdentity>,
 }
 
 impl Control {
@@ -22,13 +21,7 @@ impl Control {
             client,
             base,
             token: token.into(),
-            gateway: None,
         }
-    }
-
-    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
-        self.gateway = gateway;
-        self
     }
 
     pub fn url(&self, path: &str) -> Result<Url, Error> {
@@ -44,18 +37,6 @@ impl Control {
         body: Option<&impl Serialize>,
         timeout: Duration,
     ) -> Result<T, Error> {
-        let marker = self
-            .gateway
-            .as_ref()
-            .map(|gateway| {
-                gateway.token(
-                    &url,
-                    lens_inference::GatewayPurpose::Analysis,
-                    chrono::Utc::now(),
-                )
-            })
-            .transpose()?
-            .flatten();
         let request = self
             .client
             .request(method, url)
@@ -65,10 +46,7 @@ impl Control {
             Some(body) => request.json(body),
             None => request,
         };
-        let request = match marker {
-            Some(token) => request.header(lens_inference::GATEWAY_HEADER, token),
-            None => request,
-        };
+        let request = request.header(reqwest::header::USER_AGENT, lens_inference::LENS_AGENT);
         let mut response = request.send().await?;
         let status = response.status();
         if !status.is_success() {

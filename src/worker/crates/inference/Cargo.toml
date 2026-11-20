@@ -9,7 +9,6 @@ repository.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 indexmap = "2"
 jiter = "=0.17.0"
-jsonwebtoken = { workspace = true, features = ["aws_lc_rs"] }
 lens-contract = { path = "../contract" }
 lens-investigations = { path = "../investigations" }
 serde.workspace = true

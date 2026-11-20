@@ -11,17 +11,14 @@ use wiremock::{
 };
 
 #[rstest]
-#[case::gateway(Provider::DecisionsCompatible, "", "/v1/decisions", true)]
-#[case::different_base(Provider::DecisionsCompatible, "/other", "/v1/decisions", false)]
-#[case::native_passthrough(Provider::Typesafe, "", "/v1/systemone", true)]
+#[case::compatible(Provider::DecisionsCompatible, "/v1/decisions")]
+#[case::native_passthrough(Provider::Typesafe, "/v1/systemone")]
 #[tokio::test]
-async fn gateway_marker_only_reaches_the_configured_compatible_transport(
+async fn every_decision_call_names_the_lens_agent_and_carries_no_internal_header(
     deployment: Deployment,
     request: DecisionRequest,
     #[case] provider: Provider,
-    #[case] base_path: &str,
     #[case] endpoint: &str,
-    #[case] marked: bool,
 ) {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -36,12 +33,6 @@ async fn gateway_marker_only_reaches_the_configured_compatible_transport(
         .expect(1)
         .mount(&server)
         .await;
-    let key = "gateway-transport-fixture-key-32-bytes";
-    let gateway = lens_inference::GatewayIdentity::new(
-        format!("{}{base_path}", server.uri()).parse().unwrap(),
-        key,
-    )
-    .unwrap();
     let client = models(
         vec![Deployment {
             provider,
@@ -50,28 +41,18 @@ async fn gateway_marker_only_reaches_the_configured_compatible_transport(
         }],
         TransportLimits::default(),
     )
-    .unwrap()
-    .with_gateway(Some(gateway));
+    .unwrap();
     client.evaluate(&request).await.unwrap();
     let requests = server.received_requests().await.unwrap();
     assert_eq!(
         requests[0].headers.get("authorization").unwrap(),
         "Bearer private-key"
     );
-    let marker = requests[0].headers.get(lens_inference::GATEWAY_HEADER);
-    assert_eq!(marker.is_some(), marked);
-    if let Some(marker) = marker {
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.set_audience(&["litellm"]);
-        let claims = jsonwebtoken::decode::<Value>(
-            marker.to_str().unwrap(),
-            &jsonwebtoken::DecodingKey::from_secret(key.as_bytes()),
-            &validation,
-        )
-        .unwrap()
-        .claims;
-        assert_eq!(claims["purpose"], "signals");
-    }
+    assert_eq!(
+        requests[0].headers.get("user-agent").unwrap(),
+        lens_inference::LENS_AGENT
+    );
+    assert!(!requests[0].headers.contains_key("x-lens-internal"));
 }
 
 async fn drain(socket: &mut tokio::net::TcpStream) {

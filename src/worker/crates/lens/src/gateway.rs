@@ -64,7 +64,7 @@ struct Registry {
     refresh: Mutex<()>,
     client: reqwest::Client,
     connection: Option<GatewayConfig>,
-    signing: Option<lens_inference::GatewayIdentity>,
+    signing: Option<lens_inference::GatewayBase>,
     analysis: Vec<lens_analysis::Deployment>,
     evaluation: Vec<lens_decisions::Deployment>,
 }
@@ -75,7 +75,7 @@ pub struct Models(Arc<Registry>);
 impl Models {
     pub(crate) fn optimization_config(
         &self,
-    ) -> Option<(GatewayConfig, Option<lens_inference::GatewayIdentity>)> {
+    ) -> Option<(GatewayConfig, Option<lens_inference::GatewayBase>)> {
         self.0
             .connection
             .clone()
@@ -84,7 +84,7 @@ impl Models {
     pub fn new(
         analysis: Vec<lens_analysis::Deployment>,
         evaluation: Vec<lens_decisions::Deployment>,
-        signing: Option<lens_inference::GatewayIdentity>,
+        signing: Option<lens_inference::GatewayBase>,
         connection: Option<GatewayConfig>,
     ) -> Result<Self, Error> {
         let (analysis_models, evaluation_models) =
@@ -132,10 +132,6 @@ impl Models {
 
     pub(crate) fn client(&self) -> reqwest::Client {
         self.0.client.clone()
-    }
-
-    pub(crate) fn signing(&self) -> Option<lens_inference::GatewayIdentity> {
-        self.0.signing.clone()
     }
 
     pub fn analysis(&self) -> Arc<AnalysisModels> {
@@ -232,16 +228,18 @@ impl ModelCatalog for Models {
 fn compile(
     analysis: Vec<lens_analysis::Deployment>,
     evaluation: Vec<lens_decisions::Deployment>,
-    signing: Option<lens_inference::GatewayIdentity>,
+    signing: Option<lens_inference::GatewayBase>,
 ) -> Result<(Arc<AnalysisModels>, Arc<EvaluationModels>), Error> {
     let catalog = lens_analysis::bundled_catalog()?;
     let analysis = Arc::new(
         AnalysisModels::new(catalog.clone(), analysis, Default::default())?
             .with_gateway(signing.clone()),
     );
-    let evaluation = Arc::new(
-        EvaluationModels::new(catalog, evaluation, Default::default())?.with_gateway(signing),
-    );
+    let evaluation = Arc::new(EvaluationModels::new(
+        catalog,
+        evaluation,
+        Default::default(),
+    )?);
     if evaluation
         .models()
         .iter()

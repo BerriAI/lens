@@ -326,8 +326,6 @@ pub enum EmbedError {
     Rejected(u16),
     #[error("the embedding model returned an invalid reply")]
     InvalidReply,
-    #[error("the embedding request could not be signed for the gateway")]
-    Unsigned,
 }
 
 #[derive(Debug, PartialEq, thiserror::Error)]

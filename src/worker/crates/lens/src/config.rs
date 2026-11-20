@@ -21,7 +21,7 @@ pub struct Config {
     pub release: String,
     pub analysis_models: Vec<lens_analysis::Deployment>,
     pub evaluation_models: Vec<lens_decisions::Deployment>,
-    pub gateway_inference: Option<lens_inference::GatewayIdentity>,
+    pub gateway_inference: Option<lens_inference::GatewayBase>,
     pub gateway_models: Option<crate::gateway::GatewayConfig>,
     pub gateway_service_token: Option<String>,
     pub eval_judge_api_key: Option<String>,
@@ -198,17 +198,16 @@ fn github(
 
 fn gateway_inference(
     read: &impl Fn(&str) -> Option<String>,
-) -> Result<Option<lens_inference::GatewayIdentity>, Error> {
+) -> Result<Option<lens_inference::GatewayBase>, Error> {
     let Some(base) = read("LENS_GATEWAY_URL").filter(|base| !base.is_empty()) else {
         return Ok(None);
     };
     let base = base
         .parse()
         .map_err(|_| Error::Configuration("LENS_GATEWAY_URL"))?;
-    let secret = required(read, "LENS_GATEWAY_SECRET")?;
-    lens_inference::GatewayIdentity::new(base, &secret)
+    lens_inference::GatewayBase::new(base)
         .map(Some)
-        .map_err(|_| Error::Configuration("LENS_GATEWAY_URL and LENS_GATEWAY_SECRET"))
+        .map_err(|_| Error::Configuration("LENS_GATEWAY_URL"))
 }
 
 fn gateway_models(
@@ -327,30 +326,16 @@ mod tests {
     }
 
     #[rstest]
-    #[case::absent(None, None, true, false)]
-    #[case::secret_without_explicit_url(
-        None,
-        Some("gateway-signing-secret-32-characters"),
-        true,
-        false
-    )]
-    #[case::missing_secret(Some("https://gateway.test"), None, false, false)]
-    #[case::short_secret(Some("https://gateway.test"), Some("short"), false, false)]
-    #[case::valid(
-        Some("https://gateway.test/proxy"),
-        Some("gateway-signing-secret-32-characters"),
-        true,
-        true
-    )]
+    #[case::absent(None, true, false)]
+    #[case::invalid(Some("ftp://gateway.test"), false, false)]
+    #[case::valid(Some("https://gateway.test/proxy"), true, true)]
     fn inference_requires_explicit_gateway(
         #[case] url: Option<&str>,
-        #[case] secret: Option<&str>,
         #[case] valid: bool,
         #[case] configured: bool,
     ) {
         let result = super::gateway_inference(&|name| match name {
             "LENS_GATEWAY_URL" => url.map(str::to_owned),
-            "LENS_GATEWAY_SECRET" => secret.map(str::to_owned),
             _ => None,
         });
         assert_eq!(result.is_ok(), valid);

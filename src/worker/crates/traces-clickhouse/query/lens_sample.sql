@@ -41,6 +41,7 @@ SELECT *, selection_key FROM (
     HAVING max(EngineReceivedMs) < {end:UInt64}
        AND max(toUnixTimestamp64Milli(Timestamp)+toInt64(intDiv(Duration,1000000))) < {end:UInt64}
        AND ({agent_name:String}='' OR countIf(AgentName={agent_name:String}) > 0)
+       AND countIf(AgentName='lens-signals') = 0
        AND countIf((empty({filter_keys:Array(String)}) OR arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v,
            {filter_keys:Array(String)},{filter_values:Array(String)}))
            AND ({service:String}='' OR ServiceName={service:String})) > 0
@@ -65,7 +66,7 @@ SELECT *, selection_key FROM (
           {filter_keys:Array(String)},{filter_values:Array(String)})
       AND ({service:String}='' OR model_group={service:String})
       AND {agent_name:String}=''
-      AND NOT JSONExtractBool(metadata,'litellm_lens_internal')
+      AND splitByRegexp('[/ ]', lower(trimBoth(JSONExtractString(metadata,'user_agent'))))[1] != 'lens-signals'
       AND (team_id,api_key,spend_logs.trace_id) NOT IN eval_traces
       AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),
           JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'

@@ -114,7 +114,6 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
     spans: Vec<EvalSpan>,
     #[case] requested_model: &str,
     #[case] expected_model: &str,
-    #[values(false, true)] connected: bool,
     #[values(None, Some("Verified output submitted alongside the trace"))] output: Option<&str>,
 ) {
     input.trials[1].stored.result.output = output.map(str::to_owned);
@@ -133,14 +132,7 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
         format!("{}/gateway", server.uri()).parse().unwrap(),
         Some("test-judge-key".into()),
         Some("default-model".into()),
-    )
-    .with_gateway(connected.then(|| {
-        lens_inference::GatewayIdentity::new(
-            format!("{}/gateway", server.uri()).parse().unwrap(),
-            "eval-gateway-signing-secret-with-32-characters",
-        )
-        .unwrap()
-    }));
+    );
     let score = judge
         .for_run(&input)
         .score(JudgeRequest {
@@ -157,10 +149,10 @@ async fn gateway_judge_uses_the_selected_trial_and_attributes_the_call(
     let request: Value = requests[0].body_json().unwrap();
     assert_eq!(request["model"], expected_model);
     assert_eq!(
-        requests[0].headers.contains_key("x-lens-internal"),
-        connected
+        requests[0].headers.get("user-agent").unwrap(),
+        lens_inference::LENS_AGENT
     );
-    assert_eq!(request["metadata"]["litellm_lens_internal"], true);
+    assert!(!requests[0].headers.contains_key("x-lens-internal"));
     assert_eq!(request["metadata"]["deployment.environment"], "lens-eval");
     assert_eq!(request["metadata"]["lens_team_id"], input.run.team);
     assert_eq!(request["metadata"]["lens_eval_run_id"], input.run.run.id);
@@ -544,13 +536,8 @@ async fn standalone_judge_uses_configured_models_and_only_marks_the_explicit_gat
     let catalog = Catalog::parse(serde_json::to_vec(&json!({
         "fixture":{"mode":"chat","litellm_provider":"openai","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_input_tokens":10000,"max_output_tokens":400}
     })).unwrap().as_slice(), Default::default()).unwrap();
-    let gateway = connected.then(|| {
-        lens_inference::GatewayIdentity::new(
-            server.uri().parse().unwrap(),
-            "eval-gateway-signing-secret-with-32-characters",
-        )
-        .unwrap()
-    });
+    let gateway =
+        connected.then(|| lens_inference::GatewayBase::new(server.uri().parse().unwrap()).unwrap());
     let models = AnalysisModels::new(
         Arc::new(catalog),
         vec![Deployment {
@@ -589,35 +576,15 @@ async fn standalone_judge_uses_configured_models_and_only_marks_the_explicit_gat
     assert!(serialized.contains("Tests are run before reporting success"));
     assert!(!serialized.contains("Other trial evidence"));
     assert_eq!(
-        requests[0].headers.contains_key("x-lens-internal"),
-        connected
+        requests[0].headers.get("user-agent").unwrap(),
+        lens_inference::LENS_AGENT
     );
+    assert!(!requests[0].headers.contains_key("x-lens-internal"));
     if connected {
-        assert_eq!(body["metadata"]["litellm_lens_internal"], true);
         assert_eq!(body["metadata"]["deployment.environment"], "lens-eval");
         assert_eq!(body["metadata"]["lens_team_id"], input.run.team);
         assert_eq!(body["metadata"]["lens_eval_run_id"], input.run.run.id);
         assert_eq!(body["metadata"]["lens_case_id"], "case-a");
-        let token = requests[0]
-            .headers
-            .get("x-lens-internal")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.set_audience(&["litellm"]);
-        validation.set_issuer(&["litellm-lens"]);
-        let claims = jsonwebtoken::decode::<Value>(
-            token,
-            &jsonwebtoken::DecodingKey::from_secret(
-                b"eval-gateway-signing-secret-with-32-characters",
-            ),
-            &validation,
-        )
-        .unwrap()
-        .claims;
-        assert_eq!(claims["sub"], "lens-internal");
-        assert_eq!(claims["purpose"], "analysis");
     } else {
         assert!(body.get("metadata").is_none());
     }

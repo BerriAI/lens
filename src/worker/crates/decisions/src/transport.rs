@@ -17,7 +17,6 @@ pub struct EvaluationModels {
     models: BTreeMap<String, Group>,
     client: reqwest::Client,
     limits: TransportLimits,
-    gateway: Option<lens_inference::GatewayIdentity>,
 }
 
 struct Group {
@@ -162,13 +161,7 @@ impl EvaluationModels {
             models,
             client,
             limits,
-            gateway: None,
         })
-    }
-
-    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
-        self.gateway = gateway;
-        self
     }
 
     pub fn models(&self) -> Vec<String> {
@@ -229,22 +222,7 @@ impl EvaluationModels {
             Some(key) if !key.0.is_empty() => builder.bearer_auth(&key.0),
             _ => builder,
         };
-        let marker = self
-            .gateway
-            .as_ref()
-            .map(|gateway| {
-                gateway.token(
-                    &deployment.endpoint,
-                    lens_inference::GatewayPurpose::Signals,
-                    chrono::Utc::now(),
-                )
-            })
-            .transpose()?
-            .flatten();
-        let builder = match marker {
-            Some(marker) => builder.header(lens_inference::GATEWAY_HEADER, marker),
-            None => builder,
-        };
+        let builder = builder.header(reqwest::header::USER_AGENT, lens_inference::LENS_AGENT);
         let mut response = builder.send().await.map_err(Error::Transport)?;
         let status = response.status();
         let retry_after_seconds = response

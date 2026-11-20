@@ -38,11 +38,6 @@ impl GatewayJudge {
         self
     }
 
-    pub fn with_gateway(mut self, gateway: Option<lens_inference::GatewayIdentity>) -> Self {
-        self.control = self.control.map(|control| control.with_gateway(gateway));
-        self
-    }
-
     pub fn unconfigured() -> Self {
         Self {
             models: None,
@@ -74,7 +69,6 @@ struct ResponseFormat {
 
 #[derive(Serialize)]
 struct Metadata<'a> {
-    litellm_lens_internal: bool,
     #[serde(rename = "deployment.environment")]
     deployment_environment: &'static str,
     lens_team_id: &'a str,
@@ -201,7 +195,6 @@ impl Judge for RunJudge<'_> {
                     .complete_with_gateway_metadata(
                         &prepared,
                         &Metadata {
-                            litellm_lens_internal: true,
                             deployment_environment: "lens-eval",
                             lens_team_id: &self.input.run.team,
                             lens_eval_run_id: &self.input.run.run.id,
@@ -250,7 +243,6 @@ impl Judge for RunJudge<'_> {
                                 r#type: "json_object",
                             },
                             metadata: Metadata {
-                                litellm_lens_internal: true,
                                 deployment_environment: "lens-eval",
                                 lens_team_id: &self.input.run.team,
                                 lens_eval_run_id: &self.input.run.run.id,

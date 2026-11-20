@@ -28,12 +28,9 @@ async fn gateway_marker_and_attribution_only_reach_the_configured_transport(
 ) {
     let server = MockServer::start().await;
     respond(&server, "/chat/completions", 200, completion()).await;
-    let key = "gateway-transport-fixture-key-32-bytes";
-    let gateway = lens_inference::GatewayIdentity::new(
-        format!("{}{base_path}", server.uri()).parse().unwrap(),
-        key,
-    )
-    .unwrap();
+    let gateway =
+        lens_inference::GatewayBase::new(format!("{}{base_path}", server.uri()).parse().unwrap())
+            .unwrap();
     let client = client(catalog, deployment(&server, provider)).with_gateway(Some(gateway));
     let metadata = json!({"run_id":"private-eval-run", "team_id":"private-team"});
     client
@@ -48,22 +45,13 @@ async fn gateway_marker_and_attribution_only_reach_the_configured_transport(
         requests[0].headers.get("authorization").unwrap(),
         "Bearer fixture-key"
     );
-    let marker = requests[0].headers.get(lens_inference::GATEWAY_HEADER);
-    assert_eq!(marker.is_some(), marked);
+    assert_eq!(
+        requests[0].headers.get("user-agent").unwrap(),
+        lens_inference::LENS_AGENT
+    );
+    assert!(!requests[0].headers.contains_key("x-lens-internal"));
     let body: Value = requests[0].body_json().unwrap();
     assert_eq!(body.get("metadata"), marked.then_some(&metadata));
-    if let Some(marker) = marker {
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.set_audience(&["litellm"]);
-        let claims = jsonwebtoken::decode::<Value>(
-            marker.to_str().unwrap(),
-            &jsonwebtoken::DecodingKey::from_secret(key.as_bytes()),
-            &validation,
-        )
-        .unwrap()
-        .claims;
-        assert_eq!(claims["purpose"], "analysis");
-    }
 }
 
 #[rstest]
@@ -398,20 +386,18 @@ async fn redirects_cannot_forward_credentials(
         .expect(1)
         .mount(&server)
         .await;
-    let gateway = lens_inference::GatewayIdentity::new(
-        server.uri().parse().unwrap(),
-        "redirect-fixture-key-32-characters",
-    )
-    .unwrap();
+    let gateway = lens_inference::GatewayBase::new(server.uri().parse().unwrap()).unwrap();
     let client = client(catalog, deployment(&server, Provider::OpenAi)).with_gateway(Some(gateway));
     assert!(
         matches!(client.complete(&client.prepare("analysis",&request).await.unwrap()).await,Err(Error::Provider{status:actual,..}) if actual==status)
     );
     assert!(destination.received_requests().await.unwrap().is_empty());
-    assert!(
+    assert_eq!(
         server.received_requests().await.unwrap()[0]
             .headers
-            .contains_key(lens_inference::GATEWAY_HEADER)
+            .get("user-agent")
+            .unwrap(),
+        lens_inference::LENS_AGENT
     );
 }
 
