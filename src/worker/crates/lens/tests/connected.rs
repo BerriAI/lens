@@ -240,7 +240,7 @@ async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(
 }
 
 #[rstest]
-#[case::wrong_token("incorrect-secret", r#"{"resourceSpans":[]}"#, 401)]
+#[case::unknown_token_before_tracing_keys_load("incorrect-secret", r#"{"resourceSpans":[]}"#, 503)]
 #[case::malformed(SERVICE_TOKEN, "{", 400)]
 #[tokio::test]
 async fn rejected_gateway_traces_never_reach_storage(
