@@ -196,7 +196,7 @@ impl RawMessage {
         let raw = fields
             .kind
             .as_deref()
-            .filter(|role| !role.is_empty())
+            .filter(|kind| !kind.is_empty() && *kind != "message")
             .or_else(|| fields.role.as_deref().filter(|role| !role.is_empty()))
             .or_else(|| self.kind.as_deref().filter(|role| !role.is_empty()))
             .unwrap_or_default();
