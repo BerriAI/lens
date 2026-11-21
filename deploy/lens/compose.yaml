@@ -97,6 +97,8 @@ services:
     configs:
       - source: keeper
         target: /etc/clickhouse-server/config.d/lens-keeper.xml
+      - source: logging
+        target: /etc/clickhouse-server/config.d/lens-logging.xml
     depends_on:
       credentials:
         condition: service_completed_successfully
@@ -139,4 +141,30 @@ configs:
           </keeper_server>
           <zookeeper><node><host>127.0.0.1</host><port>9181</port></node></zookeeper>
           <keeper_map_path_prefix>/lens/keeper-map</keeper_map_path_prefix>
+      </clickhouse>
+  logging:
+    content: |
+      <clickhouse>
+          <logger>
+              <level>information</level>
+              <console>true</console>
+              <console_log_level>warning</console_log_level>
+          </logger>
+          <text_log>
+              <level>information</level>
+              <ttl>event_date + INTERVAL 1 DAY DELETE</ttl>
+          </text_log>
+          <query_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_log>
+          <trace_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></trace_log>
+          <part_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></part_log>
+          <metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></metric_log>
+          <query_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_metric_log>
+          <query_views_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_views_log>
+          <asynchronous_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_metric_log>
+          <asynchronous_insert_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_insert_log>
+          <aggregated_zookeeper_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></aggregated_zookeeper_log>
+          <zookeeper_connection_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></zookeeper_connection_log>
+          <background_schedule_pool_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></background_schedule_pool_log>
+          <error_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></error_log>
+          <processors_profile_log remove="1"/>
       </clickhouse>
