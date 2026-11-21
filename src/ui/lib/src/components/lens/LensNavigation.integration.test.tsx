@@ -127,7 +127,7 @@ describe("Lens navigation", () => {
     const user = userEvent.setup();
     renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?demo=true&tab=alerts" });
     expect(await screen.findByText("No evaluated traces in this window.")).toBeVisible();
-    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(50);
+    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(95);
     await user.click(screen.getByRole("button", { name: "Set up alerting" }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
     expect(vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/signals"))).toBe(false);
