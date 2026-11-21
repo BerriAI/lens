@@ -98,7 +98,8 @@ fn span(trace: Trace, span: &str, parent: &str, environment: Option<&str>, at_ms
         "Timestamp": at_ms * 1_000_000, "Duration": 1_000_000,
         "TraceId": trace.id, "SpanId": span, "ParentSpanId": parent,
         "SpanName": span, "ServiceName": "agent", "ResourceAttributes": resource,
-        "TeamId": trace.team, "ApiKeyHash": KEY, "ObservationType": "agent",
+        "TeamId": trace.team, "ApiKeyHash": KEY,
+        "ObservationType": if parent.is_empty() { "agent" } else { "llm" },
         "AgentName": trace.agent, "Input": format!("hello from {span}"),
         "LiteLLMRequestId": if parent.is_empty() { trace.request } else { "" },
     })
@@ -250,6 +251,7 @@ fn parameters(
             .chain(window)
             .chain([
                 ("agent", text("")),
+                ("include_internal", Parameter::Integer(0)),
                 ("cursor_ms", Parameter::Integer(0)),
                 ("cursor_trace_id", text("")),
             ])

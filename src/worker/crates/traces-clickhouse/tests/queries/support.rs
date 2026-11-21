@@ -165,9 +165,9 @@ pub async fn seed_runs_with_and_without_calls(fixture: &SeededDatabase) -> TestR
     let start_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000 - 10_000;
     let rows = [
         ("model-run", "llm", 1_000),
-        ("internal-old", "span", 2_000),
+        ("internal-old", "chain", 2_000),
         ("tool-run", "tool", 3_000),
-        ("internal-new", "span", 4_000),
+        ("internal-new", "chain", 4_000),
     ]
     .into_iter()
     .map(|(trace_id, observation, offset_ms)| {
