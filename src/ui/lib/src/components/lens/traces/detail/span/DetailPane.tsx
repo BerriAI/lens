@@ -14,7 +14,7 @@ interface DetailPaneProps extends SpanTabProps {
 
 /** Right pane of the run view: switches on the selected tree row. */
 export function DetailPane({ trace, row, accessToken, spanTab, onSpanTabChange, onClose }: DetailPaneProps) {
-  if (!row || row.kind === "load-more") {
+  if (!row || row.kind === "load-more" || row.kind === "turn") {
     return (
       <div className="grid h-full place-items-center bg-background text-sm text-muted-foreground">
         Select a span to inspect it.

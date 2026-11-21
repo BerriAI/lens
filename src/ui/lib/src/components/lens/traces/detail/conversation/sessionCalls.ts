@@ -1,15 +1,13 @@
 import type { Span, SpanDetail, TraceMessage } from "../../types";
+import { isNativeAgent } from "../../turns";
 import { toolInput } from "../content/payload";
 
-const NATIVE_AGENT_TOOLS = ["Agent", "Task", "execute_tool Agent", "execute_tool Task"];
+export { isNativeAgent };
+
 const TASK = "lens.task";
 const MIN_TRUNCATED_TASK_CHARS = 200;
 
 export const CONTEXT_COMPACTED = "Context compacted";
-
-export function isNativeAgent(span: Span): boolean {
-  return span.framework === "claude-code" && span.type === "tool" && NATIVE_AGENT_TOOLS.includes(span.name);
-}
 
 function agentPrompt(detail: SpanDetail | undefined): string {
   const args = detail ? toolInput(detail.input, detail.input_ui) : undefined;

@@ -3,6 +3,7 @@
  * computes lives here so it can be unit-tested directly.
  */
 import { type ErrorSource, type SpanTreeState, type TreeRow } from "./tree";
+import { type SessionTurn, sessionTree } from "./turns";
 import type { Span, TraceMessage, TraceSummary, TraceToolCall } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +138,29 @@ interface RowContext {
   rows: TreeRow[];
 }
 
+interface RunTree {
+  children: ChildrenMap;
+  turns: readonly SessionTurn[];
+}
+
+/** The visible tree, with a coding session's top-level calls filed under the turn they belong to. */
+function buildRunTree(spans: readonly Span[], showFramework: boolean): RunTree {
+  const session = sessionTree(spans);
+  const { children } = buildVisibleTree(session?.spans ?? spans, showFramework);
+  if (!session) return { children, turns: [] };
+  const top = new Set((children.get(ROOT_KEY) ?? []).map((span) => span.span_id));
+  session.turns.forEach((turn) =>
+    children.set(
+      turn.id,
+      turn.spans.filter((span) => top.has(span.span_id)),
+    ),
+  );
+  children.delete(ROOT_KEY);
+  return { children, turns: session.turns };
+}
+
+export const turnRowIds = (spans: readonly Span[]): string[] => sessionTree(spans)?.turns.map((turn) => turn.id) ?? [];
+
 function pushSpan(ctx: RowContext, span: Span, depth: number): void {
   const hasChildren = (ctx.children.get(span.span_id)?.length ?? 0) > 0;
   const collapsed = ctx.state.collapsedSpanIds.has(span.span_id);
@@ -191,8 +215,14 @@ function pushLevel(ctx: RowContext, parentKey: string, depth: number): void {
  * and same-named siblings folded into paged groups.
  */
 export function buildTreeRows(spans: readonly Span[], state: SpanTreeState): TreeRow[] {
-  const ctx: RowContext = { children: buildVisibleTree(spans, !state.hideFramework).children, state, rows: [] };
+  const { children, turns } = buildRunTree(spans, !state.hideFramework);
+  const ctx: RowContext = { children, state, rows: [] };
   pushLevel(ctx, ROOT_KEY, 0);
+  for (const turn of turns) {
+    const collapsed = state.collapsedSpanIds.has(turn.id);
+    ctx.rows.push({ kind: "turn", id: turn.id, depth: 0, index: turn.index, members: turn.spans, collapsed });
+    if (!collapsed) pushLevel(ctx, turn.id, 1);
+  }
   return ctx.rows;
 }
 
@@ -219,7 +249,7 @@ export function findTraceSteps(
 
 /** Tree state with every visible ancestor of `spanId` expanded and any group holding it paged far enough. */
 export function revealSpanInState(spans: readonly Span[], state: SpanTreeState, spanId: string): SpanTreeState {
-  const { children } = buildVisibleTree(spans, !state.hideFramework);
+  const { children } = buildRunTree(spans, !state.hideFramework);
   const parentOf = new Map<string, string>();
   children.forEach((list, key) => list.forEach((s) => parentOf.set(s.span_id, key)));
   if (!parentOf.has(spanId)) return state;

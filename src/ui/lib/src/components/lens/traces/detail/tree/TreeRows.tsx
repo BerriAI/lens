@@ -7,10 +7,10 @@ import { cn } from "../../../../../lib/cva.config";
 import { formatCost } from "../../list/AgentTracesTable";
 import { FoldChevron } from "../../ui/Collapse";
 import { FAMILY_BAR, SPAN_FAMILY, SpanIcon } from "../../ui/SpanIcon";
-import type { GroupRowData, LoadMoreRowData, SpanRowData } from "../../tree";
+import type { GroupRowData, LoadMoreRowData, SpanRowData, TurnRowData } from "../../tree";
 import type { SpanType } from "../../types";
 import { fmtMs, previewText, type TreeGuide } from "../../utils";
-import { groupFacts, SpanHoverCard, spanFacts } from "./SpanHoverCard";
+import { groupFacts, SpanHoverCard, spanFacts, turnFacts } from "./SpanHoverCard";
 import { toolSummary } from "../content/payload";
 import { BAR_TRACK, barGeometry } from "./timeline";
 
@@ -233,6 +233,43 @@ export function GroupRow({ row, ctx }: { row: GroupRowData; ctx: RowContext }) {
         )}
         <span className="flex w-5 shrink-0 justify-end">
           <Caret open={row.expanded} onToggle={() => ctx.onToggleGroup(row.id)} />
+        </span>
+      </RowFrame>
+    </SpanHoverCard>
+  );
+}
+
+const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+export function TurnRow({ row, ctx }: { row: TurnRowData; ctx: RowContext }) {
+  const facts = turnFacts(row);
+  return (
+    <SpanHoverCard facts={facts} traceStartMs={ctx.traceStartMs}>
+      <RowFrame
+        id={row.id}
+        depth={row.depth}
+        guide={ctx.guide}
+        selected={false}
+        expanded={!row.collapsed}
+        onClick={() => ctx.onToggleSpan(row.id)}
+      >
+        <SpanIcon type="agent" model={null} error={facts.failed} size="md" />
+        <Label>
+          <span className={cn(NAME, "font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
+            {facts.name}
+          </span>
+          {ctx.layout === "tree" && <span className={META}>{fmtMs(facts.durationMs)}</span>}
+          {ctx.layout === "tree" && facts.spend != null && <span className={META}>{formatCost(facts.spend)}</span>}
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            {plural(facts.modelCalls ?? 0, "model call")}
+            {facts.toolCalls ? `, ${plural(facts.toolCalls, "tool call")}` : ""}
+          </span>
+        </Label>
+        {ctx.layout === "waterfall" && (
+          <Bar start={facts.startMs} duration={facts.durationMs} total={ctx.totalMs} type="agent" failed={facts.failed} />
+        )}
+        <span className="flex w-5 shrink-0 justify-end">
+          <Caret open={!row.collapsed} onToggle={() => ctx.onToggleSpan(row.id)} />
         </span>
       </RowFrame>
     </SpanHoverCard>
