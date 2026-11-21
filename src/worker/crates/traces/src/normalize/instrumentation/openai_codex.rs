@@ -10,6 +10,8 @@ const CODEX_APP_SERVER_SERVICE: &str = "codex-app-server";
 const SERVICE_VERSION: &str = "0.166.0";
 const CODEX_TRACES_SCOPE: &str = "codex_cli_rs";
 const CODEX_APP_SERVER_SCOPE: &str = "codex-app-server";
+/// `codex exec`, the non-interactive run, names both its service and its scope this
+const CODEX_EXEC: &str = "codex_exec";
 const CODEX_LOGS_SCOPE: &str = "codex_otel.log_only";
 
 pub(super) struct OpenaiCodex;
@@ -18,7 +20,7 @@ impl Rule for OpenaiCodex {
     fn matches(&self, context: &SpanContext<'_>) -> bool {
         if matches!(
             context.scope,
-            CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_LOGS_SCOPE
+            CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_EXEC | CODEX_LOGS_SCOPE
         ) {
             return true;
         }
@@ -77,7 +79,7 @@ impl Rule for OpenaiCodex {
             .or_else(|| {
                 matches!(
                     context.scope,
-                    CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_LOGS_SCOPE
+                    CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_EXEC | CODEX_LOGS_SCOPE
                 )
                 .then(|| "codex-cli".to_owned())
             })
@@ -157,11 +159,13 @@ impl Rule for OpenaiCodex {
                 consumed_attributes: consumed,
             };
         }
-        let is_codex_trace = matches!(context.scope, CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE)
-            || context
-                .attributes
-                .get("service.name")
-                .is_some_and(|s| s == "codex-cli")
+        let is_codex_trace = matches!(
+            context.scope,
+            CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_EXEC
+        ) || context
+            .attributes
+            .get("service.name")
+            .is_some_and(|s| s == "codex-cli")
             || context
                 .resource_attributes
                 .get("service.name")
