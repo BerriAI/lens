@@ -98,6 +98,7 @@ mod brand {
     #[case::claude("claude-agent-sdk", "Claude Agent SDK", "✻")]
     #[case::openai("openai-agents", "OpenAI Agents", "◎")]
     #[case::langgraph("langgraph", "LangGraph", "⬡")]
+    #[case::deepagents("deepagents", "Deep Agents", "⬡")]
     #[case::litellm("litellm", "LiteLLM", "≋")]
     #[case::custom_explicit("custom", "Custom", "◇")]
     #[case::custom("my-harness", "Custom", "◇")]
@@ -369,9 +370,9 @@ mod report {
     }
 
     #[rstest]
-    #[case::first(0, "①")]
-    #[case::eighth(7, "⑧")]
-    #[case::beyond_circled(25, "26")]
+    #[case::first(0, "1")]
+    #[case::eighth(7, "8")]
+    #[case::two_digits(25, "26")]
     fn markers_cover_many_targets(#[case] index: usize, #[case] expected: &str) {
         assert_eq!(marker_text(index), expected);
     }

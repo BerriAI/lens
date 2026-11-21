@@ -1,22 +1,20 @@
 use crate::demo::brand;
 use crate::demo::style::{
-    ACCENT, Align, BAD, Column, FAINT, GOOD, Line, MUTED, RULE, Rgb, Span, Style, TEXT, WARN,
-    accent, badge, branded, cell, faint, gap, joined, muted, pad, pad_left, shorten, span, split,
-    strong, table, text, thousands, warn,
+    ACCENT, Align, BAD, Column, FAINT, GOOD, HIGHLIGHT, Line, MUTED, RULE, Rgb, Span, Style, TEXT,
+    WARN, accent, badge, branded, cell, faint, gap, joined, muted, pad, pad_left, shorten, span,
+    split, strong, table, text, thousands, warn,
 };
 use crate::demo::{detail, result};
 use crate::local::{Summary, TargetStats};
 
 const VALUE: usize = 9;
-const PLOT_ROWS: usize = 9;
+const PLOT_ROWS: usize = 16;
+const OUTLIER_GAP: f64 = 0.15;
+const FRONTIER: Rgb = Rgb(0x9A, 0x5C, 0xC8);
 const FIXED_COLUMNS: usize = 2 + 3 + 7 + 5 + 5 + 8 + 7 + 6;
 
 pub fn marker_text(index: usize) -> String {
-    u32::try_from(index)
-        .ok()
-        .filter(|index| *index < 20)
-        .and_then(|index| char::from_u32(0x2460 + index))
-        .map_or_else(|| format!("{}", index + 1), String::from)
+    (index + 1).to_string()
 }
 
 struct Report<'a> {
@@ -70,12 +68,19 @@ impl<'a> Report<'a> {
         if self.picked(index) { ACCENT } else { MUTED }
     }
 
+    fn rank_width(&self) -> usize {
+        marker_text(self.stats().len().saturating_sub(1)).len()
+    }
+
     fn marker(&self, index: usize) -> Span {
-        span(format!("{} ", marker_text(index)), self.marker_style(index))
+        span(
+            format!("{} ", pad(&marker_text(index), self.rank_width())),
+            self.marker_style(index),
+        )
     }
 
     fn who_width(&self) -> usize {
-        2 + 2 + 2 + self.harness_width + 2 + 2 + self.model_width + 1
+        2 + self.rank_width() + 1 + 2 + self.harness_width + 2 + 2 + self.model_width + 1
     }
 
     fn who(&self, index: usize) -> Vec<Span> {
@@ -309,206 +314,308 @@ impl<'a> Report<'a> {
             .map(|(other, _)| other)
     }
 
-    fn point_label(&self, index: usize) -> Vec<(String, Style)> {
-        let target = &self.stats()[index].target;
-        let harness = brand::harness(&target.harness);
-        let model = brand::model(&target.model);
-        [
-            (format!("{} ", harness.glyph), Style::fg(harness.color)),
-            (harness.label.to_owned(), self.marker_style(index)),
-            ("  ".to_owned(), Style::default()),
-            (format!("{} ", model.glyph), Style::fg(model.color)),
-            (shorten(&target.model, self.model_width), Style::fg(MUTED)),
-        ]
-        .into_iter()
-        .flat_map(|(piece, style)| {
-            piece
-                .chars()
-                .map(move |ch| (ch.to_string(), style))
-                .collect::<Vec<_>>()
-        })
-        .collect()
-    }
-
-    fn label_candidates(
-        &self,
-        index: usize,
-        column: usize,
-        columns: usize,
-    ) -> Vec<Vec<(usize, String, Style)>> {
-        let label = self.point_label(index);
-        let length = label.len();
-        let right = (column + 2 + length <= columns).then_some(column + 2);
-        let left = column.checked_sub(length + 1);
-        right
-            .into_iter()
-            .chain(left)
-            .map(|start| {
-                label
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, (glyph, style))| (start + offset, glyph.clone(), *style))
-                    .collect()
-            })
-            .collect()
-    }
-
-    fn row_marks(&self, points: &[(usize, usize)], columns: usize) -> Vec<(usize, String, Style)> {
-        let markers =
-            points
-                .iter()
-                .fold(Vec::<(usize, usize)>::new(), |placed, &(column, index)| {
-                    let free = (column..columns)
-                        .chain((0..column).rev())
-                        .find(|at| placed.iter().all(|(taken, _)| taken != at));
-                    match free {
-                        Some(at) => placed.into_iter().chain([(at, index)]).collect(),
-                        None => placed,
-                    }
-                });
-        let marks: Vec<(usize, String, Style)> = markers
-            .iter()
-            .map(|&(at, index)| (at, marker_text(index), self.marker_style(index)))
+    fn frontier(&self) -> Vec<usize> {
+        let mut points: Vec<usize> = (0..self.stats().len())
+            .filter(|index| self.dominator(*index).is_none())
             .collect();
-        markers.iter().fold(marks, |placed, &(at, index)| {
-            let clear = |label: &Vec<(usize, String, Style)>| {
-                label.iter().all(|(cell, _, _)| {
-                    placed.iter().all(|(taken, _, _)| taken.abs_diff(*cell) > 1)
-                })
-            };
-            match self
-                .label_candidates(index, at, columns)
-                .into_iter()
-                .find(clear)
-            {
-                Some(label) => placed.into_iter().chain(label).collect(),
-                None => placed,
-            }
-        })
+        points.sort_by(|left, right| {
+            self.stats()[*left]
+                .cost()
+                .total_cmp(&self.stats()[*right].cost())
+        });
+        points.dedup_by(|later, earlier| {
+            let (a, b) = (&self.stats()[*later], &self.stats()[*earlier]);
+            a.cost() == b.cost() && a.pass_rate() == b.pass_rate()
+        });
+        points
+    }
+
+    fn point_label(&self, index: usize) -> String {
+        let target = &self.stats()[index].target;
+        let harness = match target.harness.as_str() {
+            "claude-agent-sdk" => "Claude SDK",
+            other => brand::harness(other).label,
+        };
+        format!("{} · {harness}", target.model)
+    }
+
+    fn label_style(&self, index: usize, frontier: &[usize]) -> Style {
+        match index {
+            pick if self.picked(pick) => Style::fg(ACCENT).bold(),
+            best if frontier.contains(&best) => Style::fg(TEXT),
+            _ => Style::fg(MUTED),
+        }
     }
 
     fn scatter(&self) -> Vec<Line> {
-        let columns = self.width.saturating_sub(14).min(56);
-        let cheapest = self
-            .stats()
-            .iter()
-            .map(TargetStats::cost)
-            .fold(f64::MAX, f64::min);
-        let priciest = self
-            .stats()
-            .iter()
-            .map(TargetStats::cost)
-            .fold(0.0, f64::max);
-        let margin = ((priciest - cheapest) * 0.15)
-            .max(priciest * 0.05)
-            .max(0.01);
-        let (low_cost, high_cost) = ((cheapest - margin).max(0.0), priciest + margin);
-        let worst = self
-            .stats()
-            .iter()
-            .map(TargetStats::pass_rate)
-            .fold(1.0, f64::min);
-        let top = self
-            .stats()
-            .iter()
-            .map(TargetStats::pass_rate)
-            .fold(0.0, f64::max);
-        let (low_rate, high_rate) = ((worst - 0.02).max(0.0), (top + 0.02).min(1.0));
-        let points: Vec<(usize, usize, usize)> = self
-            .stats()
-            .iter()
-            .enumerate()
-            .map(|(index, stat)| {
-                (
-                    PLOT_ROWS - 1 - scale(stat.pass_rate(), low_rate, high_rate, PLOT_ROWS),
-                    scale(stat.cost(), low_cost, high_cost, columns),
-                    index,
-                )
+        let columns = self.width.saturating_sub(9).min(100);
+        let costs: Vec<f64> = self.stats().iter().map(TargetStats::cost).collect();
+        let axis = CostAxis::new(&costs, columns);
+        let rates = RateAxis::new(self.stats().iter().map(TargetStats::pass_rate));
+        let frontier = self.frontier();
+        let mut grid: Vec<Vec<Option<Span>>> = vec![vec![None; columns]; PLOT_ROWS];
+        let mut taken: Vec<Vec<bool>> = vec![vec![false; columns]; PLOT_ROWS];
+
+        let spots: Vec<(usize, usize, usize)> = (0..self.stats().len())
+            .filter(|index| rates.contains(self.stats()[*index].pass_rate()))
+            .map(|index| {
+                let stat = &self.stats()[index];
+                (rates.row(stat.pass_rate()), axis.column(stat.cost()), index)
             })
             .collect();
-        let rows = (0..PLOT_ROWS).map(|row| {
-            let axis = match row {
-                0 => format!("{:.0}%", high_rate * 100.0),
-                r if r == PLOT_ROWS - 1 => format!("{:.0}%", low_rate * 100.0),
-                _ => String::new(),
+        let dots: Vec<(usize, usize, usize)> = spots
+            .iter()
+            .filter_map(|&(row, column, index)| {
+                let free = (column.max(1)..columns.saturating_sub(1))
+                    .chain((1..column).rev())
+                    .find(|at| (at - 1..=at + 1).all(|near| !taken[row][near]))?;
+                taken[row][free] = true;
+                Some((row, free, index))
+            })
+            .collect();
+
+        frontier
+            .windows(2)
+            .filter_map(|pair| {
+                let from = dots.iter().find(|dot| dot.2 == pair[0])?;
+                let to = dots.iter().find(|dot| dot.2 == pair[1])?;
+                Some((*from, *to))
+            })
+            .for_each(|((from_row, from_at, _), (to_row, to_at, _))| {
+                let steps = to_at
+                    .abs_diff(from_at)
+                    .max(from_row.abs_diff(to_row) * 2)
+                    .max(1);
+                (1..steps).for_each(|step| {
+                    let along = step as f64 / steps as f64;
+                    let at =
+                        (from_at as f64 + (to_at as f64 - from_at as f64) * along).round() as usize;
+                    let row = (from_row as f64 + (to_row as f64 - from_row as f64) * along).round()
+                        as usize;
+                    if !taken[row][at] && (at % 2 == 0 || from_row != to_row) {
+                        grid[row][at] = Some(span("·", Style::fg(FRONTIER).bold()));
+                    }
+                });
+            });
+
+        let order: Vec<usize> = (0..self.stats().len())
+            .filter(|index| self.picked(*index))
+            .chain(
+                frontier
+                    .iter()
+                    .copied()
+                    .filter(|index| !self.picked(*index)),
+            )
+            .chain(
+                (0..self.stats().len())
+                    .filter(|index| !self.picked(*index) && !frontier.contains(index)),
+            )
+            .collect();
+        let unlabeled: Vec<usize> = order
+            .into_iter()
+            .filter(|&index| {
+                let Some(&(row, column, _)) = dots.iter().find(|dot| dot.2 == index) else {
+                    return false;
+                };
+                let label = self.point_label(index);
+                let length = label.chars().count();
+                let candidates = [(row, column + 2), (row, column.wrapping_sub(length + 1))]
+                    .into_iter()
+                    .chain([1].into_iter().flat_map(|distance| {
+                        [row.wrapping_sub(distance), row + distance]
+                            .into_iter()
+                            .flat_map(move |near| {
+                                [
+                                    (near, column.saturating_sub(length / 2)),
+                                    (near, column),
+                                    (near, (column + 1).saturating_sub(length)),
+                                ]
+                            })
+                    }));
+                let fits = |(at_row, start): (usize, usize)| {
+                    at_row < PLOT_ROWS
+                        && start.checked_add(length).is_some_and(|end| end < columns)
+                        && (start.saturating_sub(1)..(start + length + 1).min(columns))
+                            .all(|at| !taken[at_row][at])
+                };
+                match candidates.into_iter().find(|candidate| fits(*candidate)) {
+                    Some((at_row, start)) => {
+                        let style = self.label_style(index, &frontier);
+                        label.chars().enumerate().for_each(|(offset, ch)| {
+                            grid[at_row][start + offset] = Some(span(ch.to_string(), style));
+                            taken[at_row][start + offset] = true;
+                        });
+                        false
+                    }
+                    None => true,
+                }
+            })
+            .collect();
+
+        dots.iter().for_each(|&(row, column, index)| {
+            let model = brand::model(&self.stats()[index].target.model);
+            let glyph = if unlabeled.contains(&index) {
+                marker_text(index)
+            } else {
+                "●".to_owned()
             };
-            let in_row: Vec<(usize, usize)> = points
-                .iter()
-                .filter(|(r, _, _)| *r == row)
-                .map(|&(_, column, index)| (column, index))
-                .collect();
-            let marks = self.row_marks(&in_row, columns);
-            let cells =
-                (0..columns).map(
-                    |column| match marks.iter().find(|(at, _, _)| *at == column) {
-                        Some((_, glyph, style)) => span(glyph.clone(), *style),
-                        None if row % 4 == 0 && column % 4 == 0 => span("·", Style::fg(RULE)),
-                        None => gap(1),
-                    },
-                );
+            let style = if self.picked(index) {
+                Style::fg(ACCENT).bold()
+            } else {
+                Style::fg(model.color).bold()
+            };
+            grid[row][column] = Some(span(glyph, style));
+        });
+
+        let corner = (rates.row(rates.middle()), axis.column(axis.middle()));
+        let providers: Vec<brand::Brand> = self.stats().iter().fold(Vec::new(), |found, stat| {
+            let model = brand::model(&stat.target.model);
+            if found.contains(&model) {
+                found
+            } else {
+                found.into_iter().chain([model]).collect()
+            }
+        });
+        let legend = Line::new(
+            [gap(8)]
+                .into_iter()
+                .chain(providers.iter().flat_map(|provider| {
+                    [
+                        span("● ", Style::fg(provider.color).bold()),
+                        muted(format!("{}   ", provider.label)),
+                    ]
+                }))
+                .chain([
+                    span("···", Style::fg(FRONTIER).bold()),
+                    muted(" Pareto line   "),
+                    span("  ", Style::default().on(HIGHLIGHT)),
+                    muted(" best corner"),
+                ])
+                .collect(),
+        );
+
+        let rows = grid.into_iter().enumerate().map(|(row, cells)| {
+            let label = rates
+                .tick(row)
+                .map_or_else(String::new, |rate| format!("{:.0}%", rate * 100.0));
+            let tick = if rates.tick(row).is_some() {
+                " ┤"
+            } else {
+                " │"
+            };
+            let body = cells
+                .into_iter()
+                .enumerate()
+                .scan(0usize, |skip, (column, cell)| {
+                    if *skip > 0 {
+                        *skip -= 1;
+                        return Some(None);
+                    }
+                    let shaded = row <= corner.0 && column <= corner.1;
+                    let cell = cell.unwrap_or_else(|| gap(1));
+                    *skip = cell.text.chars().count().saturating_sub(1);
+                    Some(Some(if shaded {
+                        Span {
+                            style: cell.style.on(HIGHLIGHT),
+                            ..cell
+                        }
+                    } else {
+                        cell
+                    }))
+                })
+                .flatten();
             Line::new(
                 [
-                    span(pad_left(&axis, 6), Style::fg(FAINT)),
-                    span(" │", Style::fg(RULE)),
+                    span(pad_left(&label, 5), Style::fg(FAINT)),
+                    span(tick, Style::fg(RULE)),
                 ]
                 .into_iter()
-                .chain(cells)
+                .chain(body)
                 .collect(),
             )
         });
-        let low = money_axis(low_cost);
-        let high = money_axis(high_cost);
-        rows.chain([
-            Line::new(vec![
-                gap(7),
-                span(format!("└{}", "─".repeat(columns)), Style::fg(RULE)),
-            ]),
-            Line::new(vec![
-                gap(8),
-                faint(pad(&low, columns.saturating_sub(high.len()))),
-                faint(high),
-            ]),
-            Line::new(vec![
-                gap(8),
-                faint("↑ pass rate   → total cost, model + judge"),
-            ]),
-            Line::blank(),
-        ])
-        .chain(self.verdicts())
-        .collect()
-    }
 
-    fn verdicts(&self) -> Vec<Line> {
-        let items: Vec<Vec<Span>> = (0..self.stats().len())
-            .map(|index| {
-                vec![
-                    self.marker(index),
-                    match self.dominator(index) {
-                        Some(rival) => faint(format!("beaten by {}", marker_text(rival))),
-                        None => span("best tradeoff", Style::fg(GOOD)),
-                    },
-                    gap(4),
-                ]
-            })
-            .collect();
-        let limit = self.width.saturating_sub(8);
-        items
-            .into_iter()
-            .fold(Vec::<Vec<Span>>::new(), |rows, item| {
-                let item_width = Line::new(item.clone()).width() - 4;
-                match rows.split_last() {
-                    Some((last, rest)) if Line::new(last.clone()).width() + item_width <= limit => {
-                        rest.iter()
-                            .cloned()
-                            .chain([last.iter().cloned().chain(item).collect()])
-                            .collect()
-                    }
-                    _ => rows.into_iter().chain([item]).collect(),
+        let ticks = axis.ticks();
+        let baseline: String = (0..columns)
+            .map(|column| {
+                if ticks.iter().any(|(at, _)| *at == column) {
+                    '┬'
+                } else {
+                    '─'
                 }
             })
-            .into_iter()
-            .map(|spans| Line::new(std::iter::once(gap(8)).chain(spans).collect()))
-            .collect()
+            .collect();
+        let tick_line = ticks
+            .iter()
+            .fold(
+                (Vec::<Span>::new(), 0usize),
+                |(spans, used), (column, label)| {
+                    let start = column.saturating_sub(label.len() / 2).max(used);
+                    if start + label.len() > columns + 2 {
+                        return (spans, used);
+                    }
+                    let spans = spans
+                        .into_iter()
+                        .chain([gap(start - used), faint(label.clone())])
+                        .collect();
+                    (spans, start + label.len() + 1)
+                },
+            )
+            .0;
+        let title = format!(
+            "Total cost (USD{})",
+            if axis.log { ", log scale" } else { "" }
+        );
+        let below: Vec<Line> = (0..self.stats().len())
+            .filter(|index| !rates.contains(self.stats()[*index].pass_rate()))
+            .map(|index| {
+                let stat = &self.stats()[index];
+                Line::new(vec![
+                    gap(8),
+                    span(
+                        "▼  ",
+                        Style::fg(brand::model(&stat.target.model).color).bold(),
+                    ),
+                    muted(format!("{}  ", self.point_label(index))),
+                    faint(format!(
+                        "{:.1}% for {}, below the chart",
+                        stat.pass_rate() * 100.0,
+                        money(stat.cost())
+                    )),
+                ])
+            })
+            .collect();
+        let footnotes: Vec<Line> = unlabeled
+            .iter()
+            .map(|&index| {
+                Line::new(vec![
+                    gap(8),
+                    span(
+                        pad(&marker_text(index), 3),
+                        Style::fg(brand::model(&self.stats()[index].target.model).color).bold(),
+                    ),
+                    muted(self.point_label(index)),
+                ])
+            })
+            .collect();
+        [
+            legend,
+            Line::blank(),
+            Line::new(vec![gap(2), faint("Pass rate")]),
+        ]
+        .into_iter()
+        .chain(rows)
+        .chain([
+            Line::new(vec![gap(6), span(format!("└{baseline}"), Style::fg(RULE))]),
+            Line::new(std::iter::once(gap(7)).chain(tick_line).collect()),
+            Line::new(vec![
+                gap(7 + columns.saturating_sub(title.len()) / 2),
+                faint(title),
+            ]),
+        ])
+        .chain(footnotes)
+        .chain(below)
+        .collect()
     }
 
     fn failures(&self) -> Vec<Line> {
@@ -813,14 +920,6 @@ fn money(value: f64) -> String {
     }
 }
 
-fn money_axis(value: f64) -> String {
-    match value {
-        v if v >= 10.0 => format!("${v:.0}"),
-        v if v >= 1.0 => format!("${v:.1}"),
-        v => format!("${v:.3}"),
-    }
-}
-
 fn seconds(value: f64) -> String {
     if value >= 10.0 {
         format!("{value:.0}s")
@@ -829,12 +928,149 @@ fn seconds(value: f64) -> String {
     }
 }
 
+struct CostAxis {
+    low: f64,
+    high: f64,
+    log: bool,
+    columns: usize,
+}
+
+impl CostAxis {
+    fn new(costs: &[f64], columns: usize) -> Self {
+        let cheapest = costs.iter().copied().fold(f64::MAX, f64::min);
+        let priciest = costs.iter().copied().fold(0.0, f64::max);
+        let log = cheapest > 0.0 && priciest / cheapest >= 4.0;
+        let (low, high) = if log {
+            (cheapest / 1.4, priciest * 1.4)
+        } else {
+            let margin = ((priciest - cheapest) * 0.15)
+                .max(priciest * 0.05)
+                .max(0.01);
+            ((cheapest - margin).max(0.0), priciest + margin)
+        };
+        Self {
+            low,
+            high,
+            log,
+            columns,
+        }
+    }
+
+    fn unit(&self, cost: f64) -> f64 {
+        let (value, low, high) = if self.log {
+            (cost.max(self.low).ln(), self.low.ln(), self.high.ln())
+        } else {
+            (cost, self.low, self.high)
+        };
+        ratio(value - low, high - low).clamp(0.0, 1.0)
+    }
+
+    fn column(&self, cost: f64) -> usize {
+        let last = self.columns.saturating_sub(2);
+        (self.unit(cost) * last as f64).round() as usize
+    }
+
+    fn middle(&self) -> f64 {
+        if self.log {
+            (self.low * self.high).sqrt()
+        } else {
+            (self.low + self.high) / 2.0
+        }
+    }
+
+    fn ticks(&self) -> Vec<(usize, String)> {
+        let values: Vec<f64> = if self.log {
+            (-4..=3)
+                .flat_map(|power| [1.0, 2.0, 5.0].map(|step| step * 10f64.powi(power)))
+                .filter(|value| (self.low..=self.high).contains(value))
+                .collect()
+        } else {
+            (0..4)
+                .map(|step| self.low + (self.high - self.low) * f64::from(step) / 3.0)
+                .collect()
+        };
+        values
+            .into_iter()
+            .map(|value| (self.column(value), money_tick(value)))
+            .collect()
+    }
+}
+
+struct RateAxis {
+    low: f64,
+    high: f64,
+}
+
+impl RateAxis {
+    fn new(rates: impl Iterator<Item = f64> + Clone) -> Self {
+        let mut sorted: Vec<f64> = rates.clone().collect();
+        sorted.sort_by(f64::total_cmp);
+        let worst = sorted
+            .windows(2)
+            .take_while(|pair| pair[1] - pair[0] > OUTLIER_GAP)
+            .last()
+            .map_or_else(|| sorted.first().copied().unwrap_or(0.0), |pair| pair[1]);
+        let top = rates.fold(0.0, f64::max);
+        let high = ((top * 20.0 - 1e-9).ceil() / 20.0).clamp(0.1, 1.0);
+        let wanted = (high - (worst - 0.05).max(0.0)).max(0.1);
+        let span = ((wanted / 0.03).ceil() * 0.03).min(high);
+        Self {
+            low: high - span,
+            high,
+        }
+    }
+
+    fn row(&self, rate: f64) -> usize {
+        PLOT_ROWS - 1 - scale(rate, self.low, self.high, PLOT_ROWS)
+    }
+
+    fn contains(&self, rate: f64) -> bool {
+        rate >= self.low - 1e-9
+    }
+
+    fn middle(&self) -> f64 {
+        (self.low + self.high) / 2.0
+    }
+
+    fn tick(&self, row: usize) -> Option<f64> {
+        (row % 5 == 0)
+            .then(|| self.high - (self.high - self.low) * row as f64 / (PLOT_ROWS - 1) as f64)
+    }
+}
+
+fn money_tick(value: f64) -> String {
+    match value {
+        v if v >= 1.0 => format!("${v:.0}"),
+        v if v >= 0.01 => format!("${v:.2}"),
+        v => format!("${v:.3}"),
+    }
+}
+
+fn ranked(summary: &Summary) -> Summary {
+    let pick = summary
+        .recommended
+        .and_then(|index| summary.stats.get(index));
+    let mut stats: Vec<TargetStats> = summary.stats.clone();
+    stats.sort_by(|left, right| {
+        let picked = |stat: &TargetStats| pick.is_some_and(|chosen| chosen == stat);
+        picked(right)
+            .cmp(&picked(left))
+            .then(right.pass_rate().total_cmp(&left.pass_rate()))
+            .then(left.cost().total_cmp(&right.cost()))
+    });
+    Summary {
+        recommended: pick.map(|_| 0),
+        stats,
+        ..summary.clone()
+    }
+}
+
 pub fn cost_per_pass(stat: &TargetStats) -> Option<f64> {
     (stat.pass > 0).then(|| stat.cost() / f64::from(stat.pass))
 }
 
 pub fn lines(summary: &Summary, width: usize) -> Vec<Line> {
-    Report::new(summary, width).lines()
+    Report::new(&ranked(summary), width).lines()
 }
 
 #[cfg(test)]
@@ -923,7 +1159,7 @@ mod tests {
     }
 
     #[rstest]
-    fn recommended_row_is_highlighted() {
+    fn recommended_row_is_ranked_first_and_highlighted() {
         let output = lines(&summary(4, Some(2)), 100);
         let highlighted: Vec<String> = output
             .iter()
@@ -931,7 +1167,44 @@ mod tests {
             .map(Line::plain)
             .collect();
         assert_eq!(highlighted.len(), 1);
-        assert!(highlighted[0].starts_with("▌ ③"), "{}", highlighted[0]);
+        assert!(highlighted[0].starts_with("▌ 1 "), "{}", highlighted[0]);
+        assert!(highlighted[0].contains("my-loop") || highlighted[0].contains("Custom"));
+    }
+
+    fn result_rows(summary: &Summary) -> Vec<String> {
+        let output: Vec<String> = lines(summary, 118).iter().map(Line::plain).collect();
+        let header = output
+            .iter()
+            .position(|line| line.trim_start().starts_with("#  HARNESS"))
+            .expect("results header");
+        output[header + 1..header + 1 + summary.stats.len()].to_vec()
+    }
+
+    #[rstest]
+    fn results_rank_by_pass_rate_then_cost_after_the_pick() {
+        let summary = Summary {
+            run_id: "eval_abcd".to_owned(),
+            task_count: 20,
+            stats: vec![
+                stat("litellm", "worst", 5, 15, 0.01),
+                stat("litellm", "pricey-best", 20, 0, 0.90),
+                stat("litellm", "cheap-best", 20, 0, 0.10),
+                stat("litellm", "pick", 18, 2, 0.02),
+            ],
+            recommended: Some(3),
+        };
+        let order: Vec<&str> = result_rows(&summary)
+            .iter()
+            .map(|row| {
+                ["pick", "cheap-best", "pricey-best", "worst"]
+                    .into_iter()
+                    .find(|name| row.contains(name))
+                    .expect("known model in row")
+            })
+            .collect();
+        assert_eq!(order, ["pick", "cheap-best", "pricey-best", "worst"]);
+        assert!(result_rows(&summary)[0].contains(" 1 "));
+        assert!(result_rows(&summary)[3].contains(" 4 "));
     }
 
     #[rstest]
@@ -951,23 +1224,59 @@ mod tests {
         );
     }
 
-    #[rstest]
-    fn higher_pass_rate_plots_higher() {
-        let summary = fixture::summary();
-        let plot = Report::new(&summary, 100).scatter();
-        let row_of = |index: usize| {
-            plot.iter()
-                .position(|line| line.plain().contains(&marker_text(index)))
-        };
-        assert!(row_of(0) < row_of(1));
-        assert!(row_of(1) < row_of(3));
-        assert!(row_of(3) < row_of(2));
+    fn plot_text(report: &Report) -> Vec<String> {
+        report.scatter().iter().map(Line::plain).collect()
+    }
+
+    fn plot_area(text: &[String]) -> Vec<String> {
+        text.iter()
+            .skip_while(|line| !line.contains("Pass rate"))
+            .skip(1)
+            .take_while(|line| !line.trim_start().starts_with('└'))
+            .cloned()
+            .collect()
     }
 
     #[rstest]
-    fn single_target_scatter_has_its_point() {
-        let plot = Report::new(&summary(1, Some(0)), 100).scatter();
-        assert!(plot.iter().any(|line| line.plain().contains("① ≋ LiteLLM")));
+    fn every_target_is_named_in_the_chart(
+        #[values(1, 4, 12)] count: usize,
+        #[values(78, 100, 118)] width: usize,
+    ) {
+        let summary = summary(count, Some(0));
+        let report = Report::new(&summary, width);
+        let text = plot_text(&report).join("\n");
+        (0..count).for_each(|index| {
+            assert!(
+                text.contains(&report.point_label(index)),
+                "{} missing\n{text}",
+                report.point_label(index)
+            );
+        });
+    }
+
+    #[rstest]
+    fn each_plotted_target_has_one_dot_or_number(#[values(4, 12)] count: usize) {
+        let summary = summary(count, Some(0));
+        let report = Report::new(&summary, 100);
+        let text = plot_text(&report);
+        let dots = plot_area(&text)
+            .iter()
+            .map(|line| {
+                line.split_once('┤')
+                    .or(line.split_once('│'))
+                    .map_or("", |(_, body)| body)
+            })
+            .map(|body| body.matches('●').count())
+            .sum::<usize>();
+        let numbered = text
+            .iter()
+            .skip_while(|line| !line.trim_start().starts_with('└'))
+            .filter(|line| {
+                line.trim_start()
+                    .starts_with(|ch: char| ch.is_ascii_digit())
+            })
+            .count();
+        assert_eq!(dots + numbered, count, "{}", text.join("\n"));
     }
 
     fn tied() -> Summary {
@@ -975,7 +1284,7 @@ mod tests {
             run_id: "eval_abcd".to_owned(),
             task_count: 20,
             stats: vec![
-                stat("litellm", "claude-sonnet-5-5", 0, 20, 0.0),
+                stat("litellm", "claude-sonnet-5-5", 0, 20, 0.0001),
                 stat("litellm", "gpt-5.4-mini", 20, 0, 0.0039),
                 stat("openai-agents", "gpt-5.4-mini", 20, 0, 0.0040),
             ],
@@ -984,28 +1293,85 @@ mod tests {
     }
 
     #[rstest]
-    fn tied_points_keep_their_markers_and_labels_never_overlap(
+    fn far_outlier_is_listed_below_instead_of_squashing_the_chart(
         #[values(78, 100, 118)] width: usize,
     ) {
-        let plot: Vec<String> = Report::new(&tied(), width)
-            .scatter()
+        let summary = tied();
+        let report = Report::new(&summary, width);
+        let text = plot_text(&report);
+        let outlier = text
             .iter()
-            .map(Line::plain)
-            .collect();
-        let row = plot
-            .iter()
-            .find(|line| line.contains('②'))
-            .expect("row with the tied points");
-        assert!(row.contains('③'), "{row}");
-        assert_eq!(
-            row.matches("gpt-5.4-mini").count(),
-            row.matches("◎ gpt-5.4-mini").count(),
-            "{row}"
-        );
+            .find(|line| line.contains("below the chart"))
+            .expect("outlier note");
+        assert!(outlier.contains(&report.point_label(0)), "{outlier}");
         assert!(
-            row.contains("≋ LiteLLM  ◎ gpt-5.4-mini")
-                || row.contains("◎ OpenAI Agents  ◎ gpt-5.4-mini"),
-            "{row}"
+            !plot_area(&text)
+                .iter()
+                .any(|line| line.contains(&report.point_label(0)))
+        );
+        let tied_row = plot_area(&text)
+            .into_iter()
+            .find(|line| line.starts_with(" 100%"))
+            .expect("top row");
+        assert!(
+            tied_row.matches('●').count() + tied_row.matches(char::is_numeric).count() >= 2,
+            "{tied_row}"
+        );
+    }
+
+    #[rstest]
+    fn close_rates_stay_on_the_chart() {
+        let axis = RateAxis::new([0.80, 0.90, 1.0].into_iter());
+        assert!([0.80, 0.90, 1.0].iter().all(|rate| axis.contains(*rate)));
+        assert!(axis.row(1.0) < axis.row(0.90));
+        assert!(axis.row(0.90) < axis.row(0.80));
+    }
+
+    #[rstest]
+    fn frontier_lists_only_configs_nothing_beats() {
+        let summary = fixture::summary();
+        let report = Report::new(&summary, 118);
+        let unbeaten: Vec<usize> = (0..summary.stats.len())
+            .filter(|index| report.dominator(*index).is_none())
+            .collect();
+        let mut frontier = report.frontier();
+        frontier.sort_unstable();
+        assert_eq!(frontier, unbeaten);
+        let costs: Vec<f64> = report
+            .frontier()
+            .iter()
+            .map(|index| summary.stats[*index].cost())
+            .collect();
+        assert!(costs.windows(2).all(|pair| pair[0] <= pair[1]));
+    }
+
+    #[rstest]
+    #[case::wide_spread(0.01, 0.50, true)]
+    #[case::narrow_spread(0.10, 0.20, false)]
+    fn log_scale_only_when_costs_spread_widely(
+        #[case] cheap: f64,
+        #[case] pricey: f64,
+        #[case] log: bool,
+    ) {
+        let axis = CostAxis::new(&[cheap, pricey], 60);
+        assert_eq!(axis.log, log);
+        assert!(axis.column(cheap) < axis.column(pricey));
+        assert!(axis.ticks().iter().all(|(column, _)| *column < 60));
+    }
+
+    #[rstest]
+    fn rate_axis_covers_every_rate_and_ticks_land_on_whole_percents() {
+        let axis = RateAxis::new([0.85, 0.917, 1.0].into_iter());
+        assert!(axis.low <= 0.85 && axis.high >= 1.0);
+        assert_eq!(axis.row(1.0), 0);
+        assert_eq!(axis.row(axis.low), PLOT_ROWS - 1);
+        let ticks: Vec<f64> = (0..PLOT_ROWS).filter_map(|row| axis.tick(row)).collect();
+        assert!(ticks.len() >= 3);
+        assert!(
+            ticks
+                .iter()
+                .all(|tick| ((tick * 100.0) - (tick * 100.0).round()).abs() < 1e-6),
+            "{ticks:?}"
         );
     }
 
