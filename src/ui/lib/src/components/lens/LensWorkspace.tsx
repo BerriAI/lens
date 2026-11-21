@@ -226,9 +226,11 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   aria-label="Lens actions"
                   className={cn("lens-embedded-toolbar", !host.navigation && "lens-mobile-navigation")}
                 >
-                  <h1 className="sr-only">Lens</h1>
-                  <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
-                    <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
+                  <h1 className={activeTab === "alerts" ? "text-sm font-medium" : "sr-only"}>
+                    {activeTab === "alerts" ? "Alerts" : "Lens"}
+                  </h1>
+                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
+                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
                     {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
@@ -244,7 +246,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </div>
                 </header>
               ) : (
-                <header className="lens-workspace-header flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card pr-4 pl-14 md:px-6">
+                <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
                   <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
                     {activeTab === "traces" && agents.agent && (
@@ -267,7 +269,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     )}
                     <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
+                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
                     {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
@@ -337,6 +340,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     {canViewAlerts && activeTab === "alerts" && (
                       <TabsContent value="alerts" className={PANEL}>
                         <AlertsView
+                          accessToken={accessToken}
                           canConfigure={canConfigure && isAdmin}
                           onOpenSignal={(ref, signal) => {
                             navigate("traces");

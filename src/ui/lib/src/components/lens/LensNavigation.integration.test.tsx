@@ -127,6 +127,7 @@ describe("Lens navigation", () => {
     vi.mocked(fetch).mockImplementation((input, init) => {
       const path = requestPath(input);
       if (path === "/lens/signals/overview") return Promise.resolve(Response.json(alerts));
+      if (path === "/lens/traces/signals") return Promise.resolve(Response.json([{ ...alerts.matches[0], status: "classified", flags: [{ ...flag, evidence: { quote: "The request timed out without a retry", span_id: "failed-attempt" } }] }]));
       if (path === "/lens/signals")
         return Promise.resolve(Response.json({
           model: "judge", threshold: 0.7, signals: [{ id: "timeout", name: flag.name, question: "Did an upstream attempt time out?" }],
@@ -138,11 +139,20 @@ describe("Lens navigation", () => {
     renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?tab=traces", onUrlUpdate });
     await user.click(screen.getByRole("tab", { name: "Alerts" }));
     expect(await screen.findByText("Counts cover only the latest 500 results in this window.")).toBeVisible();
-    expect(screen.getByText(/All agents and teams/)).toBeVisible();
+    const topActions = within(screen.getByRole("group", { name: "Page actions" }));
+    expect(topActions.getByRole("button", { name: "Configure signals" })).toBeVisible();
+    expect(topActions.getByRole("button", { name: "Slack notifications", exact: true })).toBeVisible();
     const summary = within(screen.getByRole("region", { name: "Last 24 hours" }));
     expect(summary.getByText("3")).toBeVisible();
     expect(summary.getByText("Provider timeout")).toBeVisible();
     expect(summary.getByText("2 of 3 alerts")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Filter Provider timeout, 2 alerts" }));
+    expect(screen.queryByRole("button", { name: "Open Wrong refusal in trace refused-trace" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    const chart = within(screen.getByRole("region", { name: "Alerts over time" }));
+    await user.click(chart.getAllByRole("button", { name: /: 0 alerts$/ })[0]);
+    expect(await screen.findByText("No matches for these filters")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await user.click(screen.getByRole("button", { name: "Configure signals" }));
     expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
     await user.click(screen.getByRole("button", { name: "Close", exact: true }));
@@ -157,6 +167,10 @@ describe("Lens navigation", () => {
     expect(await screen.findByText("No matches for these filters")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await user.click(screen.getByRole("button", { name: "Open Provider timeout in trace timed-out-trace" }));
+    const evidence = within(await screen.findByRole("dialog", { name: "Alert evidence" }));
+    expect(evidence.getByText("timed-out-trace")).toBeVisible();
+    expect(await evidence.findByText("The request timed out without a retry")).toBeVisible();
+    await user.click(evidence.getByRole("button", { name: "Open trace", exact: true }));
     await waitFor(() => expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toMatchObject({
       tab: "traces", trace: "timed-out-trace", trace_ref: "project-a", signal: "timeout",
     }));

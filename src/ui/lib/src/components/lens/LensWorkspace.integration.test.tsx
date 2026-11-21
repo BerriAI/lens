@@ -94,6 +94,9 @@ it("opens the evidence step from an Alerts match without an overview excerpt", a
     searchParams: "?tab=alerts",
   });
   await user.click(await screen.findByRole("button", { name: `Open ${flag.name} in trace ${trace_id}` }));
+  const evidence = within(await screen.findByRole("dialog", { name: "Alert evidence" }));
+  expect(await evidence.findByText(quote)).toBeVisible();
+  await user.click(evidence.getByRole("button", { name: "Open trace", exact: true }));
   expect(await screen.findByRole("mark")).toHaveTextContent(quote);
   expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", step.span_id);
 });

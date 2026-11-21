@@ -16,6 +16,7 @@ export function LensPageHeader({
   navigation,
   children,
   page,
+  placement = "page",
   "aria-label": label,
 }: {
   readonly title: ReactNode;
@@ -24,11 +25,12 @@ export function LensPageHeader({
   readonly navigation?: ReactNode;
   readonly children?: ReactNode;
   readonly page?: LensTab;
+  readonly placement?: "page" | "workspace";
   readonly "aria-label"?: string;
 }) {
   const embedded = useLensHost().surface === "embedded";
   const toolbar = useContext(LensPageActionsContext);
-  if (embedded && page && toolbar) {
+  if ((embedded || placement === "workspace") && page && toolbar) {
     return (
       <>
         <h2 className="sr-only">{title}</h2>
