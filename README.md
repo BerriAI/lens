@@ -56,6 +56,11 @@ Point Claude Code or [Codex](docs/codex-cli.md) at them and let your agents impr
 
 <br>
 
+**Using Claude Code?** Its telemetry is off by default and Lens needs it to record your turns.<br>
+[Turn on the required Claude Code settings](docs/claude-code.md) before your first session.
+
+<br>
+
 [Get started](deploy/lens/README.md)
 
 </div>

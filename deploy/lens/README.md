@@ -50,6 +50,23 @@ Run one actual agent task. The coding agent verifies that exact trace arrived an
 
 For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Authorization: Bearer <tracing-key>`. That address works for an agent running on the same host. An agent in another container or on another machine needs a Lens address reachable from there. For Codex CLI and IDE environments, follow [Codex telemetry](../../docs/codex-cli.md)
 
+### Claude Code
+
+Claude Code's telemetry is off by default. Lens records Claude Code turns only when you turn it on, so set the variables in [Claude Code telemetry](../../docs/claude-code.md) wherever you run `claude`. Claude Code sends the telemetry to your LiteLLM gateway with your gateway key, and the gateway forwards it to Lens:
+
+```sh
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
+export CLAUDE_CODE_PROPAGATE_TRACEPARENT=1
+export OTEL_TRACES_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="$ANTHROPIC_BASE_URL/v1/traces"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $ANTHROPIC_AUTH_TOKEN"
+export OTEL_LOG_USER_PROMPTS=1
+```
+
+`ANTHROPIC_BASE_URL` is your gateway address and `ANTHROPIC_AUTH_TOKEN` is your LiteLLM key. `OTEL_LOG_USER_PROMPTS=1` stores the prompts you type. Without these settings Lens lists the gateway's model calls one by one, with no turn or tool steps
+
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 
 To compare models for your agent, open **Model optimizations**. The [model optimizations guide](https://docs.litellm.ai/docs/proxy/lens/model-optimizations) explains Live, Shadow, and Offline comparisons, with runnable examples and the results you can expect

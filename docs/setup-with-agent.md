@@ -24,6 +24,14 @@ Add Lens to my existing LiteLLM deployment and make it accessible from the LiteL
 Connect this project's agent to the Lens deployment I already have. Inspect the framework, current model connection, existing OpenTelemetry setup, and Lens connection configuration. Verify Lens readiness and access; do not reinstall services when the issue is authentication or routing. Ask for the Lens URL or a supported secret source only if it cannot be found safely, and never ask me to paste a secret into shared chat. Use https://github.com/BerriAI/lens/blob/main/deploy/lens/README.md#record-your-first-trace and the matching integration example. Preserve my model provider and reuse the existing tracer provider. Configure the dedicated tracing credential privately, retain any ingestion path prefix, and check reachability from the agent's network. Execute a small real task and verify the exact trace ID, input, output, tool calls, and agent name in Lens. Explain any missing content rather than counting a model response, demo data, or an upload HTTP status alone as success. Report the minimal changes and a link to the resulting trace without credentials.
 ```
 
+## Connect Claude Code
+
+Claude Code's telemetry is off by default and Lens needs it to record Claude Code turns. Follow [Claude Code telemetry](claude-code.md) for the required settings, or give your coding agent this prompt:
+
+```text
+Turn on the Claude Code telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/claude-code.md first. Find the LiteLLM gateway address and key Claude Code already uses (ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN) without printing the key. Add every variable from the required settings to the env object in my user-level ~/.claude/settings.json, preserving existing settings, with the traces endpoint set to the gateway address followed by /v1/traces and the header carrying the same LiteLLM key. Do not point telemetry at Lens directly and do not set OTEL_LOGS_EXPORTER. Tell me that OTEL_LOG_USER_PROMPTS=1 stores my typed prompts in Lens. Then run one real Claude Code task and confirm a claude_code.interaction trace with nested model and tool calls appears under Lens > Traces.
+```
+
 ## Use an external ClickHouse deployment
 
 The bundled ClickHouse is the default. Choose this variant only when you want to use storage you already operate. The supported external topology is one stable endpoint reaching one ClickHouse server with KeeperMap, shared by the Lens replicas. Load balancing across ClickHouse servers and automatic failover to a different server are unsupported. See the [storage requirements](../helm/lens/README.md#use-existing-clickhouse)
