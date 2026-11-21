@@ -25,7 +25,7 @@ describe("signal alert setup", () => {
   ])("keeps alert setup unavailable for a session with %j", async (onboarding) => {
     const gateway = stubGateway();
     renderWithLens(<SignalAlertSettings signals={signals} />, { onboarding });
-    expect(await screen.findByText("An administrator can set up signal alerts")).toBeVisible();
+    expect(await screen.findByText("An administrator can set up alerts")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Set up alerting" })).not.toBeInTheDocument();
     expect(gateway.get).not.toHaveBeenCalled();
   });
@@ -66,7 +66,36 @@ describe("signal alert setup", () => {
       ),
     );
     await waitFor(() => expect(screen.getByLabelText("Slack webhook URL")).toHaveValue(""));
-    expect(screen.getByText("Sending selected signal matches to Slack")).toBeInTheDocument();
+    expect(screen.getByText("Sending alerts to Slack")).toBeInTheDocument();
+  });
+
+  it("saves rule-only Slack notifications without an analysis model", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockImplementation((path) =>
+      path === "/lens/alerts/rules" ? { revision: 1, model_errors: true, run_duration_minutes: 5 } : saved,
+    );
+    gateway.put.mockReturnValue({ ...saved, revision: 1, enabled: true, connected: true });
+    const user = userEvent.setup();
+    renderWithLens(<SignalAlertSettings signals={{ model: null, signals: [], threshold: 0.7 }} />);
+    expect(await screen.findByText("All enabled rules are included.")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Slack webhook URL"), {
+      target: { value: "https://hooks.slack.com/services/EXAMPLE/EXAMPLE/FAKE" },
+    });
+    await user.click(screen.getByRole("button", { name: "Save alert settings" }));
+    await waitFor(() =>
+      expect(gateway.put).toHaveBeenCalledWith(
+        "/lens/signals/alerts",
+        expect.objectContaining({
+          body: {
+            revision: 0,
+            enabled: true,
+            signal_ids: [],
+            webhook_url: "https://hooks.slack.com/services/EXAMPLE/EXAMPLE/FAKE",
+          },
+        }),
+      ),
+    );
+    expect(await screen.findByText("Sending alerts to Slack")).toBeVisible();
   });
 
   it("keeps the webhook and selections after failed delivery and allows retry", async () => {
@@ -103,21 +132,16 @@ describe("signal alert setup", () => {
     gateway.put.mockReturnValue({ ...saved, revision: 5, connected: true, signal_ids: ["prompt_injection"] });
     const user = userEvent.setup();
     renderWithLens(<SignalAlertSettings signals={signals} />);
-    await user.click(await screen.findByRole("checkbox", { name: "Enable alerts" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Enable Slack notifications" }));
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
         "/lens/signals/alerts",
         expect.objectContaining({
-          body: {
-            revision: 4,
-            enabled: false,
-            signal_ids: ["prompt_injection"],
-            webhook_url: null,
-          },
+          body: { revision: 4, enabled: false, signal_ids: ["prompt_injection"], webhook_url: null },
         }),
       ),
     );
-    expect(await screen.findByRole("checkbox", { name: "Enable alerts" })).not.toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "Enable Slack notifications" })).not.toBeChecked();
   });
 });

@@ -21,19 +21,25 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
     refetchOnWindowFocus: false,
     enabled: !readOnly,
   });
+  const rules = useQuery({
+    queryKey: ["alert-rules", api.scope],
+    queryFn: () => api.alertRules(),
+    enabled: !readOnly,
+  });
+  const rulesEnabled = Boolean(rules.data?.model_errors || rules.data?.run_duration_minutes);
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h3 className="text-sm font-medium">Send matches to Slack</h3>
+          <h3 className="text-sm font-medium">Send alerts to Slack</h3>
           <p className="text-sm text-muted-foreground">
             {readOnly
-              ? "An administrator can set up signal alerts"
+              ? "An administrator can set up alerts"
               : query.data?.enabled
-                ? "Sending selected signal matches to Slack"
+                ? "Sending alerts to Slack"
                 : query.data?.connected
                   ? "Alerts paused. Your Slack connection is saved"
-                  : "Get a Slack message when a signal matches a new trace"}
+                  : "Get a Slack message when a rule or model signal matches a new run"}
           </p>
         </div>
         {query.data && !readOnly && (
@@ -45,15 +51,27 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
       </div>
       {!readOnly && (
         <div>
-          {query.error ? (
+          {query.error || rules.error ? (
             <div role="alert" className="space-y-2 text-sm">
-              <p>Could not load alert settings: {query.error.message}</p>
-              <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+              <p>Could not load alert settings: {query.error?.message ?? rules.error?.message}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void query.refetch();
+                  void rules.refetch();
+                }}
+              >
                 Retry
               </Button>
             </div>
           ) : query.data ? (
-            <AlertForm key={query.data.revision} saved={query.data} signals={signals} />
+            <AlertForm
+              key={query.data.revision}
+              saved={query.data}
+              signals={signals}
+              rulesEnabled={rulesEnabled}
+            />
           ) : (
             <p role="status" className="text-sm">
               Loading alert settings…
@@ -78,7 +96,15 @@ function deliveryText(status: string) {
   }
 }
 
-function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: SignalConfig }) {
+function AlertForm({
+  saved,
+  signals,
+  rulesEnabled,
+}: {
+  saved: SignalAlertView;
+  signals: SignalConfig;
+  rulesEnabled: boolean;
+}) {
   const api = useLensApi();
   const queryClient = useQueryClient();
   const webhookId = useId();
@@ -104,7 +130,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
       queryClient.setQueryData(["signal-alerts", api.scope], result);
     },
   });
-  const ready = Boolean(signals.model) && selectedSignals.length > 0;
+  const ready = rulesEnabled || (Boolean(signals.model) && selectedSignals.length > 0);
   const connected = Boolean(webhook.trim()) || saved.connected;
   const busy = test.isPending || save.isPending;
   return (
@@ -140,42 +166,46 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
           </a>
         </p>
       </div>
-      <fieldset className="space-y-2 border-t pt-5">
-        <legend className="sr-only">Alert on these signals</legend>
-        <p className="text-sm font-medium">Which signals to send</p>
-        <div className="grid gap-x-6 sm:grid-cols-2">
-          {(signals.signals ?? []).map((signal) => (
-            <label
-              key={signal.id}
-              htmlFor={`${webhookId}-${signal.id}`}
-              className="flex min-w-0 items-start gap-3 border-b py-3 text-sm"
-            >
-              <Checkbox
-                id={`${webhookId}-${signal.id}`}
-                className="mt-0.5"
-                checked={selected.includes(signal.id)}
-                onCheckedChange={(checked) =>
-                  setSelected((current) =>
-                    checked ? [...current, signal.id] : current.filter((id) => id !== signal.id),
-                  )
-                }
-              />
-              <span className="min-w-0 wrap-anywhere">{signal.name}</span>
-            </label>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Uses your saved match threshold of {Math.round((signals.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100)}%.
-          Manage the model, questions and threshold in Configure signals.
-        </p>
-      </fieldset>
+      {rulesEnabled && <p className="text-sm">All enabled rules are included.</p>}
+      {Boolean(signals.model) && (
+        <fieldset className="space-y-2 border-t pt-5">
+          <legend className="sr-only">Alert on these signals</legend>
+          <p className="text-sm font-medium">Model signals to include</p>
+          <div className="grid gap-x-6 sm:grid-cols-2">
+            {(signals.signals ?? []).map((signal) => (
+              <label
+                key={signal.id}
+                htmlFor={`${webhookId}-${signal.id}`}
+                className="flex min-w-0 items-start gap-3 border-b py-3 text-sm"
+              >
+                <Checkbox
+                  id={`${webhookId}-${signal.id}`}
+                  className="mt-0.5"
+                  checked={selected.includes(signal.id)}
+                  onCheckedChange={(checked) =>
+                    setSelected((current) =>
+                      checked ? [...current, signal.id] : current.filter((id) => id !== signal.id),
+                    )
+                  }
+                />
+                <span className="min-w-0 wrap-anywhere">{signal.name}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Uses your saved match threshold of{" "}
+            {Math.round((signals.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100)}
+            %. Manage the model, questions and threshold in Configure alerts.
+          </p>
+        </fieldset>
+      )}
       <label htmlFor={`${webhookId}-enabled`} className="flex items-center gap-3 text-sm font-medium">
         <Checkbox id={`${webhookId}-enabled`} checked={enabled} onCheckedChange={setEnabled} />
-        Enable alerts
+        Enable Slack notifications
       </label>
       <p className="text-xs leading-5 text-muted-foreground">
-        Alerts include the signal name, score, and a link to the trace. Captured prompts stay in Lens. Only traces
-        started after enabling alerts are included, once per signal and trace, across all agents and teams.
+        Messages include the alert, its result, and a link to the trace. Captured prompts stay in Lens. Only
+        runs started after enabling notifications are included, once per alert and run.
       </p>
       {saved.last_delivery && (
         <p role="status" className="text-xs text-muted-foreground">
@@ -184,7 +214,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
       )}
       {!ready && enabled && (
         <p className="text-xs text-muted-foreground">
-          Configure a model and at least one signal, then select which signals to send here.
+          Enable a rule or configure model signals in Configure alerts first.
         </p>
       )}
       {(test.error || save.error) && (

@@ -110,6 +110,113 @@
       ],
       "type": "object"
     },
+    "AlertRuleConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "model_errors": {
+          "type": "boolean"
+        },
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "run_duration_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "revision",
+        "model_errors"
+      ],
+      "type": "object"
+    },
+    "AlertRuleKind": {
+      "enum": [
+        "run_duration",
+        "model_error"
+      ],
+      "type": "string"
+    },
+    "AlertRuleMatch": {
+      "properties": {
+        "detected_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/definitions/AlertRuleKind"
+        },
+        "span_id": {
+          "type": "string"
+        },
+        "threshold_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "trace_id",
+        "trace_ref",
+        "span_id",
+        "detected_at",
+        "duration_ms"
+      ],
+      "type": "object"
+    },
+    "AlertRuleOverview": {
+      "properties": {
+        "limit": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "matches": {
+          "items": {
+            "$ref": "#/definitions/AlertRuleMatch"
+          },
+          "type": "array"
+        },
+        "since": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "since",
+        "limit",
+        "truncated",
+        "matches"
+      ],
+      "type": "object"
+    },
     "Candidate": {
       "additionalProperties": false,
       "properties": {

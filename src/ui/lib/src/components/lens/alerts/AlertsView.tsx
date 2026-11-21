@@ -12,19 +12,27 @@ import { SignalSettings } from "../settings/signals/SignalSettings";
 import type { OpenTraceRouting } from "../traces/routing";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import { AlertDashboard } from "./AlertDashboard";
+import { AlertRuleSettings } from "./AlertRuleSettings";
 
 export function AlertsView({
   accessToken,
   canConfigure,
+  onOpenTrace,
   onOpenSignal,
 }: {
   accessToken: string;
   canConfigure: boolean;
+  onOpenTrace: OpenTraceRouting["openTrace"];
   onOpenSignal: OpenTraceRouting["openSignal"];
 }) {
   const api = useLensApi();
   const route = useAlertsRoute();
-  const overview = useQuery(lensQueries.signalOverview(api));
+  const overview = useQuery({ ...lensQueries.signalOverview(api), refetchInterval: 30_000 });
+  const rules = useQuery({
+    queryKey: ["alert-rule-overview", api.scope],
+    queryFn: () => api.alertRuleOverview(),
+    refetchInterval: 30_000,
+  });
   return (
     <Sheet
       open={canConfigure && route.settings !== null}
@@ -44,54 +52,79 @@ export function AlertsView({
                 >
                   <Bell aria-hidden="true" /> Slack notifications
                 </SheetTrigger>
-                <SheetTrigger render={<Button size="sm" className="text-xs" />} onClick={() => route.setSettings("signals")}>
-                  <Settings2 aria-hidden="true" /> Configure signals
+                <SheetTrigger
+                  render={<Button size="sm" className="text-xs" />}
+                  onClick={() => route.setSettings("signals")}
+                >
+                  <Settings2 aria-hidden="true" /> Configure alerts
                 </SheetTrigger>
               </>
             )
           }
         />
-        {overview.error ? (
+        {overview.error || rules.error ? (
           <div role="alert" className="lens-page-body space-y-3 text-sm">
-            <p className="font-medium">Could not load Signal activity</p>
-            <p className="text-muted-foreground">{overview.error.message}</p>
-            <Button variant="outline" size="sm" onClick={() => void overview.refetch()}>
+            <p className="font-medium">Could not load alert activity</p>
+            <p className="text-muted-foreground">{overview.error?.message ?? rules.error?.message}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void overview.refetch();
+                void rules.refetch();
+              }}
+            >
               Try again
             </Button>
           </div>
-        ) : overview.data ? (
+        ) : overview.data && rules.data ? (
           <AlertDashboard
             accessToken={accessToken}
             data={overview.data}
+            rules={rules.data}
+            onOpenTrace={onOpenTrace}
             onOpenSignal={onOpenSignal}
-            refreshing={overview.isFetching}
-            onRefresh={() => void overview.refetch()}
+            refreshing={overview.isFetching || rules.isFetching}
+            onRefresh={() => {
+              void overview.refetch();
+              void rules.refetch();
+            }}
           />
         ) : (
           <div className="lens-page-body">
-            <Skeleton aria-label="Loading Signal activity" className="h-40 w-full" />
+            <Skeleton aria-label="Loading alert activity" className="h-40 w-full" />
           </div>
         )}
       </div>
       {canConfigure && (
         <SheetContent className="lens-shell-overlay w-full! gap-0 sm:max-w-2xl!">
           <SheetHeader className="shrink-0 border-b px-6 py-5 pr-14">
-            <SheetTitle>
-              {route.settings === "slack" ? "Slack notifications" : "Configure signals"}
-            </SheetTitle>
+            <SheetTitle>{route.settings === "slack" ? "Slack notifications" : "Configure alerts"}</SheetTitle>
             <SheetDescription>
               {route.settings === "slack"
-                ? "Send selected signal matches to a Slack channel."
+                ? "Send rule alerts and selected model signals to a Slack channel."
                 : "Choose what Lens checks in new traces across all agents and teams."}
             </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {route.settings && (
+            {route.settings === "signals" && (
+              <div className="mb-6">
+                <AlertRuleSettings />
+              </div>
+            )}
+            {route.settings === "signals" ? (
+              <details className="border-t pt-5">
+                <summary className="cursor-pointer text-sm font-medium">Model signals</summary>
+                <div className="pt-4">
+                  <SignalSettings section="signals" onConfigureSignals={() => route.setSettings("signals")} />
+                </div>
+              </details>
+            ) : route.settings ? (
               <SignalSettings
                 section={route.settings}
                 onConfigureSignals={() => route.setSettings("signals")}
               />
-            )}
+            ) : null}
           </div>
         </SheetContent>
       )}

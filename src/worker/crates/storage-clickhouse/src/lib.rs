@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod alert_rules;
 pub mod datasets;
 mod error;
 pub mod evals;
