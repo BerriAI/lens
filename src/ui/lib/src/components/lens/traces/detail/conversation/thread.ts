@@ -1,5 +1,6 @@
 import type { TraceMessage } from "../../types";
 import type { ConversationGroup, ConversationItem } from "./conversation";
+import { CONTEXT_COMPACTED } from "./sessionCalls";
 
 export type ThreadWork =
   | { kind: "step"; item: ConversationItem }
@@ -9,6 +10,7 @@ export interface ThreadTurn {
   id: string;
   prompt: readonly TraceMessage[];
   context: readonly TraceMessage[];
+  compacted: boolean;
   work: readonly ThreadWork[];
   reply: TraceMessage | null;
   replyItem: ConversationItem | null;
@@ -27,7 +29,10 @@ interface Piece {
 }
 
 const isPrompt = (message: TraceMessage): boolean => message.role === "user";
-const isContext = (message: TraceMessage): boolean => message.role === "system";
+const isCompaction = (message: TraceMessage): boolean =>
+  message.role === "system" && message.content === CONTEXT_COMPACTED;
+const isContext = (message: TraceMessage): boolean => message.role === "system" && !isCompaction(message);
+const isHeading = (message: TraceMessage): boolean => isPrompt(message) || isContext(message) || isCompaction(message);
 const isReply = (message: TraceMessage): boolean =>
   message.role === "assistant" && Boolean(message.content.trim()) && !message.tool_calls?.length;
 
@@ -72,6 +77,7 @@ interface TurnHead {
   id: string;
   prompt: readonly TraceMessage[];
   context: readonly TraceMessage[];
+  compacted: boolean;
   promptStart: number;
 }
 
@@ -89,7 +95,7 @@ function lastReply(pieces: readonly Piece[]): { item: ConversationItem; message:
   return item && message ? { item, message } : null;
 }
 
-function closeTurn({ id, prompt, context, promptStart }: TurnHead, pieces: readonly Piece[]): ThreadTurn {
+function closeTurn({ id, prompt, context, compacted, promptStart }: TurnHead, pieces: readonly Piece[]): ThreadTurn {
   const found = lastReply(pieces);
   const work = pieces.flatMap((p): ThreadWork[] => {
     if (p.work.kind !== "step" || p.work.item !== found?.item) return [p.work];
@@ -101,6 +107,7 @@ function closeTurn({ id, prompt, context, promptStart }: TurnHead, pieces: reado
     id,
     prompt,
     context,
+    compacted,
     work,
     reply: found?.message ?? null,
     replyItem: found?.item ?? null,
@@ -125,7 +132,10 @@ export function buildThread(groups: readonly ConversationGroup[]): ThreadTurn[] 
     const previous = prompts.slice(0, index).findLastIndex(Boolean);
     return previous >= 0 && prompts[previous] === prompts[index] && answeredBefore[index] < previous;
   };
-  const promptStarts = prompts.flatMap((text, index) => (text && !repeatsPrompt(index) ? [index] : []));
+  const compactions = pieces.map((p) => p.messages.some(isCompaction));
+  const promptStarts = prompts.flatMap((text, index) =>
+    (text && !repeatsPrompt(index)) || compactions[index] ? [index] : [],
+  );
   const starts = promptStarts[0] === 0 ? promptStarts : [0, ...promptStarts];
   const repeats = new Set(prompts.flatMap((text, index) => (text && repeatsPrompt(index) ? [index] : [])));
   const stripRepeat = (p: Piece, index: number): Piece[] => {
@@ -143,14 +153,21 @@ export function buildThread(groups: readonly ConversationGroup[]): ThreadTurn[] 
       .slice(start + 1, end)
       .flatMap((p, offset) => (repeats.has(start + 1 + offset) ? p.messages.filter(isContext) : []));
     const context = [...head.messages.filter(isContext), ...repeatContext];
-    const rest = headItem ? stripMessages(headItem, (m) => !isPrompt(m) && !isContext(m)) : null;
+    const rest = headItem ? stripMessages(headItem, (m) => !isHeading(m)) : null;
     const body = [
       ...(head.work.kind === "subagent" ? [head] : []),
       ...(rest ? [{ ...head, work: { kind: "step" as const, item: rest }, messages: rest.messages }] : []),
       ...pieces.slice(start + 1, end).flatMap((p, offset) => stripRepeat(p, start + 1 + offset)),
     ];
     const promptStart = prompt.length ? head.start : Infinity;
-    const turnHead: TurnHead = { id: headItem?.id ?? `turn-${start}`, prompt, context, promptStart };
+    const compacted = compactions[start];
+    const turnHead: TurnHead = {
+      id: headItem?.id ?? `turn-${start}`,
+      prompt,
+      context,
+      compacted,
+      promptStart,
+    };
     return [closeTurn(turnHead, body)];
   });
 }
