@@ -31,6 +31,20 @@ const lastEndedBefore = (calls: readonly Span[], at: number): Span | undefined =
     undefined,
   );
 
+/**
+ * The model call that carries a turn's typed message. A side request (the session title) can start
+ * alongside it, so among the calls already running when the first one ends, it is the one with the
+ * largest request.
+ */
+export function turnOpeningCall(turn: SessionTurn): Span | undefined {
+  const calls = turn.spans.filter((span) => span.parent_span_id === null && span.type === "llm");
+  const first = calls[0];
+  if (!first) return undefined;
+  return calls
+    .filter((call) => call.start_offset_ms < endOf(first) || call === first)
+    .reduce((best, call) => (call.input_tokens > best.input_tokens ? call : best), first);
+}
+
 /** The prompt an Agent call was given, still JSON-escaped, read from a tool preview that may be cut short. */
 function launchPrompt(agent: Span): { text: string; whole: boolean } | null {
   const match = PROMPT_ARGUMENT.exec(agent.input_preview);

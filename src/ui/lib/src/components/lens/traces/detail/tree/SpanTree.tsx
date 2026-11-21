@@ -42,7 +42,10 @@ interface SpanTreeProps {
   filtering: boolean;
   onClearFilters: () => void;
   onCollapseAll: () => void;
+  turnTitles?: ReadonlyMap<string, string>;
 }
+
+const NO_TITLES: ReadonlyMap<string, string> = new Map();
 
 const LAYOUTS: readonly { id: TreeLayout; label: string; icon: typeof ListTree }[] = [
   { id: "tree", label: "Tree", icon: ListTree },
@@ -136,6 +139,7 @@ export function SpanTree({
   filtering,
   onClearFilters,
   onCollapseAll,
+  turnTitles = NO_TITLES,
 }: SpanTreeProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const guides = useMemo(() => treeGuides(rows.map((row) => row.depth)), [rows]);
@@ -246,6 +250,7 @@ export function SpanTree({
               onSelect,
               onToggleSpan,
               onToggleGroup,
+              turnTitles,
             };
             if (row.kind === "turn") return <TurnRow key={row.id} row={row} ctx={ctx} />;
             return row.kind === "group" ? (

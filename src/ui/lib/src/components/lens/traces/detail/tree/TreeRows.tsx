@@ -135,6 +135,8 @@ export interface RowContext {
   onSelect: (id: string) => void;
   onToggleSpan: (id: string) => void;
   onToggleGroup: (id: string) => void;
+  /** The typed message of each turn, by turn row id, once its opening request has loaded. */
+  turnTitles: ReadonlyMap<string, string>;
 }
 
 const readablePreview = (preview: string): string => {
@@ -242,7 +244,8 @@ export function GroupRow({ row, ctx }: { row: GroupRowData; ctx: RowContext }) {
 const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 export function TurnRow({ row, ctx }: { row: TurnRowData; ctx: RowContext }) {
-  const facts = turnFacts(row);
+  const title = ctx.turnTitles.get(row.id) ?? "";
+  const facts = turnFacts(row, title);
   return (
     <SpanHoverCard facts={facts} traceStartMs={ctx.traceStartMs}>
       <RowFrame
@@ -255,15 +258,21 @@ export function TurnRow({ row, ctx }: { row: TurnRowData; ctx: RowContext }) {
       >
         <SpanIcon type="agent" model={null} error={facts.failed} size="md" />
         <Label>
-          <span className={cn(NAME, "font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
+          <span className={cn("shrink-0 text-sm font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
             {facts.name}
           </span>
           {ctx.layout === "tree" && <span className={META}>{fmtMs(facts.durationMs)}</span>}
           {ctx.layout === "tree" && facts.spend != null && <span className={META}>{formatCost(facts.spend)}</span>}
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-            {plural(facts.modelCalls ?? 0, "model call")}
-            {facts.toolCalls ? `, ${plural(facts.toolCalls, "tool call")}` : ""}
-          </span>
+          {title ? (
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={title}>
+              {title}
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {plural(facts.modelCalls ?? 0, "model call")}
+              {facts.toolCalls ? `, ${plural(facts.toolCalls, "tool call")}` : ""}
+            </span>
+          )}
         </Label>
         {ctx.layout === "waterfall" && (
           <Bar start={facts.startMs} duration={facts.durationMs} total={ctx.totalMs} type="agent" failed={facts.failed} />

@@ -77,7 +77,7 @@ export function conversationMessages(value: string, content: UIContent | undefin
   return text ? [{ role, content: text }] : [];
 }
 
-function inputMessages(detail: SpanDetail): TraceMessage[] {
+export function inputMessages(detail: SpanDetail): TraceMessage[] {
   return detail.attributes["lens.capture.messages_separate"] === "true"
     ? []
     : conversationMessages(detail.input, detail.input_ui, "user");

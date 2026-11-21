@@ -27,6 +27,7 @@ import { SpanTree } from "../tree/SpanTree";
 import type { TreeLayout } from "../tree/TreeRows";
 import { LogsTimeline } from "../../logs/LogsTimeline";
 import { useRunTree } from "./useRunTree";
+import { useTurnTitles } from "../tree/turnTitles";
 
 const SPLIT_LAYOUT_ID = "litellm.lens.runSplit";
 const SIDE_BY_SIDE_MIN_PX = 640;
@@ -60,6 +61,7 @@ export function RunBody({
   const { view, setView, stepQuery, setStepQuery, errorsOnly, setErrorsOnly } =
     selection;
   const tree = useRunTree(trace, selection);
+  const turnTitles = useTurnTitles(trace, accessToken);
   const evidence = signal?.evidence;
   const [detailOpen, setDetailOpen] = useState(true);
   const [showLogs, setShowLogs] = useState(false);
@@ -188,6 +190,7 @@ export function RunBody({
               setErrorsOnly(false);
             }}
             onCollapseAll={tree.collapseAll}
+            turnTitles={turnTitles}
           />
         </ResizablePanel>
         {detailOpen && (
