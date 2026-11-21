@@ -6,6 +6,8 @@ import { liveDatasetsApi, type DatasetsApi } from "../datasets/client";
 import { liveEvalRunsApi, type EvalRunsApi } from "../evals/runs/client";
 import type {
   ActivitySelection,
+  AlertRuleConfig,
+  AlertRuleOverview,
   AnalysisModelInfo,
   GatewayStatus,
   Job,
@@ -48,6 +50,9 @@ export interface LensApi {
   watchAll(): Promise<components["schemas"]["WatchAllResult"]>;
   signalConfig(): Promise<SignalConfig>;
   signalOverview(): Promise<SignalOverview>;
+  alertRules(): Promise<AlertRuleConfig>;
+  saveAlertRules(config: AlertRuleConfig): Promise<AlertRuleConfig>;
+  alertRuleOverview(): Promise<AlertRuleOverview>;
   saveSignalConfig(config: SignalConfig): Promise<SignalConfig>;
   signalAlerts(): Promise<SignalAlertView>;
   saveSignalAlerts(config: SignalAlertRequest): Promise<SignalAlertView>;
@@ -142,6 +147,9 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     watchAll: () => required(client.POST("/lens/watch-all", { headers })),
     signalConfig: () => required(client.GET("/lens/signals", { headers })),
     signalOverview: () => apiClient.get("/lens/signals/overview", { accessToken }),
+    alertRules: () => apiClient.get("/lens/alerts/rules", { accessToken }),
+    saveAlertRules: (body) => apiClient.put("/lens/alerts/rules", { accessToken, body }),
+    alertRuleOverview: () => apiClient.get("/lens/alerts/rules/overview", { accessToken }),
     saveSignalConfig: (config) => required(client.PUT("/lens/signals", { headers, body: config })),
     signalAlerts: () => apiClient.get("/lens/signals/alerts", { accessToken }),
     saveSignalAlerts: (body) => apiClient.put("/lens/signals/alerts", { accessToken, body }),

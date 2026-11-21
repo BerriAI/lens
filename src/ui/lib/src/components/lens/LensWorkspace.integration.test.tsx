@@ -18,7 +18,9 @@ const expectUrl = (onUrlUpdate: ReturnType<typeof vi.fn>, check: (params: URLSea
 
 const defaultResponse = (path: string, connected: boolean) =>
   Response.json(
-    path === "/lens/service"
+    path === "/lens/alerts/rules/overview"
+      ? { since: new Date().toISOString(), limit: 500, truncated: false, matches: [] }
+      : path === "/lens/service"
       ? {
           configured: connected,
           connected,

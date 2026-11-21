@@ -22,4 +22,5 @@ pub const CONTRACT_VERSION: u32 = 1;
 pub const AGENT_IO_CONTRACT_VERSION: u32 = 2;
 pub const CONTRACT_HEADER: &str = "X-Lens-Contract";
 pub mod activity;
+pub mod alert_rules;
 pub mod github;

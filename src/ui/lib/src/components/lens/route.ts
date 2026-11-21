@@ -43,7 +43,7 @@ const INBOX_PARSERS = {
 };
 
 const ALERT_PARSERS = {
-  alert_settings: parseAsStringLiteral(["signals", "slack"]),
+  alert_settings: parseAsStringLiteral(["signals", "rules", "slack"]),
   alert_signal: parseAsString.withDefault(""),
   alert_search: parseAsString.withDefault(""),
   alert_hour: parseAsInteger,
@@ -406,7 +406,7 @@ export function useAlertsRoute() {
     signal: alert_signal,
     search: alert_search,
     hour: alert_hour,
-    setSettings: (settings: "signals" | "slack" | null) => void setParams({ alert_settings: settings }, { history: "push" }),
+    setSettings: (settings: "signals" | "rules" | "slack" | null) => void setParams({ alert_settings: settings }, { history: "push" }),
     setSignal: (signal: string) => void setParams({ alert_signal: signal }),
     setSearch: (search: string) => void setParams({ alert_search: search }),
     setHour: (hour: number | null) => void setParams({ alert_hour: hour }),

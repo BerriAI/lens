@@ -110,6 +110,164 @@
       ],
       "type": "object"
     },
+    "AlertRule": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "$ref": "#/definitions/AlertRuleCondition"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "enabled",
+        "condition"
+      ],
+      "type": "object"
+    },
+    "AlertRuleCondition": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run_duration",
+              "type": "string"
+            },
+            "minutes": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "minutes"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "model_error",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "AlertRuleConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/definitions/AlertRule"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "rules"
+      ],
+      "type": "object"
+    },
+    "AlertRuleKind": {
+      "enum": [
+        "run_duration",
+        "model_error"
+      ],
+      "type": "string"
+    },
+    "AlertRuleMatch": {
+      "properties": {
+        "detected_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/definitions/AlertRuleKind"
+        },
+        "rule_id": {
+          "type": "string"
+        },
+        "span_id": {
+          "type": "string"
+        },
+        "threshold_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trace_id": {
+          "type": "string"
+        },
+        "trace_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "kind",
+        "trace_id",
+        "trace_ref",
+        "span_id",
+        "detected_at",
+        "duration_ms"
+      ],
+      "type": "object"
+    },
+    "AlertRuleOverview": {
+      "properties": {
+        "limit": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "matches": {
+          "items": {
+            "$ref": "#/definitions/AlertRuleMatch"
+          },
+          "type": "array"
+        },
+        "since": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "since",
+        "limit",
+        "truncated",
+        "matches"
+      ],
+      "type": "object"
+    },
     "Candidate": {
       "additionalProperties": false,
       "properties": {

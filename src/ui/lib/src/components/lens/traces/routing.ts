@@ -68,7 +68,7 @@ export const RUN_FILTER_PARSERS = {
 
 export interface OpenTraceRouting {
   trace: TraceRef | null;
-  openTrace: (ref: TraceRef | null) => void;
+  openTrace: (ref: TraceRef | null, spanId?: string) => void;
   openSignal: (ref: TraceRef, signal: SignalFlag) => void;
   selection: RunSelection;
   fullScreen: boolean;
@@ -89,9 +89,13 @@ export function useOpenTraceRouting(): OpenTraceRouting {
   const [params, setParams] = useQueryStates(OPEN_TRACE_PARSERS, { history: "push" });
   const [signalFocus, setSignalFocus] = useState(0);
   const openTrace = useCallback(
-    (ref: TraceRef | null) => {
+    (ref: TraceRef | null, spanId?: string) => {
       const run = { trace: ref?.traceId ?? null, trace_ref: ref?.traceRef || null };
-      void setParams(ref === null ? { ...FRESH_RUN, ...run, fullscreen: null } : { ...FRESH_STEPS, ...run });
+      void setParams(
+        ref === null
+          ? { ...FRESH_RUN, ...run, fullscreen: null }
+          : { ...(spanId ? FRESH_RUN : FRESH_STEPS), ...run, span: spanId ?? null },
+      );
     },
     [setParams],
   );

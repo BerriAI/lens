@@ -26,6 +26,8 @@ pub struct Settings {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Event {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<lens_contract::alert_rules::AlertRuleMatch>,
     pub generation: String,
     pub signal_id: String,
     pub name: String,
@@ -151,6 +153,7 @@ pub async fn enqueue(
             continue;
         }
         let event = Event {
+            rule: None,
             generation: settings.generation.clone(),
             signal_id: signal.id.clone(),
             name: signal.name.clone(),
