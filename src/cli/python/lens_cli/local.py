@@ -1,18 +1,25 @@
+from __future__ import annotations
+
+import hashlib
 import importlib.util
 import inspect
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType, ModuleType
-from typing import Final, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import TYPE_CHECKING, Final
 
 from lens import _native
 from lens.errors import ConfigurationError
 
 from .models import Agent as Agent
 from .models import AgentOutput, Check, Target, TaskInput, ToolCall, Verdict
+from .payloads import _AgentResult, _Error, _Fail, _Pass, _TargetPayload, _TaskPayload, _ToolCallPayload
+
+if TYPE_CHECKING:
+    from litellm import EvalAgent, EvalTarget
+
+    from .sdk import SDKConfig
 
 __all__ = [
     "Agent",
@@ -41,12 +48,18 @@ def default_check(task: TaskInput, output: AgentOutput) -> Verdict:
 @dataclass(frozen=True, slots=True)
 class LocalConfig:
     path: Path
-    targets: tuple[Target, ...]
+    targets: tuple[Target | EvalTarget | EvalAgent, ...]
     check: Check
+    sdk: SDKConfig | None = None
 
-    def target(self, harness: str, model: str) -> Target:
+    def target(self, harness: str, model: str | None, label: str | None = None) -> Target | EvalTarget | EvalAgent:
         found: Final = next(
-            (target for target in self.targets if target.harness == harness and target.model == model), None
+            (
+                target
+                for target in self.targets
+                if _target_payload(target) == _TargetPayload(harness=harness, model=model, label=label)
+            ),
+            None,
         )
         if found is None:
             raise ConfigurationError(f"{harness}/{model} is not in {self.path.name} targets")
@@ -62,24 +75,47 @@ def _module(path: Path) -> ModuleType:
     directory: Final = str(path.parent.resolve())
     if directory not in sys.path:
         sys.path.insert(0, directory)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except ImportError as error:
+        raise _import_failure(path, error) from error
     return module
 
 
-def _targets(path: Path, declared: object, only: tuple[str, ...]) -> tuple[Target, ...]:
+def _import_failure(path: Path, error: ImportError) -> ConfigurationError:
+    detail: Final = _native.redact(str(error))
+    return ConfigurationError(
+        f"Cannot import {path.name}: {detail}. Install the missing config dependency. "
+        "SDK configs require Lens's agent-evals extra: uv sync --project src/sdk --extra agent-evals --frozen"
+    )
+
+
+def target_key(target: Target | EvalTarget | EvalAgent) -> str:
+    return target.key if isinstance(target, Target) else target.name
+
+
+def _targets(path: Path, declared: object, only: tuple[str, ...]) -> tuple[Target | EvalTarget | EvalAgent, ...]:
     if not isinstance(declared, list | tuple) or not declared:
         raise ConfigurationError(f"{path.name} must define targets = [Target(harness=..., model=..., run=...)]")
-    targets: Final = tuple(item for item in declared if isinstance(item, Target))
-    if len(targets) != len(declared):
-        raise ConfigurationError(f"Every entry in {path.name} targets must be a lens.Target")
-    keys: Final = [target.key for target in targets]
+    if all(isinstance(item, Target) for item in declared):
+        targets: tuple[Target | EvalTarget | EvalAgent, ...] = tuple(
+            item for item in declared if isinstance(item, Target)
+        )
+    else:
+        try:
+            from .sdk import sdk_targets
+        except ImportError as error:
+            raise _import_failure(path, error) from error
+
+        targets = sdk_targets(path, declared)
+    keys: Final = [target_key(target) for target in targets]
     duplicates: Final = sorted({key for key in keys if keys.count(key) > 1})
     if duplicates:
         raise ConfigurationError(f"Duplicate targets in {path.name}: {', '.join(duplicates)}")
     unknown: Final = sorted(set(only) - set(keys))
     if unknown:
         raise ConfigurationError(f"--only {', '.join(unknown)} is not in {path.name}. Targets: {', '.join(keys)}")
-    return tuple(target for target in targets if not only or target.key in only)
+    return tuple(target for target in targets if not only or target_key(target) in only)
 
 
 def load_config(path: Path, only: tuple[str, ...] = ()) -> LocalConfig:
@@ -90,59 +126,15 @@ def load_config(path: Path, only: tuple[str, ...] = ()) -> LocalConfig:
     declared_check: Final[object] = getattr(module, "check", default_check)
     if not callable(declared_check):
         raise ConfigurationError(f"check in {path.name} must be a function")
-    return LocalConfig(path=path, targets=targets, check=declared_check)
+    if all(isinstance(target, Target) for target in targets):
+        return LocalConfig(path=path, targets=targets, check=declared_check)
+    from .sdk import SDKConfig
 
-
-class _TaskPayload(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    id: str
-    prompt: str
-    expected: str | None = None
-    metadata: dict[str, str] = Field(default_factory=dict)
-
-
-class _TargetPayload(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    harness: str
-    model: str
-
-
-class _Pass(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    status: Literal["pass"] = "pass"
-
-
-class _Fail(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    status: Literal["fail"] = "fail"
-    reason: str
-
-
-class _Error(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    status: Literal["error"] = "error"
-    kind: str
-    message: str
-
-
-class _ToolCallPayload(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    name: str
-    arguments: dict[str, object]
-    error: bool
-
-
-class _AgentResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    outcome: _Pass | _Fail | _Error
-    output: str = ""
-    cost: float = 0.0
-    judge_cost: float = 0.0
-    tool_calls: tuple[_ToolCallPayload, ...] = ()
+    return LocalConfig(path=path, targets=targets, check=declared_check, sdk=SDKConfig.load(module))
 
 
 def _failure(error: BaseException) -> _AgentResult:
-    return _AgentResult(outcome=_Error(kind=type(error).__name__, message=_native.redact(str(error))))
+    return _AgentResult(outcome=_Error(kind=type(error).__name__, message=_native.redact(str(error))), tool_calls=())
 
 
 async def _judge(check: Check, task: TaskInput, output: AgentOutput) -> Verdict:
@@ -154,16 +146,24 @@ async def _judge(check: Check, task: TaskInput, output: AgentOutput) -> Verdict:
 async def attempt(config: LocalConfig, task_json: str, target_json: str) -> str:
     payload: Final = _TaskPayload.model_validate_json(task_json)
     chosen: Final = _TargetPayload.model_validate_json(target_json)
-    task: Final = TaskInput(
-        id=payload.id,
-        prompt=payload.prompt,
-        expected=payload.expected,
-        metadata=MappingProxyType(dict(payload.metadata)),
-        harness=chosen.harness,
-        model=chosen.model,
-    )
+    if config.sdk is not None:
+        from .sdk import sdk_attempt
+
+        return await sdk_attempt(config.sdk, payload, config.target(chosen.harness, chosen.model, chosen.label))
     try:
-        output: Final = await config.target(chosen.harness, chosen.model).run(task)
+        target: Final = config.target(chosen.harness, chosen.model, chosen.label)
+        if not isinstance(target, Target):
+            raise ConfigurationError("Cannot run SDK target as a callback")
+        task: Final = TaskInput(
+            id=payload.id,
+            prompt=payload.prompt,
+            expected=payload.expected,
+            metadata=MappingProxyType(dict(payload.metadata)),
+            harness=target.harness,
+            model=target.model,
+            trial=payload.trial,
+        )
+        output: Final = await target.run(task)
         if not isinstance(output, AgentOutput):
             raise ConfigurationError(f"{chosen.harness}/{chosen.model} must return AgentOutput")
         verdict: Final = await _judge(config.check, task, output)
@@ -178,17 +178,20 @@ async def attempt(config: LocalConfig, task_json: str, target_json: str) -> str:
         cost=output.cost,
         judge_cost=output.judge_cost,
         tool_calls=calls,
+        metrics_complete=True,
     ).model_dump_json()
 
 
+def _target_payload(target: Target | EvalTarget | EvalAgent) -> _TargetPayload:
+    if isinstance(target, Target):
+        return _TargetPayload(harness=target.harness, model=target.model)
+    from .sdk import sdk_target_payload
+
+    return sdk_target_payload(target)
+
+
 def _targets_json(config: LocalConfig) -> str:
-    return (
-        "["
-        + ",".join(
-            _TargetPayload(harness=target.harness, model=target.model).model_dump_json() for target in config.targets
-        )
-        + "]"
-    )
+    return "[" + ",".join(_target_payload(target).model_dump_json(exclude_none=True) for target in config.targets) + "]"
 
 
 async def run(
@@ -199,8 +202,15 @@ async def run(
     tasks: str | None = None,
     resume: str | None = None,
     only: tuple[str, ...] = (),
+    trials: int = 1,
 ) -> str:
     config: Final = load_config(config_path, only)
+
+    if tasks is None and config.sdk is None and resume is None:
+        raise ConfigurationError("Callback configs require a tasks CSV file")
+    task_data: Final = config.sdk.task_data() if config.sdk is not None and config.sdk.tasks else None
+    if tasks is not None and task_data is not None:
+        raise ConfigurationError("Use a tasks CSV file or config-defined tasks, not both")
 
     async def invoke(task_json: str, target_json: str) -> str:
         return await attempt(config, task_json, target_json)
@@ -214,4 +224,11 @@ async def run(
         tasks=tasks,
         config=None if resume else str(config_path),
         resume=resume,
+        task_data=task_data,
+        trials=trials,
+        config_hash=(
+            config.sdk.fingerprint(config.targets, config_path.read_bytes())
+            if config.sdk is not None
+            else hashlib.sha256(config_path.read_bytes()).hexdigest()
+        ),
     )

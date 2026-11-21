@@ -18,6 +18,7 @@ from lens.models import Report
 from lens.reporting import terminal
 
 from . import local
+from .payloads import _TargetPayload
 
 
 class Arguments(BaseModel):
@@ -31,6 +32,7 @@ class Arguments(BaseModel):
     tasks: str | None = None
     config: str | None = None
     concurrency: int = 16
+    trials: int = Field(default=1, ge=1)
     run_id: str | None = None
     only: tuple[str, ...] = ()
     json_output: bool = Field(default=False, alias="json")
@@ -103,13 +105,31 @@ def display(outcomes: tuple[Report | LensError, ...], args: Arguments) -> int:
 
 
 def run_local(args: Arguments) -> int:
-    if args.tasks is None or args.config is None:
-        raise LensError("lens run needs a tasks file and --config")
+    if args.config is None:
+        raise LensError("lens run needs --config")
     command: Final = " ".join(
-        ("lens run", args.tasks, "--config", args.config, *(f"--only {key}" for key in args.only))
+        (
+            "lens run",
+            *((args.tasks,) if args.tasks is not None else ()),
+            "--config",
+            args.config,
+            "--trials",
+            str(args.trials),
+            *(f"--only {key}" for key in args.only),
+        )
     )
-    asyncio.run(local.run(command, Path(args.config), args.concurrency, args.fast, tasks=args.tasks, only=args.only))
-    return 0
+    result: Final = asyncio.run(
+        local.run(
+            command,
+            Path(args.config),
+            args.concurrency,
+            args.fast,
+            tasks=args.tasks,
+            only=args.only,
+            trials=args.trials,
+        )
+    )
+    return _local_exit(result)
 
 
 def resume_local(args: Arguments) -> int:
@@ -117,13 +137,41 @@ def resume_local(args: Arguments) -> int:
         raise LensError("lens resume needs a run id")
     meta: Final = RunMeta.model_validate_json(_native.run_meta(args.run_id))
     command: Final = f"lens resume {args.run_id}"
-    asyncio.run(local.run(command, Path(meta.config_file), args.concurrency, args.fast, resume=args.run_id))
-    return 0
+    result: Final = asyncio.run(
+        local.run(
+            command,
+            Path(meta.config_file),
+            args.concurrency,
+            args.fast,
+            resume=args.run_id,
+            trials=meta.trials,
+            only=tuple(target.key for target in meta.targets),
+        )
+    )
+    return _local_exit(result)
 
 
 class RunMeta(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
     config_file: str
+    trials: int = 1
+    targets: tuple[_TargetPayload, ...] = ()
+
+
+class _LocalStats(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore")
+    failed: int = Field(default=0, alias="fail")
+    errors: int = Field(default=0, alias="error")
+
+
+class _LocalSummary(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore")
+    stats: tuple[_LocalStats, ...]
+
+
+def _local_exit(result: str) -> int:
+    summary: Final = _LocalSummary.model_validate_json(result)
+    return 2 if any(stat.errors for stat in summary.stats) else int(any(stat.failed for stat in summary.stats))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -149,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         print(_native.control(raw))
         return 0
-    except (LensError, ValidationError, OSError, ValueError) as error:
+    except (LensError, ValidationError, OSError, ValueError, ImportError) as error:
         print(f"Lens: {error}", file=sys.stderr)
         if args.json_output:
             print('{"runs": []}' if args.command == "eval" else '{"ok": false, "checks": []}')

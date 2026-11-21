@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 
 pub const ACTION: &str = "BerriAI/lens/src/sdk/action@51651cc61bc3863b524683a34f02732e2717b7b7";
 
+fn positive_count(value: &str) -> Result<usize, &'static str> {
+    value
+        .parse::<usize>()
+        .ok()
+        .filter(|count| *count > 0)
+        .ok_or("must be at least one")
+}
+
 #[derive(Parser)]
 #[command(
     name = "lens",
@@ -60,11 +68,13 @@ pub enum Operation {
     },
     #[command(about = "Run every task against every harness and model in your config")]
     Run {
-        tasks: PathBuf,
+        tasks: Option<PathBuf>,
         #[arg(long)]
         config: PathBuf,
         #[arg(long, default_value_t = 16)]
         concurrency: usize,
+        #[arg(long, default_value_t = 1, value_parser = positive_count)]
+        trials: usize,
         #[arg(long, help = "Print the results without animation")]
         fast: bool,
         #[arg(

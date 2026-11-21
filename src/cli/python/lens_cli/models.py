@@ -26,6 +26,7 @@ class TaskInput:
     metadata: Mapping[str, str]
     harness: str
     model: str
+    trial: int = 1
 
 
 @dataclass(frozen=True, slots=True)

@@ -34,6 +34,29 @@ fn run_preserves_target_filters(#[case] selection: Vec<&str>, #[case] expected: 
     assert_eq!(parsed["command"], "run");
     assert_eq!(parsed["only"], serde_json::json!(expected));
 }
+
+#[rstest]
+#[case::config_tasks(vec!["lens", "run", "--config", "evals.py"], 1, 0)]
+#[case::trials(vec!["lens", "run", "--config", "evals.py", "--trials", "3"], 3, 0)]
+#[case::zero(vec!["lens", "run", "--config", "evals.py", "--trials", "0"], 0, 2)]
+fn run_accepts_config_tasks_and_positive_trials(
+    #[case] arguments: Vec<&str>,
+    #[case] trials: u64,
+    #[case] code: u64,
+) {
+    let parsed = arguments::parse(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>());
+    assert_eq!(
+        parsed
+            .get("code")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0),
+        code
+    );
+    if code == 0 {
+        assert_eq!(parsed["trials"], trials);
+        assert!(parsed["tasks"].is_null());
+    }
+}
 #[rstest]
 #[case::actions(vec!["lens", "report", "report.json"], false)]
 #[case::app(vec!["lens", "report", "report.json", "--via-app"], true)]

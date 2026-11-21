@@ -26,9 +26,12 @@ const fn brand(label: &'static str, glyph: &'static str, color: Rgb) -> Brand {
 pub fn harness(id: &str) -> Brand {
     match id {
         "claude-agent-sdk" => brand("Claude Agent SDK", "✻", CLAUDE),
-        "claude-code" => brand("Claude Code", "✻", CLAUDE),
+        "claude_code" | "claude-code" => brand("Claude Code", "✻", CLAUDE),
         "openai-agents" => brand("OpenAI Agents", "◎", OPENAI),
-        "openai-codex" => brand("Codex", "◎", OPENAI),
+        "codex" | "openai-codex" => brand("Codex", "◎", OPENAI),
+        "opencode" => brand("OpenCode", "◇", FAINT),
+        "pi" => brand("Pi", "π", FAINT),
+        "tool_loop" => brand("LiteLLM Tool Loop", "≋", LITELLM),
         "langgraph" => brand("LangGraph", "⬡", LANGGRAPH),
         "langchain" => brand("LangChain", "⬡", LANGGRAPH),
         "deepagents" => brand("Deep Agents", "⬡", LANGGRAPH),

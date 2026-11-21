@@ -25,6 +25,9 @@ def run_local(
     tasks: str | None = None,
     config: str | None = None,
     resume: str | None = None,
+    task_data: str | None = None,
+    trials: int = 1,
+    config_hash: str | None = None,
 ) -> Awaitable[str]: ...
 def run_meta(run_id: str) -> str: ...
 def latest_run() -> str | None: ...

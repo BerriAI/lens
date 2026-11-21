@@ -60,7 +60,10 @@ pub fn span(text: impl Into<String>, style: Style) -> Span {
     }
 }
 
-pub fn badge(brand: Brand) -> Span {
+pub fn badge(brand: impl Into<Option<Brand>>) -> Span {
+    let Some(brand) = brand.into() else {
+        return gap(2);
+    };
     Span {
         text: format!("{} ", brand.glyph),
         style: Style::fg(brand.color),
@@ -370,11 +373,11 @@ pub fn cell(text: impl Into<String>, style: Style) -> Cell {
     }
 }
 
-pub fn branded(brand: Brand, text: impl Into<String>) -> Cell {
+pub fn branded(brand: impl Into<Option<Brand>>, text: impl Into<String>) -> Cell {
     Cell {
         text: text.into(),
         style: Style::fg(TEXT),
-        brand: Some(brand),
+        brand: brand.into(),
     }
 }
 

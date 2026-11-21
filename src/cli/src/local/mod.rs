@@ -13,17 +13,41 @@ pub struct Task {
     pub expected: Option<String>,
     #[serde(default)]
     pub metadata: BTreeMap<String, String>,
+    #[serde(default = "one")]
+    pub trial: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suite_id: Option<String>,
+}
+
+const fn one() -> usize {
+    1
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Target {
     pub harness: String,
-    pub model: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 impl Target {
     pub fn key(&self) -> String {
-        format!("{}/{}", self.harness, self.model)
+        if let Some(label) = &self.label {
+            return label.clone();
+        }
+        match &self.model {
+            Some(model) => format!("{}/{model}", self.harness),
+            None => self.harness.clone(),
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        self.label
+            .as_deref()
+            .or(self.model.as_deref())
+            .unwrap_or(&self.harness)
     }
 }
 
@@ -44,23 +68,59 @@ pub enum Outcome {
     Error { kind: String, message: String },
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Metrics {
+    #[serde(default)]
+    pub input_tokens: Option<u64>,
+    #[serde(default)]
+    pub output_tokens: Option<u64>,
+    #[serde(default)]
+    pub model_calls: Option<u64>,
+    #[serde(default)]
+    pub judge_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub judge_output_tokens: Option<u64>,
+    #[serde(default)]
+    pub judge_model_calls: Option<u64>,
+    #[serde(default = "legacy_metrics_complete")]
+    pub metrics_complete: bool,
+}
+
+const fn legacy_metrics_complete() -> bool {
+    true
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentResult {
     pub outcome: Outcome,
     #[serde(default)]
     pub output: String,
     #[serde(default)]
-    pub cost: f64,
+    pub cost: Option<f64>,
     #[serde(default)]
-    pub judge_cost: f64,
+    pub judge_cost: Option<f64>,
     #[serde(default)]
-    pub tool_calls: Vec<ToolCall>,
+    pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(flatten)]
+    pub metrics: Metrics,
+    #[serde(default)]
+    pub stop_reason: Option<String>,
+    #[serde(default)]
+    pub check_error: Option<String>,
+    #[serde(default)]
+    pub check_detail: Option<String>,
+    #[serde(default)]
+    pub duration_seconds: Option<f64>,
+    #[serde(default)]
+    pub run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Attempt {
     pub task_id: String,
     pub target: Target,
+    #[serde(default = "one")]
+    pub trial: usize,
     pub latency_seconds: f64,
     #[serde(flatten)]
     pub result: AgentResult,
@@ -74,11 +134,17 @@ pub struct RunMeta {
     pub targets: Vec<Target>,
     pub task_count: usize,
     pub concurrency: usize,
+    #[serde(default = "one")]
+    pub trials: usize,
+    #[serde(default)]
+    pub task_data: Option<Vec<Task>>,
+    #[serde(default)]
+    pub config_hash: Option<String>,
 }
 
 impl RunMeta {
     pub fn total_cases(&self) -> usize {
-        self.task_count * self.targets.len()
+        self.task_count * self.targets.len() * self.trials
     }
 }
 
@@ -87,13 +153,13 @@ pub struct TargetStats {
     pub target: Target,
     pub pass: u32,
     pub fail: u32,
-    pub wrong_answer: u32,
-    pub tool_misuse: u32,
     pub error: u32,
-    pub model_cost: f64,
-    pub judge_cost: f64,
-    pub tool_calls_per_case: f64,
-    pub repeat_rate: f64,
+    pub model_cost: Option<f64>,
+    pub judge_cost: Option<f64>,
+    #[serde(flatten)]
+    pub metrics: Metrics,
+    pub tool_calls_per_case: Option<f64>,
+    pub repeat_rate: Option<f64>,
     pub p50_seconds: f64,
     pub p95_seconds: f64,
 }
@@ -110,8 +176,8 @@ impl TargetStats {
         }
     }
 
-    pub fn cost(&self) -> f64 {
-        self.model_cost + self.judge_cost
+    pub fn cost(&self) -> Option<f64> {
+        Some(self.model_cost? + self.judge_cost?)
     }
 }
 
@@ -119,6 +185,8 @@ impl TargetStats {
 pub struct Summary {
     pub run_id: String,
     pub task_count: usize,
+    #[serde(default = "one")]
+    pub trials: usize,
     pub stats: Vec<TargetStats>,
     pub recommended: Option<usize>,
 }

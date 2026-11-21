@@ -215,14 +215,20 @@ fn boundary_failure(message: &str) -> AgentResult {
             message: message.to_owned(),
         },
         output: String::new(),
-        cost: 0.0,
-        judge_cost: 0.0,
-        tool_calls: Vec::new(),
+        cost: None,
+        judge_cost: None,
+        tool_calls: None,
+        metrics: local::Metrics::default(),
+        stop_reason: None,
+        check_error: None,
+        check_detail: None,
+        duration_seconds: None,
+        run_id: None,
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (command, targets, concurrency, fast, callback, tasks=None, config=None, resume=None))]
+#[pyo3(signature = (command, targets, concurrency, fast, callback, tasks=None, config=None, resume=None, task_data=None, trials=1, config_hash=None))]
 #[allow(clippy::too_many_arguments)]
 fn run_local<'py>(
     py: Python<'py>,
@@ -234,31 +240,53 @@ fn run_local<'py>(
     tasks: Option<String>,
     config: Option<String>,
     resume: Option<String>,
+    task_data: Option<String>,
+    trials: usize,
+    config_hash: Option<String>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let root = here()?;
     let targets: Vec<Target> = decode(&targets)?;
+    let resuming = resume.is_some();
     let meta = match (resume, tasks, config) {
         (Some(id), _, _) => RunMeta {
             concurrency,
             ..saved_run(&root, &id)?.0
         },
-        (None, Some(tasks), Some(config)) => RunMeta {
+        (None, tasks, Some(config)) => RunMeta {
             id: run::new_run_id(),
             task_count: 0,
-            tasks_file: tasks,
+            tasks_file: tasks.unwrap_or_default(),
             config_file: config,
-            targets,
+            targets: targets.clone(),
             concurrency,
+            trials,
+            task_data: None,
+            config_hash: config_hash.clone(),
         },
         _ => {
             return Err(error(Error::Configuration(
-                "lens run needs a tasks file and --config",
+                "lens run needs --config and tasks in the config or a CSV file",
             )));
         }
     };
-    let tasks = run::load_tasks(&root.join(&meta.tasks_file)).map_err(error)?;
+    let tasks: Vec<Task> = match task_data {
+        Some(data) => decode(&data)?,
+        None if !meta.tasks_file.is_empty() => {
+            run::load_tasks(&root.join(&meta.tasks_file)).map_err(error)?
+        }
+        None => {
+            return Err(error(Error::Configuration(
+                "Config must define tasks when no CSV file is provided",
+            )));
+        }
+    };
+    run::validate_tasks(&tasks).map_err(error)?;
+    if resuming {
+        run::validate_resume(&meta, &tasks, &targets, config_hash.as_deref()).map_err(error)?;
+    }
     let meta = RunMeta {
         task_count: tasks.len(),
+        task_data: Some(tasks.clone()),
         ..meta
     };
     let locals = Arc::new(pyo3_async_runtimes::tokio::get_current_locals(py)?);

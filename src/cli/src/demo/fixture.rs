@@ -13,7 +13,6 @@ struct Sample {
     model: &'static str,
     pass: u32,
     fail: u32,
-    wrong_answer: u32,
     error: u32,
     model_cost: f64,
     tool_calls: f64,
@@ -30,7 +29,6 @@ const SAMPLES: [Sample; 4] = [
         model: "sonnet-5.5",
         pass: 2775,
         fail: 150,
-        wrong_answer: 110,
         error: 75,
         model_cost: 63.00,
         tool_calls: 3.1,
@@ -43,7 +41,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2700,
         fail: 225,
-        wrong_answer: 150,
         error: 75,
         model_cost: 28.50,
         tool_calls: 3.4,
@@ -56,7 +53,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2550,
         fail: 300,
-        wrong_answer: 170,
         error: 150,
         model_cost: 31.50,
         tool_calls: 4.2,
@@ -69,7 +65,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2610,
         fail: 270,
-        wrong_answer: 160,
         error: 120,
         model_cost: 30.10,
         tool_calls: 3.9,
@@ -82,7 +77,8 @@ const SAMPLES: [Sample; 4] = [
 fn target(sample: &Sample) -> Target {
     Target {
         harness: sample.harness.to_owned(),
-        model: sample.model.to_owned(),
+        model: Some(sample.model.to_owned()),
+        label: None,
     }
 }
 
@@ -91,8 +87,11 @@ pub fn meta() -> RunMeta {
         id: RUN_ID.to_owned(),
         tasks_file: "tasks.csv".to_owned(),
         config_file: "evals.py".to_owned(),
+        task_data: None,
+        config_hash: None,
         targets: SAMPLES.iter().map(target).collect(),
         task_count: TASKS as usize,
+        trials: 1,
         concurrency: 16,
     }
 }
@@ -101,21 +100,24 @@ pub fn summary() -> Summary {
     Summary {
         run_id: RUN_ID.to_owned(),
         task_count: TASKS as usize,
+        trials: 1,
         stats: SAMPLES
             .iter()
             .map(|sample| TargetStats {
                 target: target(sample),
                 pass: sample.pass,
                 fail: sample.fail,
-                wrong_answer: sample.wrong_answer,
-                tool_misuse: sample.fail - sample.wrong_answer,
                 error: sample.error,
-                model_cost: sample.model_cost,
-                judge_cost: JUDGE_COST,
-                tool_calls_per_case: sample.tool_calls,
-                repeat_rate: sample.repeat_rate,
+                model_cost: Some(sample.model_cost),
+                judge_cost: Some(JUDGE_COST),
+                tool_calls_per_case: Some(sample.tool_calls),
+                repeat_rate: Some(sample.repeat_rate),
                 p50_seconds: sample.p50_seconds,
                 p95_seconds: sample.p95_seconds,
+                metrics: crate::local::Metrics {
+                    metrics_complete: true,
+                    ..Default::default()
+                },
             })
             .collect(),
         recommended: Some(PICK),
@@ -141,14 +143,24 @@ pub fn event(index: usize) -> Progress {
     let case = (index / SAMPLES.len()) as u32;
     Progress::Finished(Box::new(Attempt {
         task_id: format!("ticket-{:04}", case + 1),
+        trial: 1,
         target: target(sample),
         latency_seconds: sample.p50_seconds,
         result: AgentResult {
             outcome: outcome(sample, case),
             output: String::new(),
-            cost: sample.model_cost / f64::from(TASKS),
-            judge_cost: JUDGE_COST / f64::from(TASKS),
-            tool_calls: Vec::new(),
+            cost: Some(sample.model_cost / f64::from(TASKS)),
+            judge_cost: Some(JUDGE_COST / f64::from(TASKS)),
+            tool_calls: Some(Vec::new()),
+            metrics: crate::local::Metrics {
+                metrics_complete: true,
+                ..Default::default()
+            },
+            stop_reason: None,
+            check_error: None,
+            check_detail: None,
+            duration_seconds: None,
+            run_id: None,
         },
     }))
 }
@@ -166,6 +178,5 @@ mod tests {
     fn every_sample_covers_every_task(#[values(0, 1, 2, 3)] index: usize) {
         let sample = &SAMPLES[index];
         assert_eq!(sample.pass + sample.fail + sample.error, TASKS);
-        assert!(sample.wrong_answer <= sample.fail);
     }
 }

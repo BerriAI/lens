@@ -1,19 +1,30 @@
-from agent import litellm_agent, openai_agents_agent
-from lens import AgentOutput, Target, TaskInput, Verdict
+import os
+from collections.abc import Mapping
+from typing import Final
 
-SONNET = "claude-sonnet-5-5"
-MINI = "gpt-5.4-mini"
+from litellm import EvalOutput, EvalTarget, EvalTask, Harness, PredicateCheck
 
-targets = [
-    Target(harness="litellm", model=SONNET, run=litellm_agent),
-    Target(harness="litellm", model=MINI, run=litellm_agent),
-    Target(harness="openai-agents", model=MINI, run=openai_agents_agent),
+from agent import INSTRUCTIONS, lookup_ticket
+
+MODEL_A: Final = os.environ.get("LENS_MODEL_A", "litellm_proxy/model-a")
+MODEL_B: Final = os.environ.get("LENS_MODEL_B", "litellm_proxy/model-b")
+
+targets: Final = [
+    EvalTarget(Harness.TOOL_LOOP, MODEL_A, tools=(lookup_ticket,)),
+    EvalTarget(Harness.TOOL_LOOP, MODEL_B, tools=(lookup_ticket,)),
+    EvalTarget(Harness.PI, MODEL_A, tools=(lookup_ticket,)),
 ]
+run_options: Final = {"max_turns": 8}
 
 
-def check(task: TaskInput, output: AgentOutput) -> Verdict:
-    answer = output.text.strip().strip(".").casefold()
-    expected = (task.expected or "").casefold()
-    if answer == expected:
-        return Verdict(True)
-    return Verdict(False, f"expected {expected}, got {answer or 'nothing'}")
+def task(row: Mapping[str, str | None]) -> EvalTask:
+    expected: Final = (row["expected"] or "").strip().casefold()
+
+    def matches(result: EvalOutput) -> bool:
+        return result.text.strip().strip(".").casefold() == expected
+
+    return EvalTask(
+        id=row["id"] or "",
+        prompt=INSTRUCTIONS + "\n\n" + (row["prompt"] or ""),
+        check=PredicateCheck(matches),
+    )

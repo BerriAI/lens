@@ -4,18 +4,14 @@ use crate::demo::style::{
     accent, badge, branded, cell, faint, gap, joined, muted, pad, pad_left, shorten, span, split,
     strong, table, text, thousands, warn,
 };
-use crate::demo::{detail, result};
+use crate::demo::{body, detail, result};
 use crate::local::{Summary, TargetStats};
 
 const VALUE: usize = 9;
 const PLOT_ROWS: usize = 19;
 const OUTLIER_GAP: f64 = 0.15;
 const BAR: &str = "▆";
-const FAILURE_KINDS: [(&str, Rgb, &str); 3] = [
-    ("▆", BAD, "wrong"),
-    ("▄", WARN, "misuse"),
-    ("▂", MUTED, "error"),
-];
+const FAILURE_KINDS: [(&str, Rgb, &str); 2] = [("▆", BAD, "fail"), ("▂", WARN, "error")];
 const TRACK: Rgb = Rgb(0x33, 0x2C, 0x3B);
 const QUADRANT: Rgb = Rgb(0x31, 0x26, 0x45);
 const FRONTIER: Rgb = Rgb(0x9A, 0x5C, 0xC8);
@@ -44,7 +40,7 @@ impl<'a> Report<'a> {
         let longest_model = summary
             .stats
             .iter()
-            .map(|stat| stat.target.model.chars().count())
+            .map(|stat| stat.target.display_name().chars().count())
             .max()
             .unwrap_or(6);
         let room = width.saturating_sub(FIXED_COLUMNS + harness_width + 4 + 3);
@@ -105,10 +101,10 @@ impl<'a> Report<'a> {
                 ),
                 Style::fg(TEXT),
             ),
-            badge(brand::model(&target.model)),
+            badge(target.model.as_deref().map(brand::model)),
             span(
                 pad(
-                    &shorten(&target.model, self.model_width),
+                    &shorten(target.display_name(), self.model_width),
                     self.model_width + 1,
                 ),
                 Style::fg(MUTED),
@@ -134,6 +130,9 @@ impl<'a> Report<'a> {
 
     fn label(&self, index: usize) -> String {
         let target = &self.stats()[index].target;
+        if target.label.is_some() || target.model.is_none() {
+            return target.display_name().to_owned();
+        }
         let shared = self
             .stats()
             .iter()
@@ -144,10 +143,10 @@ impl<'a> Report<'a> {
             format!(
                 "{} / {}",
                 brand::harness(&target.harness).label,
-                target.model
+                target.display_name()
             )
         } else {
-            target.model.clone()
+            target.display_name().to_owned()
         }
     }
 
@@ -168,29 +167,31 @@ impl<'a> Report<'a> {
             return vec![
                 result(vec![strong("No recommendation")]),
                 detail(vec![muted(
-                    "No configuration passed any case. Inspect the failures below.",
+                    "A recommendation needs passing cases, known cost, and complete metrics. Inspect the results below.",
                 )]),
             ];
         };
         let chosen = &self.stats()[pick];
         let harness = brand::harness(&chosen.target.harness);
-        let model = brand::model(&chosen.target.model);
+        let model = chosen.target.model.as_deref().map(brand::model);
         let top = self.best().unwrap_or(pick);
         let leader = &self.stats()[top];
         let headline = if top == pick || leader.pass_rate() <= chosen.pass_rate() {
             format!(
-                "Highest pass rate at {:.1}%, ${:.2} total",
+                "Highest pass rate at {:.1}%, {} total",
                 chosen.pass_rate() * 100.0,
-                chosen.cost()
+                money(chosen.cost())
             )
         } else {
             format!(
                 "{} of the best pass rate ({}) for {}",
                 percent(chosen.pass_rate(), leader.pass_rate()),
                 self.label(top),
-                match leader.cost() {
-                    cost if cost > 0.0 => format!("{} of the cost", percent(chosen.cost(), cost)),
-                    _ => "no measured cost".to_owned(),
+                match (chosen.cost(), leader.cost()) {
+                    (Some(chosen), Some(cost)) if cost > 0.0 =>
+                        format!("{} of the cost", percent(chosen, cost)),
+                    (Some(cost), _) => format!("{} total", money(Some(cost))),
+                    _ => "unknown cost".to_owned(),
                 }
             )
         };
@@ -203,16 +204,19 @@ impl<'a> Report<'a> {
                 strong("Recommendation  "),
                 badge(harness),
                 strong(harness.label),
-                faint("  +  "),
+                faint(if model.is_some() { "  +  " } else { "  " }),
                 badge(model),
-                strong(chosen.target.model.clone()),
+                strong(chosen.target.display_name()),
             ]),
             detail(vec![text(headline)]),
             detail(vec![muted(format!(
-                "{} p50 latency at {:.1}s, {:.0}% repeated tool calls",
+                "{} p50 latency at {:.1}s, {}",
                 if fastest { "Fastest" } else { "Competitive" },
                 chosen.p50_seconds,
-                chosen.repeat_rate * 100.0
+                chosen
+                    .repeat_rate
+                    .map(|rate| format!("{:.0}% repeated tool calls", rate * 100.0))
+                    .unwrap_or_else(|| "tool-call metrics unknown".to_owned())
             ))]),
         ]
     }
@@ -226,7 +230,7 @@ impl<'a> Report<'a> {
         let columns = [
             column("#", 3, Align::Left),
             column("HARNESS", self.harness_width + 4, Align::Left),
-            column("MODEL", self.model_width + 3, Align::Left),
+            column("TARGET", self.model_width + 3, Align::Left),
             column("PASS", 7, Align::Right),
             column("FAIL", 5, Align::Right),
             column("ERR", 5, Align::Right),
@@ -245,8 +249,8 @@ impl<'a> Report<'a> {
                         cell(marker_text(index), self.marker_style(index)),
                         branded(harness, shorten(harness.label, self.harness_width)),
                         branded(
-                            brand::model(&stat.target.model),
-                            shorten(&stat.target.model, self.model_width),
+                            stat.target.model.as_deref().map(brand::model),
+                            shorten(stat.target.display_name(), self.model_width),
                         ),
                         cell(format!("{:.1}%", stat.pass_rate() * 100.0), Style::fg(GOOD)),
                         cell(stat.fail.to_string(), Style::fg(BAD)),
@@ -299,43 +303,52 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(TargetStats::cost)
+            .filter_map(TargetStats::cost)
             .fold(0.0, f64::max);
         self.stats()
             .iter()
             .enumerate()
-            .map(|(index, stat)| self.bar_row(index, ratio(stat.cost(), most), money(stat.cost())))
+            .map(|(index, stat)| {
+                let cost = stat.cost();
+                self.bar_row(
+                    index,
+                    cost.map_or(0.0, |cost| ratio(cost, most)),
+                    money(cost),
+                )
+            })
             .collect()
     }
 
     fn dominator(&self, index: usize) -> Option<usize> {
         let stat = &self.stats()[index];
+        let cost = stat.cost()?;
         self.stats()
             .iter()
             .enumerate()
             .find(|(other, rival)| {
                 *other != index
-                    && rival.cost() <= stat.cost()
+                    && rival.cost().is_some_and(|rival_cost| rival_cost <= cost)
                     && rival.pass_rate() >= stat.pass_rate()
-                    && (rival.cost() < stat.cost() || rival.pass_rate() > stat.pass_rate())
+                    && (rival.cost().is_some_and(|rival_cost| rival_cost < cost)
+                        || rival.pass_rate() > stat.pass_rate())
             })
             .map(|(other, _)| other)
     }
 
     fn frontier(&self) -> Vec<usize> {
-        let mut points: Vec<usize> = (0..self.stats().len())
-            .filter(|index| self.dominator(*index).is_none())
+        let mut points: Vec<(usize, f64)> = self
+            .stats()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, stat)| Some((index, stat.cost()?)))
+            .filter(|(index, _)| self.dominator(*index).is_none())
             .collect();
-        points.sort_by(|left, right| {
-            self.stats()[*left]
-                .cost()
-                .total_cmp(&self.stats()[*right].cost())
-        });
+        points.sort_by(|left, right| left.1.total_cmp(&right.1));
         points.dedup_by(|later, earlier| {
-            let (a, b) = (&self.stats()[*later], &self.stats()[*earlier]);
-            a.cost() == b.cost() && a.pass_rate() == b.pass_rate()
+            later.1 == earlier.1
+                && self.stats()[later.0].pass_rate() == self.stats()[earlier.0].pass_rate()
         });
-        points
+        points.into_iter().map(|(index, _)| index).collect()
     }
 
     fn harness_short(&self, harness: &str) -> String {
@@ -347,7 +360,11 @@ impl<'a> Report<'a> {
 
     fn point_label(&self, index: usize) -> String {
         let target = &self.stats()[index].target;
-        format!("{} · {}", target.model, self.harness_short(&target.harness))
+        format!(
+            "{} · {}",
+            target.display_name(),
+            self.harness_short(&target.harness)
+        )
     }
 
     fn label_style(&self, index: usize, frontier: &[usize]) -> Style {
@@ -367,9 +384,17 @@ impl<'a> Report<'a> {
             + self.rank_width()
             + 18;
         let columns = self.width.saturating_sub(9).min(100);
-        let costs: Vec<f64> = self.stats().iter().map(TargetStats::cost).collect();
+        let costs: Vec<f64> = self.stats().iter().filter_map(TargetStats::cost).collect();
+        if costs.is_empty() {
+            return vec![body(vec![muted("All costs are unknown.")])];
+        }
         let axis = CostAxis::new(&costs, columns);
-        let rates = RateAxis::new(self.stats().iter().map(TargetStats::pass_rate));
+        let rates = RateAxis::new(
+            self.stats()
+                .iter()
+                .filter(|stat| stat.cost().is_some())
+                .map(TargetStats::pass_rate),
+        );
         let frontier = self.frontier();
         let mut grid: Vec<Vec<Option<Span>>> = vec![vec![None; columns]; PLOT_ROWS];
         let mut taken: Vec<Vec<bool>> = vec![vec![false; columns]; PLOT_ROWS];
@@ -378,7 +403,7 @@ impl<'a> Report<'a> {
             .filter(|index| rates.contains(self.stats()[*index].pass_rate()))
             .filter_map(|index| {
                 let stat = &self.stats()[index];
-                let (row, column) = (rates.row(stat.pass_rate()), axis.column(stat.cost()));
+                let (row, column) = (rates.row(stat.pass_rate()), axis.column(stat.cost()?));
                 let width = marker_text(index).chars().count();
                 let clear = |at: usize| {
                     at + width <= columns
@@ -402,7 +427,10 @@ impl<'a> Report<'a> {
                     return false;
                 };
                 let target = &self.stats()[index].target;
-                let lines = [target.model.clone(), self.harness_short(&target.harness)];
+                let lines = [
+                    target.display_name().to_owned(),
+                    self.harness_short(&target.harness),
+                ];
                 let width = lines
                     .iter()
                     .map(|line| line.chars().count())
@@ -553,7 +581,7 @@ impl<'a> Report<'a> {
             .map(|index| {
                 let stat = &self.stats()[index];
                 let style = self.label_style(index, &frontier);
-                let place = if rates.contains(stat.pass_rate()) {
+                let place = if stat.cost().is_none() || rates.contains(stat.pass_rate()) {
                     String::new()
                 } else {
                     " ▼".to_owned()
@@ -702,7 +730,7 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(|stat| stat.wrong_answer + stat.tool_misuse + stat.error)
+            .map(|stat| stat.fail + stat.error)
             .max()
             .unwrap_or(0)
             .max(1);
@@ -725,7 +753,7 @@ impl<'a> Report<'a> {
                 .collect(),
         );
         let rows = self.stats().iter().enumerate().map(|(index, stat)| {
-            let values = [stat.wrong_answer, stat.tool_misuse, stat.error];
+            let values = [stat.fail, stat.error];
             let cells =
                 |count: u32| (f64::from(count) / f64::from(most) * room as f64).round() as usize;
             let widths = values.iter().fold(Vec::<usize>::new(), |used, value| {
@@ -763,29 +791,38 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(|stat| stat.tool_calls_per_case)
+            .filter_map(|stat| stat.tool_calls_per_case)
             .fold(0.0, f64::max);
         let room = self.track().saturating_sub(6);
         self.stats()
             .iter()
             .enumerate()
             .map(|(index, stat)| {
-                let repeats = format!("{:>3.0}%↺", stat.repeat_rate * 100.0);
+                let repeats = stat
+                    .repeat_rate
+                    .map(|rate| format!("{:>3.0}%↺", rate * 100.0))
+                    .unwrap_or_else(|| "  —↺".to_owned());
                 Line::new(
                     self.who(index)
                         .into_iter()
                         .chain(fill(
-                            ratio(stat.tool_calls_per_case, most),
+                            ratio(stat.tool_calls_per_case.unwrap_or_default(), most),
                             room,
                             self.bar_color(index),
                         ))
                         .chain([
                             span(
-                                pad_left(&format!("{:.1}/case", stat.tool_calls_per_case), VALUE),
+                                pad_left(
+                                    &stat
+                                        .tool_calls_per_case
+                                        .map(|calls| format!("{calls:.1}/case"))
+                                        .unwrap_or_else(|| "unknown".to_owned()),
+                                    VALUE,
+                                ),
                                 self.marker_style(index),
                             ),
                             gap(1),
-                            if stat.repeat_rate > 0.15 {
+                            if stat.repeat_rate.is_some_and(|rate| rate > 0.15) {
                                 warn(repeats)
                             } else {
                                 faint(repeats)
@@ -887,9 +924,10 @@ impl<'a> Report<'a> {
             ],
             joined(vec![
                 muted(format!(
-                    "{} tasks × {} configs",
+                    "{} tasks × {} configs × {} trials",
                     thousands(self.summary.task_count as u64),
-                    self.stats().len()
+                    self.stats().len(),
+                    self.summary.trials,
                 )),
                 muted("local"),
             ]),
@@ -922,7 +960,7 @@ impl<'a> Report<'a> {
                     3,
                     "Total cost",
                     &format!(
-                        "model + judge, all {} tasks",
+                        "agent + judge, all {} tasks",
                         thousands(self.summary.task_count as u64)
                     ),
                     width,
@@ -930,12 +968,7 @@ impl<'a> Report<'a> {
                 self.costs(),
                 section(4, "Cost vs quality", "up and left is better", width),
                 self.scatter(),
-                section(
-                    5,
-                    "Why cases fail",
-                    "wrong answer · tool misuse · error",
-                    width,
-                ),
+                section(5, "Failed attempts", "Failures and Errors", width),
                 self.failures(),
                 section(6, "Tool calls", "avg calls per case · ↺ repeated", width),
                 self.tools(),
@@ -1011,7 +1044,10 @@ fn scale(value: f64, low: f64, high: f64, steps: usize) -> usize {
         .clamp(0.0, (steps - 1) as f64) as usize
 }
 
-fn money(value: f64) -> String {
+fn money(value: Option<f64>) -> String {
+    let Some(value) = value else {
+        return "unknown".to_owned();
+    };
     if value >= 0.01 || value == 0.0 {
         format!("${value:.2}")
     } else {
@@ -1160,7 +1196,12 @@ fn ranked(summary: &Summary) -> Summary {
         picked(right)
             .cmp(&picked(left))
             .then(right.pass_rate().total_cmp(&left.pass_rate()))
-            .then(left.cost().total_cmp(&right.cost()))
+            .then_with(|| match (left.cost(), right.cost()) {
+                (Some(left), Some(right)) => left.total_cmp(&right),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            })
     });
     Summary {
         recommended: pick.map(|_| 0),
@@ -1170,7 +1211,8 @@ fn ranked(summary: &Summary) -> Summary {
 }
 
 pub fn cost_per_pass(stat: &TargetStats) -> Option<f64> {
-    (stat.pass > 0).then(|| stat.cost() / f64::from(stat.pass))
+    (stat.pass > 0).then_some(())?;
+    Some(stat.cost()? / f64::from(stat.pass))
 }
 
 pub fn lines(summary: &Summary, width: usize) -> Vec<Line> {
@@ -1188,19 +1230,22 @@ mod tests {
         TargetStats {
             target: Target {
                 harness: harness.to_owned(),
-                model: model.to_owned(),
+                model: Some(model.to_owned()),
+                label: None,
             },
             pass,
             fail,
-            wrong_answer: fail / 2,
-            tool_misuse: fail - fail / 2,
             error: 1,
-            model_cost: cost,
-            judge_cost: 0.0,
-            tool_calls_per_case: 2.0,
-            repeat_rate: 0.1,
+            model_cost: Some(cost),
+            judge_cost: Some(0.0),
+            tool_calls_per_case: Some(2.0),
+            repeat_rate: Some(0.1),
             p50_seconds: 3.0,
             p95_seconds: 7.5,
+            metrics: crate::local::Metrics {
+                metrics_complete: true,
+                ..Default::default()
+            },
         }
     }
 
@@ -1208,6 +1253,7 @@ mod tests {
         Summary {
             run_id: "eval_abcd".to_owned(),
             task_count: 40,
+            trials: 1,
             stats: (0..count)
                 .map(|index| {
                     stat(
@@ -1253,7 +1299,7 @@ mod tests {
         assert!(
             output
                 .iter()
-                .any(|line| line.plain().contains("No configuration passed any case"))
+                .any(|line| line.plain().contains("No recommendation"))
         );
         assert!(
             !output
@@ -1289,6 +1335,7 @@ mod tests {
         let summary = Summary {
             run_id: "eval_abcd".to_owned(),
             task_count: 20,
+            trials: 1,
             stats: vec![
                 stat("litellm", "worst", 5, 15, 0.01),
                 stat("litellm", "pricey-best", 20, 0, 0.90),
@@ -1383,7 +1430,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains(&report.point_label(index)));
             assert!(
-                in_key || named_on_chart(&text, &target.model, &harness),
+                in_key || named_on_chart(&text, target.display_name(), &harness),
                 "{} missing\n{}",
                 report.point_label(index),
                 text.join("\n")
@@ -1399,7 +1446,11 @@ mod tests {
         let labeled = (0..summary.stats.len())
             .filter(|index| {
                 let target = &summary.stats[*index].target;
-                named_on_chart(&text, &target.model, &report.harness_short(&target.harness))
+                named_on_chart(
+                    &text,
+                    target.display_name(),
+                    &report.harness_short(&target.harness),
+                )
             })
             .count();
         assert_eq!(labeled, summary.stats.len(), "{}", text.join("\n"));
@@ -1410,6 +1461,7 @@ mod tests {
         let summary = Summary {
             run_id: "eval_abcd".to_owned(),
             task_count: 20,
+            trials: 1,
             stats: (0..60)
                 .map(|index| stat("litellm", &format!("model-{index}"), 20, 0, 0.01))
                 .collect(),
@@ -1469,6 +1521,7 @@ mod tests {
         Summary {
             run_id: "eval_abcd".to_owned(),
             task_count: 20,
+            trials: 1,
             stats: vec![
                 stat("litellm", "claude-sonnet-5-5", 0, 20, 0.0001),
                 stat("litellm", "gpt-5.4-mini", 20, 0, 0.0039),
@@ -1578,7 +1631,7 @@ mod tests {
         let costs: Vec<f64> = report
             .frontier()
             .iter()
-            .map(|index| summary.stats[*index].cost())
+            .filter_map(|index| summary.stats[*index].cost())
             .collect();
         assert!(costs.windows(2).all(|pair| pair[0] <= pair[1]));
     }
@@ -1637,24 +1690,100 @@ mod tests {
                 .find(|piece| piece.style.fg == Some(color) && !piece.text.trim().is_empty())
                 .map(|piece| piece.text.clone())
         };
-        let wrong = segment(BAD).expect("wrong answers");
-        let misuse = segment(WARN).expect("tool misuse");
-        assert!(wrong.chars().all(|ch| ch == '▆'), "{wrong}");
-        assert!(misuse.chars().all(|ch| ch == '▄'), "{misuse}");
+        let failed = segment(BAD).expect("failed attempts");
+        let error = segment(WARN).expect("errors");
+        assert!(failed.chars().all(|ch| ch == '▆'), "{failed}");
+        assert!(error.chars().all(|ch| ch == '▂'), "{error}");
         assert_eq!(
-            wrong.chars().count() > misuse.chars().count(),
-            stat.wrong_answer > stat.tool_misuse
+            failed.chars().count() > error.chars().count(),
+            stat.fail > stat.error
         );
         let numbers: Vec<u32> = row
             .plain()
             .split_whitespace()
             .rev()
-            .take(3)
+            .take(2)
             .map(|value| value.replace(',', "").parse().expect("count"))
             .collect();
+        assert_eq!(numbers, vec![stat.error, stat.fail]);
+    }
+
+    #[rstest]
+    fn unknown_custom_agent_cost_preserves_the_last_column_at_terminal_width() {
+        let custom = TargetStats {
+            target: Target {
+                harness: "custom".to_owned(),
+                model: None,
+                label: Some("my-agent".to_owned()),
+            },
+            model_cost: None,
+            metrics: Default::default(),
+            p50_seconds: 1.1,
+            ..stat("custom", "unused", 1, 0, 0.0)
+        };
+        let built_in = stat("tool_loop", "model-a", 1, 0, 0.01);
+        let summary = Summary {
+            run_id: "eval_custom".to_owned(),
+            task_count: 1,
+            trials: 1,
+            stats: vec![
+                custom,
+                TargetStats {
+                    target: Target {
+                        label: Some("luna/tool-loop".to_owned()),
+                        ..built_in.target
+                    },
+                    ..built_in
+                },
+            ],
+            recommended: None,
+        };
+        let rows = Report::new(&summary, 78).results();
+        let custom_row = rows
+            .iter()
+            .find(|line| line.plain().contains("my-agent"))
+            .unwrap();
+        assert!(custom_row.width() <= 78);
+        assert!(custom_row.plain().trim_end().ends_with("1.1s"));
+        assert!(custom_row.plain().contains("unknown"));
+    }
+
+    #[rstest]
+    #[case::complete_metrics(true)]
+    #[case::cost_only(false)]
+    fn only_known_costs_are_plotted_and_break_quality_ties(#[case] metrics_complete: bool) {
+        let mut priced = stat("custom", "priced", 1, 0, 0.25);
+        priced.metrics.metrics_complete = metrics_complete;
+        let summary = Summary {
+            stats: vec![
+                TargetStats {
+                    model_cost: None,
+                    ..stat("custom", "unpriced", 1, 0, 0.0)
+                },
+                priced,
+            ],
+            recommended: None,
+            ..fixture::summary()
+        };
+        let ranked = ranked(&summary);
+        assert_eq!(ranked.stats[0].target.display_name(), "priced");
+        let report = Report::new(&ranked, 100);
+        assert!(report.results().iter().any(|line| {
+            let row = line.plain();
+            row.contains("priced") && row.contains("$0.25")
+        }));
+        assert_eq!(report.frontier(), vec![0]);
+        let text = plot_text(&report);
         assert_eq!(
-            numbers,
-            vec![stat.error, stat.tool_misuse, stat.wrong_answer]
+            plot_markers(&text)
+                .iter()
+                .map(|(_, index)| *index)
+                .collect::<Vec<_>>(),
+            vec![0]
+        );
+        assert!(
+            text.iter()
+                .any(|line| line.contains("unpriced") && line.contains("unknown"))
         );
     }
 

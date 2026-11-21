@@ -134,6 +134,13 @@ mod brand {
     #[case::langgraph("langgraph", "LangGraph", "⬡")]
     #[case::deepagents("deepagents", "Deep Agents", "⬡")]
     #[case::litellm("litellm", "LiteLLM", "≋")]
+    #[case::tool_loop("tool_loop", "LiteLLM Tool Loop", "≋")]
+    #[case::claude_code("claude_code", "Claude Code", "✻")]
+    #[case::claude_code_legacy("claude-code", "Claude Code", "✻")]
+    #[case::codex("codex", "Codex", "◎")]
+    #[case::codex_legacy("openai-codex", "Codex", "◎")]
+    #[case::opencode("opencode", "OpenCode", "◇")]
+    #[case::pi("pi", "Pi", "π")]
     #[case::custom_explicit("custom", "Custom", "◇")]
     #[case::custom("my-harness", "Custom", "◇")]
     fn harness_brand_matches_ui_ids(#[case] id: &str, #[case] label: &str, #[case] glyph: &str) {
@@ -150,23 +157,57 @@ mod progress {
     use rstest::{fixture, rstest};
     use std::time::Duration;
 
+    #[rstest]
+    #[case::custom_only(false)]
+    #[case::mixed(true)]
+    fn model_roster_only_lists_models_that_targets_declare(meta: RunMeta, #[case] mixed: bool) {
+        let custom = Target {
+            harness: "custom".to_owned(),
+            model: None,
+            label: Some("reviewer".to_owned()),
+        };
+        let targets = if mixed {
+            vec![custom, meta.targets[0].clone()]
+        } else {
+            vec![custom]
+        };
+        let tally = Tally::new(&RunMeta { targets, ..meta }, 0);
+        let intro = found(&tally)
+            .iter()
+            .map(lens_cli::demo::style::Line::plain)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(intro.contains("models"), mixed);
+        let progress = frame(&tally, Duration::ZERO, 0, 100)
+            .iter()
+            .map(lens_cli::demo::style::Line::plain)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(progress.contains("reviewer"));
+    }
+
     #[fixture]
     fn meta() -> RunMeta {
         RunMeta {
             id: "eval_test".to_owned(),
             tasks_file: "tasks.csv".to_owned(),
             config_file: "evals.py".to_owned(),
+            task_data: None,
+            config_hash: None,
             targets: vec![
                 Target {
                     harness: "litellm".to_owned(),
-                    model: "gpt-5-mini".to_owned(),
+                    model: Some("gpt-5-mini".to_owned()),
+                    label: None,
                 },
                 Target {
                     harness: "openai-agents".to_owned(),
-                    model: "gpt-5-mini".to_owned(),
+                    model: Some("gpt-5-mini".to_owned()),
+                    label: None,
                 },
             ],
             task_count: 3,
+            trials: 1,
             concurrency: 4,
         }
     }
@@ -174,14 +215,24 @@ mod progress {
     fn finished(target: &Target, outcome: Outcome, cost: f64) -> Progress {
         Progress::Finished(Box::new(Attempt {
             task_id: "t".to_owned(),
+            trial: 1,
             target: target.clone(),
             latency_seconds: 1.0,
             result: AgentResult {
                 outcome,
                 output: String::new(),
-                cost,
-                judge_cost: 0.25,
-                tool_calls: Vec::new(),
+                cost: Some(cost),
+                judge_cost: Some(0.25),
+                tool_calls: Some(Vec::new()),
+                metrics: lens_cli::local::Metrics {
+                    metrics_complete: true,
+                    ..Default::default()
+                },
+                stop_reason: None,
+                check_error: None,
+                check_detail: None,
+                duration_seconds: None,
+                run_id: None,
             },
         }))
     }
@@ -227,11 +278,11 @@ mod progress {
                 pass: 1,
                 fail: 1,
                 error: 0,
-                cost: 2.5
+                cost: Some(2.5)
             }
         );
         assert_eq!(tally.counts[1].error, 1);
-        assert!((tally.cost() - 3.25).abs() < 1e-9);
+        assert!((tally.cost().unwrap() - 3.25).abs() < 1e-9);
     }
 
     #[rstest]
@@ -255,7 +306,7 @@ mod progress {
                 .targets
                 .iter()
                 .map(|target| Target {
-                    model: "claude-sonnet-5-5".to_owned(),
+                    model: Some("claude-sonnet-5-5".to_owned()),
                     ..target.clone()
                 })
                 .collect(),
@@ -364,7 +415,14 @@ mod fixture {
         assert_eq!(tally.counts[2].fail, u64::from(summary.stats[2].fail));
         assert_eq!(tally.counts[2].error, u64::from(summary.stats[2].error));
         assert!(
-            (tally.cost() - summary.stats.iter().map(TargetStats::cost).sum::<f64>()).abs() < 1e-6
+            (tally.cost().unwrap()
+                - summary
+                    .stats
+                    .iter()
+                    .filter_map(TargetStats::cost)
+                    .sum::<f64>())
+            .abs()
+                < 1e-6
         );
     }
 }
