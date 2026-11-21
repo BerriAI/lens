@@ -16,8 +16,8 @@ data:
 {{ include "lens.secret" (dict "context" . "name" (include "lens.serviceTokenSecretName" .) "key" .Values.serviceTokenSecret.key) }}
 ---
 {{- end }}
-{{- if include "lens.bundledClickhouse" . }}
-{{ include "lens.secret" (dict "context" . "name" (include "lens.clickhouseName" .) "key" "password") }}
+{{- if and (include "lens.bundledClickhouse" .) (not .Values.clickhouse.passwordSecret.name) }}
+{{ include "lens.secret" (dict "context" . "name" (include "lens.clickhousePasswordSecretName" .) "key" .Values.clickhouse.passwordSecret.key) }}
 {{- end }}
 ---
 {{- if not .Values.adminTokenSecret.name }}

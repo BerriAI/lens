@@ -84,8 +84,8 @@ spec:
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ $name }}
-                  key: password
+                  name: {{ include "lens.clickhousePasswordSecretName" . | quote }}
+                  key: {{ .Values.clickhouse.passwordSecret.key | quote }}
             - name: CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT
               value: "1"
           ports:
