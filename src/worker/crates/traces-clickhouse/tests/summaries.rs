@@ -634,25 +634,38 @@ async fn projection_keeps_unprocessed_candidates_when_a_page_exceeds_the_write_b
     Ok(())
 }
 
-fn call(trace: &str, id: &str, response: &str, keys: &[&str]) -> BTreeMap<String, Value> {
+fn call(
+    trace: &str,
+    id: &str,
+    response: &str,
+    keys: &[&str],
+    evidence: &str,
+) -> BTreeMap<String, Value> {
     span("owner", id)
         .into_iter()
         .chain([
             ("TraceId".into(), json!(trace)),
             ("LiteLLMRequestId".into(), json!(response)),
             ("CallKeys".into(), json!(keys)),
+            ("CallEvidence".into(), json!(evidence)),
         ])
         .collect()
 }
 
 #[rstest]
-#[case::every_call_recorded_by_the_agent(&["response-1", "response-2"], &["agent"])]
-#[case::a_call_the_agent_did_not_record(&["response-1"], &["agent", "gateway"])]
-#[case::no_agent_spans(&[], &["gateway"])]
+#[case::every_call_recorded_by_the_agent(&["response-1", "response-2"], "complete", &["agent"])]
+#[case::a_call_the_agent_did_not_record(&["response-1"], "complete", &["agent", "gateway"])]
+#[case::agent_spans_that_cannot_take_the_cost(
+    &["response-1", "response-2"],
+    "partial",
+    &["agent", "gateway"]
+)]
+#[case::no_agent_spans(&[], "complete", &["gateway"])]
 #[tokio::test]
 async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
     #[future(awt)] migrated_database: TestResult<SeededDatabase>,
     #[case] agent_responses: &[&str],
+    #[case] agent_evidence: &str,
     #[case] listed: &[&str],
 ) -> TestResult {
     let fixture = migrated_database?;
@@ -666,6 +679,7 @@ async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
             &format!("gateway-{response}"),
             response,
             &[&request, &provider],
+            "complete",
         )
     });
     let agent = agent_responses.iter().map(|response| {
@@ -675,6 +689,7 @@ async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
             &format!("agent-{response}"),
             response,
             &[&provider],
+            agent_evidence,
         )
     });
     insert_rows(
