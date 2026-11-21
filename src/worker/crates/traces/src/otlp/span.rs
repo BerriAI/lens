@@ -73,7 +73,10 @@ fn append_scope(
     budget.consume(scope.name.len() + scope.version.len())?;
     let scope_name: Shared<String> = scope.name.into();
     let scope_version: Shared<String> = scope.version.into();
-    if matches!(scope_name.as_str(), "codex_cli_rs" | "codex-app-server") {
+    if matches!(
+        scope_name.as_str(),
+        "codex_cli_rs" | "codex-app-server" | "codex_exec"
+    ) {
         preprocess_codex_spans(&mut scope_spans.spans);
     }
     for span in scope_spans.spans {

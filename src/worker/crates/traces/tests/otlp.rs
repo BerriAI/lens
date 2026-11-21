@@ -2110,7 +2110,9 @@ fn codex_trace_spans_filter_noise_propagate_usage_and_link_to_prompt_root() {
 }
 
 #[rstest]
-fn codex_app_server_filters_auth_noise_and_promotes_turn_start() {
+#[case::app_server("codex-app-server")]
+#[case::exec("codex_exec")]
+fn codex_app_server_filters_auth_noise_and_promotes_turn_start(#[case] emitter: &str) {
     use opentelemetry_proto::tonic::{
         collector::trace::v1::ExportTraceServiceRequest,
         common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
@@ -2130,14 +2132,14 @@ fn codex_app_server_filters_auth_noise_and_promotes_turn_start() {
         resource_spans: vec![ResourceSpans {
             resource: Some(Resource {
                 attributes: vec![
-                    attr("service.name", "codex-app-server"),
+                    attr("service.name", emitter),
                     attr("service.version", "0.153.1"),
                 ],
                 ..Default::default()
             }),
             scope_spans: vec![ScopeSpans {
                 scope: Some(InstrumentationScope {
-                    name: "codex-app-server".to_owned(),
+                    name: emitter.to_owned(),
                     ..Default::default()
                 }),
                 spans: vec![
@@ -2970,6 +2972,7 @@ fn native_body_exports_do_not_replay_old_tool_results(#[case] final_message: ser
 #[rstest]
 #[case::cli("codex_cli_rs", "session_task.turn")]
 #[case::ide("codex-app-server", "turn/start")]
+#[case::exec("codex_exec", "session_task.turn")]
 fn codex_separate_exports_share_one_root(#[case] scope: &str, #[case] turn_name: &str) {
     let trace_id = "a1".repeat(16);
     let original_root = "b1".repeat(8);
