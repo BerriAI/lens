@@ -148,6 +148,10 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
             "/v1/traces/{trace_id}/conversation",
             get(conversation::<R, B>),
         )
+        .public_route(
+            "/lens/traces/{trace_id}/conversation",
+            get(conversation::<R, B>),
+        )
         .public_route("/v1/traces/{trace_id}/spans/{span_id}", get(span::<R, B>))
         .public_route(
             "/v1/traces/{trace_id}/spans/{span_id}/error",

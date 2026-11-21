@@ -51,6 +51,7 @@ services:
     environment:
       LENS_MODE: standalone
       LENS_PUBLIC_URL: ${LENS_PUBLIC_URL:-http://localhost:4318}
+      LENS_SIGNAL_ALERTS_UI_URL: ${LENS_SIGNAL_ALERTS_UI_URL:-}
       LENS_SIGN_IN_LINK: ${LENS_SIGN_IN_LINK:-true}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_USER: lens

@@ -103,8 +103,8 @@ function serve() {
   const history = vi.fn<(cursor?: string) => TraceConversationPage>();
   history.mockReturnValue(empty);
   gateway.get.mockImplementation((path, request) => {
-    if (path === `/v1/traces/${currentId}/conversation`) return history(request.query.cursor);
-    if (path === `/v1/traces/${original.trace_id}/conversation`) return empty;
+    if (path === `/lens/traces/${currentId}/conversation`) return history(request.query.cursor);
+    if (path === `/lens/traces/${original.trace_id}/conversation`) return empty;
     if (path === `/v1/traces/${currentId}`) return current;
     if (path === `/v1/traces/${original.trace_id}`) return earlier;
     if (path === `/v1/traces/${currentId}/spans/${currentDetail.span_id}`) return currentDetail;
@@ -137,7 +137,7 @@ describe("Full conversation", () => {
     );
     expect(within(thread).queryByRole("heading", { name: "Earlier in this conversation" })).not.toBeInTheDocument();
     expect(within(thread).queryByRole("heading", { name: "Current run" })).not.toBeInTheDocument();
-    expect(gateway.get).toHaveBeenCalledWith(`/v1/traces/${currentId}/conversation`, {
+    expect(gateway.get).toHaveBeenCalledWith(`/lens/traces/${currentId}/conversation`, {
       query: { trace_ref: currentRef },
       body: undefined,
       authorization: "Bearer test-tracing-token",
@@ -212,7 +212,7 @@ describe("Full conversation", () => {
         "fetch",
         vi.fn<typeof fetch>(async (input, init) => {
           const request = await readRequest(input, init);
-          if (request.path === `/v1/traces/${currentId}/conversation` && request.query.has("cursor"))
+          if (request.path === `/lens/traces/${currentId}/conversation` && request.query.has("cursor"))
             return Response.json({ detail: { code, message: "Restart this conversation read" } }, { status });
           return upstream(input, init);
         }),

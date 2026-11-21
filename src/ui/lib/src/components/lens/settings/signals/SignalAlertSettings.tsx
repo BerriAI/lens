@@ -6,6 +6,7 @@ import { Button } from "../../../ui/button";
 import { Input } from "../../../ui/input";
 import { Checkbox } from "../../../ui/checkbox";
 import { useLensApi } from "../../data/LensServices";
+import { DEFAULT_SIGNAL_THRESHOLD } from "../../model/signals";
 import type { SignalAlertView, SignalConfig } from "../../model/types";
 import { useOptionalOnboarding } from "../../onboarding/OnboardingContext";
 import { SettingsCard } from "../SettingsSection";
@@ -156,7 +157,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
           </label>
         ))}
         <p className="text-xs text-muted-foreground">
-          Uses your saved signal threshold ({Math.round((signals.threshold ?? 0.5) * 100)}%). Save signal changes above
+          Uses your saved signal threshold ({Math.round((signals.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100)}%). Save signal changes above
           before configuring alerts.
         </p>
       </fieldset>

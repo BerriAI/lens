@@ -36,6 +36,7 @@ struct Call {
 struct Reader {
     calls: Arc<Mutex<Vec<Call>>>,
     failure: Option<Failure>,
+    conversation_found: bool,
 }
 
 impl Reader {
@@ -162,7 +163,10 @@ impl TraceReader for Reader {
         request: TraceConversationRequest,
     ) -> Result<Option<TraceConversationPage>, TraceReadError> {
         self.record(scope, json!({"trace_id":trace_id,"trace_ref":request.trace_ref,"cursor":request.cursor,"page_size":request.page_size}))?;
-        Ok(None)
+        Ok(self.conversation_found.then(|| TraceConversationPage {
+            turns: Vec::new(),
+            next_cursor: Some("following".into()),
+        }))
     }
     async fn span_error(
         &self,
@@ -384,17 +388,62 @@ async fn identity_without_a_read_scope_cannot_reach_storage(
 #[tokio::test]
 async fn conversation_requires_authentication_before_reading_storage(
     #[future(awt)] database: Database,
+    #[values("/v1/traces/id/conversation", "/lens/traces/id/conversation")] path: &str,
 ) {
     let reader = Reader::default();
     let server = serve(&database, reader.clone()).await;
     let response = server
         .client
-        .get(server.url.join("/v1/traces/id/conversation").unwrap())
+        .get(server.url.join(path).unwrap())
         .send()
         .await
         .unwrap();
     assert_eq!(response.status(), 401);
     assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn embedded_conversation_uses_delegated_scope_and_preserves_paging(
+    #[future(awt)] database: Database,
+) {
+    let reader = Reader {
+        conversation_found: true,
+        ..Reader::default()
+    };
+    let server = serve(&database, reader.clone()).await;
+    let token = identity::delegated(Identity {
+        user_id: Some("user-a".into()),
+        user_role: Role::InternalUser,
+        log_team_ids: vec!["team-a".into()],
+        ..Identity::default()
+    });
+    let response = server
+        .client
+        .get(
+            server
+                .url
+                .join("/lens/traces/id/conversation?trace_ref=ref%2Bone&cursor=next&page_size=3")
+                .unwrap(),
+        )
+        .bearer_auth(token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"turns":[],"next_cursor":"following"})
+    );
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert!(!calls[0].scope.all_teams);
+    assert_eq!(calls[0].scope.user_id, "user-a");
+    assert_eq!(calls[0].scope.team_ids, ["team-a"]);
+    assert_eq!(
+        calls[0].parameters,
+        json!({"trace_id":"id","trace_ref":"ref+one","cursor":"next","page_size":3})
+    );
 }
 
 #[rstest]

@@ -54,7 +54,9 @@ docker compose -f deploy/lens/compose.yaml up -d --wait
 
 Open **Alerts > Signals**, choose `signals`, select the questions to evaluate and save. Run your agent and open its trace to check the resulting flags. Provider calls can incur charges and include captured trace content
 
-The threshold controls which scores appear as flags. Ask for one observable condition at a time. Specify what counts as evidence, which near misses to exclude, and whether a recovered attempt should count. Review known matching and non-matching traces with the judge and threshold you plan to use before enabling Slack delivery
+The threshold controls which scores appear as flags. New configurations start at 95%. This starting point was tested on synthetic traces with a chat judge; check known matching and non-matching traces with your own judge before enabling Slack delivery
+
+Saved questions and thresholds do not change on upgrade. To adopt a revised built-in question, remove the previous question, select the built-in again, and save. When writing a custom question, ask for one observable condition and say which near misses to exclude
 
 Click a signal in the trace list or run header to open the step containing its supporting text. Lens highlights the exact captured passage as a **Flagged excerpt**, so you can inspect what the classifier used to locate the issue
 
@@ -92,7 +94,9 @@ In **Alerts**, save your model and Signal questions, then choose **Set up alerti
 
 Create an incoming webhook in your [Slack app settings](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/): enable **Incoming Webhooks**, choose **Add New Webhook to Workspace**, and select the channel. Paste the resulting URL into **Slack webhook URL** in Lens. The URL contains a secret; keep it out of source control and shared messages
 
-Select the signals, choose **Send test alert**, and check the Slack channel. A successful test does not enable alerts. Choose **Save alert settings** with **Enable alerts** checked to start receiving matches. Set `LENS_PUBLIC_URL` to the Lens address your teammates can open so alert links reach the correct deployment
+Select the signals, choose **Send test alert**, and check the Slack channel. A successful test does not enable alerts. Choose **Save alert settings** with **Enable alerts** checked to start receiving matches
+
+Alert links open the standalone Lens UI at `/ui/` on `LENS_PUBLIC_URL` by default. To open Lens inside the Gateway instead, set `LENS_SIGNAL_ALERTS_UI_URL` on the Lens service to the full page URL, for example `https://gateway.example.com/ui/lens/`, and restart Lens. This changes alert links only; recipients still need permission to view the trace
 
 Alerts use your saved signal threshold across all agents and teams. Each message includes the signal name, score, and a link to the trace, without captured prompts or responses. Inspect the trace to confirm a detection. A prompt injection signal reports a model judgment after classification; it does not block the original request
 

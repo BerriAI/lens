@@ -18,6 +18,7 @@ pub struct Config {
     pub query_secret: String,
     pub ingestion_url: String,
     pub public_url: url::Url,
+    pub signal_alerts_ui_url: url::Url,
     pub release: String,
     pub analysis_models: Vec<lens_analysis::Deployment>,
     pub evaluation_models: Vec<lens_decisions::Deployment>,
@@ -75,6 +76,24 @@ impl Config {
         }
         let admin_token = required(&read, "LENS_ADMIN_TOKEN")?;
         let public_url = read("LENS_PUBLIC_URL").unwrap_or_else(|| "http://localhost:4318".into());
+        let parsed_public_url =
+            url::Url::parse(&public_url).map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?;
+        let signal_alerts_ui_url = match read("LENS_SIGNAL_ALERTS_UI_URL") {
+            Some(value) if !value.trim().is_empty() => url::Url::parse(value.trim())
+                .ok()
+                .filter(|url| {
+                    matches!(url.scheme(), "http" | "https")
+                        && url.host_str().is_some()
+                        && url.username().is_empty()
+                        && url.password().is_none()
+                        && url.query().is_none()
+                        && url.fragment().is_none()
+                })
+                .ok_or(Error::Configuration("LENS_SIGNAL_ALERTS_UI_URL"))?,
+            _ => parsed_public_url
+                .join("/ui/")
+                .map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?,
+        };
         let ingestion_url = read("LITELLM_LENS_PUBLIC_URL").unwrap_or_else(|| public_url.clone());
         let parsed = url::Url::parse(&ingestion_url)
             .map_err(|_| Error::Configuration("LITELLM_LENS_PUBLIC_URL"))?;
@@ -164,9 +183,8 @@ impl Config {
                 .map(PathBuf::from),
             query_secret: admin_token,
             ingestion_url: ingestion_url.trim_end_matches('/').into(),
-            public_url: public_url
-                .parse()
-                .map_err(|_| Error::Configuration("LENS_PUBLIC_URL"))?,
+            public_url: parsed_public_url,
+            signal_alerts_ui_url,
             release,
             storage: StorageConfig::new(
                 read("CLICKHOUSE_DATABASE").unwrap_or_else(|| "lens".into()),
@@ -412,8 +430,41 @@ mod tests {
         assert_eq!(config.address.to_string(), "0.0.0.0:4318");
         assert_eq!(config.query_secret, standalone["LENS_ADMIN_TOKEN"]);
         assert_eq!(config.ingestion_url, "http://localhost:4318");
+        assert_eq!(
+            config.signal_alerts_ui_url.as_str(),
+            "http://localhost:4318/ui/"
+        );
         assert_eq!(config.release, env!("CARGO_PKG_VERSION"));
         assert!(config.github.is_none());
+    }
+
+    #[rstest]
+    #[case::embedded("https://gateway.example.test/prefix/ui/lens/", true)]
+    #[case::relative("/ui/lens/", false)]
+    #[case::credentials("https://user:password@gateway.example.test/ui/lens/", false)]
+    #[case::query("https://gateway.example.test/ui/lens/?trace=obsolete", false)]
+    fn signal_alert_destination_uses_a_public_ui_url(
+        standalone: BTreeMap<&str, &str>,
+        #[case] setting: &str,
+        #[case] valid: bool,
+    ) {
+        let result = Config::read(|key| {
+            if key == "LENS_SIGNAL_ALERTS_UI_URL" {
+                Some(setting.to_string())
+            } else {
+                standalone.get(key).map(|value| value.to_string())
+            }
+        });
+        if valid {
+            let config = result.unwrap();
+            assert_eq!(config.signal_alerts_ui_url.as_str(), setting);
+            assert_eq!(config.public_url.as_str(), "http://localhost:4318/");
+        } else {
+            assert!(matches!(
+                result,
+                Err(Error::Configuration("LENS_SIGNAL_ALERTS_UI_URL"))
+            ));
+        }
     }
 
     #[rstest]

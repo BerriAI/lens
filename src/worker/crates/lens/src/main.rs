@@ -121,7 +121,7 @@ async fn run() -> Result<(), litellm_lens::Error> {
         evals,
     )
     .await?
-    .with_signal_alerts(&config.query_secret, config.public_url.clone())?
+    .with_signal_alerts(&config.query_secret, config.signal_alerts_ui_url)?
     .with_github(
         config.github,
         config.public_url.clone(),

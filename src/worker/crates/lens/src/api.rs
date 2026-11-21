@@ -36,9 +36,9 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn with_signal_alerts(mut self, seed: &str, public_url: url::Url) -> Result<Self, Error> {
+    pub fn with_signal_alerts(mut self, seed: &str, ui_url: url::Url) -> Result<Self, Error> {
         let alerts =
-            crate::signal_alerts::SignalAlerts::new(self.authentication.clone(), seed, public_url)?;
+            crate::signal_alerts::SignalAlerts::new(self.authentication.clone(), seed, ui_url)?;
         self.router = self.router.merge(alerts.router());
         self.signal_alerts = Some(alerts);
         Ok(self)

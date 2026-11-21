@@ -12,6 +12,7 @@ import { createOptimizationStore } from "./demoOptimizations";
 import { catalog } from "../../optimizations/model";
 import type { DemoStorage } from "./storage";
 import { demoEvalsApi } from "./demoEvals";
+import { DEFAULT_SIGNAL_THRESHOLD } from "../../model/signals";
 import type { SignalConfig } from "../../model/types";
 import { demoProfilesApi } from "./demoProfiles";
 
@@ -28,7 +29,7 @@ function demoLensApi(data: LensDemoData, storage?: DemoStorage): LensApi {
   const datasets = demoDatasetsApi(data, () => new Date(), storage);
   let signalConfig: SignalConfig = {
     model: "gpt-6-luna",
-    threshold: 0.5,
+    threshold: DEFAULT_SIGNAL_THRESHOLD,
     signals: [],
   };
   const gateway = () => ({

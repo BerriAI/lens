@@ -6,7 +6,7 @@ use rstest::rstest;
 use serde_json::{Value, json};
 
 #[rstest]
-fn defaults_match_recorded_python_configuration() {
+fn defaults_match_the_signal_config_fixture() {
     let recorded: Value =
         serde_json::from_str(include_str!("fixtures/signals_default.json")).unwrap();
     assert_eq!(

@@ -25,7 +25,7 @@ const eventName = (event: {
 }): string => event.semantic_event_name || event.event_name || "Unnamed event";
 
 const dateFor = (timestampNs: string): Date =>
-  new Date(Number(BigInt(timestampNs) / 1_000_000n));
+  new Date(Number(BigInt(timestampNs) / BigInt(1_000_000)));
 
 function CodexEvent({ record }: { record: OtelLogRecord }) {
   const codex = record.codex;

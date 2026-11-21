@@ -1,5 +1,5 @@
 import type { SignalConfig } from "../../model/types";
-import { SIGNAL_LIBRARY } from "../../model/signals";
+import { DEFAULT_SIGNAL_THRESHOLD, SIGNAL_LIBRARY } from "../../model/signals";
 
 const MAX_ID = 64;
 
@@ -29,7 +29,7 @@ export interface DraftProblems {
 
 export const draftFrom = (config: SignalConfig): SignalDraft => ({
   model: config.model ?? "",
-  thresholdPercent: Math.round((config.threshold ?? 0.5) * 100),
+  thresholdPercent: Math.round((config.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100),
   rows: (config.signals ?? []).map((signal) => ({
     key: signal.id,
     id: signal.id,
