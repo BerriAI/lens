@@ -110,7 +110,17 @@ impl Database {
     }
 
     pub async fn serve_with_gateway(&self, gateway: Option<&str>) -> Server {
-        self.serve_settings(false, gateway, lens_server::sessions::router_with_auth)
+        self.serve_settings(
+            false,
+            Some(SECRET),
+            gateway,
+            lens_server::sessions::router_with_auth,
+        )
+        .await
+    }
+
+    pub async fn serve_standalone(&self) -> Server {
+        self.serve_settings(false, None, None, lens_server::sessions::router_with_auth)
             .await
     }
 
@@ -119,12 +129,14 @@ impl Database {
         secure: bool,
         router: impl FnOnce(Arc<Authentication<Sessions>>) -> axum::Router,
     ) -> Server {
-        self.serve_settings(secure, None, router).await
+        self.serve_settings(secure, Some(SECRET), None, router)
+            .await
     }
 
     async fn serve_settings(
         &self,
         secure: bool,
+        secret: Option<&str>,
         gateway: Option<&str>,
         router: impl FnOnce(Arc<Authentication<Sessions>>) -> axum::Router,
     ) -> Server {
@@ -137,7 +149,7 @@ impl Database {
         } else {
             url.as_str()
         };
-        let settings = Settings::new(ADMIN, Some(SECRET.to_owned()), origin).unwrap();
+        let settings = Settings::new(ADMIN, secret.map(str::to_owned), origin).unwrap();
         let auth = Authentication {
             settings: match gateway {
                 Some(gateway) => settings.with_gateway_login(gateway).unwrap(),

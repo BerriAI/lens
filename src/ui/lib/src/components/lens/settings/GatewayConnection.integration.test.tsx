@@ -208,6 +208,23 @@ describe("Gateway connection", () => {
     },
   );
 
+  it("should say models need a key when the gateway is connected for login only", async () => {
+    const gateway = stubGateway();
+    gateway.get.mockReturnValue({
+      ...connected,
+      configured: false,
+      connected: false,
+      login_connected: true,
+      api_base: null,
+      last_refreshed: null,
+      analysis_models: 0,
+      evaluation_models: 0,
+    });
+    renderWithLens(<GatewayConnection />);
+    expect(await screen.findByText("Connected for login, add a key for models")).toBeVisible();
+    expect(screen.queryByText("No model gateway configured")).not.toBeInTheDocument();
+  });
+
   it("should explain server setup when the optional gateway is unconfigured", async () => {
     const gateway = stubGateway();
     gateway.get.mockReturnValue({

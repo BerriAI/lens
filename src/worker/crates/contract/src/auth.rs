@@ -54,3 +54,19 @@ pub struct SessionRequest {
 pub struct SignInMethods {
     pub litellm_login_url: Option<String>,
 }
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GatewayConnectRequest {
+    pub token: String,
+    pub gateway_url: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GatewayConnected {
+    pub litellm_login_url: String,
+    pub gateway_environment: Vec<String>,
+}

@@ -18,6 +18,8 @@ use lens_investigations::WorkerRepository;
 use lens_server::models::ModelCatalog;
 use sha2::{Digest, Sha256};
 
+const GATEWAY_RELOAD: std::time::Duration = std::time::Duration::from_secs(30);
+
 pub struct EvalConfig {
     pub public_url: String,
     pub judge: GatewayJudge,
@@ -90,6 +92,11 @@ impl Application {
         models: crate::gateway::Models,
         seed: &str,
     ) -> Result<Self, Error> {
+        let authentication = self.authentication.clone();
+        let models = models.connected_by(move || {
+            let (base, key) = authentication.settings.connected_model_gateway()?;
+            crate::gateway::GatewayConfig::new(&base, key).ok()
+        });
         models.refresh().await;
         self.optimizations.configure(&models)?;
         let signals = crate::signals::SignalsWorker {
@@ -178,6 +185,23 @@ impl Application {
     }
 
     pub fn with_service(self, state: Arc<State>, url: String, release: String) -> Self {
+        let authentication = self.authentication.clone();
+        state.service_token_connected_by(move || authentication.settings.connected_service_token());
+        if !self.authentication.settings.gateway_set_by_environment() {
+            let authentication = self.authentication.clone();
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval_at(
+                    tokio::time::Instant::now() + GATEWAY_RELOAD,
+                    GATEWAY_RELOAD,
+                );
+                loop {
+                    tick.tick().await;
+                    if authentication.refresh_gateway().await.is_err() {
+                        tracing::warn!("Lens could not reload the connected gateway; retrying");
+                    }
+                }
+            });
+        }
         let router = self.router.merge(lens_server::service::router(
             self.authentication.clone(),
             LocalService {
@@ -242,6 +266,7 @@ pub async fn initialize(
         settings,
         sessions: Sessions(store.clone()),
     });
+    authentication.refresh_gateway().await?;
     let traces_reader = EvalTraces::new(state.storage.client.clone(), connection.reader().clone());
     let optimizations = crate::optimizations::Optimizations::new(state.clone(), store.clone());
     let eval_runtime = EvalRuntime::new(

@@ -15,6 +15,8 @@ use std::sync::Arc;
 pub struct GatewayStatus {
     pub configured: bool,
     pub connected: bool,
+    #[serde(default)]
+    pub login_connected: bool,
     pub api_base: Option<String>,
     pub evaluation_models: usize,
     pub analysis_models: usize,
@@ -130,13 +132,27 @@ async fn groups<R: SessionRepository, M: ModelCatalog>(
     }))
 }
 
+fn with_login<R: SessionRepository, M>(
+    app: &App<R, M>,
+    mut status: GatewayStatus,
+) -> GatewayStatus {
+    status.login_connected = app.authentication.settings.gateway_login_url().is_some();
+    status
+}
+
 async fn gateway<R: SessionRepository, M: ModelCatalog>(
     State(app): State<Arc<App<R, M>>>,
     headers: HeaderMap,
     method: Method,
 ) -> Result<Json<GatewayStatus>, InvestigationError> {
     authorize(&app, &headers, &method).await?;
-    Ok(Json(app.models.gateway()))
+    let status = app.models.gateway();
+    let status = if status.configured && !status.connected && status.error.is_none() {
+        app.models.refresh().await
+    } else {
+        status
+    };
+    Ok(Json(with_login(&app, status)))
 }
 
 async fn refresh<R: SessionRepository, M: ModelCatalog>(
@@ -147,5 +163,5 @@ async fn refresh<R: SessionRepository, M: ModelCatalog>(
     if authorize(&app, &headers, &method).await? != Role::ProxyAdmin {
         return Err(InvestigationError::ForbiddenWrite);
     }
-    Ok(Json(app.models.refresh().await))
+    Ok(Json(with_login(&app, app.models.refresh().await)))
 }

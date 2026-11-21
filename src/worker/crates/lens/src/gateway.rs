@@ -61,13 +61,18 @@ struct Snapshot {
 
 struct Registry {
     snapshot: RwLock<Arc<Snapshot>>,
+    configured: Arc<Snapshot>,
     refresh: Mutex<()>,
     client: reqwest::Client,
     connection: Option<GatewayConfig>,
+    connected: RwLock<Option<Connected>>,
+    attempted: RwLock<Option<(String, String)>>,
     signing: Option<lens_inference::GatewayBase>,
     analysis: Vec<lens_analysis::Deployment>,
     evaluation: Vec<lens_decisions::Deployment>,
 }
+
+type Connected = Arc<dyn Fn() -> Option<GatewayConfig> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Models(Arc<Registry>);
@@ -76,9 +81,7 @@ impl Models {
     pub(crate) fn optimization_config(
         &self,
     ) -> Option<(GatewayConfig, Option<lens_inference::GatewayBase>)> {
-        self.0
-            .connection
-            .clone()
+        self.connection()
             .map(|connection| (connection, self.0.signing.clone()))
     }
     pub fn new(
@@ -102,16 +105,20 @@ impl Models {
             .retry(reqwest::retry::never())
             .timeout(Duration::from_secs(10))
             .build()?;
+        let configured = Arc::new(Snapshot {
+            analysis: analysis_models,
+            evaluation: evaluation_models,
+            embedding: Arc::default(),
+            status,
+        });
         Ok(Self(Arc::new(Registry {
-            snapshot: RwLock::new(Arc::new(Snapshot {
-                analysis: analysis_models,
-                evaluation: evaluation_models,
-                embedding: Arc::default(),
-                status,
-            })),
+            snapshot: RwLock::new(configured.clone()),
+            configured,
             refresh: Mutex::new(()),
             client,
             connection,
+            connected: RwLock::new(None),
+            attempted: RwLock::new(None),
             signing,
             analysis,
             evaluation,
@@ -119,6 +126,15 @@ impl Models {
     }
 
     fn snapshot(&self) -> Arc<Snapshot> {
+        let attempted = self
+            .0
+            .attempted
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if attempted.is_some() && attempted != self.connection().as_ref().map(attempt) {
+            return self.0.configured.clone();
+        }
         self.0
             .snapshot
             .read()
@@ -127,7 +143,27 @@ impl Models {
     }
 
     pub(crate) fn connection(&self) -> Option<GatewayConfig> {
-        self.0.connection.clone()
+        self.0.connection.clone().or_else(|| {
+            let connected = self
+                .0
+                .connected
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            connected.and_then(|connected| connected())
+        })
+    }
+
+    pub fn connected_by(
+        self,
+        connected: impl Fn() -> Option<GatewayConfig> + Send + Sync + 'static,
+    ) -> Self {
+        *self
+            .0
+            .connected
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Arc::new(connected));
+        self
     }
 
     pub(crate) fn client(&self) -> reqwest::Client {
@@ -193,10 +229,28 @@ impl ModelCatalog for Models {
             .collect()
     }
     fn gateway(&self) -> GatewayStatus {
-        self.snapshot().status.clone()
+        let mut status = self.snapshot().status.clone();
+        let connection = self.connection();
+        let attempted = self
+            .0
+            .attempted
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if attempted != connection.as_ref().map(attempt) {
+            status.connected = false;
+            status.analysis_models = 0;
+            status.evaluation_models = 0;
+            status.error = None;
+            status.last_refreshed = None;
+        }
+        status.configured = connection.is_some();
+        status.api_base = connection
+            .map(|connection| connection.base.to_string().trim_end_matches('/').to_owned());
+        status
     }
     async fn refresh(&self) -> GatewayStatus {
-        let Some(connection) = &self.0.connection else {
+        let Some(connection) = &self.connection() else {
             return self.gateway();
         };
         let _refresh = self.0.refresh.lock().await;
@@ -215,14 +269,22 @@ impl ModelCatalog for Models {
                 }
             }
         };
-        let status = snapshot.status.clone();
         *self
             .0
             .snapshot
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(snapshot);
-        status
+        *self
+            .0
+            .attempted
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(attempt(connection));
+        self.gateway()
     }
+}
+
+fn attempt(connection: &GatewayConfig) -> (String, String) {
+    (connection.base.to_string(), connection.key.clone())
 }
 
 fn compile(
@@ -260,7 +322,7 @@ pub enum AnalysisSource {
 
 impl AnalysisSource {
     pub(crate) fn refreshes(&self) -> bool {
-        matches!(self, Self::Connected(models) if models.0.connection.is_some())
+        matches!(self, Self::Connected(models) if models.connection().is_some())
     }
 
     pub fn get(&self) -> Arc<AnalysisModels> {

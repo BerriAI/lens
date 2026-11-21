@@ -377,7 +377,10 @@ impl IntoResponse for SessionError {
                 let status = match &error {
                     Error::Unauthorized(_) => StatusCode::UNAUTHORIZED,
                     Error::OriginMismatch => StatusCode::FORBIDDEN,
-                    Error::Store(StoreError::Conflict) => StatusCode::CONFLICT,
+                    Error::Store(StoreError::Conflict) | Error::GatewayLocked => {
+                        StatusCode::CONFLICT
+                    }
+                    Error::InvalidGateway => StatusCode::UNPROCESSABLE_ENTITY,
                     Error::Store(StoreError::Unavailable(_)) | Error::Configuration(_) => {
                         StatusCode::SERVICE_UNAVAILABLE
                     }

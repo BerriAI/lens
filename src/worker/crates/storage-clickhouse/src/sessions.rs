@@ -33,6 +33,8 @@ fn login_key(login: &SessionId) -> String {
     format!("login/%5B%22{}%22%5D", login.as_str())
 }
 
+const GATEWAY_KEY: &str = "auth/gateway";
+
 fn failure(error: Error) -> StoreError {
     match error {
         Error::StateConflict | Error::StateExists => StoreError::Conflict,
@@ -93,5 +95,24 @@ impl SessionRepository for Sessions {
             .commit(vec![Change { previous, value }])
             .await
             .map_err(failure)
+    }
+    async fn save_gateway(&self, gateway: &lens_auth::GatewayConnection) -> Result<(), StoreError> {
+        let value = serde_json::to_value(gateway)
+            .map_err(|error| StoreError::Unavailable(Box::new(error)))?;
+        self.0
+            .update(GATEWAY_KEY, |_| value.clone(), 40)
+            .await
+            .map_err(failure)?;
+        Ok(())
+    }
+
+    async fn gateway(&self) -> Result<Option<lens_auth::GatewayConnection>, StoreError> {
+        let stored = self.0.read(GATEWAY_KEY).await.map_err(failure)?;
+        if stored.value.is_null() {
+            return Ok(None);
+        }
+        serde_json::from_value(stored.value)
+            .map(Some)
+            .map_err(|error| StoreError::Unavailable(Box::new(error)))
     }
 }

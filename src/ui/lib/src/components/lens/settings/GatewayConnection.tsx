@@ -47,7 +47,9 @@ export function GatewayConnection() {
                   ? "Connected to LiteLLM"
                   : status?.configured
                     ? "Gateway is not connected"
-                    : "No model gateway configured"}
+                    : status?.login_connected
+                      ? "Connected for login, add a key for models"
+                      : "No model gateway configured"}
           </p>
           {status?.configured && !readOnly && canInvestigate && (
             <Button variant="outline" size="sm" disabled={busy} onClick={() => refresh.mutate()}>

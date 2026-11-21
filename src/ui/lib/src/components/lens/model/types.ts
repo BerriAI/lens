@@ -68,6 +68,7 @@ export interface AnalysisModelInfo {
 export interface GatewayStatus {
   readonly configured: boolean;
   readonly connected: boolean;
+  readonly login_connected?: boolean;
   readonly api_base: string | null;
   readonly analysis_models: number;
   readonly evaluation_models: number;
