@@ -13,6 +13,7 @@ import {
 } from "../../ui/dialog";
 import { DurationInput } from "../../shared/DurationInput";
 import { type Settings } from "../model/types";
+import { traceSettings } from "./investigationSchema";
 
 const monitoringSchema = z.object({
   interval_minutes: z.number().int().min(1),
@@ -38,7 +39,7 @@ export function MonitoringDialog({
   const save = form.handleSubmit(async ({ interval_minutes }) => {
     setError("");
     try {
-      await onSave({ ...settings, enabled: true, interval_minutes });
+      await onSave({ ...traceSettings(settings), enabled: true, interval_minutes });
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not enable monitoring");

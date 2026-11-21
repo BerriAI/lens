@@ -327,7 +327,10 @@ fn sample_parameters(
         start: request.start,
         end: request.end,
         agent_name: settings.agent_name.clone(),
-        service: settings.service.clone(),
+        service: match settings.source {
+            LensSettingsSource::Requests => String::new(),
+            LensSettingsSource::Traces | LensSettingsSource::Both => settings.service.clone(),
+        },
         filter_keys: settings
             .filters
             .iter()
@@ -539,6 +542,37 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[rstest]
+    #[case::requests("requests", "")]
+    #[case::both("both", "checkout")]
+    #[case::traces("traces", "checkout")]
+    fn a_stored_request_investigation_samples_traces_without_its_model_group(
+        #[case] source: &str,
+        #[case] service: &str,
+    ) {
+        let selection: ActivitySelection =
+            serde_json::from_value(json!({"source":source,"service":"checkout"})).unwrap();
+        let parameters = sample_parameters(
+            &Scope {
+                all_teams: true,
+                team_id: String::new(),
+                api_key_hash: String::new(),
+            },
+            &SampleRequest {
+                selection: &selection,
+                start: 10,
+                end: 20,
+                offset: 0,
+                page_size: 40,
+                preview: false,
+                cursor: "",
+            },
+        )
+        .unwrap();
+        assert!(matches!(parameters.source, lens::ExecutionSource::Traces));
+        assert_eq!(parameters.service, service);
     }
 
     #[rstest]

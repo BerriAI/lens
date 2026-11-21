@@ -184,10 +184,14 @@ export const investigationStepFields: Readonly<Record<SetupStep, readonly Invest
   run: fields.filter((field) => stepOfField[field] === "run"),
 };
 
+export function traceSettings(settings: Settings): Settings {
+  return { ...settings, source: "traces", service: settings.source === "requests" ? "" : settings.service };
+}
+
 function activitySelectionDefaults(initial: Settings | undefined): InvestigationInput["selection"] {
   return {
     source: "traces",
-    service: initial?.service ?? "",
+    service: (initial && traceSettings(initial).service) ?? "",
     agent_name: initial?.agent_name ?? "",
     profile: initial?.profile ?? undefined,
     filters: initial?.filters ?? [],

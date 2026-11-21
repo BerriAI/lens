@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  traceSettings,
   investigationDefaults,
   investigationSchema,
   investigationSettings,
@@ -140,6 +141,17 @@ describe("investigation validation", () => {
       }
     },
   );
+
+  it.each([
+    ["requests", ""],
+    ["both", "checkout"],
+    ["traces", "checkout"],
+  ] as const)("saves a stored %s investigation as traces with application %j", (source, service) => {
+    const saved = investigationSettings(investigationSchema.parse(defaults), undefined, "analysis");
+    const stored = { ...saved, source, service: "checkout" };
+    expect(traceSettings(stored)).toEqual({ ...stored, source: "traces", service });
+    expect(investigationDefaults(stored, "edit").selection.service).toBe(service);
+  });
 
   it("rejects a request source in the setup form", () => {
     const input = investigationDefaults(undefined, "new");
