@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
 
 mod content;
-pub use content::{ContentGateway, Hydrated};
+pub use content::ContentGateway;
 mod tracing;
 pub use tracing::TraceApi;
 mod feedback;
