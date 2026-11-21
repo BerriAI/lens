@@ -155,13 +155,12 @@ const primaryButton =
   "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground";
 
 function LiteLlmLogo() {
+  const mask = `url(${litellmMonogram.src}) center / contain no-repeat`;
   return (
     <span
       aria-hidden
       className="size-5 shrink-0 bg-current"
-      style={{
-        mask: `url(${litellmMonogram.src}) center / contain no-repeat`,
-      }}
+      style={{ mask, WebkitMask: mask }}
     />
   );
 }
