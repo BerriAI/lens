@@ -29,6 +29,10 @@ describe("signal drafts", () => {
     expect(configFrom(draftFrom(saved))).toEqual(saved);
   });
 
+  it("uses the default threshold when the config has no saved value", () => {
+    expect(configFrom(draftFrom({ model: "", signals: [] })).threshold).toBe(0.95);
+  });
+
   it("keeps saved IDs on rename and derives unique IDs for new signals", () => {
     const rows = [
       { ...draftFrom(saved).rows[0], name: "Annoyed user" },

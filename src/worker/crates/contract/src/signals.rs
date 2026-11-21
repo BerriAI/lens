@@ -42,14 +42,14 @@ impl Default for SignalConfig {
 }
 
 fn default_threshold() -> f64 {
-    0.5
+    0.95
 }
 
 fn default_signals() -> Vec<Signal> {
     [
-        ("user_frustration", "User frustration", "Does the user show frustration, annoyance or dissatisfaction with the agent in this run, for example complaints, irritated corrections, all caps, profanity, or giving up on the task?"),
-        ("missing_capability", "Missing capability", "Does the user ask for something the agent cannot do in this run, so that the agent refuses, says it lacks a tool, permission, integration or data source, or fails because the capability does not exist?"),
-        ("repeated_request", "Repeated request", "Does the user ask for the same thing more than once in this run, usually because the agent did not deliver it the first time?"),
+        ("user_frustration", "User frustration", "Does the user show frustration, annoyance or dissatisfaction with the agent in this run, for example complaints, irritated corrections, all caps, profanity, or giving up on the task? Count actual dissatisfaction expressed by this user about the agent or its service, including dry sarcasm or giving up because of the agent. Capitalization, neutral corrections, quoted complaints, and anger about outside events or one's own mistakes are not sufficient. A later successful answer does not erase a real complaint."),
+        ("missing_capability", "Missing capability", "Does this run show a required action blocked by an absent capability: no integration, no required tool or dataset, or a standing permission limit that remains at the end? Require direct evidence that the needed facility does not exist or is disabled for this agent. A tool returning an error, denial, stale row, or empty field on one call is not enough: the capability exists and the operation or data failed. A clearly separate required facility can still be absent. Also exclude missing input, policy refusals, temporary or resolved limits, and cases where an accepted alternative completes the required action."),
+        ("repeated_request", "Repeated request", "Did the user make the same concrete request in two distinct live user turns? Count an explicit retry or rephrasing that still seeks the same requested result, including after access was restored. Supplying a missing field, reporting that access is restored, or consenting to a proposed next step is not by itself another request. A change of target, a new follow-up, or reformatting a result already delivered as requested is not repetition. Quoted dialogue, duplicated history pasted into later model inputs, and automatic tool retries do not add user turns."),
     ]
     .into_iter()
     .map(|(id, name, question)| Signal { id: id.into(), name: name.into(), question: question.into() })
@@ -109,6 +109,17 @@ pub struct TraceSignals {
     pub model: String,
     #[serde(default)]
     pub classified_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub struct SignalOverview {
+    pub since: DateTime<Utc>,
+    pub limit: u32,
+    pub truncated: bool,
+    pub evaluated: u32,
+    pub failed: u32,
+    pub partial: u32,
+    pub matches: Vec<TraceSignals>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]

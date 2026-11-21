@@ -53,7 +53,7 @@ describe("signal settings", () => {
 
   it("updates a clean draft when saved settings change", async () => {
     const { rerender } = renderWithLens(<SignalForm saved={saved} />);
-    const model = await screen.findByRole("combobox", { name: "System 1 model" });
+    const model = await screen.findByRole("combobox", { name: "Evaluation model" });
 
     expect(model).toHaveValue("jev");
     rerender(<SignalForm saved={updated} />);
@@ -65,7 +65,7 @@ describe("signal settings", () => {
   it("keeps dirty edits until the user loads the latest settings", async () => {
     const user = userEvent.setup();
     const { rerender } = renderWithLens(<SignalForm saved={saved} />);
-    const threshold = await screen.findByRole("spinbutton", { name: "Flag at score" });
+    const threshold = await screen.findByRole("spinbutton", { name: "Match threshold" });
 
     fireEvent.change(threshold, { target: { value: "70" } });
     rerender(<SignalForm saved={updated} />);
@@ -89,8 +89,8 @@ describe("signal settings", () => {
     renderWithLens(<SignalForm saved={customConfig} />);
 
     const question = await screen.findByRole("textbox", { name: "Question for Tool failure" });
-    const model = await screen.findByRole("combobox", { name: "System 1 model" });
-    const threshold = screen.getByRole("spinbutton", { name: "Flag at score" });
+    const model = await screen.findByRole("combobox", { name: "Evaluation model" });
+    const threshold = screen.getByRole("spinbutton", { name: "Match threshold" });
     expect(question).toHaveValue(customQuestion);
     expect(screen.getByRole("button", { name: /^Tool failure/ })).toHaveAttribute("aria-pressed", "false");
     expect(model).toHaveValue("jev");
@@ -141,11 +141,11 @@ describe("signal settings", () => {
     network.mockImplementation(async () => Response.json({ detail: "Model discovery unavailable" }, { status: 503 }));
     renderWithLens(<SignalForm saved={saved} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not load System 1 models: Model discovery unavailable",
+      "Could not load evaluation models: Model discovery unavailable",
     );
-    expect(screen.queryByText("Choose a System 1 model to start flagging traces")).not.toBeInTheDocument();
-    const model = screen.getByRole("combobox", { name: "System 1 model" });
-    const threshold = screen.getByRole("spinbutton", { name: "Flag at score" });
+    expect(screen.queryByText("Choose a model to start checking traces")).not.toBeInTheDocument();
+    const model = screen.getByRole("combobox", { name: "Evaluation model" });
+    const threshold = screen.getByRole("spinbutton", { name: "Match threshold" });
     act(() => fireEvent.change(threshold, { target: { value: "70" } }));
     expect(model).toHaveValue(saved.model);
     network.mockImplementation(async () =>
@@ -169,11 +169,11 @@ describe("signal settings", () => {
       }),
     );
     renderWithLens(<SignalForm saved={{ ...saved, model: "long-context-chat" }} />);
-    const threshold = await screen.findByRole("spinbutton", { name: "Flag at score" });
+    const threshold = await screen.findByRole("spinbutton", { name: "Match threshold" });
     await waitFor(() => expect(network).toHaveBeenCalled());
     act(() => fireEvent.change(threshold, { target: { value: "70" } }));
 
-    expect(screen.getByRole("combobox", { name: "System 1 model" })).toHaveValue("long-context-chat");
+    expect(screen.getByRole("combobox", { name: "Evaluation model" })).toHaveValue("long-context-chat");
     await waitFor(() => expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled());
     expect(screen.queryByText(/is not in the current model list/)).not.toBeInTheDocument();
   });
@@ -195,7 +195,7 @@ describe("signal settings", () => {
     );
     renderWithLens(<SignalForm saved={saved} />);
     expect(await screen.findByText("jev is not in the current model list. Your selection is kept.")).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "System 1 model" })).toHaveValue(saved.model);
+    expect(screen.getByRole("combobox", { name: "Evaluation model" })).toHaveValue(saved.model);
     expect(screen.getByRole("button", { name: "Save signals" })).toBeDisabled();
   });
 });

@@ -256,6 +256,14 @@ impl SignalRepository for Repository {
         }
         Ok(self.rows.clone())
     }
+    async fn recent_results(
+        &self,
+        _: &SignalConfig,
+        _: DateTime<Utc>,
+        _: u32,
+    ) -> Result<Vec<StoredTraceSignal>, RepositoryError> {
+        panic!("scheduler must not list recent results")
+    }
     async fn claim(
         &self,
         execution: &Execution,

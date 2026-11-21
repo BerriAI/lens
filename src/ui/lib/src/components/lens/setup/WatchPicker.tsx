@@ -147,7 +147,7 @@ export function WatchPicker({
               onFocus={() => setCursor(index)}
               onClick={() => toggle(watch.id)}
               className={cn(
-                "flex h-[5.25rem] flex-col justify-start gap-1 rounded-xl px-3.5 py-3 text-left outline-none transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.97]",
+                "flex min-h-[5.25rem] flex-col justify-start gap-1 rounded-xl px-3.5 py-3 text-left outline-none transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.97]",
                 "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:ring-[1.5px] data-[state=active]:ring-inset data-[state=active]:ring-foreground",
                 "data-[state=inactive]:bg-muted/60 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground",
               )}
@@ -158,7 +158,7 @@ export function WatchPicker({
                   viewBox="0 0 16 16"
                   aria-hidden="true"
                   data-state={on ? "active" : "inactive"}
-                  className="size-3 transition-all duration-200 data-[state=active]:scale-100 data-[state=active]:opacity-100 data-[state=inactive]:scale-50 data-[state=inactive]:opacity-0"
+                  className="size-3 shrink-0 transition-all duration-200 data-[state=active]:scale-100 data-[state=active]:opacity-100 data-[state=inactive]:scale-50 data-[state=inactive]:opacity-0"
                 >
                   <path
                     d="M3 8.5l3.2 3.2L13 5"
@@ -179,7 +179,7 @@ export function WatchPicker({
         type="button"
         onClick={onAddCustom}
         disabled={addDisabled}
-        className="flex h-11 w-full items-center gap-2.5 rounded-xl bg-muted/60 px-3.5 text-left text-sm outline-none transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="flex min-h-11 w-full flex-wrap items-center gap-2.5 rounded-xl bg-muted/60 px-3.5 py-2 text-left text-sm outline-none transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span
           aria-hidden="true"

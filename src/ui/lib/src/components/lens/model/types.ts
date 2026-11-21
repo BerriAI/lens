@@ -10,6 +10,7 @@ export type LensList = components["schemas"]["LensList"] & {
 };
 export type InvestigatorStatus = Wire.InvestigatorStatus;
 export type SignalConfig = components["schemas"]["SignalConfig"];
+export type SignalOverview = Wire.SignalOverview;
 export type SignalAlertView = Wire.SignalAlertView;
 export type SignalAlertRequest = Wire.SignalAlertRequest;
 export type SignalAlertTest = Wire.SignalAlertTest;

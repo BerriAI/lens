@@ -232,6 +232,10 @@ async fn reclassification_intervals_are_strict_and_reset_previous_result(
         .store(&execution, &config, lease, classified_at, &result)
         .await
         .unwrap();
+    let since = classified_at - Duration::seconds(1);
+    let recent = repository.recent_results(&config, since, 10).await.unwrap();
+    assert_eq!(recent.len(), 1);
+    assert_eq!(recent[0].classified_at, Some(classified_at));
     let next = Execution {
         span_count: if failed { 1 } else { 3 },
         ..execution
@@ -257,6 +261,41 @@ async fn reclassification_intervals_are_strict_and_reset_previous_result(
         rows[0].data,
         json!({"status":"pending","scores":{},"model":config.model,"error":""})
     );
+    assert!(
+        repository
+            .recent_results(&config, since, 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let finished_at = now + Duration::seconds(1);
+    let replacement: SignalAttempt =
+        serde_json::from_value(json!({"status":"classified","model":config.model})).unwrap();
+    repository
+        .store(&next, &config, new_lease, finished_at, &replacement)
+        .await
+        .unwrap();
+    let other = Execution {
+        trace_ref: "other-ref".into(),
+        ..next.clone()
+    };
+    assert!(
+        repository
+            .claim(&other, &config, lease, classified_at)
+            .await
+            .unwrap()
+    );
+    repository
+        .store(&other, &config, lease, classified_at, &result)
+        .await
+        .unwrap();
+    let recent = repository.recent_results(&config, since, 2).await.unwrap();
+    assert_eq!(recent.len(), 2);
+    assert_eq!(recent[0].trace_ref, next.trace_ref);
+    assert_eq!(recent[0].classified_at, Some(finished_at));
+    assert_eq!(recent[0].data, value(&replacement));
+    assert_eq!(recent[1].trace_ref, other.trace_ref);
 }
 
 #[rstest]

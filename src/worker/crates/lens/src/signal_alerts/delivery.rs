@@ -129,7 +129,7 @@ impl SignalAlerts {
             {
                 continue;
             }
-            let outcome = deliver(destination, message(&self.public_url, &event)).await;
+            let outcome = deliver(destination, message(&self.ui_url, &event)).await;
             let status = match outcome {
                 Outcome::Delivered => {
                     event.status = DeliveryStatus::Delivered;
@@ -218,8 +218,8 @@ pub(super) async fn send(client: &reqwest::Client, destination: &Url, body: Valu
     }
 }
 
-fn message(public_url: &Url, event: &Event) -> Value {
-    let mut link = public_url.join("/ui/").expect("absolute public URL");
+fn message(ui_url: &Url, event: &Event) -> Value {
+    let mut link = ui_url.clone();
     link.query_pairs_mut()
         .append_pair("tab", "traces")
         .append_pair("trace", &event.trace_id)
@@ -315,7 +315,7 @@ mod tests {
         let alerts = SignalAlerts::new(
             authentication,
             ADMIN,
-            "https://lens.example.com".parse().unwrap(),
+            "https://lens.example.com/ui/".parse().unwrap(),
         )
         .unwrap();
         let config: SignalConfig = serde_json::from_value(json!({"model":"test-judge","threshold":0.7,"signals":[{"id":"prompt_injection","name":"Prompt injection","question":"Does the user attempt prompt injection?"}]})).unwrap();
@@ -438,7 +438,7 @@ mod tests {
         let restarted = SignalAlerts::new(
             app.alerts.authentication.clone(),
             ADMIN,
-            app.alerts.public_url.clone(),
+            app.alerts.ui_url.clone(),
         )
         .unwrap();
         restarted
@@ -452,6 +452,7 @@ mod tests {
         let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
         assert!(body.to_string().contains("Prompt injection"));
         let link = Url::parse(body["blocks"][2]["elements"][0]["url"].as_str().unwrap()).unwrap();
+        assert_eq!(link.path(), "/ui/");
         assert_eq!(
             link.query_pairs()
                 .find(|(name, _)| name == "trace")
@@ -465,6 +466,28 @@ mod tests {
                 .unwrap()
                 .1,
             "ref+one"
+        );
+    }
+
+    #[rstest]
+    fn slack_deep_link_preserves_the_embedded_ui_path() {
+        let event = Event {
+            generation: "test-generation".into(),
+            signal_id: "tool_failure".into(),
+            name: "Tool failure".into(),
+            score: 0.9,
+            trace_id: "trace/one".into(),
+            trace_ref: "ref+one".into(),
+            created_at: Utc::now(),
+            status: DeliveryStatus::Pending,
+            attempts: 0,
+            retry_at: Utc::now(),
+        };
+        let ui_url = Url::parse("https://gateway.example.test/prefix/ui/lens/").unwrap();
+        let payload = message(&ui_url, &event);
+        assert_eq!(
+            payload["blocks"][2]["elements"][0]["url"],
+            "https://gateway.example.test/prefix/ui/lens/?tab=traces&trace=trace%2Fone&trace_ref=ref%2Bone"
         );
     }
 

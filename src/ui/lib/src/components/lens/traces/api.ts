@@ -129,7 +129,7 @@ export function liveTracesApi(accessToken: string): TracesApi {
     },
     trace: (traceId, traceRef, cursor) => agentTraceCall(accessToken, traceId, traceRef, cursor),
     conversation: (traceId, traceRef, cursor) =>
-      apiClient.get<TraceConversationPage>(`/v1/traces/${encodeURIComponent(traceId)}/conversation`, {
+      apiClient.get<TraceConversationPage>(`/lens/traces/${encodeURIComponent(traceId)}/conversation`, {
         accessToken,
         query: { trace_ref: traceRef, cursor: cursor ?? undefined } satisfies TraceConversationRequest,
       }),

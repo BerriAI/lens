@@ -10,6 +10,7 @@ export const LENS_TABS = {
   home: "Home",
   agents: "Agents",
   traces: "Traces",
+  alerts: "Alerts",
   profiles: "Profiles",
   findings: "Findings",
   investigations: "Investigations",
@@ -39,6 +40,13 @@ const ISSUE_PARSERS = { issue: parseAsString };
 const INBOX_PARSERS = {
   inbox_agent: parseAsString.withDefault("all"),
   priority: parseAsStringLiteral(["all", "high", "medium", "low"]).withDefault("all"),
+};
+
+const ALERT_PARSERS = {
+  alert_settings: parseAsStringLiteral(["signals", "slack"]),
+  alert_signal: parseAsString.withDefault(""),
+  alert_search: parseAsString.withDefault(""),
+  alert_hour: parseAsInteger,
 };
 
 const DATASET_PARSERS = {
@@ -113,6 +121,7 @@ const SESSION_PARSERS = {
   ...AGENT_LIST_PARSERS,
   ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
+  ...ALERT_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
   ...DATASET_PARSERS,
@@ -387,6 +396,21 @@ export function useInboxFilters() {
     priority,
     setAgent: (agent: string) => void setParams({ inbox_agent: agent }),
     setPriority: (priority: "all" | "high" | "medium" | "low") => void setParams({ priority }),
+  };
+}
+
+export function useAlertsRoute() {
+  const [{ alert_settings, alert_signal, alert_search, alert_hour }, setParams] = useQueryStates(ALERT_PARSERS);
+  return {
+    settings: alert_settings,
+    signal: alert_signal,
+    search: alert_search,
+    hour: alert_hour,
+    setSettings: (settings: "signals" | "slack" | null) => void setParams({ alert_settings: settings }, { history: "push" }),
+    setSignal: (signal: string) => void setParams({ alert_signal: signal }),
+    setSearch: (search: string) => void setParams({ alert_search: search }),
+    setHour: (hour: number | null) => void setParams({ alert_hour: hour }),
+    clearFilters: () => void setParams({ alert_signal: null, alert_search: null, alert_hour: null }),
   };
 }
 

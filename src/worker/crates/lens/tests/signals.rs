@@ -10,7 +10,7 @@ use activity::support::{ADMIN, Database, SECRET, database, delegated};
 use lens_auth::{Authentication, Settings};
 use lens_contract::{
     auth::{Identity, Role},
-    signals::{SignalAttempt, SignalAttemptStatus, SignalConfig},
+    signals::{SignalAttempt, SignalAttemptStatus, SignalConfig, SignalEvidence, SignalOverview},
     worker::{Execution, ExecutionSource},
 };
 use lens_signals::SignalRepository;
@@ -81,6 +81,130 @@ fn execution(id: &str, reference: &str) -> Execution {
     }
 }
 
+async fn overview(server: &Server) -> SignalOverview {
+    server
+        .client
+        .get(server.url.join("/lens/signals/overview").unwrap())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
+}
+
+async fn store_result(
+    repository: &Signals,
+    config: &SignalConfig,
+    reference: &str,
+    at: chrono::DateTime<chrono::Utc>,
+    attempt: &SignalAttempt,
+) {
+    let trace = execution("same", reference);
+    let until = at + chrono::TimeDelta::minutes(5);
+    assert!(repository.claim(&trace, config, until, at).await.unwrap());
+    repository
+        .store(&trace, config, until, at, attempt)
+        .await
+        .unwrap();
+}
+
+#[rstest]
+#[tokio::test]
+async fn overview_filters_current_results_and_never_returns_trace_quotes(
+    #[future(awt)] database: Database,
+) {
+    let server = serve(&database).await;
+    let config: SignalConfig = serde_json::from_value(json!({
+        "model": "evaluation", "threshold": 0.7, "signals": [
+            {"id": "example", "name": "Example", "question": "Did an incident occur?"}
+        ]
+    }))
+    .unwrap();
+    let repository = Signals(database.sessions.clone());
+    repository.save_config(&config).await.unwrap();
+    let now = chrono::Utc::now();
+    let matches = SignalAttempt {
+        status: SignalAttemptStatus::Classified,
+        partial: true,
+        model: config.model.clone(),
+        error: String::new(),
+        scores: BTreeMap::from([("example".into(), 0.8)]),
+        evidence: BTreeMap::from([(
+            "example".into(),
+            SignalEvidence {
+                span_id: "sample-span".into(),
+                quote: "Synthetic trace evidence".into(),
+            },
+        )]),
+        failure: None,
+    };
+    let clear = SignalAttempt {
+        scores: BTreeMap::from([("example".into(), 0.2)]),
+        partial: false,
+        evidence: BTreeMap::new(),
+        ..matches.clone()
+    };
+    let failed = SignalAttempt {
+        status: SignalAttemptStatus::Failed,
+        scores: BTreeMap::new(),
+        ..clear.clone()
+    };
+
+    store_result(&repository, &config, "match", now, &matches).await;
+    store_result(&repository, &config, "clear", now, &clear).await;
+    store_result(&repository, &config, "failed", now, &failed).await;
+    store_result(
+        &repository,
+        &config,
+        "old",
+        now - chrono::TimeDelta::hours(25),
+        &matches,
+    )
+    .await;
+    let other_config = SignalConfig {
+        model: "chat-judge".into(),
+        ..config.clone()
+    };
+    store_result(&repository, &other_config, "other-model", now, &matches).await;
+    store_result(&repository, &config, "superseded", now, &matches).await;
+    store_result(&repository, &other_config, "superseded", now, &clear).await;
+
+    let result = overview(&server).await;
+    assert_eq!(
+        (
+            result.evaluated,
+            result.failed,
+            result.partial,
+            result.truncated
+        ),
+        (2, 1, 1, false)
+    );
+    let [matched] = result.matches.as_slice() else {
+        panic!("expected one matched trace")
+    };
+    assert_eq!(
+        (matched.trace_id.as_str(), matched.trace_ref.as_str()),
+        ("same", "match")
+    );
+    assert_eq!(matched.flags[0].score, 0.8);
+    assert_eq!(matched.flags[0].evidence, None);
+
+    repository
+        .save_config(&SignalConfig {
+            threshold: 0.9,
+            ..config
+        })
+        .await
+        .unwrap();
+    let stricter = overview(&server).await;
+    assert_eq!(stricter.evaluated, 2);
+    assert!(stricter.matches.is_empty());
+}
+
 #[rstest]
 #[tokio::test]
 async fn recorded_signals_contracts_replay_against_real_http_and_clickhouse(
@@ -104,6 +228,8 @@ async fn recorded_signals_contracts_replay_against_real_http_and_clickhouse(
 #[case::viewer_write("PUT", "/lens/signals", Role::ProxyAdminViewer, json!({}), 403)]
 #[case::team_read("GET", "/lens/signals", Role::InternalUser, json!(null), 403)]
 #[case::team_traces("POST", "/lens/traces/signals", Role::InternalUser, json!({"traces":[{"trace_id":"trace"}]}), 403)]
+#[case::viewer_overview("GET", "/lens/signals/overview", Role::ProxyAdminViewer, json!(null), 200)]
+#[case::team_overview("GET", "/lens/signals/overview", Role::InternalUser, json!(null), 403)]
 #[case::administrator_write("PUT", "/lens/signals", Role::ProxyAdmin, json!({}), 200)]
 #[tokio::test]
 async fn signal_routes_preserve_read_and_write_permissions(

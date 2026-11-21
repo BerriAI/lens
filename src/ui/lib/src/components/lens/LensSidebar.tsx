@@ -22,6 +22,7 @@ interface LensSidebarProps {
   readonly agents: LensAgents;
   readonly activity: InvestigationActivity;
   readonly workers: LensList["workers"] | null;
+  readonly canViewAlerts: boolean;
   readonly onNavigate: (tab: LensTab) => void;
 }
 
@@ -128,6 +129,7 @@ function SidebarNavigation({
   agents,
   activity,
   workers,
+  canViewAlerts,
   collapsed,
   onNavigate,
   onSelectAgent,
@@ -149,6 +151,7 @@ function SidebarNavigation({
         activity={activity}
         workers={workers}
         collapsed={collapsed}
+        canViewAlerts={canViewAlerts}
         onNavigate={onNavigate}
       />
       {!host.navigation && (

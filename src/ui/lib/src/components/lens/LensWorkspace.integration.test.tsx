@@ -46,6 +46,61 @@ beforeEach(() => {
   });
 });
 
+it("opens the evidence step from an Alerts match without an overview excerpt", async () => {
+  const user = userEvent.setup();
+  const { trace } = createLensDemoData().runs[0];
+  const { trace_id } = trace.summary;
+  const trace_ref = "alerts-project";
+  const step = trace.spans[1];
+  const quote = "The upstream request timed out.";
+  const flag = { signal_id: "timeout", name: "Provider timeout", score: 0.9 };
+  const other = { signal_id: "refusal", name: "Wrong refusal", score: 0.98 };
+  const match = {
+    trace_id,
+    trace_ref,
+    model: "judge",
+    status: "classified",
+    classified_at: trace.summary.start_time,
+  };
+  const tracePath = `/v1/traces/${trace_id}`;
+  network.mockImplementation(async (input) => {
+    const path = requestPath(input);
+    if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
+    if (path === "/v1/traces") return Response.json({ data: [{ ...trace.summary, trace_ref }], next_cursor: null });
+    if (path === "/v1/traces/agents") return Response.json({ agents: [] });
+    if (path === "/lens/signals/overview") return Response.json({
+      since: match.classified_at, limit: 500, truncated: false, evaluated: 1, failed: 0, partial: 0,
+      matches: [{ ...match, flags: [flag] }],
+    });
+    if (path === "/lens/signals") return Response.json({
+      model: match.model, threshold: 0.8,
+      signals: [other, flag].map(({ signal_id, name }) => ({ id: signal_id, name, question: `Did this run show ${name}?` })),
+    });
+    if (path === "/lens/traces/signals") return Response.json([
+      { ...match, flags: [
+        { ...other, evidence: { span_id: trace.spans[0].span_id, quote: "I cannot help with that." } },
+        { ...flag, evidence: { span_id: step.span_id, quote } },
+      ] },
+    ]);
+    if (path === tracePath) return Response.json({ ...trace, summary: { ...trace.summary, trace_ref } });
+    if (path === `${tracePath}/spans/${step.span_id}`)
+      return Response.json({ span_id: step.span_id, output: quote, attributes: {} });
+    if (path === `/lens/traces/${trace_id}/conversation`) return Response.json({ turns: [], next_cursor: null });
+    if (path === "/lens/traces/findings" || path === "/lens/feedback/summary") return Response.json([]);
+    if (path === "/lens/feedback") return Response.json({ trace_id, trace_ref, feedback: [] });
+    return defaultResponse(path, true);
+  });
+  renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, {
+    searchParams: "?tab=alerts",
+  });
+  await user.click(await screen.findByRole("button", { name: `Open ${flag.name} in trace ${trace_id}` }));
+  const evidence = within(await screen.findByRole("dialog", { name: "Alert evidence" }));
+  expect(await evidence.findByText(quote)).toBeVisible();
+  await user.click(evidence.getByRole("button", { name: "Open trace", exact: true }));
+  expect(await screen.findByRole("mark")).toHaveTextContent(quote);
+  expect(screen.getByRole("treeitem", { selected: true })).toHaveAttribute("data-row-id", step.span_id);
+});
+
 it.each(["home", "agents", "traces"])("offers setup instructions immediately from %s", async (tab) => {
   const user = userEvent.setup();
   const onUrlUpdate = vi.fn();
@@ -928,11 +983,15 @@ describe("Lens agent selector", () => {
     const tabs = screen.getByRole("tablist", { name: "Lens" });
     expect(tabs).toHaveAttribute("aria-orientation", "vertical");
     const traces = within(tabs).getByRole("tab", { name: "Traces" });
+    const alerts = within(tabs).getByRole("tab", { name: "Alerts" });
     const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
     const findings = within(tabs).getByRole("tab", { name: "Findings" });
     await user.click(traces);
     await user.keyboard("{ArrowDown}");
 
+    expect(alerts).toHaveFocus();
+    expect(alerts).toHaveAttribute("aria-selected", "false");
+    await user.keyboard("{ArrowDown}");
     expect(profiles).toHaveFocus();
     expect(profiles).toHaveAttribute("aria-selected", "false");
     await user.keyboard("{ArrowDown}");
@@ -1106,9 +1165,12 @@ it("uses the vertical sidebar when embedded and restores the selected view from 
   const tabs = sidebar.getByRole("tablist", { name: "Lens" });
   expect(tabs).toHaveAttribute("aria-orientation", "vertical");
   const traces = within(tabs).getByRole("tab", { name: "Traces" });
+  const alerts = within(tabs).getByRole("tab", { name: "Alerts" });
   const profiles = within(tabs).getByRole("tab", { name: "Profiles" });
   const findings = within(tabs).getByRole("tab", { name: "Findings" });
   await user.click(traces);
+  await user.keyboard("{ArrowDown}");
+  expect(alerts).toHaveFocus();
   await user.keyboard("{ArrowDown}");
   expect(profiles).toHaveFocus();
   expect(profiles).toHaveAttribute("aria-selected", "false");
@@ -1175,6 +1237,8 @@ it("renders navigation in the gateway sidebar and follows its collapsed state", 
   await user.click(within(tabs).getByRole("tab", { name: "Traces" }));
   expect(onNavigate).toHaveBeenCalled();
   onNavigate.mockClear();
+  await user.keyboard("{ArrowDown}");
+  expect(within(tabs).getByRole("tab", { name: "Alerts" })).toHaveFocus();
   await user.keyboard("{ArrowDown}");
   expect(within(tabs).getByRole("tab", { name: "Profiles" })).toHaveFocus();
   await user.keyboard("{Enter}");

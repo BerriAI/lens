@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  Bell,
   Bot,
   ChartNoAxesColumn,
   Database,
@@ -24,12 +25,14 @@ interface LensTabsProps {
   readonly onNavigate: (tab: LensTab) => void;
   readonly orientation: "horizontal" | "vertical";
   readonly collapsed?: boolean;
+  readonly canViewAlerts: boolean;
 }
 
 const NAVIGATION_ITEMS = [
   { value: "home", label: "Home", icon: House },
   { value: "agents", label: "Agents", icon: Bot },
   { value: "traces", label: "Traces", icon: Activity },
+  { value: "alerts", label: "Alerts", icon: Bell },
   { value: "profiles", label: "Profiles", icon: ChartNoAxesColumn },
   { value: "findings", label: "Findings", icon: Sparkles },
   { value: "datasets", label: "Datasets", icon: Database },
@@ -41,7 +44,7 @@ const NAVIGATION_ITEMS = [
   },
 ] as const;
 
-export function LensTabs({ activity, workers, onNavigate, orientation, collapsed = false }: LensTabsProps) {
+export function LensTabs({ activity, workers, onNavigate, orientation, canViewAlerts, collapsed = false }: LensTabsProps) {
   const connected = useWorkerConnected(workers);
   const vertical = orientation === "vertical";
   const item = (value: LensTab, label: string, Icon: LucideIcon, status?: string) => (
@@ -94,7 +97,7 @@ export function LensTabs({ activity, workers, onNavigate, orientation, collapsed
       )}
     >
       {NAVIGATION_ITEMS.map(({ value, label, icon }) =>
-        item(value, label, icon),
+        value === "alerts" && !canViewAlerts ? null : item(value, label, icon),
       )}
       {workers && item("settings", "Settings", Settings, connected ? "Analysis configured" : "Configure analysis")}
     </TabsList>

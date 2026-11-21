@@ -35,20 +35,20 @@ pub struct SignalAlerts {
     authentication: Arc<Authentication<Sessions>>,
     secret: secret::Secret,
     client: reqwest::Client,
-    public_url: Url,
+    ui_url: Url,
 }
 
 impl SignalAlerts {
     pub fn new(
         authentication: Arc<Authentication<Sessions>>,
         seed: &str,
-        public_url: Url,
+        ui_url: Url,
     ) -> Result<Arc<Self>, crate::Error> {
         Ok(Arc::new(Self {
             store: authentication.sessions.0.clone(),
             authentication,
             secret: secret::Secret::new(seed)?,
-            public_url,
+            ui_url,
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(10))

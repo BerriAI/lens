@@ -26,6 +26,7 @@ import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
 import {
   LENS_TABS,
+  useAlertsRoute,
   useDialogRoute,
   useGitHubRoute,
   useIssueRoute,
@@ -43,6 +44,7 @@ import { ProfilesView } from "./profiles/ProfilesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
 import { LensPageActionsContext } from "./ui/LensPageHeader";
+import { AlertsView } from "./alerts/AlertsView";
 
 type WorkspaceProps = {
   accessToken: string;
@@ -109,11 +111,13 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
+  const alerts = useAlertsRoute();
   const { dialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
-  const { trace, openTrace } = useOpenTraceRouting();
+  const { trace, openTrace, openSignal } = useOpenTraceRouting();
   const agents = useLensAgents(accessToken);
   const canViewInvestigations = isProxyAdminTierRole(userRole);
+  const canViewAlerts = canViewInvestigations;
   const isAdmin = isProxyAdminRole(userRole);
   const canConfigure = canViewInvestigations && !readOnly;
   const connectGitHub =
@@ -123,7 +127,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
         }
       : undefined;
   const defaultTab = embedded && entryTab === "home" ? "traces" : entryTab;
-  const requestedTab = tab === "settings" && !canConfigure ? defaultTab : (tab ?? defaultTab);
+  const requestedTab =
+    (tab === "settings" && !canConfigure) || (tab === "alerts" && !canViewAlerts) ? defaultTab : (tab ?? defaultTab);
   const activeTab = requestedTab === "investigations" ? "findings" : requestedTab;
   useEffect(() => {
     if (requestedTab === "investigations") setTab("findings");
@@ -208,16 +213,24 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
             onValueChange={(value) => navigate(value as LensTab)}
             className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
           >
-            <LensSidebar agents={agents} activity={activity} workers={workers} onNavigate={navigate} />
+            <LensSidebar
+              agents={agents}
+              activity={activity}
+              workers={workers}
+              canViewAlerts={canViewAlerts}
+              onNavigate={navigate}
+            />
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
               {embedded ? (
                 <header
                   aria-label="Lens actions"
                   className={cn("lens-embedded-toolbar", !host.navigation && "lens-mobile-navigation")}
                 >
-                  <h1 className="sr-only">Lens</h1>
-                  <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
-                    <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
+                  <h1 className={activeTab === "alerts" ? "text-sm font-medium" : "sr-only"}>
+                    {activeTab === "alerts" ? "Alerts" : "Lens"}
+                  </h1>
+                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
+                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
                     {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
@@ -233,7 +246,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                   </div>
                 </header>
               ) : (
-                <header className="lens-workspace-header flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-card pr-4 pl-14 md:px-6">
+                <header className="lens-workspace-header flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card py-2 pr-4 pl-14 md:px-6">
                   <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span aria-hidden="true" className="lens-breadcrumb-dot mr-1 size-1.5 shrink-0 rounded-full" />
                     {activeTab === "traces" && agents.agent && (
@@ -256,7 +269,8 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                     )}
                     <h1 className="truncate font-medium">{LENS_TABS[activeTab]}</h1>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className={cn("ml-auto flex max-w-full flex-wrap items-center gap-2", activeTab === "alerts" && "max-md:contents")}>
+                    <div ref={setPageActions} role="group" aria-label="Page actions" className={cn("contents", activeTab === "alerts" && "max-md:order-3 max-md:flex max-md:w-full max-md:flex-wrap max-md:gap-2")} />
                     {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
                         variant="outline"
@@ -316,10 +330,25 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         readOnly={readOnly}
                         canMintTracingKey={isAdmin}
                         canViewFindings={canViewInvestigations}
-                        onSetUpSignals={canConfigure ? showSettings : undefined}
+                        onSetUpSignals={canConfigure && isAdmin && canViewAlerts ? () => {
+                          navigate("alerts");
+                          alerts.setSettings("signals");
+                        } : undefined}
                         onConnectAgent={connectProject}
                       />
                     </TabsContent>
+                    {canViewAlerts && activeTab === "alerts" && (
+                      <TabsContent value="alerts" className={PANEL}>
+                        <AlertsView
+                          accessToken={accessToken}
+                          canConfigure={canConfigure && isAdmin}
+                          onOpenSignal={(ref, signal) => {
+                            navigate("traces");
+                            openSignal(ref, signal);
+                          }}
+                        />
+                      </TabsContent>
+                    )}
                     <TabsContent value="profiles" className={PANEL}>
                       <ProfilesView agents={agents} canInvestigate={canConfigure && isAdmin} />
                     </TabsContent>
@@ -363,6 +392,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         ) : undefined
                       }
                       onConnectProject={connectProject}
+                      onOpenAlerts={canViewAlerts ? () => navigate("alerts") : undefined}
                       onSetup={canConfigure ? startSetup : undefined}
                     />
                   </TabsContent>

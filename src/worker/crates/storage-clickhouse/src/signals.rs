@@ -17,6 +17,7 @@ use crate::{
 };
 
 const CONFIG: &str = "signals/config";
+const RESULTS: &str = "trace-signal/";
 const KEY_ENCODING: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
@@ -100,7 +101,7 @@ fn failure(error: impl std::error::Error + Send + Sync + 'static) -> RepositoryE
 fn key(trace_id: &str, trace_ref: &str) -> Result<String, RepositoryError> {
     let identity = serde_json::to_string(&(trace_id, trace_ref)).map_err(failure)?;
     Ok(format!(
-        "trace-signal/{}",
+        "{RESULTS}{}",
         utf8_percent_encode(&identity, KEY_ENCODING)
     ))
 }
@@ -153,6 +154,44 @@ impl SignalRepository for Signals {
             .into_iter()
             .filter(|snapshot| !snapshot.value.is_null())
             .map(|snapshot| decode(snapshot.value))
+            .collect()
+    }
+
+    async fn recent_results(
+        &self,
+        config: &SignalConfig,
+        since: DateTime<Utc>,
+        limit: u32,
+    ) -> Result<Vec<StoredTraceSignal>, RepositoryError> {
+        let body = self.0.command(
+            "SELECT DISTINCT b.key AS key, b.data AS data, \
+             parseDateTime64BestEffortOrNull(JSONExtractString(b.data, 'classified_at'), 6, 'UTC') AS finished \
+             FROM lens_state_blobs AS b \
+             WHERE startsWith(b.key, {prefix:String}) \
+             AND b.created_at >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
+             AND (b.key, b.revision, toString(b.digest)) IN ( \
+                 SELECT key, revision, digest FROM lens_state_heads WHERE startsWith(key, {prefix:String}) \
+             ) \
+             AND finished >= parseDateTime64BestEffort({since:String}, 6, 'UTC') \
+             AND JSONExtractString(b.data, 'config_key') = {config_key:String} \
+             ORDER BY finished DESC, key LIMIT {limit:UInt32} FORMAT JSONEachRow",
+            &[
+                ("prefix", RESULTS.to_owned()),
+                ("since", since.to_rfc3339()),
+                ("config_key", config_key(config)),
+                ("limit", limit.to_string()),
+            ],
+            String::new(),
+        ).await.map_err(failure)?;
+        #[derive(Deserialize)]
+        struct Row {
+            data: String,
+        }
+        body.lines()
+            .map(|line| {
+                let row: Row = serde_json::from_str(line).map_err(failure)?;
+                serde_json::from_str(&row.data).map_err(failure)
+            })
             .collect()
     }
 

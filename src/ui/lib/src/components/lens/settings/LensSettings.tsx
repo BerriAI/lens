@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { Activity, ArrowUpRight, Cpu } from "lucide-react";
 import { Button } from "../../ui/button";
 import { StatusDot } from "../../shared/StatusDot";
-import { SignalSettings } from "./signals/SignalSettings";
 import { SettingsCard, SettingsSection } from "./SettingsSection";
 import type { LensList } from "../model/types";
 import { STANDALONE_DOCS_URL, useLensHost } from "../../../host/LensHost";
@@ -90,11 +89,13 @@ export function LensSettings({
   workerReadyAction,
   onConnectProject,
   onSetup,
+  onOpenAlerts,
 }: {
   list: LensList;
   workerReadyAction?: ReactNode;
   onConnectProject?: () => void;
   onSetup?: () => void;
+  onOpenAlerts?: () => void;
 }) {
   const standalone = useLensHost().surface === "standalone";
   return (
@@ -102,7 +103,7 @@ export function LensSettings({
       <LensPageHeader
         page="settings"
         title="Settings"
-        description="Manage connections, signals, and automatic analysis"
+        description="Manage connections and automatic analysis"
       />
       <div className="lens-page-body w-full max-w-6xl divide-y divide-border">
         <TracingSection
@@ -111,7 +112,11 @@ export function LensSettings({
           onSetup={onSetup}
         />
         {standalone && <GatewayConnection />}
-        <SignalSettings />
+        {onOpenAlerts && (
+          <SettingsSection heading="Signals" description="Signal questions and Slack delivery are configured in Alerts.">
+            <Button variant="outline" size="sm" onClick={onOpenAlerts}>Open Alerts</Button>
+          </SettingsSection>
+        )}
         <SettingsSection
           heading="Analysis"
           icon={<Cpu aria-hidden="true" className="size-4" />}
