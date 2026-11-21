@@ -249,7 +249,7 @@ async fn oversized_gateway_trace_keeps_durable_scores_and_reports_partial_covera
         Default::default(),
     )
     .unwrap();
-    let config: SignalConfig = serde_json::from_value(json!({"model":"signals","signals":[{"id":"frustration","name":"Frustration","question":"Is the user frustrated?"}]})).unwrap();
+    let config: SignalConfig = serde_json::from_value(json!({"model":"signals","threshold":0.5,"signals":[{"id":"frustration","name":"Frustration","question":"Is the user frustrated?"}]})).unwrap();
     let repository = Signals(server.store.clone());
     repository.save_config(&config).await.unwrap();
     let settled = now + chrono::TimeDelta::seconds(30);
