@@ -100,6 +100,7 @@ pub struct Settings {
     gateway_secret: Option<String>,
     gateway_login_url: Option<String>,
     connected_gateway: RwLock<Option<GatewayConnection>>,
+    gateway_writes: tokio::sync::Mutex<()>,
     origin: String,
     secure_cookie: bool,
 }
@@ -147,6 +148,7 @@ impl Settings {
             gateway_secret,
             gateway_login_url: None,
             connected_gateway: RwLock::new(None),
+            gateway_writes: tokio::sync::Mutex::new(()),
             origin: format!("{}://{}", url.scheme(), authority),
             secure_cookie: public_url.starts_with("https://"),
         })
@@ -303,6 +305,7 @@ impl<R: SessionRepository> Authentication<R> {
         if login_url(&gateway.url).is_err() || gateway.secret.chars().count() < 32 {
             return Err(Error::InvalidGateway);
         }
+        let _writing = self.settings.gateway_writes.lock().await;
         self.sessions.save_gateway(&gateway).await?;
         self.settings.connect(Some(gateway));
         Ok(())
@@ -323,6 +326,7 @@ impl<R: SessionRepository> Authentication<R> {
         if self.settings.gateway_set_by_environment() {
             return Ok(());
         }
+        let _writing = self.settings.gateway_writes.lock().await;
         let gateway = self.sessions.gateway().await?;
         self.settings.connect(gateway);
         Ok(())
