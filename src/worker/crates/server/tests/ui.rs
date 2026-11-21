@@ -105,3 +105,96 @@ async fn javascript_asset_has_an_executable_mime_type(ui: (Router, TempDir)) {
         "text/javascript" | "application/javascript"
     ));
 }
+
+#[fixture]
+fn embedded() -> (Router, TempDir) {
+    let directory = tempfile::tempdir().unwrap();
+    let public = directory.path().join("embedded");
+    std::fs::create_dir_all(public.join("_next/static")).unwrap();
+    std::fs::write(
+        public.join("index.html"),
+        "<script src=\"/__lens_ui_mount__/_next/static/app.js\"></script>",
+    )
+    .unwrap();
+    std::fs::write(public.join("_next/static/font.woff2"), [0xff, 0xfe, 0x00]).unwrap();
+    std::fs::write(directory.path().join("secret.txt"), "outside-static-root").unwrap();
+    (lens_server::ui::embedded_router(public), directory)
+}
+
+async fn embedded_response(
+    router: Router,
+    path: &str,
+    mount: Option<&str>,
+) -> axum::response::Response {
+    let request = Request::builder().uri(path);
+    let request = match mount {
+        Some(mount) => request.header(lens_server::ui::EMBEDDED_MOUNT_HEADER, mount),
+        None => request,
+    };
+    router
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+}
+
+#[rstest]
+#[case::gateway_root(Some("/lens/ui"), "/lens/ui")]
+#[case::gateway_under_a_root_path(Some("/team-a/lens/ui"), "/team-a/lens/ui")]
+#[case::opened_on_lens_itself(None, "/embedded")]
+#[tokio::test]
+async fn embedded_ui_loads_its_assets_from_where_the_host_mounted_it(
+    embedded: (Router, TempDir),
+    #[case] mount: Option<&str>,
+    #[case] expected: &str,
+) {
+    let response = embedded_response(embedded.0, "/embedded/", mount).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(response.into_body(), 1024).await.unwrap(),
+        format!("<script src=\"{expected}/_next/static/app.js\"></script>")
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn embedded_ui_serves_binary_assets_unchanged(embedded: (Router, TempDir)) {
+    let response = embedded_response(
+        embedded.0,
+        "/embedded/_next/static/font.woff2",
+        Some("/lens/ui"),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
+        [0xff, 0xfe, 0x00]
+    );
+}
+
+#[rstest]
+#[case::script("/lens/ui\"><script>alert(1)</script>")]
+#[case::another_origin("//evil.example/ui")]
+#[case::parent("/lens/../ui")]
+#[case::relative("lens/ui")]
+#[case::trailing_slash("/lens/ui/")]
+#[tokio::test]
+async fn embedded_ui_refuses_a_mount_that_is_not_a_plain_path(
+    embedded: (Router, TempDir),
+    #[case] mount: &str,
+) {
+    let response = embedded_response(embedded.0, "/embedded/", Some(mount)).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[rstest]
+#[case::parent("/embedded/../secret.txt")]
+#[case::encoded_parent("/embedded/%2e%2e/secret.txt")]
+#[case::missing_asset("/embedded/missing.js")]
+#[tokio::test]
+async fn embedded_ui_never_serves_files_outside_its_directory(
+    embedded: (Router, TempDir),
+    #[case] path: &str,
+) {
+    let response = embedded_response(embedded.0, path, Some("/lens/ui")).await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}

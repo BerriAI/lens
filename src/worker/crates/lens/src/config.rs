@@ -15,6 +15,7 @@ pub struct Config {
     pub datasets: lens_server::datasets::DatasetConfig,
     pub traces: lens_server::tracing::TraceConfig,
     pub ui_directory: Option<PathBuf>,
+    pub embedded_ui_directory: Option<PathBuf>,
     pub query_secret: String,
     pub ingestion_url: String,
     pub public_url: url::Url,
@@ -179,6 +180,9 @@ impl Config {
                 .parse()
                 .map_err(|_| Error::Configuration("LITELLM_LENS_LISTEN"))?,
             ui_directory: read("LENS_UI_DIRECTORY")
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from),
+            embedded_ui_directory: read("LENS_EMBEDDED_UI_DIRECTORY")
                 .filter(|value| !value.is_empty())
                 .map(PathBuf::from),
             query_secret: admin_token,
@@ -558,12 +562,17 @@ mod tests {
             "CLICKHOUSE_DATABASE" => Some("lens_custom".into()),
             "LITELLM_LENS_LISTEN" => Some("127.0.0.1:4100".into()),
             "LENS_UI_DIRECTORY" => Some("/app/ui".into()),
+            "LENS_EMBEDDED_UI_DIRECTORY" => Some("/app/ui-embedded".into()),
             _ => standalone.get(key).map(|value| value.to_string()),
         })
         .unwrap();
         assert_eq!(config.storage.storage().database(), "lens_custom");
         assert_eq!(config.address.to_string(), "127.0.0.1:4100");
         assert_eq!(config.ui_directory.unwrap().to_str(), Some("/app/ui"));
+        assert_eq!(
+            config.embedded_ui_directory.unwrap().to_str(),
+            Some("/app/ui-embedded")
+        );
     }
 
     #[rstest]

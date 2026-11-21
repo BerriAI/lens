@@ -11,7 +11,7 @@ COPY src/ui/lib/package.json src/ui/lib/package.json
 COPY src/ui/app/package.json src/ui/app/package.json
 RUN npm ci
 COPY src/ui/ src/ui/
-RUN npm run build:ui
+RUN npm run build:ui && npm run build:ui:embedded
 
 FROM $LENS_AGENT_BUILD_IMAGE AS agent-builder
 WORKDIR /app/agent
@@ -66,7 +66,7 @@ RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
 FROM $LENS_RUNTIME_IMAGE AS service
 ARG LENS_VERSION=0.2.0
 RUN apk add --no-cache --upgrade python-3.13 setpriv libgcc libstdc++ openssl ca-certificates ca-certificates-bundle curl libatomic
-ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui \
+ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui LENS_EMBEDDED_UI_DIRECTORY=/app/ui-embedded \
     LENS_PROFILE_MODEL_CACHE=/app/profile-model
 WORKDIR /app
 COPY --from=builder /out/litellm-lens /usr/local/bin/litellm-lens
@@ -74,6 +74,7 @@ COPY --from=builder /out/lens-migrate /usr/local/bin/lens-migrate
 COPY --from=builder --chown=65532:65532 /opt/lens-profile-model/ /app/profile-model/
 COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
 COPY --from=ui-builder /src/src/ui/app/out/ /app/ui/
+COPY --from=ui-builder /src/src/ui/app/out-embedded/ /app/ui-embedded/
 COPY --from=agent-builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=agent-builder /app/agent/ /app/agent/
 COPY --from=agent-builder /app/agent-chat/ /app/agent-chat/
