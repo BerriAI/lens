@@ -30,7 +30,7 @@ pub fn execution() -> Execution {
 }
 #[fixture]
 pub fn config() -> SignalConfig {
-    serde_json::from_value(json!({"model":"signals","signals":[{"id":"a","name":"First","question":"First question?"},{"id":"b","name":"Second","question":"Second question?"}]})).unwrap()
+    serde_json::from_value(json!({"model":"signals","threshold":0.5,"signals":[{"id":"a","name":"First","question":"First question?"},{"id":"b","name":"Second","question":"Second question?"}]})).unwrap()
 }
 #[fixture]
 pub fn scope() -> Scope {

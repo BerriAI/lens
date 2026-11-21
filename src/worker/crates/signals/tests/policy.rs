@@ -15,7 +15,7 @@ fn now() -> DateTime<Utc> {
 }
 #[fixture]
 fn config() -> SignalConfig {
-    serde_json::from_value(json!({"model":"decision","signals":[{"id":"a","name":"First","question":"First question?"},{"id":"b","name":"Second","question":"Second question?"},{"id":"c","name":"Third","question":"Third question?"}]})).unwrap()
+    serde_json::from_value(json!({"model":"decision","threshold":0.5,"signals":[{"id":"a","name":"First","question":"First question?"},{"id":"b","name":"Second","question":"Second question?"},{"id":"c","name":"Third","question":"Third question?"}]})).unwrap()
 }
 #[fixture]
 fn execution() -> Execution {
