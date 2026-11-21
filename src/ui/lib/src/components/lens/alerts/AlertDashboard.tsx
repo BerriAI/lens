@@ -8,22 +8,16 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useNow } from "../../../hooks/useNow";
 import { agoLabel } from "../model/format";
-import type { SignalOverview } from "../model/types";
+import type { AlertRuleOverview, SignalOverview } from "../model/types";
 import { useAlertsRoute } from "../route";
 import type { OpenTraceRouting } from "../traces/routing";
-import { alertActivity, type AlertActivity } from "./alertActivity";
+import { alertActivity, ruleDetail, type AlertActivity } from "./alertActivity";
 import { AlertEvidence } from "./AlertEvidence";
 import styles from "./Alerts.module.css";
 
 const PAGE_SIZE = 20;
-const score = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
-const time = new Intl.DateTimeFormat(undefined, {
-  hour: "numeric",
-  minute: "2-digit",
-});
+const score = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 });
+const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 const period = (bucket: AlertActivity["buckets"][number]) =>
   `${time.format(bucket.start)} to ${time.format(bucket.end)}`;
 
@@ -104,12 +98,16 @@ function ActivityChart({
 export function AlertDashboard({
   accessToken,
   data,
+  rules,
+  onOpenTrace,
   onOpenSignal,
   refreshing,
   onRefresh,
 }: {
   accessToken: string;
   data: SignalOverview;
+  rules?: AlertRuleOverview;
+  onOpenTrace: OpenTraceRouting["openTrace"];
   onOpenSignal: OpenTraceRouting["openSignal"];
   refreshing: boolean;
   onRefresh: () => void;
@@ -117,19 +115,16 @@ export function AlertDashboard({
   const route = useAlertsRoute();
   const [selected, setSelected] = useState<AlertActivity["hits"][number] | null>(null);
   const now = useNow(30_000);
-  const activity = useMemo(() => alertActivity(data), [data]);
+  const activity = useMemo(() => alertActivity(data, rules), [data, rules]);
   const { hits, signals } = activity;
   const hour = activity.buckets.find((bucket) => bucket.index === route.hour);
   const filterKey = JSON.stringify([route.signal, route.search, route.hour]);
-  const [pagination, setPagination] = useState({
-    filter: filterKey,
-    shown: PAGE_SIZE,
-  });
+  const [pagination, setPagination] = useState({ filter: filterKey, shown: PAGE_SIZE });
   const shown = pagination.filter === filterKey ? pagination.shown : PAGE_SIZE;
   const mostCommon = signals[0];
   const tied = signals.filter((signal) => signal.count === mostCommon?.count).length - 1;
   const items = [
-    { value: "", label: "All signals" },
+    { value: "", label: "All alerts" },
     ...signals.map((signal) => ({ value: signal.id, label: signal.name })),
     ...(route.signal && !signals.some((signal) => signal.id === route.signal)
       ? [{ value: route.signal, label: "Selected signal" }]
@@ -171,11 +166,11 @@ export function AlertDashboard({
               </small>
             </div>
             <div>
-              <dt>Evaluated traces</dt>
+              <dt>Model-evaluated traces</dt>
               <dd>{data.evaluated.toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Most common signal</dt>
+              <dt>Most common alert</dt>
               <dd className={styles.common}>{mostCommon?.name ?? "None yet"}</dd>
               <small>
                 {mostCommon ? (
@@ -188,15 +183,20 @@ export function AlertDashboard({
                       : ` · ${score.format(mostCommon.count / hits.length)}`}
                   </>
                 ) : (
-                  "No alerts in this window"
+                  "Waiting for alerts"
                 )}
               </small>
             </div>
           </dl>
-          {(data.truncated || data.failed > 0 || data.partial > 0) && (
+          {(data.truncated || rules?.truncated || data.failed > 0 || data.partial > 0) && (
             <div className="mt-3 space-y-1 text-xs text-muted-foreground">
               {data.truncated && (
-                <p role="status">Counts cover only the latest {data.limit} results in this window.</p>
+                <p role="status">
+                  Model signal counts cover only the latest {data.limit} results in this window.
+                </p>
+              )}
+              {rules?.truncated && (
+                <p role="status">Rule counts cover only the latest {rules.limit} alerts in this window.</p>
               )}
               {(data.failed > 0 || data.partial > 0) && (
                 <p>Some traces could not be fully evaluated. Alerts may be incomplete.</p>
@@ -207,9 +207,9 @@ export function AlertDashboard({
         {hits.length > 0 && (
           <div className={styles.chartGrid}>
             <ActivityChart activity={activity} selected={hour?.index ?? null} onSelect={route.setHour} />
-            <section aria-label="Alerts by signal" className={styles.panel}>
+            <section aria-label="Alerts by type" className={styles.panel}>
               <div className={styles.sectionHeading}>
-                <h2>By signal</h2>
+                <h2>By alert</h2>
                 <span>{hits.length} alerts</span>
               </div>
               <div className={styles.ranking}>
@@ -242,7 +242,7 @@ export function AlertDashboard({
             </section>
           </div>
         )}
-        <section aria-label="Signal matches" className={styles.panel}>
+        <section aria-label="Alert matches" className={styles.panel}>
           <div className={styles.sectionHeading}>
             <h2>Recent alerts</h2>
             <span>Most recent first</span>
@@ -262,7 +262,7 @@ export function AlertDashboard({
               value={route.signal}
               onValueChange={(value) => value !== null && route.setSignal(value)}
             >
-              <SelectTrigger aria-label="Filter by Signal" size="sm" className="w-44">
+              <SelectTrigger aria-label="Filter by alert" size="sm" className="w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -287,19 +287,15 @@ export function AlertDashboard({
           </div>
           {visible.length > 0 ? (
             <div className={styles.alerts}>
-              {visible.slice(0, shown).map(({ trace, flag }) => (
+              {visible.slice(0, shown).map(({ trace, flag, rule }) => (
                 <button
                   type="button"
                   key={JSON.stringify([trace.trace_id, trace.trace_ref, flag.signal_id])}
                   aria-label={`Open ${flag.name} in trace ${trace.trace_id}`}
                   className={styles.alert}
-                  onClick={() => setSelected({ trace, flag })}
+                  onClick={() => setSelected({ trace, flag, rule })}
                 >
-                  <i
-                    style={{
-                      background: signals.find((signal) => signal.id === flag.signal_id)?.color,
-                    }}
-                  />
+                  <i style={{ background: signals.find((signal) => signal.id === flag.signal_id)?.color }} />
                   <span className={styles.alertText}>
                     <strong>{flag.name}</strong>
                     <span>
@@ -315,7 +311,7 @@ export function AlertDashboard({
                         {agoLabel(Date.parse(trace.classified_at), now)}
                       </time>
                     )}
-                    <span>{score.format(flag.score)}</span>
+                    <span>{rule ? ruleDetail(rule) : score.format(flag.score)}</span>
                   </span>
                   <ChevronRight aria-hidden="true" size={15} />
                 </button>
@@ -324,18 +320,12 @@ export function AlertDashboard({
           ) : (
             <div className={styles.empty}>
               <p className="text-sm font-medium">
-                {filtered
-                  ? "No matches for these filters"
-                  : data.evaluated
-                    ? "No Signal matches in this window."
-                    : "No evaluated traces in this window."}
+                {filtered ? "No matches for these filters" : "No alerts in this window"}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 {filtered
-                  ? "Try another signal or trace ID."
-                  : data.evaluated
-                    ? "Matches will appear here when a trace reaches your signal threshold."
-                    : "Matches will appear here as new traces are evaluated."}
+                  ? "Try another alert or trace ID."
+                  : "Alerts appear here when a run matches an enabled rule or model signal."}
               </p>
             </div>
           )}
@@ -364,7 +354,12 @@ export function AlertDashboard({
             <SheetDescription>{selected?.flag.name}</SheetDescription>
           </SheetHeader>
           {selected && (
-            <AlertEvidence accessToken={accessToken} selected={selected} onOpenSignal={onOpenSignal} />
+            <AlertEvidence
+              accessToken={accessToken}
+              selected={selected}
+              onOpenTrace={onOpenTrace}
+              onOpenSignal={onOpenSignal}
+            />
           )}
         </SheetContent>
       </Sheet>

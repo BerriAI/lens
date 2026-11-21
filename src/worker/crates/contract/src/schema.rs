@@ -4,6 +4,8 @@ use serde_json::{Map, Value, json};
 
 pub fn worker_contract() -> Value {
     let mut generator = SchemaSettings::draft07().into_generator();
+    let _ = generator.subschema_for::<crate::alert_rules::AlertRuleConfig>();
+    let _ = generator.subschema_for::<crate::alert_rules::AlertRuleOverview>();
     let _ = generator.subschema_for::<crate::optimizations::OptimizationRun>();
     let _ = generator.subschema_for::<crate::optimizations::OptimizationAssignment>();
     let _ = generator.subschema_for::<crate::optimizations::ReplayRequest>();

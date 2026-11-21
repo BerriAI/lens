@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod agent;
+pub mod alert_rules;
 pub mod api;
 pub mod auth;
 mod completions;

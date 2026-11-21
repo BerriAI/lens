@@ -30,6 +30,7 @@ pub struct Application {
     pub credentials: Arc<LocalCredentials<IngestionKeys>>,
     pub local_worker: Option<crate::local::LocalControl>,
     pub signals_worker: Option<crate::signals::SignalsWorker>,
+    pub alert_rules: Option<crate::alert_rules::AlertRules>,
     pub signal_alerts: Option<Arc<crate::signal_alerts::SignalAlerts>>,
     pub profiles_worker: Option<crate::task_profiles::ProfilesWorker>,
     pub evals: EvalRuntime,
@@ -93,6 +94,12 @@ impl Application {
         seed: &str,
     ) -> Result<Self, Error> {
         let authentication = self.authentication.clone();
+        let alert_rules = crate::alert_rules::AlertRules::new(
+            authentication.clone(),
+            crate::SourceReader(state.clone()),
+        );
+        self.router = self.router.merge(alert_rules.router());
+        self.alert_rules = Some(alert_rules);
         let models = models.connected_by(move || {
             let (base, key) = authentication.settings.connected_model_gateway()?;
             crate::gateway::GatewayConfig::new(&base, key).ok()
@@ -317,6 +324,7 @@ pub async fn initialize(
         credentials,
         local_worker: None,
         signals_worker: None,
+        alert_rules: None,
         signal_alerts: None,
         profiles_worker: None,
         evals: eval_runtime,

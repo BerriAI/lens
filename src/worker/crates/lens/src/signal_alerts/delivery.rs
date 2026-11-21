@@ -90,20 +90,23 @@ impl SignalAlerts {
                 continue;
             }
             let settings = storage::settings(&self.store).await?;
-            let signals = Signals(self.store.clone())
-                .get_config()
-                .await
-                .map_err(|_| Error::Invalid("Signal settings are unavailable"))?;
-            if !settings.enabled
-                || settings.generation != event.generation
-                || !settings.signal_ids.contains(&event.signal_id)
-                || !signals
-                    .signals
-                    .iter()
-                    .any(|signal| signal.id == event.signal_id)
-                || signals.model.is_empty()
-                || event.score < signals.threshold
-            {
+            let eligible = if let Some(rule) = &event.rule {
+                let rules = litellm_storage_clickhouse::alert_rules::settings(&self.store).await?;
+                rules.eligible(rule)
+            } else {
+                let signals = Signals(self.store.clone())
+                    .get_config()
+                    .await
+                    .map_err(|_| Error::Invalid("Signal settings are unavailable"))?;
+                settings.signal_ids.contains(&event.signal_id)
+                    && signals
+                        .signals
+                        .iter()
+                        .any(|signal| signal.id == event.signal_id)
+                    && !signals.model.is_empty()
+                    && event.score >= signals.threshold
+            };
+            if !settings.enabled || settings.generation != event.generation || !eligible {
                 event.status = DeliveryStatus::Cancelled;
                 self.store
                     .commit(vec![Change {
@@ -224,10 +227,30 @@ fn message(ui_url: &Url, event: &Event) -> Value {
         .append_pair("tab", "traces")
         .append_pair("trace", &event.trace_id)
         .append_pair("trace_ref", &event.trace_ref);
-    json!({"text":"Lens detected a signal. Review the trace in Lens.","mrkdwn":false,"unfurl_links":false,"unfurl_media":false,
+    if let Some(rule) = &event.rule {
+        link.query_pairs_mut().append_pair("span", &rule.span_id);
+    }
+    let detail = match &event.rule {
+        Some(rule) => match rule.kind {
+            lens_contract::alert_rules::AlertRuleKind::RunDuration => format!(
+                "Run duration\nRecorded duration: {:.1} minutes\nThreshold: {} minutes",
+                rule.duration_ms as f64 / 60_000.0,
+                rule.threshold_minutes.unwrap_or(0)
+            ),
+            lens_contract::alert_rules::AlertRuleKind::ModelError => {
+                "A model call failed. Review the error in Lens.".into()
+            }
+        },
+        None => format!(
+            "{}\nSignal score: {:.0}%\nReview the trace to confirm the detection.",
+            event.name.chars().take(200).collect::<String>(),
+            event.score * 100.0
+        ),
+    };
+    json!({"text":"Lens raised an alert. Review the trace in Lens.","mrkdwn":false,"unfurl_links":false,"unfurl_media":false,
     "blocks":[
-        {"type":"header","text":{"type":"plain_text","text":"Lens signal detected"}},
-        {"type":"section","text":{"type":"plain_text","text":format!("{}\nSignal score: {:.0}%\nReview the trace to confirm the detection.",event.name.chars().take(200).collect::<String>(),event.score * 100.0)}},
+        {"type":"header","text":{"type":"plain_text","text":"Lens alert"}},
+        {"type":"section","text":{"type":"plain_text","text":detail}},
         {"type":"actions","elements":[{"type":"button","text":{"type":"plain_text","text":"View trace in Lens"},"url":link.as_str()}]}
     ]})
 }
@@ -470,8 +493,107 @@ mod tests {
     }
 
     #[rstest]
+    #[case::enabled(true, DeliveryStatus::Delivered, 1)]
+    #[case::disabled(false, DeliveryStatus::Cancelled, 0)]
+    #[tokio::test]
+    async fn rule_notifications_do_not_require_a_model(
+        #[future(awt)] app: App,
+        #[case] enabled: bool,
+        #[case] expected: DeliveryStatus,
+        #[case] delivered: usize,
+    ) {
+        use lens_contract::alert_rules::{
+            AlertRule, AlertRuleCondition, AlertRuleConfig, AlertRuleKind, AlertRuleMatch,
+        };
+        use litellm_storage_clickhouse::alert_rules;
+        Signals(app.alerts.store.clone())
+            .save_config(&SignalConfig::default())
+            .await
+            .unwrap();
+        let now = Utc::now();
+        let rules = alert_rules::Settings::updated(
+            AlertRuleConfig {
+                revision: 0,
+                rules: vec![AlertRule {
+                    id: "errors".into(),
+                    enabled: true,
+                    condition: AlertRuleCondition::ModelError,
+                }],
+            },
+            &alert_rules::Settings::default(),
+            now - TimeDelta::seconds(1),
+        );
+        app.alerts
+            .store
+            .update(
+                alert_rules::SETTINGS,
+                |_| serde_json::to_value(&rules).unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let (status, _) = request(
+            &app.alerts,
+            "PUT",
+            ADMIN,
+            json!({"revision":1,"enabled":true,"signal_ids":[]}),
+        )
+        .await;
+        assert_eq!(status, 200);
+        let matched = AlertRuleMatch {
+            rule_id: "errors".into(),
+            kind: AlertRuleKind::ModelError,
+            trace_id: "failed-run".into(),
+            trace_ref: "example-project".into(),
+            span_id: "failed-model".into(),
+            detected_at: now,
+            duration_ms: 100,
+            threshold_minutes: None,
+        };
+        alert_rules::record(&app.alerts.store, &matched, now)
+            .await
+            .unwrap();
+        if !enabled {
+            app.alerts
+                .store
+                .update(
+                    alert_rules::SETTINGS,
+                    |_| serde_json::to_value(alert_rules::Settings::default()).unwrap(),
+                    1,
+                )
+                .await
+                .unwrap();
+        }
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        app.alerts
+            .tick(&|_: Url, body: Value| {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                assert!(body.to_string().contains("A model call failed"));
+                assert!(!body.to_string().contains("Signal score"));
+                let link =
+                    Url::parse(body["blocks"][2]["elements"][0]["url"].as_str().unwrap()).unwrap();
+                assert!(
+                    link.query_pairs()
+                        .any(|(key, value)| key == "span" && value == "failed-model")
+                );
+                std::future::ready(Outcome::Delivered)
+            })
+            .await
+            .unwrap();
+        let keys = app.alerts.store.keys(EVENTS, "", 10).await.unwrap();
+        let event: Event =
+            serde_json::from_value(app.alerts.store.read(&keys[0]).await.unwrap().value).unwrap();
+        assert_eq!(event.status, expected);
+        assert_eq!(
+            attempts.load(std::sync::atomic::Ordering::SeqCst),
+            delivered
+        );
+    }
+
+    #[rstest]
     fn slack_deep_link_preserves_the_embedded_ui_path() {
         let event = Event {
+            rule: None,
             generation: "test-generation".into(),
             signal_id: "tool_failure".into(),
             name: "Tool failure".into(),

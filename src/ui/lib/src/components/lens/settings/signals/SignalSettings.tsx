@@ -46,7 +46,7 @@ export function SignalSettings({
     <section aria-label="Slack delivery" className="space-y-4">
       <SignalAlertSettings signals={config.data} />
       <Button variant="link" size="sm" className="px-0" onClick={onConfigureSignals}>
-        Configure signals
+        Configure alerts
       </Button>
     </section>
   );
