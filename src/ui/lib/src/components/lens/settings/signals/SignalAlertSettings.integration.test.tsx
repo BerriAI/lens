@@ -43,7 +43,6 @@ describe("signal alert setup", () => {
     });
     const user = userEvent.setup();
     renderWithLens(<SignalAlertSettings signals={signals} />);
-    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
     const input = await screen.findByLabelText("Slack webhook URL");
     fireEvent.change(input, { target: { value: "https://hooks.slack.com/services/EXAMPLE/EXAMPLE/FAKE" } });
     await user.click(screen.getByRole("checkbox", { name: "User frustration" }));
@@ -80,7 +79,6 @@ describe("signal alert setup", () => {
       .mockReturnValue({ delivered: true });
     const user = userEvent.setup();
     renderWithLens(<SignalAlertSettings signals={signals} />);
-    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
     const input = await screen.findByLabelText("Slack webhook URL");
     fireEvent.change(input, { target: { value: "https://hooks.slack.com/services/EXAMPLE/EXAMPLE/FAKE" } });
     await user.click(screen.getByRole("button", { name: "Send test alert" }));
@@ -105,7 +103,6 @@ describe("signal alert setup", () => {
     gateway.put.mockReturnValue({ ...saved, revision: 5, connected: true, signal_ids: ["prompt_injection"] });
     const user = userEvent.setup();
     renderWithLens(<SignalAlertSettings signals={signals} />);
-    await user.click(await screen.findByRole("button", { name: "Manage alerts" }));
     await user.click(await screen.findByRole("checkbox", { name: "Enable alerts" }));
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>

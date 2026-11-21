@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Flag, Trash2 } from "lucide-react";
+import { Flag, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { SetupAgentPrompt } from "../../onboarding/SetupAgentPrompt";
 import { useLensHost } from "../../../../host/LensHost";
@@ -9,6 +9,7 @@ import { useLensHost } from "../../../../host/LensHost";
 import { SearchSelect } from "../../../shared/SearchSelect";
 import { StatusDot } from "../../../shared/StatusDot";
 import { Button } from "../../../ui/button";
+import { WatchPicker } from "../../setup/WatchPicker";
 import { Input } from "../../../ui/input";
 import { Skeleton } from "../../../ui/skeleton";
 import { Textarea } from "../../../ui/textarea";
@@ -16,16 +17,20 @@ import { Textarea } from "../../../ui/textarea";
 import { useLensApi } from "../../data/LensServices";
 import { lensKeys, lensQueries } from "../../data/queries";
 import { chatJudgeModels, SIGNAL_LIBRARY, signalsConfigured, systemOneModels } from "../../model/signals";
-import { WatchPicker } from "../../setup/WatchPicker";
 import type { SignalConfig } from "../../model/types";
-import { SettingsCard, SettingsSection } from "../SettingsSection";
 import { configFrom, draftFrom, draftProblems, newRow, type SignalDraft, type SignalRow } from "./signalDraft";
 
 import { SignalAlertSettings } from "./SignalAlertSettings";
 
 const LIBRARY_QUESTIONS: ReadonlySet<string> = new Set(SIGNAL_LIBRARY.map((signal) => signal.question));
 
-export function SignalSettings() {
+export function SignalSettings({
+  section,
+  onConfigureSignals,
+}: {
+  section: "signals" | "slack";
+  onConfigureSignals: () => void;
+}) {
   const api = useLensApi();
   const config = useQuery(lensQueries.signalConfig(api));
   if (config.error)
@@ -35,25 +40,15 @@ export function SignalSettings() {
       </p>
     );
   if (!config.data) return <Skeleton aria-label="Loading signals" className="h-40 w-full" />;
-  return (
-    <>
-      <SettingsSection
-        layout="stacked"
-        heading="Signals"
-        icon={<Flag aria-hidden="true" className="size-4" />}
-        description="Choose what Lens looks for in each captured trace."
-      >
-        <SignalForm saved={config.data} />
-      </SettingsSection>
-      <SettingsSection
-        layout="stacked"
-        heading="Slack delivery"
-        icon={<Bell aria-hidden="true" className="size-4" />}
-        description="Choose which signals send a Slack alert when they match a new trace."
-      >
-        <SignalAlertSettings signals={config.data} />
-      </SettingsSection>
-    </>
+  return section === "signals" ? (
+    <SignalForm saved={config.data} />
+  ) : (
+    <section aria-label="Slack delivery" className="space-y-4">
+      <SignalAlertSettings signals={config.data} />
+      <Button variant="link" size="sm" className="px-0" onClick={onConfigureSignals}>
+        Configure signals
+      </Button>
+    </section>
   );
 }
 
@@ -62,10 +57,10 @@ const FieldError = ({ children }: { children?: string }) =>
 
 function SetupCallout({ hasModels, gatewayConnected }: { hasModels: boolean; gatewayConnected: boolean }) {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-      <Flag aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
+    <div className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-sm">
+      <Flag aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="space-y-1">
-        <p className="font-medium">Choose a System 1 model to start flagging traces</p>
+        <p className="font-medium">Choose a model to start checking traces</p>
         {hasModels ? (
           <p className="text-xs text-muted-foreground">Pick one of the models configured for Lens below.</p>
         ) : (
@@ -101,7 +96,7 @@ function SignalFields({
 }) {
   const label = row.name.trim() || "new signal";
   return (
-    <li className="grid gap-2 rounded-lg border border-[var(--lens-violet)]/20 bg-background/60 p-3 sm:grid-cols-[200px_minmax(0,1fr)_auto]">
+    <li className="grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(120px,1fr)_minmax(0,2fr)_auto]">
       <div>
         <Input
           aria-label="Signal name"
@@ -152,11 +147,14 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
     }
   }
   const details = useQuery(lensQueries.modelDetails(api));
-  const gateway = useQuery({ ...lensQueries.gateway(api), enabled: standalone });
+  const gateway = useQuery({
+    ...lensQueries.gateway(api),
+    enabled: standalone,
+  });
   const discoveryError =
     details.error?.message ??
     (gateway.data?.configured && !gateway.data.connected
-      ? gateway.data.error ?? "The model gateway is not connected"
+      ? (gateway.data.error ?? "The model gateway is not connected")
       : undefined);
   const systemOne = systemOneModels(details.data?.data ?? []);
   const judges = chatJudgeModels(details.data?.data ?? []);
@@ -188,7 +186,9 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
       setDraftBase(config);
       setSavedElsewhere(false);
       void queryClient.invalidateQueries({ queryKey: ["traceSignals"] });
-      void queryClient.invalidateQueries({ queryKey: lensKeys.signalOverview(api.scope) });
+      void queryClient.invalidateQueries({
+        queryKey: lensKeys.signalOverview(api.scope),
+      });
     },
   });
   const setRows = (rows: readonly SignalRow[]) => setDraft((current) => ({ ...current, rows }));
@@ -220,19 +220,19 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
   };
 
   return (
-    <>
-      <SettingsCard className="space-y-4">
-        <SetupAgentPrompt goal="signals" featureConfigured={active} />
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs"
-        >
+    <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p role="status" className="inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <StatusDot state={active ? "ok" : "off"} />
-          {active ? `Flagging traces with ${saved.model}` : "Signals are off"}
+          <span className="wrap-anywhere">
+            {active ? `${saved.signals?.length} signals enabled` : "Signals are off"}
+          </span>
         </p>
+      </div>
+      <section aria-label="Evaluation" className="space-y-4">
         {discoveryError ? (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
-            <p className="text-destructive">Could not load System 1 models: {discoveryError}</p>
+            <p className="text-destructive">Could not load evaluation models: {discoveryError}</p>
             {details.isError ? (
               <Button
                 variant="outline"
@@ -246,7 +246,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Your selection is kept. Refresh gateway models above to try again.
+                Your selection is kept. Refresh gateway models in Settings to try again.
               </p>
             )}
           </div>
@@ -264,23 +264,23 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
           <div className="space-y-1.5">
             <label htmlFor={modelId} className="text-xs font-medium">
-              System 1 model
+              Evaluation model
             </label>
             <SearchSelect
               inputId={modelId}
-              aria-label="System 1 model"
+              aria-label="Evaluation model"
               options={options}
               value={draft.model}
               onValueChange={(value) => setDraft((current) => ({ ...current, model: value ?? "" }))}
-              placeholder={details.isPending ? "Loading models…" : "Choose a System 1 model"}
+              placeholder={details.isPending ? "Loading models…" : "Choose a model"}
               disabled={details.isPending}
               emptyText={discoveryError ? "Model list unavailable" : "No evaluation or chat models configured for Lens"}
               className="h-9 [&>[data-slot=input-group-addon]:has(>button)]:mr-0"
               allowClear
             />
             <p className="text-xs text-muted-foreground">
-              Evaluation models configured for Lens, such as TypeSafe JEV. A chat model can judge traces that are too
-              long for a System 1 model, at a higher cost per trace
+              Use an evaluation model or a chat model available to Lens. Chat models can handle longer traces, at a
+              higher cost per trace.
             </p>
             {unavailable && !discoveryError && (
               <p className="text-xs text-muted-foreground">
@@ -290,7 +290,7 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
           </div>
           <div className="space-y-1.5">
             <label htmlFor={thresholdId} className="text-xs font-medium">
-              Flag at score
+              Match threshold
             </label>
             <div className="flex items-center gap-1.5">
               <Input
@@ -303,57 +303,67 @@ export function SignalForm({ saved }: { saved: SignalConfig }) {
                 value={Number.isNaN(draft.thresholdPercent) ? "" : draft.thresholdPercent}
                 aria-invalid={Boolean(problems.threshold)}
                 onChange={(event) =>
-                  setDraft((current) => ({ ...current, thresholdPercent: event.target.valueAsNumber }))
+                  setDraft((current) => ({
+                    ...current,
+                    thresholdPercent: event.target.valueAsNumber,
+                  }))
                 }
               />
               <span className="text-sm text-muted-foreground">%</span>
             </div>
             <FieldError>{problems.threshold}</FieldError>
+            <p className="text-xs leading-5 text-muted-foreground">Flag a trace at or above this score.</p>
           </div>
-        </div>
-        <div className="space-y-4 border-t border-border pt-4">
-          <WatchPicker
-            label="Flag runs where"
-            options={SIGNAL_LIBRARY}
-            selected={picked}
-            onChange={pick}
-            onAddCustom={addRow}
-          />
-          {custom.length > 0 && (
-            <ul aria-label="Custom signals" className="space-y-2">
-              {custom.map((row) => (
-                <SignalFields
-                  key={row.key}
-                  row={row}
-                  problems={problems.rows.get(row.key)}
-                  onChange={(changed) => setRows(draft.rows.map((other) => (other.key === row.key ? changed : other)))}
-                  onRemove={() => setRows(draft.rows.filter((other) => other.key !== row.key))}
-                />
-              ))}
-            </ul>
-          )}
-          {draft.rows.length === 0 && (
-            <p className="text-xs text-muted-foreground">Pick at least one signal to flag traces</p>
-          )}
         </div>
         <p className="text-xs text-muted-foreground">
           Lens sends trace content to this model automatically. Your provider may charge for these requests.
         </p>
-        <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-          {save.error && (
-            <p role="alert" className="text-sm text-destructive">
-              Could not save signals: {save.error.message}
-            </p>
-          )}
-          {save.isSuccess && !dirty && <p className="text-xs text-muted-foreground">Saved</p>}
-          <Button
-            disabled={!dirty || problems.any || modelUnverified || save.isPending}
-            onClick={() => save.mutate(next)}
-          >
-            {save.isPending ? "Saving…" : "Save signals"}
-          </Button>
-        </div>
-      </SettingsCard>
-    </>
+      </section>
+      <div className="space-y-4 border-t pt-4">
+        <WatchPicker
+          label="Flag traces where"
+          options={SIGNAL_LIBRARY}
+          selected={picked}
+          onChange={pick}
+          onAddCustom={addRow}
+        />
+        {custom.length > 0 && (
+          <ul aria-label="Custom signals" className="space-y-2">
+            {custom.map((row) => (
+              <SignalFields
+                key={row.key}
+                row={row}
+                problems={problems.rows.get(row.key)}
+                onChange={(changed) => setRows(draft.rows.map((other) => (other.key === row.key ? changed : other)))}
+                onRemove={() => setRows(draft.rows.filter((other) => other.key !== row.key))}
+              />
+            ))}
+          </ul>
+        )}
+        {draft.rows.length === 0 && (
+          <p className="text-xs text-muted-foreground">Pick at least one signal to flag traces</p>
+        )}
+      </div>
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+        {save.error && (
+          <p role="alert" className="text-sm text-destructive">
+            Could not save signals: {save.error.message}
+          </p>
+        )}
+        {save.isSuccess && !dirty && <p className="text-xs text-muted-foreground">Saved</p>}
+        <Button
+          disabled={!dirty || problems.any || modelUnverified || save.isPending}
+          onClick={() => save.mutate(next)}
+        >
+          {save.isPending ? "Saving…" : "Save signals"}
+        </Button>
+      </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="w-fit cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Set up with a coding agent
+        </summary>
+        <SetupAgentPrompt goal="signals" featureConfigured={active} />
+      </details>
+    </div>
   );
 }

@@ -1,10 +1,11 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, testQueryClient } from "../../../tests/test-utils";
 import { requestPath } from "../../../tests/lens-test-utils";
 import { LensWorkspace } from "./LensWorkspace";
 import { LensHostProvider } from "../../host/LensHost";
+import { DEFAULT_SIGNAL_THRESHOLD } from "./model/signals";
 
 const admin = { accessToken: "test-token", userRole: "Admin", readOnly: false };
 vi.mock("./traces/list/AgentTracesPage", () => ({
@@ -119,7 +120,7 @@ describe("Lens navigation", () => {
       since: at, limit: 500, truncated: true, evaluated: 2, failed: 1, partial: 1,
       matches: [
         { trace_id: "timed-out-trace", trace_ref: "project-a", classified_at: at, flags: [flag] },
-        { trace_id: "refused-trace", trace_ref: "project-b", classified_at: at, flags: [other] },
+        { trace_id: "refused-trace", trace_ref: "project-b", classified_at: at, flags: [other, flag] },
       ],
     };
     const original = vi.mocked(fetch).getMockImplementation()!;
@@ -137,14 +138,25 @@ describe("Lens navigation", () => {
     renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?tab=traces", onUrlUpdate });
     await user.click(screen.getByRole("tab", { name: "Alerts" }));
     expect(await screen.findByText("Counts cover only the latest 500 results in this window.")).toBeVisible();
-    expect(screen.getByText(/Signals and Slack work in standalone Lens/)).toBeVisible();
-    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(70);
-    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
+    expect(screen.getByText(/All agents and teams/)).toBeVisible();
+    const summary = within(screen.getByRole("region", { name: "Last 24 hours" }));
+    expect(summary.getByText("3")).toBeVisible();
+    expect(summary.getByText("Provider timeout")).toBeVisible();
+    expect(summary.getByText("2 of 3 alerts")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Configure signals" }));
+    expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
+    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
-    expect(screen.getByRole("button", { name: "refused-trace" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Provider timeout (1)" }));
-    expect(screen.queryByRole("button", { name: "refused-trace" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "timed-out-trace" }));
+    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+    expect(screen.getByRole("button", { name: "Open Wrong refusal in trace refused-trace" })).toBeVisible();
+    await user.click(screen.getByRole("combobox", { name: "Filter by Signal" }));
+    await user.click(await screen.findByRole("option", { name: "Provider timeout", exact: true }));
+    expect(screen.queryByRole("button", { name: "Open Wrong refusal in trace refused-trace" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search matches" }), { target: { value: "missing" } });
+    expect(await screen.findByText("No matches for these filters")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await user.click(screen.getByRole("button", { name: "Open Provider timeout in trace timed-out-trace" }));
     await waitFor(() => expect(Object.fromEntries(onUrlUpdate.mock.lastCall?.[0].searchParams)).toMatchObject({
       tab: "traces", trace: "timed-out-trace", trace_ref: "project-a", signal: "timeout",
     }));
@@ -154,8 +166,10 @@ describe("Lens navigation", () => {
     const user = userEvent.setup();
     renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?demo=true&tab=alerts" });
     expect(await screen.findByText("No evaluated traces in this window.")).toBeVisible();
-    expect(await screen.findByRole("spinbutton", { name: "Flag at score" })).toHaveValue(95);
-    await user.click(screen.getByRole("button", { name: "Set up alerting" }));
+    await user.click(screen.getByRole("button", { name: "Configure signals" }));
+    expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(DEFAULT_SIGNAL_THRESHOLD * 100);
+    await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
     expect(vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/signals"))).toBe(false);
   });
@@ -177,7 +191,8 @@ describe("Lens navigation", () => {
       { searchParams: "?tab=alerts" },
     );
     expect(await screen.findByText("No Signal matches in this window.")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Slack delivery" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Configure signals" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Configure signals" })).not.toBeInTheDocument();
   });
 
   it("does not request deployment-wide alerts when a team user follows an Alerts link", async () => {

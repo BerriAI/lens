@@ -26,6 +26,7 @@ import { investigationActivity, listPollInterval } from "./model/status";
 import { cn } from "../../lib/cva.config";
 import {
   LENS_TABS,
+  useAlertsRoute,
   useDialogRoute,
   useGitHubRoute,
   useIssueRoute,
@@ -110,6 +111,7 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
   const github = useGitHubRoute();
+  const alerts = useAlertsRoute();
   const { dialog } = useDialogRoute();
   const { issueKey } = useIssueRoute();
   const { trace, openTrace, openSignal } = useOpenTraceRouting();
@@ -325,7 +327,10 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                         readOnly={readOnly}
                         canMintTracingKey={isAdmin}
                         canViewFindings={canViewInvestigations}
-                        onSetUpSignals={canConfigure && isAdmin && canViewAlerts ? () => navigate("alerts") : undefined}
+                        onSetUpSignals={canConfigure && isAdmin && canViewAlerts ? () => {
+                          navigate("alerts");
+                          alerts.setSettings("signals");
+                        } : undefined}
                         onConnectAgent={connectProject}
                       />
                     </TabsContent>

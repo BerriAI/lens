@@ -67,7 +67,7 @@ describe("Gateway connection", () => {
 
     expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
     expect(await screen.findByText("Pick one of the models configured for Lens below.")).toBeVisible();
-    await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
+    await user.click(screen.getByRole("combobox", { name: "Evaluation model" }));
     expect(await screen.findByRole("option", { name: /gateway-chat/ })).toHaveTextContent("Chat judge");
     expect(screen.queryByRole("option", { name: /gateway-jev/ })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
@@ -89,7 +89,7 @@ describe("Gateway connection", () => {
       }),
     );
     expect(testQueryClient.getQueryState(lensKeys.models("test"))?.isInvalidated).toBe(true);
-    await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
+    await user.click(screen.getByRole("combobox", { name: "Evaluation model" }));
     expect(await screen.findByRole("option", { name: /gateway-chat/ })).toBeVisible();
     await user.click(screen.getByRole("option", { name: /gateway-jev/ }));
     await user.click(screen.getByRole("button", { name: "Save signals" }));
@@ -131,8 +131,8 @@ describe("Gateway connection", () => {
     });
     renderWithLens(<ConnectionWithSignals config={{ ...saved, model: evaluationModel.model_group }} />);
     expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
-    const model = screen.getByRole("combobox", { name: "System 1 model" });
-    const threshold = screen.getByRole("spinbutton", { name: "Flag at score" });
+    const model = screen.getByRole("combobox", { name: "Evaluation model" });
+    const threshold = screen.getByRole("spinbutton", { name: "Match threshold" });
     act(() => fireEvent.change(threshold, { target: { value: "70" } }));
     await user.click(screen.getByRole("button", { name: "Refresh models" }));
 
@@ -140,7 +140,7 @@ describe("Gateway connection", () => {
     expect(within(screen.getByRole("region", { name: "Model gateway" })).getByRole("alert")).toHaveTextContent(
       "The gateway could not be reached",
     );
-    expect(screen.getByText(/Could not load System 1 models/)).toBeVisible();
+    expect(screen.getByText(/Could not load evaluation models/)).toBeVisible();
     expect(screen.queryByText(/Your gateway has no evaluation or chat models/)).not.toBeInTheDocument();
     expect(screen.getByText(/Last available catalogue/)).toBeVisible();
     expect(model).toHaveValue(evaluationModel.model_group);
@@ -150,7 +150,7 @@ describe("Gateway connection", () => {
     gateway.post.mockReturnValue({ ...connected, evaluation_models: 1 });
     await user.click(screen.getByRole("button", { name: "Refresh models" }));
     expect(await screen.findByText("Connected to LiteLLM")).toBeVisible();
-    expect(screen.queryByText(/Could not load System 1 models/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Could not load evaluation models/)).not.toBeInTheDocument();
     expect(model).toHaveValue(evaluationModel.model_group);
     expect(threshold).toHaveValue(70);
   });
@@ -182,8 +182,8 @@ describe("Gateway connection", () => {
     gateway.put.mockImplementation((_path, request) => request.body);
     renderWithLens(<ConnectionWithSignals />);
 
-    expect(await screen.findByText(/Could not load System 1 models/)).toBeVisible();
-    await user.click(screen.getByRole("combobox", { name: "System 1 model" }));
+    expect(await screen.findByText(/Could not load evaluation models/)).toBeVisible();
+    await user.click(screen.getByRole("combobox", { name: "Evaluation model" }));
     await user.click(await screen.findByRole("option", { name: /gateway-jev/ }));
     expect(screen.getByRole("button", { name: "Save signals" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Save signals" }));

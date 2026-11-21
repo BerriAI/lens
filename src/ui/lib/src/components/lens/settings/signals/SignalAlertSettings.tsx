@@ -9,11 +9,10 @@ import { useLensApi } from "../../data/LensServices";
 import { DEFAULT_SIGNAL_THRESHOLD } from "../../model/signals";
 import type { SignalAlertView, SignalConfig } from "../../model/types";
 import { useOptionalOnboarding } from "../../onboarding/OnboardingContext";
-import { SettingsCard } from "../SettingsSection";
+import { StatusDot } from "../../../shared/StatusDot";
 
 export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
   const api = useLensApi();
-  const [expanded, setExpanded] = useState(false);
   const onboarding = useOptionalOnboarding();
   const readOnly = !onboarding?.canInvestigate || onboarding.readOnly;
   const query = useQuery({
@@ -23,11 +22,11 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
     enabled: !readOnly,
   });
   return (
-    <SettingsCard>
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h3 className="text-sm font-medium">Slack notifications</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="text-sm font-medium">Send matches to Slack</h3>
+          <p className="text-sm text-muted-foreground">
             {readOnly
               ? "An administrator can set up signal alerts"
               : query.data?.enabled
@@ -37,14 +36,15 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
                   : "Get a Slack message when a signal matches a new trace"}
           </p>
         </div>
-        {!expanded && !readOnly && (
-          <Button variant="outline" size="sm" onClick={() => setExpanded(true)}>
-            {query.data?.connected ? "Manage alerts" : "Set up alerting"}
-          </Button>
+        {query.data && !readOnly && (
+          <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <StatusDot state={query.data.enabled ? "ok" : "off"} />
+            {query.data.enabled ? "Enabled" : query.data.connected ? "Paused" : "Not connected"}
+          </p>
         )}
       </div>
-      {expanded && (
-        <div className="mt-4 border-t pt-4">
+      {!readOnly && (
+        <div>
           {query.error ? (
             <div role="alert" className="space-y-2 text-sm">
               <p>Could not load alert settings: {query.error.message}</p>
@@ -61,7 +61,7 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
           )}
         </div>
       )}
-    </SettingsCard>
+    </div>
   );
 }
 
@@ -108,7 +108,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
   const connected = Boolean(webhook.trim()) || saved.connected;
   const busy = test.isPending || save.isPending;
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="space-y-1.5">
         <label htmlFor={webhookId} className="text-xs font-medium">
           Slack webhook URL
@@ -140,28 +140,36 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
           </a>
         </p>
       </div>
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-medium">Alert on these signals</legend>
-        {(signals.signals ?? []).map((signal) => (
-          <label key={signal.id} htmlFor={`${webhookId}-${signal.id}`} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              id={`${webhookId}-${signal.id}`}
-              checked={selected.includes(signal.id)}
-              onCheckedChange={(checked) =>
-                setSelected((current) =>
-                  checked ? [...current, signal.id] : current.filter((id) => id !== signal.id),
-                )
-              }
-            />
-            {signal.name}
-          </label>
-        ))}
+      <fieldset className="space-y-2 border-t pt-5">
+        <legend className="sr-only">Alert on these signals</legend>
+        <p className="text-sm font-medium">Which signals to send</p>
+        <div className="grid gap-x-6 sm:grid-cols-2">
+          {(signals.signals ?? []).map((signal) => (
+            <label
+              key={signal.id}
+              htmlFor={`${webhookId}-${signal.id}`}
+              className="flex min-w-0 items-start gap-3 border-b py-3 text-sm"
+            >
+              <Checkbox
+                id={`${webhookId}-${signal.id}`}
+                className="mt-0.5"
+                checked={selected.includes(signal.id)}
+                onCheckedChange={(checked) =>
+                  setSelected((current) =>
+                    checked ? [...current, signal.id] : current.filter((id) => id !== signal.id),
+                  )
+                }
+              />
+              <span className="min-w-0 wrap-anywhere">{signal.name}</span>
+            </label>
+          ))}
+        </div>
         <p className="text-xs text-muted-foreground">
-          Uses your saved signal threshold ({Math.round((signals.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100)}%). Save signal changes above
-          before configuring alerts.
+          Uses your saved match threshold of {Math.round((signals.threshold ?? DEFAULT_SIGNAL_THRESHOLD) * 100)}%.
+          Manage the model, questions and threshold in Configure signals.
         </p>
       </fieldset>
-      <label htmlFor={`${webhookId}-enabled`} className="flex items-center gap-2 text-sm">
+      <label htmlFor={`${webhookId}-enabled`} className="flex items-center gap-3 text-sm font-medium">
         <Checkbox id={`${webhookId}-enabled`} checked={enabled} onCheckedChange={setEnabled} />
         Enable alerts
       </label>
@@ -176,7 +184,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
       )}
       {!ready && enabled && (
         <p className="text-xs text-muted-foreground">
-          Save a signal model above and select at least one signal to enable alerts.
+          Configure a model and at least one signal, then select which signals to send here.
         </p>
       )}
       {(test.error || save.error) && (
@@ -189,7 +197,7 @@ function AlertForm({ saved, signals }: { saved: SignalAlertView; signals: Signal
           Test delivered to Slack. Save settings to apply your choices.
         </p>
       )}
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
         <Button variant="outline" disabled={!connected || busy} onClick={() => test.mutate()}>
           {test.isPending ? "Sending…" : "Send test alert"}
         </Button>

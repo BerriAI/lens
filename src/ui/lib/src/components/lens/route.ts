@@ -42,6 +42,12 @@ const INBOX_PARSERS = {
   priority: parseAsStringLiteral(["all", "high", "medium", "low"]).withDefault("all"),
 };
 
+const ALERT_PARSERS = {
+  alert_settings: parseAsStringLiteral(["signals", "slack"]),
+  alert_signal: parseAsString.withDefault(""),
+  alert_search: parseAsString.withDefault(""),
+};
+
 const DATASET_PARSERS = {
   dataset: parseAsString,
   revision: parseAsInteger,
@@ -114,6 +120,7 @@ const SESSION_PARSERS = {
   ...AGENT_LIST_PARSERS,
   ...CONNECT_PROJECT_PARSERS,
   ...INBOX_PARSERS,
+  ...ALERT_PARSERS,
   ...RESULT_PARSERS,
   ...DIALOG_PARSERS,
   ...DATASET_PARSERS,
@@ -388,6 +395,19 @@ export function useInboxFilters() {
     priority,
     setAgent: (agent: string) => void setParams({ inbox_agent: agent }),
     setPriority: (priority: "all" | "high" | "medium" | "low") => void setParams({ priority }),
+  };
+}
+
+export function useAlertsRoute() {
+  const [{ alert_settings, alert_signal, alert_search }, setParams] = useQueryStates(ALERT_PARSERS);
+  return {
+    settings: alert_settings,
+    signal: alert_signal,
+    search: alert_search,
+    setSettings: (settings: "signals" | "slack" | null) => void setParams({ alert_settings: settings }, { history: "push" }),
+    setSignal: (signal: string) => void setParams({ alert_signal: signal }),
+    setSearch: (search: string) => void setParams({ alert_search: search }),
+    clearFilters: () => void setParams({ alert_signal: null, alert_search: null }),
   };
 }
 
