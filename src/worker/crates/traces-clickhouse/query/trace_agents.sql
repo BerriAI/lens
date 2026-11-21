@@ -16,6 +16,7 @@ WHERE ({all_teams:UInt8} = 1
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
+   AND sum(LlmCount) + sum(ToolCount) > 0
 ),
 named AS (
 SELECT DISTINCT o.TeamId AS TeamId, o.ApiKeyHash AS ApiKeyHash, o.TraceId AS TraceId,
