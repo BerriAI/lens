@@ -118,10 +118,10 @@ async fn receive_authorized(
     body: Body,
     logs: bool,
 ) -> Result<(), Error> {
-    let tenant = if !logs && state.authorize_service(headers).is_ok() {
-        None
+    let sender = if !logs && state.authorize_service(headers).is_ok() {
+        Sender::Gateway(forwarded_owner(headers))
     } else {
-        Some(state.credentials.tenant(headers)?)
+        Sender::Tenant(state.credentials.tenant(headers)?)
     };
     state.require_storage()?;
     let permit = state
@@ -146,7 +146,7 @@ async fn receive_authorized(
         payload,
         encoding,
         content_type,
-        tenant,
+        sender,
         logs,
         permit,
     ))
@@ -159,15 +159,18 @@ async fn store(
     payload: bytes::Bytes,
     encoding: Option<String>,
     content_type: Option<String>,
-    tenant: Option<Tenant>,
+    sender: Sender,
     logs: bool,
     permit: OwnedSemaphorePermit,
 ) -> Result<(), Error> {
     let (logs, spans, _permit) = tokio::task::spawn_blocking(move || {
         let payload = decompress(&payload, encoding.as_deref())?;
-        let Some(tenant) = tenant else {
-            let spans = gateway_span_rows(&payload, content_type.as_deref())?;
-            return Ok((Vec::new(), spans, permit));
+        let tenant = match sender {
+            Sender::Tenant(tenant) => tenant,
+            Sender::Gateway(forwarded) => {
+                let spans = gateway_span_rows(&payload, content_type.as_deref(), &forwarded)?;
+                return Ok((Vec::new(), spans, permit));
+            }
         };
         let (logs, spans) = if logs {
             let batch = litellm_traces::decode_otlp_log_batch(&payload, content_type.as_deref())
@@ -225,6 +228,27 @@ async fn store(
     Ok(())
 }
 
+enum Sender {
+    Tenant(Tenant),
+    Gateway(Tenant),
+}
+
+fn forwarded_owner(headers: &HeaderMap) -> Tenant {
+    let named = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_owned()
+    };
+    Tenant {
+        team_id: named("x-litellm-team-id"),
+        api_key_hash: named("x-litellm-api-key-hash"),
+        org_id: named("x-litellm-org-id"),
+        user_id: named("x-litellm-user-id"),
+    }
+}
+
 fn gateway_owner(attributes: &BTreeMap<String, String>) -> Option<Tenant> {
     let stamp = |key: &str| attributes.get(key).cloned().unwrap_or_default();
     attributes
@@ -240,6 +264,7 @@ fn gateway_owner(attributes: &BTreeMap<String, String>) -> Option<Tenant> {
 fn gateway_span_rows(
     payload: &[u8],
     content_type: Option<&str>,
+    forwarded: &Tenant,
 ) -> Result<Vec<litellm_traces_clickhouse::InsertRow>, Error> {
     let spans = litellm_traces::decode_otlp(payload, content_type)
         .map_err(litellm_traces_clickhouse::Error::from)?;
@@ -254,8 +279,12 @@ fn gateway_span_rows(
     Ok(traces
         .into_iter()
         .flat_map(|(trace_id, spans)| {
-            let owner = owners.get(&trace_id).cloned().unwrap_or_default();
-            litellm_traces_clickhouse::span_rows(spans, &owner)
+            let owner = if forwarded.api_key_hash.is_empty() {
+                owners.get(&trace_id).unwrap_or(forwarded)
+            } else {
+                forwarded
+            };
+            litellm_traces_clickhouse::span_rows(spans, owner)
         })
         .collect())
 }

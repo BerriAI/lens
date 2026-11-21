@@ -11,6 +11,7 @@ import {
   errorSource,
   findTraceSteps,
   fmtMs,
+  foldGatewayCalls,
   GROUP_PAGE_SIZE,
   groupRowId,
   isFrameworkSpan,
@@ -128,6 +129,33 @@ describe("buildVisibleTree / isFrameworkSpan", () => {
 
   it("never hides the root span", () => {
     expect(isFrameworkSpan(span({ span_id: "r", type: "framework" }))).toBe(false);
+  });
+});
+
+describe("foldGatewayCalls", () => {
+  const turn = span({ span_id: "turn", type: "agent" });
+  const agentCall = span({ span_id: "agent-call", parent_span_id: "turn", type: "llm", spend: 0.5 });
+  const gatewayCall = span({
+    span_id: "gateway-call",
+    parent_span_id: "agent-call",
+    type: "llm",
+    spend: 0.25,
+    spend_match: "matched",
+  });
+
+  it("shows a call the agent and the gateway both recorded as one step with the gateway's cost", () => {
+    const folded = foldGatewayCalls([turn, agentCall, gatewayCall]);
+
+    expect(spanRows(buildTreeRows(folded, STATE)).map((row) => [row.id, row.span.spend, row.span.spend_match])).toEqual([
+      ["turn", null, undefined],
+      ["agent-call", 0.25, "matched"],
+    ]);
+  });
+
+  it("leaves a gateway call alone when no agent recorded it", () => {
+    const alone = { ...gatewayCall, parent_span_id: "turn" };
+
+    expect(foldGatewayCalls([turn, alone])).toEqual([turn, alone]);
   });
 });
 

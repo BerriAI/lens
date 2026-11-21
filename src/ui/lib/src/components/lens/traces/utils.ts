@@ -49,6 +49,25 @@ export const isFrameworkSpan = (span: Span): boolean => {
   return span.parent_span_id !== null && isPlumbing;
 };
 
+/**
+ * An agent that traces itself records each model call, and the gateway it calls through records the same
+ * call under it with the cost. Show one step: the agent's, carrying the gateway's cost.
+ */
+export function foldGatewayCalls(spans: readonly Span[]): Span[] {
+  const byId = indexSpans(spans);
+  const repeats = spans.filter((span) => span.type === "llm" && byId.get(span.parent_span_id ?? "")?.type === "llm");
+  if (repeats.length === 0) return [...spans];
+  const costOf = new Map(repeats.map((span) => [span.parent_span_id, span]));
+  const repeated = new Set(repeats.map((span) => span.span_id));
+  return spans.map((span) => {
+    if (repeated.has(span.span_id)) return { ...span, type: "framework" };
+    const gateway = costOf.get(span.span_id);
+    return gateway && span.spend_match == null
+      ? { ...span, spend: gateway.spend, spend_match: gateway.spend_match }
+      : span;
+  });
+}
+
 const byStart = (a: Span, b: Span): number => a.start_offset_ms - b.start_offset_ms;
 
 export const indexSpans = (spans: readonly Span[]): Map<string, Span> => new Map(spans.map((s) => [s.span_id, s]));
