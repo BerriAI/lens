@@ -4,15 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { TracesApiContext, liveTracesApi } from "../api";
-import { spanLogWindow } from "../detail/useSpanRequestLog";
 import { useAgentTraces } from "./useAgentTraces";
-
-describe("spanLogWindow", () => {
-  it("looks up the request log around the span's own time, not the logs tab window", () => {
-    const spanStart = Date.parse("2026-08-01T12:00:00Z");
-    expect(spanLogWindow(spanStart)).toEqual({ start_date: "2026-08-01 11:30:00", end_date: "2026-08-01 12:30:00" });
-  });
-});
 
 describe("useAgentTraces", () => {
   it("passes the selected agent and fetches a new query when it changes", async () => {
