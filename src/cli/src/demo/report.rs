@@ -8,7 +8,7 @@ use crate::demo::{detail, result};
 use crate::local::{Summary, TargetStats};
 
 const VALUE: usize = 9;
-const PLOT_ROWS: usize = 16;
+const PLOT_ROWS: usize = 19;
 const OUTLIER_GAP: f64 = 0.15;
 const BAR: &str = "▆";
 const FAILURE_KINDS: [(&str, Rgb, &str); 3] = [
@@ -338,13 +338,16 @@ impl<'a> Report<'a> {
         points
     }
 
+    fn harness_short(&self, harness: &str) -> String {
+        match harness {
+            "claude-agent-sdk" => "Claude SDK".to_owned(),
+            other => brand::harness(other).label.to_owned(),
+        }
+    }
+
     fn point_label(&self, index: usize) -> String {
         let target = &self.stats()[index].target;
-        let harness = match target.harness.as_str() {
-            "claude-agent-sdk" => "Claude SDK",
-            other => brand::harness(other).label,
-        };
-        format!("{} · {harness}", target.model)
+        format!("{} · {}", target.model, self.harness_short(&target.harness))
     }
 
     fn label_style(&self, index: usize, frontier: &[usize]) -> Style {
@@ -363,13 +366,7 @@ impl<'a> Report<'a> {
             .unwrap_or(0)
             + self.rank_width()
             + 18;
-        let beside = self.width >= 7 + 40 + key_width + 3 && count <= PLOT_ROWS;
-        let columns = if beside {
-            self.width - 7 - key_width - 3
-        } else {
-            self.width.saturating_sub(9)
-        }
-        .min(90);
+        let columns = self.width.saturating_sub(9).min(100);
         let costs: Vec<f64> = self.stats().iter().map(TargetStats::cost).collect();
         let axis = CostAxis::new(&costs, columns);
         let rates = RateAxis::new(self.stats().iter().map(TargetStats::pass_rate));
@@ -393,6 +390,56 @@ impl<'a> Report<'a> {
                     .find(|at| clear(*at))?;
                 (at..at + width).for_each(|cell| taken[row][cell] = true);
                 Some((row, at, index))
+            })
+            .collect();
+
+        let mut order: Vec<usize> = markers.iter().map(|marker| marker.2).collect();
+        order.sort_by_key(|index| (!self.picked(*index), !frontier.contains(index), *index));
+        let unlabeled: Vec<usize> = order
+            .into_iter()
+            .filter(|&index| {
+                let Some(&(row, at, _)) = markers.iter().find(|marker| marker.2 == index) else {
+                    return false;
+                };
+                let target = &self.stats()[index].target;
+                let lines = [target.model.clone(), self.harness_short(&target.harness)];
+                let width = lines
+                    .iter()
+                    .map(|line| line.chars().count())
+                    .max()
+                    .unwrap_or(0);
+                let digits = marker_text(index).chars().count();
+                let starts = [Some(at + digits + 1), at.checked_sub(width + 1)];
+                let tops = [Some(row), row.checked_sub(1)];
+                let spot = tops.into_iter().flatten().find_map(|top| {
+                    starts
+                        .into_iter()
+                        .flatten()
+                        .find(|start| {
+                            top + lines.len() <= PLOT_ROWS
+                                && start + width < columns
+                                && (top..top + lines.len()).all(|line_row| {
+                                    (start.saturating_sub(1)..(start + width + 1).min(columns))
+                                        .all(|cell| !taken[line_row][cell])
+                                })
+                        })
+                        .map(|start| (top, start))
+                });
+                let Some((top, start)) = spot else {
+                    return true;
+                };
+                let styles = [self.label_style(index, &frontier), Style::fg(FAINT)];
+                lines
+                    .iter()
+                    .zip(styles)
+                    .enumerate()
+                    .for_each(|(offset, (line, style))| {
+                        line.chars().enumerate().for_each(|(column, ch)| {
+                            grid[top + offset][start + column] = Some(span(ch.to_string(), style));
+                        });
+                        (start..start + width).for_each(|cell| taken[top + offset][cell] = true);
+                    });
+                false
             })
             .collect();
 
@@ -428,8 +475,9 @@ impl<'a> Report<'a> {
                     (true, false) if at % 2 == 0 => Some("┄"),
                     _ => None,
                 };
-                if let Some(glyph) = divider.filter(|_| !taken[row][at] && grid[row][at].is_none())
-                {
+                let clear =
+                    (at.saturating_sub(1)..(at + 2).min(columns)).all(|cell| !taken[row][cell]);
+                if let Some(glyph) = divider.filter(|_| clear && grid[row][at].is_none()) {
                     grid[row][at] = Some(span(glyph, Style::fg(RULE)));
                 }
             });
@@ -499,6 +547,9 @@ impl<'a> Report<'a> {
         });
 
         let key: Vec<Line> = (0..count)
+            .filter(|index| {
+                unlabeled.contains(index) || !rates.contains(self.stats()[*index].pass_rate())
+            })
             .map(|index| {
                 let stat = &self.stats()[index];
                 let style = self.label_style(index, &frontier);
@@ -558,17 +609,6 @@ impl<'a> Report<'a> {
                         }))
                     })
                     .flatten();
-                let side = if beside {
-                    key.get(row)
-                        .map(|line| {
-                            std::iter::once(gap(3))
-                                .chain(line.spans.iter().cloned())
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
                 Line::new(
                     [
                         span(pad_left(&label, 5), Style::fg(FAINT)),
@@ -576,7 +616,6 @@ impl<'a> Report<'a> {
                     ]
                     .into_iter()
                     .chain(body)
-                    .chain(side)
                     .collect(),
                 )
             })
@@ -630,7 +669,7 @@ impl<'a> Report<'a> {
             )
             .collect(),
         );
-        let below_key: Vec<Line> = if beside {
+        let below_key: Vec<Line> = if key.is_empty() {
             Vec::new()
         } else {
             std::iter::once(Line::blank())
@@ -1093,7 +1132,7 @@ impl RateAxis {
     }
 
     fn tick(&self, row: usize) -> Option<f64> {
-        (row % 5 == 0)
+        (row % 6 == 0)
             .then(|| self.high - (self.high - self.low) * row as f64 / (PLOT_ROWS - 1) as f64)
     }
 }
@@ -1300,29 +1339,65 @@ mod tests {
             .enumerate()
             .flat_map(|(row, line)| {
                 let body: String = line.chars().skip(7).take(columns).collect();
-                body.split(|ch: char| !ch.is_ascii_digit())
-                    .filter(|token| !token.is_empty())
+                let padded = format!(" {body} ");
+                padded
+                    .split(|ch: char| matches!(ch, ' ' | '·' | '┊' | '┄'))
+                    .filter(|token| {
+                        !token.is_empty() && token.chars().all(|ch| ch.is_ascii_digit())
+                    })
                     .map(|token| (row, token.parse::<usize>().expect("digits") - 1))
                     .collect::<Vec<_>>()
             })
             .collect()
     }
 
+    fn named_on_chart(text: &[String], model: &str, harness: &str) -> bool {
+        text.iter().zip(text.iter().skip(1)).any(|(line, next)| {
+            line.match_indices(model).any(|(at, _)| {
+                let column = line[..at].chars().count();
+                next.chars()
+                    .skip(column)
+                    .collect::<String>()
+                    .starts_with(harness)
+            })
+        })
+    }
+
     #[rstest]
-    fn every_target_is_named_in_the_key(
+    fn every_target_is_named_on_the_chart_or_in_the_key(
         #[values(1, 4, 12)] count: usize,
         #[values(78, 100, 118)] width: usize,
     ) {
         let summary = summary(count, Some(0));
         let report = Report::new(&summary, width);
-        let text = plot_text(&report).join("\n");
+        let text = plot_text(&report);
         (0..count).for_each(|index| {
+            let target = &summary.stats[index].target;
+            let harness = report.harness_short(&target.harness);
+            let in_key = text
+                .iter()
+                .any(|line| line.contains(&report.point_label(index)));
             assert!(
-                text.contains(&report.point_label(index)),
-                "{} missing\n{text}",
-                report.point_label(index)
+                in_key || named_on_chart(&text, &target.model, &harness),
+                "{} missing\n{}",
+                report.point_label(index),
+                text.join("\n")
             );
         });
+    }
+
+    #[rstest]
+    fn spread_out_points_are_labeled_on_the_chart() {
+        let summary = fixture::summary();
+        let report = Report::new(&summary, 118);
+        let text = plot_text(&report);
+        let labeled = (0..summary.stats.len())
+            .filter(|index| {
+                let target = &summary.stats[*index].target;
+                named_on_chart(&text, &target.model, &report.harness_short(&target.harness))
+            })
+            .count();
+        assert_eq!(labeled, summary.stats.len(), "{}", text.join("\n"));
     }
 
     #[rstest]
