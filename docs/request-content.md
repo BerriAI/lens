@@ -1,6 +1,6 @@
 # Large request content
 
-LiteLLM sends one spend record per request to Lens. A record whose prompt and response fit in 1 MiB carries them inline, exactly as before. A larger record used to be dropped whole, cost included. Now LiteLLM keeps the cost and metadata and either stores the content in S3 or marks it unavailable
+LiteLLM sends one spend record per request that its spend logs ledger commits, as described in [Recorded gateway costs](../deploy/lens/README.md#recorded-gateway-costs). A record whose prompt and response fit in 1 MiB carries them inline, exactly as before. A larger record used to be dropped whole, cost included. Now LiteLLM keeps the cost and metadata and either stores the content in S3 or marks it unavailable. Content is stored and signed only after the ledger commit fixes the record's owner and cost, so an uncommitted request never uploads anything
 
 ## Setup
 
@@ -28,4 +28,4 @@ List previews and ad hoc SQL still see the record's empty content columns and th
 
 ## Limits
 
-The S3 object is the only copy of oversized content. Its lifetime follows the bucket's lifecycle rules, not Lens retention. References are signed with a key derived from `LITELLM_LENS_SERVICE_TOKEN`. Rotating that token makes every earlier reference unreadable, and those records then show as unavailable. Uploads and reads are bounded in count, bytes and time. Content that is in flight when LiteLLM shuts down is recorded as `cancelled`, and it is not retried later
+The S3 object is the only copy of oversized content. Its lifetime follows the bucket's lifecycle rules, not Lens retention. References are signed with a key derived from `LITELLM_LENS_SERVICE_TOKEN`. Rotating that token makes every earlier reference unreadable, and those records then show as unavailable. Uploads and reads are bounded in count, bytes and time. Content that is in flight when LiteLLM shuts down is recorded as `cancelled` if its commit is already confirmed and is otherwise dropped. Neither is retried later
