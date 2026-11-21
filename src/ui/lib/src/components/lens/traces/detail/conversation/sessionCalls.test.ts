@@ -117,14 +117,16 @@ describe("gateway coding session threads", () => {
     ]);
   });
 
-  it("keeps the main thread out of the branch when the subagent is given the user's own message", () => {
-    const prompt = "list every file ".repeat(20).trim();
-    const main = [system, ask(prompt)];
+  it("keeps the main thread and one-off calls out of the branch when the subagent prompt repeats the user's message", () => {
+    const typed = "list every file ".repeat(20).trim();
+    const prompt = `${typed} and count them`;
+    const main = [system, ask(typed)];
     const recorded = [
-      call("m1", prompt, main, { ...toolUse, tool_calls: [{ name: "Agent", args: { prompt } }] }),
+      call("m1", typed, main, { ...toolUse, tool_calls: [{ name: "Agent", args: { prompt } }] }),
       call("title", "write a title", [system, ask("write a title")], say("Files")),
-      tool("agent", "Agent", prompt, { description: "List files", prompt }, "launched"),
-      call("m2", prompt, [...main, toolUse, toolResult], say("The folder has a.md")),
+      tool("agent", "Agent", typed, { description: "List files", prompt }, "launched"),
+      call("s1", prompt, [system, ask(prompt)], say("Only a.md")),
+      call("m2", typed, [...main, toolUse, toolResult], say("The folder has a.md")),
     ];
     const linked = linkSessionCalls(
       recorded.map(({ span }) => span),
@@ -134,6 +136,7 @@ describe("gateway coding session threads", () => {
       ["m1", null],
       ["title", null],
       ["agent", "m1"],
+      ["s1", "agent"],
       ["m2", null],
     ]);
   });
