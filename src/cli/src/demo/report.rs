@@ -548,7 +548,7 @@ impl<'a> Report<'a> {
 
         let key: Vec<Line> = (0..count)
             .filter(|index| {
-                unlabeled.contains(index) || !rates.contains(self.stats()[*index].pass_rate())
+                unlabeled.contains(index) || !markers.iter().any(|marker| marker.2 == *index)
             })
             .map(|index| {
                 let stat = &self.stats()[index];
@@ -1398,6 +1398,32 @@ mod tests {
             })
             .count();
         assert_eq!(labeled, summary.stats.len(), "{}", text.join("\n"));
+    }
+
+    #[rstest]
+    fn crowded_points_still_appear_in_the_key(#[values(78, 100, 118)] width: usize) {
+        let summary = Summary {
+            run_id: "eval_abcd".to_owned(),
+            task_count: 20,
+            stats: (0..60)
+                .map(|index| stat("litellm", &format!("model-{index}"), 20, 0, 0.01))
+                .collect(),
+            recommended: Some(0),
+        };
+        let report = Report::new(&summary, width);
+        let text = plot_text(&report);
+        let markers = plot_markers(&text);
+        (0..summary.stats.len())
+            .filter(|index| !markers.iter().any(|(_, found)| found == index))
+            .for_each(|index| {
+                assert!(
+                    text.iter()
+                        .any(|line| line.contains(&report.point_label(index))),
+                    "{} missing\n{}",
+                    report.point_label(index),
+                    text.join("\n")
+                );
+            });
     }
 
     #[rstest]
