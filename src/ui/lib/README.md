@@ -21,6 +21,6 @@ configureLensHttp({
 </LensHostProvider>
 ```
 
-The host supplies its native spend-log lookup and drawer through `LensHostProvider`. Lens retains the exact request ID, a lookup window padded by 30 minutes, and the return-to-trace action. Without a connected host, the spend-log link explains that LiteLLM must be connected; trace costs and captured request content remain visible
+An opened trace shows each call's cost and spend-log request ID as text and does not open the host's spend log. The `spendLogs` lookup and drawer a host passes through `LensHostProvider` are accepted but unused
 
 This is a development package, not a published release or a completed LiteLLM integration. Live standalone flows, the real embedded drawer, auth/permission parity and complete browser parity still require qualification

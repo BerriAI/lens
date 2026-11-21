@@ -24,7 +24,6 @@ import {
   type SpendLogDrawerProps,
   type LensHost,
 } from "../../../../../host/LensHost";
-import type { LogEntry } from "../../../../logs/types";
 
 const uiSpendLogsCall = vi.fn<NonNullable<LensHost["spendLogs"]>["lookup"]>();
 const RequestLogDrawer = ({
@@ -44,24 +43,6 @@ const host: LensHost = {
 };
 const renderWithProviders = (...[ui, options]: Parameters<typeof renderBase>) =>
   renderBase(<LensHostProvider host={host}>{ui}</LensHostProvider>, options);
-const requestLog: LogEntry = {
-  request_id: "req_7f3a9c2e1b44",
-  api_key: "",
-  team_id: "",
-  model: "model",
-  model_id: "model",
-  call_type: "completion",
-  spend: 0.0002,
-  total_tokens: 719,
-  prompt_tokens: 659,
-  completion_tokens: 60,
-  startTime: "2026-09-30T06:43:52Z",
-  endTime: "2026-09-30T06:43:53Z",
-  cache_hit: "False",
-  messages: "",
-  response: "",
-};
-
 import {
   agentTraceSpanCall,
   agentTraceSpanErrorCall,
@@ -355,72 +336,21 @@ describe("DetailPane", () => {
     expect(input).toHaveTextContent("acme-404");
   });
 
-  it("links a priced LLM step to its spend log in the header and opens it by that request id", async () => {
+  it("shows a priced LLM step's cost as text with no spend log button, even when the host offers spend logs", async () => {
     const user = userEvent.setup();
-    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [requestLog] });
     renderPane(spanRow(llm));
-    const link = screen.getByRole("button", {
-      name: "Open LiteLLM spend log req_7f3a9c2e1b44",
-    });
-    expect(link).toHaveTextContent("LiteLLM Spend Log$0.0002");
-    await user.click(link);
-    expect(
-      await screen.findByRole("dialog", { name: "Request log" }),
-    ).toHaveTextContent("req_7f3a9c2e1b44");
-    expect(vi.mocked(uiSpendLogsCall).mock.calls[0][0].params).toEqual({
-      request_id: "req_7f3a9c2e1b44",
-    });
-    expect(vi.mocked(uiSpendLogsCall).mock.calls[0][0]).toMatchObject({
-      accessToken: "sk-test",
-      start_date: "2026-09-30 06:13:52",
-      end_date: "2026-09-30 07:13:52",
-      page: 1,
-      page_size: 1,
-    });
-  });
-
-  it("keeps a spend log with another request id out of the drawer", async () => {
-    const user = userEvent.setup();
-    uiSpendLogsCall.mockResolvedValue({
-      data: [{ ...requestLog, request_id: "another-request" }],
-    });
-    renderPane(spanRow(llm));
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
-      }),
+    expect(screen.getByText("Cost").parentElement).toHaveTextContent(
+      "Cost$0.0002",
     );
     expect(
-      await screen.findByText("Spend log not visible in this time range"),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("dialog", { name: "Request log" }),
+      screen.queryByRole("button", { name: /spend log/i }),
     ).not.toBeInTheDocument();
-  });
-
-  it("returns from the spend log to the same agent trace step", async () => {
-    const user = userEvent.setup();
-    vi.mocked(uiSpendLogsCall).mockResolvedValue({ data: [requestLog] });
-    renderPane(spanRow(llm));
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
-      }),
-    );
-    const drawer = await screen.findByRole("dialog", { name: "Request log" });
-    await user.click(
-      within(drawer).getByRole("button", { name: "Back to Lens trace" }),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("dialog", { name: "Request log" }),
-      ).not.toBeInTheDocument(),
-    );
+    await user.click(screen.getByRole("tab", { name: "Request" }));
+    expect(await screen.findByText("req_7f3a9c2e1b44")).toBeVisible();
     expect(
-      screen.getByRole("button", {
-        name: "Open LiteLLM spend log req_7f3a9c2e1b44",
-      }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: /spend log/i }),
+    ).not.toBeInTheDocument();
+    expect(uiSpendLogsCall).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -450,7 +380,7 @@ describe("DetailPane", () => {
       renderPane(spanRow(span(unpriced)));
       expect(screen.getByTitle(reason)).toHaveTextContent("Cost not matched");
       expect(
-        screen.queryByRole("button", { name: /Open LiteLLM spend log/ }),
+        screen.queryByRole("button", { name: /spend log/i }),
       ).not.toBeInTheDocument();
       await user.click(screen.getByRole("tab", { name: "Request" }));
       expect(
@@ -459,7 +389,7 @@ describe("DetailPane", () => {
     },
   );
 
-  it("keeps the Cost fact for a priced step that has no single spend log to link", () => {
+  it("keeps the Cost fact for a priced step that has no single spend log", () => {
     const pricedFromRetries: SpanFields = {
       ...llmFields,
       spend: 0.0005,
@@ -467,7 +397,7 @@ describe("DetailPane", () => {
     };
     renderPane(spanRow(span(pricedFromRetries)));
     expect(
-      screen.queryByRole("button", { name: /Open LiteLLM spend log/ }),
+      screen.queryByRole("button", { name: /spend log/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Cost").parentElement).toHaveTextContent(
       "Cost$0.0005",

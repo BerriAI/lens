@@ -8,16 +8,9 @@ import type { Span } from "../../types";
 import { fmtMs, fmtTok } from "../../utils";
 import { FieldTree } from "../content/FieldTree";
 import { DetailGroup } from "./DetailGroup";
-import { SpendLogLink, unmatchedReason } from "./SpendLogLink";
+import { CostNotMatched, unmatchedReason } from "./CostNotMatched";
 
-interface RequestTabProps {
-  span: Span;
-  accessToken: string;
-  /** The run's start, so the request log is looked up at the span's time, whatever range the tabs show. */
-  traceStartMs: number;
-}
-
-export function RequestTab({ span, accessToken, traceStartMs }: RequestTabProps) {
+export function RequestTab({ span }: { span: Span }) {
   if (span.type !== "llm") {
     return <div className="py-16 text-center text-sm text-muted-foreground">This span is not a model request.</div>;
   }
@@ -47,7 +40,7 @@ export function RequestTab({ span, accessToken, traceStartMs }: RequestTabProps)
             </div>
           )}
           <div className="self-start">
-            <SpendLogLink span={span} accessToken={accessToken} traceStartMs={traceStartMs} />
+            <CostNotMatched span={span} />
           </div>
           {unmatchedReason(span) && <p className="text-sm text-muted-foreground">{unmatchedReason(span)}</p>}
         </div>
