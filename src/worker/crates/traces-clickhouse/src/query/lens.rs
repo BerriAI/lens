@@ -531,3 +531,30 @@ impl Query for LensFeedbackSummary {
 
     const SQL: &'static str = include_str!("../../query/lens_feedback_summary.sql");
 }
+
+pub struct SpendContentReference;
+
+#[derive(serde::Serialize)]
+pub struct SpendContentReferenceParams {
+    #[serde(flatten)]
+    pub access: LensAccessParams,
+    pub id: String,
+    pub record_team: String,
+    pub start_time: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct SpendContentReferenceRow {
+    pub team_id: String,
+    pub api_key: String,
+    pub request_id: String,
+    pub error_str: String,
+    pub reference: String,
+}
+
+impl Query for SpendContentReference {
+    type Params = SpendContentReferenceParams;
+    type Row = SpendContentReferenceRow;
+
+    const SQL: &'static str = include_str!("../../query/spend_content_reference.sql");
+}

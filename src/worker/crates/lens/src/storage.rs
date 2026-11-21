@@ -7,6 +7,8 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
 
+mod content;
+pub use content::{ContentGateway, Hydrated};
 mod tracing;
 pub use tracing::TraceApi;
 mod feedback;
@@ -21,6 +23,7 @@ pub struct Storage {
     reader: Arc<TraceReader>,
     query_readers: QueryReaders,
     query_secret: String,
+    content: Option<ContentGateway>,
 }
 
 #[derive(Deserialize)]
@@ -108,6 +111,7 @@ impl Storage {
             config,
             client,
             query_secret,
+            content: None,
         }
     }
 
@@ -181,9 +185,12 @@ impl Storage {
                 trace_ref,
                 span_id,
             } => encode(
-                self.reader
-                    .get_span(&store, &scope, &trace_id, &span_id, &trace_ref)
-                    .await?,
+                self.hydrate_span(
+                    self.reader
+                        .get_span(&store, &scope, &trace_id, &span_id, &trace_ref)
+                        .await?,
+                )
+                .await,
             ),
             Read::SpanError {
                 scope,
@@ -212,7 +219,8 @@ impl Storage {
                     &parameters,
                 )
                 .await?;
-                serde_json::from_str(&result).map_err(|_| Error::Unavailable)
+                let value = serde_json::from_str(&result).map_err(|_| Error::Unavailable)?;
+                self.hydrate_named(query, &parameters, value).await
             }
             Read::Sql { sql, scope } => {
                 let _permit = self.query_readers.acquire()?;

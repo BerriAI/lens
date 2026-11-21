@@ -191,7 +191,8 @@ impl TraceReader for TraceApi {
         request: TraceSpanRequest,
     ) -> Result<Option<SpanDetail>, TraceReadError> {
         let _permit = self.permit().await?;
-        self.0
+        let detail = self
+            .0
             .storage
             .reader
             .get_span(
@@ -202,7 +203,8 @@ impl TraceReader for TraceApi {
                 &request.trace_ref,
             )
             .await
-            .map_err(read_error)
+            .map_err(read_error)?;
+        Ok(self.0.storage.hydrate_span(detail).await)
     }
 
     async fn conversation(

@@ -949,6 +949,95 @@ async fn spend_content_requires_the_authorized_trace_and_call(
 }
 
 #[rstest]
+#[case::spilled_latest(r#"{"litellm_lens_content":{"v":1,"state":"stored"}}"#, true)]
+#[case::empty_latest_without_reference("{}", false)]
+#[tokio::test]
+async fn spend_content_reference_comes_only_from_the_latest_spilled_call(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] latest_metadata: &str,
+    #[case] spilled: bool,
+) -> TestResult {
+    use litellm_traces_cache::TraceStore;
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let now = 1_790_000_000_000_i64;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::OtelTraces,
+        vec![serde_json::from_value(json!({
+            "Timestamp":now * 1_000_000,"TraceId":"spill-trace","SpanId":"llm-span",
+            "ParentSpanId":"root","SpanName":"recorded call","ObservationType":"llm",
+            "TeamId":"team-a","ApiKeyHash":"key-a","UserId":"user-a",
+            "Model":"example-model","Input":"","Output":""
+        }))?],
+    )
+    .await?;
+    insert_rows(
+        client,
+        &writer,
+        DATABASE,
+        InsertTable::SpendLogs,
+        vec![
+            serde_json::from_value(json!({
+                "request_id":"earlier","trace_id":"spill-trace","span_id":"llm-span",
+                "team_id":"team-a","api_key":"key-a","user":"user-a","model":"example-model",
+                "start_time":now,"end_time":now + 10,
+                "messages":"earlier input","response":"earlier output"
+            }))?,
+            serde_json::from_value(json!({
+                "request_id":"later","trace_id":"spill-trace","span_id":"llm-span",
+                "team_id":"team-a","api_key":"key-a","user":"user-a","model":"example-model",
+                "start_time":now + 20,"end_time":now + 30,"metadata":latest_metadata,
+                "messages":"","response":""
+            }))?,
+        ],
+    )
+    .await?;
+    let store = ClickHouseTraces::new(
+        client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    );
+    let detail = store
+        .span_detail(&litellm_traces::query::named::SpanDetailParams {
+            access: ReadAccessParams {
+                all_teams: false,
+                user_id: String::new(),
+                team_ids: vec!["team-a".into()],
+            },
+            trace_id: "spill-trace".into(),
+            trace_ref: String::new(),
+            span_id: "llm-span".into(),
+        })
+        .await?
+        .ok_or("missing visible span")?;
+    let reference = detail
+        .attributes
+        .get(litellm_traces_clickhouse::CONTENT_REFERENCE_ATTRIBUTE)
+        .map(|raw| serde_json::from_str::<serde_json::Value>(raw))
+        .transpose()?;
+    if spilled {
+        assert_eq!((detail.input.as_str(), detail.output.as_str()), ("", ""));
+        assert_eq!(
+            reference,
+            Some(json!({
+                "team_id": "team-a", "api_key": "key-a", "request_id": "later",
+                "reference": r#"{"v":1,"state":"stored"}"#,
+            }))
+        );
+    } else {
+        assert_eq!(
+            (detail.input.as_str(), detail.output.as_str()),
+            ("earlier input", "earlier output")
+        );
+        assert_eq!(reference, None);
+    }
+    Ok(())
+}
+
+#[rstest]
 #[case::matching_identity("team-a", "key-a", "user-a", false, true)]
 #[case::foreign_team("team-b", "key-a", "user-a", false, false)]
 #[case::foreign_key("team-a", "key-b", "user-a", false, false)]

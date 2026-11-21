@@ -49,7 +49,7 @@ use std::{
     },
     time::Duration,
 };
-pub use storage::{SampleRequest, SourceReader, Storage};
+pub use storage::{ContentGateway, SampleRequest, SourceReader, Storage};
 use tokio::sync::Semaphore;
 
 pub use lens_contract::worker as wire;

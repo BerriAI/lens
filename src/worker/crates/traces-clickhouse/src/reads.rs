@@ -104,16 +104,25 @@ fn extract_user_prompt_preview(messages: &str) -> Option<String> {
 struct SpendLogContentRow {
     input: String,
     output: String,
+    team_id: String,
+    api_key: String,
+    request_id: String,
+    reference: String,
 }
+
+pub const CONTENT_REFERENCE_ATTRIBUTE: &str = "litellm.content.reference";
 
 struct SpendLogContentFallback;
 
 impl Query for SpendLogContentFallback {
     type Params = contracts::SpanDetailParams;
     type Row = SpendLogContentRow;
-    const SQL: &'static str = "SELECT \
-        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 1) AS input, \
-        tupleElement(argMax(tuple(s.messages, s.response), tuple(s.start_time, s.request_id)), 2) AS output \
+    const SQL: &'static str = "SELECT tupleElement(latest, 1) AS input, tupleElement(latest, 2) AS output, \
+        tupleElement(latest, 3) AS team_id, tupleElement(latest, 4) AS api_key, \
+        tupleElement(latest, 5) AS request_id, tupleElement(latest, 6) AS reference FROM (SELECT \
+        argMax(tuple(s.messages, s.response, s.team_id, s.api_key, s.request_id, \
+            if(s.messages = '' AND s.response = '', JSONExtractRaw(s.metadata, 'litellm_lens_content'), '')), \
+            tuple(s.start_time, s.request_id)) AS latest \
         FROM spend_logs AS s FINAL \
         CROSS JOIN ( \
             SELECT TraceId, SpanId, TeamId, ApiKeyHash, UserId, ObservationType, ParentSpanId \
@@ -134,8 +143,8 @@ impl Query for SpendLogContentFallback {
                OR has({team_ids:Array(String)}, s.team_id)) \
           AND (s.span_id = span.SpanId \
                OR (span.ObservationType = 'agent' AND span.ParentSpanId = '')) \
-          AND (s.messages != '' OR s.response != '') \
-        HAVING count() > 0";
+          AND (s.messages != '' OR s.response != '' OR JSONHas(s.metadata, 'litellm_lens_content')) \
+        HAVING count() > 0)";
 }
 
 struct RunCandidates;
@@ -369,6 +378,18 @@ impl TraceStore for ClickHouseTraces {
                 fetch::<SpendLogContentFallback>(&self.client, &self.connection, params).await
             && let Some(content) = fallback.pop()
         {
+            if !content.reference.is_empty() && row.input.is_empty() && row.output.is_empty() {
+                row.attributes.insert(
+                    CONTENT_REFERENCE_ATTRIBUTE.into(),
+                    serde_json::json!({
+                        "team_id": content.team_id,
+                        "api_key": content.api_key,
+                        "request_id": content.request_id,
+                        "reference": content.reference,
+                    })
+                    .to_string(),
+                );
+            }
             if row.input.is_empty() && !content.input.is_empty() {
                 row.input = content.input;
             }
