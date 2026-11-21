@@ -1132,7 +1132,7 @@ impl RateAxis {
     }
 
     fn tick(&self, row: usize) -> Option<f64> {
-        (row % 6 == 0)
+        row.is_multiple_of(6)
             .then(|| self.high - (self.high - self.low) * row as f64 / (PLOT_ROWS - 1) as f64)
     }
 }
@@ -1341,7 +1341,7 @@ mod tests {
                 let body: String = line.chars().skip(7).take(columns).collect();
                 let padded = format!(" {body} ");
                 padded
-                    .split(|ch: char| matches!(ch, ' ' | '·' | '┊' | '┄'))
+                    .split([' ', '·', '┊', '┄'])
                     .filter(|token| {
                         !token.is_empty() && token.chars().all(|ch| ch.is_ascii_digit())
                     })
