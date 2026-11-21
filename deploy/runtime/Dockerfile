@@ -37,9 +37,14 @@ ARG TARGETARCH
 ARG LENS_CARGO_JOBS=4
 ENV CARGO_BUILD_JOBS=${LENS_CARGO_JOBS} CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols \
     CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+# Cargo rebuilds by mtime, which COPY keeps from the checkout, so a second checkout can look older than the cached
+# build. Touching every file whose hash changed since the last build makes Cargo rebuild it.
 RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
     --mount=type=cache,id=lens-cargo-git,target=/root/.cargo/git \
     --mount=type=cache,id=lens-cargo-target-${TARGETARCH},target=/src/src/worker/target \
+    find /src/.cargo /src/src -type f -not -path '/src/src/worker/target/*' -exec sha256sum {} + | sort > /tmp/source-hashes && \
+    if [ -f target/source-hashes ]; then comm -13 target/source-hashes /tmp/source-hashes | cut -c67- | tr '\n' '\0' | xargs -0 -r touch; fi && \
+    cp /tmp/source-hashes target/source-hashes && \
     cargo build --locked --release -p litellm-lens && \
     TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
     LENS_PROFILE_MODEL_CACHE=/opt/lens-profile-model cargo run --locked --release -p lens-profiles --example resource_probe -- 1 && \
