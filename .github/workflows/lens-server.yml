@@ -25,9 +25,9 @@ jobs:
       - name: Check backend language boundary
         shell: bash
         run: |
-          unexpected=$(git ls-files '*.py' ':!:src/sdk/**' ':!:src/worker/crates/lens/sandbox/python_runtime.py')
+          unexpected=$(git ls-files '*.py' ':!:src/sdk/**' ':!:src/cli/python/**' ':!:src/cli/tests/python/**' ':!:src/cli/examples/local_eval/**' ':!:src/worker/crates/lens/sandbox/python_runtime.py')
           if [ -n "$unexpected" ]; then
-            printf 'Python outside the SDK and sandbox is not supported:\n%s\n' "$unexpected"
+            printf 'Python outside the SDK, CLI adapters and sandbox is not supported:\n%s\n' "$unexpected"
             exit 1
           fi
       - name: Check formatting

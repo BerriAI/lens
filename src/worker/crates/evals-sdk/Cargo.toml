@@ -7,7 +7,6 @@ repository.workspace = true
 
 [dependencies]
 axum = { workspace = true, features = ["json", "query"] }
-clap = { version = "4.5", features = ["derive"] }
 futures-util.workspace = true
 http.workspace = true
 lens-contract = { path = "../contract" }
@@ -18,7 +17,6 @@ sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "signal"] }
 toml = "0.9"
-toml_edit = "0.23"
 url.workspace = true
 uuid.workspace = true
 

@@ -6,6 +6,8 @@
 !src/
 !src/worker/
 !src/worker/**
+!src/cli/
+!src/cli/**
 !src/ui/
 !src/ui/**
 !src/agent/

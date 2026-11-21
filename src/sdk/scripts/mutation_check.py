@@ -51,20 +51,35 @@ MUTATIONS: Final = (
         'comment.user.login != "github-actions[bot]"',
         "only bot comments edited",
     ),
-    ("setup.rs", "if file.exists()", "if false", "existing setup files protected"),
+    ("cli/setup.rs", "if file.exists()", "if false", "existing setup files protected"),
 )
 
 
 def check(root: Path, mutation: tuple[str, str, str, str]) -> dict[str, str | bool]:
     file, before, after, name = mutation
-    target: Final = root / "src/worker/crates/evals-sdk/src" / file
+    target: Final = (
+        root / "src/cli/src" / file.removeprefix("cli/")
+        if file.startswith("cli/")
+        else root / "src/worker/crates/evals-sdk/src" / file
+    )
     original: Final = target.read_text()
     if before not in original:
         return {"name": name, "killed": False, "error": "Mutation anchor missing"}
     target.write_text(original.replace(before, after, 1))
     try:
         result: Final = subprocess.run(
-            ["cargo", "test", "--manifest-path", "src/worker/Cargo.toml", "-p", "lens-evals-sdk", "--tests", "--quiet"],
+            [
+                "cargo",
+                "test",
+                "--manifest-path",
+                "src/worker/Cargo.toml",
+                "-p",
+                "lens-evals-sdk",
+                "-p",
+                "lens-cli",
+                "--tests",
+                "--quiet",
+            ],
             cwd=root,
             env={**os.environ, "CARGO_TARGET_DIR": str(REPO / "src/worker/target/mutations")},
             capture_output=True,
@@ -81,16 +96,29 @@ def main() -> int:
         root: Final = Path(directory)
         (root / "src/worker").mkdir(parents=True)
         shutil.copytree(REPO / "src/worker/crates/evals-sdk", root / "src/worker/crates/evals-sdk")
+        shutil.copytree(REPO / "src/worker/crates/contract", root / "src/worker/crates/contract")
+        shutil.copytree(REPO / "src/cli", root / "src/cli", ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copytree(REPO / "src/sdk/tests/fixtures", root / "src/sdk/tests/fixtures")
         manifest: Final = (
             (REPO / "src/worker/Cargo.toml")
             .read_text()
-            .replace('members = ["crates/*"]', 'members = ["crates/evals-sdk"]')
+            .replace('members = ["crates/*", "../cli"]', 'members = ["crates/evals-sdk", "crates/contract", "../cli"]')
         )
         (root / "src/worker/Cargo.toml").write_text(manifest)
         shutil.copyfile(REPO / "src/worker/Cargo.lock", root / "src/worker/Cargo.lock")
         baseline: Final = subprocess.run(
-            ["cargo", "test", "--manifest-path", "src/worker/Cargo.toml", "-p", "lens-evals-sdk", "--tests", "--quiet"],
+            [
+                "cargo",
+                "test",
+                "--manifest-path",
+                "src/worker/Cargo.toml",
+                "-p",
+                "lens-evals-sdk",
+                "-p",
+                "lens-cli",
+                "--tests",
+                "--quiet",
+            ],
             cwd=root,
             env={**os.environ, "CARGO_TARGET_DIR": str(REPO / "src/worker/target/mutations")},
             capture_output=True,

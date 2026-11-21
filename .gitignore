@@ -24,8 +24,11 @@ coverage-rust.xml
 .idea/
 .vscode/
 .lens-dev/
+.lens/
 **/test-results/
 **/playwright-report/
 **/*.storageState.json
 payloads/
 *-values.yaml
+
+/src/sdk/src/lens_cli/

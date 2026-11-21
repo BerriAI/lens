@@ -24,23 +24,32 @@ dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "pytest-cov>=6,<8", "ruff>=0.
 [tool.maturin]
 manifest-path = "../worker/crates/evals-python/Cargo.toml"
 python-source = "src"
+include = [
+    { path = "*.py", from = "out-dir", to = "lens_cli/", crate_name = "lens-cli" },
+    { path = "py.typed", from = "out-dir", to = "lens_cli/", crate_name = "lens-cli" },
+]
 module-name = "lens._native"
 features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests", "../cli/tests/python"]
+pythonpath = ["tests"]
 
 [tool.ruff]
 line-length = 120
+src = ["src", "../cli/python"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-exclude = ["src/lens/_contract.py", "tests/fixtures/eval_contract.py"]
+exclude = ["**/_contract.py", "**/fixtures/eval_contract.py"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lens", "lens_cli"]
 
 [tool.mypy]
 strict = true
 
 [tool.coverage.run]
 patch = ["subprocess"]
-source = ["lens"]
+source = ["lens", "lens_cli"]

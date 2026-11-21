@@ -1,35 +1,14 @@
 use std::{path::Path, sync::Arc};
 
+use lens_cli::python::sdk_error as error;
 use lens_evals_sdk::{
-    Error, client, doctor, engine, github,
+    Error, client, engine,
     model::{Case, CaseResult, EvalSpec, Execution, Report},
-    setup::{self, InitOptions, Operation, Settings},
+    setup::{self, Settings},
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
-use serde_json::json;
 
 mod session;
-
-fn error(value: Error) -> PyErr {
-    Python::attach(|py| {
-        let module = py.import("lens.errors")?;
-        let exception = match &value {
-            Error::Configuration(_) | Error::Invalid { .. } | Error::Toml(_) => module
-                .getattr("ConfigurationError")?
-                .call1((value.to_string(),))?,
-            Error::Api { status, code } => {
-                module
-                    .getattr("ApiFailure")?
-                    .call1((*status, code, value.hint()))?
-            }
-            _ => module
-                .getattr("InfrastructureError")?
-                .call1((value.to_string(),))?,
-        };
-        Ok::<_, PyErr>(PyErr::from_value(exception))
-    })
-    .unwrap_or_else(|error| error)
-}
 
 fn decode<T: serde::de::DeserializeOwned>(input: &str) -> PyResult<T> {
     serde_json::from_str(input).map_err(|_| {
@@ -77,11 +56,6 @@ fn redact(value: &str) -> String {
 }
 
 #[pyfunction]
-fn parse_cli(arguments: Vec<String>) -> PyResult<String> {
-    encode(&setup::parse(&arguments))
-}
-
-#[pyfunction]
 fn render(report: &str, format: &str) -> PyResult<String> {
     let report: Report = decode(report)?;
     match format {
@@ -92,104 +66,6 @@ fn render(report: &str, format: &str) -> PyResult<String> {
             .map_err(error),
         _ => Err(PyValueError::new_err("Unknown report format")),
     }
-}
-
-#[pyfunction]
-fn control(py: Python<'_>, command: &str) -> PyResult<String> {
-    let command: Operation = decode(command)?;
-    py.detach(|| {
-        let root = std::env::current_dir().map_err(Error::Io).map_err(error)?;
-        match command {
-            Operation::Init {
-                dataset,
-                project,
-                base_url,
-                task,
-                demo,
-                action_ref,
-            } => setup::initialize(
-                &root,
-                InitOptions {
-                    dataset,
-                    project,
-                    base_url,
-                    task,
-                    demo,
-                    action: action_ref,
-                },
-            )
-            .map_err(error),
-            Operation::DevServer {
-                host,
-                port,
-                dataset_file,
-            } => {
-                pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(lens_evals_sdk::devserver::serve(
-                        &host,
-                        port,
-                        dataset_file.as_deref(),
-                    ))
-                    .map_err(error)?;
-                Ok(String::new())
-            }
-            Operation::Report { file, via_app } => {
-                pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_file_mode(&root, &file, via_app))
-                    .map_err(error)?;
-                Ok(String::new())
-            }
-            Operation::ReportStart { name, pr } => {
-                pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_progress(&root, &name, pr, false))
-                    .map_err(error)?;
-                Ok(String::new())
-            }
-            Operation::ReportFailed { name, pr } => {
-                pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(github::publish_progress(&root, &name, pr, true))
-                    .map_err(error)?;
-                Ok(String::new())
-            }
-            _ => Err(PyValueError::new_err(
-                "Evaluation commands require the Python task boundary",
-            )),
-        }
-    })
-}
-
-#[pyfunction]
-fn diagnose(py: Python<'_>, specs: String, ci: bool) -> PyResult<Bound<'_, PyAny>> {
-    let specs: Vec<EvalSpec> = decode(&specs)?;
-    pyo3_async_runtimes::tokio::future_into_py(py, async move {
-        let root = std::env::current_dir().map_err(Error::Io).map_err(error)?;
-        let configured = Settings::load(&root).map_err(error)?;
-        let checks = match (|| {
-            if configured.project.trim().is_empty() {
-                return Err(Error::Configuration(
-                    "Set [tool.lens].project to the agent.name on your traces",
-                ));
-            }
-            let context = setup::execution(&root, ci)?;
-            let client = client::Client::new(
-                &configured.endpoint()?,
-                &setup::env_value("LENS_API_KEY").unwrap_or_default(),
-            )?;
-            Ok((context, client))
-        })() {
-            Ok((context, client)) => {
-                let checked = doctor::diagnose(&client, &configured, &specs).await;
-                std::iter::once(doctor::Check::success(
-                    "version",
-                    format!("{} on {}", context.version, context.branch),
-                ))
-                .chain(checked)
-                .collect::<Vec<_>>()
-            }
-            Err(value) => vec![doctor::Check::failure("configuration", value)],
-        };
-        encode(&json!({"ok":checks.iter().all(|check| check.ok),"checks":checks}))
-    })
 }
 
 #[pyfunction]
@@ -262,6 +138,7 @@ fn run_named(
 
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    lens_cli::python::register(module)?;
     module.add_class::<session::SavedEvaluation>()?;
     module.add_function(wrap_pyfunction!(validate_eval, module)?)?;
     module.add_function(wrap_pyfunction!(settings, module)?)?;
@@ -269,10 +146,7 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(execution, module)?)?;
     module.add_function(wrap_pyfunction!(endpoint, module)?)?;
     module.add_function(wrap_pyfunction!(redact, module)?)?;
-    module.add_function(wrap_pyfunction!(parse_cli, module)?)?;
     module.add_function(wrap_pyfunction!(render, module)?)?;
-    module.add_function(wrap_pyfunction!(control, module)?)?;
-    module.add_function(wrap_pyfunction!(diagnose, module)?)?;
     module.add_function(wrap_pyfunction!(evaluate, module)?)?;
     module.add_function(wrap_pyfunction!(run_named, module)?)?;
     Ok(())

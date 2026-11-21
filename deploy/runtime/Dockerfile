@@ -31,6 +31,7 @@ RUN apk add --no-cache rust build-base cmake perl pkgconf openssl-dev libseccomp
 WORKDIR /src
 COPY .cargo/ .cargo/
 COPY src/worker/ src/worker/
+COPY src/cli/ src/cli/
 WORKDIR /src/src/worker
 ENV CARGO_BUILD_JOBS=2 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols \
     CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16

@@ -1,0 +1,21 @@
+id,prompt,expected,needs_tool
+ticket-01,Classify support ticket T-1001.,billing,yes
+ticket-02,Classify support ticket T-1002.,technical,yes
+ticket-03,Classify support ticket T-1003.,sales,yes
+ticket-04,Classify support ticket T-1004.,billing,yes
+ticket-05,Classify support ticket T-1005.,technical,yes
+ticket-06,Classify support ticket T-1006.,sales,yes
+ticket-07,Classify support ticket T-1007.,technical,yes
+ticket-08,Classify support ticket T-1008.,billing,yes
+ticket-09,"Ticket: ""I was billed for a plan I cancelled last month.""",billing,no
+ticket-10,"Ticket: ""The API returns 500 errors on every POST request.""",technical,no
+ticket-11,"Ticket: ""Do you offer discounts for nonprofits?""",sales,no
+ticket-12,"Ticket: ""Password reset emails never arrive.""",technical,no
+ticket-13,"Ticket: ""Why does my receipt show a different amount than my bank statement?""",billing,no
+ticket-14,"Ticket: ""We'd like a demo for our 200-person support team.""",sales,no
+ticket-15,"Ticket: ""The mobile app logs me out every few minutes.""",technical,no
+ticket-16,"Ticket: ""Can I switch from monthly to annual billing and get the discount?""",billing,no
+ticket-17,"Ticket: ""Is there a reseller program for agencies?""",sales,no
+ticket-18,"Ticket: ""Webhooks stopped firing after your last release.""",technical,no
+ticket-19,"Ticket: ""I need a copy of last year's invoices for our audit.""",billing,no
+ticket-20,"Ticket: ""What would pricing look like for 1,000 seats?""",sales,no
