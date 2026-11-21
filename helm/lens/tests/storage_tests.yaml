@@ -57,10 +57,30 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: keeper
+            name: config
             mountPath: /etc/clickhouse-server/config.d/lens-keeper.xml
             subPath: lens-keeper.xml
             readOnly: true
+  - it: caps ClickHouse system logs so they cannot exhaust the memory limit
+    documentSelector: {path: kind, value: StatefulSet}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /etc/clickhouse-server/config.d/lens-logging.xml
+            subPath: lens-logging.xml
+            readOnly: true
+      - isNotEmpty: {path: 'spec.template.metadata.annotations["checksum/config"]'}
+  - it: ships the system log level and expiry in the ClickHouse config
+    documentSelector: {path: kind, value: ConfigMap}
+    asserts:
+      - matchRegex:
+          path: data["lens-logging.xml"]
+          pattern: '<text_log>\s*<level>information</level>\s*<ttl>event_date \+ INTERVAL 1 DAY DELETE</ttl>'
+      - matchRegex:
+          path: data["lens-logging.xml"]
+          pattern: '<processors_profile_log remove="1"/>'
   - it: persists Keeper and payloads on the same retained volume
     documentSelector: {path: kind, value: ConfigMap}
     asserts:
