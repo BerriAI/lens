@@ -72,7 +72,49 @@ async fn baseline_regression_revert_repeat(#[future] server: Server, spec: EvalS
     assert!((repeat.summary().unwrap().cost_per_case - 0.03).abs() < 1e-9);
 }
 
+#[rstest]
+#[tokio::test]
+async fn explicit_baseline_is_preserved_when_another_main_run_finishes(
+    #[future(awt)] server: Server,
+    spec: EvalSpec,
+) {
+    let selected = engine::evaluate(
+        &server.client,
+        &spec,
+        "demo",
+        &context("main", "selected"),
+        |_| async { good() },
+    )
+    .await
+    .unwrap();
+    let latest = engine::evaluate(
+        &server.client,
+        &spec,
+        "demo",
+        &context("main", "latest"),
+        |_| async { engine::failure("VerificationError", "failed") },
+    )
+    .await
+    .unwrap();
+    let execution = Execution {
+        baseline_run_id: Some(selected.run.id.clone()),
+        ..context("feature", "candidate")
+    };
+    let candidate = engine::evaluate(&server.client, &spec, "demo", &execution, |_| async {
+        good()
+    })
+    .await
+    .unwrap();
+    assert_eq!(candidate.baseline.as_ref().unwrap().id, selected.run.id);
+    assert_ne!(
+        candidate.summary().unwrap().baseline_run_id.as_deref(),
+        Some(latest.run.id.as_str())
+    );
+    assert!(candidate.summary().unwrap().fixed.is_empty());
+}
+
 struct Active(Arc<AtomicUsize>);
+
 impl Drop for Active {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::SeqCst);

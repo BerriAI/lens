@@ -235,6 +235,9 @@ async fn create(
     {
         return Err(fault(StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"));
     }
+    if spec.baseline_run_id.is_some() && baseline_id(&store, &spec).is_none() {
+        return Err(fault(StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"));
+    }
     let id = Uuid::new_v4().simple().to_string();
     let host = headers
         .get("host")
@@ -340,6 +343,22 @@ fn passes(result: &CaseResult) -> bool {
             .is_some_and(|trace| trace.value.contains("pass"))
 }
 
+fn baseline_id<'a>(store: &'a Store, spec: &CreateEvalRun) -> Option<&'a String> {
+    store.completed.iter().rev().find(|prior| {
+        let previous = &store.specs[*prior];
+        spec.baseline_run_id.as_ref().is_none_or(|id| id == *prior)
+            && previous.branch == "main"
+            && previous.eval == spec.eval
+            && previous.agent == spec.agent
+            && previous.dataset_id == spec.dataset_id
+            && previous.revision == spec.revision
+            && previous.scorers == spec.scorers
+            && previous.case_ids == spec.case_ids
+            && previous.trials == spec.trials
+            && previous.agent_io == spec.agent_io
+    })
+}
+
 fn summary(
     store: &Store,
     id: &str,
@@ -358,16 +377,7 @@ fn summary(
                     .is_none_or(|ids| ids.contains(&case.id))
         })
         .collect::<Vec<_>>();
-    let baseline = store.completed.iter().rev().find(|prior| {
-        let previous = &store.specs[*prior];
-        previous.branch == "main"
-            && previous.eval == spec.eval
-            && previous.agent == spec.agent
-            && previous.dataset_id == spec.dataset_id
-            && previous.revision == spec.revision
-            && previous.scorers == spec.scorers
-            && previous.case_ids == spec.case_ids
-    });
+    let baseline = baseline_id(store, spec);
     let verdicts = cases
         .iter()
         .map(|case| {
