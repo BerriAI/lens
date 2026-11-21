@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "@base-ui/react/tabs";
-import { BookOpen, ChevronRight, Github, Loader2 } from "lucide-react";
+import { ChevronRight, Github, Loader2 } from "lucide-react";
 import { useLensHost } from "../../host/LensHost";
 import AgentTracesPage from "./traces/list/AgentTracesPage";
 import { Button } from "../ui/button";
@@ -20,7 +20,6 @@ import { browserDemoStorage } from "./data/demo/storage";
 import { ModelOptimizations } from "./optimizations/ModelOptimizations";
 import { lensQueries } from "./data/queries";
 import { LensSidebar } from "./LensSidebar";
-import { LensTabs } from "./LensTabs";
 import { FindingsView } from "./investigations/FindingsView";
 import { InvestigationsView } from "./investigations/InvestigationsView";
 import { investigationActivity, listPollInterval } from "./model/status";
@@ -40,7 +39,6 @@ import { OnboardingProvider, type Onboarding } from "./onboarding/OnboardingCont
 import { traceRefOf, useOpenTraceRouting, type TraceRef } from "./traces/routing";
 import { useLensAgents } from "./agents/AgentScoped";
 import { AgentsView } from "./agents/AgentsView";
-import { AgentPicker } from "./agents/AgentPicker";
 import { ProfilesView } from "./profiles/ProfilesView";
 import { LensHome } from "./onboarding/LensHome";
 import { AgentGitHubDialog } from "./agents/AgentGitHubDialog";
@@ -106,7 +104,8 @@ const PANEL =
   "flex min-h-0 flex-1 flex-col overflow-y-auto animate-in fade-in-0 duration-300 motion-reduce:animate-none";
 
 function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">) {
-  const embedded = useLensHost().surface === "embedded";
+  const host = useLensHost();
+  const embedded = host.surface === "embedded";
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const accessToken = useLensAccessToken();
   const { tab, defaultTab: entryTab, lensId, demo, settingUp, setTab, setDemo, setSetup } = useLensRoute();
@@ -195,49 +194,38 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
   const navigate = (tab: LensTab) => {
     leaveSetup();
     setTab(tab);
+    host.navigation?.onNavigate();
   };
   return (
     <OnboardingProvider value={onboarding}>
       <main
         className={cn(
-          "lens-workspace relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
+          "lens-workspace lens-shell relative flex h-full min-h-0 w-full min-w-0 flex-1 bg-background",
           embedded && "lens-embedded",
-          !embedded && "lens-shell",
         )}
       >
         <LensPageActionsContext.Provider value={{ target: pageActions, tab: activeTab }}>
           <Tabs.Root
             value={activeTab}
-            orientation={embedded ? "horizontal" : "vertical"}
+            orientation="vertical"
             onValueChange={(value) => navigate(value as LensTab)}
             className="@container/lens-frame flex min-h-0 min-w-0 flex-1 gap-0"
           >
-            {!embedded && (
-              <LensSidebar
-                agents={agents}
-                activity={activity}
-                workers={workers}
-                canViewAlerts={canViewAlerts}
-                onNavigate={navigate}
-              />
-            )}
+            <LensSidebar
+              agents={agents}
+              activity={activity}
+              workers={workers}
+              canViewAlerts={canViewAlerts}
+              onNavigate={navigate}
+            />
             <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !embedded && "lens-workspace-paper")}>
               {embedded ? (
-                <header aria-label="Lens navigation and actions" className="lens-embedded-toolbar">
+                <header
+                  aria-label="Lens actions"
+                  className={cn("lens-embedded-toolbar", !host.navigation && "lens-mobile-navigation")}
+                >
                   <h1 className="sr-only">Lens</h1>
-                  <div className="min-w-0 max-w-full overflow-x-auto">
-                    <LensTabs
-                      orientation="horizontal"
-                      activity={activity}
-                      workers={workers}
-                      canViewAlerts={canViewAlerts}
-                      onNavigate={navigate}
-                    />
-                  </div>
                   <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
-                    {agents.agent && activeTab !== "optimizations" && (
-                      <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={agents.select} />
-                    )}
                     <div ref={setPageActions} role="group" aria-label="Page actions" className="contents" />
                     {connectGitHub && agents.agent && activeTab !== "agents" && activeTab !== "home" && (
                       <Button
@@ -251,16 +239,6 @@ function LensContent({ userRole, readOnly }: Omit<WorkspaceProps, "accessToken">
                       </Button>
                     )}
                     <DemoToggle demo={demo} onChange={toggleDemo} />
-                    <a
-                      href="https://docs.litellm.ai/docs/proxy/lens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Documentation"
-                      title="Documentation"
-                      className="rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <BookOpen aria-hidden="true" className="size-4" />
-                    </a>
                   </div>
                 </header>
               ) : (

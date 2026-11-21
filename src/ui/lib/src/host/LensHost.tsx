@@ -31,6 +31,11 @@ export interface SpendLogDrawerProps {
 export interface LensHost {
   readonly surface?: "standalone" | "embedded";
   readonly analysis?: "deployment";
+  readonly navigation?: {
+    readonly Container: ComponentType<{ readonly children: ReactNode }>;
+    readonly collapsed: boolean;
+    readonly onNavigate: () => void;
+  };
   readonly user?: {
     readonly name: string;
     readonly role: string;

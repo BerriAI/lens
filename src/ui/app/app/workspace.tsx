@@ -19,7 +19,11 @@ const api = createApiClient({
   getBaseUrl: baseUrl,
   getAuthHeaderName: () => "Authorization",
 });
-const sessionSchema = z.object({ user_id: z.string(), user_role: z.string() });
+const sessionSchema = z.object({
+  user_id: z.string(),
+  user_name: z.string().optional(),
+  user_role: z.string(),
+});
 const sessionKey = ["lens-session"];
 const signInMethodsSchema = z.object({
   litellm_login_url: z.string().nullable(),
@@ -55,7 +59,8 @@ export function Workspace() {
   });
   const client = useQueryClient();
   useEffect(() => {
-    const signIn = () => void client.invalidateQueries({ queryKey: sessionKey });
+    const signIn = () =>
+      void client.invalidateQueries({ queryKey: sessionKey });
     window.addEventListener("hashchange", signIn);
     return () => window.removeEventListener("hashchange", signIn);
   }, [client]);
@@ -86,10 +91,7 @@ export function Workspace() {
         userRole={session.data.user_role}
         readOnly={session.data.user_role === "proxy_admin_viewer"}
         user={{
-          name:
-            session.data.user_id === "lens-admin"
-              ? "Setup token"
-              : session.data.user_id,
+          name: session.data.user_name ?? session.data.user_id,
           role: session.data.user_role,
           signOut: () => void signOut(),
         }}
@@ -131,7 +133,9 @@ function Surface({
 }) {
   return (
     <div className="flex h-dvh min-h-0 flex-col">
-      <LensHostProvider host={{ analysis: "deployment", surface: "standalone", user }}>
+      <LensHostProvider
+        host={{ analysis: "deployment", surface: "standalone", user }}
+      >
         <LensWorkspace accessToken="" userRole={userRole} readOnly={readOnly} />
       </LensHostProvider>
     </div>
@@ -165,6 +169,37 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
     event.preventDefault();
     login.mutate(token);
   };
+  const form = (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <label htmlFor="setup-token" className="text-sm font-medium">
+        Admin token
+      </label>
+      <input
+        id="setup-token"
+        type="password"
+        autoComplete="current-password"
+        required
+        value={token}
+        onChange={(event) => setToken(event.target.value)}
+        className="rounded-md border px-3 py-2"
+      />
+      <button
+        disabled={login.isPending}
+        className={
+          litellmLoginUrl
+            ? "rounded-md border px-3 py-2 text-sm"
+            : "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+        }
+      >
+        {login.isPending ? "Signing in…" : "Sign in"}
+      </button>
+      {login.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {login.error.message}
+        </p>
+      )}
+    </form>
+  );
   return (
     <main className="lens-workspace mx-auto my-16 w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-xl border bg-card">
       <header className="lens-page-header">
@@ -177,7 +212,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
             again.
           </p>
         )}
-        {litellmLoginUrl && (
+        {methods.isPending ? null : litellmLoginUrl ? (
           <>
             <a
               href={litellmLoginUrl}
@@ -185,40 +220,30 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
             >
               Log in with LiteLLM
             </a>
-            <p className="text-center text-xs text-muted-foreground">
-              or use the setup token
-            </p>
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                Legacy admin token
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="size-3 transition-transform group-open:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    d="m4 6 4 4 4-4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </summary>
+              <div className="pt-4">{form}</div>
+            </details>
           </>
+        ) : (
+          form
         )}
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <label htmlFor="setup-token" className="text-sm font-medium">
-            Setup token
-          </label>
-          <input
-            id="setup-token"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            className="rounded-md border px-3 py-2"
-          />
-          <button
-            disabled={login.isPending}
-            className={
-              litellmLoginUrl
-                ? "rounded-md border px-3 py-2 text-sm"
-                : "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-            }
-          >
-            {login.isPending ? "Signing in…" : "Sign in"}
-          </button>
-          {login.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {login.error.message}
-            </p>
-          )}
-        </form>
         <a href="?demo=true" className="text-sm underline">
           Explore demo data
         </a>

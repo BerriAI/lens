@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../../../tests/test-utils";
 import { Inspector } from "../../../shared/Inspector";
 import traceList from "../__fixtures__/trace_list.json";
-import { AgentTracesTable, runCost } from "./AgentTracesTable";
+import { AgentTracesTable, gridWidth, runCost } from "./AgentTracesTable";
 import { traceKey } from "../routing";
 import type { TracePage, TraceSummary } from "../types";
 import { LOW_SCORE, type TraceFeedbackState } from "./useTraceFeedback";
@@ -333,6 +333,118 @@ describe("AgentTracesTable column picker", () => {
     const columnCount = screen.getAllByRole("columnheader").length;
     const [placeholder] = screen.getAllByTestId("runs-placeholder");
     expect(within(placeholder).getAllByRole("cell", { hidden: true })).toHaveLength(columnCount);
+  });
+});
+
+describe("gridWidth", () => {
+  it("lets the grid fill the pane while one column is fluid, reserving room for it", () => {
+    const narrow = gridWidth([100, undefined, 50]);
+    expect(narrow.width).toBeUndefined();
+    expect(narrow.minWidth).toBeGreaterThan(150);
+    expect(gridWidth([200, undefined, 50]).minWidth - narrow.minWidth).toBe(100);
+  });
+
+  it("pins the grid to the sum of the widths once every column has one", () => {
+    expect(gridWidth([100, 320, 50])).toEqual({ minWidth: 470, width: 470 });
+  });
+});
+
+describe("AgentTracesTable column resizing", () => {
+  const runs = (traceList as TracePage).data as TraceSummary[];
+  const renderRuns = () =>
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={runs}
+          findings={new Map()}
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+  const handle = (column: string) => screen.getByLabelText(`Resize ${column} column`);
+  const widthOf = (column: string) => {
+    const index = screen.getAllByRole("columnheader").findIndex((header) => header.textContent?.startsWith(column));
+    return document.querySelectorAll("col")[index].style.width;
+  };
+  const drag = (column: string, renderedWidth: number, by: number) => {
+    const header = handle(column).closest("th") as HTMLElement;
+    vi.spyOn(header, "getBoundingClientRect").mockReturnValue({ width: renderedWidth } as DOMRect);
+    fireEvent.pointerDown(handle(column), { button: 0, pointerId: 1, clientX: 500 });
+    fireEvent.pointerMove(handle(column), { pointerId: 1, clientX: 500 + by });
+    fireEvent.pointerUp(handle(column), { pointerId: 1 });
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    Element.prototype.setPointerCapture = vi.fn();
+  });
+
+  it("gives every data column a handle and none to the column picker", () => {
+    renderRuns();
+    const dataColumns = screen.getAllByRole("columnheader").length - 1;
+    expect(screen.getAllByRole("separator", { hidden: true })).toHaveLength(dataColumns);
+    expect(screen.getByRole("columnheader", { name: "Agent" })).toBeInTheDocument();
+  });
+
+  it("widens a column by the dragged distance and keeps the width after a remount", () => {
+    const { unmount } = renderRuns();
+    const before = widthOf("Trace ID");
+    drag("Trace ID", 140, 85);
+    expect(widthOf("Trace ID")).toBe("225px");
+    expect(widthOf("Trace ID")).not.toBe(before);
+
+    unmount();
+    renderRuns();
+    expect(widthOf("Trace ID")).toBe("225px");
+  });
+
+  it("sizes the fluid Input column from the width it is rendered at", () => {
+    renderRuns();
+    expect(widthOf("Input")).toBe("");
+    drag("Input", 412, -100);
+    expect(widthOf("Input")).toBe("312px");
+  });
+
+  it("stops shrinking at a minimum width instead of collapsing the column", () => {
+    renderRuns();
+    drag("Agent", 160, -150);
+    const floor = widthOf("Agent");
+    expect(parseInt(floor, 10)).toBeGreaterThan(10);
+    drag("Agent", parseInt(floor, 10), -500);
+    expect(widthOf("Agent")).toBe(floor);
+  });
+
+  it("ignores pointer movement that is not part of a drag", () => {
+    renderRuns();
+    const before = widthOf("Cost");
+    fireEvent.pointerMove(handle("Cost"), { pointerId: 1, clientX: 900 });
+    expect(widthOf("Cost")).toBe(before);
+    drag("Cost", 80, 40);
+    fireEvent.pointerMove(handle("Cost"), { pointerId: 1, clientX: 900 });
+    expect(widthOf("Cost")).toBe("120px");
+  });
+
+  it("puts a column back to its default width on double-click", () => {
+    renderRuns();
+    const before = widthOf("Duration");
+    drag("Duration", 86, 60);
+    expect(widthOf("Duration")).not.toBe(before);
+    fireEvent.doubleClick(handle("Duration"));
+    expect(widthOf("Duration")).toBe(before);
+  });
+
+  it("falls back to the default widths when the saved widths are unreadable", () => {
+    localStorage.setItem("litellm_table_column_widths_lens-traces", JSON.stringify({ traceId: "wide" }));
+    renderRuns();
+    const fallback = widthOf("Trace ID");
+    localStorage.clear();
+    drag("Trace ID", 140, 0);
+    fireEvent.doubleClick(handle("Trace ID"));
+    expect(widthOf("Trace ID")).toBe(fallback);
   });
 });
 

@@ -15,6 +15,7 @@
     },
     "body": {
       "user_id": "lens-admin",
+      "user_name": "Setup token",
       "user_role": "proxy_admin"
     }
   }
