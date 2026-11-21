@@ -306,7 +306,7 @@ describe("AgentTracesSection", () => {
     expect(await screen.findByText("No runs in this time range")).toBeVisible();
     expect(screen.queryByTestId("tracing-setup-card")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview sample" })).not.toBeInTheDocument();
-    expect(apiClient.get).toHaveBeenCalledWith("/v1/traces", { accessToken: "sk-test", query: { start_ms: 0 } });
+    expect(apiClient.get).toHaveBeenCalledWith("/v1/traces", { accessToken: "sk-test", query: { start_ms: 0, include_internal: true } });
     fireEvent.click(screen.getByRole("button", { name: "Connect project" }));
     expect(await screen.findByRole("heading", { name: "Connect another agent" })).toBeVisible();
   });
