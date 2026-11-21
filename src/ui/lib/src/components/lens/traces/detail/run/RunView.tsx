@@ -31,6 +31,8 @@ import { type RunSelection, traceKey } from "../../routing";
 import type { Trace } from "../../types";
 import { foldGatewayCalls } from "../../utils";
 import { PagingBanner } from "./PagingBanner";
+import { TelemetryNotice } from "./TelemetryNotice";
+import { lacksAgentTelemetry } from "../../turns";
 import { RunBody } from "./RunBody";
 import { RunHeader } from "./RunHeader";
 import { FeedbackPanel } from "../feedback/FeedbackPanel";
@@ -355,6 +357,7 @@ function LoadedRun({
           onRefresh={() => readManually(refreshTrace)}
         />
       )}
+      {lacksAgentTelemetry(trace.spans) && <TelemetryNotice />}
       <RunBody
         key={`${seekingSpan ? "seeking" : "loaded"}:${signalFocusKey}`}
         trace={trace}

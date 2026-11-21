@@ -8,6 +8,7 @@ import { formatCost } from "../../list/AgentTracesTable";
 import { errorHeadline } from "../content/SpanError";
 import { SpanIcon } from "../../ui/SpanIcon";
 import type { GroupRowData, TurnRowData } from "../../tree";
+import { countedOnce } from "../../turns";
 import type { Span, SpanType } from "../../types";
 import { fmtMs, fmtTok, previewText } from "../../utils";
 import { toolSummary } from "../content/payload";
@@ -118,25 +119,24 @@ export const groupFacts = (row: GroupRowData): HoverFacts => {
 };
 
 export const turnFacts = (row: TurnRowData): HoverFacts => {
-  const start = Math.min(...row.members.map((m) => m.start_offset_ms));
-  const end = Math.max(...row.members.map((m) => m.start_offset_ms + m.duration_ms));
-  const calls = row.members.filter((m) => m.type === "llm");
+  const counted = countedOnce(row.members);
+  const calls = counted.filter((m) => m.type === "llm");
   return {
     name: `Turn ${row.index}`,
     type: "agent",
     model: calls[0]?.model ?? null,
-    startMs: start,
-    durationMs: end - start,
-    tokens: sum(row.members.map((m) => m.input_tokens + m.output_tokens)),
-    inputTokens: sum(row.members.map((m) => m.input_tokens)),
-    outputTokens: sum(row.members.map((m) => m.output_tokens)),
-    spend: totalSpend(row.members),
+    startMs: row.root.start_offset_ms,
+    durationMs: row.root.duration_ms,
+    tokens: sum(counted.map((m) => m.input_tokens + m.output_tokens)),
+    inputTokens: sum(counted.map((m) => m.input_tokens)),
+    outputTokens: sum(counted.map((m) => m.output_tokens)),
+    spend: totalSpend(counted),
     modelCalls: calls.length,
-    toolCalls: row.members.filter((m) => m.type === "tool").length,
-    input: row.message,
-    error: row.members.find((m) => m.status === "error" && m.error)?.error ?? null,
-    failed: row.members.some((m) => m.status === "error"),
-    tags: agentTags(row.members[0]?.agent ?? ""),
+    toolCalls: counted.filter((m) => m.type === "tool").length,
+    input: row.root.input_preview,
+    error: [row.root, ...row.members].find((m) => m.status === "error" && m.error)?.error ?? null,
+    failed: [row.root, ...row.members].some((m) => m.status === "error"),
+    tags: agentTags(row.root.agent),
   };
 };
 

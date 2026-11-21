@@ -262,8 +262,8 @@ export function TurnRow({ row, ctx }: { row: TurnRowData; ctx: RowContext }) {
           <span className={cn("shrink-0 text-sm font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
             {facts.name}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={row.message || undefined}>
-            {row.message || steps}
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={row.root.input_preview || undefined}>
+            {row.root.input_preview || steps}
           </span>
           {ctx.layout === "tree" && <span className={META}>{fmtMs(facts.durationMs)}</span>}
           {ctx.layout === "tree" && facts.spend != null && <span className={META}>{formatCost(facts.spend)}</span>}

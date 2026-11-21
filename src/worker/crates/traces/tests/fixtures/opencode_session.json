@@ -2,8 +2,7 @@
   "resourceSpans": [{
     "resource": {"attributes": [
       {"key": "service.name", "value": {"stringValue": "opencode"}},
-      {"key": "service.version", "value": {"stringValue": "1.19.6"}},
-      {"key": "lens.session.capture", "value": {"stringValue": "true"}}
+      {"key": "service.version", "value": {"stringValue": "1.19.6"}}
     ]},
     "scopeSpans": [{
       "scope": {"name": "opencode", "version": "1.19.6"},

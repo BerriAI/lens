@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import research from "./__fixtures__/research_trace.json";
 import type { SpanTreeState } from "./tree";
-import { sessionTree } from "./turns";
+import { countedOnce, lacksAgentTelemetry, sessionTurns } from "./turns";
 import type { Span } from "./types";
-import { buildTreeRows, revealSpanInState } from "./utils";
+import { buildTreeRows, foldGatewayCalls, revealSpanInState } from "./utils";
 
 const STATE: SpanTreeState = {
   hideFramework: true,
@@ -20,40 +20,30 @@ const base = {
 } as Span;
 const FIRST = "what is 17 times 3?";
 const SECOND = "list the project files with a subagent";
-const PROMPT = "List all files in the project folder with ls and report the names only";
 
-const call = (id: string, start: number, duration: number, preview = FIRST): Span => ({
+const step = (id: string, parent: string | null, type: string, start: number, fields: Partial<Span> = {}): Span => ({
   ...base,
   span_id: id,
-  type: "llm",
-  name: "chat model",
+  parent_span_id: parent,
+  type,
+  name: type === "llm" ? "chat model" : id,
   start_offset_ms: start,
-  duration_ms: duration,
-  input_preview: preview,
+  duration_ms: 10,
+  input_preview: "",
+  ...fields,
 });
-const tool = (id: string, name: string, start: number, preview: string): Span => ({
-  ...base,
-  span_id: id,
-  type: "tool",
-  name: `execute_tool ${name}`,
-  start_offset_ms: start,
-  duration_ms: 0,
-  input_preview: preview,
-});
-const agentArgs = (prompt: string): string => JSON.stringify({ description: "List files", prompt });
+const typed = (id: string, start: number, message: string): Span =>
+  step(id, null, "agent", start, { name: "claude_code.interaction", input_preview: message, duration_ms: 500 });
 
-/** Timings of a real Claude Code session through the gateway: a Read turn, then a turn that launches a subagent and answers once it reports back. */
-const session = (launch = agentArgs(PROMPT)): Span[] => [
-  call("m1", 0, 1307),
-  tool("read", "Read", 1482, '{"file_path": "/proj/AGENTS.md"}'),
-  call("m2", 1496, 701),
-  call("m3", 17395, 2764, SECOND),
-  call("s1", 20334, 1304, PROMPT),
-  tool("agent", "Agent", 20348, launch),
-  call("m4", 20362, 910, SECOND),
-  tool("bash", "Bash", 21727, '{"command": "ls -la"}'),
-  call("s2", 21735, 1928, PROMPT),
-  call("m5", 23833, 1528, SECOND),
+/** The shape of a real Claude Code session with telemetry on: one interaction span per typed message, the gateway's call nested under Claude Code's own. */
+const session = (): Span[] => [
+  typed("t1", 0, FIRST),
+  step("r1", "t1", "llm", 10),
+  step("g1", "r1", "llm", 12, { input_tokens: 40, output_tokens: 4, spend: 0.5 }),
+  step("read", "t1", "tool", 30),
+  typed("t2", 1000, SECOND),
+  step("r2", "t2", "llm", 1010),
+  step("g2", "r2", "llm", 1012, { input_preview: "[SUGGESTION MODE: Suggest what the user might naturally type next]" }),
 ];
 
 const outline = (spans: readonly Span[], state = STATE): string[] =>
@@ -61,114 +51,53 @@ const outline = (spans: readonly Span[], state = STATE): string[] =>
     (row) => `${"  ".repeat(row.depth)}${row.kind === "turn" ? `Turn ${row.index}` : row.id}`,
   );
 
-describe("coding session turns", () => {
-  it("files a gateway session's flat calls under turns, with subagent calls under their Agent call", () => {
+describe("Claude Code turns", () => {
+  it("numbers the messages Claude Code recorded and files what it did for each under that turn", () => {
     expect(outline(session().toReversed())).toEqual([
       "Turn 1",
-      "  m1",
+      "  r1",
+      "    g1",
       "  read",
-      "  m2",
       "Turn 2",
-      "  m3",
-      "  agent",
-      "    s1",
-      "    bash",
-      "    s2",
-      "  m4",
-      "  m5",
+      "  r2",
+      "    g2",
     ]);
   });
 
-  it("opens a turn only when the user types a new message, however many calls and tools answer it", () => {
-    const spans = [
-      { ...call("title", 0, 900, "write a title"), model: "claude-haiku-4-5" },
-      call("m1", 176, 2100),
-      call("m2", 30000, 2900, SECOND),
-      tool("search", "ToolSearch", 33000, '{"query": "fetch web page"}'),
-      call("m3", 33000, 1700, SECOND),
-      call("notified", 90000, 1500, SECOND),
-      call("m4", 120000, 800, "thanks"),
+  it("labels a turn with the message Claude Code recorded, whatever its model calls were sent", () => {
+    expect(sessionTurns(session()).map((turn) => turn.root.input_preview)).toEqual([FIRST, SECOND]);
+  });
+
+  it("gives a gateway-only session no turns, however its calls are spaced or worded", () => {
+    const flat = [
+      step("title", null, "llm", 0, { input_preview: "Write the title in the predominant language" }),
+      step("m1", null, "llm", 176, { input_preview: FIRST }),
+      step("read", null, "tool", 400),
+      step("m2", null, "llm", 30000, { input_preview: SECOND }),
     ];
-    const turns = buildTreeRows(spans, STATE).flatMap((row) => (row.kind === "turn" ? [row] : []));
-    expect(turns.map((turn) => [turn.message, turn.members.map((span) => span.span_id)])).toEqual([
-      [FIRST, ["title", "m1"]],
-      [SECOND, ["m2", "search", "m3", "notified"]],
-      ["thanks", ["m4"]],
-    ]);
+    expect(outline(flat)).toEqual(["title", "m1", "read", "m2"]);
+    expect(lacksAgentTelemetry(flat)).toBe(true);
   });
 
-  it("labels a one-message session with what the user typed, not the prompt of its naming call", () => {
-    const spans = [
-      { ...call("title", 0, 900, "write a title"), model: "claude-haiku-4-5", input_tokens: 900, output_tokens: 11 },
-      { ...call("m1", 176, 2100), input_tokens: 22593, output_tokens: 36 },
-    ];
-    const turns = buildTreeRows(spans, STATE).flatMap((row) => (row.kind === "turn" ? [row] : []));
-    expect(turns.map((turn) => turn.message)).toEqual([FIRST]);
+  it.each([
+    ["has its turns", session()],
+    ["is not Claude Code's", (research.spans as Span[]).map((span) => ({ ...span, framework: "langgraph" }))],
+    ["has no spans yet", []],
+  ])("asks for telemetry only on a gateway-only Claude Code session, not one that %s", (_, spans) => {
+    expect(lacksAgentTelemetry(spans)).toBe(false);
+    expect(sessionTurns(research.spans as Span[])).toEqual([]);
   });
 
-  it("splits calls that carry no content where one finishes before the next starts", () => {
-    const spans = [
-      call("m1", 0, 100, ""),
-      tool("read", "Read", 150, "{}"),
-      call("m2", 150, 100, ""),
-      call("m3", 900, 100, ""),
-    ];
-    expect(outline(spans)).toEqual(["Turn 1", "  m1", "  read", "  m2", "Turn 2", "  m3"]);
+  it("counts a model call once when Claude Code and the gateway both recorded it", () => {
+    const counted = countedOnce(foldGatewayCalls(session()));
+    expect(counted.map((span) => span.span_id)).toEqual(["t1", "r1", "read", "t2", "r2"]);
+    expect(counted.map((span) => span.spend ?? 0).reduce((total, spend) => total + spend)).toBe(0.5);
   });
 
-  it("links a subagent whose Agent arguments were cut short in the preview", () => {
-    const cut = agentArgs(PROMPT).slice(0, -30);
-    expect(sessionTree(session(cut))?.spans.flatMap((span) => (span.parent_span_id ? [span.span_id] : []))).toEqual([
-      "s1",
-      "bash",
-      "s2",
-    ]);
-  });
-
-  it("keeps a call that only shares the first words of an Agent prompt in the main thread", () => {
-    const spans = session().map((span) =>
-      span.span_id.startsWith("s") ? { ...span, input_preview: "List all" } : span,
-    );
-    expect(sessionTree(spans)?.spans.every((span) => span.parent_span_id === null)).toBe(true);
-  });
-
-  it("keeps the launching thread out of the branch when the subagent is given the user's own message", () => {
-    const spans = session(agentArgs(FIRST));
-    expect(sessionTree(spans)?.spans.every((span) => span.parent_span_id === null)).toBe(true);
-  });
-
-  it("does not open a turn for a call that starts while another is still running", () => {
-    const spans = [call("title", 0, 900, "write a title"), call("m1", 176, 2100), call("m2", 5000, 800, SECOND)];
-    expect(outline(spans)).toEqual(["Turn 1", "  title", "  m1", "Turn 2", "  m2"]);
-  });
-
-  it("leaves traces with a span tree, or a single model call, without turns", () => {
-    expect(sessionTree(research.spans as Span[])).toBeNull();
-    expect(sessionTree([call("only", 0, 10), tool("t", "Read", 20, "{}")])).toBeNull();
-    expect(buildTreeRows(research.spans as Span[], STATE).some((row) => row.kind === "turn")).toBe(false);
-  });
-
-  it("folds a collapsed turn and opens it again to reveal a step inside a subagent", () => {
+  it("folds a collapsed turn and opens it again to reveal a step inside it", () => {
     const spans = session();
-    const turn = buildTreeRows(spans, STATE).find((row) => row.kind === "turn" && row.index === 2);
-    const folded = {
-      ...STATE,
-      collapsedSpanIds: new Set([turn?.id ?? "", "agent"]),
-    };
-    expect(outline(spans, folded)).toEqual(["Turn 1", "  m1", "  read", "  m2", "Turn 2"]);
-    expect(outline(spans, revealSpanInState(spans, folded, "bash"))).toContain("    bash");
-  });
-
-  it("totals a turn over its own calls and its subagent's", () => {
-    const row = buildTreeRows(session(), STATE).find((candidate) => candidate.kind === "turn" && candidate.index === 2);
-    expect(row?.kind === "turn" && row.members.map((span) => span.span_id)).toEqual([
-      "m3",
-      "agent",
-      "m4",
-      "m5",
-      "s1",
-      "bash",
-      "s2",
-    ]);
+    const folded = { ...STATE, collapsedSpanIds: new Set(["turn::t2"]) };
+    expect(outline(spans, folded)).toEqual(["Turn 1", "  r1", "    g1", "  read", "Turn 2"]);
+    expect(outline(spans, revealSpanInState(spans, folded, "g2"))).toContain("    g2");
   });
 });

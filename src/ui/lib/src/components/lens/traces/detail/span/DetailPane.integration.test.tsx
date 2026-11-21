@@ -444,22 +444,24 @@ describe("DetailPane", () => {
     const user = userEvent.setup();
     const onOpenStep = vi.fn();
     const typed = "Find a tool that fetches web pages";
-    const asked = span({
-      ...llmFields,
-      span_id: "ask",
+    const turn = span({
+      span_id: "root",
       parent_span_id: null,
+      name: "claude_code.interaction",
+      type: "agent",
       input_preview: typed,
     });
+    const asked = span({ ...llmFields, span_id: "ask", parent_span_id: "root" });
     const search = span({
       span_id: "search",
-      parent_span_id: null,
+      parent_span_id: "root",
       name: "execute_tool ToolSearch",
       type: "tool",
       input_preview: '{"query": "fetch web page"}',
     });
     const delegated = span({
       span_id: "agent",
-      parent_span_id: null,
+      parent_span_id: "root",
       name: "execute_tool Agent",
       type: "tool",
     });
@@ -469,25 +471,21 @@ describe("DetailPane", () => {
       parent_span_id: "agent",
       model: "subagent-model",
     });
-    const answered = span({
+    const answered = span({ ...llmFields, span_id: "answer", parent_span_id: "root" });
+    const suggested = span({
       ...llmFields,
-      span_id: "root",
-      parent_span_id: null,
-      input_preview: typed,
-    });
-    const titled = span({
-      ...llmFields,
-      parent_span_id: null,
-      input_preview: "Write the title of the session",
+      span_id: "suggest",
+      parent_span_id: "root",
+      input_preview: "[SUGGESTION MODE: Suggest what the user might naturally type next]",
     });
     renderPane(
       {
         kind: "turn",
-        id: "turn::ask",
+        id: "turn::root",
         depth: 0,
         index: 2,
-        message: typed,
-        members: [asked, search, delegated, answered, titled, delegate],
+        root: turn,
+        members: [asked, search, delegated, delegate, answered, suggested],
         collapsed: false,
       },
       onOpenStep,

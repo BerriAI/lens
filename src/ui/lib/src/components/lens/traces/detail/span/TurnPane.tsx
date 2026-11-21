@@ -3,6 +3,7 @@
 import { formatCost } from "../../list/AgentTracesTable";
 import { SpanIcon } from "../../ui/SpanIcon";
 import type { TurnRowData } from "../../tree";
+import { countedOnce } from "../../turns";
 import type { Span, Trace } from "../../types";
 import { fmtMs, fmtTok } from "../../utils";
 import { useSpanDetail } from "../content/ContentTab";
@@ -57,7 +58,7 @@ function Step({ span, depth, onOpen }: Placed & { onOpen: (id: string) => void }
   );
 }
 
-/** One typed message: what the user asked, what the agent answered, and the calls in between. */
+/** One typed message: what the user asked, what the agent answered, and the steps in between, all as Claude Code recorded them. */
 export function TurnPane({
   trace,
   row,
@@ -72,15 +73,8 @@ export function TurnPane({
   onClose: () => void;
 }) {
   const facts = turnFacts(row);
-  const own = row.members.filter((span) => span.parent_span_id === null);
-  const calls = own.filter((span) => span.type === "llm");
-  const answered = calls.findLast((span) => span.input_preview === row.message) ?? calls.at(-1);
-  const answer = useSpanDetail(
-    accessToken,
-    trace.summary.trace_id,
-    answered?.span_id ?? null,
-    trace.summary.trace_ref,
-  ).data;
+  const message = row.root.input_preview;
+  const answer = useSpanDetail(accessToken, trace.summary.trace_id, row.root.span_id, trace.summary.trace_ref).data;
   return (
     <aside className="flex h-full min-w-0 flex-col bg-background text-sm text-foreground" aria-label="Turn details">
       <PaneHeader
@@ -92,28 +86,28 @@ export function TurnPane({
         onClose={onClose}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4">
-        {row.message && (
+        {message && (
           <section aria-label="User message" className="flex flex-col gap-1.5">
             <h3 className={HEADING}>User</h3>
             <p className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm whitespace-pre-wrap text-foreground">
-              {row.message}
+              {message}
             </p>
           </section>
         )}
-        {answered && answer?.output && (
+        {answer?.output && (
           <section aria-label="Agent answer" className="flex flex-col gap-1.5">
             <h3 className={HEADING}>Agent</h3>
             <Payload
               view={payloadView(answer.output, answer.output_ui, false, true)}
-              name={answered.name}
-              failed={answered.status === "error"}
+              name={row.root.name}
+              failed={row.root.status === "error"}
             />
           </section>
         )}
         <section aria-label="Turn steps" className="flex flex-col gap-1.5">
           <h3 className={HEADING}>Steps</h3>
           <ol className="flex flex-col">
-            {under(row.members, null, 0).map(({ span, depth }) => (
+            {under(countedOnce(row.members), row.root.span_id, 0).map(({ span, depth }) => (
               <Step key={span.span_id} span={span} depth={depth} onOpen={onOpenStep} />
             ))}
           </ol>
