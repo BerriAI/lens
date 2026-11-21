@@ -38,14 +38,7 @@ impl<'a> Report<'a> {
         let longest_model = summary
             .stats
             .iter()
-            .map(|stat| {
-                stat.target
-                    .label
-                    .as_deref()
-                    .unwrap_or(&stat.target.model)
-                    .chars()
-                    .count()
-            })
+            .map(|stat| stat.target.display_name().chars().count())
             .max()
             .unwrap_or(6);
         let room = width.saturating_sub(FIXED_COLUMNS + harness_width + 4 + 3);
@@ -99,13 +92,10 @@ impl<'a> Report<'a> {
                 ),
                 Style::fg(TEXT),
             ),
-            badge(brand::model(&target.model)),
+            badge(target.model.as_deref().map(brand::model)),
             span(
                 pad(
-                    &shorten(
-                        target.label.as_deref().unwrap_or(&target.model),
-                        self.model_width,
-                    ),
+                    &shorten(target.display_name(), self.model_width),
                     self.model_width + 1,
                 ),
                 Style::fg(MUTED),
@@ -131,8 +121,8 @@ impl<'a> Report<'a> {
 
     fn label(&self, index: usize) -> String {
         let target = &self.stats()[index].target;
-        if let Some(label) = &target.label {
-            return label.clone();
+        if target.label.is_some() || target.model.is_none() {
+            return target.display_name().to_owned();
         }
         let shared = self
             .stats()
@@ -144,10 +134,10 @@ impl<'a> Report<'a> {
             format!(
                 "{} / {}",
                 brand::harness(&target.harness).label,
-                target.model
+                target.display_name()
             )
         } else {
-            target.model.clone()
+            target.display_name().to_owned()
         }
     }
 
@@ -174,7 +164,7 @@ impl<'a> Report<'a> {
         };
         let chosen = &self.stats()[pick];
         let harness = brand::harness(&chosen.target.harness);
-        let model = brand::model(&chosen.target.model);
+        let model = chosen.target.model.as_deref().map(brand::model);
         let top = self.best().unwrap_or(pick);
         let leader = &self.stats()[top];
         let headline = if top == pick || leader.pass_rate() <= chosen.pass_rate() {
@@ -204,16 +194,19 @@ impl<'a> Report<'a> {
                 strong("Recommendation  "),
                 badge(harness),
                 strong(harness.label),
-                faint("  +  "),
+                faint(if model.is_some() { "  +  " } else { "  " }),
                 badge(model),
-                strong(chosen.target.model.clone()),
+                strong(chosen.target.display_name()),
             ]),
             detail(vec![text(headline)]),
             detail(vec![muted(format!(
-                "{} p50 latency at {:.1}s, {:.0}% repeated tool calls",
+                "{} p50 latency at {:.1}s, {}",
                 if fastest { "Fastest" } else { "Competitive" },
                 chosen.p50_seconds,
-                chosen.repeat_rate * 100.0
+                chosen
+                    .repeat_rate
+                    .map(|rate| format!("{:.0}% repeated tool calls", rate * 100.0))
+                    .unwrap_or_else(|| "tool-call metrics unknown".to_owned())
             ))]),
         ]
     }
@@ -246,11 +239,8 @@ impl<'a> Report<'a> {
                         cell(marker_text(index), self.marker_style(index)),
                         branded(harness, shorten(harness.label, self.harness_width)),
                         branded(
-                            brand::model(&stat.target.model),
-                            shorten(
-                                stat.target.label.as_deref().unwrap_or(&stat.target.model),
-                                self.model_width,
-                            ),
+                            stat.target.model.as_deref().map(brand::model),
+                            shorten(stat.target.display_name(), self.model_width),
                         ),
                         cell(format!("{:.1}%", stat.pass_rate() * 100.0), Style::fg(GOOD)),
                         cell(stat.fail.to_string(), Style::fg(BAD)),
@@ -343,17 +333,14 @@ impl<'a> Report<'a> {
     fn point_label(&self, index: usize) -> Vec<(String, Style)> {
         let target = &self.stats()[index].target;
         let harness = brand::harness(&target.harness);
-        let model = brand::model(&target.model);
+        let model = badge(target.model.as_deref().map(brand::model));
         [
             (format!("{} ", harness.glyph), Style::fg(harness.color)),
             (harness.label.to_owned(), self.marker_style(index)),
             ("  ".to_owned(), Style::default()),
-            (format!("{} ", model.glyph), Style::fg(model.color)),
+            (model.text, model.style),
             (
-                shorten(
-                    target.label.as_deref().unwrap_or(&target.model),
-                    self.model_width,
-                ),
+                shorten(target.display_name(), self.model_width),
                 Style::fg(MUTED),
             ),
         ]
@@ -394,7 +381,7 @@ impl<'a> Report<'a> {
             .any(|stat| stat.cost().is_none() || !stat.metrics.metrics_complete)
         {
             return vec![detail(vec![muted(
-                "Cost comparison needs complete model and judge metrics.",
+                "Cost comparison needs complete agent and judge metrics.",
             )])];
         }
         let columns = self.width.saturating_sub(14).min(56);
@@ -489,7 +476,7 @@ impl<'a> Report<'a> {
             ]),
             Line::new(vec![
                 gap(8),
-                faint("↑ pass rate   → total cost, model + judge"),
+                faint("↑ pass rate   → total cost, agent + judge"),
             ]),
             Line::blank(),
         ])
@@ -573,29 +560,38 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(|stat| stat.tool_calls_per_case)
+            .filter_map(|stat| stat.tool_calls_per_case)
             .fold(0.0, f64::max);
         let room = self.track().saturating_sub(6);
         self.stats()
             .iter()
             .enumerate()
             .map(|(index, stat)| {
-                let repeats = format!("{:>3.0}%↺", stat.repeat_rate * 100.0);
+                let repeats = stat
+                    .repeat_rate
+                    .map(|rate| format!("{:>3.0}%↺", rate * 100.0))
+                    .unwrap_or_else(|| "  —↺".to_owned());
                 Line::new(
                     self.who(index)
                         .into_iter()
                         .chain(fill(
-                            ratio(stat.tool_calls_per_case, most),
+                            ratio(stat.tool_calls_per_case.unwrap_or_default(), most),
                             room,
                             self.bar_color(index),
                         ))
                         .chain([
                             span(
-                                pad_left(&format!("{:.1}/case", stat.tool_calls_per_case), VALUE),
+                                pad_left(
+                                    &stat
+                                        .tool_calls_per_case
+                                        .map(|calls| format!("{calls:.1}/case"))
+                                        .unwrap_or_else(|| "unknown".to_owned()),
+                                    VALUE,
+                                ),
                                 self.marker_style(index),
                             ),
                             gap(1),
-                            if stat.repeat_rate > 0.15 {
+                            if stat.repeat_rate.is_some_and(|rate| rate > 0.15) {
                                 warn(repeats)
                             } else {
                                 faint(repeats)
@@ -733,7 +729,7 @@ impl<'a> Report<'a> {
                     3,
                     "Total cost",
                     &format!(
-                        "model + judge, all {} tasks",
+                        "agent + judge, all {} tasks",
                         thousands(self.summary.task_count as u64)
                     ),
                     width,
@@ -832,7 +828,7 @@ fn cost_label(stat: &TargetStats) -> String {
     if stat.metrics.metrics_complete {
         money(stat.cost())
     } else {
-        "incomplete".to_owned()
+        "unknown".to_owned()
     }
 }
 
@@ -872,7 +868,7 @@ mod tests {
         TargetStats {
             target: Target {
                 harness: harness.to_owned(),
-                model: model.to_owned(),
+                model: Some(model.to_owned()),
                 label: None,
             },
             pass,
@@ -880,8 +876,8 @@ mod tests {
             error: 1,
             model_cost: Some(cost),
             judge_cost: Some(0.0),
-            tool_calls_per_case: 2.0,
-            repeat_rate: 0.1,
+            tool_calls_per_case: Some(2.0),
+            repeat_rate: Some(0.1),
             p50_seconds: 3.0,
             p95_seconds: 7.5,
             metrics: crate::local::Metrics {
@@ -1014,6 +1010,46 @@ mod tests {
             .expect("errors");
         assert!(red.text.chars().count() > yellow.text.chars().count());
         assert!(row.plain().trim_end().ends_with("450"));
+    }
+
+    #[rstest]
+    fn unknown_custom_agent_cost_preserves_the_last_column_at_terminal_width() {
+        let custom = TargetStats {
+            target: Target {
+                harness: "custom".to_owned(),
+                model: None,
+                label: Some("my-agent".to_owned()),
+            },
+            model_cost: None,
+            metrics: Default::default(),
+            p50_seconds: 1.1,
+            ..stat("custom", "unused", 1, 0, 0.0)
+        };
+        let built_in = stat("tool_loop", "model-a", 1, 0, 0.01);
+        let summary = Summary {
+            run_id: "eval_custom".to_owned(),
+            task_count: 1,
+            trials: 1,
+            stats: vec![
+                custom,
+                TargetStats {
+                    target: Target {
+                        label: Some("luna/tool-loop".to_owned()),
+                        ..built_in.target
+                    },
+                    ..built_in
+                },
+            ],
+            recommended: None,
+        };
+        let rows = Report::new(&summary, 78).results();
+        let custom_row = rows
+            .iter()
+            .find(|line| line.plain().contains("my-agent"))
+            .unwrap();
+        assert!(custom_row.width() <= 78);
+        assert!(custom_row.plain().trim_end().ends_with("1.1s"));
+        assert!(custom_row.plain().contains("unknown"));
     }
 
     #[rstest]

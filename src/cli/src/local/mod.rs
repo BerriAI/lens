@@ -26,16 +26,28 @@ const fn one() -> usize {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Target {
     pub harness: String,
-    pub model: String,
+    #[serde(default)]
+    pub model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
 }
 
 impl Target {
     pub fn key(&self) -> String {
+        if let Some(label) = &self.label {
+            return label.clone();
+        }
+        match &self.model {
+            Some(model) => format!("{}/{model}", self.harness),
+            None => self.harness.clone(),
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
         self.label
-            .clone()
-            .unwrap_or_else(|| format!("{}/{}", self.harness, self.model))
+            .as_deref()
+            .or(self.model.as_deref())
+            .unwrap_or(&self.harness)
     }
 }
 
@@ -84,7 +96,7 @@ pub struct AgentResult {
     #[serde(default)]
     pub judge_cost: Option<f64>,
     #[serde(default)]
-    pub tool_calls: Vec<ToolCall>,
+    pub tool_calls: Option<Vec<ToolCall>>,
     #[serde(flatten)]
     pub metrics: Metrics,
     #[serde(default)]
@@ -142,8 +154,8 @@ pub struct TargetStats {
     pub judge_cost: Option<f64>,
     #[serde(flatten)]
     pub metrics: Metrics,
-    pub tool_calls_per_case: f64,
-    pub repeat_rate: f64,
+    pub tool_calls_per_case: Option<f64>,
+    pub repeat_rate: Option<f64>,
     pub p50_seconds: f64,
     pub p95_seconds: f64,
 }

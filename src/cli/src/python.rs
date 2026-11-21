@@ -217,7 +217,7 @@ fn boundary_failure(message: &str) -> AgentResult {
         output: String::new(),
         cost: None,
         judge_cost: None,
-        tool_calls: Vec::new(),
+        tool_calls: None,
         metrics: local::Metrics::default(),
         stop_reason: None,
         check_error: None,

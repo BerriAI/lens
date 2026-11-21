@@ -142,7 +142,20 @@ fn roster(
 
 pub fn found(tally: &Tally) -> Vec<Line> {
     let harnesses = unique(tally.targets.iter().map(|target| target.harness.clone()));
-    let models = unique(tally.targets.iter().map(|target| target.model.clone()));
+    let models = unique(
+        tally
+            .targets
+            .iter()
+            .filter_map(|target| target.model.clone()),
+    );
+    let model_roster = (!models.is_empty()).then(|| {
+        detail(
+            [muted("models     ")]
+                .into_iter()
+                .chain(roster(models, |name| (brand::model(name), name.to_owned())))
+                .collect(),
+        )
+    });
     let resumed = (tally.resumed > 0).then(|| {
         detail(vec![muted(format!(
             "resuming       {} cases already done",
@@ -168,14 +181,9 @@ pub fn found(tally: &Tally) -> Vec<Line> {
                 }))
                 .collect(),
         ),
-        detail(
-            [muted("models     ")]
-                .into_iter()
-                .chain(roster(models, |name| (brand::model(name), name.to_owned())))
-                .collect(),
-        ),
     ]
     .into_iter()
+    .chain(model_roster)
     .chain(resumed)
     .chain([Line::blank()])
     .collect()
@@ -229,8 +237,11 @@ pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<L
                 [
                     badge(harness),
                     span(pad(harness.label, 18), Style::fg(TEXT)),
-                    badge(brand::model(&target.model)),
-                    span(pad(&shorten(&target.model, 11), 12), Style::fg(MUTED)),
+                    badge(target.model.as_deref().map(brand::model)),
+                    span(
+                        pad(&shorten(target.display_name(), 11), 12),
+                        Style::fg(MUTED),
+                    ),
                 ]
                 .into_iter()
                 .chain(bar(share, 14))

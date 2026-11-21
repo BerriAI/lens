@@ -118,17 +118,19 @@ fn percentile(sorted: &[f64], rank: f64) -> f64 {
     }
 }
 
-fn repeats(attempt: &Attempt) -> usize {
-    let calls = &attempt.result.tool_calls;
-    calls
-        .iter()
-        .enumerate()
-        .filter(|(index, call)| {
-            calls[..*index]
-                .iter()
-                .any(|earlier| earlier.name == call.name && earlier.arguments == call.arguments)
-        })
-        .count()
+fn repeats(attempt: &Attempt) -> Option<usize> {
+    let calls = attempt.result.tool_calls.as_ref()?;
+    Some(
+        calls
+            .iter()
+            .enumerate()
+            .filter(|(index, call)| {
+                calls[..*index]
+                    .iter()
+                    .any(|earlier| earlier.name == call.name && earlier.arguments == call.arguments)
+            })
+            .count(),
+    )
 }
 
 fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
@@ -136,11 +138,11 @@ fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
         attempts.iter().filter(|attempt| predicate(attempt)).count() as u32
     };
     let failed = |attempt: &Attempt| matches!(attempt.result.outcome, Outcome::Fail { .. });
-    let calls: usize = attempts
+    let calls: Option<usize> = attempts
         .iter()
-        .map(|attempt| attempt.result.tool_calls.len())
+        .map(|attempt| attempt.result.tool_calls.as_ref().map(Vec::len))
         .sum();
-    let repeated: usize = attempts.iter().map(|attempt| repeats(attempt)).sum();
+    let repeated: Option<usize> = attempts.iter().map(|attempt| repeats(attempt)).sum();
     let mut latencies: Vec<f64> = attempts
         .iter()
         .map(|attempt| attempt.latency_seconds)
@@ -185,14 +187,14 @@ fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
                 .iter()
                 .all(|attempt| attempt.result.metrics.metrics_complete),
         },
-        tool_calls_per_case: match attempts.len() {
+        tool_calls_per_case: calls.map(|calls| match attempts.len() {
             0 => 0.0,
             cases => calls as f64 / cases as f64,
-        },
-        repeat_rate: match calls {
+        }),
+        repeat_rate: calls.zip(repeated).map(|(calls, repeated)| match calls {
             0 => 0.0,
             calls => repeated as f64 / calls as f64,
-        },
+        }),
         p50_seconds: percentile(&latencies, 0.50),
         p95_seconds: percentile(&latencies, 0.95),
     }

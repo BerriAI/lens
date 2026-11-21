@@ -1,11 +1,10 @@
 from typing import Final
 
 from evals import targets as targets
-from litellm import EvalTask, PredicateCheck
-from litellm.harness import Result
+from litellm import EvalOutput, EvalTask, PredicateCheck
 
 
-def billing(result: Result) -> bool:
+def billing(result: EvalOutput) -> bool:
     return result.text.strip().casefold() == "billing"
 
 

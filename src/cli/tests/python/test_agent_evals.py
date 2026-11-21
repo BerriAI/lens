@@ -355,6 +355,9 @@ def test_sdk_result_mapping_preserves_stopped_run_and_unknown_judge_metrics():
     unknown = _result(failed_judge)
     assert unknown.cost == result.cost
     assert unknown.judge_cost is None
+    assert unknown.judge_input_tokens is None
+    assert unknown.judge_output_tokens is None
+    assert unknown.judge_model_calls is None
     assert not unknown.metrics_complete
 
 
@@ -466,4 +469,263 @@ def test_sdk_header_only_csv_is_rejected_before_creating_a_run(tmp_path, model_s
     rejected = run_cli(tmp_path, "run", "tasks.csv", "--config", "evals.py", "--fast")
     assert rejected.returncode == 2
     assert not tuple((tmp_path / ".lens/runs").glob("*"))
+    assert requests.qsize() == 0
+
+
+def write_custom_config(root, endpoint, *, mixed=True, options="", task_source=None, agent_body=None):
+    path = root / "evals.py"
+    path.write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from litellm import (AgentInput, AgentOutput, EvalAgent, EvalTarget, EvalTask,\n"
+        "    Harness, PredicateCheck, CommandCheck, JudgeCheck)\n"
+        "class MyAgent(EvalAgent):\n"
+        "    async def run(self, task: AgentInput) -> AgentOutput:\n"
+        + (agent_body or "        return AgentOutput('billing')\n")
+        + "custom = MyAgent('my-agent')\n"
+        + (
+            "targets = [custom, EvalTarget(Harness.TOOL_LOOP, 'openai/controlled', label='tool-loop')]\n"
+            if mixed
+            else "targets = [custom]\n"
+        )
+        + f"run_options = {{'api_base': {endpoint!r}, 'api_key': 'controlled-test', {options}}}\n"
+        + (
+            "tasks = [EvalTask('t', 'Classify', check=PredicateCheck(lambda result: result.text == 'billing'))]\n"
+            if task_source is None
+            else task_source
+        )
+    )
+    return path
+
+
+def test_custom_agent_and_sdk_target_share_tasks_checks_and_unknown_metrics(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_custom_config(tmp_path, endpoint)
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--trials", "2", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, saved = attempts(tmp_path)
+    assert len(saved) == 4
+    custom = tuple(item for item in saved if item["target"]["label"] == "my-agent")
+    assert len(custom) == 2
+    assert all(item["target"] == {"harness": "custom", "model": None, "label": "my-agent"} for item in custom)
+    assert all(item["outcome"] == {"status": "pass"} for item in custom)
+    for item in custom:
+        assert item["cost"] is None
+        assert item["input_tokens"] is None
+        assert item["output_tokens"] is None
+        assert item["model_calls"] is None
+        assert item["tool_calls"] is None
+        assert not item["metrics_complete"]
+    assert requests.qsize() == 2
+    report = json.loads((directory / "summary.json").read_text())
+    custom_stats = next(stat for stat in report["stats"] if stat["target"]["label"] == "my-agent")
+    assert custom_stats["model_cost"] is None
+    assert custom_stats["tool_calls_per_case"] is None
+
+
+def test_custom_agent_uses_prepared_workspace_for_setup_and_command_check(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_custom_config(
+        tmp_path,
+        endpoint,
+        mixed=False,
+        agent_body=(
+            "        result = await task.sandbox.run((sys.executable, '-c',\n"
+            "            \"from pathlib import Path; assert Path('input.txt').read_text() == 'ready'; "
+            "Path('result.txt').write_text('billing')\"))\n"
+            "        if result.exit_code != 0:\n"
+            "            raise RuntimeError(result.stderr)\n"
+            "        return AgentOutput('billing')\n"
+        ),
+        task_source=(
+            "tasks = [EvalTask('workspace', 'Classify', files={'input.txt': 'initial'},\n"
+            "    setup=((sys.executable, '-c',\n"
+            "        \"from pathlib import Path; Path('input.txt').write_text('ready')\"),),\n"
+            "    check=CommandCheck((sys.executable, '-c',\n"
+            "        \"from pathlib import Path; assert Path('result.txt').read_text() == 'billing'\")))]\n"
+        ),
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    _, saved = attempts(tmp_path)
+    assert saved[0]["outcome"] == {"status": "pass"}
+    assert "exit 0" in saved[0]["check_detail"]
+    assert not (tmp_path / "result.txt").exists()
+    assert requests.qsize() == 0
+
+
+def test_selecting_custom_agent_preserves_sdk_checks_and_resume(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_custom_config(
+        tmp_path,
+        endpoint,
+        agent_body=(
+            "        with Path('calls.txt').open('a') as calls:\n"
+            "            calls.write(str(task.trial) + '\\n')\n"
+            "        return AgentOutput('billing')\n"
+        ),
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--only", "my-agent", "--trials", "2", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, saved = attempts(tmp_path)
+    assert len(saved) == 2
+    assert all(item["target"]["label"] == "my-agent" for item in saved)
+    assert sorted((tmp_path / "calls.txt").read_text().splitlines()) == ["1", "2"]
+    before = (directory / "attempts.jsonl").read_bytes()
+    resumed = run_cli(tmp_path, "resume", directory.name, "--fast")
+    assert resumed.returncode == 0, resumed.stderr
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert sorted((tmp_path / "calls.txt").read_text().splitlines()) == ["1", "2"]
+    assert requests.qsize() == 0
+
+
+def test_custom_agent_implementation_change_rejects_resume_without_inspecting_client_state(tmp_path, model_server):
+    endpoint, requests = model_server
+    path = write_custom_config(tmp_path, endpoint, mixed=False)
+    path.write_text(
+        path.read_text()
+        + (
+            "import os\n"
+            "class OtherAgent(EvalAgent):\n"
+            "    async def run(self, task: AgentInput) -> AgentOutput:\n"
+            "        return AgentOutput('technical')\n"
+            "custom.client = {'credential': os.environ.get('TEST_CLIENT_STATE', 'initial')}\n"
+            "targets = [OtherAgent('my-agent') if os.environ.get('TEST_AGENT_IMPL') else custom]\n"
+        )
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, _ = attempts(tmp_path)
+    unchanged = run_cli(
+        tmp_path, "resume", directory.name, "--fast", env={**os.environ, "TEST_CLIENT_STATE": "rotated"}
+    )
+    assert unchanged.returncode == 0, unchanged.stderr
+    rejected = run_cli(tmp_path, "resume", directory.name, "--fast", env={**os.environ, "TEST_AGENT_IMPL": "other"})
+    assert rejected.returncode == 2
+    assert requests.qsize() == 0
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_code", "status"),
+    [
+        ("        return AgentOutput('technical')\n", 1, "fail"),
+        ("        raise RuntimeError('custom agent failed')\n", 2, "error"),
+    ],
+)
+def test_custom_agent_failures_keep_sdk_sibling_results(tmp_path, model_server, body, expected_code, status):
+    endpoint, requests = model_server
+    write_custom_config(tmp_path, endpoint, agent_body=body)
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == expected_code, completed.stderr
+    _, saved = attempts(tmp_path)
+    assert len(saved) == 2
+    outcomes = {item["target"]["label"]: item["outcome"]["status"] for item in saved}
+    assert outcomes == {"my-agent": status, "tool-loop": "pass"}
+    assert requests.qsize() == 1
+
+
+def test_custom_agent_supports_csv_default_predicate_and_reported_metrics(tmp_path, model_server):
+    endpoint, requests = model_server
+    (tmp_path / "tasks.csv").write_text("id,prompt,expected\nt,Classify,billing\n")
+    write_custom_config(
+        tmp_path,
+        endpoint,
+        mixed=False,
+        agent_body=(
+            "        from litellm.harness import Usage\n"
+            "        return AgentOutput('billing', cost=0.25, usage=Usage(5, 3, 1), events=())\n"
+        ),
+        task_source="",
+    )
+    completed = run_cli(tmp_path, "run", "tasks.csv", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    _, saved = attempts(tmp_path)
+    assert saved[0]["outcome"] == {"status": "pass"}
+    assert (saved[0]["cost"], saved[0]["input_tokens"], saved[0]["output_tokens"], saved[0]["model_calls"]) == (
+        0.25,
+        5,
+        3,
+        1,
+    )
+    assert saved[0]["tool_calls"] == []
+    assert saved[0]["metrics_complete"]
+    assert requests.qsize() == 0
+
+
+def test_custom_agent_uses_sdk_judge_and_preserves_judge_error_metrics(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_custom_config(
+        tmp_path,
+        endpoint,
+        mixed=False,
+        task_source=(
+            "tasks = [EvalTask('t', 'Classify',\n"
+            "    check=JudgeCheck('Answer must be billing', 'openai/controlled'))]\n"
+        ),
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 2, completed.stderr
+    _, saved = attempts(tmp_path)
+    assert saved[0]["outcome"]["status"] == "error"
+    assert saved[0]["check_error"] == "Judge returned an invalid verdict"
+    assert saved[0]["judge_model_calls"] == 1
+    assert saved[0]["cost"] is None
+    assert saved[0]["model_calls"] is None
+    assert saved[0]["tool_calls"] is None
+    assert requests.qsize() == 1
+
+
+def test_custom_agent_fingerprint_does_not_inspect_a_captured_client(tmp_path, model_server):
+    endpoint, requests = model_server
+    path = write_custom_config(tmp_path, endpoint, mixed=False)
+    path.write_text(
+        path.read_text()
+        + (
+            "def build():\n"
+            "    class Client(dict):\n"
+            "        def items(self):\n"
+            "            raise RuntimeError('client state must not be inspected')\n"
+            "        def answer(self, prompt):\n"
+            "            return 'billing'\n"
+            "    client = Client()\n"
+            "    class CapturedAgent(EvalAgent):\n"
+            "        async def run(self, task: AgentInput) -> AgentOutput:\n"
+            "            return AgentOutput(client.answer(task.prompt))\n"
+            "    return CapturedAgent('my-agent')\n"
+            "targets = [build()]\n"
+        )
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, saved = attempts(tmp_path)
+    assert saved[0]["outcome"] == {"status": "pass"}
+    resumed = run_cli(tmp_path, "resume", directory.name, "--fast")
+    assert resumed.returncode == 0, resumed.stderr
+    assert requests.qsize() == 0
+
+
+def test_imported_custom_agent_constructor_change_rejects_resume(tmp_path, model_server):
+    endpoint, requests = model_server
+    implementation = tmp_path / "agent_impl.py"
+    implementation.write_text(
+        "from litellm import AgentInput, AgentOutput, EvalAgent\n"
+        "class ImportedAgent(EvalAgent):\n"
+        "    def __init__(self):\n"
+        "        super().__init__('my-agent')\n"
+        "        self.answer = 'billing'\n"
+        "    async def run(self, task: AgentInput) -> AgentOutput:\n"
+        "        return AgentOutput(self.answer)\n"
+    )
+    path = write_custom_config(tmp_path, endpoint, mixed=False)
+    path.write_text(path.read_text() + "from agent_impl import ImportedAgent\ntargets = [ImportedAgent()]\n")
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, _ = attempts(tmp_path)
+    before = (directory / "attempts.jsonl").read_bytes()
+    implementation.write_text(implementation.read_text().replace("'billing'", "'technical'"))
+    rejected = run_cli(tmp_path, "resume", directory.name, "--fast")
+    assert rejected.returncode == 2
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    fresh = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert fresh.returncode == 1, fresh.stderr
     assert requests.qsize() == 0

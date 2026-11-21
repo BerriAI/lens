@@ -10,15 +10,25 @@ from pathlib import Path
 from types import MappingProxyType, ModuleType
 from typing import Final
 
-from litellm import EvalRun, EvalScorecard, EvalStatus, EvalTarget, EvalTask, PredicateCheck, aagent_eval_attempt
-from litellm.harness import CommandCheck, JudgeCheck, Result, ToolCall, ToolResult
+from litellm import (
+    EvalAgent,
+    EvalOutput,
+    EvalRun,
+    EvalScorecard,
+    EvalStatus,
+    EvalTarget,
+    EvalTask,
+    PredicateCheck,
+    aagent_eval_attempt,
+)
+from litellm.harness import CommandCheck, JudgeCheck, ToolCall, ToolResult
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from lens import _native
 from lens.errors import ConfigurationError
 
 from .models import Target
-from .payloads import _AgentResult, _Error, _Fail, _Pass, _TaskPayload, _ToolCallPayload
+from .payloads import _AgentResult, _Error, _Fail, _Pass, _TargetPayload, _TaskPayload, _ToolCallPayload
 
 _MAPPING: Final[TypeAdapter[Mapping[str, object]]] = TypeAdapter(Mapping[str, object])
 _OBJECT: Final[TypeAdapter[object]] = TypeAdapter(object)
@@ -73,15 +83,15 @@ class SDKConfig:
             raise ConfigurationError("SDK CSV rows need expected values or a task(row) factory with an explicit check")
         expected: Final = payload.expected.strip().casefold()
 
-        def matches(result: Result) -> bool:
+        def matches(result: EvalOutput) -> bool:
             return result.text.strip().casefold() == expected
 
         return EvalTask(id=payload.id, prompt=payload.prompt, check=PredicateCheck(matches))
 
-    def fingerprint(self, targets: tuple[Target | EvalTarget, ...], source: bytes) -> str:
+    def fingerprint(self, targets: tuple[Target | EvalTarget | EvalAgent, ...], source: bytes) -> str:
         identity: Final = {
             "source": hashlib.sha256(source).hexdigest(),
-            "targets": tuple(_identity(target) for target in targets),
+            "targets": tuple(_target_identity(target) for target in targets),
             "run_options": _identity(self.options.model_dump(exclude={"api_key"})),
         }
         return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
@@ -97,6 +107,25 @@ class SDKConfig:
                 for task in self.tasks
             )
         )
+
+
+def _target_identity(target: Target | EvalTarget | EvalAgent) -> object:
+    if isinstance(target, EvalAgent):
+        implementation: Final = type(target)
+        return {
+            "name": target.name,
+            "model": target.model,
+            "class": (implementation.__module__, implementation.__qualname__),
+            "implementation": _agent_source(implementation),
+        }
+    return _identity(target)
+
+
+def _agent_source(agent_type: type[EvalAgent]) -> str | None:
+    try:
+        return inspect.getsource(agent_type)
+    except (OSError, TypeError):
+        return None
 
 
 def _callable_identity(value: Callable[..., object], ancestors: tuple[object, ...]) -> object:
@@ -157,11 +186,17 @@ def _task_hash(task: EvalTask) -> str:
     return hashlib.sha256(json.dumps(identity).encode()).hexdigest()
 
 
-def sdk_targets(path: Path, declared: list[object] | tuple[object, ...]) -> tuple[EvalTarget, ...]:
-    targets: Final = tuple(target for target in declared if isinstance(target, EvalTarget))
+def sdk_targets(path: Path, declared: list[object] | tuple[object, ...]) -> tuple[EvalTarget | EvalAgent, ...]:
+    targets: Final = tuple(target for target in declared if isinstance(target, EvalTarget | EvalAgent))
     if len(targets) != len(declared):
-        raise ConfigurationError(f"Every entry in {path.name} targets must be a lens.Target or litellm.EvalTarget")
+        raise ConfigurationError(f"SDK targets in {path.name} must be litellm.EvalTarget or litellm.EvalAgent values")
     return targets
+
+
+def sdk_target_payload(target: EvalTarget | EvalAgent) -> _TargetPayload:
+    if isinstance(target, EvalAgent):
+        return _TargetPayload(harness="custom", model=target.model, label=target.name)
+    return _TargetPayload(harness=target.harness.value, model=target.model, label=target.name)
 
 
 def _outcome(run: EvalRun) -> _Pass | _Fail | _Error:
@@ -177,34 +212,35 @@ def _outcome(run: EvalRun) -> _Pass | _Fail | _Error:
 def _result(run: EvalRun) -> _AgentResult:
     result: Final = run.result
     check: Final = run.check
+    usage: Final = run.usage
+    events: Final = result.events if result is not None else None
     summary: Final = EvalScorecard(run.run_id, (run,)).summaries[0]
+    judge_usage: Final = summary.judge_usage
     failed_tools: Final = (
-        frozenset(event.id for event in result.events if isinstance(event, ToolResult) and event.is_error)
-        if result is not None
+        frozenset(event.id for event in events if isinstance(event, ToolResult) and event.is_error)
+        if events is not None
         else frozenset()
     )
     calls: Final = (
         tuple(
             _ToolCallPayload(name=event.name, arguments=dict(event.input), error=event.id in failed_tools)
-            for event in result.events
+            for event in events
             if isinstance(event, ToolCall)
         )
-        if result is not None
-        else ()
+        if events is not None
+        else None
     )
     return _AgentResult(
         outcome=_outcome(run),
         output=result.text if result is not None else "",
         cost=run.cost,
         judge_cost=check.judge_cost if check is not None else summary.judge_cost if result is not None else None,
-        input_tokens=result.usage.input_tokens if result is not None else None,
-        output_tokens=result.usage.output_tokens if result is not None else None,
-        model_calls=result.usage.calls if result is not None else None,
-        judge_input_tokens=(check.judge_usage.input_tokens if check is not None else 0 if result is not None else None),
-        judge_output_tokens=(
-            check.judge_usage.output_tokens if check is not None else 0 if result is not None else None
-        ),
-        judge_model_calls=check.judge_usage.calls if check is not None else 0 if result is not None else None,
+        input_tokens=usage.input_tokens if usage is not None else None,
+        output_tokens=usage.output_tokens if usage is not None else None,
+        model_calls=usage.calls if usage is not None else None,
+        judge_input_tokens=judge_usage.input_tokens if judge_usage is not None else None,
+        judge_output_tokens=judge_usage.output_tokens if judge_usage is not None else None,
+        judge_model_calls=judge_usage.calls if judge_usage is not None else None,
         stop_reason=run.stop_reason,
         metrics_complete=summary.metrics_complete,
         duration_seconds=run.duration,
@@ -215,10 +251,10 @@ def _result(run: EvalRun) -> _AgentResult:
     )
 
 
-async def sdk_attempt(config: SDKConfig, payload: _TaskPayload, target: Target | EvalTarget) -> str:
+async def sdk_attempt(config: SDKConfig, payload: _TaskPayload, target: Target | EvalTarget | EvalAgent) -> str:
     try:
-        if not isinstance(target, EvalTarget):
-            raise ConfigurationError("SDK configs require litellm.EvalTarget values")
+        if isinstance(target, Target):
+            raise ConfigurationError("SDK configs require litellm.EvalTarget or litellm.EvalAgent values")
         run: Final = await aagent_eval_attempt(
             config.task(payload),
             target,

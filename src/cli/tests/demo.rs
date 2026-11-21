@@ -123,6 +123,35 @@ mod progress {
     use rstest::{fixture, rstest};
     use std::time::Duration;
 
+    #[rstest]
+    #[case::custom_only(false)]
+    #[case::mixed(true)]
+    fn model_roster_only_lists_models_that_targets_declare(meta: RunMeta, #[case] mixed: bool) {
+        let custom = Target {
+            harness: "custom".to_owned(),
+            model: None,
+            label: Some("reviewer".to_owned()),
+        };
+        let targets = if mixed {
+            vec![custom, meta.targets[0].clone()]
+        } else {
+            vec![custom]
+        };
+        let tally = Tally::new(&RunMeta { targets, ..meta }, 0);
+        let intro = found(&tally)
+            .iter()
+            .map(lens_cli::demo::style::Line::plain)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(intro.contains("models"), mixed);
+        let progress = frame(&tally, Duration::ZERO, 0, 100)
+            .iter()
+            .map(lens_cli::demo::style::Line::plain)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(progress.contains("reviewer"));
+    }
+
     #[fixture]
     fn meta() -> RunMeta {
         RunMeta {
@@ -134,12 +163,12 @@ mod progress {
             targets: vec![
                 Target {
                     harness: "litellm".to_owned(),
-                    model: "gpt-5-mini".to_owned(),
+                    model: Some("gpt-5-mini".to_owned()),
                     label: None,
                 },
                 Target {
                     harness: "openai-agents".to_owned(),
-                    model: "gpt-5-mini".to_owned(),
+                    model: Some("gpt-5-mini".to_owned()),
                     label: None,
                 },
             ],
@@ -160,7 +189,7 @@ mod progress {
                 output: String::new(),
                 cost: Some(cost),
                 judge_cost: Some(0.25),
-                tool_calls: Vec::new(),
+                tool_calls: Some(Vec::new()),
                 metrics: lens_cli::local::Metrics {
                     metrics_complete: true,
                     ..Default::default()

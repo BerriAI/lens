@@ -2,8 +2,7 @@ import os
 from collections.abc import Mapping
 from typing import Final
 
-from litellm import EvalTarget, EvalTask, Harness, PredicateCheck
-from litellm.harness import Result
+from litellm import EvalOutput, EvalTarget, EvalTask, Harness, PredicateCheck
 
 from agent import INSTRUCTIONS, lookup_ticket
 
@@ -21,7 +20,7 @@ run_options: Final = {"max_turns": 8}
 def task(row: Mapping[str, str | None]) -> EvalTask:
     expected: Final = (row["expected"] or "").strip().casefold()
 
-    def matches(result: Result) -> bool:
+    def matches(result: EvalOutput) -> bool:
         return result.text.strip().strip(".").casefold() == expected
 
     return EvalTask(

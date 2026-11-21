@@ -77,7 +77,7 @@ const SAMPLES: [Sample; 4] = [
 fn target(sample: &Sample) -> Target {
     Target {
         harness: sample.harness.to_owned(),
-        model: sample.model.to_owned(),
+        model: Some(sample.model.to_owned()),
         label: None,
     }
 }
@@ -110,8 +110,8 @@ pub fn summary() -> Summary {
                 error: sample.error,
                 model_cost: Some(sample.model_cost),
                 judge_cost: Some(JUDGE_COST),
-                tool_calls_per_case: sample.tool_calls,
-                repeat_rate: sample.repeat_rate,
+                tool_calls_per_case: Some(sample.tool_calls),
+                repeat_rate: Some(sample.repeat_rate),
                 p50_seconds: sample.p50_seconds,
                 p95_seconds: sample.p95_seconds,
                 metrics: crate::local::Metrics {
@@ -151,7 +151,7 @@ pub fn event(index: usize) -> Progress {
             output: String::new(),
             cost: Some(sample.model_cost / f64::from(TASKS)),
             judge_cost: Some(JUDGE_COST / f64::from(TASKS)),
-            tool_calls: Vec::new(),
+            tool_calls: Some(Vec::new()),
             metrics: crate::local::Metrics {
                 metrics_complete: true,
                 ..Default::default()

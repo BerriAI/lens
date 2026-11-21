@@ -10,7 +10,7 @@ use std::fs;
 fn target(model: &str) -> Target {
     Target {
         harness: "custom".to_owned(),
-        model: model.to_owned(),
+        model: Some(model.to_owned()),
         label: None,
     }
 }
@@ -32,7 +32,7 @@ fn attempt(
             output: String::new(),
             cost: Some(cost),
             judge_cost: Some(0.0),
-            tool_calls: calls,
+            tool_calls: Some(calls),
             metrics: lens_cli::local::Metrics {
                 metrics_complete: true,
                 ..Default::default()
@@ -185,7 +185,7 @@ fn summarize_keeps_canonical_outcomes_independent_of_tool_errors() {
     let stat = &summarize(&meta(&["m"]), &attempts).stats[0];
     assert_eq!((stat.pass, stat.fail, stat.error), (1, 2, 1));
     assert!((stat.model_cost.unwrap() - 2.0).abs() < 1e-9);
-    assert!((stat.tool_calls_per_case - 0.5).abs() < 1e-9);
+    assert!((stat.tool_calls_per_case.unwrap() - 0.5).abs() < 1e-9);
 }
 
 #[rstest]
@@ -229,7 +229,7 @@ fn repeat_rate_ignores_argument_key_order() {
         &[attempt("m", Outcome::Pass, 1.0, 0.0, calls)],
     )
     .stats[0];
-    assert!((stat.repeat_rate - 0.25).abs() < 1e-9);
+    assert!((stat.repeat_rate.unwrap() - 0.25).abs() < 1e-9);
 }
 
 fn recommendation_attempts(rows: &[(u32, f64)]) -> Vec<Attempt> {
@@ -268,7 +268,7 @@ fn answer() -> AgentResult {
         output: "ok".to_owned(),
         cost: Some(0.01),
         judge_cost: Some(0.0),
-        tool_calls: vec![],
+        tool_calls: Some(vec![]),
         metrics: lens_cli::local::Metrics {
             metrics_complete: true,
             ..Default::default()
@@ -469,7 +469,7 @@ fn resume_keeps_the_resolved_targets_from_the_original_selection(
     let current_targets = vec![
         Target {
             harness: harness.to_owned(),
-            model: model.to_owned(),
+            model: Some(model.to_owned()),
             label: label.map(str::to_owned),
         },
         target("additional"),
@@ -512,7 +512,132 @@ fn old_checkpoints_default_to_one_trial() {
     assert_eq!(run.trials, 1);
     assert_eq!(row.trial, 1);
     assert_eq!(row.result.cost, Some(0.1));
+    assert_eq!(row.target.model.as_deref(), Some("a"));
     assert!(!row.result.metrics.metrics_complete);
+}
+
+#[rstest]
+#[case::legacy_model(json!({"harness":"tool_loop", "model":"model-a"}), Some("model-a"), "tool_loop/model-a")]
+#[case::custom_null(json!({"harness":"custom", "model":null, "label":"reviewer"}), None, "reviewer")]
+#[case::custom_omitted(json!({"harness":"custom", "label":"reviewer"}), None, "reviewer")]
+fn target_identity_preserves_optional_models(
+    #[case] payload: serde_json::Value,
+    #[case] model: Option<&str>,
+    #[case] key: &str,
+) {
+    let parsed: Target = serde_json::from_value(payload).unwrap();
+    assert_eq!(parsed.model.as_deref(), model);
+    assert_eq!(parsed.key(), key);
+}
+
+#[rstest]
+#[case::unreported(None, None, None)]
+#[case::reported_empty(Some(vec![]), Some(0.5), Some(0.0))]
+fn tool_metrics_distinguish_unreported_events_from_a_reported_empty_list(
+    #[case] observed: Option<Vec<ToolCall>>,
+    #[case] calls_per_case: Option<f64>,
+    #[case] repeat_rate: Option<f64>,
+) {
+    let recorded = attempt("a", Outcome::Pass, 1.0, 0.1, vec![]);
+    let custom = Attempt {
+        result: AgentResult {
+            tool_calls: observed,
+            ..recorded.result
+        },
+        ..recorded
+    };
+    let summary = summarize(
+        &meta(&["a"]),
+        &[
+            custom,
+            attempt(
+                "a",
+                Outcome::Pass,
+                1.0,
+                0.1,
+                vec![call("lookup", json!({}), false)],
+            ),
+        ],
+    );
+    assert_eq!(summary.stats[0].tool_calls_per_case, calls_per_case);
+    assert_eq!(summary.stats[0].repeat_rate, repeat_rate);
+    if calls_per_case.is_none() {
+        let report = lens_cli::local::view::report(&summary, 100)
+            .iter()
+            .map(lens_cli::demo::style::Line::plain)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(report.contains("unknown"));
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn model_less_agents_share_checkpoints_and_reports_with_built_in_targets() {
+    let directory = tempfile::tempdir().unwrap();
+    let run = RunMeta {
+        targets: vec![
+            Target {
+                harness: "custom".to_owned(),
+                model: None,
+                label: Some("reviewer".to_owned()),
+            },
+            target("model-a"),
+        ],
+        trials: 2,
+        ..meta(&[])
+    };
+    let summary = execute(
+        directory.path(),
+        run.clone(),
+        tasks(&["t"]),
+        |_, target| async move {
+            let output = AgentResult {
+                duration_seconds: Some(1.0),
+                ..answer()
+            };
+            if target.model.is_none() {
+                AgentResult {
+                    cost: None,
+                    tool_calls: None,
+                    metrics: Default::default(),
+                    ..output
+                }
+            } else {
+                output
+            }
+        },
+        &mut |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(summary.stats[0].pass, 2);
+    assert_eq!(summary.stats[1].pass, 2);
+    assert_eq!(summary.stats[0].target.model, None);
+    assert_eq!(summary.stats[0].tool_calls_per_case, None);
+    assert_eq!(summary.stats[1].tool_calls_per_case, Some(0.0));
+    let (saved, attempts) = load_run(directory.path(), &run.id).unwrap();
+    validate_resume(&saved, &tasks(&["t"]), &run.targets, None).unwrap();
+    assert_eq!(attempts.len(), 4);
+    assert_eq!(saved.targets[0].model, None);
+    let resumed = execute(
+        directory.path(),
+        saved,
+        tasks(&["t"]),
+        |_, _| async { panic!("completed agents must not run again") },
+        &mut |_| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(resumed, summary);
+    let report = lens_cli::local::view::report(&summary, 100)
+        .iter()
+        .map(lens_cli::demo::style::Line::plain)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(report.contains("reviewer"));
+    assert!(report.contains("model-a"));
+    assert!(report.contains("unknown"));
 }
 
 #[rstest]

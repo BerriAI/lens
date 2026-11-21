@@ -17,7 +17,7 @@ from .models import AgentOutput, Check, Target, TaskInput, ToolCall, Verdict
 from .payloads import _AgentResult, _Error, _Fail, _Pass, _TargetPayload, _TaskPayload, _ToolCallPayload
 
 if TYPE_CHECKING:
-    from litellm import EvalTarget
+    from litellm import EvalAgent, EvalTarget
 
     from .sdk import SDKConfig
 
@@ -48,11 +48,11 @@ def default_check(task: TaskInput, output: AgentOutput) -> Verdict:
 @dataclass(frozen=True, slots=True)
 class LocalConfig:
     path: Path
-    targets: tuple[Target | EvalTarget, ...]
+    targets: tuple[Target | EvalTarget | EvalAgent, ...]
     check: Check
     sdk: SDKConfig | None = None
 
-    def target(self, harness: str, model: str, label: str | None = None) -> Target | EvalTarget:
+    def target(self, harness: str, model: str | None, label: str | None = None) -> Target | EvalTarget | EvalAgent:
         found: Final = next(
             (
                 target
@@ -90,15 +90,17 @@ def _import_failure(path: Path, error: ImportError) -> ConfigurationError:
     )
 
 
-def target_key(target: Target | EvalTarget) -> str:
+def target_key(target: Target | EvalTarget | EvalAgent) -> str:
     return target.key if isinstance(target, Target) else target.name
 
 
-def _targets(path: Path, declared: object, only: tuple[str, ...]) -> tuple[Target | EvalTarget, ...]:
+def _targets(path: Path, declared: object, only: tuple[str, ...]) -> tuple[Target | EvalTarget | EvalAgent, ...]:
     if not isinstance(declared, list | tuple) or not declared:
         raise ConfigurationError(f"{path.name} must define targets = [Target(harness=..., model=..., run=...)]")
     if all(isinstance(item, Target) for item in declared):
-        targets: tuple[Target | EvalTarget, ...] = tuple(item for item in declared if isinstance(item, Target))
+        targets: tuple[Target | EvalTarget | EvalAgent, ...] = tuple(
+            item for item in declared if isinstance(item, Target)
+        )
     else:
         try:
             from .sdk import sdk_targets
@@ -124,7 +126,7 @@ def load_config(path: Path, only: tuple[str, ...] = ()) -> LocalConfig:
     declared_check: Final[object] = getattr(module, "check", default_check)
     if not callable(declared_check):
         raise ConfigurationError(f"check in {path.name} must be a function")
-    if isinstance(targets[0], Target):
+    if all(isinstance(target, Target) for target in targets):
         return LocalConfig(path=path, targets=targets, check=declared_check)
     from .sdk import SDKConfig
 
@@ -132,7 +134,7 @@ def load_config(path: Path, only: tuple[str, ...] = ()) -> LocalConfig:
 
 
 def _failure(error: BaseException) -> _AgentResult:
-    return _AgentResult(outcome=_Error(kind=type(error).__name__, message=_native.redact(str(error))))
+    return _AgentResult(outcome=_Error(kind=type(error).__name__, message=_native.redact(str(error))), tool_calls=())
 
 
 async def _judge(check: Check, task: TaskInput, output: AgentOutput) -> Verdict:
@@ -148,19 +150,19 @@ async def attempt(config: LocalConfig, task_json: str, target_json: str) -> str:
         from .sdk import sdk_attempt
 
         return await sdk_attempt(config.sdk, payload, config.target(chosen.harness, chosen.model, chosen.label))
-    task: Final = TaskInput(
-        id=payload.id,
-        prompt=payload.prompt,
-        expected=payload.expected,
-        metadata=MappingProxyType(dict(payload.metadata)),
-        harness=chosen.harness,
-        model=chosen.model,
-        trial=payload.trial,
-    )
     try:
         target: Final = config.target(chosen.harness, chosen.model, chosen.label)
         if not isinstance(target, Target):
             raise ConfigurationError("Cannot run SDK target as a callback")
+        task: Final = TaskInput(
+            id=payload.id,
+            prompt=payload.prompt,
+            expected=payload.expected,
+            metadata=MappingProxyType(dict(payload.metadata)),
+            harness=target.harness,
+            model=target.model,
+            trial=payload.trial,
+        )
         output: Final = await target.run(task)
         if not isinstance(output, AgentOutput):
             raise ConfigurationError(f"{chosen.harness}/{chosen.model} must return AgentOutput")
@@ -180,10 +182,12 @@ async def attempt(config: LocalConfig, task_json: str, target_json: str) -> str:
     ).model_dump_json()
 
 
-def _target_payload(target: Target | EvalTarget) -> _TargetPayload:
+def _target_payload(target: Target | EvalTarget | EvalAgent) -> _TargetPayload:
     if isinstance(target, Target):
         return _TargetPayload(harness=target.harness, model=target.model)
-    return _TargetPayload(harness=target.harness.value, model=target.model, label=target.name)
+    from .sdk import sdk_target_payload
+
+    return sdk_target_payload(target)
 
 
 def _targets_json(config: LocalConfig) -> str:

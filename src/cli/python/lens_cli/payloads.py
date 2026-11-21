@@ -16,12 +16,14 @@ class _TaskPayload(BaseModel):
 class _TargetPayload(BaseModel):
     model_config = ConfigDict(frozen=True)
     harness: str
-    model: str
+    model: str | None = None
     label: str | None = None
 
     @property
     def key(self) -> str:
-        return self.label or f"{self.harness}/{self.model}"
+        if self.label is not None:
+            return self.label
+        return f"{self.harness}/{self.model}" if self.model is not None else self.harness
 
 
 class _Pass(BaseModel):
@@ -67,4 +69,4 @@ class _AgentResult(BaseModel):
     run_id: str | None = None
     check_detail: str | None = None
     check_error: str | None = None
-    tool_calls: tuple[_ToolCallPayload, ...] = ()
+    tool_calls: tuple[_ToolCallPayload, ...] | None = None
