@@ -113,7 +113,7 @@ export function AlertsView({
               </div>
             )}
             {route.settings === "signals" ? (
-              <details className="border-t pt-5">
+              <details open className="border-t pt-5">
                 <summary className="cursor-pointer text-sm font-medium">Model signals</summary>
                 <div className="pt-4">
                   <SignalSettings section="signals" onConfigureSignals={() => route.setSettings("signals")} />

@@ -182,7 +182,6 @@ describe("Lens navigation", () => {
     expect(await screen.findByText("No matches for these filters")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    await user.click(screen.getByText("Model signals", { selector: "summary" }));
     expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
     await user.click(screen.getByRole("button", { name: "Close", exact: true }));
     await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
@@ -279,7 +278,6 @@ describe("Lens navigation", () => {
     renderWithProviders(<LensWorkspace {...admin} />, { searchParams: "?demo=true&tab=alerts" });
     expect(await screen.findByText("No alerts in this window")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    await user.click(screen.getByText("Model signals", { selector: "summary" }));
     expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(
       DEFAULT_SIGNAL_THRESHOLD * 100,
     );
