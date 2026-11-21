@@ -212,6 +212,27 @@ mod progress {
     }
 
     #[rstest]
+    #[case::narrow(78)]
+    #[case::wide(100)]
+    fn running_rows_show_whole_model_names(meta: RunMeta, #[case] width: usize) {
+        let long = RunMeta {
+            targets: meta
+                .targets
+                .iter()
+                .map(|target| Target {
+                    model: "claude-sonnet-5-5".to_owned(),
+                    ..target.clone()
+                })
+                .collect(),
+            ..meta
+        };
+        let lines = frame(&played(&long, 0), Duration::from_secs(5), 0, width);
+        let row = lines.last().expect("target row");
+        assert!(row.plain().contains("claude-sonnet-5-5"), "{}", row.plain());
+        assert!(row.width() <= width, "{}", row.plain());
+    }
+
+    #[rstest]
     fn resumed_cases_count_toward_completion(meta: RunMeta) {
         let tally = played(&meta, 3);
         assert!(tally.complete());

@@ -330,24 +330,61 @@ impl<'a> Report<'a> {
         .collect()
     }
 
-    fn placed_label(
+    fn label_candidates(
         &self,
         index: usize,
         column: usize,
         columns: usize,
-    ) -> Vec<(usize, String, Style)> {
+    ) -> Vec<Vec<(usize, String, Style)>> {
         let label = self.point_label(index);
-        let start = if column + 2 + label.len() <= columns {
-            column + 2
-        } else {
-            column.saturating_sub(label.len() + 1)
-        };
-        label
+        let length = label.len();
+        let right = (column + 2 + length <= columns).then_some(column + 2);
+        let left = column.checked_sub(length + 1);
+        right
             .into_iter()
-            .enumerate()
-            .map(|(offset, (glyph, style))| (start + offset, glyph, style))
-            .filter(|(at, _, _)| *at < columns && *at != column)
+            .chain(left)
+            .map(|start| {
+                label
+                    .iter()
+                    .enumerate()
+                    .map(|(offset, (glyph, style))| (start + offset, glyph.clone(), *style))
+                    .collect()
+            })
             .collect()
+    }
+
+    fn row_marks(&self, points: &[(usize, usize)], columns: usize) -> Vec<(usize, String, Style)> {
+        let markers =
+            points
+                .iter()
+                .fold(Vec::<(usize, usize)>::new(), |placed, &(column, index)| {
+                    let free = (column..columns)
+                        .chain((0..column).rev())
+                        .find(|at| placed.iter().all(|(taken, _)| taken != at));
+                    match free {
+                        Some(at) => placed.into_iter().chain([(at, index)]).collect(),
+                        None => placed,
+                    }
+                });
+        let marks: Vec<(usize, String, Style)> = markers
+            .iter()
+            .map(|&(at, index)| (at, marker_text(index), self.marker_style(index)))
+            .collect();
+        markers.iter().fold(marks, |placed, &(at, index)| {
+            let clear = |label: &Vec<(usize, String, Style)>| {
+                label.iter().all(|(cell, _, _)| {
+                    placed.iter().all(|(taken, _, _)| taken.abs_diff(*cell) > 1)
+                })
+            };
+            match self
+                .label_candidates(index, at, columns)
+                .into_iter()
+                .find(clear)
+            {
+                Some(label) => placed.into_iter().chain(label).collect(),
+                None => placed,
+            }
+        })
     }
 
     fn scatter(&self) -> Vec<Line> {
@@ -395,17 +432,12 @@ impl<'a> Report<'a> {
                 r if r == PLOT_ROWS - 1 => format!("{:.0}%", low_rate * 100.0),
                 _ => String::new(),
             };
-            let in_row: Vec<&(usize, usize, usize)> =
-                points.iter().filter(|(r, _, _)| *r == row).collect();
-            let marks: Vec<(usize, String, Style)> = in_row
+            let in_row: Vec<(usize, usize)> = points
                 .iter()
-                .map(|(_, column, index)| (*column, marker_text(*index), self.marker_style(*index)))
-                .chain(
-                    in_row
-                        .iter()
-                        .flat_map(|(_, column, index)| self.placed_label(*index, *column, columns)),
-                )
+                .filter(|(r, _, _)| *r == row)
+                .map(|&(_, column, index)| (column, index))
                 .collect();
+            let marks = self.row_marks(&in_row, columns);
             let cells =
                 (0..columns).map(
                     |column| match marks.iter().find(|(at, _, _)| *at == column) {
@@ -488,15 +520,19 @@ impl<'a> Report<'a> {
             .unwrap_or(0)
             .max(1);
         let room = self.track();
-        let legend = Line::new(vec![
-            gap(self.who_width()),
+        let keys = vec![
             span("█", Style::fg(BAD)),
             faint(" wrong answer  "),
             span("█", Style::fg(WARN)),
             faint(" tool misuse  "),
             span("█", Style::fg(MUTED)),
             faint(" error"),
-        ]);
+        ];
+        let indent = self
+            .width
+            .saturating_sub(Line::new(keys.clone()).width() + 1)
+            .min(self.who_width());
+        let legend = Line::new(std::iter::once(gap(indent)).chain(keys).collect());
         let rows = self.stats().iter().enumerate().map(|(index, stat)| {
             let cells =
                 |count: u32| (f64::from(count) / f64::from(most) * room as f64).round() as usize;
@@ -932,6 +968,52 @@ mod tests {
     fn single_target_scatter_has_its_point() {
         let plot = Report::new(&summary(1, Some(0)), 100).scatter();
         assert!(plot.iter().any(|line| line.plain().contains("① ≋ LiteLLM")));
+    }
+
+    fn tied() -> Summary {
+        Summary {
+            run_id: "eval_abcd".to_owned(),
+            task_count: 20,
+            stats: vec![
+                stat("litellm", "claude-sonnet-5-5", 0, 20, 0.0),
+                stat("litellm", "gpt-5.4-mini", 20, 0, 0.0039),
+                stat("openai-agents", "gpt-5.4-mini", 20, 0, 0.0040),
+            ],
+            recommended: Some(1),
+        }
+    }
+
+    #[rstest]
+    fn tied_points_keep_their_markers_and_labels_never_overlap(
+        #[values(78, 100, 118)] width: usize,
+    ) {
+        let plot: Vec<String> = Report::new(&tied(), width)
+            .scatter()
+            .iter()
+            .map(Line::plain)
+            .collect();
+        let row = plot
+            .iter()
+            .find(|line| line.contains('②'))
+            .expect("row with the tied points");
+        assert!(row.contains('③'), "{row}");
+        assert_eq!(
+            row.matches("gpt-5.4-mini").count(),
+            row.matches("◎ gpt-5.4-mini").count(),
+            "{row}"
+        );
+        assert!(
+            row.contains("≋ LiteLLM  ◎ gpt-5.4-mini")
+                || row.contains("◎ OpenAI Agents  ◎ gpt-5.4-mini"),
+            "{row}"
+        );
+    }
+
+    #[rstest]
+    fn failure_legend_fits_with_long_model_names(#[values(78, 100)] width: usize) {
+        let legend = Report::new(&tied(), width).failures()[0].clone();
+        assert!(legend.width() <= width, "{}", legend.plain());
+        assert!(legend.plain().ends_with("█ error"), "{}", legend.plain());
     }
 
     #[rstest]

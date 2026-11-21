@@ -11,6 +11,8 @@ from litellm.types.utils import ChatCompletionMessageToolCall
 
 from lens import AgentOutput, TaskInput, ToolCall
 
+litellm.suppress_debug_info = True
+
 INSTRUCTIONS: Final = (
     "You triage customer support tickets. Classify each ticket as exactly one of: billing, technical, sales. "
     "When a ticket is referenced only by id, call lookup_ticket to read it first. "
