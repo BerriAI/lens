@@ -276,6 +276,74 @@ async fn gateway_traces_are_owned_by_the_virtual_key_each_call_used(
 }
 
 #[rstest]
+#[tokio::test]
+async fn spans_a_gateway_forwards_belong_to_the_key_that_sent_them_whatever_owner_they_claim(
+    #[future(awt)] server: Server,
+) {
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server.storage)
+        .await;
+    let response = reqwest::Client::new()
+        .post(format!("{}/v1/traces", server.url))
+        .bearer_auth(SERVICE_TOKEN)
+        .header("x-litellm-api-key-hash", "key-f")
+        .header("x-litellm-team-id", "team-f")
+        .header("x-litellm-user-id", "user-f")
+        .header("x-litellm-org-id", "org-f")
+        .json(&json!({"resourceSpans": [
+            gateway_call("0af7651916cd43dd8448eb211c80319a", &[("litellm.api_key.hash", "key-a")]),
+            gateway_call("0af7651916cd43dd8448eb211c80319c", &[]),
+        ]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let requests = server.storage.received_requests().await.unwrap();
+    let mut decoded = String::new();
+    std::io::Read::read_to_string(
+        &mut flate2::read::GzDecoder::new(requests[0].body.as_slice()),
+        &mut decoded,
+    )
+    .unwrap();
+    let owners: std::collections::BTreeSet<String> = decoded
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .map(|row| {
+            json!([
+                row["TraceId"],
+                row["TeamId"],
+                row["ApiKeyHash"],
+                row["UserId"],
+                row["ResourceAttributes"]["litellm.org_id"]
+            ])
+            .to_string()
+        })
+        .collect();
+    assert_eq!(
+        owners,
+        std::collections::BTreeSet::from([
+            json!([
+                "0af7651916cd43dd8448eb211c80319a",
+                "team-f",
+                "key-f",
+                "user-f",
+                "org-f"
+            ])
+            .to_string(),
+            json!([
+                "0af7651916cd43dd8448eb211c80319c",
+                "team-f",
+                "key-f",
+                "user-f",
+                "org-f"
+            ])
+            .to_string(),
+        ])
+    );
+}
+
+#[rstest]
 #[case::unknown_token_before_tracing_keys_load("incorrect-secret", r#"{"resourceSpans":[]}"#, 503)]
 #[case::malformed(SERVICE_TOKEN, "{", 400)]
 #[tokio::test]
