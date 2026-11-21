@@ -25,24 +25,3 @@ SELECT * FROM (
           WHERE TeamId={record_team:String} AND TraceId={id:String})
     ORDER BY SpanId LIMIT 1 BY SpanId LIMIT 40
 )
-UNION ALL
-SELECT * FROM (
-    SELECT request_id AS span_id, '' AS parent_span_id, model AS name, 'llm' AS kind,
-        toString(start_time, 'UTC') AS start_time,
-        toString(end_time, 'UTC') AS end_time,
-        multiIf({offset:UInt32}=0, concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),
-            {offset:UInt32}=1 AND lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))>8000,
-            concat('Input: ',excerpt(messages,2000),'\nOutput: ',excerpt(response,5000),'\nError: ',excerpt(error_str,500)),
-            substringUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),
-                content_offset,8000)) AS content,
-        {offset:UInt32}!=0 AND lengthUTF8(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str))
-            >= content_offset+8000 AS truncated
-    FROM spend_logs FINAL WHERE {source:String}='requests'
-      AND ({all_teams:UInt8}=1 OR team_id={team:String})
-      AND ({key_hash:String}='' OR api_key={key_hash:String})
-      AND spend_logs.start_time >= parseDateTime64BestEffortOrZero({start_time:String}, 3) - INTERVAL 7 DAY
-      AND request_id={id:String} AND team_id={record_team:String}
-      AND (team_id, api_key, response_id) NOT IN (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds)
-          FROM lens_eval_traces WHERE TeamId={record_team:String})
-    LIMIT 1
-)

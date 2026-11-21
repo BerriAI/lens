@@ -230,7 +230,7 @@ impl SourceReader {
                     trace_ref: source.trace_ref.clone(),
                     agent_name: lens.settings.agent_name.clone(),
                     selected_team: lens.settings.team_id.clone(),
-                    service: lens.settings.service.clone(),
+                    service: application(lens.settings.source, &lens.settings.service),
                     filter_keys: lens
                         .settings
                         .filters
@@ -307,6 +307,13 @@ fn source(source: ExecutionSource) -> ContentSource {
     }
 }
 
+fn application(source: LensSettingsSource, service: &str) -> String {
+    match source {
+        LensSettingsSource::Requests => String::new(),
+        LensSettingsSource::Traces | LensSettingsSource::Both => service.to_owned(),
+    }
+}
+
 fn sample_parameters(
     scope: &Scope,
     request: &SampleRequest<'_>,
@@ -320,14 +327,14 @@ fn sample_parameters(
             .map_or_else(String::new, |profile| profile.as_str().to_owned()),
         access: access(scope),
         source: match settings.source {
-            LensSettingsSource::Traces => lens::ExecutionSource::Traces,
-            LensSettingsSource::Requests => lens::ExecutionSource::Requests,
-            LensSettingsSource::Both => lens::ExecutionSource::Both,
+            LensSettingsSource::Traces
+            | LensSettingsSource::Requests
+            | LensSettingsSource::Both => lens::ExecutionSource::Traces,
         },
         start: request.start,
         end: request.end,
         agent_name: settings.agent_name.clone(),
-        service: settings.service.clone(),
+        service: application(settings.source, &settings.service),
         filter_keys: settings
             .filters
             .iter()
@@ -542,6 +549,37 @@ mod tests {
     }
 
     #[rstest]
+    #[case::requests("requests", "")]
+    #[case::both("both", "checkout")]
+    #[case::traces("traces", "checkout")]
+    fn a_stored_request_investigation_samples_traces_without_its_model_group(
+        #[case] source: &str,
+        #[case] service: &str,
+    ) {
+        let selection: ActivitySelection =
+            serde_json::from_value(json!({"source":source,"service":"checkout"})).unwrap();
+        let parameters = sample_parameters(
+            &Scope {
+                all_teams: true,
+                team_id: String::new(),
+                api_key_hash: String::new(),
+            },
+            &SampleRequest {
+                selection: &selection,
+                start: 10,
+                end: 20,
+                offset: 0,
+                page_size: 40,
+                preview: false,
+                cursor: "",
+            },
+        )
+        .unwrap();
+        assert!(matches!(parameters.source, lens::ExecutionSource::Traces));
+        assert_eq!(parameters.service, service);
+    }
+
+    #[rstest]
     fn sampling_keeps_all_access_and_selection_constraints() {
         let execution = ExecutionId {
             source: "traces".into(),
@@ -571,7 +609,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             serde_json::to_value(parameters).unwrap(),
-            json!({"profile":"Coding","taxonomy_id":"","taxonomy_version":0,"window_starts":[],"window_ends":[],"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"both","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
+            json!({"profile":"Coding","taxonomy_id":"","taxonomy_version":0,"window_starts":[],"window_ends":[],"all_teams":0,"team":"scope-team","key_hash":"scope-key","source":"traces","start":10,"end":20,"agent_name":"agent","service":"service","filter_keys":["version"],"filter_values":["v1"],"selected_team":"selected-team","execution_ids":["traces\0team\0ref"],"sample_cap":5,"sample_percent":25.0,"preview":1,"after":"after","limit":40,"offset":30})
         );
     }
 

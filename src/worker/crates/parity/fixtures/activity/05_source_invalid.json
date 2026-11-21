@@ -21,7 +21,7 @@
       "detail": [
         {
           "ctx": {
-            "expected": "'traces', 'requests' or 'both'"
+            "expected": "'traces'"
           },
           "input": "all",
           "loc": [
@@ -29,7 +29,7 @@
             "selection",
             "source"
           ],
-          "msg": "Input should be 'traces', 'requests' or 'both'",
+          "msg": "Input should be 'traces'",
           "type": "literal_error"
         }
       ]

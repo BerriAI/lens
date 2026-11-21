@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use lens_contract::{
     investigations::{FindingImport, Lens},
-    worker::{Evidence, FindingDraft, FindingDraftKind, LensSettingsSource},
+    worker::{Evidence, FindingDraft, FindingDraftKind},
 };
 
 use crate::{Error, merge_finding};
@@ -11,10 +11,7 @@ fn text_length(value: &str) -> usize {
 }
 
 pub fn validate_import(lens: &Lens, request: &FindingImport) -> Result<(), Error> {
-    if request.agent_name.trim().is_empty()
-        || request.agent_name != lens.settings.agent_name
-        || lens.settings.source == LensSettingsSource::Requests
-    {
+    if request.agent_name.trim().is_empty() || request.agent_name != lens.settings.agent_name {
         return Err(Error::ImportScope);
     }
     if request.fingerprint.len() != 64

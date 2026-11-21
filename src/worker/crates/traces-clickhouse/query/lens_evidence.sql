@@ -8,13 +8,4 @@ SELECT sum(matches) AS count FROM (
       AND (TeamId, ApiKeyHash, TraceId) NOT IN (SELECT TeamId, ApiKeyHash, TraceId FROM lens_eval_traces
           WHERE TeamId={record_team:String} AND TraceId={id:String})
       AND position(concat('Input: ',Input,'\nOutput: ',Output,'\nStatus: ',StatusCode,' ',StatusMessage),{quote:String})>0
-    UNION ALL
-    SELECT count() AS matches FROM spend_logs FINAL WHERE {source:String}='requests'
-      AND ({all_teams:UInt8}=1 OR team_id={team:String})
-      AND ({key_hash:String}='' OR api_key={key_hash:String})
-      AND spend_logs.start_time >= parseDateTime64BestEffortOrZero({start_time:String}, 3) - INTERVAL 7 DAY
-      AND request_id={id:String} AND team_id={record_team:String} AND request_id={span:String}
-      AND (team_id, api_key, response_id) NOT IN (SELECT TeamId, ApiKeyHash, arrayJoin(RequestIds)
-          FROM lens_eval_traces WHERE TeamId={record_team:String})
-      AND position(concat('Input: ',messages,'\nOutput: ',response,'\nError: ',error_str),{quote:String})>0
 )

@@ -157,11 +157,10 @@ export const lensQueries = {
     };
     return infiniteQueryOptions(options);
   },
-  agents(api: LensApi, source: Settings["source"]) {
+  agents(api: LensApi) {
     const options = {
       queryKey: lensKeys.agents(api.scope),
       queryFn: () => api.agents(),
-      enabled: source !== "requests",
       staleTime: 60000,
     };
     return queryOptions(options);

@@ -2,6 +2,7 @@
 
 import { useLensUpdate, useSaveLens, type LensWrite } from "../data/mutations";
 import type { Finding, Lens, RunWindow, Settings } from "../model/types";
+import { traceSettings } from "../setup/investigationSchema";
 
 /** Every write the Investigations screens can ask for, so leaves only ever express intent. */
 export function useInvestigationActions() {
@@ -17,7 +18,7 @@ export function useInvestigationActions() {
     error: update.error,
     reset: update.reset,
     save: (input: { id?: string; settings: Settings }): Promise<Lens> => save.mutateAsync(input),
-    pause: (lens: Lens) => attempt((api) => api.saveLens(lens.id, { ...lens.settings, enabled: false })),
+    pause: (lens: Lens) => attempt((api) => api.saveLens(lens.id, { ...traceSettings(lens.settings), enabled: false })),
     cancelRun: (lens: Lens) => attempt((api) => api.cancelRun(lens.id)),
     startRun: (lens: Lens, request: RunWindow) => attempt((api) => api.startRun(lens.id, request)),
     review: (lens: Lens, finding: Finding, status: Finding["status"], reason: string) =>

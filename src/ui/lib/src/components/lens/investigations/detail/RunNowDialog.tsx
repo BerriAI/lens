@@ -42,7 +42,7 @@ export function RunNowDialog({
   onRun: (request: RunWindow) => Promise<void>;
 }) {
   const api = useLensApi();
-  const agentsQuery = useQuery(lensQueries.agents(api, "traces"));
+  const agentsQuery = useQuery(lensQueries.agents(api));
   const agents = Array.isArray(agentsQuery.data) ? agentsQuery.data : [];
   const now = new Date();
   const [preset, setPreset] = useState<RunPreset>(null);

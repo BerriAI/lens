@@ -222,12 +222,6 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         &sample(ExecutionSource::Traces),
     )
     .await?;
-    let requested = fetch::<LensSample>(
-        &fixture.database.client,
-        &pacific,
-        &sample(ExecutionSource::Requests),
-    )
-    .await?;
     let found = fetch::<LensFindingSource>(
         &fixture.database.client,
         &pacific,
@@ -250,13 +244,8 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
         (
             utc_instants(traced.iter().map(|row| row.start_time.as_str()))?,
             utc_instants(found.iter().map(|row| row.start_time.as_str()))?,
-            utc_instants(requested.iter().map(|row| row.start_time.as_str()))?,
         ),
-        (
-            vec![listed_ns],
-            vec![listed_ns],
-            vec![i128::from(started_ms + 5) * 1_000_000]
-        )
+        (vec![listed_ns], vec![listed_ns],)
     );
     Ok(())
 }
@@ -930,7 +919,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         sampled.iter().map(|row| row.trace_id.as_str()).collect();
     assert_eq!(
         sampled_ids,
-        std::collections::BTreeSet::from(["production-trace", "production-request"])
+        std::collections::BTreeSet::from(["production-trace"])
     );
     let access = contracts::ReadAccessParams {
         all_teams: false,

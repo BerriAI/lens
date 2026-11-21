@@ -17,25 +17,21 @@ import type { ScopeOptions } from "../useMatchingActivity";
 import { MetadataFilters } from "./MetadataFilters";
 import { ProfileField } from "./ProfileField";
 
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
-
 export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, attributes, keys }: ScopeOptions) {
-  const { control, register, setValue } = useFormContext<InvestigationInput>();
+  const { control, register } = useFormContext<InvestigationInput>();
   const selection = useWatch({ control, name: "selection" });
   const filters = selection.filters ?? [];
   const hasOptionalScope = !!selection.team_id || !!selection.service;
-  const showAdvancedByDefault = !!selection.filters.length || hasOptionalScope || selection.source !== "traces";
+  const showAdvancedByDefault = !!selection.filters.length || hasOptionalScope;
   const [advanced, setAdvanced] = useState(showAdvancedByDefault);
-  const nameFieldName = selection.source === "requests" ? "selection.service" : "selection.agent_name";
-  const selectedName = selection.source === "requests" ? selection.service : selection.agent_name;
-  const nameLabel = selection.source === "requests" ? "Model group (optional)" : "Agent (optional)";
+  const nameLabel = "Agent (optional)";
   return (
     <>
       <label className="grid gap-2 text-sm font-medium">
         {nameLabel}
         <Controller
           control={control}
-          name={nameFieldName}
+          name="selection.agent_name"
           render={({ field }) => (
             <Combobox
               items={names}
@@ -46,8 +42,8 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
             >
               <ComboboxInput
                 aria-label={nameLabel}
-                placeholder={selection.source === "requests" ? "All model groups" : "All agents and activity"}
-                showClear={!!selectedName}
+                placeholder="All agents and activity"
+                showClear={!!selection.agent_name}
                 className="w-full h-9"
               />
               <ComboboxContent>
@@ -67,7 +63,7 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
         />
       </label>
       <ProfileField />
-      {selection.source !== "requests" && agentsError && (
+      {agentsError && (
         <p role="alert" className="text-sm text-destructive">
           Could not load agents.{" "}
           <button type="button" className="underline" onClick={retryAgents}>
@@ -80,29 +76,9 @@ export function ScopeFields({ names, agentsLoading, agentsError, retryAgents, at
           Advanced filters{filters.length ? ` (${filters.length})` : ""}
         </summary>
         <div className="mt-4 space-y-4">
-          {selection.source !== "requests" && (
-            <label className="grid gap-2 text-sm">
-              Application (optional)
-              <Input {...register("selection.service")} placeholder="All applications" />
-            </label>
-          )}
           <label className="grid gap-2 text-sm">
-            Activity type
-            <select
-              {...register("selection.source", {
-                onChange: () => {
-                  setValue("selection.service", "");
-                  setValue("selection.agent_name", "");
-                  setValue("selection.filters", []);
-                  setValue("selection.profile", null);
-                },
-              })}
-              className={selectClass}
-            >
-              <option value="traces">Agent traces</option>
-              <option value="requests">LLM requests</option>
-              <option value="both">Traces and LLM requests</option>
-            </select>
+            Application (optional)
+            <Input {...register("selection.service")} placeholder="All applications" />
           </label>
           <p className="text-xs leading-5 text-muted-foreground">
             Match any recorded metadata, such as a user ID, environment, or tag. All conditions must match.

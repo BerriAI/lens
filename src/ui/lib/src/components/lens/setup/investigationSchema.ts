@@ -4,7 +4,7 @@ import { normalizeFilters } from "./filters";
 import { initialWatches, isWatch, watchChecks } from "../model/watches";
 
 const selectionFields = {
-  source: z.enum(["traces", "requests", "both"]),
+  source: z.literal("traces"),
   service: z.string(),
   agent_name: z.string(),
   profile: z.string().nullable().optional(),
@@ -184,13 +184,14 @@ export const investigationStepFields: Readonly<Record<SetupStep, readonly Invest
   run: fields.filter((field) => stepOfField[field] === "run"),
 };
 
-function activitySelectionDefaults(
-  initial: Settings | undefined,
-  defaultSource: Settings["source"],
-): InvestigationInput["selection"] {
+export function traceSettings(settings: Settings): Settings {
+  return { ...settings, source: "traces", service: settings.source === "requests" ? "" : settings.service };
+}
+
+function activitySelectionDefaults(initial: Settings | undefined): InvestigationInput["selection"] {
   return {
-    source: initial?.source ?? defaultSource,
-    service: initial?.service ?? "",
+    source: "traces",
+    service: (initial && traceSettings(initial).service) ?? "",
     agent_name: initial?.agent_name ?? "",
     profile: initial?.profile ?? undefined,
     filters: initial?.filters ?? [],
@@ -205,11 +206,10 @@ function activitySelectionDefaults(
 export function investigationDefaults(
   initial: Settings | undefined,
   mode: "new" | "edit" | "duplicate",
-  defaultSource: Settings["source"],
 ): InvestigationInput {
   return {
     name: initial?.name ?? "",
-    selection: activitySelectionDefaults(initial, defaultSource),
+    selection: activitySelectionDefaults(initial),
     context: initial?.context ?? "",
     watching: [...initialWatches(initial?.checks)],
     questions: (initial?.checks ?? []).filter((check) => !isWatch(check)),

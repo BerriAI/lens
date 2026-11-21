@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  traceSettings,
   investigationDefaults,
   investigationSchema,
   investigationSettings,
@@ -129,11 +130,41 @@ describe("investigation validation", () => {
     expect(input.questions[0].instruction).toBe("  Find repetitive searches\nInclude retries  ");
   });
 
+  it.each(["requests", "both"] as const)(
+    "reviews traces when an investigation saved with the %s source is edited or duplicated",
+    (source) => {
+      const saved = investigationSettings(investigationSchema.parse(defaults), undefined, "analysis");
+      const legacy = { ...saved, source };
+      for (const mode of ["edit", "duplicate"] as const) {
+        const input = investigationDefaults(legacy, mode);
+        expect(investigationSettings(investigationSchema.parse(input), legacy, "analysis").source).toBe("traces");
+      }
+    },
+  );
+
+  it.each([
+    ["requests", ""],
+    ["both", "checkout"],
+    ["traces", "checkout"],
+  ] as const)("saves a stored %s investigation as traces with application %j", (source, service) => {
+    const saved = investigationSettings(investigationSchema.parse(defaults), undefined, "analysis");
+    const stored = { ...saved, source, service: "checkout" };
+    expect(traceSettings(stored)).toEqual({ ...stored, source: "traces", service });
+    expect(investigationDefaults(stored, "edit").selection.service).toBe(service);
+  });
+
+  it("rejects a request source in the setup form", () => {
+    const input = investigationDefaults(undefined, "new");
+    expect(investigationSchema.safeParse({ ...input, selection: { ...input.selection, source: "requests" } }).success).toBe(
+      false,
+    );
+  });
+
   it("preserves saved configuration and uses the same edit and duplicate defaults", () => {
     const saved = investigationSettings(investigationSchema.parse(defaults), undefined, "analysis");
     const initial = { ...saved, enabled: true, concurrency: 3, interval_minutes: 15 };
-    expect(investigationDefaults(initial, "edit", "requests")).toMatchObject({ repeat: true, interval: 15 });
-    const duplicate = investigationDefaults(initial, "duplicate", "requests");
+    expect(investigationDefaults(initial, "edit")).toMatchObject({ repeat: true, interval: 15 });
+    const duplicate = investigationDefaults(initial, "duplicate");
     expect(duplicate.repeat).toBe(false);
     expect(investigationSettings(investigationSchema.parse(duplicate), initial, "analysis")).toMatchObject({
       concurrency: 3,

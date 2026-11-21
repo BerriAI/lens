@@ -27,14 +27,14 @@
       "detail": [
         {
           "ctx": {
-            "expected": "'traces', 'requests' or 'both'"
+            "expected": "'traces'"
           },
           "input": "invalid",
           "loc": [
             "body",
             "source"
           ],
-          "msg": "Input should be 'traces', 'requests' or 'both'",
+          "msg": "Input should be 'traces'",
           "type": "literal_error"
         },
         {

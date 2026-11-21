@@ -65,7 +65,18 @@ pub async fn insert_rows(
     table: InsertTable,
     rows: Vec<BTreeMap<String, Value>>,
 ) -> Result<(), Error> {
+    let rows = match table {
+        InsertTable::SpendLogs => rows.into_iter().map(without_conversation).collect(),
+        InsertTable::OtelTraces | InsertTable::OtelLogs | InsertTable::LensFeedback => rows,
+    };
     insert_shared_rows(client, connection, database, table, shared_rows(rows)).await
+}
+
+fn without_conversation(mut row: BTreeMap<String, Value>) -> BTreeMap<String, Value> {
+    for column in ["messages", "response"] {
+        row.remove(column);
+    }
+    row
 }
 
 pub async fn insert_shared_rows(
@@ -293,7 +304,26 @@ mod tests {
     use rstest::rstest;
     use serde_json::json;
 
-    use super::{Error, shared_rows, write_rows};
+    use super::{Error, shared_rows, without_conversation, write_rows};
+
+    #[test]
+    fn a_cost_row_is_stored_without_the_conversation_an_older_gateway_sends() {
+        let row = BTreeMap::from([
+            ("request_id".to_owned(), json!("request-1")),
+            ("response_id".to_owned(), json!("response-1")),
+            ("spend".to_owned(), json!(0.42)),
+            ("messages".to_owned(), json!("[{\"role\":\"user\"}]")),
+            ("response".to_owned(), json!("{\"id\":\"response-1\"}")),
+        ]);
+        assert_eq!(
+            without_conversation(row),
+            BTreeMap::from([
+                ("request_id".to_owned(), json!("request-1")),
+                ("response_id".to_owned(), json!("response-1")),
+                ("spend".to_owned(), json!(0.42)),
+            ])
+        );
+    }
 
     #[rstest]
     fn encoded_limit_counts_utf8_bytes_across_rows() {
