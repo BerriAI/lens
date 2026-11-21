@@ -1,5 +1,5 @@
 mod banner {
-    use lens_evals_sdk::demo::{banner::*, style::*};
+    use lens_cli::demo::{banner::*, style::*};
     use rstest::rstest;
 
     #[rstest]
@@ -17,7 +17,7 @@ mod banner {
 }
 
 mod style {
-    use lens_evals_sdk::demo::style::*;
+    use lens_cli::demo::style::*;
     use rstest::rstest;
 
     #[rstest]
@@ -78,7 +78,7 @@ mod style {
 }
 
 mod brand {
-    use lens_evals_sdk::demo::brand::*;
+    use lens_cli::demo::brand::*;
     use rstest::rstest;
 
     #[rstest]
@@ -107,8 +107,8 @@ mod brand {
 }
 
 mod progress {
-    use lens_evals_sdk::local::{AgentResult, Attempt};
-    use lens_evals_sdk::{
+    use lens_cli::local::{AgentResult, Attempt};
+    use lens_cli::{
         demo::progress::*,
         local::{Outcome, Progress, RunMeta, Target},
     };
@@ -236,7 +236,7 @@ mod progress {
 
 mod chrome {
     use demo::style::Line;
-    use lens_evals_sdk::demo::{self, *};
+    use lens_cli::demo::{self, *};
     use rstest::rstest;
 
     fn options(width: usize) -> Options {
@@ -284,7 +284,7 @@ mod chrome {
 }
 
 mod fixture {
-    use lens_evals_sdk::{
+    use lens_cli::{
         demo::{fixture::*, progress::Tally},
         local::TargetStats,
     };
@@ -314,7 +314,7 @@ mod fixture {
 }
 
 mod report {
-    use lens_evals_sdk::{
+    use lens_cli::{
         demo::{
             fixture,
             report::{lines, marker_text},

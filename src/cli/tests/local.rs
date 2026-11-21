@@ -1,4 +1,4 @@
-use lens_evals_sdk::{
+use lens_cli::{
     Error,
     local::{AgentResult, Attempt, Outcome, Progress, RunMeta, Target, Task, ToolCall, run::*},
 };
@@ -267,19 +267,19 @@ async fn execute_journals_every_attempt_and_resumes() {
 
 #[rstest]
 fn saved_report_screen_has_the_report() {
-    let quiet = lens_evals_sdk::demo::Options {
+    let quiet = lens_cli::demo::Options {
         animate: false,
         color: false,
         width: 100,
         height: 40,
     };
-    let lines: Vec<String> = lens_evals_sdk::local::view::report_screen(
+    let lines: Vec<String> = lens_cli::local::view::report_screen(
         &quiet,
         "lens show eval_7f2a",
-        &lens_evals_sdk::demo::fixture::summary(),
+        &lens_cli::demo::fixture::summary(),
     )
     .iter()
-    .map(lens_evals_sdk::demo::style::Line::plain)
+    .map(lens_cli::demo::style::Line::plain)
     .collect();
     assert!(
         lines

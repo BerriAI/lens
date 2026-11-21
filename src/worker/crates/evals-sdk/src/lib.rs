@@ -2,11 +2,9 @@
 
 pub mod agent;
 pub mod client;
-pub mod demo;
 pub mod doctor;
 pub mod engine;
 mod error;
-pub mod local;
 pub mod model;
 pub mod named;
 pub mod session;

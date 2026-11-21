@@ -29,10 +29,6 @@ pub enum Error {
     AgentFailure { detail: String },
     #[error("Could not access the setup file")]
     Io(#[from] std::io::Error),
-    #[error("Could not read the tasks CSV")]
-    Tasks(#[from] csv::Error),
-    #[error("Could not read or write the run checkpoint")]
-    Checkpoint(#[source] serde_json::Error),
     #[error("Invalid TOML configuration")]
     Toml(#[from] toml::de::Error),
 }

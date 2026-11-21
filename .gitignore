@@ -30,3 +30,5 @@ coverage-rust.xml
 **/*.storageState.json
 payloads/
 *-values.yaml
+
+/src/sdk/src/lens_cli/

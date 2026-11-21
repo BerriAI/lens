@@ -63,7 +63,7 @@ evaluation = Eval(
 
 `task` is your async function. A complete example is below
 
-The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported. HTTP, execution, retries, concurrency, setup, diagnostics, the development server, and GitHub reporting run in Rust under `src/worker/crates/evals-sdk`. `src/worker/crates/evals-python` binds that core to Python with PyO3. Python handles your coroutine and eval-file imports
+The package is `lens-evals`; the import stays `lens`. Python 3.11+ is supported. HTTP, execution, retries, concurrency, diagnostics, the development server, and GitHub reporting run in Rust under `src/worker/crates/evals-sdk`. The command handling, setup, local runs and terminal views live in [`src/cli`](../cli). `src/worker/crates/evals-python` binds both crates into the installed package. Python handles your coroutine and eval-file imports
 
 ## Model optimizations
 
@@ -451,7 +451,7 @@ The development server is loopback-only and keeps state in memory. `--dataset-fi
 
 ## Implementation and integration status
 
-The native core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk), with PyO3 bindings in [`src/worker/crates/evals-python`](../worker/crates/evals-python). The Python package contains immutable public values, generated Pydantic wire models, discovery, and coroutine handling
+The native SDK core is in [`src/worker/crates/evals-sdk`](../worker/crates/evals-sdk), with PyO3 bindings in [`src/worker/crates/evals-python`](../worker/crates/evals-python). [`src/cli`](../cli) owns the Rust commands, CLI Python adapters, local-run example and CLI tests. The installed `lens.cli` and `lens.local` modules forward to those adapters. The Python SDK contains immutable public values, generated Pydantic wire models, discovery, and coroutine handling
 
 The Lens server owns lifecycle routes, trace scoring, baseline selection, and the comparison UI. This package provides the SDK, CLI, setup, Action, and development server
 

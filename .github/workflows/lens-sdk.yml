@@ -2,9 +2,9 @@ name: Lens SDK
 on:
   push:
     branches: [main, litellm_sdk_setup, litellm_sdk_contract_alignment]
-    paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
+    paths: ['src/cli/**', 'src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
   pull_request:
-    paths: ['src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
+    paths: ['src/cli/**', 'src/sdk/**', 'schema/lens.v1.json', 'src/worker/crates/contract/**', 'src/worker/crates/evals-sdk/**', 'src/worker/crates/evals-python/**', 'src/worker/Cargo.toml', 'src/worker/Cargo.lock', '.github/workflows/lens-sdk.yml']
   workflow_dispatch:
     inputs:
       release_install:
@@ -32,13 +32,13 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
       - run: python -m pip install uv==0.10.9
-      - run: cargo fmt --manifest-path src/worker/Cargo.toml -p lens-evals-sdk -p lens-evals-python --check
-      - run: cargo clippy --manifest-path src/worker/Cargo.toml -p lens-evals-sdk -p lens-evals-python --all-targets -- -D warnings
-      - run: cargo test --manifest-path src/worker/Cargo.toml -p lens-evals-sdk
+      - run: cargo fmt --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk -p lens-evals-python --check
+      - run: cargo clippy --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk -p lens-evals-python --all-targets -- -D warnings
+      - run: cargo test --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk
       - run: uv sync --project src/sdk --frozen
-      - run: uv run --project src/sdk ruff check src/sdk
-      - run: uv run --project src/sdk ruff format --check src/sdk
-      - run: uv run --project src/sdk mypy src/sdk/src/lens src/sdk/scripts/generate_contract.py
+      - run: uv run --project src/sdk ruff check --config src/sdk/pyproject.toml src/sdk src/cli/python src/cli/tests/python src/cli/examples/local_eval
+      - run: uv run --project src/sdk ruff format --check --config src/sdk/pyproject.toml src/sdk src/cli/python src/cli/tests/python src/cli/examples/local_eval
+      - run: uv run --project src/sdk mypy --config-file src/sdk/pyproject.toml src/sdk/src/lens src/cli/python/lens_cli src/sdk/scripts/generate_contract.py
       - name: Check generated contract drift
         shell: bash
         run: |
@@ -48,7 +48,7 @@ jobs:
             schema=src/sdk/tests/fixtures/appendix.v1.json
           fi
           uv run --project src/sdk python src/sdk/scripts/generate_contract.py --schema "$schema" --check
-      - run: uv run --project src/sdk pytest src/sdk/tests --cov=lens --cov-config=src/sdk/pyproject.toml
+      - run: uv run --project src/sdk pytest -c src/sdk/pyproject.toml src/sdk/tests src/cli/tests/python --cov=lens --cov=lens_cli --cov-config=src/sdk/pyproject.toml
       - name: Start named-eval transport fixtures
         shell: bash
         run: |
@@ -83,6 +83,8 @@ jobs:
           python -c 'import json, os; assert len(json.loads(os.environ["URLS"])) == 1'
       - run: bash src/sdk/tests/install_action.sh
       - run: uv build --project src/sdk --out-dir src/sdk/dist
+      - name: Build a wheel from the source distribution
+        run: uv build --wheel src/sdk/dist/*.tar.gz --out-dir "${{ runner.temp }}/lens-sdist-wheel"
       - name: Check wheel in a fresh environment
         shell: bash
         run: |

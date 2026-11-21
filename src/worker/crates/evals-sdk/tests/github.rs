@@ -82,18 +82,6 @@ async fn app_reporting_propagates_server_authorization_failure() {
 }
 
 #[rstest]
-#[case::actions(vec!["lens", "report", "report.json"], false)]
-#[case::app(vec!["lens", "report", "report.json", "--via-app"], true)]
-fn reporting_mode(#[case] arguments: Vec<&str>, #[case] via_app: bool) {
-    let parsed =
-        lens_evals_sdk::setup::parse(&arguments.into_iter().map(str::to_owned).collect::<Vec<_>>());
-    assert_eq!(
-        parsed,
-        json!({"command":"report", "file":"report.json", "via_app": via_app})
-    );
-}
-
-#[rstest]
 #[case::human("human", "POST", "/repos/org/repo/issues/7/comments")]
 #[case::bot("github-actions[bot]", "PATCH", "/repos/org/repo/issues/comments/4")]
 #[tokio::test]
@@ -139,21 +127,6 @@ async fn only_updates_owned_comments(#[case] owner: &str, #[case] verb: &str, #[
         )
         .await
         .unwrap();
-}
-
-#[rstest]
-#[case::starting("report-start")]
-#[case::failed("report-failed")]
-fn progress_commands_accept_a_dispatch_pull_request(#[case] command: &str) {
-    let parsed = lens_evals_sdk::setup::parse(&[
-        "lens".into(),
-        command.into(),
-        "--name".into(),
-        "demo".into(),
-        "--pr".into(),
-        "7".into(),
-    ]);
-    assert_eq!(parsed, json!({"command":command,"name":"demo","pr":7}));
 }
 
 #[rstest]

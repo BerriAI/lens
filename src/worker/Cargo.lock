@@ -2287,6 +2287,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "lens-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "console",
+ "csv",
+ "futures-util",
+ "lens-evals-sdk",
+ "pyo3",
+ "pyo3-async-runtimes",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.19",
+ "tokio",
+ "toml",
+ "toml_edit 0.23.10+spec-1.0.0",
+ "unicode-width",
+ "uuid",
+]
+
+[[package]]
 name = "lens-contract"
 version = "0.1.0"
 dependencies = [
@@ -2356,6 +2379,7 @@ dependencies = [
 name = "lens-evals-python"
 version = "0.1.0"
 dependencies = [
+ "lens-cli",
  "lens-evals-sdk",
  "pyo3",
  "pyo3-async-runtimes",
@@ -2369,9 +2393,6 @@ name = "lens-evals-sdk"
 version = "0.1.0"
 dependencies = [
  "axum",
- "clap",
- "console",
- "csv",
  "futures-util",
  "http",
  "lens-contract",
@@ -2384,8 +2405,6 @@ dependencies = [
  "thiserror 2.0.19",
  "tokio",
  "toml",
- "toml_edit 0.23.10+spec-1.0.0",
- "unicode-width",
  "url",
  "uuid",
  "wiremock",

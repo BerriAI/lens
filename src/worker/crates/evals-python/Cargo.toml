@@ -10,6 +10,7 @@ name = "_native"
 crate-type = ["cdylib"]
 
 [dependencies]
+lens-cli = { path = "../../../cli", features = ["python"] }
 lens-evals-sdk = { path = "../evals-sdk" }
 pyo3 = { workspace = true, features = ["abi3-py311"] }
 pyo3-async-runtimes.workspace = true

@@ -183,3 +183,20 @@ def test_cli_only_filters_native_run_and_preserves_selection_on_resume(tmp_path)
     assert json.loads((directory / "meta.json").read_text())["targets"] == meta["targets"]
     assert (directory / "attempts.jsonl").read_text() == attempts
     assert (tmp_path / "calls.txt").read_text() == "a/x\n"
+
+
+@pytest.mark.parametrize("module", ["lens_cli.local", "lens.local", "lens_cli.cli"])
+def test_imports_and_public_values_work_in_a_fresh_process(tmp_path, module):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import {module}; import pickle; from lens import AgentOutput; "
+            "value = AgentOutput(text='billing'); assert pickle.loads(pickle.dumps(value)) == value",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr

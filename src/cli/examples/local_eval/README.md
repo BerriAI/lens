@@ -11,15 +11,15 @@ Classifies 20 support tickets as billing, technical or sales. Eight of them only
 These make real model calls, so export `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` first. A full run makes 60 case attempts and incurs provider charges
 
 ```bash
-cd src/sdk/examples/local_eval
-uv run --project ../.. --with litellm --with openai-agents lens run tasks.csv --config evals.py
+cd src/cli/examples/local_eval
+uv run --project ../../../sdk --with litellm --with openai-agents lens run tasks.csv --config evals.py
 ```
 
 Results are saved under `.lens/runs/<run_id>/`. Pick up an interrupted run, or print a saved report again:
 
 ```bash
-uv run --project ../.. --with litellm --with openai-agents lens resume <run_id>
-uv run --project ../.. lens show
+uv run --project ../../../sdk --with litellm --with openai-agents lens resume <run_id>
+uv run --project ../../../sdk lens show
 ```
 
 Add `--fast` to print the report without the live progress view, for example in CI logs

@@ -1,8 +1,9 @@
+from lens_cli.models import AgentOutput, Target, TaskInput, ToolCall, Verdict
+
 from . import scorers
 from ._contract import Gate
 from .client import Lens
 from .evaluation import Eval
-from .local import AgentOutput, Target, TaskInput, ToolCall, Verdict
 from .models import Case, Report, Run
 from .scorers import judge
 from .session import Evaluation, TestCase

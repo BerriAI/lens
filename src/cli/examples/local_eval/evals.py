@@ -1,5 +1,4 @@
 from agent import litellm_agent, openai_agents_agent
-
 from lens import AgentOutput, Target, TaskInput, Verdict
 
 SONNET = "claude-sonnet-5-5"
