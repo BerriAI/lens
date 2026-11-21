@@ -1359,6 +1359,30 @@ fn opencode_internal_span_is_not_an_agent_run(span: Span) {
 }
 
 #[rstest]
+fn opencode_internal_root_span_is_named_opencode_without_becoming_agent_work(span: Span) {
+    let root = Span {
+        parent_span_id: Vec::new(),
+        name: "sql.execute".to_owned(),
+        ..span
+    };
+    let decoded = decode(root, "opencode", &[("db.system", "sqlite")], vec![]).unwrap();
+
+    assert_eq!(decoded.normalized.framework, None);
+    assert_eq!(decoded.normalized.agent_name.as_deref(), Some("opencode"));
+}
+
+#[rstest]
+fn another_senders_internal_root_span_keeps_no_agent_name(span: Span) {
+    let root = Span {
+        parent_span_id: Vec::new(),
+        ..span
+    };
+    let decoded = decode(root, "other", &[("db.system", "sqlite")], vec![]).unwrap();
+
+    assert_eq!(decoded.normalized.agent_name, None);
+}
+
+#[rstest]
 #[case::session_title(
     r#"{"messages":[{"role":"system","content":"You are a title generator. You output ONLY a thread title."},{"role":"user","content":"Generate a title for this conversation:"}]}"#,
     ""

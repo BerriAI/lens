@@ -31,6 +31,9 @@ pub struct TraceListRequest {
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = TRACE_AGENT_NAME_MAX_LENGTH)))]
     pub agent: Option<String>,
+    /// Also list traces that made no model call and no tool call. Default: false
+    #[serde(default)]
+    pub include_internal: Option<bool>,
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = 512)))]
     pub cursor: Option<String>,

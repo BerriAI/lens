@@ -191,8 +191,12 @@ function demoTracesApi(data: LensDemoData): TracesApi {
         copied: spanId ? "Step copied" : "Trace copied",
       };
     },
-    list: async ({ startMs, endMs }, agent) => ({
-      data: summariesIn(data, startMs, endMs).filter((trace) => !agent || traceAgentNames(trace).includes(agent)),
+    list: async ({ startMs, endMs }, { agent, includeInternal }) => ({
+      data: summariesIn(data, startMs, endMs).filter(
+        (trace) =>
+          (!agent || traceAgentNames(trace).includes(agent)) &&
+          (includeInternal || trace.llm_calls + trace.tool_calls > 0),
+      ),
       next_cursor: null,
     }),
     agents: async ({ startMs, endMs }) => rollUpAgents(summariesIn(data, startMs, endMs)),

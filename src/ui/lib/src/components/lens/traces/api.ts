@@ -37,6 +37,11 @@ export interface TraceWindow {
   readonly cursor?: string | null;
 }
 
+export interface TraceListFilter {
+  readonly agent: string;
+  readonly includeInternal: boolean;
+}
+
 export interface TraceHandoff {
   readonly text: string;
   readonly copied: string;
@@ -46,7 +51,7 @@ export interface TracesApi {
   /** False for a fixed snapshot: nothing new arrives, so live tail and tracing setup don't apply. */
   readonly live: boolean;
   handoff(traceId: string, spanId?: string | null, traceRef?: string): TraceHandoff;
-  list(window: TraceWindow, agent: string, signal?: AbortSignal): Promise<TracePage>;
+  list(window: TraceWindow, filter: TraceListFilter, signal?: AbortSignal): Promise<TracePage>;
   agents(window: TraceWindow, signal?: AbortSignal): Promise<AgentSummary[]>;
   findings(traces: TraceFindingsRequest["traces"]): Promise<TraceFindingCount[]>;
   signals(traces: TraceFindingsRequest["traces"]): Promise<TraceSignals[]>;
@@ -91,7 +96,7 @@ export function liveTracesApi(accessToken: string): TracesApi {
       text: agentHandoffText(traceId, spanId, traceRef),
       copied: "Command copied",
     }),
-    list: (window, agent, signal) => agentTraceListCall({ accessToken, ...window, agent, signal }),
+    list: (window, filter, signal) => agentTraceListCall({ accessToken, ...window, ...filter, signal }),
     agents: async ({ startMs, endMs }, signal) => {
       const page = await apiClient.get<TraceAgentList>("/v1/traces/agents", {
         accessToken,
@@ -123,7 +128,7 @@ export function liveTracesApi(accessToken: string): TracesApi {
     anyRecorded: async () => {
       const page = await apiClient.get<TracePage>("/v1/traces", {
         accessToken,
-        query: { start_ms: 0 } satisfies TraceListQuery,
+        query: { start_ms: 0, include_internal: true } satisfies TraceListQuery,
       });
       return page.data.length > 0;
     },

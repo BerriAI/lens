@@ -67,6 +67,7 @@ impl TraceReader {
         store: &S,
         access: &ReadAccessParams,
         agent: &str,
+        include_internal: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<&str>,
@@ -81,6 +82,7 @@ impl TraceReader {
         let mut params = ListTracesParams {
             access: access.clone(),
             agent: agent.to_owned(),
+            include_internal,
             start_ms,
             end_ms,
             cursor_ms,

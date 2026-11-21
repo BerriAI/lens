@@ -3,7 +3,8 @@ use super::{Extraction, Integration, Rule, SpanContext, SpanFacts};
 const SCOPE: &str = "opencode";
 const AGENT: &str = "opencode";
 /// Set by the Vercel AI SDK on the model-call and tool spans of a run; OpenCode's other spans
-/// under the same scope are its internals (`sql.execute`, `Plugin.load`), which are not agent work
+/// under the same scope are its internals (`sql.execute`, `Plugin.load`), which are not agent work.
+/// A root among them is still named after OpenCode, so its trace is not listed under the span name
 const AI_SDK_OPERATION: &str = "ai.operationId";
 const PROMPTS: [&str; 2] = ["ai.prompt", "ai.prompt.messages"];
 /// How OpenCode opens the side call that names a session; it starts with the user's first turn,
@@ -14,11 +15,11 @@ pub(super) struct Opencode;
 
 impl Rule for Opencode {
     fn matches(&self, context: &SpanContext<'_>) -> bool {
-        context.scope == SCOPE && context.attributes.contains_key(AI_SDK_OPERATION)
+        context.scope == SCOPE && (is_agent_work(context) || context.parent_span_id.is_empty())
     }
 
-    fn integration(&self, _: &SpanContext<'_>) -> Option<Integration> {
-        Some(Integration::Opencode)
+    fn integration(&self, context: &SpanContext<'_>) -> Option<Integration> {
+        is_agent_work(context).then_some(Integration::Opencode)
     }
 
     fn agent_name(&self, _: &SpanContext<'_>, recorded: Option<String>) -> Option<String> {
@@ -40,4 +41,8 @@ impl Rule for Opencode {
             ..facts
         })
     }
+}
+
+fn is_agent_work(context: &SpanContext<'_>) -> bool {
+    context.attributes.contains_key(AI_SDK_OPERATION)
 }

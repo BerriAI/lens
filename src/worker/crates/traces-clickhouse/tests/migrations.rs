@@ -2487,6 +2487,7 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
                 team_ids: vec!["team".into()],
             },
             agent: String::new(),
+            include_internal: true,
             start_ms: timestamp / 1_000_000 - 1,
             end_ms: timestamp / 1_000_000 + 1,
             cursor_ms: 0,

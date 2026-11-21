@@ -569,7 +569,7 @@ pub(crate) fn validate(
     }
 }
 
-fn boolean(value: &Value) -> Option<bool> {
+pub(crate) fn boolean(value: &Value) -> Option<bool> {
     match value {
         Value::Bool(value) => Some(*value),
         Value::Number(number) if number.as_f64() == Some(1.0) => Some(true),
