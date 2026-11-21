@@ -7,9 +7,10 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "../../../../ui/ho
 import { formatCost } from "../../list/AgentTracesTable";
 import { errorHeadline } from "../content/SpanError";
 import { SpanIcon } from "../../ui/SpanIcon";
-import type { GroupRowData } from "../../tree";
+import type { GroupRowData, TurnRowData } from "../../tree";
 import type { Span, SpanType } from "../../types";
-import { fmtMs, fmtTok } from "../../utils";
+import { fmtMs, fmtTok, previewText } from "../../utils";
+import { toolSummary } from "../content/payload";
 
 export const HOVER_OPEN_DELAY_MS = 300;
 const HOVER_CLOSE_DELAY_MS = 100;
@@ -51,11 +52,28 @@ export interface HoverFacts {
   startMs: number;
   durationMs: number;
   tokens: number;
+  inputTokens: number;
+  outputTokens: number;
   spend: number | null;
+  /** Model and tool calls under a row that stands for several steps. */
+  modelCalls: number | null;
+  toolCalls: number | null;
+  /** What the step was given: the message a model call answers, or a tool call's arguments. */
+  input: string;
   error: string | null;
   failed: boolean;
   tags: readonly string[];
 }
+
+const sum = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);
+
+const totalSpend = (spans: readonly Span[]): number | null => {
+  const priced = spans.flatMap((span) => (span.spend == null ? [] : [span.spend]));
+  return priced.length ? sum(priced) : null;
+};
+
+const stepInput = (span: Span): string =>
+  span.type === "tool" ? toolSummary(span.input_preview) : previewText(span.input_preview);
 
 const agentTags = (agent: string): readonly string[] => (agent ? [`agent:${agent}`] : []);
 
@@ -66,7 +84,12 @@ export const spanFacts = (span: Span): HoverFacts => ({
   startMs: span.start_offset_ms,
   durationMs: span.duration_ms,
   tokens: span.input_tokens + span.output_tokens,
+  inputTokens: span.input_tokens,
+  outputTokens: span.output_tokens,
   spend: span.spend ?? null,
+  modelCalls: null,
+  toolCalls: null,
+  input: stepInput(span),
   error: span.error ?? null,
   failed: span.status === "error",
   tags: agentTags(span.agent),
@@ -81,11 +104,39 @@ export const groupFacts = (row: GroupRowData): HoverFacts => {
     model: row.members[0]?.model ?? null,
     startMs: start,
     durationMs: end - start,
-    tokens: row.members.reduce((sum, m) => sum + m.input_tokens + m.output_tokens, 0),
-    spend: null,
+    tokens: sum(row.members.map((m) => m.input_tokens + m.output_tokens)),
+    inputTokens: sum(row.members.map((m) => m.input_tokens)),
+    outputTokens: sum(row.members.map((m) => m.output_tokens)),
+    spend: totalSpend(row.members),
+    modelCalls: null,
+    toolCalls: null,
+    input: "",
     error: row.members.find((m) => m.status === "error" && m.error)?.error ?? null,
     failed: row.failedCount > 0,
     tags: agentTags(row.agent),
+  };
+};
+
+export const turnFacts = (row: TurnRowData): HoverFacts => {
+  const start = Math.min(...row.members.map((m) => m.start_offset_ms));
+  const end = Math.max(...row.members.map((m) => m.start_offset_ms + m.duration_ms));
+  const calls = row.members.filter((m) => m.type === "llm");
+  return {
+    name: `Turn ${row.index}`,
+    type: "agent",
+    model: calls[0]?.model ?? null,
+    startMs: start,
+    durationMs: end - start,
+    tokens: sum(row.members.map((m) => m.input_tokens + m.output_tokens)),
+    inputTokens: sum(row.members.map((m) => m.input_tokens)),
+    outputTokens: sum(row.members.map((m) => m.output_tokens)),
+    spend: totalSpend(row.members),
+    modelCalls: calls.length,
+    toolCalls: row.members.filter((m) => m.type === "tool").length,
+    input: "",
+    error: row.members.find((m) => m.status === "error" && m.error)?.error ?? null,
+    failed: row.members.some((m) => m.status === "error"),
+    tags: agentTags(row.members[0]?.agent ?? ""),
   };
 };
 
@@ -139,12 +190,27 @@ function HoverCardBody({ facts, traceStartMs }: { facts: HoverFacts; traceStartM
           <Fact label="Duration" value={fmtMs(facts.durationMs)} />
         </dl>
       </FactSection>
+      {facts.modelCalls != null && facts.toolCalls != null && (
+        <FactSection title="Steps">
+          <dl className="flex flex-col gap-1.5">
+            <Fact label="Model calls" value={String(facts.modelCalls)} />
+            <Fact label="Tool calls" value={String(facts.toolCalls)} />
+          </dl>
+        </FactSection>
+      )}
       {(facts.tokens > 0 || facts.spend != null) && (
         <FactSection title="Usage">
           <dl className="flex flex-col gap-1.5">
             {facts.tokens > 0 && <Fact label="Tokens" value={fmtTok(facts.tokens)} />}
+            {facts.inputTokens > 0 && <Fact label="Input tokens" value={fmtTok(facts.inputTokens)} />}
+            {facts.outputTokens > 0 && <Fact label="Output tokens" value={fmtTok(facts.outputTokens)} />}
             {facts.spend != null && <Fact label="Cost" value={formatCost(facts.spend)} />}
           </dl>
+        </FactSection>
+      )}
+      {facts.input && (
+        <FactSection title="Input">
+          <p className="line-clamp-4 font-mono text-xs break-words text-trace-duration">{facts.input}</p>
         </FactSection>
       )}
       {facts.tags.length > 0 && (

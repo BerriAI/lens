@@ -19,7 +19,7 @@ import type { TreeRow } from "../../tree";
 import type { TraceSummary } from "../../types";
 import { treeGuides } from "../../utils";
 import { BAR_TRACK, tickLabel, timeTicks } from "./timeline";
-import { GroupRow, LoadMoreRow, type RowContext, SpanRow, type TreeLayout } from "./TreeRows";
+import { GroupRow, LoadMoreRow, type RowContext, SpanRow, type TreeLayout, TurnRow } from "./TreeRows";
 import styles from "../../TraceAppearance.module.css";
 
 interface SpanTreeProps {
@@ -247,6 +247,7 @@ export function SpanTree({
               onToggleSpan,
               onToggleGroup,
             };
+            if (row.kind === "turn") return <TurnRow key={row.id} row={row} ctx={ctx} />;
             return row.kind === "group" ? (
               <GroupRow key={row.id} row={row} ctx={ctx} />
             ) : (
