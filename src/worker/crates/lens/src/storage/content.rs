@@ -142,7 +142,8 @@ impl ContentGateway {
         if !content_reference::intact(&body, bytes, sha256) {
             return Err("integrity_failed");
         }
-        let content: StoredContent = serde_json::from_slice(&body).map_err(|_| "integrity_failed")?;
+        let content: StoredContent =
+            serde_json::from_slice(&body).map_err(|_| "integrity_failed")?;
         Ok(Hydrated::Content {
             messages: content.messages,
             response: content.response,
@@ -445,7 +446,9 @@ mod tests {
             ..OWNER
         };
         assert_eq!(
-            gateway.hydrate(&OWNER, &reference(&other_tenant, STORED)).await,
+            gateway
+                .hydrate(&OWNER, &reference(&other_tenant, STORED))
+                .await,
             None
         );
         let unsigned = serde_json::json!({
@@ -464,7 +467,10 @@ mod tests {
             error: String::new(),
             hydrated: Hydrated::Unavailable("upload_failed".into()),
         };
-        assert!(!proves(&unavailable, "[content unavailable: upload_failed]"));
+        assert!(!proves(
+            &unavailable,
+            "[content unavailable: upload_failed]"
+        ));
         assert!(!proves(&unavailable, "Input: "));
         let stored = SpendContent {
             hydrated: Hydrated::Content {
@@ -489,6 +495,9 @@ mod tests {
         })
         .to_string();
         assert_eq!(gateway.hydrate(&OWNER, &forged).await, None);
-        assert_eq!(hydrate(None, &OWNER, &reference(&OWNER, STORED)).await, None);
+        assert_eq!(
+            hydrate(None, &OWNER, &reference(&OWNER, STORED)).await,
+            None
+        );
     }
 }

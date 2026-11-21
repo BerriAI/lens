@@ -96,7 +96,11 @@ pub fn stored_reference(
     bytes: u64,
     sha256: &str,
 ) -> String {
-    let mac = signer(key, owner, ["stored", "", object_key, &bytes.to_string(), sha256]);
+    let mac = signer(
+        key,
+        owner,
+        ["stored", "", object_key, &bytes.to_string(), sha256],
+    );
     serde_json::json!({
         "v": 1,
         "state": "stored",
@@ -160,8 +164,8 @@ pub fn page(input: &str, output: &str, error: &str, offset: u32) -> (String, u8)
         return (full, 0);
     }
     let length = full.chars().count();
-    let start = usize::try_from(offset)
-        .map_or(usize::MAX, |offset| offset.saturating_sub(1).max(1));
+    let start =
+        usize::try_from(offset).map_or(usize::MAX, |offset| offset.saturating_sub(1).max(1));
     let truncated = u8::from(length >= start.saturating_add(PAGE_CHARS));
     if offset == 1 && length > PAGE_CHARS {
         return (
@@ -195,7 +199,9 @@ mod tests {
     fn sign(owner: &Owner<'_>, fields: [&str; 5]) -> String {
         format!(
             "{:x}",
-            signer(&signing_key(TOKEN), owner, fields).finalize().into_bytes()
+            signer(&signing_key(TOKEN), owner, fields)
+                .finalize()
+                .into_bytes()
         )
     }
 
@@ -215,13 +221,29 @@ mod tests {
             })
         );
         for other in [
-            Owner { team_id: "team-b", ..OWNER },
-            Owner { api_key: "key-b", ..OWNER },
-            Owner { request_id: "request-b", ..OWNER },
+            Owner {
+                team_id: "team-b",
+                ..OWNER
+            },
+            Owner {
+                api_key: "key-b",
+                ..OWNER
+            },
+            Owner {
+                request_id: "request-b",
+                ..OWNER
+            },
         ] {
             assert_eq!(verify(&signing_key(TOKEN), &other, &raw), None);
         }
-        assert_eq!(verify(&signing_key("another-token-with-32-characters!!"), &OWNER, &raw), None);
+        assert_eq!(
+            verify(
+                &signing_key("another-token-with-32-characters!!"),
+                &OWNER,
+                &raw
+            ),
+            None
+        );
     }
 
     #[rstest]
@@ -253,7 +275,11 @@ mod tests {
         .to_string();
         assert_eq!(verify(&signing_key(TOKEN), &OWNER, &forged), None);
         assert_eq!(
-            verify(&signing_key(TOKEN), &OWNER, &stored(&OWNER, MAX_CONTENT_OBJECT_BYTES + 1)),
+            verify(
+                &signing_key(TOKEN),
+                &OWNER,
+                &stored(&OWNER, MAX_CONTENT_OBJECT_BYTES + 1)
+            ),
             None
         );
     }
@@ -264,7 +290,11 @@ mod tests {
         let digest = format!("{:x}", Sha256::digest(body));
         assert!(intact(body, body.len() as u64, &digest));
         assert!(!intact(body, body.len() as u64 + 1, &digest));
-        assert!(!intact(br#"{"messages":"x","response":"r"}"#, body.len() as u64, &digest));
+        assert!(!intact(
+            br#"{"messages":"x","response":"r"}"#,
+            body.len() as u64,
+            &digest
+        ));
     }
 
     #[rstest]
@@ -276,7 +306,10 @@ mod tests {
         #[case] expected: &str,
         #[case] truncated: u8,
     ) {
-        assert_eq!(page("\u{754c}\u{754c}", "o", "e", offset), (expected.into(), truncated));
+        assert_eq!(
+            page("\u{754c}\u{754c}", "o", "e", offset),
+            (expected.into(), truncated)
+        );
     }
 
     #[test]
@@ -284,7 +317,10 @@ mod tests {
         let input = "\u{754c}".repeat(9000);
         let (content, truncated) = page(&input, "", "", 1);
         assert_eq!(truncated, 1);
-        let head = format!("Input: {}\n[... content omitted ...]\n", "\u{754c}".repeat(666));
+        let head = format!(
+            "Input: {}\n[... content omitted ...]\n",
+            "\u{754c}".repeat(666)
+        );
         assert!(content.starts_with(&head));
         assert_eq!(content.chars().count(), 24 + 2000 + 27);
         let (later, more) = page(&input, "", "", 9001);
