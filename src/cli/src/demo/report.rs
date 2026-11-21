@@ -1110,7 +1110,7 @@ impl RateAxis {
             .take(sorted.len().saturating_sub(2))
             .take_while(|pair| pair[1] - pair[0] > OUTLIER_GAP)
             .last()
-            .filter(|pair| top - pair[1] <= OUTLIER_GAP)
+            .filter(|pair| top - pair[1] <= OUTLIER_GAP + 1e-9)
             .map_or_else(|| sorted.first().copied().unwrap_or(0.0), |pair| pair[1]);
         let high = ((top * 20.0 - 1e-9).ceil() / 20.0).clamp(0.1, 1.0);
         let wanted = (high - (worst - 0.05).max(0.0)).max(0.1);
@@ -1524,6 +1524,15 @@ mod tests {
         assert!([0.80, 0.90, 1.0].iter().all(|rate| axis.contains(*rate)));
         assert!(axis.row(1.0) < axis.row(0.90));
         assert!(axis.row(0.90) < axis.row(0.80));
+    }
+
+    #[rstest]
+    fn cluster_at_outlier_gap_boundary_still_excludes_the_low_outlier() {
+        let floor = 17.0 / 20.0;
+        let axis = RateAxis::new([0.0, floor, 1.0].into_iter());
+        assert!(!axis.contains(0.0));
+        assert!(axis.contains(floor));
+        assert!(axis.contains(1.0));
     }
 
     #[rstest]
