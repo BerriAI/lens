@@ -137,8 +137,6 @@ pub struct TargetStats {
     pub target: Target,
     pub pass: u32,
     pub fail: u32,
-    pub wrong_answer: u32,
-    pub tool_misuse: u32,
     pub error: u32,
     pub model_cost: Option<f64>,
     pub judge_cost: Option<f64>,

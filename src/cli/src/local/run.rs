@@ -54,6 +54,11 @@ pub fn load_tasks(path: &Path) -> Result<Vec<Task>> {
 }
 
 pub fn validate_tasks(tasks: &[Task]) -> Result<()> {
+    if tasks.is_empty() {
+        return Err(Error::Configuration(
+            "An evaluation needs at least one task",
+        ));
+    }
     let mut ids = HashSet::new();
     if let Some(task) = tasks
         .iter()
@@ -130,7 +135,6 @@ fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
     let count = |predicate: &dyn Fn(&Attempt) -> bool| {
         attempts.iter().filter(|attempt| predicate(attempt)).count() as u32
     };
-    let misused = |attempt: &Attempt| attempt.result.tool_calls.iter().any(|call| call.error);
     let failed = |attempt: &Attempt| matches!(attempt.result.outcome, Outcome::Fail { .. });
     let calls: usize = attempts
         .iter()
@@ -146,8 +150,6 @@ fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
         target: target.clone(),
         pass: count(&|attempt| matches!(attempt.result.outcome, Outcome::Pass)),
         fail: count(&failed),
-        wrong_answer: count(&|attempt| failed(attempt) && !misused(attempt)),
-        tool_misuse: count(&|attempt| failed(attempt) && misused(attempt)),
         error: count(&|attempt| matches!(attempt.result.outcome, Outcome::Error { .. })),
         model_cost: attempts.iter().map(|attempt| attempt.result.cost).sum(),
         judge_cost: attempts

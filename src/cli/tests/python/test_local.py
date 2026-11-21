@@ -252,3 +252,17 @@ def test_config_execution_errors_are_not_reclassified_as_missing_dependencies(tm
     path.write_text("raise RuntimeError('configuration bug')\n")
     with pytest.raises(RuntimeError, match="configuration bug"):
         load_config(path)
+
+
+def test_callback_header_only_csv_is_rejected_before_creating_a_run(tmp_path):
+    (tmp_path / "tasks.csv").write_text("id,prompt,expected\n")
+    write_config(tmp_path, "targets = [Target(harness='custom', model='model', run=answer)]\n")
+    rejected = subprocess.run(
+        [sys.executable, "-m", "lens.cli", "run", "tasks.csv", "--config", "evals.py", "--fast"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+    assert rejected.returncode == 2
+    assert not tuple((tmp_path / ".lens/runs").glob("*"))

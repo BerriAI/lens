@@ -18,6 +18,7 @@ from lens.models import Report
 from lens.reporting import terminal
 
 from . import local
+from .payloads import _TargetPayload
 
 
 class Arguments(BaseModel):
@@ -137,7 +138,15 @@ def resume_local(args: Arguments) -> int:
     meta: Final = RunMeta.model_validate_json(_native.run_meta(args.run_id))
     command: Final = f"lens resume {args.run_id}"
     result: Final = asyncio.run(
-        local.run(command, Path(meta.config_file), args.concurrency, args.fast, resume=args.run_id, trials=meta.trials)
+        local.run(
+            command,
+            Path(meta.config_file),
+            args.concurrency,
+            args.fast,
+            resume=args.run_id,
+            trials=meta.trials,
+            only=tuple(target.key for target in meta.targets),
+        )
     )
     return _local_exit(result)
 
@@ -146,6 +155,7 @@ class RunMeta(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
     config_file: str
     trials: int = 1
+    targets: tuple[_TargetPayload, ...] = ()
 
 
 class _LocalStats(BaseModel):

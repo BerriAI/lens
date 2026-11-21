@@ -13,7 +13,6 @@ struct Sample {
     model: &'static str,
     pass: u32,
     fail: u32,
-    wrong_answer: u32,
     error: u32,
     model_cost: f64,
     tool_calls: f64,
@@ -30,7 +29,6 @@ const SAMPLES: [Sample; 4] = [
         model: "sonnet-5.5",
         pass: 2775,
         fail: 150,
-        wrong_answer: 110,
         error: 75,
         model_cost: 63.00,
         tool_calls: 3.1,
@@ -43,7 +41,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2700,
         fail: 225,
-        wrong_answer: 150,
         error: 75,
         model_cost: 28.50,
         tool_calls: 3.4,
@@ -56,7 +53,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2550,
         fail: 300,
-        wrong_answer: 170,
         error: 150,
         model_cost: 31.50,
         tool_calls: 4.2,
@@ -69,7 +65,6 @@ const SAMPLES: [Sample; 4] = [
         model: "gpt-5-mini",
         pass: 2610,
         fail: 270,
-        wrong_answer: 160,
         error: 120,
         model_cost: 30.10,
         tool_calls: 3.9,
@@ -112,8 +107,6 @@ pub fn summary() -> Summary {
                 target: target(sample),
                 pass: sample.pass,
                 fail: sample.fail,
-                wrong_answer: sample.wrong_answer,
-                tool_misuse: sample.fail - sample.wrong_answer,
                 error: sample.error,
                 model_cost: Some(sample.model_cost),
                 judge_cost: Some(JUDGE_COST),
@@ -185,6 +178,5 @@ mod tests {
     fn every_sample_covers_every_task(#[values(0, 1, 2, 3)] index: usize) {
         let sample = &SAMPLES[index];
         assert_eq!(sample.pass + sample.fail + sample.error, TASKS);
-        assert!(sample.wrong_answer <= sample.fail);
     }
 }

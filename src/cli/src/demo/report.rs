@@ -542,26 +542,22 @@ impl<'a> Report<'a> {
         let legend = Line::new(vec![
             gap(self.who_width()),
             span("█", Style::fg(BAD)),
-            faint(" wrong answer  "),
+            faint(" Failed attempts  "),
             span("█", Style::fg(WARN)),
-            faint(" tool misuse  "),
-            span("█", Style::fg(MUTED)),
-            faint(" error"),
+            faint(" Errors"),
         ]);
         let rows = self.stats().iter().enumerate().map(|(index, stat)| {
             let cells =
                 |count: u32| (f64::from(count) / f64::from(most) * room as f64).round() as usize;
-            let wrong = cells(stat.wrong_answer).min(room);
-            let misuse = cells(stat.tool_misuse).min(room - wrong);
-            let error = cells(stat.error).min(room - wrong - misuse);
+            let failed = cells(stat.fail).min(room);
+            let error = cells(stat.error).min(room - failed);
             Line::new(
                 self.who(index)
                     .into_iter()
                     .chain([
-                        span("█".repeat(wrong), Style::fg(BAD)),
-                        span("█".repeat(misuse), Style::fg(WARN)),
-                        span("█".repeat(error), Style::fg(MUTED)),
-                        gap(room - wrong - misuse - error),
+                        span("█".repeat(failed), Style::fg(BAD)),
+                        span("█".repeat(error), Style::fg(WARN)),
+                        gap(room - failed - error),
                         span(
                             pad_left(&thousands(u64::from(stat.fail + stat.error)), VALUE),
                             self.marker_style(index),
@@ -745,7 +741,7 @@ impl<'a> Report<'a> {
                 self.costs(),
                 section(4, "Cost vs quality", "up and left is better", width),
                 self.scatter(),
-                section(5, "Why cases fail", "failed + errored cases", width),
+                section(5, "Failed attempts", "failed + errored attempts", width),
                 self.failures(),
                 section(6, "Tool calls", "avg calls per case · ↺ repeated", width),
                 self.tools(),
@@ -881,8 +877,6 @@ mod tests {
             },
             pass,
             fail,
-            wrong_answer: fail / 2,
-            tool_misuse: fail - fail / 2,
             error: 1,
             model_cost: Some(cost),
             judge_cost: Some(0.0),
@@ -1012,12 +1006,12 @@ mod tests {
             .spans
             .iter()
             .find(|piece| piece.style.fg == Some(BAD))
-            .expect("wrong answers");
+            .expect("failed attempts");
         let yellow = row
             .spans
             .iter()
             .find(|piece| piece.style.fg == Some(WARN))
-            .expect("tool misuse");
+            .expect("errors");
         assert!(red.text.chars().count() > yellow.text.chars().count());
         assert!(row.plain().trim_end().ends_with("450"));
     }

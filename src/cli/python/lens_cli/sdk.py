@@ -9,7 +9,6 @@ from enum import Enum
 from pathlib import Path
 from types import MappingProxyType, ModuleType
 from typing import Final
-from urllib.parse import urlsplit, urlunsplit
 
 from litellm import EvalRun, EvalScorecard, EvalStatus, EvalTarget, EvalTask, PredicateCheck, aagent_eval_attempt
 from litellm.harness import CommandCheck, JudgeCheck, Result, ToolCall, ToolResult
@@ -100,52 +99,41 @@ class SDKConfig:
         )
 
 
-def _credential_name(name: str) -> bool:
-    normalized: Final = name.casefold()
-    return normalized in {
-        "key",
-        "apikey",
-        "token",
-        "password",
-        "secret",
-        "authorization",
-        "credentials",
-        "credential",
-    } or normalized.endswith(("_key", "_token", "_secret", "_password", "_credentials"))
-
-
-def _callable_identity(value: Callable[..., object]) -> object:
+def _callable_identity(value: Callable[..., object], ancestors: tuple[object, ...]) -> object:
     try:
         source: Final = inspect.getsource(value)
         closure: Final = _MAPPING.validate_python(inspect.getclosurevars(value).nonlocals)
         defaults: Final = {
             parameter.name: _OBJECT.validate_python(parameter.default)
             for parameter in inspect.signature(value).parameters.values()
-            if parameter.default is not inspect.Parameter.empty and not _credential_name(parameter.name)
+            if parameter.default is not inspect.Parameter.empty
         }
-        return {"source": source, "closure": _identity(closure), "defaults": _identity(defaults)}
+        return {"source": source, "closure": _identity(closure, ancestors), "defaults": _identity(defaults, ancestors)}
     except (OSError, TypeError):
         return {"type": type(value).__module__ + "." + type(value).__qualname__}
 
 
-def _identity(value: object) -> object:
+def _identity(value: object, ancestors: tuple[object, ...] = ()) -> object:
+    cycle: Final = next((index for index, ancestor in enumerate(ancestors) if ancestor is value), None)
+    if cycle is not None:
+        return {"cycle": cycle}
+    parents: Final = (*ancestors, value)
     if isinstance(value, Mapping):
-        return {str(key): _identity(item) for key, item in value.items() if not _credential_name(str(key))}
+        return {str(key): _identity(item, parents) for key, item in value.items()}
     if is_dataclass(value) and not isinstance(value, type):
-        return _identity({field.name: _OBJECT.validate_python(getattr(value, field.name)) for field in fields(value)})
+        return _identity(
+            {field.name: _OBJECT.validate_python(getattr(value, field.name)) for field in fields(value)}, parents
+        )
     if isinstance(value, tuple | list):
-        return tuple(_identity(item) for item in value)
+        return tuple(_identity(item, parents) for item in value)
     if isinstance(value, Enum):
-        return _identity(value.value)
+        return _identity(value.value, parents)
     if callable(value):
-        return _callable_identity(value)
+        return _callable_identity(value, parents)
     if isinstance(value, bytes):
         return {"sha256": hashlib.sha256(value).hexdigest()}
     if isinstance(value, Path):
         return str(value)
-    if isinstance(value, str) and "://" in value:
-        url: Final = urlsplit(value)
-        return urlunsplit((url.scheme, url.netloc.rsplit("@", 1)[-1], url.path, "", ""))
     if value is None or isinstance(value, str | int | float | bool):
         return value
     return {"type": type(value).__module__ + "." + type(value).__qualname__}
@@ -157,7 +145,7 @@ def _check_identity(task: EvalTask) -> object:
         return ("command", check.command, check.timeout)
     if isinstance(check, JudgeCheck):
         return ("judge", check.rubric, check.model, check.timeout)
-    return ("predicate", _callable_identity(check.predicate))
+    return ("predicate", _identity(check.predicate))
 
 
 def _task_hash(task: EvalTask) -> str:

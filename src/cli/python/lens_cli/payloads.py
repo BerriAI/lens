@@ -19,6 +19,10 @@ class _TargetPayload(BaseModel):
     model: str
     label: str | None = None
 
+    @property
+    def key(self) -> str:
+        return self.label or f"{self.harness}/{self.model}"
+
 
 class _Pass(BaseModel):
     model_config = ConfigDict(frozen=True)

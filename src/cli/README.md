@@ -30,4 +30,4 @@ Install with `uv sync --project src/sdk --extra agent-evals --frozen` to use the
 
 Lens owns scheduling, progress and resumable checkpoints. The SDK owns agent execution, tools, sandboxes and checks. A failed check exits 1; an agent or judge error exits 2. Saved results retain SDK stop reasons and separate agent/judge usage and costs, with unavailable metrics marked unknown
 
-Resume checks the config source, resolved target options and tool definitions, execution options and task snapshots. Credential rotation does not change the fingerprint. Imported implementations outside those definitions, workspace contents and remote model deployments can still change independently; start a new run after changing them
+Resume checks the config source, resolved target options and tool definitions, execution options and task snapshots. `run_options.api_key` does not affect the fingerprint. Other SDK options, tool defaults and check data remain part of the experiment. Imported implementations outside those definitions, workspace contents and remote model deployments can still change independently; start a new run after changing them

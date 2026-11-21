@@ -304,7 +304,8 @@ def test_resume_rejects_changed_sdk_options_but_allows_credential_rotation(tmp_p
         "from litellm import ToolLoopOptions\n"
         "targets = [EvalTarget(Harness.TOOL_LOOP, 'openai/controlled', label='stable',\n"
         "    options=ToolLoopOptions(MappingProxyType({'temperature': float(os.environ['TEST_TEMPERATURE']),\n"
-        "        'max_tokens': int(os.environ['TEST_MAX_TOKENS']), 'api_key': os.environ['TEST_ROTATING_KEY']})))]\n"
+        "        'max_tokens': int(os.environ['TEST_MAX_TOKENS'])})))]\n"
+        "run_options = {**run_options, 'api_key': os.environ['TEST_ROTATING_KEY']}\n"
         "tasks = [EvalTask('t', 'Classify', check=PredicateCheck(lambda result: True))]\n",
     )
     original = {
@@ -355,3 +356,114 @@ def test_sdk_result_mapping_preserves_stopped_run_and_unknown_judge_metrics():
     assert unknown.cost == result.cost
     assert unknown.judge_cost is None
     assert not unknown.metrics_complete
+
+
+def test_sdk_selected_target_resumes_without_repeating_completed_attempts(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_sdk_config(
+        tmp_path,
+        endpoint,
+        "import os\n"
+        "targets = [EvalTarget(Harness.TOOL_LOOP, 'openai/controlled', label='first'),\n"
+        "    EvalTarget(Harness.TOOL_LOOP, os.environ.get('TEST_SELECTED_MODEL', 'openai/controlled'),\n"
+        "        label='second')]\n"
+        "tasks = [EvalTask('t', 'Classify', check=PredicateCheck(lambda result: True))]\n",
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--only", "second", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, saved = attempts(tmp_path)
+    assert len(saved) == 1
+    assert saved[0]["target"]["label"] == "second"
+    before = (directory / "attempts.jsonl").read_bytes()
+    resumed = run_cli(tmp_path, "resume", directory.name, "--fast")
+    assert resumed.returncode == 0, resumed.stderr
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert requests.qsize() == 1
+    changed = run_cli(
+        tmp_path,
+        "resume",
+        directory.name,
+        "--fast",
+        env={**os.environ, "TEST_SELECTED_MODEL": "openai/changed"},
+    )
+    assert changed.returncode == 2
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert requests.qsize() == 1
+
+
+@pytest.mark.parametrize("recursive", [False, True])
+def test_sdk_fingerprints_preserve_stop_strings_and_recursive_callable_tools(tmp_path, model_server, recursive):
+    endpoint, requests = model_server
+    tool = (
+        "def build():\n"
+        "    def lookup(value: str) -> str:\n"
+        "        return lookup('resolved') if value == 'billing' else 'billing'\n"
+        "    return lookup\n"
+        "lookup = build()\n"
+        if recursive
+        else "def lookup(value: str) -> str:\n    return value\n"
+    )
+    write_sdk_config(
+        tmp_path,
+        endpoint,
+        "from litellm import ToolLoopOptions\n"
+        + tool
+        + "targets = [EvalTarget(Harness.TOOL_LOOP, 'openai/controlled', tools=(lookup,),\n"
+        "    options=ToolLoopOptions({'stop': ['http://[']}))]\n"
+        "tasks = [EvalTask('t', 'USE_TOOL', check=PredicateCheck(lambda result: result.text == 'billing'))]\n",
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, saved = attempts(tmp_path)
+    assert saved[0]["outcome"] == {"status": "pass"}
+    assert len(saved[0]["tool_calls"]) == 1
+    observed = tuple(requests.get_nowait() for _ in range(requests.qsize()))
+    assert observed and all(payload["stop"] == ["http://["] for payload, _ in observed)
+    before = (directory / "attempts.jsonl").read_bytes()
+    resumed = run_cli(tmp_path, "resume", directory.name, "--fast")
+    assert resumed.returncode == 0, resumed.stderr
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert requests.qsize() == 0
+
+
+@pytest.mark.parametrize("default_argument", [False, True])
+def test_resume_rejects_changed_predicate_data_named_expected_key(tmp_path, model_server, default_argument):
+    endpoint, requests = model_server
+    predicate = (
+        "lambda result, expected_key=expected_key: result.text == expected_key"
+        if default_argument
+        else "lambda result: result.text == expected_key"
+    )
+    write_sdk_config(
+        tmp_path,
+        endpoint,
+        "import os\n"
+        "def grade(expected_key):\n"
+        f"    return PredicateCheck({predicate})\n"
+        "tasks = [EvalTask('t', 'Classify',\n"
+        "    check=grade(os.environ.get('TEST_EXPECTED_CATEGORY', 'billing')))]\n",
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, _ = attempts(tmp_path)
+    before = (directory / "attempts.jsonl").read_bytes()
+    changed = run_cli(
+        tmp_path,
+        "resume",
+        directory.name,
+        "--fast",
+        env={**os.environ, "TEST_EXPECTED_CATEGORY": "technical"},
+    )
+    assert changed.returncode == 2
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert requests.qsize() == 1
+
+
+def test_sdk_header_only_csv_is_rejected_before_creating_a_run(tmp_path, model_server):
+    endpoint, requests = model_server
+    (tmp_path / "tasks.csv").write_text("id,prompt,expected\n")
+    write_sdk_config(tmp_path, endpoint, "")
+    rejected = run_cli(tmp_path, "run", "tasks.csv", "--config", "evals.py", "--fast")
+    assert rejected.returncode == 2
+    assert not tuple((tmp_path / ".lens/runs").glob("*"))
+    assert requests.qsize() == 0

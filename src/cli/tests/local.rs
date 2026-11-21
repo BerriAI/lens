@@ -106,6 +106,37 @@ fn load_tasks_rejects_missing_columns(#[case] contents: &str, #[case] column: &s
 }
 
 #[rstest]
+#[case::headers_only("id,prompt\n")]
+#[case::blank_rows("id,prompt\n\n")]
+fn load_tasks_rejects_an_empty_evaluation(#[case] contents: &str) {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("tasks.csv");
+    fs::write(&path, contents).unwrap();
+    assert!(matches!(load_tasks(&path), Err(Error::Configuration(_))));
+}
+
+#[rstest]
+#[tokio::test]
+async fn empty_tasks_never_create_a_checkpoint_or_invoke_the_agent() {
+    let directory = tempfile::tempdir().unwrap();
+    let called = std::sync::atomic::AtomicBool::new(false);
+    let result = execute(
+        directory.path(),
+        meta(&["a"]),
+        vec![],
+        |_, _| {
+            called.store(true, std::sync::atomic::Ordering::SeqCst);
+            async { answer() }
+        },
+        &mut |_| {},
+    )
+    .await;
+    assert!(matches!(result, Err(Error::Configuration(_))));
+    assert!(!called.into_inner());
+    assert!(!directory.path().join(".lens").exists());
+}
+
+#[rstest]
 #[case::empty("id,prompt\n,hello\n", "")]
 #[case::blank("id,prompt\n  ,hello\n", "  ")]
 #[case::duplicate("id,prompt\na,hello\na,world\n", "a")]
@@ -129,7 +160,7 @@ fn run_id_is_short_hex_and_unique() {
 }
 
 #[rstest]
-fn summarize_classifies_failures_by_tool_errors() {
+fn summarize_keeps_canonical_outcomes_independent_of_tool_errors() {
     let attempts = vec![
         attempt("m", Outcome::Pass, 1.0, 0.5, vec![]),
         attempt("m", fail(), 2.0, 0.5, vec![call("lookup", json!({}), true)]),
@@ -153,9 +184,36 @@ fn summarize_classifies_failures_by_tool_errors() {
     ];
     let stat = &summarize(&meta(&["m"]), &attempts).stats[0];
     assert_eq!((stat.pass, stat.fail, stat.error), (1, 2, 1));
-    assert_eq!((stat.wrong_answer, stat.tool_misuse), (1, 1));
     assert!((stat.model_cost.unwrap() - 2.0).abs() < 1e-9);
     assert!((stat.tool_calls_per_case - 0.5).abs() < 1e-9);
+}
+
+#[rstest]
+#[case::turn_limit("max_turns", vec![])]
+#[case::failed_check_after_tool_error("done", vec![call("lookup", json!({}), true)])]
+fn failure_report_uses_verdicts_without_guessing_the_cause(
+    #[case] stop_reason: &str,
+    #[case] calls: Vec<ToolCall>,
+) {
+    let recorded = attempt("a", fail(), 1.0, 0.1, calls);
+    let row = Attempt {
+        result: AgentResult {
+            stop_reason: Some(stop_reason.to_owned()),
+            ..recorded.result
+        },
+        ..recorded
+    };
+    let summary = summarize(&meta(&["a"]), &[row]);
+    assert_eq!((summary.stats[0].fail, summary.stats[0].error), (1, 0));
+    let report = lens_cli::local::view::report(&summary, 100)
+        .iter()
+        .map(lens_cli::demo::style::Line::plain)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(report.contains("Failed attempts"));
+    assert!(report.contains("Errors"));
+    assert!(!report.contains("wrong answer"));
+    assert!(!report.contains("tool misuse"));
 }
 
 #[rstest]
