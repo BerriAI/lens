@@ -1104,12 +1104,14 @@ impl RateAxis {
     fn new(rates: impl Iterator<Item = f64> + Clone) -> Self {
         let mut sorted: Vec<f64> = rates.clone().collect();
         sorted.sort_by(f64::total_cmp);
+        let top = rates.fold(0.0, f64::max);
         let worst = sorted
             .windows(2)
+            .take(sorted.len().saturating_sub(2))
             .take_while(|pair| pair[1] - pair[0] > OUTLIER_GAP)
             .last()
+            .filter(|pair| top - pair[1] <= OUTLIER_GAP)
             .map_or_else(|| sorted.first().copied().unwrap_or(0.0), |pair| pair[1]);
-        let top = rates.fold(0.0, f64::max);
         let high = ((top * 20.0 - 1e-9).ceil() / 20.0).clamp(0.1, 1.0);
         let wanted = (high - (worst - 0.05).max(0.0)).max(0.1);
         let span = ((wanted / 0.15 - 1e-9).ceil() * 0.15).min(high);
@@ -1140,7 +1142,10 @@ impl RateAxis {
 fn money_tick(value: f64) -> String {
     match value {
         v if v >= 1.0 => format!("${v:.0}"),
-        v if v >= 0.01 => format!("${v:.2}"),
+        v if v > 0.0 => {
+            let precision = (1.0 - v.log10().floor()).max(2.0) as usize;
+            format!("${v:.precision$}")
+        }
         v => format!("${v:.3}"),
     }
 }
@@ -1519,6 +1524,36 @@ mod tests {
         assert!([0.80, 0.90, 1.0].iter().all(|rate| axis.contains(*rate)));
         assert!(axis.row(1.0) < axis.row(0.90));
         assert!(axis.row(0.90) < axis.row(0.80));
+    }
+
+    #[rstest]
+    #[case::spread([0.10, 0.40, 0.70, 1.0])]
+    #[case::zero([0.0; 4])]
+    fn regression_spread_rates_stay_on_the_chart(
+        #[case] rates: [f64; 4],
+        #[values(0, 1, 2, 3)] index: usize,
+    ) {
+        let axis = RateAxis::new(rates.into_iter());
+        assert!(axis.contains(rates[index]));
+    }
+
+    #[rstest]
+    fn regression_linear_cost_end_tick_preserves_axis_value() {
+        let axis = CostAxis::new(&[0.004, 0.004], 60);
+        let ticks = axis.ticks();
+        let (_, label) = ticks.last().expect("end tick");
+        let value: f64 = label.trim_start_matches('$').parse().expect("cost tick");
+        assert!((value - axis.high).abs() < 1e-9, "{label} vs {}", axis.high);
+    }
+
+    #[rstest]
+    fn regression_log_cost_ticks_preserve_axis_positions(#[values(0, 1, 2, 3)] index: usize) {
+        let axis = CostAxis::new(&[0.0001, 0.001], 60);
+        let ticks = axis.ticks();
+        let (column, label) = &ticks[index];
+        let value: f64 = label.trim_start_matches('$').parse().expect("cost tick");
+        assert!(value > 0.0, "{label}");
+        assert_eq!(axis.column(value), *column, "{label}");
     }
 
     #[rstest]
