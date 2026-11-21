@@ -338,13 +338,13 @@ async fn standalone_router_has_public_read_contract_and_rejects_internal_or_unsa
     assert_eq!(service["connected"], true);
     assert_eq!(service["status"]["storage_ready"], true);
     assert_eq!(service["status"]["credentials_ready"], true);
-    let absent = client
+    let internal = client
         .get(format!("{}/internal/status", server.url))
         .bearer_auth(ADMIN)
         .send()
         .await
         .unwrap();
-    assert_eq!(absent.status(), 404);
+    assert_eq!(internal.status(), 401);
     let denied = client
         .get(format!("{}/v1/traces", server.url))
         .send()
