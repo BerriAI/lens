@@ -1,8 +1,8 @@
 use crate::demo::brand;
 use crate::demo::style::{
-    ACCENT, Align, BAD, Column, FAINT, GOOD, HIGHLIGHT, Line, MUTED, RULE, Rgb, Span, Style, TEXT,
-    WARN, accent, badge, branded, cell, faint, gap, joined, muted, pad, pad_left, shorten, span,
-    split, strong, table, text, thousands, warn,
+    ACCENT, Align, BAD, Column, FAINT, GOOD, Line, MUTED, RULE, Rgb, Span, Style, TEXT, WARN,
+    accent, badge, branded, cell, faint, gap, joined, muted, pad, pad_left, shorten, span, split,
+    strong, table, text, thousands, warn,
 };
 use crate::demo::{detail, result};
 use crate::local::{Summary, TargetStats};
@@ -11,7 +11,13 @@ const VALUE: usize = 9;
 const PLOT_ROWS: usize = 16;
 const OUTLIER_GAP: f64 = 0.15;
 const BAR: &str = "▆";
+const FAILURE_KINDS: [(&str, Rgb, &str); 3] = [
+    ("▆", BAD, "wrong"),
+    ("▄", WARN, "misuse"),
+    ("▂", MUTED, "error"),
+];
 const TRACK: Rgb = Rgb(0x33, 0x2C, 0x3B);
+const QUADRANT: Rgb = Rgb(0x31, 0x26, 0x45);
 const FRONTIER: Rgb = Rgb(0x9A, 0x5C, 0xC8);
 const FIXED_COLUMNS: usize = 2 + 3 + 7 + 5 + 5 + 8 + 7 + 6;
 
@@ -414,6 +420,75 @@ impl<'a> Report<'a> {
                 });
             });
 
+        let corner = (rates.row(rates.middle()), axis.column(axis.middle()));
+        (0..PLOT_ROWS).for_each(|row| {
+            (0..columns).for_each(|at| {
+                let divider = match (row == corner.0, at == corner.1) {
+                    (_, true) => Some("┊"),
+                    (true, false) if at % 2 == 0 => Some("┄"),
+                    _ => None,
+                };
+                if let Some(glyph) = divider.filter(|_| !taken[row][at] && grid[row][at].is_none())
+                {
+                    grid[row][at] = Some(span(glyph, Style::fg(RULE)));
+                }
+            });
+        });
+        let quadrants = [
+            (
+                "cheaper + better",
+                0..corner.0,
+                0..corner.1,
+                Style::fg(ACCENT).bold(),
+            ),
+            (
+                "better, pricier",
+                0..corner.0,
+                corner.1 + 1..columns,
+                Style::fg(FAINT),
+            ),
+            (
+                "cheaper, worse",
+                corner.0 + 1..PLOT_ROWS,
+                0..corner.1,
+                Style::fg(FAINT),
+            ),
+            (
+                "worse + pricier",
+                corner.0 + 1..PLOT_ROWS,
+                corner.1 + 1..columns,
+                Style::fg(FAINT),
+            ),
+        ];
+        quadrants
+            .into_iter()
+            .for_each(|(label, rows, spread, style)| {
+                let length = label.chars().count();
+                let fits = |row: usize, start: usize| {
+                    start + length <= spread.end
+                        && (start.saturating_sub(1)..(start + length + 1).min(columns))
+                            .all(|at| !taken[row][at] && grid[row][at].is_none())
+                };
+                let near_edge: Vec<usize> = if rows.start == 0 {
+                    rows.clone().collect()
+                } else {
+                    rows.clone().rev().collect()
+                };
+                let spot = near_edge.into_iter().find_map(|row| {
+                    spread
+                        .clone()
+                        .skip(1)
+                        .find(|start| fits(row, *start))
+                        .map(|start| (row, start))
+                });
+                if let Some((row, start)) = spot {
+                    label.chars().enumerate().for_each(|(offset, ch)| {
+                        grid[row][start + offset] = Some(span(ch.to_string(), style));
+                        taken[row][start + offset] = true;
+                    });
+                }
+            });
+
         markers.iter().for_each(|&(row, at, index)| {
             let style = match index {
                 pick if self.picked(pick) => Style::fg(ACCENT).bold(),
@@ -450,7 +525,6 @@ impl<'a> Report<'a> {
             })
             .collect();
 
-        let corner = (rates.row(rates.middle()), axis.column(axis.middle()));
         let rows: Vec<Line> = grid
             .into_iter()
             .enumerate()
@@ -471,12 +545,12 @@ impl<'a> Report<'a> {
                             *skip -= 1;
                             return Some(None);
                         }
-                        let shaded = row <= corner.0 && column <= corner.1;
+                        let shaded = row < corner.0 && column < corner.1;
                         let cell = cell.unwrap_or_else(|| gap(1));
                         *skip = cell.text.chars().count().saturating_sub(1);
                         Some(Some(if shaded {
                             Span {
-                                style: cell.style.on(HIGHLIGHT),
+                                style: cell.style.on(QUADRANT),
                                 ..cell
                             }
                         } else {
@@ -544,8 +618,8 @@ impl<'a> Report<'a> {
                 gap(8),
                 span("···", Style::fg(FRONTIER).bold()),
                 muted(" Pareto line   "),
-                span("  ", Style::default().on(HIGHLIGHT)),
-                muted(" best corner"),
+                span("  ", Style::default().on(QUADRANT)),
+                muted(" cheaper + better"),
             ]
             .into_iter()
             .chain(
@@ -589,47 +663,61 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(|stat| stat.fail + stat.error)
+            .map(|stat| stat.wrong_answer + stat.tool_misuse + stat.error)
             .max()
             .unwrap_or(0)
             .max(1);
-        let room = self.track();
-        let keys = vec![
-            span(BAR, Style::fg(BAD)),
-            faint(" wrong answer  "),
-            span(BAR, Style::fg(WARN)),
-            faint(" tool misuse  "),
-            span(BAR, Style::fg(MUTED)),
-            faint(" error"),
-        ];
-        let indent = self
-            .width
-            .saturating_sub(Line::new(keys.clone()).width() + 1)
-            .min(self.who_width());
-        let legend = Line::new(std::iter::once(gap(indent)).chain(keys).collect());
+        let column = |title: &str| title.chars().count() + 4;
+        let counts = FAILURE_KINDS
+            .iter()
+            .map(|(_, _, title)| column(title))
+            .sum::<usize>();
+        let space = (self.track() + VALUE).saturating_sub(counts);
+        let room = if space >= 8 { space } else { 0 };
+        let header = Line::new(
+            std::iter::once(gap(self.who_width() + room))
+                .chain(FAILURE_KINDS.iter().flat_map(|(glyph, color, title)| {
+                    [
+                        gap(column(title) - title.chars().count() - 2),
+                        span(*glyph, Style::fg(*color)),
+                        faint(format!(" {title}")),
+                    ]
+                }))
+                .collect(),
+        );
         let rows = self.stats().iter().enumerate().map(|(index, stat)| {
+            let values = [stat.wrong_answer, stat.tool_misuse, stat.error];
             let cells =
                 |count: u32| (f64::from(count) / f64::from(most) * room as f64).round() as usize;
-            let wrong = cells(stat.wrong_answer).min(room);
-            let misuse = cells(stat.tool_misuse).min(room - wrong);
-            let error = cells(stat.error).min(room - wrong - misuse);
+            let widths = values.iter().fold(Vec::<usize>::new(), |used, value| {
+                let left = room - used.iter().sum::<usize>();
+                used.into_iter().chain([cells(*value).min(left)]).collect()
+            });
+            let bars = FAILURE_KINDS
+                .iter()
+                .zip(&widths)
+                .map(|((glyph, color, _), width)| span(glyph.repeat(*width), Style::fg(*color)));
+            let numbers = FAILURE_KINDS
+                .iter()
+                .zip(values)
+                .map(|((_, color, title), value)| {
+                    let style = if value == 0 {
+                        Style::fg(RULE)
+                    } else {
+                        Style::fg(*color).bold()
+                    };
+                    span(pad_left(&thousands(u64::from(value)), column(title)), style)
+                });
             Line::new(
                 self.who(index)
                     .into_iter()
-                    .chain([
-                        span(BAR.repeat(wrong), Style::fg(BAD)),
-                        span(BAR.repeat(misuse), Style::fg(WARN)),
-                        span(BAR.repeat(error), Style::fg(MUTED)),
-                        gap(room - wrong - misuse - error),
-                        span(
-                            pad_left(&thousands(u64::from(stat.fail + stat.error)), VALUE),
-                            self.marker_style(index),
-                        ),
-                    ])
+                    .chain(bars)
+                    .chain([gap(room - widths.iter().sum::<usize>())])
+                    .chain(numbers)
                     .collect(),
             )
         });
-        std::iter::once(legend).chain(rows).collect()
+        std::iter::once(header).chain(rows).collect()
     }
 
     fn tools(&self) -> Vec<Line> {
@@ -803,7 +891,12 @@ impl<'a> Report<'a> {
                 self.costs(),
                 section(4, "Cost vs quality", "up and left is better", width),
                 self.scatter(),
-                section(5, "Why cases fail", "failed + errored cases", width),
+                section(
+                    5,
+                    "Why cases fail",
+                    "wrong answer · tool misuse · error",
+                    width,
+                ),
                 self.failures(),
                 section(6, "Tool calls", "avg calls per case · ↺ repeated", width),
                 self.tools(),
@@ -1307,6 +1400,19 @@ mod tests {
     }
 
     #[rstest]
+    fn chart_marks_the_cheaper_and_better_quadrant(#[values(78, 100, 118)] width: usize) {
+        let summary = fixture::summary();
+        let text = plot_text(&Report::new(&summary, width));
+        let plot: Vec<&String> = text
+            .iter()
+            .skip_while(|line| !line.contains("Pass rate"))
+            .take_while(|line| !line.trim_start().starts_with('└'))
+            .collect();
+        assert!(plot.iter().any(|line| line.contains("cheaper + better")));
+        assert!(plot.iter().any(|line| line.contains('┊')));
+    }
+
+    #[rstest]
     fn close_rates_stay_on_the_chart() {
         let axis = RateAxis::new([0.80, 0.90, 1.0].into_iter());
         assert!([0.80, 0.90, 1.0].iter().all(|rate| axis.contains(*rate)));
@@ -1364,27 +1470,47 @@ mod tests {
 
     #[rstest]
     fn failure_legend_fits_with_long_model_names(#[values(78, 100)] width: usize) {
-        let legend = Report::new(&tied(), width).failures()[0].clone();
-        assert!(legend.width() <= width, "{}", legend.plain());
-        assert!(legend.plain().ends_with("▆ error"), "{}", legend.plain());
+        let section = Report::new(&tied(), width).failures();
+        section.iter().for_each(|line| {
+            assert!(line.width() <= width, "{}", line.plain());
+        });
+        assert!(
+            section[0].plain().trim_end().ends_with("▂ error"),
+            "{}",
+            section[0].plain()
+        );
     }
 
     #[rstest]
-    fn failure_bar_segments_follow_counts() {
+    fn failure_rows_show_each_kind_with_its_own_glyph_and_count() {
         let summary = fixture::summary();
+        let stat = &summary.stats[2];
         let row = &Report::new(&summary, 100).failures()[3];
-        let red = row
-            .spans
-            .iter()
-            .find(|piece| piece.style.fg == Some(BAD))
-            .expect("wrong answers");
-        let yellow = row
-            .spans
-            .iter()
-            .find(|piece| piece.style.fg == Some(WARN))
-            .expect("tool misuse");
-        assert!(red.text.chars().count() > yellow.text.chars().count());
-        assert!(row.plain().trim_end().ends_with("450"));
+        let segment = |color: Rgb| {
+            row.spans
+                .iter()
+                .find(|piece| piece.style.fg == Some(color) && !piece.text.trim().is_empty())
+                .map(|piece| piece.text.clone())
+        };
+        let wrong = segment(BAD).expect("wrong answers");
+        let misuse = segment(WARN).expect("tool misuse");
+        assert!(wrong.chars().all(|ch| ch == '▆'), "{wrong}");
+        assert!(misuse.chars().all(|ch| ch == '▄'), "{misuse}");
+        assert_eq!(
+            wrong.chars().count() > misuse.chars().count(),
+            stat.wrong_answer > stat.tool_misuse
+        );
+        let numbers: Vec<u32> = row
+            .plain()
+            .split_whitespace()
+            .rev()
+            .take(3)
+            .map(|value| value.replace(',', "").parse().expect("count"))
+            .collect();
+        assert_eq!(
+            numbers,
+            vec![stat.error, stat.tool_misuse, stat.wrong_answer]
+        );
     }
 
     #[rstest]

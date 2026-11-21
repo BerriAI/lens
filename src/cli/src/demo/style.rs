@@ -185,17 +185,67 @@ impl Line {
     }
 }
 
+fn truecolor() -> bool {
+    static SUPPORTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        std::env::var("COLORTERM")
+            .is_ok_and(|value| matches!(value.to_ascii_lowercase().as_str(), "truecolor" | "24bit"))
+    })
+}
+
+pub fn xterm256(Rgb(r, g, b): Rgb) -> u8 {
+    let level = |value: u8| match value {
+        0..48 => 0,
+        48..115 => 1,
+        _ => (value - 35) / 40,
+    };
+    let steps = [0u8, 95, 135, 175, 215, 255];
+    let cube = (level(r), level(g), level(b));
+    let cube_rgb = (
+        steps[cube.0 as usize],
+        steps[cube.1 as usize],
+        steps[cube.2 as usize],
+    );
+    let average = (u16::from(r) + u16::from(g) + u16::from(b)) / 3;
+    let gray_index = (average.saturating_sub(3) / 10).min(23) as u8;
+    let gray = 8 + 10 * gray_index;
+    let distance = |(x, y, z): (u8, u8, u8)| {
+        [(x, r), (y, g), (z, b)]
+            .iter()
+            .map(|&(a, b)| (i32::from(a) - i32::from(b)).pow(2))
+            .sum::<i32>()
+    };
+    if distance((gray, gray, gray)) < distance(cube_rgb) {
+        232 + gray_index
+    } else {
+        16 + 36 * cube.0 + 6 * cube.1 + cube.2
+    }
+}
+
+fn color_code(layer: u8, color: Rgb, truecolor: bool) -> String {
+    let Rgb(r, g, b) = color;
+    if truecolor {
+        format!("{layer}8;2;{r};{g};{b}")
+    } else {
+        format!("{layer}8;5;{}", xterm256(color))
+    }
+}
+
 fn sgr(style: Style) -> String {
+    sgr_for(style, truecolor())
+}
+
+pub fn sgr_for(style: Style, truecolor: bool) -> String {
     let mut codes = String::from("\x1b[");
     let mut parts = Vec::new();
     if style.bold {
         parts.push("1".to_owned());
     }
-    if let Some(Rgb(r, g, b)) = style.fg {
-        parts.push(format!("38;2;{r};{g};{b}"));
+    if let Some(color) = style.fg {
+        parts.push(color_code(3, color, truecolor));
     }
-    if let Some(Rgb(r, g, b)) = style.bg {
-        parts.push(format!("48;2;{r};{g};{b}"));
+    if let Some(color) = style.bg {
+        parts.push(color_code(4, color, truecolor));
     }
     if parts.is_empty() {
         return String::new();

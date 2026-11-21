@@ -31,7 +31,41 @@ mod style {
     fn plain_render_has_no_escape_codes() {
         let line = Line::new(vec![accent("❯ "), strong("/run")]).filled(HIGHLIGHT);
         assert_eq!(line.render(40, false), "❯ /run");
-        assert!(line.render(40, true).contains("\x1b[48;2;34;23;46m"));
+        assert!(line.render(40, true).contains("\x1b["));
+    }
+
+    #[rstest]
+    fn colors_use_24_bit_only_when_the_terminal_supports_it() {
+        let style = Style::fg(BAD).on(HIGHLIGHT);
+        let full = sgr_for(style, true);
+        assert!(
+            full.contains("38;2;245;154;138") && full.contains("48;2;34;23;46"),
+            "{full}"
+        );
+        let limited = sgr_for(style, false);
+        assert!(!limited.contains(";2;"), "{limited}");
+        assert!(
+            limited.contains("38;5;") && limited.contains("48;5;"),
+            "{limited}"
+        );
+    }
+
+    #[rstest]
+    #[case::black(Rgb(0, 0, 0), 16)]
+    #[case::white(Rgb(255, 255, 255), 231)]
+    #[case::pure_red(Rgb(255, 0, 0), 196)]
+    #[case::mid_gray(Rgb(128, 128, 128), 244)]
+    fn palette_fallback_picks_the_nearest_xterm_color(#[case] color: Rgb, #[case] expected: u8) {
+        assert_eq!(xterm256(color), expected);
+    }
+
+    #[rstest]
+    fn report_status_colors_stay_distinct_on_256_color_terminals() {
+        let colors = [BAD, WARN, MUTED, GOOD, ACCENT, TEXT].map(xterm256);
+        let mut unique = colors.to_vec();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), colors.len(), "{colors:?}");
     }
 
     #[rstest]
