@@ -348,7 +348,7 @@ def test_sdk_result_mapping_preserves_stopped_run_and_unknown_judge_metrics():
         2,
         EvalStatus.ERROR,
         result,
-        CheckResult(False, "judge unavailable", judge_cost=None, error="judge unavailable"),
+        CheckResult(False, "judge unavailable", judge_usage=None, judge_cost=None, error="judge unavailable"),
         2.5,
         "judge unavailable",
     )
@@ -484,7 +484,7 @@ def test_resume_rejects_a_changed_scalar_global_read_by_a_check(tmp_path, model_
         env={**os.environ, "TEST_EXPECTED_CATEGORY": "technical"},
     )
     assert changed.returncode == 2
-    assert "Eval config changed" in changed.stderr
+    assert "Tasks changed since this run started" in changed.stderr
     assert (directory / "attempts.jsonl").read_bytes() == before
     assert requests.qsize() == 1
 
