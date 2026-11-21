@@ -218,6 +218,7 @@ export function RunBody({
                     accessToken={accessToken}
                     spanTab={selection.spanTab}
                     onSpanTabChange={selection.setSpanTab}
+                    onOpenStep={select}
                     onClose={() => setDetailOpen(false)}
                   />
                 </div>

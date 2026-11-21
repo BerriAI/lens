@@ -10,7 +10,7 @@ import {
 import { DetailPane } from "./DetailPane";
 import type { SpanTab } from "../../routing";
 import { absoluteTime, SpanHoverCard, spanFacts } from "../tree/SpanHoverCard";
-import type { GroupRowData, SpanRowData } from "../../tree";
+import type { GroupRowData, SpanRowData, TurnRowData } from "../../tree";
 import type { Span, SpanDetail, SpanErrorPage, Trace } from "../../types";
 
 vi.mock("../../../../../lib/http/requests", () => ({
@@ -262,12 +262,16 @@ function LocalDetailPane(
   );
 }
 
-const renderPane = (row: SpanRowData | GroupRowData) =>
+const renderPane = (
+  row: SpanRowData | GroupRowData | TurnRowData,
+  onOpenStep: (id: string) => void = vi.fn(),
+) =>
   renderWithProviders(
     <LocalDetailPane
       trace={trace}
       row={row}
       accessToken="sk-test"
+      onOpenStep={onOpenStep}
       onClose={vi.fn()}
     />,
   );
@@ -434,6 +438,79 @@ describe("DetailPane", () => {
     expect(pane).toHaveTextContent("Invocations12");
     expect(pane).toHaveTextContent("Failed12");
     expect(pane).toHaveTextContent("TimeoutError('slow')");
+  });
+
+  it("shows a turn as the typed message, the agent's answer and the steps between, each opening its step", async () => {
+    const user = userEvent.setup();
+    const onOpenStep = vi.fn();
+    const typed = "Find a tool that fetches web pages";
+    const asked = span({
+      ...llmFields,
+      span_id: "ask",
+      parent_span_id: null,
+      input_preview: typed,
+    });
+    const search = span({
+      span_id: "search",
+      parent_span_id: null,
+      name: "execute_tool ToolSearch",
+      type: "tool",
+      input_preview: '{"query": "fetch web page"}',
+    });
+    const delegated = span({
+      span_id: "agent",
+      parent_span_id: null,
+      name: "execute_tool Agent",
+      type: "tool",
+    });
+    const delegate = span({
+      ...llmFields,
+      span_id: "sub",
+      parent_span_id: "agent",
+      model: "subagent-model",
+    });
+    const answered = span({
+      ...llmFields,
+      span_id: "root",
+      parent_span_id: null,
+      input_preview: typed,
+    });
+    const titled = span({
+      ...llmFields,
+      parent_span_id: null,
+      input_preview: "Write the title of the session",
+    });
+    renderPane(
+      {
+        kind: "turn",
+        id: "turn::ask",
+        depth: 0,
+        index: 2,
+        message: typed,
+        members: [asked, search, delegated, answered, titled, delegate],
+        collapsed: false,
+      },
+      onOpenStep,
+    );
+    const pane = screen.getByRole("complementary", { name: "Turn details" });
+    expect(pane).toHaveTextContent("Turn 2");
+    expect(pane).toHaveTextContent("Model calls4");
+    expect(pane).toHaveTextContent("Tool calls2");
+    expect(
+      within(pane).getByRole("region", { name: "User message" }),
+    ).toHaveTextContent(typed);
+    expect(
+      await within(pane).findByRole("region", { name: "Agent answer" }),
+    ).toHaveTextContent("Customer acme-404 is on the Enterprise plan.");
+    const steps = within(
+      within(pane).getByRole("region", { name: "Turn steps" }),
+    ).getAllByRole("button");
+    expect(steps).toHaveLength(6);
+    expect(steps[2]).toHaveTextContent("execute_tool Agent");
+    expect(steps[3]).toHaveTextContent("subagent-model");
+    expect(steps[1]).toHaveTextContent("execute_tool ToolSearch");
+    await user.click(steps[1]);
+    expect(onOpenStep).toHaveBeenCalledWith("search");
   });
 
   it("'Copy step' copies a curl for this span's captured content", async () => {

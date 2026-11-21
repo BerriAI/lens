@@ -37,15 +37,25 @@ fn without_harness_blocks(text: &str) -> &str {
     remaining
 }
 
-fn task(input: &str) -> Option<String> {
+fn answers_a_tool(content: &Value) -> bool {
+    content.as_array().is_some_and(|parts| {
+        parts
+            .iter()
+            .any(|part| part.get("type").and_then(Value::as_str) == Some("tool_result"))
+    })
+}
+
+fn typed_messages(input: &str) -> Vec<String> {
     serde_json::from_str::<Vec<Value>>(input)
-        .ok()?
+        .unwrap_or_default()
         .iter()
         .filter(|item| item.get("role").and_then(Value::as_str) == Some("user"))
-        .filter_map(|item| item.get("content").map(text))
-        .map(|text| without_harness_blocks(&text).trim().to_owned())
-        .find(|task| !task.is_empty())
-        .map(|task| task.chars().take(messages::PREVIEW_CHARS).collect())
+        .filter_map(|item| item.get("content"))
+        .filter(|content| !answers_a_tool(content))
+        .map(|content| without_harness_blocks(&text(content)).trim().to_owned())
+        .filter(|typed| !typed.is_empty())
+        .map(|typed| typed.chars().take(messages::PREVIEW_CHARS).collect())
+        .collect()
 }
 
 pub(super) struct LitellmGateway;
@@ -63,11 +73,16 @@ impl Rule for LitellmGateway {
         let sent_task = Some(attr(context.attributes, "lens.task").trim())
             .filter(|task| context.scope == MODEL_CALL_SCOPE && !task.is_empty())
             .map(|task| task.chars().take(messages::PREVIEW_CHARS).collect());
-        extraction.map_facts(|facts| SpanFacts {
-            input_preview: sent_task
-                .or(facts.input_preview)
-                .or_else(|| task(&facts.input)),
-            ..facts
+        extraction.map_facts(|facts| {
+            let mut typed = typed_messages(attr(context.attributes, "gen_ai.input.messages"));
+            let follow_up = (typed.len() > 1).then(|| typed.pop()).flatten();
+            SpanFacts {
+                input_preview: follow_up
+                    .or(sent_task)
+                    .or(facts.input_preview)
+                    .or_else(|| typed_messages(&facts.input).into_iter().next()),
+                ..facts
+            }
         })
     }
 }

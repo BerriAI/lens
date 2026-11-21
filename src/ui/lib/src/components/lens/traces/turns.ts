@@ -12,6 +12,8 @@ export function isNativeAgent(span: Span): boolean {
 export interface SessionTurn {
   id: string;
   index: number;
+  /** What the user typed to start the turn; empty when the calls carry no content. */
+  message: string;
   /** The turn's own calls in time order, then the subagent calls nested under them. */
   spans: Span[];
 }
@@ -49,12 +51,40 @@ function startsWithPrompt(call: Span, prompt: { text: string; whole: boolean }):
   return prompt.text.length >= MIN_PROMPT_CHARS && task.startsWith(prompt.text);
 }
 
+function mostCommon(values: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+}
+
+/** The model with the most calls; a session of one call beside its naming call ties, and the larger request is the session's own. */
+function usualModel(calls: readonly Span[]): string {
+  const totals = new Map<string, { calls: number; tokens: number }>();
+  for (const call of calls) {
+    const total = totals.get(call.model ?? "") ?? { calls: 0, tokens: 0 };
+    totals.set(call.model ?? "", {
+      calls: total.calls + 1,
+      tokens: total.tokens + (call.input_tokens ?? 0) + (call.output_tokens ?? 0),
+    });
+  }
+  return [...totals].sort((a, b) => b[1].calls - a[1].calls || b[1].tokens - a[1].tokens)[0]?.[0] ?? "";
+}
+
+/** A side call (naming the session) runs beside the first call with its own prompt; the turn's message is the one its calls on the session's usual model repeat most. */
+function typedMessage(own: readonly Span[], usualModel: string): string {
+  const calls = own.filter((span) => span.type === "llm" && span.input_preview);
+  const usual = calls.filter((span) => (span.model ?? "") === usualModel);
+  return mostCommon((usual.length ? usual : calls).map((span) => span.input_preview));
+}
+
 /**
  * A gateway records every model call and tool call of a coding session as its own parentless span, so the
  * trace has no turns and no subagent nesting. Both are rebuilt here from what each span carries: a subagent's
  * model calls preview the prompt its Agent call was given, a tool call follows the model call that asked
- * for it, and a model call that follows another finished model call with no tool call between them answers
- * a new message. Any other trace returns null.
+ * for it, and a model call previews the message the user typed last, so a turn opens at the first call, made
+ * while no other is running, that previews a message the turn before it did not. Calls that carry no content
+ * open a turn when they follow another finished model call with no tool call between them. Any other trace
+ * returns null.
  */
 export function sessionTree(recorded: readonly Span[]): SessionTree | null {
   const roots = [...recorded].sort(byStart);
@@ -96,21 +126,32 @@ export function sessionTree(recorded: readonly Span[]): SessionTree | null {
   });
   const nested = (id: string): Span[] =>
     spans.filter((span) => span.parent_span_id === id).flatMap((span) => [span, ...nested(span.span_id)]);
+  const top = spans.filter((span) => span.parent_span_id === null);
   const turns: Span[][] = [];
+  let asked = new Set<string>();
   let lastCallEnd = -Infinity;
-  for (const span of spans) {
-    if (span.parent_span_id !== null) continue;
+  for (const span of top) {
     const previous = turns.at(-1)?.at(-1);
-    const opens = !previous || (span.type === "llm" && previous.type === "llm" && lastCallEnd <= span.start_offset_ms);
-    if (opens) turns.push([span]);
-    else turns.at(-1)?.push(span);
-    if (span.type === "llm") lastCallEnd = Math.max(lastCallEnd, endOf(span));
+    const idle = lastCallEnd <= span.start_offset_ms;
+    const typed = span.input_preview;
+    const opens =
+      !previous ||
+      (span.type === "llm" && idle && (typed ? !asked.has(typed) : asked.size === 0 && previous.type === "llm"));
+    if (opens) {
+      turns.push([span]);
+      asked = new Set();
+    } else turns.at(-1)?.push(span);
+    if (span.type !== "llm") continue;
+    if (typed) asked.add(typed);
+    lastCallEnd = Math.max(lastCallEnd, endOf(span));
   }
+  const usual = usualModel(top.filter((span) => span.type === "llm"));
   return {
     spans,
     turns: turns.map((own, index) => ({
       id: `turn::${own[0].span_id}`,
       index: index + 1,
+      message: typedMessage(own, usual),
       spans: [...own, ...own.flatMap((span) => nested(span.span_id))],
     })),
   };

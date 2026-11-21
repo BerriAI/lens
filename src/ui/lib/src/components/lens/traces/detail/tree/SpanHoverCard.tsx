@@ -133,7 +133,7 @@ export const turnFacts = (row: TurnRowData): HoverFacts => {
     spend: totalSpend(row.members),
     modelCalls: calls.length,
     toolCalls: row.members.filter((m) => m.type === "tool").length,
-    input: "",
+    input: row.message,
     error: row.members.find((m) => m.status === "error" && m.error)?.error ?? null,
     failed: row.members.some((m) => m.status === "error"),
     tags: agentTags(row.members[0]?.agent ?? ""),
