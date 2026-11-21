@@ -11,6 +11,78 @@ use std::sync::Arc;
 
 #[rstest]
 #[tokio::test]
+async fn rules_can_be_added_edited_disabled_and_removed(#[future(awt)] database: Database) {
+    let server = database.serve(true).await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/lens/alerts/rules", server.url);
+    let rules = json!([
+        {"id":"short","enabled":true,"condition":{"kind":"run_duration","minutes":5}},
+        {"id":"long","enabled":true,"condition":{"kind":"run_duration","minutes":20}},
+        {"id":"errors","enabled":true,"condition":{"kind":"model_error"}}
+    ]);
+    let saved: Value = client
+        .put(&url)
+        .bearer_auth(ADMIN)
+        .json(&json!({"revision":0,"rules":rules}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let loaded: Value = client
+        .get(&url)
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(loaded, saved);
+    assert_eq!(loaded["rules"], rules);
+    let duplicate = client
+        .put(&url)
+        .bearer_auth(ADMIN)
+        .json(&json!({"revision":saved["revision"],"rules":[rules[0],rules[0]]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(duplicate.status(), 422);
+    let edited = json!([
+        {"id":"short","enabled":false,"condition":{"kind":"run_duration","minutes":5}},
+        {"id":"long","enabled":true,"condition":{"kind":"run_duration","minutes":30}}
+    ]);
+    let updated: Value = client
+        .put(&url)
+        .bearer_auth(ADMIN)
+        .json(&json!({"revision":saved["revision"],"rules":edited}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(updated["rules"], edited);
+    assert_ne!(updated["revision"], saved["revision"]);
+    let loaded: Value = client
+        .get(&url)
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(loaded, updated);
+}
+
+#[rstest]
+#[tokio::test]
 async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     #[future(awt)] database: Database,
 ) {
@@ -20,18 +92,18 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     let saved = client
         .put(&rules_url)
         .bearer_auth(ADMIN)
-        .json(&json!({"revision":0,"run_duration_minutes":5,"model_errors":true}))
+        .json(&json!({"revision":0,"rules":[{"id":"duration","enabled":true,"condition":{"kind":"run_duration","minutes":5}},{"id":"errors","enabled":true,"condition":{"kind":"model_error"}}]}))
         .send()
         .await
         .unwrap();
     assert_eq!(saved.status(), 200);
     let saved: Value = saved.json().await.unwrap();
-    assert_eq!(saved["model_errors"], true);
+    assert_eq!(saved["rules"][1]["enabled"], true);
     assert_eq!(
         client
             .put(&rules_url)
             .bearer_auth(ADMIN)
-            .json(&json!({"revision":0,"run_duration_minutes":null,"model_errors":false}))
+            .json(&json!({"revision":0,"rules":[]}))
             .send()
             .await
             .unwrap()
@@ -43,7 +115,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
             .put(&rules_url)
             .bearer_auth(ADMIN)
             .json(
-                &json!({"revision":saved["revision"],"run_duration_minutes":0,"model_errors":true})
+                &json!({"revision":saved["revision"],"rules":[{"id":"duration","enabled":true,"condition":{"kind":"run_duration","minutes":0}}]})
             )
             .send()
             .await
@@ -104,6 +176,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     let overview = found.unwrap();
     assert_eq!(overview["matches"].as_array().unwrap().len(), 1);
     assert_eq!(overview["matches"][0]["kind"], "model_error");
+    assert_eq!(overview["matches"][0]["rule_id"], "errors");
     assert_eq!(overview["matches"][0]["span_id"], "1111222233334444");
     let signals: Value = client
         .get(format!("{}/lens/signals", server.url))

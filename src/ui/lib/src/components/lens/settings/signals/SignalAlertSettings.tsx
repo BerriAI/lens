@@ -26,7 +26,7 @@ export function SignalAlertSettings({ signals }: { signals: SignalConfig }) {
     queryFn: () => api.alertRules(),
     enabled: !readOnly,
   });
-  const rulesEnabled = Boolean(rules.data?.model_errors || rules.data?.run_duration_minutes);
+  const rulesEnabled = Boolean(rules.data?.rules.some((rule) => rule.enabled));
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">

@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
-use lens_contract::alert_rules::{AlertRuleConfig, AlertRuleKind, AlertRuleMatch};
+use lens_contract::alert_rules::{AlertRule, AlertRuleConfig, AlertRuleMatch};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -14,22 +16,47 @@ pub const MATCHES: &str = "alert-rules/matches/";
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
     pub config: AlertRuleConfig,
-    pub duration_since: Option<DateTime<Utc>>,
-    pub errors_since: Option<DateTime<Utc>>,
+    pub activated_at: BTreeMap<String, DateTime<Utc>>,
 }
 
 impl Settings {
-    pub fn enabled(&self, kind: AlertRuleKind) -> bool {
-        match kind {
-            AlertRuleKind::RunDuration => self.config.run_duration_minutes.is_some(),
-            AlertRuleKind::ModelError => self.config.model_errors,
-        }
+    pub fn active(&self) -> impl Iterator<Item = (&AlertRule, DateTime<Utc>)> {
+        self.config.rules.iter().filter_map(|rule| {
+            rule.enabled
+                .then(|| self.activated_at.get(&rule.id).map(|since| (rule, *since)))
+                .flatten()
+        })
     }
 
-    pub fn since(&self, kind: AlertRuleKind) -> Option<DateTime<Utc>> {
-        match kind {
-            AlertRuleKind::RunDuration => self.duration_since,
-            AlertRuleKind::ModelError => self.errors_since,
+    pub fn eligible(&self, matched: &AlertRuleMatch) -> bool {
+        self.active().any(|(rule, since)| {
+            rule.id == matched.rule_id
+                && rule.condition.kind() == matched.kind
+                && rule.condition.duration_minutes() == matched.threshold_minutes
+                && matched.detected_at >= since
+        })
+    }
+
+    pub fn updated(config: AlertRuleConfig, before: &Self, now: DateTime<Utc>) -> Self {
+        let activated_at = config
+            .rules
+            .iter()
+            .filter(|rule| rule.enabled)
+            .map(|rule| {
+                let since = before
+                    .config
+                    .rules
+                    .iter()
+                    .find(|old| *old == rule)
+                    .and_then(|old| before.activated_at.get(&old.id))
+                    .copied()
+                    .unwrap_or(now);
+                (rule.id.clone(), since)
+            })
+            .collect();
+        Self {
+            config,
+            activated_at,
         }
     }
 }
@@ -53,7 +80,7 @@ pub async fn record(
     let digest = format!(
         "{:x}",
         Sha256::digest(
-            serde_json::to_vec(&(&matched.trace_id, &matched.trace_ref, matched.kind.id()))
+            serde_json::to_vec(&(&matched.trace_id, &matched.trace_ref, &matched.rule_id))
                 .map_err(|_| Error::InvalidState)?
         )
     );
@@ -77,7 +104,7 @@ pub async fn record(
         if previous.value.is_null() {
             let event = signal_alerts::Event {
                 generation: notifications.generation,
-                signal_id: matched.kind.id().into(),
+                signal_id: format!("rule:{}", matched.rule_id),
                 name: matched.kind.name().into(),
                 score: 0.0,
                 trace_id: matched.trace_id.clone(),

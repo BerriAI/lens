@@ -1,13 +1,34 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "../../ui/button";
 import { Checkbox } from "../../ui/checkbox";
 import { Input } from "../../ui/input";
 import { Skeleton } from "../../ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { useLensApi } from "../data/LensServices";
 import type { AlertRuleConfig } from "../model/types";
+
+type Rule = AlertRuleConfig["rules"][number];
+type RuleDraft = Omit<Rule, "condition"> & {
+  kind: Rule["condition"]["kind"];
+  minutes: string;
+};
+const CONDITIONS = [
+  { value: "run_duration", label: "Run duration" },
+  { value: "model_error", label: "Model error" },
+];
+const validDuration = (rule: RuleDraft) =>
+  rule.kind !== "run_duration" ||
+  (/^\d+$/.test(rule.minutes) && Number(rule.minutes) >= 1 && Number(rule.minutes) <= 4_294_967_295);
 
 export function AlertRuleSettings() {
   const api = useLensApi();
@@ -17,11 +38,7 @@ export function AlertRuleSettings() {
     refetchOnWindowFocus: false,
   });
   return (
-    <section aria-label="Alert rules" className="space-y-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-sm font-medium">Rules</h3>
-        <p className="text-xs text-muted-foreground">No model needed</p>
-      </div>
+    <section aria-label="Alert rules" className="space-y-4">
       {query.error ? (
         <div role="alert" className="space-y-2 text-sm">
           <p>Could not load rules: {query.error.message}</p>
@@ -41,71 +58,140 @@ export function AlertRuleSettings() {
 function RuleForm({ saved }: { saved: AlertRuleConfig }) {
   const api = useLensApi();
   const queryClient = useQueryClient();
-  const id = useId();
-  const [durationEnabled, setDurationEnabled] = useState(saved.run_duration_minutes !== null);
-  const [minutes, setMinutes] = useState(String(saved.run_duration_minutes ?? 5));
-  const [modelErrors, setModelErrors] = useState(saved.model_errors);
-  const valid =
-    !durationEnabled || (/^\d+$/.test(minutes) && Number(minutes) >= 1 && Number(minutes) <= 4_294_967_295);
-  const next = {
+  const [rules, setRules] = useState<RuleDraft[]>(() =>
+    saved.rules.map((rule) => ({
+      id: rule.id,
+      enabled: rule.enabled,
+      kind: rule.condition.kind,
+      minutes: String(rule.condition.kind === "run_duration" ? rule.condition.minutes : 5),
+    })),
+  );
+  const next: AlertRuleConfig = {
     revision: saved.revision,
-    run_duration_minutes: durationEnabled ? Number(minutes) : null,
-    model_errors: modelErrors,
+    rules: rules.map((rule) => ({
+      id: rule.id,
+      enabled: rule.enabled,
+      condition:
+        rule.kind === "run_duration"
+          ? { kind: "run_duration", minutes: Number(rule.minutes) }
+          : { kind: "model_error" },
+    })),
   };
-  const dirty =
-    next.run_duration_minutes !== saved.run_duration_minutes || modelErrors !== saved.model_errors;
+  const dirty = JSON.stringify(next.rules) !== JSON.stringify(saved.rules);
   const save = useMutation({
     mutationFn: () => api.saveAlertRules(next),
     onSuccess: (result) => queryClient.setQueryData(["alert-rules", api.scope], result),
   });
+  const update = (rule: RuleDraft) =>
+    setRules((current) => current.map((item) => (item.id === rule.id ? rule : item)));
+  const add = (kind: RuleDraft["kind"]) =>
+    setRules((current) => [...current, { id: crypto.randomUUID(), enabled: true, kind, minutes: "5" }]);
   return (
-    <div className="space-y-3">
-      <div className="grid gap-x-4 border-y py-1 sm:grid-cols-2">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-2">
-          <Checkbox
-            id={`${id}-duration`}
-            checked={durationEnabled}
-            onCheckedChange={setDurationEnabled}
-            disabled={save.isPending}
-          />
-          <label htmlFor={`${id}-duration`} className="text-sm">
-            Run exceeds
-          </label>
-          <Input
-            aria-label="Run duration in minutes"
-            aria-invalid={!valid}
-            aria-describedby={!valid ? `${id}-error` : undefined}
-            type="number"
-            min={1}
-            step={1}
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-            disabled={!durationEnabled || save.isPending}
-            className="h-8 w-16"
-          />
-          <span className="text-sm text-muted-foreground">minutes</span>
-        </div>
-        <label htmlFor={`${id}-model`} className="flex items-center gap-2 py-2 text-sm">
-          <Checkbox
-            id={`${id}-model`}
-            checked={modelErrors}
-            onCheckedChange={setModelErrors}
-            disabled={save.isPending}
-          />
-          A model call fails
-        </label>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Check timing and errors. No model needed.</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="sm" disabled={save.isPending || rules.length >= 100} />}
+          >
+            <Plus aria-hidden="true" /> Add rule
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48" aria-label="Choose a condition">
+            <DropdownMenuItem onClick={() => add("run_duration")}>Run duration</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => add("model_error")}>Model error</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      {!valid && (
-        <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
-          Enter a whole number of minutes, at least 1.
+      {rules.length === 0 ? (
+        <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          No rules yet. Add a condition to start checking new runs.
         </p>
+      ) : (
+        <div className="space-y-3">
+          {rules.map((rule, index) => (
+            <div
+              key={rule.id}
+              role="group"
+              aria-label={`Rule ${index + 1}`}
+              className="space-y-3 rounded-md border p-3"
+            >
+              <div className="flex items-center gap-3">
+                <Select
+                  value={rule.kind}
+                  items={CONDITIONS}
+                  disabled={save.isPending}
+                  onValueChange={(kind) => {
+                    if (kind === "run_duration" || kind === "model_error") update({ ...rule, kind });
+                  }}
+                >
+                  <SelectTrigger aria-label="Condition" size="sm" className="min-w-0 flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONDITIONS.map((condition) => (
+                      <SelectItem key={condition.value} value={condition.value}>
+                        {condition.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={rule.enabled}
+                    onCheckedChange={(enabled) => update({ ...rule, enabled })}
+                    disabled={save.isPending}
+                  />
+                  Enabled
+                </label>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Remove rule ${index + 1}`}
+                  disabled={save.isPending}
+                  onClick={() => setRules((current) => current.filter((item) => item.id !== rule.id))}
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+              {rule.kind === "run_duration" ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span>Run exceeds</span>
+                  <Input
+                    aria-label="Run duration in minutes"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={rule.minutes}
+                    aria-invalid={!validDuration(rule)}
+                    aria-describedby={!validDuration(rule) ? `${rule.id}-error` : undefined}
+                    onChange={(event) => update({ ...rule, minutes: event.target.value })}
+                    disabled={save.isPending}
+                    className="h-8 w-20"
+                  />
+                  <span className="text-muted-foreground">minutes</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">A model call fails</p>
+              )}
+              {!validDuration(rule) && (
+                <p id={`${rule.id}-error`} role="alert" className="text-xs text-destructive">
+                  Enter a whole number of minutes, at least 1.
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="min-w-0 flex-1 basis-64 text-xs leading-5 text-muted-foreground">
           New runs only, once per rule and run. Checked as spans arrive, or after completion for integrations
           that export then. Uses your Slack settings.
         </p>
-        <Button size="sm" disabled={!dirty || !valid || save.isPending} onClick={() => save.mutate()}>
+        <Button
+          size="sm"
+          disabled={!dirty || !rules.every(validDuration) || save.isPending}
+          onClick={() => save.mutate()}
+        >
           {save.isPending ? "Saving…" : "Save rules"}
         </Button>
       </div>

@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     sync::{Arc, atomic::Ordering},
     time::Duration,
 };
@@ -13,7 +14,9 @@ use axum::{
 use chrono::{DateTime, TimeDelta, Utc};
 use lens_auth::Authentication;
 use lens_contract::{
-    alert_rules::{AlertRuleConfig, AlertRuleKind, AlertRuleMatch, AlertRuleOverview},
+    alert_rules::{
+        AlertRuleCondition, AlertRuleConfig, AlertRuleKind, AlertRuleMatch, AlertRuleOverview,
+    },
     auth::Role,
 };
 use litellm_storage_clickhouse::{
@@ -54,7 +57,7 @@ impl AlertRules {
         Router::new()
             .route("/lens/alerts/rules", get(read).put(save))
             .route("/lens/alerts/rules/overview", get(overview))
-            .layer(DefaultBodyLimit::max(4096))
+            .layer(DefaultBodyLimit::max(32_768))
             .with_state(self.clone())
     }
 
@@ -74,11 +77,7 @@ impl AlertRules {
             return Ok(());
         }
         let settings = storage::settings(&self.store).await?;
-        let Some(since) = [settings.duration_since, settings.errors_since]
-            .into_iter()
-            .flatten()
-            .min()
-        else {
+        let Some(since) = settings.active().map(|(_, since)| since).min() else {
             return Ok(());
         };
         let now = Utc::now();
@@ -108,8 +107,16 @@ impl AlertRules {
             .read::<AlertRuleCandidates>(&AlertRuleParams {
                 since_ms: since.timestamp_millis(),
                 now_ms: now.timestamp_millis(),
-                duration_ms: u64::from(settings.config.run_duration_minutes.unwrap_or(0)) * 60_000,
-                model_errors: settings.config.model_errors,
+                duration_ms: u64::from(
+                    settings
+                        .active()
+                        .filter_map(|(rule, _)| rule.condition.duration_minutes())
+                        .min()
+                        .unwrap_or(0),
+                ) * 60_000,
+                model_errors: settings
+                    .active()
+                    .any(|(rule, _)| rule.condition.kind() == AlertRuleKind::ModelError),
                 after: cursor,
                 limit: PAGE_SIZE,
             })
@@ -165,28 +172,25 @@ impl AlertRules {
 }
 
 fn matches(row: &AlertRuleRow, settings: &Settings, now: DateTime<Utc>) -> Vec<AlertRuleMatch> {
-    [AlertRuleKind::RunDuration, AlertRuleKind::ModelError]
-        .into_iter()
-        .filter_map(|kind| {
-            if !settings.enabled(kind)
-                || !settings
-                    .since(kind)
-                    .is_some_and(|since| row.start_ms >= since.timestamp_millis())
-            {
+    settings
+        .active()
+        .filter_map(|(rule, since)| {
+            if row.start_ms < since.timestamp_millis() {
                 return None;
             }
-            let (matched, span_id, threshold_minutes) = match kind {
-                AlertRuleKind::RunDuration => (
-                    row.duration_ms > u64::from(settings.config.run_duration_minutes?) * 60_000,
+            let (matched, span_id, threshold_minutes) = match rule.condition {
+                AlertRuleCondition::RunDuration { minutes } => (
+                    row.duration_ms > u64::from(minutes) * 60_000,
                     &row.duration_span_id,
-                    settings.config.run_duration_minutes,
+                    Some(minutes),
                 ),
-                AlertRuleKind::ModelError => {
+                AlertRuleCondition::ModelError => {
                     (!row.error_span_id.is_empty(), &row.error_span_id, None)
                 }
             };
             matched.then(|| AlertRuleMatch {
-                kind,
+                rule_id: rule.id.clone(),
+                kind: rule.condition.kind(),
                 trace_id: row.trace_id.clone(),
                 trace_ref: row.trace_ref.clone(),
                 span_id: span_id.clone(),
@@ -216,9 +220,28 @@ async fn save(
     app.authorize(&headers, &method).await?;
     let config: AlertRuleConfig =
         serde_json::from_slice(&body).map_err(|_| Error::Invalid("Invalid alert rules"))?;
+    if config.rules.len() > 100 {
+        return Err(Error::Invalid("Save up to 100 alert rules"));
+    }
+    let ids: BTreeSet<_> = config.rules.iter().map(|rule| &rule.id).collect();
+    if ids.len() != config.rules.len()
+        || config.rules.iter().any(|rule| {
+            rule.id.is_empty()
+                || rule.id.len() > 64
+                || !rule
+                    .id
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+        })
+    {
+        return Err(Error::Invalid(
+            "Each rule needs a unique ID with up to 64 letters, numbers, hyphens or underscores",
+        ));
+    }
     if config
-        .run_duration_minutes
-        .is_some_and(|minutes| minutes == 0)
+        .rules
+        .iter()
+        .any(|rule| rule.condition.duration_minutes() == Some(0))
     {
         return Err(Error::Invalid("Run duration must be at least 1 minute"));
     }
@@ -232,19 +255,7 @@ async fn save(
         serde_json::from_value(previous.value.clone())?
     };
     let now = Utc::now();
-    let settings = Settings {
-        duration_since: config.run_duration_minutes.and_then(|_| {
-            if config.run_duration_minutes == before.config.run_duration_minutes {
-                before.duration_since.or(Some(now))
-            } else {
-                Some(now)
-            }
-        }),
-        errors_since: config
-            .model_errors
-            .then(|| before.errors_since.unwrap_or(now)),
-        config,
-    };
+    let settings = Settings::updated(config, &before, now);
     app.store
         .commit(vec![Change {
             previous,
@@ -275,7 +286,54 @@ async fn overview(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lens_contract::alert_rules::AlertRule;
     use rstest::rstest;
+
+    #[rstest]
+    #[case::first_boundary(300_000, vec![])]
+    #[case::first_match(300_001, vec!["short"])]
+    #[case::second_boundary(1_200_000, vec!["short"])]
+    #[case::both(1_200_001, vec!["short", "long"])]
+    fn evaluates_each_duration_rule_independently(
+        #[case] duration_ms: u64,
+        #[case] expected: Vec<&str>,
+    ) {
+        let now = Utc::now();
+        let settings = Settings::updated(
+            AlertRuleConfig {
+                revision: 0,
+                rules: vec![
+                    AlertRule {
+                        id: "short".into(),
+                        enabled: true,
+                        condition: AlertRuleCondition::RunDuration { minutes: 5 },
+                    },
+                    AlertRule {
+                        id: "long".into(),
+                        enabled: true,
+                        condition: AlertRuleCondition::RunDuration { minutes: 20 },
+                    },
+                ],
+            },
+            &Settings::default(),
+            now,
+        );
+        let row = AlertRuleRow {
+            trace_id: "run".into(),
+            trace_ref: "scope".into(),
+            start_ms: now.timestamp_millis(),
+            duration_ms,
+            duration_span_id: "latest".into(),
+            error_span_id: String::new(),
+        };
+        assert_eq!(
+            matches(&row, &settings, now)
+                .iter()
+                .map(|matched| matched.rule_id.as_str())
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
 
     #[rstest]
     #[case::below(299_999, "", true, true, 1, vec![])]
@@ -302,15 +360,25 @@ mod tests {
             duration_span_id: "latest-span".into(),
             error_span_id: error_span.into(),
         };
-        let settings = Settings {
-            config: AlertRuleConfig {
+        let settings = Settings::updated(
+            AlertRuleConfig {
                 revision: 1,
-                run_duration_minutes: duration_enabled.then_some(5),
-                model_errors,
+                rules: vec![
+                    AlertRule {
+                        id: "duration".into(),
+                        enabled: duration_enabled,
+                        condition: AlertRuleCondition::RunDuration { minutes: 5 },
+                    },
+                    AlertRule {
+                        id: "errors".into(),
+                        enabled: model_errors,
+                        condition: AlertRuleCondition::ModelError,
+                    },
+                ],
             },
-            duration_since: Some(now),
-            errors_since: Some(now),
-        };
+            &Settings::default(),
+            now,
+        );
         let found = matches(&row, &settings, now);
         assert_eq!(
             found.iter().map(|item| item.kind).collect::<Vec<_>>(),

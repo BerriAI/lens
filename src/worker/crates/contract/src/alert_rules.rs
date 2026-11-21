@@ -6,8 +6,38 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct AlertRuleConfig {
     pub revision: u64,
-    pub run_duration_minutes: Option<u32>,
-    pub model_errors: bool,
+    pub rules: Vec<AlertRule>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AlertRule {
+    pub id: String,
+    pub enabled: bool,
+    pub condition: AlertRuleCondition,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AlertRuleCondition {
+    RunDuration { minutes: u32 },
+    ModelError,
+}
+
+impl AlertRuleCondition {
+    pub fn kind(self) -> AlertRuleKind {
+        match self {
+            Self::RunDuration { .. } => AlertRuleKind::RunDuration,
+            Self::ModelError => AlertRuleKind::ModelError,
+        }
+    }
+
+    pub fn duration_minutes(self) -> Option<u32> {
+        match self {
+            Self::RunDuration { minutes } => Some(minutes),
+            Self::ModelError => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, JsonSchema)]
@@ -18,13 +48,6 @@ pub enum AlertRuleKind {
 }
 
 impl AlertRuleKind {
-    pub fn id(self) -> &'static str {
-        match self {
-            Self::RunDuration => "rule:run_duration",
-            Self::ModelError => "rule:model_error",
-        }
-    }
-
     pub fn name(self) -> &'static str {
         match self {
             Self::RunDuration => "Run duration",
@@ -35,6 +58,7 @@ impl AlertRuleKind {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub struct AlertRuleMatch {
+    pub rule_id: String,
     pub kind: AlertRuleKind,
     pub trace_id: String,
     pub trace_ref: String,

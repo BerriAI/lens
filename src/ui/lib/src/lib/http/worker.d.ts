@@ -2,6 +2,18 @@
 
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRuleCondition".
+ */
+export type AlertRuleCondition =
+  | {
+      kind: "run_duration";
+      minutes: number;
+    }
+  | {
+      kind: "model_error";
+    };
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "AlertRuleKind".
  */
 export type AlertRuleKind = "run_duration" | "model_error";
@@ -130,12 +142,20 @@ export interface AgentTestCase {
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
+ * via the `definition` "AlertRule".
+ */
+export interface AlertRule {
+  condition: AlertRuleCondition;
+  enabled: boolean;
+  id: string;
+}
+/**
+ * This interface was referenced by `LensWorker`'s JSON-Schema
  * via the `definition` "AlertRuleConfig".
  */
 export interface AlertRuleConfig {
-  model_errors: boolean;
   revision: number;
-  run_duration_minutes?: number | null;
+  rules: AlertRule[];
 }
 /**
  * This interface was referenced by `LensWorker`'s JSON-Schema
@@ -145,6 +165,7 @@ export interface AlertRuleMatch {
   detected_at: string;
   duration_ms: number;
   kind: AlertRuleKind;
+  rule_id: string;
   span_id: string;
   threshold_minutes?: number | null;
   trace_id: string;

@@ -26,6 +26,16 @@ describe("Lens navigation", () => {
       "fetch",
       vi.fn(async (input) => {
         const path = requestPath(input);
+        if (path === "/lens/signals/overview")
+          return Response.json({
+            since: new Date().toISOString(),
+            limit: 500,
+            truncated: false,
+            evaluated: 0,
+            failed: 0,
+            partial: 0,
+            matches: [],
+          });
         if (path === "/lens/alerts/rules/overview")
           return Response.json({
             since: new Date().toISOString(),
@@ -34,7 +44,7 @@ describe("Lens navigation", () => {
             matches: [],
           });
         if (path === "/lens/alerts/rules")
-          return Response.json({ revision: 0, run_duration_minutes: null, model_errors: false });
+          return Response.json({ revision: 0, rules: [] });
         if (path === "/v1/traces") return Response.json({ data: [{}] });
         if (path === "/lens") return Response.json({ lenses: [], workers: [], tracing_enabled: true });
         return Response.json({ traces: true, requests: false, data: [] });
@@ -182,8 +192,27 @@ describe("Lens navigation", () => {
     expect(await screen.findByText("No matches for these filters")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    const modelSettings = within(screen.getByRole("region", { name: "Model signals" }));
+    const modelSettings = within(screen.getByRole("tabpanel", { name: "Model signals" }));
     expect(await modelSettings.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
+    expect(screen.getByRole("tab", { name: "Model signals" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.change(modelSettings.getByRole("spinbutton", { name: "Match threshold" }), {
+      target: { value: "80" },
+    });
+    await user.click(screen.getByRole("tab", { name: "Rules", exact: true }));
+    expect(screen.getByRole("tab", { name: "Rules", exact: true })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tabpanel", { name: "Model signals" })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Add rule" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Run duration" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Run duration in minutes" }), {
+      target: { value: "12" },
+    });
+    await waitFor(() =>
+      expect(onUrlUpdate.mock.lastCall?.[0].searchParams.get("alert_settings")).toBe("rules"),
+    );
+    await user.click(screen.getByRole("tab", { name: "Model signals" }));
+    expect(modelSettings.getByRole("spinbutton", { name: "Match threshold" })).toHaveValue(80);
+    await user.click(screen.getByRole("tab", { name: "Rules", exact: true }));
+    expect(screen.getByRole("spinbutton", { name: "Run duration in minutes" })).toHaveValue(12);
     await user.click(screen.getByRole("button", { name: "Close", exact: true }));
     await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
@@ -214,8 +243,16 @@ describe("Lens navigation", () => {
     );
   });
 
+  it("opens rule configuration directly from a link", async () => {
+    renderWithProviders(<LensWorkspace {...admin} />, {
+      searchParams: "?tab=alerts&alert_settings=rules",
+    });
+    expect(screen.getByRole("tab", { name: "Rules", exact: true })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("button", { name: "Add rule" })).toBeVisible();
+  });
+
   it.each([
-    { kind: "run_duration", name: "Run duration", span: "latest-step" },
+    { kind: "run_duration", name: "Run exceeds 1 min", span: "latest-step" },
     { kind: "model_error", name: "Model error", span: "failed-call" },
   ])("opens the matching step for $name without model signal evidence", async ({ kind, name, span }) => {
     const user = userEvent.setup();
@@ -244,6 +281,7 @@ describe("Lens navigation", () => {
             matches: [
               {
                 kind,
+                rule_id: "configured-rule",
                 trace_id: "rule-trace",
                 trace_ref: "scoped-run",
                 span_id: span,

@@ -189,7 +189,7 @@ async fn save(
         return Err(Error::Invalid("Choose from your saved signals"));
     }
     let rules = litellm_storage_clickhouse::alert_rules::settings(&app.store).await?;
-    let rules_enabled = rules.config.model_errors || rules.config.run_duration_minutes.is_some();
+    let rules_enabled = rules.active().next().is_some();
     if request.enabled
         && !rules_enabled
         && (signals.model.is_empty() || request.signal_ids.is_empty())

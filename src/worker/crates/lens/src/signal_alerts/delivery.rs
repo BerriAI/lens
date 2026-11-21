@@ -92,12 +92,7 @@ impl SignalAlerts {
             let settings = storage::settings(&self.store).await?;
             let eligible = if let Some(rule) = &event.rule {
                 let rules = litellm_storage_clickhouse::alert_rules::settings(&self.store).await?;
-                rules.enabled(rule.kind)
-                    && rules
-                        .since(rule.kind)
-                        .is_some_and(|since| rule.detected_at >= since)
-                    && (rule.kind != lens_contract::alert_rules::AlertRuleKind::RunDuration
-                        || rule.threshold_minutes == rules.config.run_duration_minutes)
+                rules.eligible(rule)
             } else {
                 let signals = Signals(self.store.clone())
                     .get_config()
@@ -507,22 +502,27 @@ mod tests {
         #[case] expected: DeliveryStatus,
         #[case] delivered: usize,
     ) {
-        use lens_contract::alert_rules::{AlertRuleConfig, AlertRuleKind, AlertRuleMatch};
+        use lens_contract::alert_rules::{
+            AlertRule, AlertRuleCondition, AlertRuleConfig, AlertRuleKind, AlertRuleMatch,
+        };
         use litellm_storage_clickhouse::alert_rules;
         Signals(app.alerts.store.clone())
             .save_config(&SignalConfig::default())
             .await
             .unwrap();
         let now = Utc::now();
-        let rules = alert_rules::Settings {
-            config: AlertRuleConfig {
+        let rules = alert_rules::Settings::updated(
+            AlertRuleConfig {
                 revision: 0,
-                run_duration_minutes: None,
-                model_errors: true,
+                rules: vec![AlertRule {
+                    id: "errors".into(),
+                    enabled: true,
+                    condition: AlertRuleCondition::ModelError,
+                }],
             },
-            duration_since: None,
-            errors_since: Some(now - TimeDelta::seconds(1)),
-        };
+            &alert_rules::Settings::default(),
+            now - TimeDelta::seconds(1),
+        );
         app.alerts
             .store
             .update(
@@ -541,6 +541,7 @@ mod tests {
         .await;
         assert_eq!(status, 200);
         let matched = AlertRuleMatch {
+            rule_id: "errors".into(),
             kind: AlertRuleKind::ModelError,
             trace_id: "failed-run".into(),
             trace_ref: "example-project".into(),

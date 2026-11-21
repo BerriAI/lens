@@ -5,6 +5,7 @@ import { Bell, Settings2 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { useLensApi } from "../data/LensServices";
 import { lensQueries } from "../data/queries";
 import { useAlertsRoute } from "../route";
@@ -27,7 +28,10 @@ export function AlertsView({
 }) {
   const api = useLensApi();
   const route = useAlertsRoute();
-  const overview = useQuery({ ...lensQueries.signalOverview(api), refetchInterval: 30_000 });
+  const overview = useQuery({
+    ...lensQueries.signalOverview(api),
+    refetchInterval: 30_000,
+  });
   const rules = useQuery({
     queryKey: ["alert-rule-overview", api.scope],
     queryFn: () => api.alertRuleOverview(),
@@ -106,24 +110,37 @@ export function AlertsView({
                 : "Choose what Lens checks in new traces across all agents and teams."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {route.settings === "signals" ? (
-              <>
-                <section aria-label="Model signals">
-                  <h3 className="mb-4 text-sm font-medium">Model signals</h3>
-                  <SignalSettings section="signals" onConfigureSignals={() => route.setSettings("signals")} />
-                </section>
-                <div className="mt-6 border-t pt-5">
-                  <AlertRuleSettings />
-                </div>
-              </>
-            ) : route.settings ? (
+          {route.settings === "signals" || route.settings === "rules" ? (
+            <Tabs
+              value={route.settings}
+              onValueChange={(value) => route.setSettings(value === "rules" ? "rules" : "signals")}
+              className="min-h-0 flex-1 gap-0"
+            >
+              <div className="shrink-0 border-b px-6">
+                <TabsList variant="line" aria-label="Alert configuration" className="h-11 gap-6 px-0">
+                  <TabsTrigger value="signals" className="flex-none px-0">
+                    Model signals
+                  </TabsTrigger>
+                  <TabsTrigger value="rules" className="flex-none px-0">
+                    Rules
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="signals" keepMounted className="min-h-0 overflow-y-auto px-6 py-6">
+                <SignalSettings section="signals" onConfigureSignals={() => route.setSettings("signals")} />
+              </TabsContent>
+              <TabsContent value="rules" keepMounted className="min-h-0 overflow-y-auto px-6 py-6">
+                <AlertRuleSettings />
+              </TabsContent>
+            </Tabs>
+          ) : route.settings ? (
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
               <SignalSettings
                 section={route.settings}
                 onConfigureSignals={() => route.setSettings("signals")}
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </SheetContent>
       )}
     </Sheet>

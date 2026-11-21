@@ -14,7 +14,7 @@ type Trace = SignalOverview["matches"][number];
 export type AlertHit = { trace: Trace; flag: NonNullable<Trace["flags"]>[number]; rule?: AlertRuleMatch };
 
 export function ruleName(rule: AlertRuleMatch) {
-  return rule.kind === "run_duration" ? "Run duration" : "Model error";
+  return rule.kind === "run_duration" ? `Run exceeds ${rule.threshold_minutes} min` : "Model error";
 }
 
 export function ruleDetail(rule: AlertRuleMatch) {
@@ -35,7 +35,7 @@ export function alertActivity(data: SignalOverview, rules?: AlertRuleOverview) {
       flags: [],
     },
     flag: {
-      signal_id: `rule:${rule.kind}`,
+      signal_id: `rule:${rule.rule_id}`,
       name: ruleName(rule),
       score: 0,
       evidence: { span_id: rule.span_id, quote: "" },

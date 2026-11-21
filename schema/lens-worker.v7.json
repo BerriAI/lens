@@ -110,31 +110,78 @@
       ],
       "type": "object"
     },
+    "AlertRule": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "$ref": "#/definitions/AlertRuleCondition"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "enabled",
+        "condition"
+      ],
+      "type": "object"
+    },
+    "AlertRuleCondition": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run_duration",
+              "type": "string"
+            },
+            "minutes": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "minutes"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "model_error",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "AlertRuleConfig": {
       "additionalProperties": false,
       "properties": {
-        "model_errors": {
-          "type": "boolean"
-        },
         "revision": {
           "minimum": 0,
           "type": "integer"
         },
-        "run_duration_minutes": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "rules": {
+          "items": {
+            "$ref": "#/definitions/AlertRule"
+          },
+          "type": "array"
         }
       },
       "required": [
         "revision",
-        "model_errors"
+        "rules"
       ],
       "type": "object"
     },
@@ -158,6 +205,9 @@
         "kind": {
           "$ref": "#/definitions/AlertRuleKind"
         },
+        "rule_id": {
+          "type": "string"
+        },
         "span_id": {
           "type": "string"
         },
@@ -180,6 +230,7 @@
         }
       },
       "required": [
+        "rule_id",
         "kind",
         "trace_id",
         "trace_ref",
