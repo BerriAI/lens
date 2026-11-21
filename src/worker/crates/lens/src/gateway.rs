@@ -61,6 +61,7 @@ struct Snapshot {
 
 struct Registry {
     snapshot: RwLock<Arc<Snapshot>>,
+    configured: Arc<Snapshot>,
     refresh: Mutex<()>,
     client: reqwest::Client,
     connection: Option<GatewayConfig>,
@@ -104,13 +105,15 @@ impl Models {
             .retry(reqwest::retry::never())
             .timeout(Duration::from_secs(10))
             .build()?;
+        let configured = Arc::new(Snapshot {
+            analysis: analysis_models,
+            evaluation: evaluation_models,
+            embedding: Arc::default(),
+            status,
+        });
         Ok(Self(Arc::new(Registry {
-            snapshot: RwLock::new(Arc::new(Snapshot {
-                analysis: analysis_models,
-                evaluation: evaluation_models,
-                embedding: Arc::default(),
-                status,
-            })),
+            snapshot: RwLock::new(configured.clone()),
+            configured,
             refresh: Mutex::new(()),
             client,
             connection,
@@ -123,6 +126,15 @@ impl Models {
     }
 
     fn snapshot(&self) -> Arc<Snapshot> {
+        let attempted = self
+            .0
+            .attempted
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if attempted.is_some() && attempted != self.connection().as_ref().map(attempt) {
+            return self.0.configured.clone();
+        }
         self.0
             .snapshot
             .read()
