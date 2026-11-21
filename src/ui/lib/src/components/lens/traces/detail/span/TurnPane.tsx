@@ -26,7 +26,14 @@ const paneFacts = (row: TurnRowData): readonly Fact[] => {
   return [["Duration", fmtMs(facts.durationMs)], ...optional.filter((fact): fact is Fact => fact !== null)];
 };
 
-function Step({ span, onOpen }: { span: Span; onOpen: (id: string) => void }) {
+type Placed = { span: Span; depth: number };
+
+const under = (members: readonly Span[], parent: string | null, depth: number): Placed[] =>
+  members
+    .filter((span) => span.parent_span_id === parent)
+    .flatMap((span) => [{ span, depth }, ...under(members, span.span_id, depth + 1)]);
+
+function Step({ span, depth, onOpen }: Placed & { onOpen: (id: string) => void }) {
   const failed = span.status === "error";
   const hint = span.type === "tool" ? toolSummary(span.input_preview) : "";
   return (
@@ -35,6 +42,7 @@ function Step({ span, onOpen }: { span: Span; onOpen: (id: string) => void }) {
         type="button"
         onClick={() => onOpen(span.span_id)}
         className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left hover:bg-muted/60 focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none"
+        style={{ paddingLeft: 8 + depth * 16 }}
       >
         <SpanIcon type={span.type} model={span.model} error={failed} size="md" />
         <span className={failed ? "shrink-0 font-mono text-xs text-destructive" : "shrink-0 font-mono text-xs"}>
@@ -105,8 +113,8 @@ export function TurnPane({
         <section aria-label="Turn steps" className="flex flex-col gap-1.5">
           <h3 className={HEADING}>Steps</h3>
           <ol className="flex flex-col">
-            {row.members.map((span) => (
-              <Step key={span.span_id} span={span} onOpen={onOpenStep} />
+            {under(row.members, null, 0).map(({ span, depth }) => (
+              <Step key={span.span_id} span={span} depth={depth} onOpen={onOpenStep} />
             ))}
           </ol>
         </section>

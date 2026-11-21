@@ -97,6 +97,15 @@ describe("coding session turns", () => {
     ]);
   });
 
+  it("labels a one-message session with what the user typed, not the prompt of its naming call", () => {
+    const spans = [
+      { ...call("title", 0, 900, "write a title"), model: "claude-haiku-4-5", input_tokens: 900, output_tokens: 11 },
+      { ...call("m1", 176, 2100), input_tokens: 22593, output_tokens: 36 },
+    ];
+    const turns = buildTreeRows(spans, STATE).flatMap((row) => (row.kind === "turn" ? [row] : []));
+    expect(turns.map((turn) => turn.message)).toEqual([FIRST]);
+  });
+
   it("splits calls that carry no content where one finishes before the next starts", () => {
     const spans = [
       call("m1", 0, 100, ""),

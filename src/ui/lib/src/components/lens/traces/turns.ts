@@ -57,6 +57,19 @@ function mostCommon(values: readonly string[]): string {
   return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
 }
 
+/** The model with the most calls; a session of one call beside its naming call ties, and the larger request is the session's own. */
+function usualModel(calls: readonly Span[]): string {
+  const totals = new Map<string, { calls: number; tokens: number }>();
+  for (const call of calls) {
+    const total = totals.get(call.model ?? "") ?? { calls: 0, tokens: 0 };
+    totals.set(call.model ?? "", {
+      calls: total.calls + 1,
+      tokens: total.tokens + (call.input_tokens ?? 0) + (call.output_tokens ?? 0),
+    });
+  }
+  return [...totals].sort((a, b) => b[1].calls - a[1].calls || b[1].tokens - a[1].tokens)[0]?.[0] ?? "";
+}
+
 /** A side call (naming the session) runs beside the first call with its own prompt; the turn's message is the one its calls on the session's usual model repeat most. */
 function typedMessage(own: readonly Span[], usualModel: string): string {
   const calls = own.filter((span) => span.type === "llm" && span.input_preview);
@@ -132,7 +145,7 @@ export function sessionTree(recorded: readonly Span[]): SessionTree | null {
     if (typed) asked.add(typed);
     lastCallEnd = Math.max(lastCallEnd, endOf(span));
   }
-  const usual = mostCommon(top.filter((span) => span.type === "llm").map((span) => span.model ?? ""));
+  const usual = usualModel(top.filter((span) => span.type === "llm"));
   return {
     spans,
     turns: turns.map((own, index) => ({
