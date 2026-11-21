@@ -572,6 +572,12 @@
   padding-block: 1rem;
 }
 
+@media (max-width: 767px) {
+  .lens-embedded-toolbar.lens-mobile-navigation {
+    padding-left: 3.5rem;
+  }
+}
+
 .lens-page-header-compact {
   gap: 0.5rem 1rem;
   padding-block: 0.5rem;
