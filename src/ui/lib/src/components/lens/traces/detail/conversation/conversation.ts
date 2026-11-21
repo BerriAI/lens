@@ -3,6 +3,7 @@ import type { Span, SpanDetail, TraceMessage, TraceToolCall, UIContent } from ".
 import { isFrameworkSpan, parseAssistantSummary, parseMessages, prettyPayload } from "../../utils";
 import { toTraceMessage, toolInput } from "../content/payload";
 import { claudeCaptureWarnings, claudeToolDetails, isClaudeSupplement } from "./nativeClaude";
+import { CONTEXT_COMPACTED, compactedCalls, isNativeAgent, linkSessionCalls, newRequestMessages } from "./sessionCalls";
 
 export const CONVERSATION_PAGE_SIZE = 20;
 
@@ -199,7 +200,7 @@ function conversationEvents(
   for (const span of steps) {
     const end = span.start_offset_ms + span.duration_ms;
     const visited = new Set<string>();
-    let ancestor: Span | undefined = span;
+    let ancestor: Span | undefined = byId.get(span.span_id) ?? span;
     while (ancestor && !visited.has(ancestor.span_id)) {
       visited.add(ancestor.span_id);
       ends.set(ancestor.span_id, Math.max(ends.get(ancestor.span_id) ?? -Infinity, end));
@@ -247,10 +248,6 @@ function withoutForwardedAnswers(
   );
 }
 
-function isNativeAgent(span: Span): boolean {
-  return span.framework === "claude-code" && span.type === "tool" && ["Agent", "Task"].includes(span.name);
-}
-
 function conversationBranch(span: Span, byId: ReadonlyMap<string, Span>): string {
   if (span.type === "agent" || span.parent_span_id === null) return span.span_id;
   let parent = span.parent_span_id ? byId.get(span.parent_span_id) : undefined;
@@ -291,19 +288,45 @@ function agentLabels(agents: readonly Span[], details: ReadonlyMap<string, SpanD
   );
 }
 
+function requestUpdate(request: readonly TraceMessage[], summary: TraceMessage | undefined): TraceMessage[] {
+  const fresh = newRequestMessages(request);
+  if (!summary) return fresh;
+  return [
+    { role: "system", content: CONTEXT_COMPACTED },
+    { role: "system", content: summary.content },
+    ...fresh.filter((message) => message !== summary),
+  ];
+}
+
 export function buildConversation(
-  spans: readonly Span[],
+  recordedSpans: readonly Span[],
   recordedDetails: ReadonlyMap<string, SpanDetail>,
   complete: boolean,
   pendingBranches?: ReadonlySet<string>,
 ): ConversationItem[] {
-  const details = claudeToolDetails(spans, recordedDetails);
+  const details = claudeToolDetails(recordedSpans, recordedDetails);
+  const spans = linkSessionCalls(recordedSpans, details);
+  const standalone = new Set(
+    recordedSpans.flatMap((span) => (span.parent_span_id === null && span.type === "llm" ? [span.span_id] : [])),
+  );
+  const compacted = compactedCalls(
+    orderBy(
+      spans.filter((span) => standalone.has(span.span_id) && details.has(span.span_id)),
+      [(span) => span.start_offset_ms],
+      ["asc"],
+    ).map((span) => ({
+      id: span.span_id,
+      thread: span.parent_span_id ?? "",
+      request: inputMessages(details.get(span.span_id)!),
+    })),
+  );
   const byId = new Map(spans.map((span) => [span.span_id, span]));
   const histories = new Map<string, TraceMessage[]>();
   const completedOutputs = new Map<string, TraceMessage[]>();
   const pendingCalls = new Map<string, TraceToolCall[]>();
   const items: ConversationItem[] = [];
-  const events = conversationEvents(conversationSteps(spans), byId, details, { complete, pendingBranches });
+  const recordedById = new Map(recordedSpans.map((span) => [span.span_id, span]));
+  const events = conversationEvents(conversationSteps(spans), recordedById, details, { complete, pendingBranches });
   const branch = (span: Span): string => conversationBranch(span, byId);
   for (const event of events) {
     const { span } = event;
@@ -343,7 +366,9 @@ export function buildConversation(
     const fresh =
       detail.attributes["lens.capture.source"] === "session_transcript"
         ? input
-        : newConversationMessages(history, input);
+        : standalone.has(span.span_id)
+          ? requestUpdate(input, compacted.get(span.span_id))
+          : newConversationMessages(history, input);
     if (span.type === "agent" || span.parent_span_id === null) {
       histories.set(key, input);
       const item = { id: span.span_id, span, time: event.time, messages: fresh };
@@ -409,7 +434,12 @@ export function conversationBranchGroups(groups: ConversationGroup[], branchId: 
   return [];
 }
 
-export function groupConversation(items: readonly ConversationItem[], spans: readonly Span[]): ConversationGroup[] {
+export function groupConversation(
+  items: readonly ConversationItem[],
+  recordedSpans: readonly Span[],
+  details: ReadonlyMap<string, SpanDetail> = new Map(),
+): ConversationGroup[] {
+  const spans = linkSessionCalls(recordedSpans, details);
   const byId = new Map(spans.map((span) => [span.span_id, span]));
   const parentById = new Map(
     conversationSteps(spans).flatMap((span) => {

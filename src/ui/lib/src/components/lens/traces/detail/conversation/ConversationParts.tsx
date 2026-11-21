@@ -15,6 +15,7 @@ import { toolSummary } from "../content/payload";
 import { ErrorBlock } from "../content/SpanError";
 import { ToolArguments, ToolOutput } from "../content/ToolContent";
 import type { ConversationGroup, ConversationItem } from "./conversation";
+import { CONTEXT_COMPACTED } from "./sessionCalls";
 
 export function ConversationSteps({
   groups,
@@ -137,7 +138,7 @@ function ConversationTool({ item, onOpenStep }: { item: ConversationItem; onOpen
 }
 
 export function ConversationMessage({ message }: { message: TraceMessage }) {
-  if (message.role === "system" && (message.content.startsWith("Agent ") || message.content === "Context compacted"))
+  if (message.role === "system" && (message.content.startsWith("Agent ") || message.content === CONTEXT_COMPACTED))
     return <p className="text-xs text-muted-foreground">{message.content}</p>;
   if (message.role === "system")
     return (

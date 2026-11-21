@@ -47,7 +47,7 @@ interface TraceThreadProps {
 export function TraceThread({ trace, accessToken, onOpenStep, paging, earlierConversation }: TraceThreadProps) {
   const { details, entries, complete, loading, failed, hasMore, loadMore } = useConversationDetails(trace, accessToken);
   const pending = pendingConversationBranches(trace.spans, details, Boolean(trace.next_cursor));
-  const groups = groupConversation(buildConversation(trace.spans, details, complete, pending), trace.spans);
+  const groups = groupConversation(buildConversation(trace.spans, details, complete, pending), trace.spans, details);
   const builtTurns = buildThread(groups);
   const traceComplete = complete && !trace.next_cursor;
   const shownErrors = replyErrorSpanIds(builtTurns);
@@ -153,6 +153,11 @@ function ThreadFooter({ turnCount, busy, stepsFailed, traceFailed, complete, onR
 function ThreadTurnView({ turn, onOpenStep }: { turn: ThreadTurn; onOpenStep: (id: string) => void }) {
   return (
     <article aria-label="Thread turn" className="min-w-0 space-y-3">
+      {turn.compacted && (
+        <p className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+          Context compacted
+        </p>
+      )}
       {turn.context.length > 0 && <PromptContext count={turn.context.length} turn={turn} />}
       {turn.prompt.map((message, index) => (
         <ConversationMessage key={index} message={message} />
