@@ -17,10 +17,10 @@ export function AlertRuleSettings() {
     refetchOnWindowFocus: false,
   });
   return (
-    <section aria-label="Alert rules" className="space-y-4">
-      <div className="space-y-1">
+    <section aria-label="Alert rules" className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-sm font-medium">Rules</h3>
-        <p className="text-xs text-muted-foreground">Check timing and errors directly. No model needed.</p>
+        <p className="text-xs text-muted-foreground">No model needed</p>
       </div>
       {query.error ? (
         <div role="alert" className="space-y-2 text-sm">
@@ -59,9 +59,9 @@ function RuleForm({ saved }: { saved: AlertRuleConfig }) {
     onSuccess: (result) => queryClient.setQueryData(["alert-rules", api.scope], result),
   });
   return (
-    <div className="space-y-4">
-      <div className="divide-y border-y">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-4">
+    <div className="space-y-3">
+      <div className="grid gap-x-4 border-y py-1 sm:grid-cols-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 py-2">
           <Checkbox
             id={`${id}-duration`}
             checked={durationEnabled}
@@ -81,11 +81,11 @@ function RuleForm({ saved }: { saved: AlertRuleConfig }) {
             value={minutes}
             onChange={(event) => setMinutes(event.target.value)}
             disabled={!durationEnabled || save.isPending}
-            className="h-8 w-20"
+            className="h-8 w-16"
           />
           <span className="text-sm text-muted-foreground">minutes</span>
         </div>
-        <label htmlFor={`${id}-model`} className="flex items-center gap-3 py-4 text-sm">
+        <label htmlFor={`${id}-model`} className="flex items-center gap-2 py-2 text-sm">
           <Checkbox
             id={`${id}-model`}
             checked={modelErrors}
@@ -100,13 +100,10 @@ function RuleForm({ saved }: { saved: AlertRuleConfig }) {
           Enter a whole number of minutes, at least 1.
         </p>
       )}
-      <p className="text-xs leading-5 text-muted-foreground">
-        Applies to new runs across all agents and teams, once per rule and run. Checked as spans arrive. Runs
-        that send telemetry only when finished are checked then.
-      </p>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          Appears in Alerts and uses your Slack notification settings.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="min-w-0 flex-1 basis-64 text-xs leading-5 text-muted-foreground">
+          New runs only, once per rule and run. Checked as spans arrive, or after completion for integrations
+          that export then. Uses your Slack settings.
         </p>
         <Button size="sm" disabled={!dirty || !valid || save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? "Saving…" : "Save rules"}

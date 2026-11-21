@@ -107,18 +107,16 @@ export function AlertsView({
             </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {route.settings === "signals" && (
-              <div className="mb-6">
-                <AlertRuleSettings />
-              </div>
-            )}
             {route.settings === "signals" ? (
-              <details open className="border-t pt-5">
-                <summary className="cursor-pointer text-sm font-medium">Model signals</summary>
-                <div className="pt-4">
+              <>
+                <section aria-label="Model signals">
+                  <h3 className="mb-4 text-sm font-medium">Model signals</h3>
                   <SignalSettings section="signals" onConfigureSignals={() => route.setSettings("signals")} />
+                </section>
+                <div className="mt-6 border-t pt-5">
+                  <AlertRuleSettings />
                 </div>
-              </details>
+              </>
             ) : route.settings ? (
               <SignalSettings
                 section={route.settings}

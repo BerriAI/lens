@@ -182,7 +182,8 @@ describe("Lens navigation", () => {
     expect(await screen.findByText("No matches for these filters")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await user.click(screen.getByRole("button", { name: "Configure alerts" }));
-    expect(await screen.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
+    const modelSettings = within(screen.getByRole("region", { name: "Model signals" }));
+    expect(await modelSettings.findByRole("spinbutton", { name: "Match threshold" })).toHaveValue(70);
     await user.click(screen.getByRole("button", { name: "Close", exact: true }));
     await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
