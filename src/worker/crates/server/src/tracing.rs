@@ -41,6 +41,7 @@ pub struct TraceAgentList {
 pub trait TraceReader: Send + Sync {
     type Help: Serialize + Send;
 
+    #[allow(clippy::too_many_arguments)]
     fn list(
         &self,
         scope: ReadAccessParams,

@@ -160,6 +160,7 @@ pub async fn seed_interleaved_agent_runs(fixture: &SeededDatabase) -> TestResult
     Ok((start_ms, start_ms + 10_000))
 }
 
+#[allow(dead_code)]
 pub async fn seed_runs_with_and_without_calls(fixture: &SeededDatabase) -> TestResult<(i64, i64)> {
     let start_ms = time::OffsetDateTime::now_utc().unix_timestamp() * 1000 - 10_000;
     let rows = [
