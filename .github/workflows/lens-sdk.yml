@@ -35,7 +35,7 @@ jobs:
       - run: cargo fmt --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk -p lens-evals-python --check
       - run: cargo clippy --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk -p lens-evals-python --all-targets -- -D warnings
       - run: cargo test --manifest-path src/worker/Cargo.toml -p lens-cli -p lens-evals-sdk
-      - run: uv sync --project src/sdk --frozen
+      - run: uv sync --project src/sdk --extra agent-evals --frozen
       - run: uv run --project src/sdk ruff check --config src/sdk/pyproject.toml src/sdk src/cli/python src/cli/tests/python src/cli/examples/local_eval
       - run: uv run --project src/sdk ruff format --check --config src/sdk/pyproject.toml src/sdk src/cli/python src/cli/tests/python src/cli/examples/local_eval
       - run: uv run --project src/sdk mypy --config-file src/sdk/pyproject.toml src/sdk/src/lens src/cli/python/lens_cli src/sdk/scripts/generate_contract.py

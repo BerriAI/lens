@@ -38,7 +38,14 @@ impl<'a> Report<'a> {
         let longest_model = summary
             .stats
             .iter()
-            .map(|stat| stat.target.model.chars().count())
+            .map(|stat| {
+                stat.target
+                    .label
+                    .as_deref()
+                    .unwrap_or(&stat.target.model)
+                    .chars()
+                    .count()
+            })
             .max()
             .unwrap_or(6);
         let room = width.saturating_sub(FIXED_COLUMNS + harness_width + 4 + 3);
@@ -95,7 +102,10 @@ impl<'a> Report<'a> {
             badge(brand::model(&target.model)),
             span(
                 pad(
-                    &shorten(&target.model, self.model_width),
+                    &shorten(
+                        target.label.as_deref().unwrap_or(&target.model),
+                        self.model_width,
+                    ),
                     self.model_width + 1,
                 ),
                 Style::fg(MUTED),
@@ -121,6 +131,9 @@ impl<'a> Report<'a> {
 
     fn label(&self, index: usize) -> String {
         let target = &self.stats()[index].target;
+        if let Some(label) = &target.label {
+            return label.clone();
+        }
         let shared = self
             .stats()
             .iter()
@@ -155,7 +168,7 @@ impl<'a> Report<'a> {
             return vec![
                 result(vec![strong("No recommendation")]),
                 detail(vec![muted(
-                    "No configuration passed any case. Inspect the failures below.",
+                    "A recommendation needs passing cases and complete cost metrics. Inspect the results below.",
                 )]),
             ];
         };
@@ -166,17 +179,18 @@ impl<'a> Report<'a> {
         let leader = &self.stats()[top];
         let headline = if top == pick || leader.pass_rate() <= chosen.pass_rate() {
             format!(
-                "Highest pass rate at {:.1}%, ${:.2} total",
+                "Highest pass rate at {:.1}%, {} total",
                 chosen.pass_rate() * 100.0,
-                chosen.cost()
+                money(chosen.cost())
             )
         } else {
             format!(
                 "{} of the best pass rate ({}) for {}",
                 percent(chosen.pass_rate(), leader.pass_rate()),
                 self.label(top),
-                match leader.cost() {
-                    cost if cost > 0.0 => format!("{} of the cost", percent(chosen.cost(), cost)),
+                match (chosen.cost(), leader.cost()) {
+                    (Some(chosen), Some(cost)) if cost > 0.0 =>
+                        format!("{} of the cost", percent(chosen, cost)),
                     _ => "no measured cost".to_owned(),
                 }
             )
@@ -213,7 +227,7 @@ impl<'a> Report<'a> {
         let columns = [
             column("#", 3, Align::Left),
             column("HARNESS", self.harness_width + 4, Align::Left),
-            column("MODEL", self.model_width + 3, Align::Left),
+            column("TARGET", self.model_width + 3, Align::Left),
             column("PASS", 7, Align::Right),
             column("FAIL", 5, Align::Right),
             column("ERR", 5, Align::Right),
@@ -233,12 +247,15 @@ impl<'a> Report<'a> {
                         branded(harness, shorten(harness.label, self.harness_width)),
                         branded(
                             brand::model(&stat.target.model),
-                            shorten(&stat.target.model, self.model_width),
+                            shorten(
+                                stat.target.label.as_deref().unwrap_or(&stat.target.model),
+                                self.model_width,
+                            ),
                         ),
                         cell(format!("{:.1}%", stat.pass_rate() * 100.0), Style::fg(GOOD)),
                         cell(stat.fail.to_string(), Style::fg(BAD)),
                         cell(stat.error.to_string(), Style::fg(WARN)),
-                        cell(money(stat.cost()), Style::fg(TEXT)),
+                        cell(cost_label(stat), Style::fg(TEXT)),
                         cell(
                             cost_per_pass(stat)
                                 .map_or("—".to_owned(), |cost| format!("{:.2}", cost * 100.0)),
@@ -286,25 +303,39 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .map(TargetStats::cost)
+            .filter(|stat| stat.metrics.metrics_complete)
+            .filter_map(TargetStats::cost)
             .fold(0.0, f64::max);
         self.stats()
             .iter()
             .enumerate()
-            .map(|(index, stat)| self.bar_row(index, ratio(stat.cost(), most), money(stat.cost())))
+            .map(|(index, stat)| {
+                self.bar_row(
+                    index,
+                    ratio(
+                        stat.cost()
+                            .filter(|_| stat.metrics.metrics_complete)
+                            .unwrap_or_default(),
+                        most,
+                    ),
+                    cost_label(stat),
+                )
+            })
             .collect()
     }
 
     fn dominator(&self, index: usize) -> Option<usize> {
         let stat = &self.stats()[index];
+        let cost = stat.cost()?;
         self.stats()
             .iter()
             .enumerate()
             .find(|(other, rival)| {
                 *other != index
-                    && rival.cost() <= stat.cost()
+                    && rival.cost().is_some_and(|rival_cost| rival_cost <= cost)
                     && rival.pass_rate() >= stat.pass_rate()
-                    && (rival.cost() < stat.cost() || rival.pass_rate() > stat.pass_rate())
+                    && (rival.cost().is_some_and(|rival_cost| rival_cost < cost)
+                        || rival.pass_rate() > stat.pass_rate())
             })
             .map(|(other, _)| other)
     }
@@ -318,7 +349,13 @@ impl<'a> Report<'a> {
             (harness.label.to_owned(), self.marker_style(index)),
             ("  ".to_owned(), Style::default()),
             (format!("{} ", model.glyph), Style::fg(model.color)),
-            (shorten(&target.model, self.model_width), Style::fg(MUTED)),
+            (
+                shorten(
+                    target.label.as_deref().unwrap_or(&target.model),
+                    self.model_width,
+                ),
+                Style::fg(MUTED),
+            ),
         ]
         .into_iter()
         .flat_map(|(piece, style)| {
@@ -351,16 +388,25 @@ impl<'a> Report<'a> {
     }
 
     fn scatter(&self) -> Vec<Line> {
+        if self
+            .stats()
+            .iter()
+            .any(|stat| stat.cost().is_none() || !stat.metrics.metrics_complete)
+        {
+            return vec![detail(vec![muted(
+                "Cost comparison needs complete model and judge metrics.",
+            )])];
+        }
         let columns = self.width.saturating_sub(14).min(56);
         let cheapest = self
             .stats()
             .iter()
-            .map(TargetStats::cost)
+            .filter_map(TargetStats::cost)
             .fold(f64::MAX, f64::min);
         let priciest = self
             .stats()
             .iter()
-            .map(TargetStats::cost)
+            .filter_map(TargetStats::cost)
             .fold(0.0, f64::max);
         let margin = ((priciest - cheapest) * 0.15)
             .max(priciest * 0.05)
@@ -384,7 +430,12 @@ impl<'a> Report<'a> {
             .map(|(index, stat)| {
                 (
                     PLOT_ROWS - 1 - scale(stat.pass_rate(), low_rate, high_rate, PLOT_ROWS),
-                    scale(stat.cost(), low_cost, high_cost, columns),
+                    scale(
+                        stat.cost().unwrap_or_default(),
+                        low_cost,
+                        high_cost,
+                        columns,
+                    ),
                     index,
                 )
             })
@@ -650,9 +701,10 @@ impl<'a> Report<'a> {
             ],
             joined(vec![
                 muted(format!(
-                    "{} tasks × {} configs",
+                    "{} tasks × {} configs × {} trials",
                     thousands(self.summary.task_count as u64),
-                    self.stats().len()
+                    self.stats().len(),
+                    self.summary.trials,
                 )),
                 muted("local"),
             ]),
@@ -769,11 +821,22 @@ fn scale(value: f64, low: f64, high: f64, steps: usize) -> usize {
         .clamp(0.0, (steps - 1) as f64) as usize
 }
 
-fn money(value: f64) -> String {
+fn money(value: Option<f64>) -> String {
+    let Some(value) = value else {
+        return "unknown".to_owned();
+    };
     if value >= 0.01 || value == 0.0 {
         format!("${value:.2}")
     } else {
         format!("${value:.4}")
+    }
+}
+
+fn cost_label(stat: &TargetStats) -> String {
+    if stat.metrics.metrics_complete {
+        money(stat.cost())
+    } else {
+        "incomplete".to_owned()
     }
 }
 
@@ -794,7 +857,8 @@ fn seconds(value: f64) -> String {
 }
 
 pub fn cost_per_pass(stat: &TargetStats) -> Option<f64> {
-    (stat.pass > 0).then(|| stat.cost() / f64::from(stat.pass))
+    (stat.pass > 0 && stat.metrics.metrics_complete).then_some(())?;
+    Some(stat.cost()? / f64::from(stat.pass))
 }
 
 pub fn lines(summary: &Summary, width: usize) -> Vec<Line> {
@@ -813,18 +877,23 @@ mod tests {
             target: Target {
                 harness: harness.to_owned(),
                 model: model.to_owned(),
+                label: None,
             },
             pass,
             fail,
             wrong_answer: fail / 2,
             tool_misuse: fail - fail / 2,
             error: 1,
-            model_cost: cost,
-            judge_cost: 0.0,
+            model_cost: Some(cost),
+            judge_cost: Some(0.0),
             tool_calls_per_case: 2.0,
             repeat_rate: 0.1,
             p50_seconds: 3.0,
             p95_seconds: 7.5,
+            metrics: crate::local::Metrics {
+                metrics_complete: true,
+                ..Default::default()
+            },
         }
     }
 
@@ -832,6 +901,7 @@ mod tests {
         Summary {
             run_id: "eval_abcd".to_owned(),
             task_count: 40,
+            trials: 1,
             stats: (0..count)
                 .map(|index| {
                     stat(
@@ -877,7 +947,7 @@ mod tests {
         assert!(
             output
                 .iter()
-                .any(|line| line.plain().contains("No configuration passed any case"))
+                .any(|line| line.plain().contains("No recommendation"))
         );
         assert!(
             !output

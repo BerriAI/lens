@@ -121,17 +121,22 @@ mod progress {
             id: "eval_test".to_owned(),
             tasks_file: "tasks.csv".to_owned(),
             config_file: "evals.py".to_owned(),
+            task_data: None,
+            config_hash: None,
             targets: vec![
                 Target {
                     harness: "litellm".to_owned(),
                     model: "gpt-5-mini".to_owned(),
+                    label: None,
                 },
                 Target {
                     harness: "openai-agents".to_owned(),
                     model: "gpt-5-mini".to_owned(),
+                    label: None,
                 },
             ],
             task_count: 3,
+            trials: 1,
             concurrency: 4,
         }
     }
@@ -139,14 +144,24 @@ mod progress {
     fn finished(target: &Target, outcome: Outcome, cost: f64) -> Progress {
         Progress::Finished(Box::new(Attempt {
             task_id: "t".to_owned(),
+            trial: 1,
             target: target.clone(),
             latency_seconds: 1.0,
             result: AgentResult {
                 outcome,
                 output: String::new(),
-                cost,
-                judge_cost: 0.25,
+                cost: Some(cost),
+                judge_cost: Some(0.25),
                 tool_calls: Vec::new(),
+                metrics: lens_cli::local::Metrics {
+                    metrics_complete: true,
+                    ..Default::default()
+                },
+                stop_reason: None,
+                check_error: None,
+                check_detail: None,
+                duration_seconds: None,
+                run_id: None,
             },
         }))
     }
@@ -192,11 +207,11 @@ mod progress {
                 pass: 1,
                 fail: 1,
                 error: 0,
-                cost: 2.5
+                cost: Some(2.5)
             }
         );
         assert_eq!(tally.counts[1].error, 1);
-        assert!((tally.cost() - 3.25).abs() < 1e-9);
+        assert!((tally.cost().unwrap() - 3.25).abs() < 1e-9);
     }
 
     #[rstest]
@@ -308,7 +323,14 @@ mod fixture {
         assert_eq!(tally.counts[2].fail, u64::from(summary.stats[2].fail));
         assert_eq!(tally.counts[2].error, u64::from(summary.stats[2].error));
         assert!(
-            (tally.cost() - summary.stats.iter().map(TargetStats::cost).sum::<f64>()).abs() < 1e-6
+            (tally.cost().unwrap()
+                - summary
+                    .stats
+                    .iter()
+                    .filter_map(TargetStats::cost)
+                    .sum::<f64>())
+            .abs()
+                < 1e-6
         );
     }
 }

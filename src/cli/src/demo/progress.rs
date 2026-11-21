@@ -7,13 +7,25 @@ use crate::demo::style::{
 use crate::demo::{body, brand, detail, result, spinner};
 use crate::local::{Outcome, Progress, RunMeta, Target};
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Count {
     pub done: u64,
     pub pass: u64,
     pub fail: u64,
     pub error: u64,
-    pub cost: f64,
+    pub cost: Option<f64>,
+}
+
+impl Default for Count {
+    fn default() -> Self {
+        Self {
+            done: 0,
+            pass: 0,
+            fail: 0,
+            error: 0,
+            cost: Some(0.0),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -21,6 +33,7 @@ pub struct Tally {
     pub targets: Vec<Target>,
     pub counts: Vec<Count>,
     pub task_count: u64,
+    pub trials: u64,
     pub resumed: u64,
 }
 
@@ -30,6 +43,7 @@ impl Tally {
             targets: meta.targets.clone(),
             counts: vec![Count::default(); meta.targets.len()],
             task_count: meta.task_count as u64,
+            trials: meta.trials as u64,
             resumed: resumed as u64,
         }
     }
@@ -52,7 +66,11 @@ impl Tally {
                 };
                 let count = &mut self.counts[index];
                 count.done += 1;
-                count.cost += attempt.result.cost + attempt.result.judge_cost;
+                count.cost = count
+                    .cost
+                    .zip(attempt.result.cost.zip(attempt.result.judge_cost))
+                    .filter(|_| attempt.result.metrics.metrics_complete)
+                    .map(|(cost, (model, judge))| cost + model + judge);
                 match attempt.result.outcome {
                     Outcome::Pass => count.pass += 1,
                     Outcome::Fail { .. } => count.fail += 1,
@@ -63,14 +81,14 @@ impl Tally {
     }
 
     pub fn total(&self) -> u64 {
-        self.task_count * self.targets.len() as u64
+        self.task_count * self.targets.len() as u64 * self.trials
     }
 
     pub fn done(&self) -> u64 {
         (self.resumed + self.counts.iter().map(|count| count.done).sum::<u64>()).min(self.total())
     }
 
-    pub fn cost(&self) -> f64 {
+    pub fn cost(&self) -> Option<f64> {
         self.counts.iter().map(|count| count.cost).sum()
     }
 
@@ -135,7 +153,11 @@ pub fn found(tally: &Tally) -> Vec<Line> {
         Line::blank(),
         result(vec![
             strong(format!("Found {} tasks", thousands(tally.task_count))),
-            text(format!(" × {} configurations", tally.targets.len())),
+            text(format!(
+                " × {} configurations × {} trials",
+                tally.targets.len(),
+                tally.trials
+            )),
         ]),
         detail(
             [muted("harnesses  ")]
@@ -184,7 +206,10 @@ pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<L
             thousands(tally.done()),
             thousands(tally.total())
         )),
-        good(format!("${:.2} so far, incl. judge", tally.cost())),
+        match tally.cost() {
+            Some(cost) => good(format!("${cost:.2} so far, incl. judge")),
+            None => muted("cost metrics incomplete"),
+        },
     ]));
     let summary = [status, Line::blank(), progress, Line::blank(), counts];
     if finished {
@@ -196,7 +221,7 @@ pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<L
         .zip(&tally.counts)
         .map(|(target, count)| {
             let harness = brand::harness(&target.harness);
-            let share = match tally.task_count {
+            let share = match tally.task_count * tally.trials {
                 0 => 0.0,
                 tasks => count.done as f64 / tasks as f64,
             };

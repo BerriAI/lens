@@ -200,3 +200,55 @@ def test_imports_and_public_values_work_in_a_fresh_process(tmp_path, module):
         timeout=15,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_sdk_dependency_import_errors_have_install_guidance_without_traceback(tmp_path, missing):
+    import os
+
+    blocked = tmp_path / "controlled_imports"
+    blocked.mkdir()
+    (blocked / "litellm.py").write_text(
+        "raise ModuleNotFoundError(\"No module named 'litellm'\", name='litellm')\n"
+        if missing
+        else "class EvalTarget:\n"
+        "    def __init__(self, harness, model):\n"
+        "        self.harness, self.model = harness, model\n"
+        "EvalRun = EvalScorecard = EvalStatus = EvalTask = PredicateCheck = object\n"
+    )
+    (tmp_path / "evals.py").write_text("from litellm import EvalTarget\ntargets = [EvalTarget('tool_loop', 'model')]\n")
+    env = {**os.environ, "PYTHONPATH": str(blocked) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    rejected = subprocess.run(
+        [sys.executable, "-m", "lens.cli", "run", "--config", "evals.py", "--fast"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+    assert rejected.returncode == 2
+    assert "Cannot import evals.py" in rejected.stderr
+    assert "agent-evals extra" in rejected.stderr
+    assert "Traceback" not in rejected.stderr
+    (tmp_path / "legacy.py").write_text(
+        "from lens import Target, AgentOutput\n"
+        "async def answer(task):\n    return AgentOutput('billing')\n"
+        "targets = [Target('custom', 'model', answer)]\n"
+    )
+    (tmp_path / "tasks.csv").write_text("id,prompt,expected\nt,Classify,billing\n")
+    compatible = subprocess.run(
+        [sys.executable, "-m", "lens.cli", "run", "tasks.csv", "--config", "legacy.py", "--fast"],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+    assert compatible.returncode == 0, compatible.stderr
+
+
+def test_config_execution_errors_are_not_reclassified_as_missing_dependencies(tmp_path):
+    path = tmp_path / "evals.py"
+    path.write_text("raise RuntimeError('configuration bug')\n")
+    with pytest.raises(RuntimeError, match="configuration bug"):
+        load_config(path)

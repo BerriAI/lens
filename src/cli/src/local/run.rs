@@ -7,7 +7,9 @@ use std::time::Instant;
 
 use futures_util::{StreamExt, stream};
 
-use super::{AgentResult, Attempt, Outcome, Progress, RunMeta, Summary, Target, TargetStats, Task};
+use super::{
+    AgentResult, Attempt, Metrics, Outcome, Progress, RunMeta, Summary, Target, TargetStats, Task,
+};
 use crate::{Error, Result};
 
 const RECOMMEND_WINDOW: f64 = 0.05;
@@ -42,9 +44,16 @@ pub fn load_tasks(path: &Path) -> Result<Vec<Task>> {
                     })
                     .map(|(index, name)| (name.trim().to_owned(), field(index)))
                     .collect(),
+                trial: 1,
+                suite_id: None,
             })
         })
         .collect::<Result<_>>()?;
+    validate_tasks(&tasks)?;
+    Ok(tasks)
+}
+
+pub fn validate_tasks(tasks: &[Task]) -> Result<()> {
     let mut ids = HashSet::new();
     if let Some(task) = tasks
         .iter()
@@ -55,7 +64,39 @@ pub fn load_tasks(path: &Path) -> Result<Vec<Task>> {
             value: task.id.clone(),
         });
     }
-    Ok(tasks)
+    Ok(())
+}
+
+pub fn validate_resume(
+    meta: &RunMeta,
+    tasks: &[Task],
+    targets: &[Target],
+    config_hash: Option<&str>,
+) -> Result<()> {
+    if meta
+        .task_data
+        .as_deref()
+        .is_some_and(|saved| saved != tasks)
+    {
+        return Err(Error::Configuration(
+            "Tasks changed since this run started. Start a new run instead",
+        ));
+    }
+    if meta
+        .config_hash
+        .as_deref()
+        .is_some_and(|saved| Some(saved) != config_hash)
+    {
+        return Err(Error::Configuration(
+            "Eval config changed since this run started. Start a new run instead",
+        ));
+    }
+    if meta.targets.iter().any(|saved| !targets.contains(saved)) {
+        return Err(Error::Configuration(
+            "Eval targets changed since this run started. Start a new run instead",
+        ));
+    }
+    Ok(())
 }
 
 pub fn new_run_id() -> String {
@@ -113,6 +154,35 @@ fn stats(target: &Target, attempts: &[&Attempt]) -> TargetStats {
             .iter()
             .map(|attempt| attempt.result.judge_cost)
             .sum(),
+        metrics: Metrics {
+            input_tokens: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.input_tokens)
+                .sum(),
+            output_tokens: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.output_tokens)
+                .sum(),
+            model_calls: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.model_calls)
+                .sum(),
+            judge_input_tokens: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.judge_input_tokens)
+                .sum(),
+            judge_output_tokens: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.judge_output_tokens)
+                .sum(),
+            judge_model_calls: attempts
+                .iter()
+                .map(|attempt| attempt.result.metrics.judge_model_calls)
+                .sum(),
+            metrics_complete: attempts
+                .iter()
+                .all(|attempt| attempt.result.metrics.metrics_complete),
+        },
         tool_calls_per_case: match attempts.len() {
             0 => 0.0,
             cases => calls as f64 / cases as f64,
@@ -131,10 +201,13 @@ fn recommend(stats: &[TargetStats]) -> Option<usize> {
     stats
         .iter()
         .enumerate()
-        .filter(|(_, stat)| stat.pass > 0 && stat.pass_rate() >= best - RECOMMEND_WINDOW)
-        .min_by(|(_, left), (_, right)| {
-            (left.cost() / f64::from(left.pass)).total_cmp(&(right.cost() / f64::from(right.pass)))
+        .filter(|(_, stat)| {
+            stat.pass > 0
+                && stat.pass_rate() >= best - RECOMMEND_WINDOW
+                && stat.metrics.metrics_complete
         })
+        .filter_map(|(index, stat)| Some((index, stat.cost()? / f64::from(stat.pass))))
+        .min_by(|(_, left), (_, right)| left.total_cmp(right))
         .map(|(index, _)| index)
 }
 
@@ -153,6 +226,7 @@ pub fn summarize(meta: &RunMeta, attempts: &[Attempt]) -> Summary {
     Summary {
         run_id: meta.id.clone(),
         task_count: meta.task_count,
+        trials: meta.trials,
         recommended: recommend(&stats),
         stats,
     }
@@ -219,27 +293,48 @@ where
     F: Fn(Task, Target) -> Fut + Send + Sync,
     Fut: Future<Output = AgentResult> + Send,
 {
+    validate_tasks(&tasks)?;
+    if meta.trials == 0 {
+        return Err(Error::Configuration("Trials must be at least one"));
+    }
     let directory = runs(root).join(&meta.id);
     fs::create_dir_all(&directory)?;
     write_json(&directory.join("meta.json"), &meta)?;
     let journal = attempts_path(&directory);
     let previous = read_attempts(&journal)?;
-    let done: HashSet<(String, Target)> = previous
+    let done: HashSet<(String, Target, usize)> = previous
         .iter()
-        .map(|attempt| (attempt.task_id.clone(), attempt.target.clone()))
+        .map(|attempt| {
+            (
+                attempt.task_id.clone(),
+                attempt.target.clone(),
+                attempt.trial,
+            )
+        })
         .collect();
     progress(Progress::Started {
         meta: meta.clone(),
         resumed: previous.len(),
     });
+    let suite_id = &meta.id;
+    let trials = meta.trials;
     let pending: Vec<(Task, Target)> = tasks
         .iter()
         .flat_map(|task| {
-            meta.targets
-                .iter()
-                .map(move |target| (task.clone(), target.clone()))
+            meta.targets.iter().flat_map(move |target| {
+                (1..=trials).map(move |trial| {
+                    (
+                        Task {
+                            trial,
+                            suite_id: Some(suite_id.clone()),
+                            ..task.clone()
+                        },
+                        target.clone(),
+                    )
+                })
+            })
         })
-        .filter(|(task, target)| !done.contains(&(task.id.clone(), target.clone())))
+        .filter(|(task, target)| !done.contains(&(task.id.clone(), target.clone(), task.trial)))
         .collect();
     let mut file = OpenOptions::new()
         .create(true)
@@ -250,11 +345,16 @@ where
         .map(|(task, target)| async move {
             let started = Instant::now();
             let task_id = task.id.clone();
+            let trial = task.trial;
             let result = invoke(task, target.clone()).await;
             Attempt {
                 task_id,
                 target,
-                latency_seconds: started.elapsed().as_secs_f64(),
+                trial,
+                latency_seconds: result
+                    .duration_seconds
+                    .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
+                    .unwrap_or_else(|| started.elapsed().as_secs_f64()),
                 result,
             }
         })

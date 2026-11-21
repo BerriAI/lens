@@ -83,6 +83,7 @@ fn target(sample: &Sample) -> Target {
     Target {
         harness: sample.harness.to_owned(),
         model: sample.model.to_owned(),
+        label: None,
     }
 }
 
@@ -91,8 +92,11 @@ pub fn meta() -> RunMeta {
         id: RUN_ID.to_owned(),
         tasks_file: "tasks.csv".to_owned(),
         config_file: "evals.py".to_owned(),
+        task_data: None,
+        config_hash: None,
         targets: SAMPLES.iter().map(target).collect(),
         task_count: TASKS as usize,
+        trials: 1,
         concurrency: 16,
     }
 }
@@ -101,6 +105,7 @@ pub fn summary() -> Summary {
     Summary {
         run_id: RUN_ID.to_owned(),
         task_count: TASKS as usize,
+        trials: 1,
         stats: SAMPLES
             .iter()
             .map(|sample| TargetStats {
@@ -110,12 +115,16 @@ pub fn summary() -> Summary {
                 wrong_answer: sample.wrong_answer,
                 tool_misuse: sample.fail - sample.wrong_answer,
                 error: sample.error,
-                model_cost: sample.model_cost,
-                judge_cost: JUDGE_COST,
+                model_cost: Some(sample.model_cost),
+                judge_cost: Some(JUDGE_COST),
                 tool_calls_per_case: sample.tool_calls,
                 repeat_rate: sample.repeat_rate,
                 p50_seconds: sample.p50_seconds,
                 p95_seconds: sample.p95_seconds,
+                metrics: crate::local::Metrics {
+                    metrics_complete: true,
+                    ..Default::default()
+                },
             })
             .collect(),
         recommended: Some(PICK),
@@ -141,14 +150,24 @@ pub fn event(index: usize) -> Progress {
     let case = (index / SAMPLES.len()) as u32;
     Progress::Finished(Box::new(Attempt {
         task_id: format!("ticket-{:04}", case + 1),
+        trial: 1,
         target: target(sample),
         latency_seconds: sample.p50_seconds,
         result: AgentResult {
             outcome: outcome(sample, case),
             output: String::new(),
-            cost: sample.model_cost / f64::from(TASKS),
-            judge_cost: JUDGE_COST / f64::from(TASKS),
+            cost: Some(sample.model_cost / f64::from(TASKS)),
+            judge_cost: Some(JUDGE_COST / f64::from(TASKS)),
             tool_calls: Vec::new(),
+            metrics: crate::local::Metrics {
+                metrics_complete: true,
+                ..Default::default()
+            },
+            stop_reason: None,
+            check_error: None,
+            check_detail: None,
+            duration_seconds: None,
+            run_id: None,
         },
     }))
 }
