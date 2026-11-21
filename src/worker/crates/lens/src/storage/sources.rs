@@ -230,7 +230,7 @@ impl SourceReader {
                     trace_ref: source.trace_ref.clone(),
                     agent_name: lens.settings.agent_name.clone(),
                     selected_team: lens.settings.team_id.clone(),
-                    service: lens.settings.service.clone(),
+                    service: application(lens.settings.source, &lens.settings.service),
                     filter_keys: lens
                         .settings
                         .filters
@@ -307,6 +307,13 @@ fn source(source: ExecutionSource) -> ContentSource {
     }
 }
 
+fn application(source: LensSettingsSource, service: &str) -> String {
+    match source {
+        LensSettingsSource::Requests => String::new(),
+        LensSettingsSource::Traces | LensSettingsSource::Both => service.to_owned(),
+    }
+}
+
 fn sample_parameters(
     scope: &Scope,
     request: &SampleRequest<'_>,
@@ -327,10 +334,7 @@ fn sample_parameters(
         start: request.start,
         end: request.end,
         agent_name: settings.agent_name.clone(),
-        service: match settings.source {
-            LensSettingsSource::Requests => String::new(),
-            LensSettingsSource::Traces | LensSettingsSource::Both => settings.service.clone(),
-        },
+        service: application(settings.source, &settings.service),
         filter_keys: settings
             .filters
             .iter()
