@@ -897,12 +897,23 @@ async fn trace_agents_count_runs_and_failures_within_scope_and_window(
             vec![serde_json::from_value(serde_json::json!({
                 "Timestamp": timestamp, "TraceId": trace, "SpanId": span, "ParentSpanId": parent,
                 "ServiceName": "app", "SpanName": span, "AgentName": agent, "UserId": "owner",
-                "StatusCode": status, "Framework": framework, "ObservationType": "agent",
+                "StatusCode": status, "Framework": framework, "ObservationType": "llm",
                 "ResourceAttributes": {"litellm.team_id": team, "litellm.api_key_hash": "key"}
             }))?],
         )
         .await?;
     }
+    insert_rows(
+        &database,
+        "otel_traces",
+        vec![serde_json::from_value(serde_json::json!({
+            "Timestamp": now, "TraceId": "no-model-or-tool-call", "SpanId": "root",
+            "ServiceName": "app", "SpanName": "sql.execute", "AgentName": "moyai",
+            "UserId": "owner", "ObservationType": "agent",
+            "ResourceAttributes": {"litellm.team_id": "alpha", "litellm.api_key_hash": "key"}
+        }))?],
+    )
+    .await?;
     let connection = Connection::configured(&database.url, "trace_test", "default", "")?;
     let parameters = BTreeMap::from([
         ("all_teams".into(), Parameter::Integer(0)),
@@ -2487,6 +2498,7 @@ async fn rollup_cost_completeness_preserves_missing_ids_and_fails_closed_for_his
                 team_ids: vec!["team".into()],
             },
             agent: String::new(),
+            include_internal: true,
             start_ms: timestamp / 1_000_000 - 1,
             end_ms: timestamp / 1_000_000 + 1,
             cursor_ms: 0,

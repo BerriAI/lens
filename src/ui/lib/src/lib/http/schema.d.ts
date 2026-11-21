@@ -82117,6 +82117,8 @@ export interface operations {
                 end_ms?: number | null;
                 cursor?: string | null;
                 agent?: string | null;
+                /** @description Also list traces that made no model call and no tool call. Default: false */
+                include_internal?: boolean | null;
             };
             header?: never;
             path?: never;

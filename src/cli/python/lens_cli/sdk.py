@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dis
 import hashlib
 import inspect
 import json
@@ -131,13 +132,27 @@ def _agent_source(agent_type: type[EvalAgent]) -> str | None:
 def _callable_identity(value: Callable[..., object], ancestors: tuple[object, ...]) -> object:
     try:
         source: Final = inspect.getsource(value)
-        closure: Final = _MAPPING.validate_python(inspect.getclosurevars(value).nonlocals)
+        bindings: Final = inspect.getclosurevars(value)
+        closure: Final = _MAPPING.validate_python(bindings.nonlocals)
+        globals_read: Final = {
+            instruction.argval for instruction in dis.get_instructions(value) if instruction.opname == "LOAD_GLOBAL"
+        }
+        scalar_globals: Final = {
+            name: item
+            for name, item in _MAPPING.validate_python(bindings.globals).items()
+            if name in globals_read and (item is None or type(item) in (str, int, float, bool))
+        }
         defaults: Final = {
             parameter.name: _OBJECT.validate_python(parameter.default)
             for parameter in inspect.signature(value).parameters.values()
             if parameter.default is not inspect.Parameter.empty
         }
-        return {"source": source, "closure": _identity(closure, ancestors), "defaults": _identity(defaults, ancestors)}
+        return {
+            "source": source,
+            "closure": _identity(closure, ancestors),
+            "defaults": _identity(defaults, ancestors),
+            **({"globals": scalar_globals} if scalar_globals else {}),
+        }
     except (OSError, TypeError):
         return {"type": type(value).__module__ + "." + type(value).__qualname__}
 

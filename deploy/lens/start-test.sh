@@ -90,10 +90,12 @@ if [[ "$compose_default" != "ghcr.io/berriai/lens:$(tr -d '[:space:]' < "$lens_d
   failures=$((failures + 1))
 fi
 
-if ! diff <(sed -n '/^    content: |$/,$p' "$lens_dir/compose.yaml" | sed '1d; s/^      //') "$lens_dir/../clickhouse/keeper.xml" >&2; then
-  printf 'FAIL the Keeper configuration in compose.yaml matches deploy/clickhouse/keeper.xml\n' >&2
-  failures=$((failures + 1))
-fi
+for lens_config in keeper logging; do
+  if ! diff <(awk -v name="  $lens_config:" '/^  [a-z]+:$/ { inside = ($0 == name); next } inside && !/^    content: \|$/ { sub(/^      /, ""); print }' "$lens_dir/compose.yaml") "$lens_dir/../clickhouse/$lens_config.xml" >&2; then
+    printf 'FAIL the %s configuration in compose.yaml matches deploy/clickhouse/%s.xml\n' "$lens_config" "$lens_config" >&2
+    failures=$((failures + 1))
+  fi
+done
 
 [[ "$failures" == 0 ]]
 printf 'start image selection passed\n'

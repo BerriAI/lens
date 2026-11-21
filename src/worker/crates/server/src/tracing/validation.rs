@@ -9,7 +9,7 @@ use serde_json::json;
 
 use super::{TraceConfig, TraceReadError, read_error};
 use crate::{
-    datasets::validation::{Revision, failure, integer},
+    datasets::validation::{Revision, boolean, failure, integer},
     error::{DatasetError, TraceHttpError, ValidationError},
 };
 
@@ -89,12 +89,26 @@ pub(super) fn list(
             )
         });
     errors.extend(agent_error);
+    let include_internal = params.get("include_internal").and_then(|value| {
+        let parsed = boolean(&json!(value));
+        if parsed.is_none() {
+            errors.push(failure(
+                "bool_parsing",
+                &[json!("query"), json!("include_internal")],
+                "Input should be a valid boolean, unable to interpret input",
+                json!(value),
+                None,
+            ));
+        }
+        parsed
+    });
     finish(errors)?;
     Ok(TraceListRequest {
         start_ms: exact(start, config)?,
         end_ms: exact(end, config)?,
         cursor,
         agent,
+        include_internal,
     })
 }
 

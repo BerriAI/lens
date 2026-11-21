@@ -7,7 +7,7 @@ import { TracesApiContext, liveTracesApi } from "../api";
 import { useAgentTraces } from "./useAgentTraces";
 
 describe("useAgentTraces", () => {
-  it("passes the selected agent and fetches a new query when it changes", async () => {
+  it("passes the selected agent and the internal-traces choice, and fetches again when either changes", async () => {
     const list = vi.fn().mockResolvedValue({ data: [], next_cursor: null });
     const api = { ...liveTracesApi("sk-test"), list };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -17,15 +17,26 @@ describe("useAgentTraces", () => {
       </TracesApiContext.Provider>
     );
     const { rerender } = renderHook(
-      ({ agent }) => useAgentTraces({ accessToken: "sk-test", range: { hours: 24, anchorMs: 0 }, enabled: true, agent }),
-      { initialProps: { agent: "agent-a" }, wrapper },
+      ({ agent, includeInternal }) =>
+        useAgentTraces({
+          accessToken: "sk-test",
+          range: { hours: 24, anchorMs: 0 },
+          enabled: true,
+          agent,
+          includeInternal,
+        }),
+      { initialProps: { agent: "agent-a", includeInternal: false }, wrapper },
     );
 
     await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
-    expect(list.mock.calls[0][1]).toBe("agent-a");
+    expect(list.mock.calls[0][1]).toEqual({ agent: "agent-a", includeInternal: false });
 
-    rerender({ agent: "agent-b" });
+    rerender({ agent: "agent-b", includeInternal: false });
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-    expect(list.mock.calls[1][1]).toBe("agent-b");
+    expect(list.mock.calls[1][1]).toEqual({ agent: "agent-b", includeInternal: false });
+
+    rerender({ agent: "agent-b", includeInternal: true });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
+    expect(list.mock.calls[2][1]).toEqual({ agent: "agent-b", includeInternal: true });
   });
 });

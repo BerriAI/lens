@@ -75,6 +75,7 @@ impl TraceReader for Reader {
         &self,
         scope: ReadAccessParams,
         agent: String,
+        include_internal: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -82,7 +83,7 @@ impl TraceReader for Reader {
     ) -> Result<TracePage, TraceReadError> {
         self.record(
             scope,
-            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit,"agent":agent}),
+            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit,"agent":agent,"include_internal":include_internal}),
         )?;
         Ok(TracePage {
             data: Vec::new(),
@@ -484,7 +485,7 @@ async fn admin_reads_use_all_rows_and_preserve_supplied_request_parameters(
     assert!(calls[0].scope.team_ids.is_empty());
     assert_eq!(
         calls[0].parameters,
-        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50,"agent":"A"})
+        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50,"agent":"A","include_internal":false})
     );
 }
 
@@ -552,6 +553,7 @@ async fn read_failures_preserve_public_status_details_and_retry_headers(
 
 #[rstest]
 #[case::list("/v1/traces?start_ms=bad&end_ms=bad", json!(["query","start_ms"]), "int_parsing")]
+#[case::list_internal("/v1/traces?include_internal=maybe", json!(["query","include_internal"]), "bool_parsing")]
 #[case::small_page("/v1/traces/id?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
 #[case::conversation_small_page("/v1/traces/id/conversation?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
 #[case::conversation_large_page("/v1/traces/id/conversation?page_size=51", json!(["query","page_size"]), "less_than_equal")]
@@ -578,6 +580,30 @@ async fn invalid_query_never_reaches_reader(
     assert_eq!(errors["detail"][0]["type"], kind);
     assert_eq!(errors["detail"][0]["loc"], loc);
     assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::omitted("/v1/traces?start_ms=1&end_ms=2", false)]
+#[case::off("/v1/traces?start_ms=1&end_ms=2&include_internal=false", false)]
+#[case::on("/v1/traces?start_ms=1&end_ms=2&include_internal=true", true)]
+#[tokio::test]
+async fn list_shows_internal_traces_only_when_asked(
+    #[future(awt)] database: Database,
+    #[case] path: &str,
+    #[case] include_internal: bool,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = server
+        .client
+        .get(server.url.join(path).unwrap())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(calls[0].parameters["include_internal"], include_internal);
 }
 
 #[rstest]

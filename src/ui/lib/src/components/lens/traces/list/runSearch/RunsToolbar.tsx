@@ -3,6 +3,7 @@
 import type { TraceSummary } from "../../types";
 import type { TimeWindow } from "../../../../shared/timeRange/timeRange";
 
+import { Switch } from "../../../../ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../ui/select";
 import { useRunFilterRouting } from "../../routing";
 import { RunSearch } from "./RunSearch";
@@ -20,7 +21,7 @@ interface RunsToolbarProps {
 }
 
 export function RunsToolbar({ query, onQueryChange, runs, range, busy, children }: RunsToolbarProps) {
-  const { status, setStatus } = useRunFilterRouting();
+  const { status, setStatus, includeInternal, setIncludeInternal } = useRunFilterRouting();
   const statuses = [
     { value: "all", label: "All status" },
     { value: "ok", label: "No errors" },
@@ -51,6 +52,13 @@ export function RunsToolbar({ query, onQueryChange, runs, range, busy, children 
           </SelectContent>
         </Select>
       </div>
+      <label
+        className="flex h-10 shrink-0 cursor-pointer items-center gap-2 border-l border-border px-3 font-mono text-[11px] text-muted-foreground"
+        title="Traces with no model call and no tool call, such as an agent's own startup or database spans"
+      >
+        <Switch size="sm" checked={includeInternal} onCheckedChange={setIncludeInternal} />
+        Internal traces
+      </label>
       {children && <div className="contents [&>*]:h-10">{children}</div>}
     </div>
   );

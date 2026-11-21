@@ -33,6 +33,7 @@ export const agentTraceListCall = async ({
   endMs,
   cursor,
   agent,
+  includeInternal,
   signal,
 }: {
   accessToken: string;
@@ -40,6 +41,7 @@ export const agentTraceListCall = async ({
   endMs: number;
   cursor?: string | null;
   agent?: string;
+  includeInternal?: boolean;
   signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
@@ -47,6 +49,7 @@ export const agentTraceListCall = async ({
     end_ms: endMs,
     cursor: cursor ?? undefined,
     agent: agent || undefined,
+    include_internal: includeInternal || undefined,
   } satisfies TraceListQuery;
   return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };

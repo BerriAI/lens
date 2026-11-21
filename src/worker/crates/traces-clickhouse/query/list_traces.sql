@@ -29,9 +29,22 @@ WHERE ({all_teams:UInt8} = 1
              OR has({team_ids:Array(String)}, TeamId))
       GROUP BY TeamId, ApiKeyHash, TraceId
       HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64}))
+  AND (TeamId, ApiKeyHash, TraceId) NOT IN (
+      SELECT TeamId, ApiKeyHash, TraceId FROM otel_traces
+      WHERE ObservationType = 'llm'
+        AND Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64})
+      GROUP BY TeamId, ApiKeyHash, TraceId
+      HAVING countIf(NOT arrayExists(key -> startsWith(key, 'litellm_request:'), CallKeys)) = 0
+         AND countIf((TeamId, ApiKeyHash, LiteLLMRequestId) NOT IN (
+             SELECT TeamId, ApiKeyHash, LiteLLMRequestId FROM otel_traces
+             WHERE ObservationType = 'llm' AND LiteLLMRequestId != ''
+               AND CallEvidence = 'complete'
+AND NOT arrayExists(key -> startsWith(key, 'litellm_request:'), CallKeys)
+               AND Timestamp >= fromUnixTimestamp64Milli({start_ms:Int64}))) = 0)
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
+   AND ({include_internal:UInt8} = 1 OR sum(LlmCount) + sum(ToolCount) > 0)
    AND ({cursor_ms:Int64} = 0 OR (toUnixTimestamp64Milli(min(StartTs)), trace_ref)
         < ({cursor_ms:Int64}, {cursor_trace_id:String}))
 ORDER BY start_ms DESC, trace_ref DESC

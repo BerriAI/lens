@@ -31,7 +31,41 @@ mod style {
     fn plain_render_has_no_escape_codes() {
         let line = Line::new(vec![accent("❯ "), strong("/run")]).filled(HIGHLIGHT);
         assert_eq!(line.render(40, false), "❯ /run");
-        assert!(line.render(40, true).contains("\x1b[48;2;34;23;46m"));
+        assert!(line.render(40, true).contains("\x1b["));
+    }
+
+    #[rstest]
+    fn colors_use_24_bit_only_when_the_terminal_supports_it() {
+        let style = Style::fg(BAD).on(HIGHLIGHT);
+        let full = sgr_for(style, true);
+        assert!(
+            full.contains("38;2;245;154;138") && full.contains("48;2;34;23;46"),
+            "{full}"
+        );
+        let limited = sgr_for(style, false);
+        assert!(!limited.contains(";2;"), "{limited}");
+        assert!(
+            limited.contains("38;5;") && limited.contains("48;5;"),
+            "{limited}"
+        );
+    }
+
+    #[rstest]
+    #[case::black(Rgb(0, 0, 0), 16)]
+    #[case::white(Rgb(255, 255, 255), 231)]
+    #[case::pure_red(Rgb(255, 0, 0), 196)]
+    #[case::mid_gray(Rgb(128, 128, 128), 244)]
+    fn palette_fallback_picks_the_nearest_xterm_color(#[case] color: Rgb, #[case] expected: u8) {
+        assert_eq!(xterm256(color), expected);
+    }
+
+    #[rstest]
+    fn report_status_colors_stay_distinct_on_256_color_terminals() {
+        let colors = [BAD, WARN, MUTED, GOOD, ACCENT, TEXT].map(xterm256);
+        let mut unique = colors.to_vec();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), colors.len(), "{colors:?}");
     }
 
     #[rstest]
@@ -98,6 +132,7 @@ mod brand {
     #[case::claude("claude-agent-sdk", "Claude Agent SDK", "✻")]
     #[case::openai("openai-agents", "OpenAI Agents", "◎")]
     #[case::langgraph("langgraph", "LangGraph", "⬡")]
+    #[case::deepagents("deepagents", "Deep Agents", "⬡")]
     #[case::litellm("litellm", "LiteLLM", "≋")]
     #[case::tool_loop("tool_loop", "LiteLLM Tool Loop", "≋")]
     #[case::claude_code("claude_code", "Claude Code", "✻")]
@@ -106,7 +141,6 @@ mod brand {
     #[case::codex_legacy("openai-codex", "Codex", "◎")]
     #[case::opencode("opencode", "OpenCode", "◇")]
     #[case::pi("pi", "Pi", "π")]
-    #[case::deepagents("deepagents", "DeepAgents", "⬡")]
     #[case::custom_explicit("custom", "Custom", "◇")]
     #[case::custom("my-harness", "Custom", "◇")]
     fn harness_brand_matches_ui_ids(#[case] id: &str, #[case] label: &str, #[case] glyph: &str) {
@@ -264,6 +298,27 @@ mod progress {
     }
 
     #[rstest]
+    #[case::narrow(78)]
+    #[case::wide(100)]
+    fn running_rows_show_whole_model_names(meta: RunMeta, #[case] width: usize) {
+        let long = RunMeta {
+            targets: meta
+                .targets
+                .iter()
+                .map(|target| Target {
+                    model: Some("claude-sonnet-5-5".to_owned()),
+                    ..target.clone()
+                })
+                .collect(),
+            ..meta
+        };
+        let lines = frame(&played(&long, 0), Duration::from_secs(5), 0, width);
+        let row = lines.last().expect("target row");
+        assert!(row.plain().contains("claude-sonnet-5-5"), "{}", row.plain());
+        assert!(row.width() <= width, "{}", row.plain());
+    }
+
+    #[rstest]
     fn resumed_cases_count_toward_completion(meta: RunMeta) {
         let tally = played(&meta, 3);
         assert!(tally.complete());
@@ -407,9 +462,19 @@ mod report {
     }
 
     #[rstest]
-    #[case::first(0, "①")]
-    #[case::eighth(7, "⑧")]
-    #[case::beyond_circled(25, "26")]
+    fn report_bars_leave_a_gap_between_rows(#[values(4, 12)] count: usize) {
+        let full_height: Vec<String> = lines(&report_summary(count), 100)
+            .iter()
+            .map(Line::plain)
+            .filter(|line| line.contains(['█', '░']))
+            .collect();
+        assert!(full_height.is_empty(), "{full_height:#?}");
+    }
+
+    #[rstest]
+    #[case::first(0, "1")]
+    #[case::eighth(7, "8")]
+    #[case::two_digits(25, "26")]
     fn markers_cover_many_targets(#[case] index: usize, #[case] expected: &str) {
         assert_eq!(marker_text(index), expected);
     }

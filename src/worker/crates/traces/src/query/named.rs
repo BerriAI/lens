@@ -20,6 +20,11 @@ pub struct ListTracesParams {
     #[serde(flatten)]
     pub access: ReadAccessParams,
     pub agent: String,
+    #[serde(
+        deserialize_with = "crate::wire::flag",
+        serialize_with = "crate::wire::serialize_flag"
+    )]
+    pub include_internal: bool,
     pub start_ms: i64,
     pub end_ms: i64,
     pub cursor_ms: i64,

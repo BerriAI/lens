@@ -462,6 +462,33 @@ def test_resume_rejects_changed_predicate_data_named_expected_key(tmp_path, mode
     assert requests.qsize() == 1
 
 
+def test_resume_rejects_a_changed_scalar_global_read_by_a_check(tmp_path, model_server):
+    endpoint, requests = model_server
+    write_sdk_config(
+        tmp_path,
+        endpoint,
+        "import os\n"
+        "EXPECTED = os.environ.get('TEST_EXPECTED_CATEGORY', 'billing')\n"
+        "tasks = [EvalTask('t', 'Classify',\n"
+        "    check=PredicateCheck(lambda result: result.text == EXPECTED))]\n",
+    )
+    completed = run_cli(tmp_path, "run", "--config", "evals.py", "--fast")
+    assert completed.returncode == 0, completed.stderr
+    directory, _ = attempts(tmp_path)
+    before = (directory / "attempts.jsonl").read_bytes()
+    changed = run_cli(
+        tmp_path,
+        "resume",
+        directory.name,
+        "--fast",
+        env={**os.environ, "TEST_EXPECTED_CATEGORY": "technical"},
+    )
+    assert changed.returncode == 2
+    assert "Eval config changed" in changed.stderr
+    assert (directory / "attempts.jsonl").read_bytes() == before
+    assert requests.qsize() == 1
+
+
 def test_sdk_header_only_csv_is_rejected_before_creating_a_run(tmp_path, model_server):
     endpoint, requests = model_server
     (tmp_path / "tasks.csv").write_text("id,prompt,expected\n")

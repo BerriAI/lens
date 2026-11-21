@@ -16,7 +16,7 @@ await withFixture("runtime", process.argv[2], async (fixture) => {
   assert.equal((await request("POST", "/v1/traces", tracePayload())).status, 401, "The admin key is not an ingestion key");
   const retained = tracePayload();
   assert.equal((await request("POST", "/v1/traces", retained, key)).status, 200);
-  const traces = await request("GET", "/v1/traces");
+  const traces = await request("GET", "/v1/traces?include_internal=true");
   assert.equal(traces.status, 200);
   assert.equal(traces.data.data.length, 1);
   assert.equal(traces.data.data[0].trace_id, retained.resourceSpans[0].scopeSpans[0].spans[0].traceId);
@@ -42,14 +42,14 @@ await withFixture("runtime", process.argv[2], async (fixture) => {
   await fixture.waitStorage();
   await docker(["restart", server]);
   await fixture.waitServer();
-  assert.equal((await request("GET", "/v1/traces")).data.data.length, 1, "Failed ingestion must not appear after recovery");
+  assert.equal((await request("GET", "/v1/traces?include_internal=true")).data.data.length, 1, "Failed ingestion must not appear after recovery");
   assert.deepEqual((await request("GET", `/lens/datasets/${dataset.data.id}`)).data, dataset.data);
   const datasets = await request("GET", "/lens/datasets");
   assert.equal(datasets.status, 200);
   assert.ok(!JSON.stringify(datasets.data).includes("Must not persist"));
   assert.equal((await request("POST", "/v1/traces", tracePayload(), key)).status, 401, "Revocation persists across restart");
   assert.equal((await request("POST", "/v1/traces", tracePayload(), activeKey)).status, 200);
-  assert.equal((await request("GET", "/v1/traces")).data.data.length, 2);
+  assert.equal((await request("GET", "/v1/traces?include_internal=true")).data.data.length, 2);
   return { auth_denials: 10, revoked_key_denied_before_and_after_restart: true, storage_outage_failures: 3,
     rejected_writes_absent_after_recovery: true, prior_data_retained: true, ingestion_resumes: true,
     providers_contacted: false, gateway_or_postgres_required: false };

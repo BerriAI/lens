@@ -74,7 +74,7 @@ for attempt in $(seq 1 30); do
   test "$attempt" -lt 30
   sleep 1
 done
-docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces' > "$lens_temp/traces.json"
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces?include_internal=true' > "$lens_temp/traces.json"
 test "$(jq -r '.data[0].trace_id' "$lens_temp/traces.json")" = 11112222333344445555666677778888
 test "$(jq '.data | length' "$lens_temp/traces.json")" = 1
 docker kill --signal KILL "$lens_storage" >/dev/null
@@ -84,7 +84,7 @@ docker restart "$lens_name" >/dev/null
 wait_ready
 docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens' > "$lens_temp/restarted.json"
 test "$(jq '.lenses | length' "$lens_temp/restarted.json")" = 0
-docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces' > "$lens_temp/restarted-traces.json"
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/v1/traces?include_internal=true' > "$lens_temp/restarted-traces.json"
 test "$(jq -r '.data[0].trace_id' "$lens_temp/restarted-traces.json")" = 11112222333344445555666677778888
 test "$(jq '.data | length' "$lens_temp/restarted-traces.json")" = 1
 printf '%s\n' 'Standalone Lens serves the UI, enforces API access, ingests a trace, and retains it after restarting both services'

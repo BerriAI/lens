@@ -189,6 +189,8 @@ pub fn found(tally: &Tally) -> Vec<Line> {
     .collect()
 }
 
+const ROW_WITHOUT_MODEL: usize = 2 + 2 + 18 + 2 + 1 + 14 + 2 + 10 + 1 + 9;
+
 pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<Line> {
     let fraction = tally.fraction();
     let finished = tally.complete();
@@ -223,6 +225,13 @@ pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<L
     if finished {
         return summary.into_iter().collect();
     }
+    let model_width = tally
+        .targets
+        .iter()
+        .map(|target| target.display_name().chars().count())
+        .max()
+        .unwrap_or(0)
+        .clamp(6, width.saturating_sub(ROW_WITHOUT_MODEL).max(6));
     let rows = tally
         .targets
         .iter()
@@ -239,7 +248,10 @@ pub fn frame(tally: &Tally, clock: Duration, spin: usize, width: usize) -> Vec<L
                     span(pad(harness.label, 18), Style::fg(TEXT)),
                     badge(target.model.as_deref().map(brand::model)),
                     span(
-                        pad(&shorten(target.display_name(), 11), 12),
+                        pad(
+                            &shorten(target.display_name(), model_width),
+                            model_width + 1,
+                        ),
                         Style::fg(MUTED),
                     ),
                 ]
