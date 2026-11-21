@@ -18,7 +18,7 @@ mod support;
 
 use fixtures::{
     DATABASE, SeededDatabase, insert_export, migrated_database, seed_interleaved_agent_runs,
-    seeded_database,
+    seed_runs_with_and_without_calls, seeded_database,
 };
 use support::TestResult;
 
@@ -205,6 +205,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
                 team_ids: vec!["team-lens".into()],
             },
             agent: String::new(),
+            include_internal: true,
             start_ms: started_ms - 60_000,
             end_ms: started_ms + 60_000,
             cursor_ms: 0,
@@ -394,6 +395,7 @@ async fn typed_queries_read_normalized_spans_and_keep_trace_identities_separate(
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
+        include_internal: true,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -461,6 +463,7 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
     let params = ListTracesParams::from(contracts::ListTracesParams {
         access: admin_access?,
         agent: String::new(),
+        include_internal: true,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -507,6 +510,7 @@ async fn run_candidates_filter_agents_before_pagination(
     let params = contracts::ListTracesParams {
         access: access.clone(),
         agent: "A".into(),
+        include_internal: true,
         start_ms,
         end_ms,
         cursor_ms: 0,
@@ -515,7 +519,7 @@ async fn run_candidates_filter_agents_before_pagination(
     };
     assert!(store.summary_page(&params).await?.is_none());
     let first = reader
-        .list_traces(&store, &access, "A", start_ms, end_ms, None, 2)
+        .list_traces(&store, &access, "A", true, start_ms, end_ms, None, 2)
         .await?;
     assert_eq!(
         first
@@ -530,6 +534,7 @@ async fn run_candidates_filter_agents_before_pagination(
             &store,
             &access,
             "A",
+            true,
             start_ms,
             end_ms,
             first.next_cursor.as_deref(),
@@ -544,10 +549,63 @@ async fn run_candidates_filter_agents_before_pagination(
         ["a-old"]
     );
     let unfiltered = reader
-        .list_traces(&store, &access, "", start_ms, end_ms, None, 10)
+        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
         .await?;
     assert_eq!(unfiltered.data.len(), 6);
     assert_eq!(unfiltered.data[0].trace_id, "b-new");
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn run_candidates_hide_runs_without_model_or_tool_calls_before_pagination(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let (start_ms, end_ms) = seed_runs_with_and_without_calls(&fixture).await?;
+    let config = litellm_traces_clickhouse::Config::new(
+        fixtures::DATABASE.into(),
+        &fixture.database.url,
+        7,
+    )?;
+    let store = litellm_traces_clickhouse::ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let access = contracts::ReadAccessParams {
+        all_teams: true,
+        user_id: String::new(),
+        team_ids: Vec::new(),
+    };
+    let reader = litellm_traces_cache::TraceReader::new(usize::MAX);
+    let hidden = reader
+        .list_traces(&store, &access, "", false, start_ms, end_ms, None, 1)
+        .await?;
+    assert_eq!(hidden.data[0].trace_id, "tool-run");
+    let hidden_next = reader
+        .list_traces(
+            &store,
+            &access,
+            "",
+            false,
+            start_ms,
+            end_ms,
+            hidden.next_cursor.as_deref(),
+            1,
+        )
+        .await?;
+    assert_eq!(hidden_next.data[0].trace_id, "model-run");
+    let shown = reader
+        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
+        .await?;
+    assert_eq!(
+        shown
+            .data
+            .iter()
+            .map(|run| run.trace_id.as_str())
+            .collect::<Vec<_>>(),
+        ["internal-new", "tool-run", "internal-old", "model-run"]
+    );
     Ok(())
 }
 
@@ -574,6 +632,7 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
     let list_params = ListTracesParams::from(contracts::ListTracesParams {
         access: params.access,
         agent: String::new(),
+        include_internal: true,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -932,6 +991,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
         &ListTracesParams(contracts::ListTracesParams {
             access: access.clone(),
             agent: String::new(),
+            include_internal: true,
             start_ms,
             end_ms,
             cursor_ms: 0,

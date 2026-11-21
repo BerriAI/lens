@@ -44,6 +44,7 @@ AND NOT arrayExists(key -> startsWith(key, 'litellm_request:'), CallKeys)
 GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
+   AND ({include_internal:UInt8} = 1 OR sum(LlmCount) + sum(ToolCount) > 0)
    AND ({cursor_ms:Int64} = 0 OR (toUnixTimestamp64Milli(min(StartTs)), trace_ref)
         < ({cursor_ms:Int64}, {cursor_trace_id:String}))
 ORDER BY start_ms DESC, trace_ref DESC

@@ -62,6 +62,7 @@ export const RUN_FILTER_PARSERS = {
   q: parseAsString.withDefault(""),
   agent: parseAsString.withDefault(""),
   status: parseAsStringLiteral(["all", "ok", "error"]).withDefault("all"),
+  internal: parseAsBoolean.withDefault(false),
   ...TIME_RANGE_PARSERS,
 };
 
@@ -198,13 +199,15 @@ export function useLocalRunSelection(initialSpanId: string | null): RunSelection
 }
 
 export function useRunFilterRouting() {
-  const [{ q, agent, status }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
+  const [{ q, agent, status, internal }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
   return {
     query: q,
     agent,
     status,
+    includeInternal: internal,
     setQuery: (query: string) => void setParams({ q: query }),
     setAgent: (agent: string) => void setParams({ agent }),
     setStatus: (status: "all" | "ok" | "error") => void setParams({ status }),
+    setIncludeInternal: (internal: boolean) => void setParams({ internal }),
   };
 }

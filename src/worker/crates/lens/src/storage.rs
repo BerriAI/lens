@@ -30,6 +30,8 @@ pub enum Read {
         scope: ReadAccessParams,
         #[serde(default)]
         agent: String,
+        #[serde(default)]
+        include_internal: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -128,6 +130,7 @@ impl Storage {
             Read::List {
                 scope,
                 agent,
+                include_internal,
                 start_ms,
                 end_ms,
                 cursor,
@@ -138,6 +141,7 @@ impl Storage {
                         &store,
                         &scope,
                         &agent,
+                        include_internal,
                         start_ms,
                         end_ms,
                         cursor.as_deref(),

@@ -254,6 +254,7 @@ impl Optimizations {
             .list(
                 scope(&record.config.team_id),
                 record.config.agent.clone(),
+                false,
                 record.created_at,
                 end,
                 record.scan_cursor.clone(),
