@@ -43,7 +43,7 @@ describe("recorded task categories", () => {
     const services = createLensDemo(now);
     const window = { startMs: now - 86400000, endMs: now };
     const profile = await services.profiles.usage(window, "release_agent");
-    const runs = await services.traces.list(window, "release_agent");
+    const runs = await services.traces.list(window, { agent: "release_agent", includeInternal: true });
     expect(summarizeUsage(profile).total).toBe(runs.data.length);
     expect(profile).toEqual([
       { category: "Coding", runs: 34 },
