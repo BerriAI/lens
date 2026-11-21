@@ -3,7 +3,14 @@ import { useCallback, useMemo, useState } from "react";
 import type { RunSelection } from "../../routing";
 import type { SpanTreeState, TreeRow } from "../../tree";
 import type { Trace } from "../../types";
-import { buildTreeRows, findTraceSteps, GROUP_PAGE_SIZE, nearestVisibleSpanId, revealSpanInState } from "../../utils";
+import {
+  buildTreeRows,
+  findTraceSteps,
+  GROUP_PAGE_SIZE,
+  nearestVisibleSpanId,
+  revealSpanInState,
+  turnRowIds,
+} from "../../utils";
 
 const INITIAL_STATE: SpanTreeState = {
   hideFramework: true,
@@ -63,7 +70,9 @@ export function useRunTree(trace: Trace, selection: RunSelection) {
     [trace, state.hideFramework, query, errorsOnly, filtering, treeRows],
   );
   const selectedRow: TreeRow | undefined =
-    rows.find((row) => row.id === selectedId) ?? treeRows.find((row) => row.id === selectedId) ?? rows[0];
+    rows.find((row) => row.id === selectedId) ??
+    treeRows.find((row) => row.id === selectedId) ??
+    rows.find((row) => row.kind !== "turn");
 
   const select = useCallback(
     (id: string) => {
@@ -95,17 +104,22 @@ export function useRunTree(trace: Trace, selection: RunSelection) {
   const collapseAll = () =>
     setState((prev) => ({
       ...prev,
-      collapsedSpanIds: new Set(trace.spans.filter((span) => span.parent_span_id !== null).map((span) => span.span_id)),
+      collapsedSpanIds: new Set([
+        ...trace.spans.filter((span) => span.parent_span_id !== null).map((span) => span.span_id),
+        ...turnRowIds(trace.spans),
+      ]),
       expandedGroupIds: new Set(),
     }));
 
   const setRowExpanded = (row: TreeRow, expand: boolean) => {
     if (row.kind === "span" && row.hasChildren && row.collapsed === expand) toggleSpan(row.id);
+    if (row.kind === "turn" && row.collapsed === expand) toggleSpan(row.id);
     if (row.kind === "group" && row.expanded !== expand) toggleGroup(row.id);
   };
   const moveBy = (delta: number) => {
-    const index = rows.findIndex((row) => row.id === selectedRow?.id);
-    const next = rows[Math.min(rows.length - 1, Math.max(0, index + delta))];
+    const steps = rows.filter((row) => row.kind !== "turn");
+    const index = steps.findIndex((row) => row.id === selectedRow?.id);
+    const next = steps[Math.min(steps.length - 1, Math.max(0, index + delta))];
     if (next) select(next.id);
   };
   const fold = (expand: boolean) => {

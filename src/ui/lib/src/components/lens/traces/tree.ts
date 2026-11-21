@@ -30,6 +30,16 @@ export interface GroupRowData {
   expanded: boolean;
 }
 
+/** One typed message of a coding session and everything the agent did to answer it. */
+export interface TurnRowData {
+  kind: "turn";
+  id: string;
+  depth: number;
+  index: number;
+  members: Span[];
+  collapsed: boolean;
+}
+
 export interface LoadMoreRowData {
   kind: "load-more";
   id: string;
@@ -38,7 +48,7 @@ export interface LoadMoreRowData {
   remaining: number;
 }
 
-export type TreeRow = SpanRowData | GroupRowData | LoadMoreRowData;
+export type TreeRow = SpanRowData | GroupRowData | TurnRowData | LoadMoreRowData;
 
 export interface SpanTreeState {
   hideFramework: boolean;
