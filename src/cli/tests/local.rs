@@ -513,7 +513,15 @@ fn old_checkpoints_default_to_one_trial() {
     assert_eq!(row.trial, 1);
     assert_eq!(row.result.cost, Some(0.1));
     assert_eq!(row.target.model.as_deref(), Some("a"));
-    assert!(!row.result.metrics.metrics_complete);
+    let summary = summarize(&meta(&["a"]), &[row]);
+    assert_eq!(summary.recommended, Some(0));
+    let report = lens_cli::local::view::report(&summary, 100)
+        .iter()
+        .map(lens_cli::demo::style::Line::plain)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(report.contains("$0.10"));
+    assert!(!report.contains("Cost comparison needs complete"));
 }
 
 #[rstest]

@@ -82,8 +82,12 @@ pub struct Metrics {
     pub judge_output_tokens: Option<u64>,
     #[serde(default)]
     pub judge_model_calls: Option<u64>,
-    #[serde(default)]
+    #[serde(default = "legacy_metrics_complete")]
     pub metrics_complete: bool,
+}
+
+const fn legacy_metrics_complete() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
