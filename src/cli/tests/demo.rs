@@ -370,6 +370,16 @@ mod report {
     }
 
     #[rstest]
+    fn report_bars_leave_a_gap_between_rows(#[values(4, 12)] count: usize) {
+        let full_height: Vec<String> = lines(&report_summary(count), 100)
+            .iter()
+            .map(Line::plain)
+            .filter(|line| line.contains(['█', '░']))
+            .collect();
+        assert!(full_height.is_empty(), "{full_height:#?}");
+    }
+
+    #[rstest]
     #[case::first(0, "1")]
     #[case::eighth(7, "8")]
     #[case::two_digits(25, "26")]
