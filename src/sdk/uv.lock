@@ -1192,7 +1192,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", marker = "extra == 'examples'", specifier = ">=0.28,<0.29" },
-    { name = "litellm", marker = "extra == 'agent-evals'", git = "https://github.com/BerriAI/litellm.git?rev=83da01324ab756169e447c30dea2c74eb7806ef4" },
+    { name = "litellm", marker = "extra == 'agent-evals'", git = "https://github.com/BerriAI/litellm.git?rev=7c6ec9f5a09ed3b2d036ac2b3af4fc2307d1a665" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "starlette", marker = "extra == 'agent-evals'", specifier = ">=1.0.1,<2" },
     { name = "uvicorn", marker = "extra == 'agent-evals'", specifier = ">=0.33,<1" },
@@ -1329,7 +1329,7 @@ wheels = [
 [[package]]
 name = "litellm"
 version = "1.112.0"
-source = { git = "https://github.com/BerriAI/litellm.git?rev=83da01324ab756169e447c30dea2c74eb7806ef4#83da01324ab756169e447c30dea2c74eb7806ef4" }
+source = { git = "https://github.com/BerriAI/litellm.git?rev=7c6ec9f5a09ed3b2d036ac2b3af4fc2307d1a665#7c6ec9f5a09ed3b2d036ac2b3af4fc2307d1a665" }
 dependencies = [
     { name = "aiohttp" },
     { name = "anyio" },
