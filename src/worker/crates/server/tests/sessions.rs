@@ -272,6 +272,13 @@ async fn connecting_a_gateway_turns_on_litellm_login_and_survives_a_restart(
         .strip_prefix("LENS_GATEWAY_SECRET=")
         .unwrap();
     assert!(secret.len() >= 32);
+    let service_token = lines[3]
+        .as_str()
+        .unwrap()
+        .strip_prefix("LITELLM_LENS_SERVICE_TOKEN=")
+        .unwrap();
+    assert!(service_token.len() >= 32);
+    assert_ne!(service_token, secret);
     assert_eq!(
         login_url(&database.serve_standalone().await).await,
         "https://gateway.test/lens/login"

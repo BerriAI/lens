@@ -37,6 +37,42 @@ async fn server() -> Server {
     Server { url, storage, task }
 }
 
+#[fixture]
+async fn connected_later() -> Server {
+    let storage = MockServer::start().await;
+    let config = litellm_traces_clickhouse::Config::new("lens".into(), &storage.uri(), 14).unwrap();
+    let state = Arc::new(State::standalone(Storage::new(
+        config,
+        http_client().unwrap(),
+        "query-secret".into(),
+    )));
+    state.service_token_connected_by(|| Some(SERVICE_TOKEN.into()));
+    state.schema_ready.store(true, Ordering::Release);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let app = router(state);
+    let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    Server { url, storage, task }
+}
+
+#[rstest]
+#[case::gateway(SERVICE_TOKEN, 200)]
+#[case::wrong("incorrect-secret", 401)]
+#[tokio::test]
+async fn a_gateway_connected_after_startup_uses_its_saved_credential(
+    #[future(awt)] connected_later: Server,
+    #[case] token: &str,
+    #[case] expected: u16,
+) {
+    let response = reqwest::Client::new()
+        .get(format!("{}/internal/status", connected_later.url))
+        .bearer_auth(token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), expected);
+}
+
 #[rstest]
 #[case::gateway(SERVICE_TOKEN, 200)]
 #[case::wrong("incorrect-secret", 401)]

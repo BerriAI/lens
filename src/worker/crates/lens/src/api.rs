@@ -183,6 +183,8 @@ impl Application {
     }
 
     pub fn with_service(self, state: Arc<State>, url: String, release: String) -> Self {
+        let authentication = self.authentication.clone();
+        state.service_token_connected_by(move || authentication.settings.connected_service_token());
         let router = self.router.merge(lens_server::service::router(
             self.authentication.clone(),
             LocalService {

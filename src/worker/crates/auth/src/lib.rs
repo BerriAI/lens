@@ -73,6 +73,8 @@ pub struct GatewayConnection {
     pub secret: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_token: Option<String>,
 }
 
 fn login_url(gateway_url: &str) -> Result<String, Error> {
@@ -192,6 +194,13 @@ impl Settings {
         }
         let gateway = self.connected()?;
         Some((gateway.url, gateway.api_key?))
+    }
+
+    pub fn connected_service_token(&self) -> Option<String> {
+        if self.gateway_secret.is_some() {
+            return None;
+        }
+        self.connected()?.service_token
     }
 
     fn connected(&self) -> Option<GatewayConnection> {

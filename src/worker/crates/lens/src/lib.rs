@@ -44,7 +44,7 @@ use std::{
     collections::BTreeMap,
     future::Future,
     sync::{
-        Arc,
+        Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
     time::Duration,
@@ -57,11 +57,14 @@ pub use storage::FeedbackApi;
 
 const READ_QUEUE_WAIT: Duration = Duration::from_secs(10);
 
+type ConnectedServiceToken = Box<dyn Fn() -> Option<String> + Send + Sync>;
+
 pub struct State {
     pub credentials: Arc<auth::Credentials>,
     pub storage: Storage,
     pub schema_ready: AtomicBool,
     service_token: Option<String>,
+    connected_service_token: OnceLock<ConnectedServiceToken>,
     ingest_slots: Arc<Semaphore>,
     read_slots: Arc<Semaphore>,
     export_slots: Arc<Semaphore>,
@@ -82,17 +85,35 @@ impl State {
             storage,
             schema_ready: AtomicBool::new(false),
             service_token,
+            connected_service_token: OnceLock::new(),
             ingest_slots: Arc::new(Semaphore::new(2)),
             read_slots: Arc::new(Semaphore::new(8)),
             export_slots: Arc::new(Semaphore::new(2)),
         }
     }
 
+    pub fn service_token_connected_by(
+        &self,
+        connected: impl Fn() -> Option<String> + Send + Sync + 'static,
+    ) {
+        let _ = self.connected_service_token.set(Box::new(connected));
+    }
+
     fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
-        auth::authorize_service(
-            headers,
-            self.service_token.as_deref().ok_or(Error::Unauthorized)?,
-        )
+        let connected = self
+            .connected_service_token
+            .get()
+            .and_then(|connected| connected());
+        if self
+            .service_token
+            .iter()
+            .chain(&connected)
+            .any(|expected| auth::authorize_service(headers, expected).is_ok())
+        {
+            Ok(())
+        } else {
+            Err(Error::Unauthorized)
+        }
     }
 
     fn require_storage(&self) -> Result<(), Error> {
@@ -131,17 +152,13 @@ pub fn router(state: Arc<State>) -> Router {
                 ]),
         );
     let routes = public.clone().nest("/lens-ingest", public);
-    let routes = if state.service_token.is_some() {
-        routes.merge(
-            Router::new()
-                .route("/internal/read", post(read))
-                .route("/internal/spend", post(spend))
-                .route("/internal/feedback", post(feedback))
-                .route("/internal/status", get(status)),
-        )
-    } else {
-        routes
-    };
+    let routes = routes.merge(
+        Router::new()
+            .route("/internal/read", post(read))
+            .route("/internal/spend", post(spend))
+            .route("/internal/feedback", post(feedback))
+            .route("/internal/status", get(status)),
+    );
     routes.with_state(state).merge(lens_server::router())
 }
 

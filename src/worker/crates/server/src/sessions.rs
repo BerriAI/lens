@@ -67,6 +67,7 @@ async fn connect_gateway<R: SessionRepository>(
         )])
     })?;
     let secret = random_token()?;
+    let service_token = random_token()?;
     let gateway = GatewayConnection {
         url: request.gateway_url.trim().to_owned(),
         secret: secret.clone(),
@@ -74,6 +75,7 @@ async fn connect_gateway<R: SessionRepository>(
             .api_key
             .map(|key| key.trim().to_owned())
             .filter(|key| !key.is_empty()),
+        service_token: Some(service_token.clone()),
     };
     auth.connect_gateway(&request.token, gateway).await?;
     let lens = auth.settings.origin();
@@ -83,6 +85,7 @@ async fn connect_gateway<R: SessionRepository>(
             format!("LITELLM_LENS_URL={lens}"),
             format!("LITELLM_LENS_PUBLIC_URL={lens}"),
             format!("LENS_GATEWAY_SECRET={secret}"),
+            format!("LITELLM_LENS_SERVICE_TOKEN={service_token}"),
         ],
     }))
 }

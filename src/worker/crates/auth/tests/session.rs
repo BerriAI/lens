@@ -841,8 +841,11 @@ fn connection(url: &str, api_key: Option<&str>) -> GatewayConnection {
         url: url.to_owned(),
         secret: support::SECRET.to_owned(),
         api_key: api_key.map(str::to_owned),
+        service_token: Some(SERVICE_TOKEN.to_owned()),
     }
 }
+
+const SERVICE_TOKEN: &str = "test-only-service-credential-32-characters";
 
 #[rstest]
 #[tokio::test]
