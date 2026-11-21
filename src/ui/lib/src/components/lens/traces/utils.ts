@@ -239,7 +239,7 @@ export function buildTreeRows(spans: readonly Span[], state: SpanTreeState): Tre
   pushLevel(ctx, ROOT_KEY, 0);
   for (const turn of turns) {
     const collapsed = state.collapsedSpanIds.has(turn.id);
-    ctx.rows.push({ kind: "turn", id: turn.id, depth: 0, index: turn.index, members: turn.spans, collapsed });
+    ctx.rows.push({ kind: "turn", id: turn.id, depth: 0, index: turn.index, message: turn.message, members: turn.spans, collapsed });
     if (!collapsed) pushLevel(ctx, turn.id, 1);
   }
   return ctx.rows;

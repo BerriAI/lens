@@ -243,27 +243,30 @@ const plural = (count: number, noun: string): string => `${count} ${noun}${count
 
 export function TurnRow({ row, ctx }: { row: TurnRowData; ctx: RowContext }) {
   const facts = turnFacts(row);
+  const steps = `${plural(facts.modelCalls ?? 0, "model call")}${
+    facts.toolCalls ? `, ${plural(facts.toolCalls, "tool call")}` : ""
+  }`;
   return (
     <SpanHoverCard facts={facts} traceStartMs={ctx.traceStartMs}>
       <RowFrame
         id={row.id}
         depth={row.depth}
         guide={ctx.guide}
-        selected={false}
+        selected={ctx.selected}
         expanded={!row.collapsed}
-        onClick={() => ctx.onToggleSpan(row.id)}
+        onClick={() => ctx.onSelect(row.id)}
+        onDoubleClick={() => ctx.onToggleSpan(row.id)}
       >
         <SpanIcon type="agent" model={null} error={facts.failed} size="md" />
         <Label>
-          <span className={cn(NAME, "font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
+          <span className={cn("shrink-0 text-sm font-medium", facts.failed ? "text-destructive" : "text-foreground")}>
             {facts.name}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={row.message || undefined}>
+            {row.message || steps}
           </span>
           {ctx.layout === "tree" && <span className={META}>{fmtMs(facts.durationMs)}</span>}
           {ctx.layout === "tree" && facts.spend != null && <span className={META}>{formatCost(facts.spend)}</span>}
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-            {plural(facts.modelCalls ?? 0, "model call")}
-            {facts.toolCalls ? `, ${plural(facts.toolCalls, "tool call")}` : ""}
-          </span>
         </Label>
         {ctx.layout === "waterfall" && (
           <Bar start={facts.startMs} duration={facts.durationMs} total={ctx.totalMs} type="agent" failed={facts.failed} />

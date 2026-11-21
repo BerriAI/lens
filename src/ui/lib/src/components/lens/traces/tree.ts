@@ -36,6 +36,7 @@ export interface TurnRowData {
   id: string;
   depth: number;
   index: number;
+  message: string;
   members: Span[];
   collapsed: boolean;
 }

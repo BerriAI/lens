@@ -1252,6 +1252,37 @@ fn gateway_task_follows_any_number_of_harness_blocks(span: Span) {
     assert_eq!(decoded.normalized.input_preview, "Fix the build");
 }
 
+const CLAUDE_CODE_GATEWAY_SECOND_TURN_INPUT: &str = r#"[{"role":"system","content":"You are a Claude agent"},{"role":"user","content":[{"type":"text","text":"<system-reminder>\nToday's date is 2026-11-20.\n</system-reminder>\nList the files in this directory"}]},{"role":"assistant","content":[{"type":"text","text":"calc.py"}]},{"role":"user","content":"Find a tool that fetches web pages"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"ToolSearch","input":{"query":"fetch web page"}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"WebFetch"},{"type":"text","text":"Tool loaded."}]},{"role":"user","content":[{"type":"text","text":"<task-notification>agent done</task-notification>"}]}]"#;
+
+#[rstest]
+#[case::no_task_sent(None)]
+#[case::first_message_sent_as_the_task(Some("List the files in this directory"))]
+fn gateway_model_call_shows_the_message_the_user_typed_last(
+    span: Span,
+    #[case] sent_task: Option<&str>,
+) {
+    let decoded = decode(
+        span,
+        "litellm",
+        &[
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.agent.name", "claude-code"),
+            ("lens.task", sent_task.unwrap_or_default()),
+            (
+                "gen_ai.input.messages",
+                CLAUDE_CODE_GATEWAY_SECOND_TURN_INPUT,
+            ),
+        ],
+        vec![],
+    )
+    .unwrap();
+
+    assert_eq!(
+        decoded.normalized.input_preview,
+        "Find a tool that fetches web pages"
+    );
+}
+
 #[rstest]
 fn gateway_tool_step_carries_the_calling_agent(span: Span) {
     let decoded = decode(

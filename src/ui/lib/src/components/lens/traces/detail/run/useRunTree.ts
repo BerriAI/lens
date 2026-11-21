@@ -117,9 +117,8 @@ export function useRunTree(trace: Trace, selection: RunSelection) {
     if (row.kind === "group" && row.expanded !== expand) toggleGroup(row.id);
   };
   const moveBy = (delta: number) => {
-    const steps = rows.filter((row) => row.kind !== "turn");
-    const index = steps.findIndex((row) => row.id === selectedRow?.id);
-    const next = steps[Math.min(steps.length - 1, Math.max(0, index + delta))];
+    const index = rows.findIndex((row) => row.id === selectedRow?.id);
+    const next = rows[Math.min(rows.length - 1, Math.max(0, index + delta))];
     if (next) select(next.id);
   };
   const fold = (expand: boolean) => {
