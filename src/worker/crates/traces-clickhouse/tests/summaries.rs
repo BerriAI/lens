@@ -756,7 +756,7 @@ async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
     let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
     let scope = access(true, "", &[]);
     let mut resolved: Vec<_> = TraceReader::new(usize::MAX)
-        .list_traces(&store, &scope, "", 0, 2_000_000_000_000, None, 50)
+        .list_traces(&store, &scope, "", true, 0, 2_000_000_000_000, None, 50)
         .await?
         .data
         .into_iter()
