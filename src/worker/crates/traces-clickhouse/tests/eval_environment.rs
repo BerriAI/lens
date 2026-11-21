@@ -50,14 +50,12 @@ struct Trace {
 #[derive(Clone, Copy, Debug)]
 enum Source {
     Traces,
-    Requests,
 }
 
 impl Source {
     fn name(self) -> &'static str {
         match self {
             Self::Traces => "traces",
-            Self::Requests => "requests",
         }
     }
 }
@@ -110,7 +108,6 @@ fn request(trace: Trace, at_ms: i64) -> Value {
     json!({
         "request_id": trace.request, "response_id": trace.request, "team_id": trace.team, "api_key": KEY,
         "model": "model", "start_time": at_ms, "end_time": at_ms + 1, "metadata": "{}",
-        "messages": format!("hello from {}", trace.request),
     })
 }
 
@@ -200,7 +197,6 @@ fn parameters(
         .format(&time::format_description::well_known::Rfc3339)?;
     let (record, span) = match source {
         Source::Traces => (trace.id, trace.child),
-        Source::Requests => (trace.request, trace.request),
     };
     let record = [
         ("source", text(source.name())),
@@ -279,7 +275,6 @@ fn shows(query: ReadQuery, source: Source, trace: Trace, body: &str) -> TestResu
     let rows: Vec<Value> = serde_json::from_str::<Rows<Value>>(body)?.data;
     let id = match source {
         Source::Traces => trace.id,
-        Source::Requests => trace.request,
     };
     Ok(match query {
         ReadQuery::Sample | ReadQuery::ListTraces => rows.iter().any(|row| row["trace_id"] == id),
@@ -294,7 +289,6 @@ fn shows(query: ReadQuery, source: Source, trace: Trace, body: &str) -> TestResu
             let row = &serde_json::from_str::<Rows<LensAvailabilityRow>>(body)?.data[0];
             match source {
                 Source::Traces => row.traces == 1,
-                Source::Requests => row.requests == 1,
             }
         }
         ReadQuery::TraceSpans
@@ -359,16 +353,9 @@ async fn visible(seeded: &Seeded, path: ReadPath, trace: Trace) -> TestResult<bo
 
 #[rstest]
 #[case::availability_traces(ReadPath::Named(ReadQuery::Availability, Source::Traces), EVAL_ONLY)]
-#[case::availability_requests(
-    ReadPath::Named(ReadQuery::Availability, Source::Requests),
-    EVAL_ONLY
-)]
 #[case::sample_traces(ReadPath::Named(ReadQuery::Sample, Source::Traces), EVAL)]
-#[case::sample_requests(ReadPath::Named(ReadQuery::Sample, Source::Requests), EVAL)]
 #[case::content_traces(ReadPath::Named(ReadQuery::Content, Source::Traces), EVAL)]
-#[case::content_requests(ReadPath::Named(ReadQuery::Content, Source::Requests), EVAL)]
 #[case::evidence_traces(ReadPath::Named(ReadQuery::Evidence, Source::Traces), EVAL)]
-#[case::evidence_requests(ReadPath::Named(ReadQuery::Evidence, Source::Requests), EVAL)]
 #[case::agents(ReadPath::Named(ReadQuery::Agents, Source::Traces), EVAL)]
 #[case::list_traces(ReadPath::Named(ReadQuery::ListTraces, Source::Traces), EVAL)]
 #[case::trace_agents(ReadPath::Named(ReadQuery::TraceAgents, Source::Traces), EVAL)]

@@ -22,7 +22,7 @@ fn seed() -> Lens {
 #[case::implicit_offset("")]
 #[case::explicit_zero("?offset=0")]
 #[tokio::test]
-async fn request_evidence_reads_the_original_spend_log_content(
+async fn request_evidence_returns_no_content_for_a_recorded_request(
     #[future(awt)] database: Database,
     #[case] query: &str,
 ) {
@@ -32,7 +32,7 @@ async fn request_evidence_reads_the_original_spend_log_content(
     let storage = &database.state.storage;
     litellm_storage_clickhouse::execute_statement(&storage.client, storage.config.storage().writer(), &format!(
         "INSERT INTO `{}`.spend_logs FORMAT JSONEachRow\n{}",storage.config.storage().database(),
-        json!({"request_id":"evidence-request","team_id":"alpha","api_key":"key","start_time":at,"end_time":at,"model":"model","messages":"question","response":"answer"})
+        json!({"request_id":"evidence-request","team_id":"alpha","api_key":"key","start_time":at,"end_time":at,"model":"model"})
     ),std::time::Duration::from_secs(30)).await.unwrap();
     let id = lens_contract::execution::ExecutionId {
         source: "requests".into(),
@@ -56,12 +56,7 @@ async fn request_evidence_reads_the_original_spend_log_content(
         .unwrap();
     assert_eq!(response.status(), 200);
     let content: Value = response.json().await.unwrap();
-    assert_eq!(content["parts"][0]["span_id"], "evidence-request");
-    assert_eq!(
-        content["parts"][0]["content"],
-        "Input: question\nOutput: answer\nError: "
-    );
-    assert_eq!(content["parts"][0]["kind"], "llm");
+    assert_eq!(content["parts"], json!([]));
 }
 
 #[rstest]

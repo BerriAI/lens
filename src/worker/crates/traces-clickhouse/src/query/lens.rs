@@ -78,10 +78,7 @@ impl Query for LensAvailability {
     type Params = LensAvailabilityParams;
     type Row = LensAvailabilityRow;
 
-    const SQL: &'static str = concat!(
-        include_str!("../../query/lens_eval_spend.sql"),
-        include_str!("../../query/lens_availability.sql")
-    );
+    const SQL: &'static str = include_str!("../../query/lens_availability.sql");
 }
 
 pub struct LensAgents;

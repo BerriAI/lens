@@ -45,43 +45,6 @@ SELECT *, selection_key FROM (
        AND countIf((empty({filter_keys:Array(String)}) OR arrayAll((k,v) -> ResourceAttributes[k]=v OR SpanAttributes[k]=v,
            {filter_keys:Array(String)},{filter_values:Array(String)}))
            AND ({service:String}='' OR ServiceName={service:String})) > 0
-    UNION ALL
-    SELECT 'requests' AS source, request_id AS trace_id, team_id, '' AS trace_ref, model AS name,
-        concat(replaceOne(toString(toDateTime64(start_time, 3, 'UTC')), ' ', 'T'), 'Z') AS start_time, toUInt64(1) AS span_count, toUInt8(1) AS root_seen,
-        model_group AS service,
-        arrayConcat(JSONExtractKeysAndValues(metadata, 'requester_metadata', 'String'),
-            arrayMap(t -> tuple('tag', t), request_tags)) AS attributes
-    FROM spend_logs FINAL
-    WHERE {source:String} IN ('requests','both')
-      AND {profile:String}=''
-      AND ({all_teams:UInt8}=1 OR team_id={team:String})
-      AND ({key_hash:String}='' OR api_key={key_hash:String})
-      AND spend_logs.start_time >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
-      AND spend_logs.start_time < fromUnixTimestamp64Milli(toInt64({end:UInt64}))
-      AND if(EngineReceivedMs>0,toInt64(EngineReceivedMs),toUnixTimestamp64Milli(end_time)) >= {start:UInt64}
-      AND EngineReceivedMs < {end:UInt64}
-      AND toUnixTimestamp64Milli(end_time) < {end:UInt64}
-      AND arrayAll((k,v) -> JSONExtractString(metadata,k)=v
-          OR JSONExtractString(metadata,'requester_metadata',k)=v OR (k='tag' AND has(request_tags,v)),
-          {filter_keys:Array(String)},{filter_values:Array(String)})
-      AND ({service:String}='' OR model_group={service:String})
-      AND {agent_name:String}=''
-      AND splitByRegexp('[/ ]', lower(trimBoth(JSONExtractString(metadata,'user_agent'))))[1] != 'lens-signals'
-      AND (team_id,api_key,spend_logs.trace_id) NOT IN eval_traces
-      AND coalesce(nullIf(JSONExtractString(metadata,'deployment.environment'),''),
-          JSONExtractString(metadata,'requester_metadata','deployment.environment')) != 'lens-eval'
-      AND NOT is_eval_request(team_id,api_key,response_id,provider_request_id,litellm_call_id,request_id,spend_logs.trace_id,span_id)
-      AND (team_id,api_key,response_id) NOT IN (
-          SELECT TeamId,ApiKeyHash,arrayJoin(RequestIds) FROM lens_eval_traces
-          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
-            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}))
-      AND ({source:String}!='both' OR (team_id,api_key,response_id) NOT IN (
-          SELECT TeamId,ApiKeyHash,LiteLLMRequestId FROM otel_traces
-          WHERE ({all_teams:UInt8}=1 OR TeamId={team:String})
-            AND ({key_hash:String}='' OR ApiKeyHash={key_hash:String}) AND LiteLLMRequestId!=''
-            AND Timestamp >= fromUnixTimestamp64Milli(toInt64({start:UInt64})) - INTERVAL 7 DAY
-            AND Timestamp < fromUnixTimestamp64Milli(toInt64({end:UInt64}))
-      ))
 )
 WHERE ({selected_team:String}='' OR team_id={selected_team:String})
   AND (empty({execution_ids:Array(String)}) OR has({execution_ids:Array(String)},

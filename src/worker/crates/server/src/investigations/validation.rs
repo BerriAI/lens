@@ -173,11 +173,10 @@ fn literal(value: &Value, choices: &[&str], path: &[Value]) -> Result<(), Valida
         return Ok(());
     }
     let quoted: Vec<_> = choices.iter().map(|choice| format!("'{choice}'")).collect();
-    let expected = format!(
-        "{} or {}",
-        quoted[..quoted.len() - 1].join(", "),
-        quoted.last().unwrap()
-    );
+    let expected = match quoted.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} or {last}", rest.join(", ")),
+        _ => quoted.concat(),
+    };
     Err(validation::failure(
         "literal_error",
         path,
