@@ -56,6 +56,8 @@ spec:
       labels:
         app.kubernetes.io/instance: {{ .Values.instanceOverride | default .Release.Name }}
         app.kubernetes.io/component: lens-clickhouse
+      annotations:
+        checksum/config: {{ include "lens.clickhouseConfig" . | sha256sum }}
     spec:
       automountServiceAccountToken: false
       {{- with .Values.imagePullSecrets }}
@@ -112,12 +114,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/clickhouse
-            - name: keeper
+            - name: config
               mountPath: /etc/clickhouse-server/config.d/lens-keeper.xml
               subPath: lens-keeper.xml
               readOnly: true
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d/lens-logging.xml
+              subPath: lens-logging.xml
+              readOnly: true
       volumes:
-        - name: keeper
+        - name: config
           configMap:
             name: {{ $name }}
   volumeClaimTemplates:
@@ -138,23 +144,52 @@ metadata:
   name: {{ $name }}
   {{- include "lens.annotations" (dict "root" .) | nindent 2 }}
 data:
-  lens-keeper.xml: |
-    <clickhouse>
-      <keeper_server>
-        <tcp_port>9181</tcp_port>
-        <server_id>1</server_id>
-        <log_storage_path>/var/lib/clickhouse/coordination/log</log_storage_path>
-        <snapshot_storage_path>/var/lib/clickhouse/coordination/snapshots</snapshot_storage_path>
-        <coordination_settings>
-          <operation_timeout_ms>10000</operation_timeout_ms>
-          <quorum_reads>true</quorum_reads>
-        </coordination_settings>
-        <raft_configuration>
-          <server><id>1</id><hostname>127.0.0.1</hostname><port>9234</port></server>
-        </raft_configuration>
-      </keeper_server>
-      <zookeeper><node><host>127.0.0.1</host><port>9181</port></node></zookeeper>
-      <keeper_map_path_prefix>/lens/keeper-map</keeper_map_path_prefix>
-    </clickhouse>
+  {{- include "lens.clickhouseConfig" . | nindent 2 }}
 {{- end }}
+{{- end -}}
+
+{{- define "lens.clickhouseConfig" -}}
+lens-keeper.xml: |
+  <clickhouse>
+    <keeper_server>
+      <tcp_port>9181</tcp_port>
+      <server_id>1</server_id>
+      <log_storage_path>/var/lib/clickhouse/coordination/log</log_storage_path>
+      <snapshot_storage_path>/var/lib/clickhouse/coordination/snapshots</snapshot_storage_path>
+      <coordination_settings>
+        <operation_timeout_ms>10000</operation_timeout_ms>
+        <quorum_reads>true</quorum_reads>
+      </coordination_settings>
+      <raft_configuration>
+        <server><id>1</id><hostname>127.0.0.1</hostname><port>9234</port></server>
+      </raft_configuration>
+    </keeper_server>
+    <zookeeper><node><host>127.0.0.1</host><port>9181</port></node></zookeeper>
+    <keeper_map_path_prefix>/lens/keeper-map</keeper_map_path_prefix>
+  </clickhouse>
+lens-logging.xml: |
+  <clickhouse>
+      <logger>
+          <level>information</level>
+          <console>true</console>
+          <console_log_level>warning</console_log_level>
+      </logger>
+      <text_log>
+          <level>information</level>
+          <ttl>event_date + INTERVAL 1 DAY DELETE</ttl>
+      </text_log>
+      <query_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_log>
+      <trace_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></trace_log>
+      <part_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></part_log>
+      <metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></metric_log>
+      <query_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_metric_log>
+      <query_views_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></query_views_log>
+      <asynchronous_metric_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_metric_log>
+      <asynchronous_insert_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></asynchronous_insert_log>
+      <aggregated_zookeeper_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></aggregated_zookeeper_log>
+      <zookeeper_connection_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></zookeeper_connection_log>
+      <background_schedule_pool_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></background_schedule_pool_log>
+      <error_log><ttl>event_date + INTERVAL 1 DAY DELETE</ttl></error_log>
+      <processors_profile_log remove="1"/>
+  </clickhouse>
 {{- end -}}
