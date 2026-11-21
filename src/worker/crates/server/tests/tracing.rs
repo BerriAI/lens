@@ -710,3 +710,298 @@ async fn trace_trailing_slashes_preserve_redirect_location(
     );
     assert!(reader.calls.lock().unwrap().is_empty());
 }
+
+async fn mcp(server: &Server, token: Option<&str>, body: Value) -> reqwest::Response {
+    let request = server
+        .client
+        .post(server.url.join("/lens/mcp").unwrap())
+        .json(&body);
+    match token {
+        Some(token) => request.bearer_auth(token),
+        None => request,
+    }
+    .send()
+    .await
+    .unwrap()
+}
+
+fn tool_call(name: &str, arguments: Value) -> Value {
+    json!({"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":name,"arguments":arguments}})
+}
+
+#[rstest]
+#[case::list_agents("list_agents", json!({}), json!({"limit":500}))]
+#[case::list_traces(
+    "list_traces",
+    json!({"agent":"A","cursor":"opaque","include_internal":true}),
+    json!({"cursor":"opaque","agent":"A","include_internal":true,"limit":50})
+)]
+#[case::get_trace(
+    "get_trace",
+    json!({"trace_id":"t","trace_ref":"r","cursor":"c","page_size":5}),
+    json!({"trace_id":"t","trace_ref":"r","cursor":"c","page_size":5})
+)]
+#[case::get_trace_default_page(
+    "get_trace",
+    json!({"trace_id":"t"}),
+    json!({"trace_id":"t","trace_ref":"","cursor":null,"page_size":50})
+)]
+#[case::get_trace_conversation(
+    "get_trace_conversation",
+    json!({"trace_id":"t"}),
+    json!({"trace_id":"t","trace_ref":"","cursor":null,"page_size":10})
+)]
+#[case::get_span(
+    "get_span",
+    json!({"trace_id":"t","span_id":"s","trace_ref":"r"}),
+    json!({"trace_id":"t","span_id":"s","trace_ref":"r"})
+)]
+#[tokio::test]
+async fn mcp_tools_read_with_the_signed_identity_scope(
+    #[future(awt)] database: Database,
+    #[case] name: &str,
+    #[case] arguments: Value,
+    #[case] expected: Value,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let token = identity::delegated(Identity {
+        user_id: Some("user-a".into()),
+        team_id: Some("primary-team".into()),
+        log_team_ids: vec!["log-team".into()],
+        ..Identity::default()
+    });
+    let response = mcp(&server, Some(&token), tool_call(name, arguments)).await;
+    assert_eq!(response.status(), 200);
+    let body = response.json::<Value>().await.unwrap();
+    assert_eq!(body["id"], 7);
+    assert_eq!(body["result"]["content"][0]["type"], "text");
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert!(!calls[0].scope.all_teams);
+    assert_eq!(calls[0].scope.user_id, "user-a");
+    assert_eq!(calls[0].scope.team_ids, vec!["log-team"]);
+    let recorded = calls[0].parameters.as_object().unwrap();
+    assert!(
+        expected
+            .as_object()
+            .unwrap()
+            .iter()
+            .all(|(key, value)| recorded.get(key) == Some(value)),
+        "{recorded:?}"
+    );
+}
+
+#[rstest]
+#[tokio::test]
+async fn mcp_admin_token_reads_all_rows_and_returns_the_page_as_text(
+    #[future(awt)] database: Database,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = mcp(
+        &server,
+        Some(ADMIN),
+        tool_call("list_traces", json!({"hours":2})),
+    )
+    .await;
+    let body = response.json::<Value>().await.unwrap();
+    assert_eq!(body["result"]["isError"], false);
+    assert_eq!(
+        serde_json::from_str::<Value>(body["result"]["content"][0]["text"].as_str().unwrap())
+            .unwrap(),
+        json!({"data":[],"next_cursor":null})
+    );
+    let calls = reader.calls.lock().unwrap();
+    assert!(calls[0].scope.all_teams);
+    let window = calls[0].parameters["end_ms"].as_i64().unwrap()
+        - calls[0].parameters["start_ms"].as_i64().unwrap();
+    assert_eq!(window, 2 * 3_600_000);
+}
+
+#[rstest]
+#[case::missing_token(None, 401)]
+#[case::unknown_token(Some("sk-not-a-lens-credential"), 401)]
+#[tokio::test]
+async fn mcp_rejects_callers_lens_cannot_identify(
+    #[future(awt)] database: Database,
+    #[case] token: Option<&str>,
+    #[case] status: u16,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = mcp(&server, token, tool_call("list_traces", json!({}))).await;
+    assert_eq!(response.status(), status);
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[tokio::test]
+async fn mcp_identity_without_a_read_scope_cannot_reach_storage(#[future(awt)] database: Database) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let token = identity::delegated(Identity {
+        token: Some("key-hash".into()),
+        ..Identity::default()
+    });
+    let response = mcp(&server, Some(&token), tool_call("list_traces", json!({}))).await;
+    assert_eq!(response.status(), 403);
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::unknown_tool("delete_trace", json!({}), "Unknown tool delete_trace")]
+#[case::unknown_argument("list_traces", json!({"user_id":"other-user"}), "Invalid arguments")]
+#[case::missing_trace_id("get_trace", json!({}), "Invalid arguments")]
+#[case::page_too_large("get_trace", json!({"trace_id":"t","page_size":501}), "page_size must be between 1 and 500")]
+#[case::conversation_page_too_large(
+    "get_trace_conversation",
+    json!({"trace_id":"t","page_size":51}),
+    "page_size must be between 1 and 50"
+)]
+#[tokio::test]
+async fn mcp_refuses_bad_tool_calls_before_reading(
+    #[future(awt)] database: Database,
+    #[case] name: &str,
+    #[case] arguments: Value,
+    #[case] message: &str,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = mcp(&server, Some(ADMIN), tool_call(name, arguments)).await;
+    assert_eq!(response.status(), 200);
+    let body = response.json::<Value>().await.unwrap();
+    assert_eq!(body["result"]["isError"], true);
+    assert!(
+        body["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with(message),
+        "{body}"
+    );
+    assert!(reader.calls.lock().unwrap().is_empty());
+}
+
+#[rstest]
+#[case::missing_trace("get_trace", json!({"trace_id":"t"}), None, "Trace not found")]
+#[case::missing_span("get_span", json!({"trace_id":"t","span_id":"s"}), None, "Span not found")]
+#[case::storage_down(
+    "list_traces",
+    json!({}),
+    Some(Failure::Unavailable),
+    "Traces are temporarily unavailable. Please try again."
+)]
+#[tokio::test]
+async fn mcp_reports_read_failures_as_tool_errors(
+    #[future(awt)] database: Database,
+    #[case] name: &str,
+    #[case] arguments: Value,
+    #[case] failure: Option<Failure>,
+    #[case] message: &str,
+) {
+    let reader = Reader {
+        failure,
+        ..Reader::default()
+    };
+    let server = serve(&database, reader).await;
+    let body = mcp(&server, Some(ADMIN), tool_call(name, arguments))
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(
+        body["result"],
+        json!({"content":[{"type":"text","text":message}],"isError":true})
+    );
+}
+
+#[rstest]
+#[case::current("2025-06-18", "2025-06-18")]
+#[case::older("2024-11-05", "2024-11-05")]
+#[case::unknown("1999-01-01", "2025-06-18")]
+#[tokio::test]
+async fn mcp_initialize_negotiates_the_protocol_version(
+    #[future(awt)] database: Database,
+    #[case] requested: &str,
+    #[case] agreed: &str,
+) {
+    let server = serve(&database, Reader::default()).await;
+    let body = mcp(
+        &server,
+        Some(ADMIN),
+        json!({"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":requested}}),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(body["id"], "a");
+    assert_eq!(body["result"]["protocolVersion"], agreed);
+    assert_eq!(body["result"]["capabilities"], json!({"tools":{}}));
+}
+
+#[rstest]
+#[tokio::test]
+async fn mcp_lists_only_read_only_tools(#[future(awt)] database: Database) {
+    let server = serve(&database, Reader::default()).await;
+    let body = mcp(
+        &server,
+        Some(ADMIN),
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    let tools = body["result"]["tools"].as_array().unwrap();
+    assert_eq!(
+        tools
+            .iter()
+            .map(|tool| tool["name"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        [
+            "list_agents",
+            "list_traces",
+            "get_trace",
+            "get_trace_conversation",
+            "get_span"
+        ]
+    );
+    assert!(
+        tools
+            .iter()
+            .all(|tool| tool["annotations"]["readOnlyHint"] == true)
+    );
+}
+
+#[rstest]
+#[case::notification(json!({"jsonrpc":"2.0","method":"notifications/initialized"}), 202, None)]
+#[case::ping(json!({"jsonrpc":"2.0","id":2,"method":"ping"}), 200, Some(json!({"jsonrpc":"2.0","id":2,"result":{}})))]
+#[case::unknown_method(
+    json!({"jsonrpc":"2.0","id":3,"method":"resources/list"}),
+    200,
+    Some(json!({"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"Method not found"}}))
+)]
+#[case::batch(
+    json!([{"jsonrpc":"2.0","id":4,"method":"ping"}]),
+    200,
+    Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Send one JSON-RPC request object"}}))
+)]
+#[tokio::test]
+async fn mcp_answers_protocol_messages_without_reading(
+    #[future(awt)] database: Database,
+    #[case] message: Value,
+    #[case] status: u16,
+    #[case] expected: Option<Value>,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = mcp(&server, Some(ADMIN), message).await;
+    assert_eq!(response.status(), status);
+    let text = response.text().await.unwrap();
+    assert_eq!(
+        (!text.is_empty()).then(|| serde_json::from_str::<Value>(&text).unwrap()),
+        expected
+    );
+    assert!(reader.calls.lock().unwrap().is_empty());
+}

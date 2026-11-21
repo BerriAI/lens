@@ -22,6 +22,7 @@ use serde::Serialize;
 
 pub use crate::error::TraceReadError;
 use crate::{auth, error::TraceHttpError};
+mod mcp;
 mod validation;
 
 #[derive(Clone, Debug, Serialize)]
@@ -144,6 +145,7 @@ pub fn router<R: SessionRepository + 'static, B: TraceReader + 'static>(
         .public_route("/lens/logs/{record_id}", get(log::<R, B>))
         .public_route("/v1/traces/agents", get(agents::<R, B>))
         .public_route("/v1/traces/query", post(query::<R, B>))
+        .public_route("/lens/mcp", post(mcp::handle::<R, B>))
         .public_route("/v1/traces/query/help", get(help::<R, B>))
         .public_route("/v1/traces/{trace_id}", get(trace::<R, B>))
         .public_route(
