@@ -273,6 +273,59 @@ fn vercel_preserves_messages_and_tool_calls(span: Span, #[case] operation: &str)
 }
 
 #[rstest]
+#[case::generate(
+    "ai",
+    "ai.generateText.doGenerate",
+    "ai.response.id",
+    CallEvidenceKind::Complete
+)]
+#[case::stream(
+    "ai",
+    "ai.streamText.doStream",
+    "ai.response.id",
+    CallEvidenceKind::Complete
+)]
+#[case::opencode(
+    "opencode",
+    "ai.streamText.doStream",
+    "gen_ai.response.id",
+    CallEvidenceKind::Complete
+)]
+#[case::enclosing_steps("ai", "ai.streamText", "gen_ai.response.id", CallEvidenceKind::Partial)]
+fn vercel_provider_call_span_accounts_for_its_one_response(
+    span: Span,
+    #[case] scope: &str,
+    #[case] operation: &str,
+    #[case] response_key: &str,
+    #[case] evidence: CallEvidenceKind,
+) {
+    let decoded = decode(
+        span,
+        scope,
+        &[("ai.operationId", operation), (response_key, "response-1")],
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(decoded.normalized.calls.kind(), evidence);
+    assert_eq!(
+        decoded.normalized.calls.key_set(),
+        Some(&[CallKey::ProviderResponse("response-1".to_owned())].into())
+    );
+}
+
+#[rstest]
+fn vercel_provider_call_span_without_a_response_id_names_no_call(span: Span) {
+    let decoded = decode(
+        span,
+        "ai",
+        &[("ai.operationId", "ai.streamText.doStream")],
+        vec![],
+    )
+    .unwrap();
+    assert_eq!(decoded.normalized.calls.kind(), CallEvidenceKind::Unknown);
+}
+
+#[rstest]
 fn vercel_tool_records_arguments_result_and_identity(span: Span) {
     let decoded = decode(
         span,

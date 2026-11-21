@@ -633,3 +633,80 @@ async fn projection_keeps_unprocessed_candidates_when_a_page_exceeds_the_write_b
     );
     Ok(())
 }
+
+fn call(trace: &str, id: &str, response: &str, keys: &[&str]) -> BTreeMap<String, Value> {
+    span("owner", id)
+        .into_iter()
+        .chain([
+            ("TraceId".into(), json!(trace)),
+            ("LiteLLMRequestId".into(), json!(response)),
+            ("CallKeys".into(), json!(keys)),
+        ])
+        .collect()
+}
+
+#[rstest]
+#[case::every_call_recorded_by_the_agent(&["response-1", "response-2"], &["agent"])]
+#[case::a_call_the_agent_did_not_record(&["response-1"], &["agent", "gateway"])]
+#[case::no_agent_spans(&[], &["gateway"])]
+#[tokio::test]
+async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] agent_responses: &[&str],
+    #[case] listed: &[&str],
+) -> TestResult {
+    let fixture = migrated_database?;
+    let client = &fixture.database.client;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    let gateway = ["response-1", "response-2"].map(|response| {
+        let request = format!("litellm_request:request-{response}");
+        let provider = format!("provider_response:{response}");
+        call(
+            "gateway",
+            &format!("gateway-{response}"),
+            response,
+            &[&request, &provider],
+        )
+    });
+    let agent = agent_responses.iter().map(|response| {
+        let provider = format!("provider_response:{response}");
+        call(
+            "agent",
+            &format!("agent-{response}"),
+            response,
+            &[&provider],
+        )
+    });
+    insert_rows(
+        client,
+        config.storage().writer(),
+        DATABASE,
+        InsertTable::OtelTraces,
+        gateway.into_iter().chain(agent).collect(),
+    )
+    .await?;
+    let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
+    let scope = access(true, "", &[]);
+    let mut resolved: Vec<_> = TraceReader::new(usize::MAX)
+        .list_traces(&store, &scope, "", 0, 2_000_000_000_000, None, 50)
+        .await?
+        .data
+        .into_iter()
+        .map(|trace| trace.trace_id)
+        .collect();
+    resolved.sort();
+    assert_eq!(resolved, listed);
+
+    summaries::project(client, &config, 16, &mut None).await?;
+    let mut persisted: Vec<_> = store
+        .summary_page(&list_params(scope))
+        .await?
+        .unwrap()
+        .data
+        .into_iter()
+        .map(|trace| trace.trace_id)
+        .collect();
+    persisted.sort();
+    assert_eq!(persisted, listed);
+    Ok(())
+}

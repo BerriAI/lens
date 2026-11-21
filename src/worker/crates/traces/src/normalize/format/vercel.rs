@@ -5,8 +5,8 @@ use super::{Extraction, Format, SpanFacts, genai::GenAi};
 use crate::{
     Error,
     normalize::{
-        ObservationType, RoleEvidence, SpanContext, attr, messages, present, select_attribute,
-        token_alias,
+        CallEvidence, CallKey, ObservationType, RoleEvidence, SpanContext, attr, messages, present,
+        select_attribute, token_alias,
     },
 };
 
@@ -52,6 +52,27 @@ fn prompt(raw: &str) -> String {
         return raw.to_owned();
     }
     messages::canonical(&messages::encode(&conversation))
+}
+
+/// The AI SDK opens one `doGenerate` or `doStream` span per provider request, so the response id
+/// on it names the whole span; the enclosing `generateText` span can cover several
+fn provider_call(operation: &str, context: &SpanContext<'_>) -> CallEvidence {
+    if !matches!(
+        operation,
+        "ai.generateText.doGenerate"
+            | "ai.streamText.doStream"
+            | "ai.generateObject.doGenerate"
+            | "ai.streamObject.doStream"
+    ) {
+        return CallEvidence::Unknown;
+    }
+    present(
+        context.attributes,
+        &["ai.response.id", "gen_ai.response.id"],
+    )
+    .map_or(CallEvidence::Unknown, |id| {
+        CallEvidence::complete(CallKey::ProviderResponse(id))
+    })
 }
 
 impl Format for Vercel {
@@ -133,6 +154,7 @@ impl Format for Vercel {
         Ok(Extraction {
             facts: base.facts.or(SpanFacts {
                 role: role.map(RoleEvidence::Declared),
+                calls: provider_call(operation, context),
                 model: present(context.attributes, &["ai.model.id"]),
                 input_tokens: token_alias(
                     context.attributes,
