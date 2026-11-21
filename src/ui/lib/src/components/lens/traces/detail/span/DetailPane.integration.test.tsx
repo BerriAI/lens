@@ -443,7 +443,8 @@ describe("DetailPane", () => {
   it("shows a turn as the typed message, the agent's answer and the steps between, each opening its step", async () => {
     const user = userEvent.setup();
     const onOpenStep = vi.fn();
-    const asked = span({ ...llmFields, span_id: "ask", parent_span_id: null });
+    const typed = "Find a tool that fetches web pages";
+    const asked = span({ ...llmFields, span_id: "ask", parent_span_id: null, input_preview: typed });
     const search = span({
       span_id: "search",
       parent_span_id: null,
@@ -451,31 +452,30 @@ describe("DetailPane", () => {
       type: "tool",
       input_preview: '{"query": "fetch web page"}',
     });
-    const answered = span({ ...llmFields, span_id: "root", parent_span_id: null });
+    const answered = span({ ...llmFields, span_id: "root", parent_span_id: null, input_preview: typed });
+    const titled = span({ ...llmFields, parent_span_id: null, input_preview: "Write the title of the session" });
     renderPane(
       {
         kind: "turn",
         id: "turn::ask",
         depth: 0,
         index: 2,
-        message: "Find a tool that fetches web pages",
-        members: [asked, search, answered],
+        message: typed,
+        members: [asked, search, answered, titled],
         collapsed: false,
       },
       onOpenStep,
     );
     const pane = screen.getByRole("complementary", { name: "Turn details" });
     expect(pane).toHaveTextContent("Turn 2");
-    expect(pane).toHaveTextContent("Model calls2");
+    expect(pane).toHaveTextContent("Model calls3");
     expect(pane).toHaveTextContent("Tool calls1");
-    expect(within(pane).getByRole("region", { name: "User message" })).toHaveTextContent(
-      "Find a tool that fetches web pages",
-    );
+    expect(within(pane).getByRole("region", { name: "User message" })).toHaveTextContent(typed);
     expect(await within(pane).findByRole("region", { name: "Agent answer" })).toHaveTextContent(
       "Customer acme-404 is on the Enterprise plan.",
     );
     const steps = within(within(pane).getByRole("region", { name: "Turn steps" })).getAllByRole("button");
-    expect(steps).toHaveLength(3);
+    expect(steps).toHaveLength(4);
     expect(steps[1]).toHaveTextContent("execute_tool ToolSearch");
     await user.click(steps[1]);
     expect(onOpenStep).toHaveBeenCalledWith("search");

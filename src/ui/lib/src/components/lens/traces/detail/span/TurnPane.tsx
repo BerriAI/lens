@@ -65,7 +65,8 @@ export function TurnPane({
 }) {
   const facts = turnFacts(row);
   const own = row.members.filter((span) => span.parent_span_id === null);
-  const answered = own.findLast((span) => span.type === "llm");
+  const calls = own.filter((span) => span.type === "llm");
+  const answered = calls.findLast((span) => span.input_preview === row.message) ?? calls.at(-1);
   const answer = useSpanDetail(
     accessToken,
     trace.summary.trace_id,
