@@ -223,7 +223,7 @@ async fn standalone_owns_sessions_keys_and_traces_across_restart(
         .unwrap();
     assert_eq!(ingested.status(), 200, "{}", ingested.text().await.unwrap());
     let list = client
-        .get(format!("{}/v1/traces", server.url))
+        .get(format!("{}/v1/traces?include_internal=true", server.url))
         .header("cookie", &cookie)
         .send()
         .await
@@ -346,7 +346,7 @@ async fn standalone_router_has_public_read_contract_and_rejects_internal_or_unsa
         .unwrap();
     assert_eq!(internal.status(), 401);
     let denied = client
-        .get(format!("{}/v1/traces", server.url))
+        .get(format!("{}/v1/traces?include_internal=true", server.url))
         .send()
         .await
         .unwrap();

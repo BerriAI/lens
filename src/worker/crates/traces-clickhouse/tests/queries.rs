@@ -768,7 +768,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
             ("SpanId".into(), serde_json::json!(span_id)),
             ("ParentSpanId".into(), serde_json::json!(parent)),
             ("SpanName".into(), serde_json::json!(span_id)),
-            ("ObservationType".into(), serde_json::json!("agent")),
+            ("ObservationType".into(), serde_json::json!("llm")),
             ("AgentName".into(), serde_json::json!(agent)),
             ("TeamId".into(), serde_json::json!("team-lens")),
             (
