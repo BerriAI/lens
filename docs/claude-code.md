@@ -123,7 +123,7 @@ To keep the settings across terminals, put the same variables in the `env` objec
 
 ### Check the result
 
-Run one task, then open **Traces** in Lens and filter by **claude-code**. A working setup shows one `claude_code.interaction` trace per turn with its model calls, tool calls, token counts, the prompt you typed and the reply. The cost column stays empty, because Lens prices calls from a LiteLLM gateway only
+Run one task, then open **Traces** in Lens and filter by **claude-code**. A working setup shows one `claude_code.interaction` trace per turn with its model calls, tool calls, token counts, the prompt you typed and the reply. The cost column stays empty. Cost is recorded only when the model calls go through a LiteLLM gateway
 
 ![A Claude Code turn in standalone Lens with its model calls, a Read tool call and the reply](images/claude-code-turn-no-gateway.png)
 
