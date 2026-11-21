@@ -31,6 +31,7 @@ pub fn harness(id: &str) -> Brand {
         "openai-codex" => brand("Codex", "◎", OPENAI),
         "langgraph" => brand("LangGraph", "⬡", LANGGRAPH),
         "langchain" => brand("LangChain", "⬡", LANGGRAPH),
+        "deepagents" => brand("Deep Agents", "⬡", LANGGRAPH),
         "litellm" => brand("LiteLLM", "≋", LITELLM),
         "google-adk" => brand("Google ADK", "◆", GOOGLE),
         "crewai" => brand("CrewAI", "◈", CREWAI),

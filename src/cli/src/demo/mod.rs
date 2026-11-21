@@ -75,7 +75,7 @@ impl Chrome {
             title: "Run evals".to_owned(),
             meta: vec![run_id.to_owned(), "local".to_owned()],
             hints: vec!["Ctrl-C to stop".to_owned(), format!("lens resume {run_id}")],
-            footer: vec!["local".to_owned(), "results stay on disk".to_owned()],
+            footer: vec!["results stay on disk".to_owned()],
             speed: 1.0,
         }
     }
