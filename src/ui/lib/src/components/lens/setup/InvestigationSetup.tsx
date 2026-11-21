@@ -62,7 +62,6 @@ function criteriaSummary(values: Pick<InvestigationInput, "context" | "watching"
 interface SetupProps {
   initial?: Settings;
   mode: SetupMode;
-  defaultSource?: Settings["source"];
   ready?: boolean;
   onClose: () => void;
   onSave: (settings: Settings) => Promise<void>;
@@ -70,9 +69,9 @@ interface SetupProps {
 
 /** Replaces the Investigations tab body: a three-step setup on the left, the activity it matches on the right. */
 export function InvestigationSetup(props: SetupProps) {
-  const { initial, mode, defaultSource = "traces" } = props;
+  const { initial, mode } = props;
   const profile = useProfileRoute();
-  const defaults = investigationDefaults(initial, mode, defaultSource);
+  const defaults = investigationDefaults(initial, mode);
   const form = useZodForm(investigationSchema, {
     defaultValues: mode === "new" && profile.profile ? {
       ...defaults,
@@ -187,7 +186,7 @@ function SetupEditor({
           <SetupStep
             id="activity"
             heading="Activity"
-            description="Which traces or requests to review"
+            description="Which traces to review"
             summary={activitySummary(selection, profileName)}
           >
             <label className="grid gap-2 text-sm font-medium">

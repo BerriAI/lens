@@ -81,15 +81,13 @@ function validScope(scope: Selection): boolean {
 
 function previewTitle(
   state: { pending: boolean; validWindow: boolean; valid: boolean },
-  source: Selection["source"],
   data: PreviewPageData | undefined,
 ): string {
   if (!state.validWindow) return "Choose a history window between 1 hour and 365 days";
   if (!state.valid) return "Complete your condition to preview matches";
   if (state.pending) return "Finding matching activity…";
   if (!data) return "Preview unavailable";
-  const noun = source === "requests" ? "request" : "run";
-  return `${data.eligible} matching ${noun}${data.eligible === 1 ? "" : "s"}`;
+  return `${data.eligible} matching run${data.eligible === 1 ? "" : "s"}`;
 }
 
 function manualSelectedCount(selection: Selection): number {
@@ -114,12 +112,11 @@ function windowLabel(selection: Selection): string {
 
 function useScopeFieldOptions(api: ReturnType<typeof useLensApi>, selection: Selection): ScopeOptions {
   const discovery = useQuery(lensQueries.discovery(api, { value: selection, enabled: validWindow(selection) }));
-  const agents = useQuery(lensQueries.agents(api, selection.source));
+  const agents = useQuery(lensQueries.agents(api));
   const runs = discovery.data?.executions ?? [];
-  const services = [...new Set(runs.map((r) => r.service).filter(Boolean))].sort();
   const attributes = runs.flatMap((r) => r.metadata ?? []);
   return {
-    names: selection.source === "requests" ? services : agents.data ?? [],
+    names: agents.data ?? [],
     agentsLoading: agents.isFetching,
     agentsError: agents.isError,
     retryAgents: () => void agents.refetch(),
@@ -169,7 +166,7 @@ export function useMatchingActivity(): MatchingActivity {
     scope: scopeFields,
     preview: {
       status: {
-        title: previewTitle({ pending, validWindow: windowValid, valid }, selection.source, firstPage),
+        title: previewTitle({ pending, validWindow: windowValid, valid }, firstPage),
         windowLabel: windowLabel(selection),
         ready,
         error: preview.error,

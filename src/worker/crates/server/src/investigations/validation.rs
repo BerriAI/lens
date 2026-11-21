@@ -38,7 +38,7 @@ impl Model {
                 (
                     "source",
                     false,
-                    FieldKind::Investigation(Kind::Literal(&["traces", "requests", "both"])),
+                    FieldKind::Investigation(Kind::Literal(&["traces"])),
                 ),
                 ("service", false, STRING),
                 ("agent_name", false, STRING),
@@ -395,6 +395,42 @@ mod tests {
         validate(&mut value, kind, &[], &mut errors);
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(value, expected);
+    }
+
+    fn settings_source_kind() -> Kind {
+        let source = Model::Settings
+            .fields()
+            .iter()
+            .find(|field| field.0 == "source")
+            .expect("settings have a source field");
+        match source.2 {
+            FieldKind::Investigation(kind) => kind,
+            _ => panic!("the source field is an investigation literal"),
+        }
+    }
+
+    #[rstest]
+    #[case::requests("requests")]
+    #[case::both("both")]
+    fn an_investigation_cannot_be_saved_with_a_request_source(#[case] source: &str) {
+        let mut value = json!(source);
+        let mut errors = Vec::new();
+        validate(
+            &mut value,
+            settings_source_kind(),
+            &[json!("body"), json!("source")],
+            &mut errors,
+        );
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0]["type"], "literal_error");
+    }
+
+    #[test]
+    fn an_investigation_is_saved_with_the_trace_source() {
+        let mut value = json!("traces");
+        let mut errors = Vec::new();
+        validate(&mut value, settings_source_kind(), &[], &mut errors);
+        assert!(errors.is_empty(), "{errors:?}");
     }
 
     #[rstest]

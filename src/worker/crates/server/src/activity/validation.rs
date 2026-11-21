@@ -30,9 +30,7 @@ impl Model {
                 (
                     "source",
                     false,
-                    Kind::Investigation(InvestigationKind::Literal(&[
-                        "traces", "requests", "both",
-                    ])),
+                    Kind::Investigation(InvestigationKind::Literal(&["traces"])),
                 ),
                 ("service", false, STRING),
                 ("agent_name", false, STRING),

@@ -26,7 +26,7 @@ export function useProfileOptions(selection: Selection, enabled = true) {
       const overview = await api.overview(window, scope.agent, signal);
       return overview.profiles.map((profile) => ({ value: profile.profile_id, label: profile.name }));
     },
-    enabled: enabled && selection.source !== "requests" && Number.isInteger(hours) && hours > 0,
+    enabled: enabled && Number.isInteger(hours) && hours > 0,
     staleTime: 30_000,
   });
 }
@@ -51,7 +51,6 @@ export function ProfileField() {
       ? [{ value: selection.profile, label: profileLabel(selection.profile, options) }]
       : []),
   ];
-  if (selection.source === "requests") return null;
   return (
     <label className="grid gap-2 text-sm font-medium">
       Profile
