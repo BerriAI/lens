@@ -11,6 +11,7 @@ import {
   type LensHost,
   takeSignInToken,
 } from "@litellm/lens-ui";
+import litellmMonogram from "../../lib/public/assets/logos/litellm_monogram.svg";
 import { ApiError, createApiClient } from "@litellm/lens-ui/http";
 import { toast } from "sonner";
 
@@ -151,7 +152,19 @@ function Surface({
 }
 
 const primaryButton =
-  "rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-center text-sm text-primary-foreground";
+
+function LiteLlmLogo() {
+  return (
+    <span
+      aria-hidden
+      className="size-5 shrink-0 bg-current"
+      style={{
+        mask: `url(${litellmMonogram.src}) center / contain no-repeat`,
+      }}
+    />
+  );
+}
 
 function ConnectGateway() {
   const client = useQueryClient();
@@ -342,6 +355,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
           <>
             {litellmLoginUrl ? (
               <a href={litellmLoginUrl} className={primaryButton}>
+                <LiteLlmLogo />
                 Log in with LiteLLM
               </a>
             ) : (
@@ -350,6 +364,7 @@ function SignIn({ linkRejected }: { linkRejected: boolean }) {
                 className={primaryButton}
                 onClick={() => setSettingUp(true)}
               >
+                <LiteLlmLogo />
                 Log in with LiteLLM
               </button>
             )}
