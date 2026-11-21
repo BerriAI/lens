@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import research from "../../__fixtures__/research_trace.json";
 import type { Span, SpanDetail, TraceMessage } from "../../types";
 import { buildConversation, groupConversation, type ConversationGroup } from "./conversation";
-import { compactedCalls, newRequestMessages } from "./sessionCalls";
+import { compactedCalls, linkSessionCalls, newRequestMessages } from "./sessionCalls";
 import { buildThread } from "./thread";
 
 const base = {
@@ -114,6 +114,41 @@ describe("gateway coding session threads", () => {
     expect(turns[0].work.flatMap((work) => (work.kind === "step" ? [work.item.span.span_id] : []))).toEqual([
       "m1",
       "agent",
+    ]);
+  });
+
+  it("keeps the main thread out of the branch when the subagent is given the user's own message", () => {
+    const prompt = "list every file ".repeat(20).trim();
+    const main = [system, ask(prompt)];
+    const recorded = [
+      call("m1", prompt, main, { ...toolUse, tool_calls: [{ name: "Agent", args: { prompt } }] }),
+      call("title", "write a title", [system, ask("write a title")], say("Files")),
+      tool("agent", "Agent", prompt, { description: "List files", prompt }, "launched"),
+      call("m2", prompt, [...main, toolUse, toolResult], say("The folder has a.md")),
+    ];
+    const linked = linkSessionCalls(
+      recorded.map(({ span }) => span),
+      new Map(recorded.map(({ span, detail }) => [span.span_id, detail])),
+    );
+    expect(linked.map((span) => [span.span_id, span.parent_span_id])).toEqual([
+      ["m1", null],
+      ["title", null],
+      ["agent", "m1"],
+      ["m2", null],
+    ]);
+  });
+
+  it("does not repeat the compaction summary as a typed message when the request has no assistant message", () => {
+    const summary = ask("Summary of the earlier conversation");
+    const turns = thread([
+      call("c1", "first", [system, ask("first"), say("one"), ask("second")], say("two")),
+      call("c2", "Summary", [system, summary, ask("third")], say("three")),
+      call("c3", "Summary", [system, summary, ask("third"), say("three"), ask("fourth")], say("four")),
+    ]);
+    expect(turns.map((turn) => [turn.compacted, texts(turn.prompt)])).toEqual([
+      [false, ["second"]],
+      [true, ["third"]],
+      [false, ["fourth"]],
     ]);
   });
 

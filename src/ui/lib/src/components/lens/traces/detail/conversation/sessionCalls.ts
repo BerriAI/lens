@@ -43,7 +43,9 @@ export function linkSessionCalls(spans: readonly Span[], details: ReadonlyMap<st
   const owner = new Map(
     spans.flatMap((span) => {
       if (span.parent_span_id !== null) return [];
-      const launched = agents.filter((agent) => agent.span !== span && startsTask(agent.prompt, task(span)));
+      const launched = agents.filter(
+        (agent) => agent.span !== span && task(span) !== task(agent.span) && startsTask(agent.prompt, task(span)),
+      );
       const agent = nearest(
         span,
         launched.map((candidate) => candidate.span),
@@ -59,6 +61,7 @@ export function linkSessionCalls(spans: readonly Span[], details: ReadonlyMap<st
           span.parent_span_id === null &&
           span.type === "llm" &&
           span.start_offset_ms <= agent.start_offset_ms &&
+          task(span) === task(agent) &&
           owner.get(span.span_id) === owner.get(agent.span_id),
       ),
     )?.span_id;

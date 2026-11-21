@@ -294,7 +294,7 @@ function requestUpdate(request: readonly TraceMessage[], summary: TraceMessage |
   return [
     { role: "system", content: CONTEXT_COMPACTED },
     { role: "system", content: summary.content },
-    ...fresh.filter((message) => message !== summary),
+    ...fresh.filter((message, index) => index !== fresh.findIndex((other) => messageKey(other) === messageKey(summary))),
   ];
 }
 
