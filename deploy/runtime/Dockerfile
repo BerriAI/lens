@@ -33,18 +33,26 @@ COPY .cargo/ .cargo/
 COPY src/worker/ src/worker/
 COPY src/cli/ src/cli/
 WORKDIR /src/src/worker
+ARG TARGETARCH
 ARG LENS_CARGO_JOBS=4
 ENV CARGO_BUILD_JOBS=${LENS_CARGO_JOBS} CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_STRIP=symbols \
     CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
-RUN cargo build --locked --release -p litellm-lens
-RUN TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-    LENS_PROFILE_MODEL_CACHE=/opt/lens-profile-model cargo run --locked --release -p lens-profiles --example resource_probe -- 1
-RUN cargo build --locked --release -p lens-migrate
+RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=lens-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=lens-cargo-target-${TARGETARCH},target=/src/src/worker/target \
+    cargo build --locked --release -p litellm-lens && \
+    TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+    LENS_PROFILE_MODEL_CACHE=/opt/lens-profile-model cargo run --locked --release -p lens-profiles --example resource_probe -- 1 && \
+    cargo build --locked --release -p lens-migrate && \
+    mkdir /out && cp target/release/litellm-lens target/release/lens-migrate /out/
 RUN cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Werror crates/lens/sandbox/python_policy.c -lseccomp -o /tmp/python-policy && \
     /tmp/python-policy /tmp/python.seccomp
 
 FROM builder AS test-builder
-RUN cargo test --locked --release -p litellm-lens --test sandbox --no-run --message-format=json > /tmp/test-artifacts.json && \
+RUN --mount=type=cache,id=lens-cargo-registry,target=/root/.cargo/registry \
+    --mount=type=cache,id=lens-cargo-git,target=/root/.cargo/git \
+    --mount=type=cache,id=lens-cargo-target-${TARGETARCH},target=/src/src/worker/target \
+    cargo test --locked --release -p litellm-lens --test sandbox --no-run --message-format=json > /tmp/test-artifacts.json && \
     jq -r 'select(.executable != null and .target.name == "sandbox") | .executable' /tmp/test-artifacts.json > /tmp/sandbox-artifact && \
     test "$(wc -l < /tmp/sandbox-artifact)" -eq 1 && \
     cp "$(cat /tmp/sandbox-artifact)" /tmp/lens-sandbox-tests && \
@@ -56,8 +64,8 @@ RUN apk add --no-cache --upgrade python-3.13 setpriv libgcc libstdc++ openssl ca
 ENV LENS_VERSION=${LENS_VERSION} PYTHONDONTWRITEBYTECODE=1 LENS_UI_DIRECTORY=/app/ui \
     LENS_PROFILE_MODEL_CACHE=/app/profile-model
 WORKDIR /app
-COPY --from=builder /src/src/worker/target/release/litellm-lens /usr/local/bin/litellm-lens
-COPY --from=builder /src/src/worker/target/release/lens-migrate /usr/local/bin/lens-migrate
+COPY --from=builder /out/litellm-lens /usr/local/bin/litellm-lens
+COPY --from=builder /out/lens-migrate /usr/local/bin/lens-migrate
 COPY --from=builder --chown=65532:65532 /opt/lens-profile-model/ /app/profile-model/
 COPY --from=builder /tmp/python.seccomp /app/lens/python.seccomp
 COPY --from=ui-builder /src/src/ui/app/out/ /app/ui/
