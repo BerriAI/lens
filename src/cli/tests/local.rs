@@ -502,7 +502,7 @@ fn incomplete_metrics_cannot_look_like_a_free_recommendation(
         .map(lens_cli::demo::style::Line::plain)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(report.contains("Cost comparison needs complete"));
+    assert_eq!(report.contains("All costs are unknown."), cost.is_none());
 }
 
 #[rstest]
@@ -521,7 +521,7 @@ fn old_checkpoints_default_to_one_trial() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(report.contains("$0.10"));
-    assert!(!report.contains("Cost comparison needs complete"));
+    assert!(!report.contains("All costs are unknown."));
 }
 
 #[rstest]

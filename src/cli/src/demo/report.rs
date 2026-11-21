@@ -167,7 +167,7 @@ impl<'a> Report<'a> {
             return vec![
                 result(vec![strong("No recommendation")]),
                 detail(vec![muted(
-                    "A recommendation needs passing cases and complete cost metrics. Inspect the results below.",
+                    "A recommendation needs passing cases, known cost, and complete metrics. Inspect the results below.",
                 )]),
             ];
         };
@@ -180,14 +180,14 @@ impl<'a> Report<'a> {
             format!(
                 "Highest pass rate at {:.1}%, {} total",
                 chosen.pass_rate() * 100.0,
-                money(comparable_cost(chosen))
+                money(chosen.cost())
             )
         } else {
             format!(
                 "{} of the best pass rate ({}) for {}",
                 percent(chosen.pass_rate(), leader.pass_rate()),
                 self.label(top),
-                match (comparable_cost(chosen), comparable_cost(leader)) {
+                match (chosen.cost(), leader.cost()) {
                     (Some(chosen), Some(cost)) if cost > 0.0 =>
                         format!("{} of the cost", percent(chosen, cost)),
                     (Some(cost), _) => format!("{} total", money(Some(cost))),
@@ -255,7 +255,7 @@ impl<'a> Report<'a> {
                         cell(format!("{:.1}%", stat.pass_rate() * 100.0), Style::fg(GOOD)),
                         cell(stat.fail.to_string(), Style::fg(BAD)),
                         cell(stat.error.to_string(), Style::fg(WARN)),
-                        cell(money(comparable_cost(stat)), Style::fg(TEXT)),
+                        cell(money(stat.cost()), Style::fg(TEXT)),
                         cell(
                             cost_per_pass(stat)
                                 .map_or("—".to_owned(), |cost| format!("{:.2}", cost * 100.0)),
@@ -303,13 +303,13 @@ impl<'a> Report<'a> {
         let most = self
             .stats()
             .iter()
-            .filter_map(comparable_cost)
+            .filter_map(TargetStats::cost)
             .fold(0.0, f64::max);
         self.stats()
             .iter()
             .enumerate()
             .map(|(index, stat)| {
-                let cost = comparable_cost(stat);
+                let cost = stat.cost();
                 self.bar_row(
                     index,
                     cost.map_or(0.0, |cost| ratio(cost, most)),
@@ -321,15 +321,15 @@ impl<'a> Report<'a> {
 
     fn dominator(&self, index: usize) -> Option<usize> {
         let stat = &self.stats()[index];
-        let cost = comparable_cost(stat)?;
+        let cost = stat.cost()?;
         self.stats()
             .iter()
             .enumerate()
             .find(|(other, rival)| {
                 *other != index
-                    && comparable_cost(rival).is_some_and(|rival_cost| rival_cost <= cost)
+                    && rival.cost().is_some_and(|rival_cost| rival_cost <= cost)
                     && rival.pass_rate() >= stat.pass_rate()
-                    && (comparable_cost(rival).is_some_and(|rival_cost| rival_cost < cost)
+                    && (rival.cost().is_some_and(|rival_cost| rival_cost < cost)
                         || rival.pass_rate() > stat.pass_rate())
             })
             .map(|(other, _)| other)
@@ -340,7 +340,7 @@ impl<'a> Report<'a> {
             .stats()
             .iter()
             .enumerate()
-            .filter_map(|(index, stat)| Some((index, comparable_cost(stat)?)))
+            .filter_map(|(index, stat)| Some((index, stat.cost()?)))
             .filter(|(index, _)| self.dominator(*index).is_none())
             .collect();
         points.sort_by(|left, right| left.1.total_cmp(&right.1));
@@ -384,17 +384,15 @@ impl<'a> Report<'a> {
             + self.rank_width()
             + 18;
         let columns = self.width.saturating_sub(9).min(100);
-        let costs: Vec<f64> = self.stats().iter().filter_map(comparable_cost).collect();
+        let costs: Vec<f64> = self.stats().iter().filter_map(TargetStats::cost).collect();
         if costs.is_empty() {
-            return vec![body(vec![muted(
-                "Cost comparison needs complete metrics. All costs are unknown.",
-            )])];
+            return vec![body(vec![muted("All costs are unknown.")])];
         }
         let axis = CostAxis::new(&costs, columns);
         let rates = RateAxis::new(
             self.stats()
                 .iter()
-                .filter(|stat| comparable_cost(stat).is_some())
+                .filter(|stat| stat.cost().is_some())
                 .map(TargetStats::pass_rate),
         );
         let frontier = self.frontier();
@@ -405,10 +403,7 @@ impl<'a> Report<'a> {
             .filter(|index| rates.contains(self.stats()[*index].pass_rate()))
             .filter_map(|index| {
                 let stat = &self.stats()[index];
-                let (row, column) = (
-                    rates.row(stat.pass_rate()),
-                    axis.column(comparable_cost(stat)?),
-                );
+                let (row, column) = (rates.row(stat.pass_rate()), axis.column(stat.cost()?));
                 let width = marker_text(index).chars().count();
                 let clear = |at: usize| {
                     at + width <= columns
@@ -586,7 +581,7 @@ impl<'a> Report<'a> {
             .map(|index| {
                 let stat = &self.stats()[index];
                 let style = self.label_style(index, &frontier);
-                let place = if comparable_cost(stat).is_none() || rates.contains(stat.pass_rate()) {
+                let place = if stat.cost().is_none() || rates.contains(stat.pass_rate()) {
                     String::new()
                 } else {
                     " ▼".to_owned()
@@ -603,7 +598,7 @@ impl<'a> Report<'a> {
                     faint(format!(
                         "{:>6}  {:>7}{place}",
                         format!("{:.0}%", stat.pass_rate() * 100.0),
-                        money(comparable_cost(stat))
+                        money(stat.cost())
                     )),
                 ])
             })
@@ -1060,9 +1055,6 @@ fn money(value: Option<f64>) -> String {
     }
 }
 
-fn comparable_cost(stat: &TargetStats) -> Option<f64> {
-    stat.cost().filter(|_| stat.metrics.metrics_complete)
-}
 fn seconds(value: f64) -> String {
     if value >= 10.0 {
         format!("{value:.0}s")
@@ -1204,7 +1196,7 @@ fn ranked(summary: &Summary) -> Summary {
         picked(right)
             .cmp(&picked(left))
             .then(right.pass_rate().total_cmp(&left.pass_rate()))
-            .then_with(|| match (comparable_cost(left), comparable_cost(right)) {
+            .then_with(|| match (left.cost(), right.cost()) {
                 (Some(left), Some(right)) => left.total_cmp(&right),
                 (Some(_), None) => std::cmp::Ordering::Less,
                 (None, Some(_)) => std::cmp::Ordering::Greater,
@@ -1220,7 +1212,7 @@ fn ranked(summary: &Summary) -> Summary {
 
 pub fn cost_per_pass(stat: &TargetStats) -> Option<f64> {
     (stat.pass > 0).then_some(())?;
-    Some(comparable_cost(stat)? / f64::from(stat.pass))
+    Some(stat.cost()? / f64::from(stat.pass))
 }
 
 pub fn lines(summary: &Summary, width: usize) -> Vec<Line> {
@@ -1757,14 +1749,18 @@ mod tests {
     }
 
     #[rstest]
-    fn only_known_costs_are_plotted_and_break_quality_ties() {
+    #[case::complete_metrics(true)]
+    #[case::cost_only(false)]
+    fn only_known_costs_are_plotted_and_break_quality_ties(#[case] metrics_complete: bool) {
+        let mut priced = stat("custom", "priced", 1, 0, 0.25);
+        priced.metrics.metrics_complete = metrics_complete;
         let summary = Summary {
             stats: vec![
                 TargetStats {
                     model_cost: None,
                     ..stat("custom", "unpriced", 1, 0, 0.0)
                 },
-                stat("litellm", "priced", 1, 0, 0.01),
+                priced,
             ],
             recommended: None,
             ..fixture::summary()
@@ -1772,6 +1768,10 @@ mod tests {
         let ranked = ranked(&summary);
         assert_eq!(ranked.stats[0].target.display_name(), "priced");
         let report = Report::new(&ranked, 100);
+        assert!(report.results().iter().any(|line| {
+            let row = line.plain();
+            row.contains("priced") && row.contains("$0.25")
+        }));
         assert_eq!(report.frontier(), vec![0]);
         let text = plot_text(&report);
         assert_eq!(
