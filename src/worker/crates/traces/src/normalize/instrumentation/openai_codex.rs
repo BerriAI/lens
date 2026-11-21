@@ -162,11 +162,10 @@ impl Rule for OpenaiCodex {
         let is_codex_trace = matches!(
             context.scope,
             CODEX_TRACES_SCOPE | CODEX_APP_SERVER_SCOPE | CODEX_EXEC
-        )
-            || context
-                .attributes
-                .get("service.name")
-                .is_some_and(|s| s == "codex-cli")
+        ) || context
+            .attributes
+            .get("service.name")
+            .is_some_and(|s| s == "codex-cli")
             || context
                 .resource_attributes
                 .get("service.name")
