@@ -76,10 +76,7 @@ fn append_scope(
     budget.consume(scope.name.len() + scope.version.len())?;
     let scope_name: Shared<String> = scope.name.into();
     let scope_version: Shared<String> = scope.version.into();
-    if matches!(
-        scope_name.as_str(),
-        "codex_cli_rs" | "codex-app-server" | "codex_exec"
-    ) {
+    if CODEX_SPAN_SCOPES.contains(&scope_name.as_str()) {
         preprocess_codex_spans(&mut scope_spans.spans);
     }
     if scope_name.as_str() == OPENCODE_SCOPE {
@@ -135,7 +132,47 @@ fn has_attr(span: &Span, key: &str) -> bool {
     span.attributes.iter().any(|entry| entry.key == key)
 }
 
+const CODEX_SPAN_SCOPES: [&str; 3] = ["codex_cli_rs", "codex-app-server", "codex_exec"];
+const CODEX_LOG_SCOPE: &str = "codex_otel.log_only";
+const CODEX_CONVERSATION: &str = "conversation.id";
+
+fn client_session_attribute(scope: &str) -> Option<&'static str> {
+    (CODEX_SPAN_SCOPES.contains(&scope) || scope == CODEX_LOG_SCOPE).then_some(CODEX_CONVERSATION)
+}
+
+fn codex_conversation(span: &Span) -> Option<&str> {
+    raw_attr(span, CODEX_CONVERSATION)
+        .or_else(|| raw_attr(span, "thread_id"))
+        .or_else(|| {
+            raw_attr(span, "key")
+                .filter(|_| span.name == "app_server.serialized_request_queue")?
+                .strip_prefix("Thread { thread_id: \"")?
+                .strip_suffix("\" }")
+        })
+        .filter(|conversation| !conversation.is_empty())
+}
+
+fn stamp_codex_conversations(spans: &mut [Span]) {
+    let conversations: BTreeMap<Vec<u8>, String> = spans
+        .iter()
+        .rev()
+        .filter_map(|span| {
+            codex_conversation(span)
+                .map(|conversation| (span.trace_id.clone(), conversation.to_owned()))
+        })
+        .collect();
+    for span in spans.iter_mut() {
+        if !has_attr(span, CODEX_CONVERSATION)
+            && let Some(conversation) = conversations.get(&span.trace_id)
+        {
+            span.attributes
+                .push(string_attr(CODEX_CONVERSATION, conversation.clone()));
+        }
+    }
+}
+
 fn preprocess_codex_spans(spans: &mut Vec<Span>) {
+    stamp_codex_conversations(spans);
     let parents: BTreeMap<_, _> = spans
         .iter()
         .map(|span| {
@@ -496,16 +533,25 @@ fn decoded_span(
     let parent_span_id = hex_bytes(&span.parent_span_id);
     let mut span_attributes = attributes(span.attributes, budget)?;
     let original_trace_id = hex_bytes(&span.trace_id);
-    let session_attribute = resource_attributes
+    let configured_attribute = resource_attributes
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
-        .map_or("session.id", String::as_str);
+        .map(String::as_str);
+    let session_attributes = match configured_attribute {
+        Some(attribute) => [Some(attribute), None],
+        None => [
+            client_session_attribute(scope_name.as_str()),
+            Some("session.id"),
+        ],
+    };
     let joins_session = scope_name.as_str() != OPENCODE_SCOPE
         || span_attributes.contains_key("ai.operationId")
         || span_attributes.contains_key(OPENCODE_TURN);
-    let trace_id = if let Some(session) = span_attributes
-        .get(session_attribute)
-        .filter(|value| joins_session && !value.is_empty())
+    let trace_id = if let Some(session) = session_attributes
+        .into_iter()
+        .flatten()
+        .filter_map(|attribute| span_attributes.get(attribute))
+        .find(|value| joins_session && !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));
         let actor = span_attributes.get("agent_id").unwrap_or(session).clone();
