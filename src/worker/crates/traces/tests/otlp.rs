@@ -3554,6 +3554,57 @@ fn codex_prompt_log_joins_its_conversation_trace(#[case] log_trace: &str) {
 }
 
 #[rstest]
+#[case::codex_with_trace("codex_otel.log_only", &[], "a1", "conversation-one", true)]
+#[case::codex_without_trace("codex_otel.log_only", &[], "", "conversation-one", false)]
+#[case::codex_without_conversation("codex_otel.log_only", &[], "a1", "", false)]
+#[case::codex_configured_attribute(
+    "codex_otel.log_only",
+    &[("lens.session.attribute", "session.id")],
+    "a1",
+    "conversation-one",
+    false
+)]
+#[case::other_client("other.logs", &[], "a1", "conversation-one", false)]
+fn stored_codex_log_record_follows_its_conversation_trace(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] log_trace: &str,
+    #[case] conversation: &str,
+    #[case] regrouped: bool,
+) {
+    let spans = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let logs = serde_json::json!({"resourceLogs":[{
+        "resource":{"attributes":json_attrs(resource)},
+        "scopeLogs":[{
+            "scope":{"name":scope},"logRecords":[{
+                "traceId":log_trace.repeat(16),"spanId":"c1".repeat(8),
+                "timeUnixNano":"1700000000000000020",
+                "attributes":json_attrs(&[
+                    ("event.name", "codex.api_request"),
+                    ("conversation.id", conversation),
+                ])
+            }]
+        }]
+    }]});
+    let batch = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let stored: String = batch.records[0]
+        .trace_id
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    assert_eq!(stored == spans[0].trace_id, regrouped);
+    assert_eq!(stored == log_trace.repeat(16), !regrouped);
+}
+
+#[rstest]
 #[case::codex_session_only("codex_exec", &[], &[("session.id", "s")], &[("session.id", "s")], true)]
 #[case::codex_prefers_conversation(
     "codex_exec",
