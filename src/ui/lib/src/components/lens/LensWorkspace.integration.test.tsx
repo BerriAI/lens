@@ -121,9 +121,9 @@ it.each(["home", "agents", "traces"])("offers setup instructions immediately fro
   expect(screen.queryByRole("navigation", { name: "Setup progress" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Copy setup instructions" }));
   const instructions = await navigator.clipboard.readText();
-  expect(instructions).toContain("Determine the agent name from the project");
-  expect(instructions).toContain("/v1/traces/receipt");
-  expect(instructions).toContain("What would you like to instrument next?");
+  expect(instructions).toContain("the same LiteLLM key");
+  expect(instructions).toContain("CLAUDE_CODE_ENABLE_TELEMETRY=1");
+  expect(instructions).not.toContain("Lens tracing key:");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Get Lens running" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "The gateway that helps your agents improve" })).not.toBeInTheDocument();
@@ -228,6 +228,7 @@ it("keeps background agent traffic out of the Home connection result", async () 
     return defaultResponse(path, true);
   });
   renderWithProviders(<LensWorkspace accessToken="live-token" userRole="Admin" readOnly={false} />, { searchParams: "?tab=home&agent=previous-agent" });
+  await userEvent.setup().click(await screen.findByRole("radio", { name: /Standalone Lens/ }));
   expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
   const connection = within(screen.getByRole("region", { name: "Trace delivery" }));
   expect(connection.getByText("Run one task")).toBeVisible();
@@ -253,12 +254,13 @@ it("opens instructions from a legacy setup link in Traces without creating anoth
   expect(waiting.getByRole("heading", { name: "Your first trace will appear here" })).toBeVisible();
   expect(waiting.getByText("support-agent")).toBeVisible();
   await user.click(waiting.getByRole("button", { name: "Continue setup" }));
+  await user.click(await screen.findByRole("radio", { name: /Standalone Lens/ }));
   await user.click(await screen.findByRole("button", { name: "Use an existing key" }));
   expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(screen.queryByRole("navigation", { name: "Setup progress" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Copy setup instructions" }));
-  expect(await navigator.clipboard.readText()).toContain('Setup link agent name: "support-agent"');
+  expect(await navigator.clipboard.readText()).toContain("LITELLM_TRACING_KEY");
   await user.click(screen.getByRole("tab", { name: "Traces" }));
   expect(await screen.findByRole("heading", { name: "Your first trace will appear here" })).toBeVisible();
   await user.click(screen.getByRole("tab", { name: "Home" }));
@@ -634,7 +636,11 @@ describe("Lens interactive demo", () => {
     await user.click(panel.getByRole("button", { name: "Connect project" }));
     await expectUrl(onUrlUpdate, (url) => expect(url.get("tab")).toBe("home"));
     expect(tabs.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
+    expect(
+      await screen.findByRole("button", {
+        name: surface === "standalone" ? "Copy instructions with new key" : "Copy setup instructions",
+      }),
+    ).toBeVisible();
   });
 
   it("should connect an analysis model from findings through the Settings tab", async () => {
@@ -1345,7 +1351,7 @@ it("keeps embedded page actions usable as forms open and the selected tab change
   await user.click(screen.getByRole("tab", { name: "Agents" }));
   expect(actions.queryByRole("button", { name: "New eval" })).not.toBeInTheDocument();
   await user.click(await actions.findByRole("button", { name: "Connect project" }));
-  expect(await screen.findByRole("button", { name: "Copy instructions with new key" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Copy setup instructions" })).toBeVisible();
   expect(screen.getByRole("tab", { name: "Home", selected: true })).toBeVisible();
   expect(actions.queryByRole("button", { name: "Connect project" })).not.toBeInTheDocument();
 });
