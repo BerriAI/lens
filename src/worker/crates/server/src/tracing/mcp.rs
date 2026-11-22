@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use chrono::Utc;
+use futures_util::{StreamExt, stream};
 use lens_auth::SessionRepository;
 use litellm_traces::request::{
     CONVERSATION_PAGE_SIZE_DEFAULT, CONVERSATION_PAGE_SIZE_MAX, TRACE_AGENT_NAME_MAX_LENGTH,
@@ -28,7 +29,7 @@ const DEFAULT_HOURS: u32 = 24;
 const TRACE_PAGE_SIZE_DEFAULT: u16 = 50;
 const INSTRUCTIONS: &str = "Read only access to the agent traces this credential may see in Lens. \
 Start with list_traces to find a run, then get_trace for its steps and cost, \
-get_trace_conversation for its turns and get_span for one step's full input and output.";
+get_trace_conversation for the session's earlier turns and get_span for one step's full input and output.";
 
 #[derive(Deserialize)]
 struct Call {
@@ -123,7 +124,7 @@ fn tools() -> Value {
         },
         {
             "name":"get_trace_conversation",
-            "description":"Read the turns of one trace: each user input with the agent's answer.",
+            "description":"Read the earlier turns of the session a trace belongs to: each previous user input with the agent's answer, oldest first. The trace's own input and output are in get_trace and get_span.",
             "inputSchema":{"type":"object","properties":{
                 "trace_id":trace_id,
                 "trace_ref":trace_ref,
@@ -134,7 +135,7 @@ fn tools() -> Value {
         },
         {
             "name":"get_span",
-            "description":"Read one span of a trace with its full input, output, attributes and cost.",
+            "description":"Read one span of a trace with its full input, output and attributes. Its cost is on the span in get_trace.",
             "inputSchema":{"type":"object","properties":{
                 "trace_id":trace_id,
                 "span_id":{"type":"string","description":"span_id from get_trace."},
@@ -263,12 +264,12 @@ async fn call<R: SessionRepository, B: TraceReader>(
     }
 }
 
-fn failure(id: Value, code: i32, message: &str) -> Response {
-    Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})).into_response()
+fn failure(id: Value, code: i32, message: &str) -> Value {
+    json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }
 
-fn success(id: Value, result: Value) -> Response {
-    Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response()
+fn success(id: Value, result: Value) -> Value {
+    json!({"jsonrpc":"2.0","id":id,"result":result})
 }
 
 fn initialize(params: &Value) -> Value {
@@ -285,31 +286,22 @@ fn initialize(params: &Value) -> Value {
     })
 }
 
-pub(super) async fn handle<R: SessionRepository, B: TraceReader>(
-    State(app): State<Arc<App<R, B>>>,
-    headers: HeaderMap,
-    method: Method,
-    body: Bytes,
-) -> Result<Response, TraceHttpError> {
-    let identity = auth::identity(&app.authentication, &headers, &method).await?;
-    let scope = scope(&identity)?;
-    let Ok(call) = serde_json::from_slice::<Call>(&body) else {
-        return Ok(failure(
-            Value::Null,
-            -32600,
-            "Send one JSON-RPC request object",
-        ));
+async fn answer<R: SessionRepository, B: TraceReader>(
+    app: &App<R, B>,
+    scope: litellm_traces::query::named::ReadAccessParams,
+    message: Value,
+) -> Option<Value> {
+    let Ok(call) = serde_json::from_value::<Call>(message) else {
+        return Some(failure(Value::Null, -32600, "Invalid JSON-RPC request"));
     };
-    let Some(id) = call.id else {
-        return Ok(StatusCode::ACCEPTED.into_response());
-    };
-    Ok(match call.method.as_str() {
+    let id = call.id?;
+    Some(match call.method.as_str() {
         "initialize" => success(id, initialize(&call.params)),
         "ping" => success(id, json!({})),
         "tools/list" => success(id, json!({"tools":tools()})),
         "tools/call" => match serde_json::from_value::<ToolCall>(call.params) {
             Ok(tool) => {
-                let (text, failed) = match self::call(&app, scope, tool).await {
+                let (text, failed) = match self::call(app, scope, tool).await {
                     Ok(text) => (text, false),
                     Err(error) => (error.to_string(), true),
                 };
@@ -321,5 +313,38 @@ pub(super) async fn handle<R: SessionRepository, B: TraceReader>(
             Err(_) => failure(id, -32602, "tools/call needs a tool name"),
         },
         _ => failure(id, -32601, "Method not found"),
+    })
+}
+
+fn respond(answer: Option<Value>) -> Response {
+    answer.map_or_else(
+        || StatusCode::ACCEPTED.into_response(),
+        |answer| Json(answer).into_response(),
+    )
+}
+
+pub(super) async fn handle<R: SessionRepository, B: TraceReader>(
+    State(app): State<Arc<App<R, B>>>,
+    headers: HeaderMap,
+    method: Method,
+    body: Bytes,
+) -> Result<Response, TraceHttpError> {
+    let identity = auth::identity(&app.authentication, &headers, &method).await?;
+    let scope = scope(&identity)?;
+    Ok(match serde_json::from_slice::<Value>(&body) {
+        Ok(Value::Array(messages)) if !messages.is_empty() => {
+            let answers: Vec<Value> = stream::iter(messages)
+                .then(|message| answer(&app, scope.clone(), message))
+                .filter_map(std::future::ready)
+                .collect()
+                .await;
+            respond((!answers.is_empty()).then(|| Value::Array(answers)))
+        }
+        Ok(message @ Value::Object(_)) => respond(answer(&app, scope, message).await),
+        _ => respond(Some(failure(
+            Value::Null,
+            -32600,
+            "Invalid JSON-RPC request",
+        ))),
     })
 }

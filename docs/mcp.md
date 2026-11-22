@@ -26,9 +26,9 @@ The endpoint takes the same credentials as the Lens trace API. `LENS_ADMIN_TOKEN
 | `list_agents` | The agents that sent traces, with run and failure counts |
 | `list_traces` | Recent traces, newest first, with input preview, status, models, token counts and cost. Filter with `agent`, widen the window with `hours` (24 by default) and page with `cursor` |
 | `get_trace` | One trace: its summary with total cost, its agents and its spans in order. Page with `cursor` and `page_size` |
-| `get_trace_conversation` | The turns of one trace: each user input with the agent's answer |
-| `get_span` | One span with its full input, output, attributes and cost |
+| `get_trace_conversation` | The earlier turns of the session a trace belongs to: each previous user input with the agent's answer, oldest first. The trace's own input and output are in `get_trace` and `get_span` |
+| `get_span` | One span with its full input, output and attributes. Its cost is on the span in `get_trace` |
 
 Cost is the `spend` field in USD. It is filled when the calls went through a LiteLLM gateway, which is where the price is known
 
-Every tool is read only. The endpoint answers each request with one JSON response, keeps no session between requests and does not open an event stream, so `GET /lens/mcp` returns `405`
+Every tool is read only. The endpoint answers each request, or each batch of requests, with one JSON response, keeps no session between requests and does not open an event stream, so `GET /lens/mcp` returns `405`

@@ -794,6 +794,35 @@ async fn mcp_tools_read_with_the_signed_identity_scope(
 
 #[rstest]
 #[tokio::test]
+async fn mcp_batch_answers_each_tool_call_in_order(#[future(awt)] database: Database) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let body = mcp(
+        &server,
+        Some(ADMIN),
+        json!([
+            {"jsonrpc":"2.0","id":"a","method":"tools/call","params":{"name":"list_traces","arguments":{}}},
+            {"jsonrpc":"2.0","id":"b","method":"tools/call","params":{"name":"list_agents","arguments":{}}}
+        ]),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(
+        (&body[0]["id"], &body[0]["result"]["isError"]),
+        (&json!("a"), &json!(false))
+    );
+    assert_eq!(
+        (&body[1]["id"], &body[1]["result"]["isError"]),
+        (&json!("b"), &json!(false))
+    );
+    assert_eq!(body.as_array().unwrap().len(), 2);
+    assert_eq!(reader.calls.lock().unwrap().len(), 2);
+}
+
+#[rstest]
+#[tokio::test]
 async fn mcp_admin_token_reads_all_rows_and_returns_the_page_as_text(
     #[future(awt)] database: Database,
 ) {
@@ -983,9 +1012,29 @@ async fn mcp_lists_only_read_only_tools(#[future(awt)] database: Database) {
     Some(json!({"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"Method not found"}}))
 )]
 #[case::batch(
-    json!([{"jsonrpc":"2.0","id":4,"method":"ping"}]),
+    json!([
+        {"jsonrpc":"2.0","id":4,"method":"ping"},
+        {"jsonrpc":"2.0","method":"notifications/initialized"},
+        {"jsonrpc":"2.0","id":5,"method":"resources/list"},
+        7
+    ]),
     200,
-    Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Send one JSON-RPC request object"}}))
+    Some(json!([
+        {"jsonrpc":"2.0","id":4,"result":{}},
+        {"jsonrpc":"2.0","id":5,"error":{"code":-32601,"message":"Method not found"}},
+        {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid JSON-RPC request"}}
+    ]))
+)]
+#[case::notification_batch(json!([{"jsonrpc":"2.0","method":"notifications/initialized"}]), 202, None)]
+#[case::empty_batch(
+    json!([]),
+    200,
+    Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid JSON-RPC request"}}))
+)]
+#[case::not_a_request(
+    json!("ping"),
+    200,
+    Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid JSON-RPC request"}}))
 )]
 #[tokio::test]
 async fn mcp_answers_protocol_messages_without_reading(
