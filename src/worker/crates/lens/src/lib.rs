@@ -100,11 +100,18 @@ impl State {
         let _ = self.connected_service_token.set(Box::new(connected));
     }
 
-    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
-        let connected = self
-            .connected_service_token
+    fn connected_service_token(&self) -> Option<String> {
+        self.connected_service_token
             .get()
-            .and_then(|connected| connected());
+            .and_then(|connected| connected())
+    }
+
+    pub fn gateway_connected(&self) -> bool {
+        self.service_token.is_some() || self.connected_service_token().is_some()
+    }
+
+    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
+        let connected = self.connected_service_token();
         if self
             .service_token
             .iter()
