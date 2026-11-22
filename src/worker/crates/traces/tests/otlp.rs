@@ -2621,7 +2621,8 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
 
 #[rstest]
 #[case::claude_code("com.anthropic.claude_code.tracing", &[], "session.id", true)]
-#[case::other_agent("opencode", &[], "session.id", true)]
+#[case::other_agent("other-agent", &[], "session.id", true)]
+#[case::opencode_internal_span("opencode", &[], "session.id", false)]
 #[case::gateway_call_naming_its_session(
     "litellm",
     &[("lens.session.attribute", "gen_ai.conversation.id")],
@@ -3248,4 +3249,155 @@ fn codex_prompt_text_does_not_remove_half_a_turn(#[case] prompt: &str) {
         decoded.claude_spans[1].normalized.output,
         r#"[{"role":"assistant","content":"Task title"}]"#
     );
+}
+
+const OPENCODE_TWO_PROMPTS: &[u8] = include_bytes!("fixtures/opencode_two_prompts.json");
+const OPENCODE_TURN: &str = "opencode.turn";
+
+fn opencode_two_prompts(scope: &str) -> Vec<litellm_traces::DecodedSpan> {
+    let mut body: serde_json::Value = serde_json::from_slice(OPENCODE_TWO_PROMPTS).unwrap();
+    body["resourceSpans"][0]["scopeSpans"][0]["scope"]["name"] = scope.into();
+    decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap()
+}
+
+#[rstest]
+#[case::first_prompt(0, "Create a file named weather.txt", 3)]
+#[case::second_prompt(1, "Append a second line", 4)]
+fn opencode_prompt_gets_a_turn_holding_its_model_calls(
+    #[case] turn: usize,
+    #[case] asked: &str,
+    #[case] calls: usize,
+) {
+    let spans = opencode_two_prompts("opencode");
+    let turns: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .collect();
+    assert_eq!(turns.len(), 2);
+    let root = turns[turn];
+    assert_eq!(root.parent_span_id, "");
+    assert_eq!(root.normalized.observation_type, ObservationType::Agent);
+    assert_eq!(root.normalized.framework, Some(Integration::Opencode));
+    assert!(root.normalized.input_preview.contains(asked));
+    let wrappers: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == "ai.streamText" && span.parent_span_id == root.span_id)
+        .collect();
+    assert_eq!(wrappers.len(), calls);
+    assert!(
+        wrappers
+            .iter()
+            .all(|wrapper| wrapper.trace_id == root.trace_id && wrapper.start_ns >= root.start_ns)
+    );
+}
+
+#[rstest]
+#[case::wrapper("ai.streamText", ObservationType::Chain, 8)]
+#[case::provider_call("ai.streamText.doStream", ObservationType::Llm, 8)]
+#[case::tool("ai.toolCall", ObservationType::Tool, 5)]
+fn opencode_model_call_is_counted_once(
+    #[case] operation: &str,
+    #[case] observation_type: ObservationType,
+    #[case] count: usize,
+) {
+    let spans = opencode_two_prompts("opencode");
+    let named: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            span.attributes
+                .get("ai.operationId")
+                .is_some_and(|recorded| recorded == operation)
+        })
+        .collect();
+    assert_eq!(named.len(), count);
+    assert!(
+        named
+            .iter()
+            .all(|span| span.normalized.observation_type == observation_type)
+    );
+}
+
+#[rstest]
+fn opencode_session_title_call_stays_outside_the_turns() {
+    let spans = opencode_two_prompts("opencode");
+    let turns: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .map(|span| span.span_id.as_str())
+        .collect();
+    let outside: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            span.name == "ai.streamText" && !turns.contains(&span.parent_span_id.as_str())
+        })
+        .collect();
+    assert_eq!(outside.len(), 1);
+    assert!(outside[0].attributes["ai.prompt"].contains("You are a title generator."));
+    assert_eq!(outside[0].normalized.input_preview, "");
+}
+
+#[rstest]
+#[case::opencode_internal_stays_in_its_process_trace("opencode", false, 2)]
+#[case::other_sender_is_grouped_as_before("other", true, 0)]
+fn only_opencode_keeps_spans_without_ai_sdk_work_out_of_the_session(
+    #[case] scope: &str,
+    #[case] joins_session: bool,
+    #[case] turns: usize,
+) {
+    let spans = opencode_two_prompts(scope);
+    let session_trace = &spans
+        .iter()
+        .find(|span| span.name == "ai.streamText.doStream")
+        .unwrap()
+        .trace_id;
+    let internal: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == "Tool.execute")
+        .collect();
+    assert_eq!(internal.len(), 5);
+    assert!(
+        internal
+            .iter()
+            .all(|span| (&span.trace_id == session_trace) == joins_session)
+    );
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|span| span.name == OPENCODE_TURN)
+            .count(),
+        turns
+    );
+}
+
+#[rstest]
+fn opencode_turn_is_the_same_span_when_its_calls_arrive_in_separate_exports() {
+    let mut body: serde_json::Value = serde_json::from_slice(OPENCODE_TWO_PROMPTS).unwrap();
+    let all = body["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let together = decode_otlp(OPENCODE_TWO_PROMPTS, Some("application/json")).unwrap();
+    let last_call = all
+        .iter()
+        .rfind(|span| span["name"] == "ai.streamText")
+        .unwrap()
+        .clone();
+    body["resourceSpans"][0]["scopeSpans"][0]["spans"] = vec![last_call].into();
+    let alone = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(alone.len(), 1);
+    let second_turn = together
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .nth(1)
+        .unwrap();
+    assert_eq!(alone[0].parent_span_id, second_turn.span_id);
+    assert_eq!(alone[0].trace_id, second_turn.trace_id);
 }

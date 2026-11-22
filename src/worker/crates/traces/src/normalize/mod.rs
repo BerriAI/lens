@@ -25,6 +25,16 @@ pub(crate) fn visible_claude_response(event: &str, source: &str) -> bool {
             || source.starts_with("agent:"))
 }
 pub(crate) const CLAUDE_CODE_AGENT: &str = "claude-code";
+pub(crate) const OPENCODE_SCOPE: &str = "opencode";
+pub(crate) const OPENCODE_AGENT: &str = "opencode";
+pub(crate) const OPENCODE_PROMPTS: [&str; 2] = ["ai.prompt", "ai.prompt.messages"];
+/// How OpenCode opens the side call that names a session; it starts with the user's first turn,
+/// so its prompt would otherwise be read as what the run was asked
+pub(crate) const OPENCODE_TITLE_CALL: &str =
+    r#""role":"system","content":"You are a title generator."#;
+/// Set on the root span Lens adds for each prompt of an OpenCode session, holding what was asked
+pub(crate) const OPENCODE_TURN: &str = "lens.opencode.turn";
+pub(crate) const OPENCODE_TURN_NAME: &str = "opencode.turn";
 use instrumentation::Instrumentation;
 pub(crate) use messages::{HIDDEN_BLOCK_TYPES, MessagePayload, encode};
 pub use metadata::{AgentMetadata, AgentType, Integration};

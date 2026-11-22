@@ -1,21 +1,22 @@
-use super::{Extraction, Integration, Rule, SpanContext, SpanFacts};
+use super::{Extraction, Integration, ObservationType, RoleEvidence, Rule, SpanContext, SpanFacts};
+use crate::normalize::{
+    OPENCODE_AGENT, OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN,
+};
 
-const SCOPE: &str = "opencode";
-const AGENT: &str = "opencode";
 /// Set by the Vercel AI SDK on the model-call and tool spans of a run; OpenCode's other spans
 /// under the same scope are its internals (`sql.execute`, `Plugin.load`), which are not agent work.
 /// A root among them is still named after OpenCode, so its trace is not listed under the span name
 const AI_SDK_OPERATION: &str = "ai.operationId";
-const PROMPTS: [&str; 2] = ["ai.prompt", "ai.prompt.messages"];
-/// How OpenCode opens the side call that names a session; it starts with the user's first turn,
-/// so its prompt would otherwise be read as what the run was asked
-const TITLE_CALL: &str = r#""role":"system","content":"You are a title generator."#;
+/// The AI SDK's span around a provider call. The provider span inside it is the model call, so
+/// counting both shows every call twice
+const AI_SDK_CALL_WRAPPER: &str = "ai.streamText";
 
 pub(super) struct Opencode;
 
 impl Rule for Opencode {
     fn matches(&self, context: &SpanContext<'_>) -> bool {
-        context.scope == SCOPE && (is_agent_work(context) || context.parent_span_id.is_empty())
+        context.scope == OPENCODE_SCOPE
+            && (is_agent_work(context) || context.parent_span_id.is_empty())
     }
 
     fn integration(&self, context: &SpanContext<'_>) -> Option<Integration> {
@@ -23,21 +24,39 @@ impl Rule for Opencode {
     }
 
     fn agent_name(&self, _: &SpanContext<'_>, recorded: Option<String>) -> Option<String> {
-        recorded.or_else(|| Some(AGENT.to_owned()))
+        recorded.or_else(|| Some(OPENCODE_AGENT.to_owned()))
     }
 
     fn adjust(&self, context: &SpanContext<'_>, extraction: Extraction) -> Extraction {
-        let names_session = PROMPTS.iter().any(|key| {
+        if let Some(asked) = context.attributes.get(OPENCODE_TURN) {
+            return extraction.map_facts(|facts| SpanFacts {
+                role: Some(RoleEvidence::Declared(ObservationType::Agent)),
+                input: asked.clone(),
+                input_preview: Some(asked.clone()),
+                ..facts
+            });
+        }
+        let names_session = OPENCODE_PROMPTS.iter().any(|key| {
             context
                 .attributes
                 .get(*key)
-                .is_some_and(|prompt| prompt.contains(TITLE_CALL))
+                .is_some_and(|prompt| prompt.contains(OPENCODE_TITLE_CALL))
         });
-        if !names_session {
-            return extraction;
-        }
+        let wraps_call = context
+            .attributes
+            .get(AI_SDK_OPERATION)
+            .is_some_and(|operation| operation == AI_SDK_CALL_WRAPPER);
         extraction.map_facts(|facts| SpanFacts {
-            input_preview: Some(String::new()),
+            role: if wraps_call {
+                Some(RoleEvidence::Declared(ObservationType::Chain))
+            } else {
+                facts.role
+            },
+            input_preview: if names_session {
+                Some(String::new())
+            } else {
+                facts.input_preview
+            },
             ..facts
         })
     }
@@ -45,4 +64,5 @@ impl Rule for Opencode {
 
 fn is_agent_work(context: &SpanContext<'_>) -> bool {
     context.attributes.contains_key(AI_SDK_OPERATION)
+        || context.attributes.contains_key(OPENCODE_TURN)
 }

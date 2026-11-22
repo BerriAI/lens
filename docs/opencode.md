@@ -31,7 +31,7 @@ OpenCode adds `/v1/traces` to the address. If `OTEL_EXPORTER_OTLP_TRACES_ENDPOIN
 
 ## What Lens shows
 
-Each model call appears as an `ai.streamText` step with the messages the request carried as its input and the model's reply as its output, including the tool calls it asked for. Each tool call appears as its own step with its input and output. OpenCode applies no size limit to exported content unless you set `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` or `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT`, so leave both unset
+A session is one trace, and each prompt you send is an `opencode.turn` step in it that shows what you asked and holds the model calls and tool calls made to answer it. Each model call appears once, as an `ai.streamText.doStream` step inside an `ai.streamText` step, with the messages the request carried as its input and the model's reply as its output, including the tool calls it asked for. Each tool call appears as its own step with its input and output. The call OpenCode makes to name a session sits outside the turns. OpenCode applies no size limit to exported content unless you set `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` or `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT`, so leave both unset
 
 OpenCode does not send its remaining spans when it exits. `OTEL_BSP_SCHEDULE_DELAY=1000` sends them every second instead of every five; without it a short `opencode run` records no model calls. The last model call of a one-shot `opencode run` can still be missing. An interactive session keeps running and sends every call
 
