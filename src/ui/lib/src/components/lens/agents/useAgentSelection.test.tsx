@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useLensRoute } from "../route";
 import { LensHostProvider } from "../../../host/LensHost";
+import { useRunFilterRouting } from "../traces/routing";
 import { useAgentSelection } from "./useAgentSelection";
 
 beforeEach(() => window.localStorage.clear());
@@ -33,6 +34,31 @@ describe("agent navigation", () => {
       agent: "research_agent",
     });
     expect(onUrlUpdate.mock.lastCall![0].options.history).toBe("replace");
+  });
+
+  it("should list every trace and scope no other view to an agent when all agents is chosen", async () => {
+    const onUrlUpdate = vi.fn();
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <NuqsTestingAdapter searchParams="?tab=traces&agent=support_agent" onUrlUpdate={onUrlUpdate} hasMemory>
+        {children}
+      </NuqsTestingAdapter>
+    );
+    const { result } = renderHook(
+      () => ({
+        selection: useAgentSelection(false, ["support_agent", "research_agent"]),
+        filter: useRunFilterRouting(),
+      }),
+      { wrapper },
+    );
+    expect(result.current.filter.agent).toBe("support_agent");
+
+    act(() => result.current.selection.select("*"));
+
+    await waitFor(() => expect(result.current.selection.all).toBe(true));
+    expect(result.current.selection.agent).toBeNull();
+    expect(result.current.filter.agent).toBe("");
+    expect(onUrlUpdate.mock.lastCall![0].searchParams.get("agent")).toBe("*");
+    expect(window.localStorage.getItem("litellm.lens.agent")).toBe("*");
   });
 
   it.each([

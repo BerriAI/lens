@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/cva.config";
 import { AgentPicker } from "./agents/AgentPicker";
+import { ALL_AGENTS } from "./traces/routing";
 import type { LensAgents } from "./agents/AgentScoped";
 import { LensBrand } from "./LensBrand";
 import { LensTabs } from "./LensTabs";
@@ -141,9 +142,9 @@ function SidebarNavigation({
   const standalone = host.surface === "standalone";
   return (
     <>
-      {!collapsed && agents.agent && (
+      {!collapsed && (agents.agent || agents.all) && (
         <div className="mb-4 min-w-0 [&>button]:h-10 [&>button]:w-full [&>button]:max-w-none [&>button]:justify-start [&>button]:border-0 [&>button]:bg-muted/50 [&>button]:px-2.5 [&>button]:text-[13px] [&>button>svg:last-child]:ml-auto">
-          <AgentPicker agent={agents.agent} agents={agents.list.agents} onSelect={onSelectAgent} />
+          <AgentPicker agent={agents.agent ?? ALL_AGENTS} agents={agents.list.agents} onSelect={onSelectAgent} />
         </div>
       )}
       <LensTabs

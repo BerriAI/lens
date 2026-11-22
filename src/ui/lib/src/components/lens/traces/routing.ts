@@ -58,6 +58,8 @@ export const OPEN_TRACE_PARSERS = {
   fullscreen: parseAsBoolean.withDefault(false),
 };
 
+export const ALL_AGENTS = "*";
+
 export const RUN_FILTER_PARSERS = {
   q: parseAsString.withDefault(""),
   agent: parseAsString.withDefault(""),
@@ -207,7 +209,7 @@ export function useRunFilterRouting() {
   const [{ q, agent, status, internal, sort }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
   return {
     query: q,
-    agent,
+    agent: agent === ALL_AGENTS ? "" : agent,
     status,
     includeInternal: internal,
     sort,
