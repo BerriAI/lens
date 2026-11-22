@@ -219,6 +219,7 @@ impl SignalsWorker {
 
     async fn live(&self) {
         let mut wake = self.sources.0.wake.listen();
+        wake.mark_changed();
         let mut cursor = String::new();
         while wake.changed().await.is_ok() {
             let mut settled = Instant::now() + SETTLE;

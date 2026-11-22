@@ -187,6 +187,7 @@ impl AlertRules {
 
     pub async fn serve(self) {
         let mut wake = self.sources.0.wake.listen();
+        wake.mark_changed();
         loop {
             crate::wake::arrival(&mut wake, SETTLE, SWEEP).await;
             loop {
