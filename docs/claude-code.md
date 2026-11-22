@@ -54,7 +54,7 @@ With `OTEL_LOG_RAW_API_BODIES=1`, each model call step shows the conversation th
 
 Each request repeats the conversation so far, so a long session stores it once per model call. A request over the content limit arrives cut off and its step stays empty
 
-These settings store what you type, what Claude Code replies, the files it reads and the output of the commands it runs. That content can include source code or secrets, so use them only with a Lens deployment where you intend to keep it. To leave model call bodies out, set `OTEL_LOG_RAW_API_BODIES=0`. `lite configure claude` keeps a value you set for any of the content settings
+These settings store what you type, what Claude Code replies, the files it reads and the output of the commands it runs. That content can include source code or secrets, so use them only with a Lens deployment where you intend to keep it. To leave model call bodies out, set `OTEL_LOG_RAW_API_BODIES=0`. `lite configure claude` keeps a value you set for any of the content settings, and leaves model call bodies off when you turned another content setting off, unless you set `OTEL_LOG_RAW_API_BODIES=1` yourself
 
 To keep the settings across terminals, put the same telemetry variables in the `env` object of your user-level `~/.claude/settings.json` and keep any settings already there:
 
