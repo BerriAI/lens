@@ -721,3 +721,106 @@ async fn codex_root_keeps_prompt_and_completed_turn_across_export_order(
     assert_eq!(previous[0].start_ns, expected_start);
     Ok(())
 }
+
+fn codex_message(
+    span: Span<'_>,
+    session: &str,
+    conversation: &str,
+    prompt: &str,
+) -> Vec<BTreeMap<String, Value>> {
+    let mut turn = Span {
+        input: "",
+        output: "",
+        ..span
+    }
+    .row();
+    turn.extend([
+        ("SpanName".into(), json!("session_task.turn")),
+        (
+            "SpanAttributes".into(),
+            json!({"session.id": session, "lens.codex.root": "1"}),
+        ),
+    ]);
+    let mut asked = Span {
+        duration: 0,
+        input: prompt,
+        output: "",
+        ..span
+    }
+    .row();
+    asked.extend([
+        ("SpanName".into(), json!("codex.user_prompt")),
+        (
+            "SpanAttributes".into(),
+            json!({
+                "session.id": session,
+                "conversation.id": conversation,
+                "lens.codex.root": "1",
+                "event.name": "codex.user_prompt",
+            }),
+        ),
+    ]);
+    vec![turn, asked]
+}
+
+#[rstest]
+#[case::conversation_only("", "conversation-a", "conversation-a", &["first message"])]
+#[case::session_wins("session-a", "conversation-a", "session-a", &["first message"])]
+#[case::another_conversation("", "conversation-b", "conversation-b", &[])]
+#[tokio::test]
+async fn codex_messages_share_a_thread_through_their_conversation_id(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    span: Span<'_>,
+    turns: TraceConversationTurnsParams,
+    #[case] session: &str,
+    #[case] conversation: &str,
+    #[case] expected_session: &str,
+    #[case] expected_inputs: &[&str],
+) -> TestResult {
+    let fixture = migrated_database?;
+    let writer = Connection::writer(&fixture.database.url)?;
+    let earlier = Span {
+        trace: "earlier",
+        start: 1,
+        ..span
+    };
+    let rows = [
+        codex_message(earlier, session, "conversation-a", "first message"),
+        codex_message(span, session, conversation, "second message"),
+    ]
+    .concat();
+    fixture
+        .database
+        .client
+        .post(writer.url().clone())
+        .body(format!(
+            "INSERT INTO {DATABASE}.otel_traces FORMAT JSONEachRow\n{}",
+            encode_rows(rows)?
+        ))
+        .send()
+        .await?
+        .error_for_status()?;
+    let reader = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        Connection::reader(&fixture.database.url, DATABASE)?,
+    );
+    let anchor = reader
+        .conversation_anchor(&TraceConversationAnchorParams {
+            access: turns.access.clone(),
+            trace_id: span.trace.into(),
+            trace_ref: String::new(),
+            snapshot_ms: 300,
+        })
+        .await?
+        .ok_or("missing anchor")?;
+    assert_eq!(anchor.session_id, expected_session);
+    let previous = reader
+        .conversation_turns(&TraceConversationTurnsParams {
+            session_id: anchor.session_id,
+            ..turns
+        })
+        .await?;
+    let inputs: Vec<&str> = previous.iter().map(|turn| turn.input.as_str()).collect();
+    assert_eq!(inputs, expected_inputs);
+    Ok(())
+}

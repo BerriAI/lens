@@ -10,7 +10,8 @@ SELECT any(trace_ref) AS trace_ref,
 FROM (
     SELECT TeamId, ApiKeyHash, SpanId, ParentSpanId,
            hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
-           coalesce(nullIf(SpanAttributes['session.id'], ''), ResourceAttributes['session.id']) AS session,
+           coalesce(nullIf(SpanAttributes['session.id'], ''), nullIf(ResourceAttributes['session.id'], ''),
+                    max(SpanAttributes['conversation.id']) OVER (PARTITION BY TeamId, ApiKeyHash, TraceId, SpanId)) AS session,
            (SpanAttributes['session.id'] != '' AND ResourceAttributes['session.id'] != ''
             AND SpanAttributes['session.id'] != ResourceAttributes['session.id']) AS ambiguous_session,
            toUnixTimestamp64Nano(Timestamp) AS start_ns
