@@ -34,9 +34,9 @@ await withFixture("sdk", process.argv[2], async (fixture) => {
     assert.equal((await request("POST", "/v1/traces", trace, token)).status, 200);
     traces.push(parent.traceId);
   }
-  const dataset = await request("POST", "/lens/datasets", { name: "Packaged SDK", agent_name: "release-qualification" });
+  const dataset = await request("POST", "/lens/admin/datasets", { name: "Packaged SDK", agent_name: "release-qualification" });
   assert.equal(dataset.status, 200);
-  const saved = await request("POST", `/lens/datasets/${dataset.data.id}/revisions`, {
+  const saved = await request("POST", `/lens/admin/datasets/${dataset.data.id}/revisions`, {
     base_revision: 0,
     cases: [{ id: "release-case", messages: [{ role: "user", content: "Qualify the packaged SDK" }],
       reply: "", tool_calls: [], expected: "Tests precede publication", included: true,
@@ -44,7 +44,7 @@ await withFixture("sdk", process.argv[2], async (fixture) => {
   });
   assert.equal(saved.status, 200);
   assert.equal(saved.data.revision, 1);
-  const latest = await request("POST", `/lens/datasets/${dataset.data.id}/revisions`, {
+  const latest = await request("POST", `/lens/admin/datasets/${dataset.data.id}/revisions`, {
     base_revision: 1, cases: saved.data.cases.map((item) => ({ ...item, expected: "This is revision two" })),
   });
   assert.equal(latest.status, 200);
