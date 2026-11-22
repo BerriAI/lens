@@ -338,7 +338,7 @@ async fn standalone_router_has_public_read_contract_and_rejects_internal_or_unsa
     assert_eq!(service["connected"], true);
     assert_eq!(service["status"]["storage_ready"], true);
     assert_eq!(service["status"]["credentials_ready"], true);
-    assert_eq!(service["gateway_connected"], false);
+    assert_eq!(service["gateway_connected"], true);
     let internal = client
         .get(format!("{}/internal/status", server.url))
         .bearer_auth(ADMIN)
