@@ -75,7 +75,7 @@ Point Claude Code, [Codex](docs/codex-cli.md) or [OpenCode](docs/opencode.md) at
 <br>
 
 **Using Claude Code?** Its telemetry is off by default and Lens needs it to record your turns.<br>
-[Turn on the required Claude Code settings](docs/claude-code.md) before your first session.
+[Turn on the required Claude Code settings](docs/claude-code.md) before your first session. There is one setup for Lens with a LiteLLM gateway and one for standalone Lens.
 
 <br>
 

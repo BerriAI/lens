@@ -54,20 +54,9 @@ For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Aut
 
 ### Claude Code
 
-Claude Code's telemetry is off by default. Lens records Claude Code turns only when you turn it on, so set the variables in [Claude Code telemetry](../../docs/claude-code.md) wherever you run `claude`. Claude Code sends the telemetry to your LiteLLM gateway with your gateway key, and the gateway forwards it to Lens:
+Claude Code's telemetry is off by default. Lens records Claude Code turns only when you turn it on, so set the variables in [Claude Code telemetry](../../docs/claude-code.md) wherever you run `claude`. The variables are the same for both setups and only the endpoint and the key differ. With standalone Lens, `OTEL_EXPORTER_OTLP_ENDPOINT` is your Lens address, such as `http://localhost:4318`, and `OTEL_EXPORTER_OTLP_HEADERS` carries a Lens tracing key. When Claude Code's model calls go through a LiteLLM gateway connected to Lens, both point at the gateway instead: the endpoint is the gateway address and the header carries the LiteLLM key Claude Code already uses
 
-```sh
-export CLAUDE_CODE_ENABLE_TELEMETRY=1
-export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
-export CLAUDE_CODE_PROPAGATE_TRACEPARENT=1
-export OTEL_TRACES_EXPORTER=otlp
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="$ANTHROPIC_BASE_URL/v1/traces"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $ANTHROPIC_AUTH_TOKEN"
-export OTEL_LOG_USER_PROMPTS=1
-```
-
-`ANTHROPIC_BASE_URL` is your gateway address and `ANTHROPIC_AUTH_TOKEN` is your LiteLLM key. `OTEL_LOG_USER_PROMPTS=1` stores the prompts you type. Without these settings Lens lists the gateway's model calls one by one, with no turn or tool steps
+Use one setup or the other. If Claude Code's model calls go through a gateway, send its telemetry to that gateway and not straight to Lens. These settings store the prompts you type, Claude Code's replies, the files it reads and the output of its commands. Without them Lens shows no turn or tool steps for Claude Code
 
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 
