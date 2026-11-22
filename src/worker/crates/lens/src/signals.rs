@@ -176,6 +176,10 @@ impl SignalReader for SourceReader {
     }
 }
 
+fn unfinished(full: bool, cursor: &str) -> bool {
+    full || !cursor.is_empty()
+}
+
 impl SignalsWorker {
     async fn tick(&self, sweep: SignalSweep, cursor: &mut String) -> bool {
         let models = SignalModels {
@@ -227,7 +231,7 @@ impl SignalsWorker {
                     settled = started + SETTLE;
                 }
                 let full = self.tick(LIVE_SWEEP, &mut cursor).await;
-                if !full && started >= settled {
+                if !unfinished(full, &cursor) && started >= settled {
                     break;
                 }
                 next = if full {
@@ -371,5 +375,17 @@ mod tests {
         cache.stored.set_model("changed");
 
         assert_eq!(api.get_config().await.unwrap().model, "changed");
+    }
+
+    #[rstest]
+    #[case::page_was_full(true, "", true)]
+    #[case::later_pages_remain(false, "page-2", true)]
+    #[case::window_is_done(false, "", false)]
+    fn live_run_continues_until_the_window_is_scanned(
+        #[case] full: bool,
+        #[case] cursor: &str,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(unfinished(full, cursor), expected);
     }
 }
