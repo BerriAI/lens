@@ -118,13 +118,17 @@ impl Rule for OpencodeV2 {
             },
             ..facts
         });
-        if step == OpencodeV2Step::Turn {
-            Extraction {
+        match step {
+            OpencodeV2Step::Turn => Extraction {
                 display_name: Some(OPENCODE_TURN_NAME.to_owned()),
                 ..adjusted
-            }
-        } else {
-            adjusted
+            },
+            OpencodeV2Step::Tool => Extraction {
+                display_name: present(context.attributes, &["gen_ai.tool.name"])
+                    .or(adjusted.display_name.clone()),
+                ..adjusted
+            },
+            _ => adjusted,
         }
     }
 }

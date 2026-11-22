@@ -3454,6 +3454,19 @@ fn opencode_v2_span_is_typed_by_what_it_does_in_the_run(
 }
 
 #[rstest]
+fn opencode_v2_tool_step_is_named_after_its_tool() {
+    let spans = opencode_v2_two_prompts("opencode");
+    let tool = spans
+        .iter()
+        .find(|span| span.normalized.observation_type == ObservationType::Tool)
+        .unwrap();
+    assert_eq!(
+        Some(tool.name.as_str()),
+        tool.attributes.get("gen_ai.tool.name").map(String::as_str)
+    );
+}
+
+#[rstest]
 fn opencode_v2_session_is_one_trace_with_a_turn_per_prompt() {
     let spans = opencode_v2_two_prompts("opencode");
     let turns: Vec<_> = spans
@@ -3470,10 +3483,12 @@ fn opencode_v2_session_is_one_trace_with_a_turn_per_prompt() {
 }
 
 #[rstest]
-#[case::model_call("SessionStep.attempt")]
-#[case::tool("Tool.execute")]
-#[case::model_request("POST")]
-fn opencode_v2_step_reaches_its_turn_inside_the_session_trace(#[case] name: &str) {
+#[case::model_call(ObservationType::Llm)]
+#[case::tool(ObservationType::Tool)]
+#[case::model_request(ObservationType::Framework)]
+fn opencode_v2_step_reaches_its_turn_inside_the_session_trace(
+    #[case] observation_type: ObservationType,
+) {
     let spans = opencode_v2_two_prompts("opencode");
     let session_trace = &spans
         .iter()
@@ -3494,7 +3509,7 @@ fn opencode_v2_step_reaches_its_turn_inside_the_session_trace(#[case] name: &str
     };
     let steps: Vec<_> = in_session
         .values()
-        .filter(|span| span.name == name)
+        .filter(|span| span.normalized.observation_type == observation_type)
         .collect();
     assert!(!steps.is_empty());
     assert!(
