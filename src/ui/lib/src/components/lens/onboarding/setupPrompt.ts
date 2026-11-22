@@ -95,13 +95,10 @@ export function agentTelemetrySettings(
   format: "list" | "shell" = "list",
 ): string {
   if (agent === "codex") {
-    const target = (signal: string) =>
-      `{ otlp-http = { endpoint = "${address}/v1/${signal}", protocol = "json", headers = { Authorization = "Bearer ${key}" } } }`;
     return [
-      "[otel]",
-      "log_user_prompt = true",
-      `exporter = ${target("logs")}`,
-      `trace_exporter = ${target("traces")}`,
+      "codex plugin marketplace add BerriAI/litellm-lens-plugins",
+      "codex plugin add litellm-lens@berriai-lens",
+      `bash "$(ls -d "\${CODEX_HOME:-$HOME/.codex}"/plugins/cache/berriai-lens/litellm-lens/*/ | tail -1)scripts/run.sh" setup --url ${address} --key-env ${key} --agent-name codex-cli`,
     ].join("\n");
   }
   const exporter = [
@@ -165,11 +162,11 @@ const CODING_AGENTS: Record<
     gatewayHint:
       "the base_url and env_key of the model provider selected in ~/.codex/config.toml",
     install:
-      "Add this to ~/.codex/config.toml, keeping everything already there. If an [otel] table exists, merge these keys into it:",
+      "Install the LiteLLM Lens plugin for Codex and connect it by running these three commands in order. If the marketplace berriai-lens is already added from another source, run codex plugin marketplace remove berriai-lens first. Do not add an [otel] table to ~/.codex/config.toml. If one is already there and sends to this same address, tell me that it would record every chat a second time and ask whether to remove it; change nothing in it without my answer:",
     keyNote:
-      "config.toml does not expand variables in headers, so write the key's actual value into both Authorization headers. Do not add or change any other setting.",
+      "--key-env takes the name of an environment variable, never the key itself. If the key is not already in that variable, set it for that one command only. The plugin needs Python 3.11 or newer, macOS or Linux, and an https address unless the address is localhost. If one of these is missing, stop and tell me instead of configuring something else.",
     caveat:
-      "Lens then shows each turn with the typed prompt and each tool step with its arguments and the first 2,000 or so characters of its output, which is a Codex limit with no setting. Codex does not export model requests or replies, so its model-call steps appear without content.",
+      "Lens then shows one trace per Codex chat, with each turn's prompt and reply, each tool step with its input and output, and each model call with its tokens and reply. A model call shows its cost when Codex's model calls go through the LiteLLM gateway, and never its full request.",
     run: 'codex exec "Reply with exactly: Lens telemetry check."',
   },
   opencode: {
@@ -248,7 +245,11 @@ export function agentTracingPrompt({
       agentTelemetrySettings(
         agent,
         address ?? `<${addressName}>`,
-        `<${keyName}>`,
+        agent !== "codex"
+          ? `<${keyName}>`
+          : gateway
+            ? "<the variable that holds the LiteLLM key>"
+            : "LITELLM_TRACING_KEY",
       ),
       keyNote,
     ].join("\n\n"),

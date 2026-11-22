@@ -2,7 +2,7 @@
 
 Claude Code's telemetry is off by default, and Lens needs it to record Claude Code turns. Turn it on in every environment where you run `claude`. Without it Lens only sees the model calls that pass through your LiteLLM gateway and lists them as separate calls, with no turn, tool or subagent steps
 
-Claude Code sends its telemetry to your LiteLLM gateway with the same gateway key it uses for model calls. The gateway forwards it to Lens. You do not put a Lens address or a Lens tracing key on the machine that runs Claude Code. The gateway must already be [connected to Lens](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm)
+Claude Code routed through a LiteLLM gateway sends its telemetry to that gateway with the same gateway key it uses for model calls. The gateway forwards it to Lens, so you do not put a Lens address or a Lens tracing key on the machine that runs Claude Code. The gateway must already be [connected to Lens](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm). Claude Code that does not use LiteLLM sends the same telemetry [straight to Lens](#standalone-lens) with a Lens tracing key
 
 ## Required settings
 
@@ -47,6 +47,17 @@ This is what each telemetry variable does and what Lens shows when it is missing
 | `OTEL_LOG_TOOL_DETAILS=1` and `OTEL_LOG_TOOL_CONTENT=1` | Include each tool call's arguments and output | Tool steps show a name and a duration only |
 | `OTEL_LOG_RAW_API_BODIES=1` | Includes the request and response of every model call | A model call step reads "No content recorded for this span" |
 | `CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216` | Raises Claude Code's 60 KB limit on exported content to 16 MiB | Requests longer than 60 KB arrive cut off, and their model call step has no input |
+
+## Standalone Lens
+
+When Claude Code does not go through a LiteLLM gateway, leave `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` as they are and change only where the telemetry goes. Every other variable stays the same:
+
+| Setup | `OTEL_EXPORTER_OTLP_ENDPOINT` | Key in `OTEL_EXPORTER_OTLP_HEADERS` |
+| --- | --- | --- |
+| Claude Code routed through a LiteLLM gateway | Your gateway address, such as `http://localhost:4000` | The LiteLLM key Claude Code already uses for model calls |
+| Standalone Lens | Your Lens address, such as `http://localhost:4318` | A Lens tracing key |
+
+Lens groups the turns of a session without any resource attribute. The cost of a trace is filled only when the model calls go through a gateway, which is where the price is known
 
 ## Model call content
 

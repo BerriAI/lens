@@ -250,18 +250,26 @@ describe("agent setup prompt", () => {
         path === "gateway" ? "https://lens.example/v1" : "gateway.example";
       expect(prompt).toContain(
         agent === "codex"
-          ? `endpoint = "${address}/v1/traces"`
+          ? `setup --url ${address} --key-env`
           : `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
       );
       expect(prompt).not.toContain(other);
       if (path === "gateway") {
         expect(prompt).toContain("Do not create or use a Lens tracing key");
-        expect(prompt).toContain("Bearer <the LiteLLM key>");
+        expect(prompt).toContain(
+          agent === "codex"
+            ? "--key-env <the variable that holds the LiteLLM key>"
+            : "Bearer <the LiteLLM key>",
+        );
         expect(prompt).toContain("choose Standalone Lens on Lens Home");
         expect(prompt).not.toContain("lens-key-1");
       } else {
         expect(prompt).toContain('Lens tracing key: "lens-key-1"');
-        expect(prompt).toContain("Bearer <the Lens tracing key>");
+        expect(prompt).toContain(
+          agent === "codex"
+            ? "--key-env LITELLM_TRACING_KEY"
+            : "Bearer <the Lens tracing key>",
+        );
         expect(prompt).toContain("Do not add or change a LiteLLM gateway");
       }
     },
@@ -283,7 +291,7 @@ describe("agent setup prompt", () => {
     },
   );
 
-  it("tells Claude Code and Codex to write the key itself, since their config files expand no variables", () => {
+  it("tells Claude Code to write the key itself and Codex to pass only the name of the variable that holds it", () => {
     const prompt = (agent: (typeof agents)[number]) =>
       agentTracingPrompt({
         agent,
@@ -292,7 +300,7 @@ describe("agent setup prompt", () => {
       });
     expect(prompt("claude-code")).toContain("never a ${...} reference");
     expect(prompt("codex")).toContain(
-      "write the key's actual value into both Authorization headers",
+      "--key-env takes the name of an environment variable, never the key itself",
     );
     expect(prompt("opencode")).toContain("reference that variable");
   });
@@ -325,10 +333,13 @@ describe("agent setup prompt", () => {
       "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216",
     );
     expect(prompt("claude-code")).toContain("~/.claude/settings.json");
-    expect(prompt("codex")).toContain("~/.codex/config.toml");
     expect(prompt("codex")).toContain(
-      'exporter = { otlp-http = { endpoint = "https://lens.example/v1/logs"',
+      "codex plugin marketplace add BerriAI/litellm-lens-plugins\ncodex plugin add litellm-lens@berriai-lens\n",
     );
+    expect(prompt("codex")).toContain(
+      "setup --url https://lens.example --key-env LITELLM_TRACING_KEY --agent-name codex-cli",
+    );
+    expect(prompt("codex")).not.toContain("exporter =");
     expect(prompt("codex")).not.toContain("CLAUDE_CODE");
     expect(prompt("opencode")).toContain(
       '{ "experimental": { "openTelemetry": true } }',
@@ -382,7 +393,7 @@ describe("agent setup prompt", () => {
       "Find the LiteLLM gateway address Codex already uses",
     );
     expect(gateway).toContain(
-      'endpoint = "<the LiteLLM gateway address>/v1/traces"',
+      "setup --url <the LiteLLM gateway address> --key-env",
     );
     expect(gateway).toContain(
       'open Traces in Lens at "https://lens.example/ui"',

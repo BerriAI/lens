@@ -65,7 +65,8 @@ const PATHS: readonly {
 const MANUAL_TARGET: Record<SetupAgent, string> = {
   "claude-code":
     "Export these in the terminal where you run claude, or add each one as a string entry in the env object in ~/.claude/settings.json.",
-  codex: "Add this to ~/.codex/config.toml.",
+  codex:
+    "Run these in a terminal where LITELLM_API_KEY holds your LiteLLM key. They install the Lens plugin for Codex and start recording.",
   opencode:
     "On OpenCode 2.3.2 or later, run these where you start opencode. They install the Lens plugin, which sends your prompts, replies and tool content. OpenCode 1.x uses telemetry instead.",
 };
@@ -425,7 +426,9 @@ export function LensHome({
                           : agentTelemetrySettings(
                               agent,
                               gatewayUrl || "<your LiteLLM gateway address>",
-                              "<your LiteLLM key>",
+                              agent === "codex"
+                                ? "LITELLM_API_KEY"
+                                : "<your LiteLLM key>",
                               "shell",
                             )
                       }

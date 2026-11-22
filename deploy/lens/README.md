@@ -42,7 +42,9 @@ A fresh installation started with `--build` keeps rebuilding from source on each
 
 ## Record your first trace
 
-Open **Home** and choose **Copy instructions with new key**. Lens creates a tracing key and copies complete setup instructions, including your Lens address and key. Paste them into your coding agent inside the project you want to connect. The instructions tell the coding agent to save the key in your project's ignored environment file. The key will also be in that coding agent's chat history. To keep the key out of chat, choose **Set up manually**, create a key, and save it locally as `LITELLM_TRACING_KEY`. You can then return to **Use a coding agent** and choose **Copy without key**
+Open **Home**. It offers two ways to connect an agent and opens on the one that matches how Lens runs: **Through the LiteLLM gateway** when a gateway is connected, where the agent sends telemetry to the gateway with the LiteLLM key it already uses, and **Standalone Lens** otherwise, where the agent sends telemetry straight to Lens with a tracing key
+
+On **Standalone Lens**, choose **Claude Code**, **Codex** or **OpenCode** and then **Copy instructions with new key**. Lens creates a tracing key and copies complete setup instructions, including your Lens address and key. Paste them into that coding agent. The instructions turn on the agent's own telemetry and run one real task. The key will also be in that coding agent's chat history. To keep the key out of chat, choose **Set up manually**, create a key, and save it locally as `LITELLM_TRACING_KEY`. You can then return to **Use a coding agent** and choose **Copy without key**. **Set up manually** also shows the variables for tracing your own application
 
 If your project already has a key, choose **Use an existing key**. **Manage tracing keys** lets you select an existing key to watch for its new traces or revoke a key. Existing secret values cannot be retrieved again. Keep your agent's model endpoint and provider credential; tracing keys authorize telemetry uploads and delivery checks
 
