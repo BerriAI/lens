@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agentTracingPrompt,
   agentTelemetrySettings,
+  opencodePluginSettings,
   setupPrompt,
   type SetupConnection,
 } from "./setupPrompt";
@@ -345,6 +346,41 @@ describe("agent setup prompt", () => {
     );
     expect(prompt("opencode")).toContain("OTEL_BSP_SCHEDULE_DELAY=1000");
     expect(prompt("opencode")).toContain("unset it");
+  });
+
+  it.each([
+    ["gateway", "https://gateway.example", "<the LiteLLM key>"],
+    ["standalone", "https://lens.example", "<the Lens tracing key>"],
+  ] as const)(
+    "sends OpenCode 2 to the plugin on the %s path and keeps telemetry for 1.x",
+    (path, address, key) => {
+      const prompt = agentTracingPrompt({
+        agent: "opencode",
+        path,
+        gatewayUrl: "https://gateway.example",
+        lensUrl: "https://lens.example",
+      });
+      const plugin = prompt.indexOf(opencodePluginSettings(address, key));
+      const telemetry = prompt.indexOf(
+        `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
+      );
+      expect(plugin).toBeGreaterThan(-1);
+      expect(telemetry).toBeGreaterThan(plugin);
+      expect(prompt).toContain("opencode --version");
+      expect(prompt).toContain("On OpenCode 2.3.2 or later");
+      expect(prompt).toContain("On OpenCode 1.x");
+    },
+  );
+
+  it("installs the OpenCode plugin and restarts its service in the manual settings", () => {
+    expect(opencodePluginSettings("https://gateway.example", "<key>")).toBe(
+      [
+        "opencode plugin add github:BerriAI/litellm-lens-plugins",
+        'export LITELLM_LENS_OPENCODE_URL="https://gateway.example"',
+        'export LITELLM_LENS_OPENCODE_API_KEY="<key>"',
+        "opencode service stop",
+      ].join("\n"),
+    );
   });
 
   it("asks the agent to find its gateway when the page does not know it, and for a saved key when none is included", () => {

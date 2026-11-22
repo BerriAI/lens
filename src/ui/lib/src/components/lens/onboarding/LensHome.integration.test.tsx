@@ -615,7 +615,14 @@ describe("Lens Home connection", () => {
     ).toBeVisible();
     await user.click(screen.getByRole("radio", { name: "OpenCode" }));
     expect(
-      screen.getByText(/export OTEL_BSP_SCHEDULE_DELAY="1000"/),
+      screen.getByText(
+        /opencode plugin add github:BerriAI\/litellm-lens-plugins/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /export LITELLM_LENS_OPENCODE_API_KEY="<your LiteLLM key>"/,
+      ),
     ).toBeVisible();
     expect(
       screen.queryByText(/CLAUDE_CODE_ENABLE_TELEMETRY/),
@@ -626,7 +633,7 @@ describe("Lens Home connection", () => {
       screen.getByRole("heading", { name: "Connect to Lens standalone" }),
     ).toBeVisible();
     expect(
-      screen.queryByText(/OTEL_BSP_SCHEDULE_DELAY/),
+      screen.queryByText(/LITELLM_LENS_OPENCODE_URL/),
     ).not.toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Create tracing key" }),

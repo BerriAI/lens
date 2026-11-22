@@ -12,9 +12,9 @@ import { useOnboarding } from "./OnboardingContext";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
 import {
-  OPENCODE_CONFIG,
   SETUP_AGENTS,
   agentTelemetrySettings,
+  opencodePluginSettings,
   type SetupAgent,
   type SetupPath,
 } from "./setupPrompt";
@@ -67,7 +67,8 @@ const MANUAL_TARGET: Record<SetupAgent, string> = {
     "Export these in the terminal where you run claude, or add each one as a string entry in the env object in ~/.claude/settings.json.",
   codex:
     "Run these in a terminal where LITELLM_API_KEY holds your LiteLLM key. They install the Lens plugin for Codex and start recording.",
-  opencode: `Add ${OPENCODE_CONFIG} to opencode.json, then export these where you start opencode.`,
+  opencode:
+    "On OpenCode 2.3.2 or later, run these where you start opencode. They install the Lens plugin, which sends your prompts, replies and tool content. OpenCode 1.x uses telemetry instead.",
 };
 
 export function LensHome({
@@ -416,14 +417,21 @@ export function LensHome({
                       {MANUAL_TARGET[agent]}
                     </p>
                     <CodeBlock
-                      code={agentTelemetrySettings(
-                        agent,
-                        gatewayUrl || "<your LiteLLM gateway address>",
-                        agent === "codex"
-                          ? "LITELLM_API_KEY"
-                          : "<your LiteLLM key>",
-                        "shell",
-                      )}
+                      code={
+                        agent === "opencode"
+                          ? opencodePluginSettings(
+                              gatewayUrl || "<your LiteLLM gateway address>",
+                              "<your LiteLLM key>",
+                            )
+                          : agentTelemetrySettings(
+                              agent,
+                              gatewayUrl || "<your LiteLLM gateway address>",
+                              agent === "codex"
+                                ? "LITELLM_API_KEY"
+                                : "<your LiteLLM key>",
+                              "shell",
+                            )
+                      }
                       copyLabel={`Copy ${agentLabel} settings`}
                       wrap
                     />
