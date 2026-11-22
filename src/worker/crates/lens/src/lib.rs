@@ -29,6 +29,7 @@ pub mod signals;
 pub mod slack;
 mod storage;
 pub mod task_profiles;
+pub mod wake;
 pub mod worker;
 
 use axum::{
@@ -64,6 +65,7 @@ pub struct State {
     pub credentials: Arc<auth::Credentials>,
     pub storage: Storage,
     pub schema_ready: AtomicBool,
+    pub wake: wake::Wake,
     service_token: Option<String>,
     connected_service_token: OnceLock<ConnectedServiceToken>,
     ingest_slots: Arc<Semaphore>,
@@ -85,6 +87,7 @@ impl State {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
             schema_ready: AtomicBool::new(false),
+            wake: wake::Wake::default(),
             service_token,
             connected_service_token: OnceLock::new(),
             ingest_slots: Arc::new(Semaphore::new(2)),

@@ -210,6 +210,7 @@ async fn store(
     })
     .await
     .map_err(|_| Error::Unavailable)??;
+    let arrived = !logs.is_empty() || !spans.is_empty();
     insert_shared_rows(
         &state.storage.client,
         state.storage.config.storage().writer(),
@@ -226,6 +227,9 @@ async fn store(
         spans,
     )
     .await?;
+    if arrived {
+        state.wake.notify();
+    }
     Ok(())
 }
 
