@@ -348,6 +348,23 @@ describe("agent setup prompt", () => {
     expect(prompt("opencode")).toContain("unset it");
   });
 
+  it("names a gateway model in the OpenCode check only on the gateway path", () => {
+    const check = (path: "gateway" | "standalone") =>
+      agentTracingPrompt({
+        agent: "opencode",
+        path,
+        gatewayUrl: "https://gateway.example",
+        lensUrl: "https://lens.example",
+      });
+    expect(check("gateway")).toContain(
+      'check them with a new run: opencode run -m <provider>/<model> "Run the date command',
+    );
+    expect(check("standalone")).toContain(
+      'check them with a new run: opencode run "Run the date command',
+    );
+    expect(check("standalone")).not.toContain("<provider>/<model>");
+  });
+
   it.each([
     ["gateway", "https://gateway.example", "<the LiteLLM key>"],
     ["standalone", "https://lens.example", "<the Lens tracing key>"],

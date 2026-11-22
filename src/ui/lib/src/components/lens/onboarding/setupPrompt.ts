@@ -141,6 +141,8 @@ const CODING_AGENTS: Record<
     readonly keyNote: string;
     readonly caveat: string;
     readonly run: string;
+    /** The check on the gateway path, when the agent's default model may not be the gateway's. */
+    readonly gatewayRun?: string;
   }
 > = {
   "claude-code": {
@@ -180,6 +182,8 @@ const CODING_AGENTS: Record<
     caveat:
       "With the plugin, Lens then shows each turn with the prompt and the reply, each model call with the messages sent, the reply and the cost the gateway billed, and each tool step with its input and output. On OpenCode 1.x, Lens shows each model call and tool step with its content, but OpenCode does not flush telemetry on exit, so the last model call of a one-shot run can be missing.",
     run: 'opencode run "Run the date command, then tell me what it printed."',
+    gatewayRun:
+      'opencode run -m <provider>/<model> "Run the date command, then tell me what it printed." Replace <provider>/<model> with the id of the provider that has the gateway baseURL and one of its models, as opencode models lists them, because without -m OpenCode can pick a default model that does not go through the gateway.',
   },
 };
 
@@ -203,9 +207,10 @@ export function agentTracingPrompt({
   const lens = publicUrl(lensUrl);
   const address =
     path === "gateway" ? publicUrl(gatewayUrl) : (publicUrl(traceUrl) ?? lens);
-  const { label, traceName, gatewayHint, install, keyNote, caveat, run } =
+  const { label, traceName, gatewayHint, install, keyNote, caveat, ...check } =
     CODING_AGENTS[agent];
   const gateway = path === "gateway";
+  const run = (gateway && check.gatewayRun) || check.run;
   const addressName = gateway
     ? "the LiteLLM gateway address"
     : "the Lens address";
