@@ -81,6 +81,21 @@ tests:
       - matchRegex:
           path: data["lens-logging.xml"]
           pattern: '<processors_profile_log remove="1"/>'
+  - it: bounds the Keeper log cache well below the default memory limit
+    documentSelector: {path: kind, value: ConfigMap}
+    asserts:
+      - matchRegex:
+          path: data["lens-keeper.xml"]
+          pattern: '<snapshot_distance>10000</snapshot_distance>\s*<rotate_log_storage_interval>10000</rotate_log_storage_interval>\s*<reserved_log_items>1000</reserved_log_items>'
+      - matchRegex:
+          path: data["lens-keeper.xml"]
+          pattern: '<latest_logs_cache_size_threshold>134217728</latest_logs_cache_size_threshold>'
+  - it: gives bundled ClickHouse a 4Gi memory limit by default
+    documentSelector: {path: kind, value: StatefulSet}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 4Gi
   - it: persists Keeper and payloads on the same retained volume
     documentSelector: {path: kind, value: ConfigMap}
     asserts:
