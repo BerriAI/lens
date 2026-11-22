@@ -9,7 +9,7 @@
 
 <h3>Self-improving agents, on your infrastructure.</h3>
 
-**[Start locally](deploy/lens/README.md#start-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
+**[Start locally](#run-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
 
 <details>
 <summary>Copy a setup prompt</summary>
@@ -82,3 +82,22 @@ Point Claude Code, [Codex](docs/codex-cli.md) or [OpenCode](docs/opencode.md) at
 [Get started](deploy/lens/README.md)
 
 </div>
+
+## Run locally
+
+Install Docker with Docker Compose 2.24 or newer and make sure Docker is running. Then run this from a checkout of this repository:
+
+```sh
+docker compose up --wait
+docker compose logs -n1 credentials
+```
+
+The first command starts Lens and ClickHouse. The second prints the address to open and the setup token to paste there:
+
+```
+credentials-1  | Open http://localhost:4318/ui/ and paste this setup token: <your token>
+```
+
+The token is also saved as `LENS_ADMIN_TOKEN` in `deploy/lens/.env`. `docker compose down` stops Lens and keeps its data, and adding `--volumes` deletes the stored traces
+
+See [Run Lens](deploy/lens/README.md) for recording your first trace and configuring a deployment
