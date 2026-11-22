@@ -1,0 +1,369 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "claude-code"
+      }
+     },
+     {
+      "key": "gen_ai.agent.name",
+      "value": {
+       "stringValue": "claude-code"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "litellm-lens-claude-code"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "0.1.0"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "berriai.lens.claude-code",
+      "version": "0.1.0"
+     },
+     "spans": [
+      {
+       "traceId": "0975f455d40a0b8328835aa46ee4bbf5",
+       "spanId": "ea5f6fcdae5b04f8",
+       "name": "invoke_agent claude-code",
+       "kind": 1,
+       "startTimeUnixNano": "1795373260253999872",
+       "endTimeUnixNano": "1795373262582000128",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "invoke_agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "claude-code"
+         }
+        },
+        {
+         "key": "gen_ai.agent.id",
+         "value": {
+          "stringValue": "b36ffe75-3e91-4d1c-850c-f20016e120b3"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "b36ffe75-3e91-4d1c-850c-f20016e120b3"
+         }
+        },
+        {
+         "key": "claude_code.session.id",
+         "value": {
+          "stringValue": "b36ffe75-3e91-4d1c-850c-f20016e120b3"
+         }
+        },
+        {
+         "key": "lens.capture.source",
+         "value": {
+          "stringValue": "session_transcript"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "claude-opus-5-5"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"[plugin B1] Separate session: run 'pwd' with bash.\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"The current working directory is `/work/project`.\"}]}]"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       }
+      },
+      {
+       "traceId": "0975f455d40a0b8328835aa46ee4bbf5",
+       "spanId": "06215e2040881067",
+       "name": "chat claude-opus-5-5",
+       "kind": 1,
+       "startTimeUnixNano": "1795373260384000000",
+       "endTimeUnixNano": "1795373261400000000",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "anthropic"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "claude-code"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "b36ffe75-3e91-4d1c-850c-f20016e120b3"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "claude-opus-5-5"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "claude-opus-5-5"
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "msg_011ChJTwHfXP3r838FM5R8ka"
+         }
+        },
+        {
+         "key": "anthropic.request_id",
+         "value": {
+          "stringValue": "req_011ChJTwHWbEuuUB4TC9bVqW"
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "stringValue": "[\"tool_use\"]"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "17339"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "74"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": "13395"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_creation.input_tokens",
+         "value": {
+          "intValue": "3942"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"content\": \"[plugin B1] Separate session: run 'pwd' with bash.\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"tool_call\", \"id\": \"toolu_01CKerhdi5jcQqKFL3Mk5vxz\", \"name\": \"Bash\", \"arguments\": {\"command\": \"pwd\", \"description\": \"Print working directory\"}}]}]"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "parentSpanId": "ea5f6fcdae5b04f8"
+      },
+      {
+       "traceId": "0975f455d40a0b8328835aa46ee4bbf5",
+       "spanId": "c1302e7256c1ec1b",
+       "name": "chat claude-opus-5-5",
+       "kind": 1,
+       "startTimeUnixNano": "1795373261492000000",
+       "endTimeUnixNano": "1795373262344000000",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "anthropic"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "claude-code"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "b36ffe75-3e91-4d1c-850c-f20016e120b3"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "claude-opus-5-5"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "claude-opus-5-5"
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "msg_011ChJTwNRXEiKBGQP8KBxW3"
+         }
+        },
+        {
+         "key": "anthropic.request_id",
+         "value": {
+          "stringValue": "req_011ChJTwNJL72rZSEiJ26zu5"
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "stringValue": "[\"end_turn\"]"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "17433"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "26"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": "17337"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_creation.input_tokens",
+         "value": {
+          "intValue": "94"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"user\", \"parts\": [{\"type\": \"tool_call_response\", \"id\": \"toolu_01CKerhdi5jcQqKFL3Mk5vxz\", \"response\": \"/work/project\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\": \"assistant\", \"parts\": [{\"type\": \"text\", \"content\": \"The current working directory is `/work/project`.\"}]}]"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "parentSpanId": "ea5f6fcdae5b04f8"
+      },
+      {
+       "traceId": "0975f455d40a0b8328835aa46ee4bbf5",
+       "spanId": "7fe302bfd2a51c08",
+       "name": "Bash",
+       "kind": 1,
+       "startTimeUnixNano": "1795373261400000000",
+       "endTimeUnixNano": "1795373261471000064",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "execute_tool"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "Bash"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "toolu_01CKerhdi5jcQqKFL3Mk5vxz"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "claude-code"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.arguments",
+         "value": {
+          "stringValue": "{\"command\": \"pwd\", \"description\": \"Print working directory\"}"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.result",
+         "value": {
+          "stringValue": "/work/project"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "parentSpanId": "ea5f6fcdae5b04f8"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

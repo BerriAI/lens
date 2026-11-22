@@ -19,6 +19,8 @@ mod metadata;
 
 pub(crate) const CLAUDE_CODE_SCOPE: &str = "com.anthropic.claude_code.tracing";
 pub(crate) const CLAUDE_CODE_EVENTS_SCOPE: &str = "com.anthropic.claude_code.events";
+/// The LiteLLM Lens plugin for Claude Code, which rebuilds each turn from the session transcript
+pub(crate) const CLAUDE_CODE_PLUGIN_SCOPE: &str = "berriai.lens.claude-code";
 pub(crate) fn visible_claude_response(event: &str, source: &str) -> bool {
     event == "assistant_response"
         && (matches!(source, "repl_main_thread" | "sdk" | "sdk_main_thread")
