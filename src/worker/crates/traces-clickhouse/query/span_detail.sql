@@ -14,10 +14,17 @@ LEFT JOIN (
                Output,
                tuple(ParentSpanId = {span_id:String} AND ObservationType = 'llm', ParentSpanId = {span_id:String}, Timestamp),
                ObservationType IN ('llm', 'chain') AND Output != ''
+               AND (ParentSpanId = {span_id:String} OR roots = 1)
            ) AS output
-    FROM otel_traces
-    WHERE TraceId = {trace_id:String}
-      AND ((ObservationType IN ('agent', 'llm') AND Input != '')
+    FROM (
+        SELECT TeamId, ApiKeyHash, TraceId, UserId, ParentSpanId, ObservationType, Input, Output,
+               SpanAttributes, Timestamp,
+               uniqExactIf(SpanId, ParentSpanId IN ('', '0000000000000000'))
+                      OVER (PARTITION BY TeamId, ApiKeyHash, TraceId) AS roots
+        FROM otel_traces
+        WHERE TraceId = {trace_id:String}
+    )
+    WHERE ((ObservationType IN ('agent', 'llm') AND Input != '')
            OR (ObservationType IN ('llm', 'chain') AND Output != ''))
       AND ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserId = {user_id:String})
