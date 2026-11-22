@@ -1,9 +1,14 @@
 use std::collections::BTreeMap;
 
+use litellm_storage_clickhouse::fetch;
 use litellm_traces_clickhouse::{
     Connection, InsertTable, Parameter, QueryReaders, QueryScope, ReadQuery, TraceTable,
+    content_reference::{self, REFERENCE_ATTRIBUTE},
     ensure_schema, execute_named_read, insert_rows,
-    query::lens::{LensAvailabilityRow, LensEvidenceRow},
+    query::lens::{
+        LensAccessParams, LensAvailabilityRow, LensContentReferences, LensContentReferencesParams,
+        LensEvidenceRow,
+    },
     query_sql,
 };
 use rstest::{fixture, rstest};
@@ -392,5 +397,73 @@ async fn raw_sql_readers_only_see_their_own_eval_trace_ids(
         EVAL.id
     );
     assert_eq!(raw_sql_matches(&seeded, team, &sql).await?, expected);
+    Ok(())
+}
+
+const CONTENT_TOKEN: &str = "test-service-token-with-32-characters";
+
+fn reference(mac: &str) -> String {
+    json!({"v": 2, "state": "unavailable", "reason": "upload_failed", "mac": mac}).to_string()
+}
+
+fn referenced(trace: Trace, mac: &str, at_ms: i64) -> Value {
+    let mut row = span(trace, "referenced", trace.child, None, at_ms);
+    row["Input"] = json!("");
+    row["SpanAttributes"] = json!({"litellm.lens.content": reference(mac)});
+    row
+}
+
+#[rstest]
+#[tokio::test]
+async fn stored_content_of_eval_traces_is_never_read_back_for_investigations(
+    #[future(awt)] seeded: TestResult<Seeded>,
+) -> TestResult {
+    let seeded = seeded?;
+    let client = &seeded.database.client;
+    let spans = rows(vec![
+        referenced(
+            PROD,
+            "1d05c9e4b7fc16ebdb18d5929ae4df887460e8de147ec82382fdaaf901568390",
+            seeded.start_ms + 3_000,
+        ),
+        referenced(
+            EVAL,
+            "26911f13770db2189c9881dfe38c67113bdf31192ad3687e6b2a76a99d477258",
+            seeded.start_ms + 3_000,
+        ),
+    ])?;
+    let writer = Connection::writer(&seeded.database.url)?;
+    insert_rows(client, &writer, DATABASE, InsertTable::OtelTraces, spans).await?;
+    let reader = Connection::reader(&seeded.database.url, DATABASE)?;
+    let start_time = time::OffsetDateTime::from_unix_timestamp(seeded.start_ms / 1_000)?
+        .format(&time::format_description::well_known::Rfc3339)?;
+    let key = content_reference::signing_key(CONTENT_TOKEN);
+    let mut found = Vec::new();
+    for trace in [PROD, EVAL] {
+        let parameters = LensContentReferencesParams {
+            access: LensAccessParams {
+                all_teams: false,
+                team: trace.team.into(),
+                key_hash: KEY.into(),
+            },
+            id: trace.id.into(),
+            record_team: trace.team.into(),
+            start_time: start_time.clone(),
+            trace_ref: String::new(),
+            span_ids: vec!["referenced".into()],
+        };
+        let rows = fetch::<LensContentReferences>(client, &reader, &parameters).await?;
+        let verified = rows.iter().filter(|row| {
+            let owner = content_reference::Owner {
+                team_id: &row.team_id,
+                api_key: &row.api_key,
+                trace_id: trace.id,
+                span_id: &row.span_id,
+            };
+            content_reference::verify(&key, &owner, &row.attributes[REFERENCE_ATTRIBUTE]).is_some()
+        });
+        found.push((trace.id, verified.count()));
+    }
+    assert_eq!(found, [(PROD.id, 1), (EVAL.id, 0)]);
     Ok(())
 }
