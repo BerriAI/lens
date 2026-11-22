@@ -596,7 +596,8 @@ describe("AgentTracesSection", () => {
     });
     renderSection();
     const [sdkRun, cliRun, plainRun] = await screen.findAllByTestId("agent-trace-row");
-    const agentCell = (row: HTMLElement) => within(row).getAllByRole("cell")[1];
+    const agentColumn = screen.getAllByRole("columnheader").findIndex((header) => header.textContent === "Agent");
+    const agentCell = (row: HTMLElement) => within(row).getAllByRole("cell")[agentColumn];
 
     expect(agentCell(sdkRun)).toHaveTextContent(/^research-bot$/);
     expect(within(agentCell(sdkRun)).getByTitle("research-bot · Claude Agent SDK")).toBeInTheDocument();
