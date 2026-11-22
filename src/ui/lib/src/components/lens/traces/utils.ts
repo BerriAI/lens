@@ -54,68 +54,6 @@ export const isFrameworkSpan = (span: Span): boolean => {
 const byStart = (a: Span, b: Span): number =>
   a.start_offset_ms - b.start_offset_ms;
 
-const placedUnder = (span: Span, parent: Span | undefined): Span =>
-  parent ? { ...span, parent_span_id: parent.span_id } : span;
-
-/**
- * A gateway that was not told which agent span a call belongs to sends it with no parent. Its model call
- * names the same provider request as the agent's own, and its tool step repeats a tool the agent ran in
- * the typed message in progress, so each goes back under the step it repeats.
- */
-function placeGatewaySteps(spans: readonly Span[]): Span[] {
-  const typed = spans
-    .filter((span) => span.parent_span_id === null && span.type === "agent")
-    .sort(byStart);
-  if (typed.length === 0) return [...spans];
-  const own = new Map(
-    spans
-      .filter(
-        (span) =>
-          span.type === "llm" &&
-          span.litellm_request_id == null &&
-          span.spend_log_request_id != null,
-      )
-      .map((span) => [span.spend_log_request_id, span]),
-  );
-  const inProgress = (at: number): Span | undefined =>
-    typed.findLast((turn) => turn.start_offset_ms <= at) ?? typed[0];
-  return spans.map((span) => {
-    if (span.parent_span_id !== null) return span;
-    if (span.type === "llm" && span.litellm_request_id != null)
-      return placedUnder(span, own.get(span.spend_log_request_id));
-    return span.type === "tool"
-      ? {
-          ...placedUnder(span, inProgress(span.start_offset_ms)),
-          type: "framework",
-        }
-      : span;
-  });
-}
-
-/**
- * An agent that traces itself records each model call, and the gateway it calls through records the same
- * call under it with the cost. Show one step: the agent's, carrying the gateway's cost.
- */
-export function foldGatewayCalls(recorded: readonly Span[]): Span[] {
-  const spans = placeGatewaySteps(recorded);
-  const byId = indexSpans(spans);
-  const repeats = spans.filter(
-    (span) =>
-      span.type === "llm" &&
-      byId.get(span.parent_span_id ?? "")?.type === "llm",
-  );
-  if (repeats.length === 0) return spans;
-  const costOf = new Map(repeats.map((span) => [span.parent_span_id, span]));
-  const repeated = new Set(repeats.map((span) => span.span_id));
-  return spans.map((span) => {
-    if (repeated.has(span.span_id)) return { ...span, type: "framework" };
-    const gateway = costOf.get(span.span_id);
-    return gateway && span.spend_match == null
-      ? { ...span, spend: gateway.spend, spend_match: gateway.spend_match }
-      : span;
-  });
-}
-
 export const indexSpans = (spans: readonly Span[]): Map<string, Span> =>
   new Map(spans.map((s) => [s.span_id, s]));
 

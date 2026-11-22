@@ -37,14 +37,6 @@ export function sessionTurns(recorded: readonly Span[]): SessionTurn[] {
 }
 
 /** A gateway records only the model and tool calls of a Claude Code session, each parentless, so nothing says where a turn starts. */
-export function lacksAgentTelemetry(spans: readonly Span[]): boolean {
-  return (
-    spans.some((span) => span.framework === "claude-code") &&
-    spans.every((span) => span.parent_span_id === null && (span.type === "llm" || span.type === "tool"))
-  );
-}
-
-/** The gateway's record of a model call Claude Code also recorded is folded into Claude Code's step, so only that step is counted. */
 export function countedOnce(spans: readonly Span[]): Span[] {
   return spans.filter((span) => span.type !== "framework");
 }

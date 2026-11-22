@@ -11,7 +11,6 @@ import {
   errorSource,
   findTraceSteps,
   fmtMs,
-  foldGatewayCalls,
   GROUP_PAGE_SIZE,
   groupRowId,
   isFrameworkSpan,
@@ -158,124 +157,6 @@ describe("buildVisibleTree / isFrameworkSpan", () => {
     expect(isFrameworkSpan(span({ span_id: "r", type: "framework" }))).toBe(
       false,
     );
-  });
-});
-
-describe("foldGatewayCalls", () => {
-  const turn = span({ span_id: "turn", type: "agent" });
-  const agentCall = span({
-    span_id: "agent-call",
-    parent_span_id: "turn",
-    type: "llm",
-    spend: 0.5,
-  });
-  const gatewayCall = span({
-    span_id: "gateway-call",
-    parent_span_id: "agent-call",
-    type: "llm",
-    spend: 0.25,
-    spend_match: "matched",
-  });
-
-  it("shows a call the agent and the gateway both recorded as one step with the gateway's cost", () => {
-    const folded = foldGatewayCalls([turn, agentCall, gatewayCall]);
-
-    expect(
-      spanRows(buildTreeRows(folded, STATE)).map((row) => [
-        row.id,
-        row.span.spend,
-        row.span.spend_match,
-      ]),
-    ).toEqual([
-      ["turn", null, undefined],
-      ["agent-call", 0.25, "matched"],
-    ]);
-  });
-
-  it("leaves a gateway call alone when no agent recorded it", () => {
-    const alone = { ...gatewayCall, parent_span_id: "turn" };
-
-    expect(foldGatewayCalls([turn, alone])).toEqual([turn, alone]);
-  });
-
-  it("folds gateway steps that arrived with no parent into the typed message they repeat", () => {
-    const first = span({ span_id: "first", type: "agent", start_offset_ms: 0 });
-    const second = span({
-      span_id: "second",
-      type: "agent",
-      start_offset_ms: 100,
-    });
-    const own = span({
-      span_id: "own-call",
-      parent_span_id: "second",
-      type: "llm",
-      start_offset_ms: 110,
-      spend_log_request_id: "msg_1",
-    });
-    const ownTool = span({
-      span_id: "own-tool",
-      parent_span_id: "second",
-      type: "tool",
-      start_offset_ms: 130,
-    });
-    const sent = {
-      parent_span_id: null,
-      litellm_request_id: "msg_1",
-      spend_log_request_id: "msg_1",
-    };
-    const gatewayCall = span({
-      span_id: "gateway-call",
-      type: "llm",
-      start_offset_ms: 115,
-      ...sent,
-    });
-    const gatewayTool = span({
-      span_id: "gateway-tool",
-      parent_span_id: null,
-      type: "tool",
-      start_offset_ms: 150,
-    });
-    const unmatched = span({
-      span_id: "unmatched",
-      type: "llm",
-      start_offset_ms: 160,
-      ...sent,
-      spend_log_request_id: "msg_2",
-    });
-
-    const folded = foldGatewayCalls([
-      first,
-      second,
-      own,
-      ownTool,
-      gatewayCall,
-      gatewayTool,
-      unmatched,
-    ]);
-
-    expect(
-      folded.map((step) => [step.span_id, step.parent_span_id, step.type]),
-    ).toEqual([
-      ["first", null, "agent"],
-      ["second", null, "agent"],
-      ["own-call", "second", "llm"],
-      ["own-tool", "second", "tool"],
-      ["gateway-call", "own-call", "framework"],
-      ["gateway-tool", "second", "framework"],
-      ["unmatched", null, "llm"],
-    ]);
-  });
-
-  it("keeps a session with no agent telemetry as the flat gateway steps it is", () => {
-    const call = span({
-      span_id: "call",
-      parent_span_id: null,
-      type: "llm",
-      litellm_request_id: "msg_1",
-    });
-    const tool = span({ span_id: "tool", parent_span_id: null, type: "tool" });
-
-    expect(foldGatewayCalls([call, tool])).toEqual([call, tool]);
   });
 });
 

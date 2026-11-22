@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import research from "./__fixtures__/research_trace.json";
 import type { SpanTreeState } from "./tree";
-import { countedOnce, lacksAgentTelemetry, sessionTurns } from "./turns";
+import { sessionTurns } from "./turns";
 import type { Span } from "./types";
-import { buildTreeRows, foldGatewayCalls, revealSpanInState } from "./utils";
+import { buildTreeRows, revealSpanInState } from "./utils";
 
 const STATE: SpanTreeState = {
   hideFramework: true,
@@ -68,30 +68,8 @@ describe("Claude Code turns", () => {
     expect(sessionTurns(session()).map((turn) => turn.root.input_preview)).toEqual([FIRST, SECOND]);
   });
 
-  it("gives a gateway-only session no turns, however its calls are spaced or worded", () => {
-    const flat = [
-      step("title", null, "llm", 0, { input_preview: "Write the title in the predominant language" }),
-      step("m1", null, "llm", 176, { input_preview: FIRST }),
-      step("read", null, "tool", 400),
-      step("m2", null, "llm", 30000, { input_preview: SECOND }),
-    ];
-    expect(outline(flat)).toEqual(["title", "m1", "read", "m2"]);
-    expect(lacksAgentTelemetry(flat)).toBe(true);
-  });
-
-  it.each([
-    ["has its turns", session()],
-    ["is not Claude Code's", (research.spans as Span[]).map((span) => ({ ...span, framework: "langgraph" }))],
-    ["has no spans yet", []],
-  ])("asks for telemetry only on a gateway-only Claude Code session, not one that %s", (_, spans) => {
-    expect(lacksAgentTelemetry(spans)).toBe(false);
+  it("gives a trace that is not a Claude Code session no turns", () => {
     expect(sessionTurns(research.spans as Span[])).toEqual([]);
-  });
-
-  it("counts a model call once when Claude Code and the gateway both recorded it", () => {
-    const counted = countedOnce(foldGatewayCalls(session()));
-    expect(counted.map((span) => span.span_id)).toEqual(["t1", "r1", "read", "t2", "r2"]);
-    expect(counted.map((span) => span.spend ?? 0).reduce((total, spend) => total + spend)).toBe(0.5);
   });
 
   it("folds a collapsed turn and opens it again to reveal a step inside it", () => {
