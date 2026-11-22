@@ -884,6 +884,29 @@ async fn connected_gateway_serves_models_only_with_a_key(
 }
 
 #[rstest]
+#[case::environment_secret(Some(support::SECRET), true)]
+#[case::no_gateway(None, false)]
+fn a_gateway_secret_marks_the_gateway_connected(
+    #[case] secret: Option<&str>,
+    #[case] expected: bool,
+) {
+    let settings = Settings::new(ADMIN, secret.map(str::to_owned), ORIGIN).unwrap();
+    assert_eq!(settings.gateway_connected(), expected);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_gateway_connected_in_settings_marks_the_gateway_connected() {
+    let authentication = standalone();
+    assert!(!authentication.settings.gateway_connected());
+    authentication
+        .connect_gateway(ADMIN, connection("https://gateway.test", None))
+        .await
+        .unwrap();
+    assert!(authentication.settings.gateway_connected());
+}
+
+#[rstest]
 #[tokio::test]
 async fn a_restarted_lens_loads_the_saved_gateway() {
     let first = standalone();

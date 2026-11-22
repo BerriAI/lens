@@ -234,6 +234,10 @@ impl Application {
                 state,
                 url,
                 release,
+                gateway_connected: {
+                    let authentication = self.authentication.clone();
+                    Box::new(move || authentication.settings.gateway_connected())
+                },
             },
         ));
         Self { router, ..self }
@@ -244,6 +248,7 @@ struct LocalService {
     state: Arc<State>,
     url: String,
     release: String,
+    gateway_connected: Box<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl lens_server::service::ServiceProvider for LocalService {
@@ -253,6 +258,7 @@ impl lens_server::service::ServiceProvider for LocalService {
             connected: true,
             configured: true,
             release: self.release.clone(),
+            gateway_connected: self.state.gateway_connected() || (self.gateway_connected)(),
             status: lens_server::service::ServiceStatus {
                 storage_ready: self.state.schema_ready.load(Ordering::Acquire),
                 credentials_ready: self.state.credentials.ready(),

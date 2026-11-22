@@ -19,6 +19,7 @@ import {
   type SetupPath,
 } from "./setupPrompt";
 import { useLensHost } from "../../../host/LensHost";
+import { hostedApiRoot } from "../../../lib/http/resolveApiBase";
 import { getRequestBaseUrl } from "../../../lib/http/runtime";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import {
@@ -37,6 +38,9 @@ import { TracingKeysDialog } from "./tracing/TracingKeysDialog";
 import { emptyConnection, restoreConnection } from "./homeConnection";
 import { connectionAuthStatus } from "./connectionErrors";
 
+const servedByGateway = () =>
+  typeof window !== "undefined" &&
+  hostedApiRoot(window.location.pathname) !== null;
 const shellValue = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 
 const PATHS: readonly {
@@ -101,9 +105,12 @@ export function LensHome({
   const [manageKeys, setManageKeys] = useState(false);
   const [manual, setManual] = useState(false);
   const embedded = useLensHost().surface !== "standalone";
-  const [path, setPath] = useState<SetupPath>(
-    embedded ? "gateway" : "standalone",
-  );
+  const [chosenPath, setPath] = useState<SetupPath | null>(null);
+  const path =
+    chosenPath ??
+    (embedded || servedByGateway() || connection.data?.gateway_connected
+      ? "gateway"
+      : "standalone");
   const gateway = path === "gateway";
   const [agent, setAgent] = useState<SetupAgent>("claude-code");
   const agentLabel = SETUP_AGENTS.find((option) => option.id === agent)?.label;
