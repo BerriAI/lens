@@ -34,6 +34,7 @@ export const agentTraceListCall = async ({
   cursor,
   agent,
   includeInternal,
+  sort,
   signal,
 }: {
   accessToken: string;
@@ -42,6 +43,7 @@ export const agentTraceListCall = async ({
   cursor?: string | null;
   agent?: string;
   includeInternal?: boolean;
+  sort?: TraceListQuery["sort"];
   signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
@@ -50,6 +52,7 @@ export const agentTraceListCall = async ({
     cursor: cursor ?? undefined,
     agent: agent || undefined,
     include_internal: includeInternal || undefined,
+    sort: sort === "last_activity" ? sort : undefined,
   } satisfies TraceListQuery;
   return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };

@@ -252,6 +252,7 @@ fn parameters(
             .chain([
                 ("agent", text("")),
                 ("include_internal", Parameter::Integer(0)),
+                ("by_last_activity", Parameter::Integer(0)),
                 ("cursor_ms", Parameter::Integer(0)),
                 ("cursor_trace_id", text("")),
             ])

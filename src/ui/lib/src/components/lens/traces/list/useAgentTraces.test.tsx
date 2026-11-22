@@ -4,6 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { TracesApiContext, liveTracesApi } from "../api";
+import type { TraceSort } from "../types";
 import { useAgentTraces } from "./useAgentTraces";
 
 describe("useAgentTraces", () => {
@@ -17,26 +18,32 @@ describe("useAgentTraces", () => {
       </TracesApiContext.Provider>
     );
     const { rerender } = renderHook(
-      ({ agent, includeInternal }) =>
+      ({ agent, includeInternal, sort }) =>
         useAgentTraces({
           accessToken: "sk-test",
           range: { hours: 24, anchorMs: 0 },
           enabled: true,
           agent,
           includeInternal,
+          sort,
         }),
-      { initialProps: { agent: "agent-a", includeInternal: false }, wrapper },
+      { initialProps: { agent: "agent-a", includeInternal: false, sort: "start" as TraceSort }, wrapper },
     );
 
     await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
-    expect(list.mock.calls[0][1]).toEqual({ agent: "agent-a", includeInternal: false });
+    expect(list.mock.calls[0][1]).toEqual({ agent: "agent-a", includeInternal: false, sort: "start" });
 
-    rerender({ agent: "agent-b", includeInternal: false });
+    rerender({ agent: "agent-b", includeInternal: false, sort: "start" });
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-    expect(list.mock.calls[1][1]).toEqual({ agent: "agent-b", includeInternal: false });
+    expect(list.mock.calls[1][1]).toEqual({ agent: "agent-b", includeInternal: false, sort: "start" });
 
-    rerender({ agent: "agent-b", includeInternal: true });
+    rerender({ agent: "agent-b", includeInternal: true, sort: "start" });
     await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
-    expect(list.mock.calls[2][1]).toEqual({ agent: "agent-b", includeInternal: true });
+    expect(list.mock.calls[2][1]).toEqual({ agent: "agent-b", includeInternal: true, sort: "start" });
+
+    rerender({ agent: "agent-b", includeInternal: true, sort: "last_activity" });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(4));
+    expect(list.mock.calls[3][0]).not.toHaveProperty("cursor");
+    expect(list.mock.calls[3][1]).toEqual({ agent: "agent-b", includeInternal: true, sort: "last_activity" });
   });
 });

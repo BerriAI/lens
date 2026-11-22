@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use litellm_traces::request::{
     CONVERSATION_PAGE_SIZE_MAX, LOG_FILTER_MAX_LENGTH, LOG_PAGE_SIZE_MAX, LogListRequest,
     TRACE_AGENT_NAME_MAX_LENGTH, TRACE_PAGE_SIZE_MAX, TraceConversationRequest, TraceDetailRequest,
-    TraceErrorPageRequest, TraceListRequest, TraceSpanRequest,
+    TraceErrorPageRequest, TraceListRequest, TraceSort, TraceSpanRequest,
 };
 use serde_json::json;
 
@@ -102,6 +102,20 @@ pub(super) fn list(
         }
         parsed
     });
+    let sort = params.get("sort").and_then(|value| match value.as_str() {
+        "start" => Some(TraceSort::Start),
+        "last_activity" => Some(TraceSort::LastActivity),
+        _ => {
+            errors.push(failure(
+                "enum",
+                &[json!("query"), json!("sort")],
+                "Input should be 'start' or 'last_activity'",
+                json!(value),
+                Some(json!({"expected":"'start' or 'last_activity'"})),
+            ));
+            None
+        }
+    });
     finish(errors)?;
     Ok(TraceListRequest {
         start_ms: exact(start, config)?,
@@ -109,6 +123,7 @@ pub(super) fn list(
         cursor,
         agent,
         include_internal,
+        sort,
     })
 }
 

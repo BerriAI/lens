@@ -205,6 +205,7 @@ async fn call<R: SessionRepository, B: TraceReader>(
                         scope,
                         request.agent.unwrap_or_default(),
                         request.include_internal,
+                        false,
                         window(request.hours),
                         now,
                         request.cursor,

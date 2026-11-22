@@ -173,7 +173,7 @@ export function AgentTracesSection({
     fullScreen,
     setFullScreen,
   } = useOpenTraceRouting();
-  const { query, setQuery, agent, status, includeInternal } = useRunFilterRouting();
+  const { query, setQuery, agent, status, includeInternal, sort, setSort } = useRunFilterRouting();
   const [showSetup, setShowSetup] = useState(false);
   const [showActivity, setShowActivity] = useState(true);
   const logRouting = useLogTimelineRouting();
@@ -181,7 +181,7 @@ export function AgentTracesSection({
   const logsId = useId();
   const [zoom, setZoom] = useZoomRouting();
   const [rangeChanged, setRangeChanged] = useState(false);
-  const traceQuery = { accessToken, range, enabled: isActive, agent, includeInternal };
+  const traceQuery = { accessToken, range, enabled: isActive, agent, includeInternal, sort };
   const traces = useAgentTraces(traceQuery);
   const setup = useTracingSetup(traces, isActive, rangeChanged);
   const checkHistory = setup.isEmpty && !rangeChanged;
@@ -420,6 +420,8 @@ export function AgentTracesSection({
         </div>
         <AgentTracesTable
           traces={runs}
+          sort={sort}
+          onSortChange={setSort}
           findings={findings}
           feedback={feedback}
           canViewFindings={canViewFindings}

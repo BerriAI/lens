@@ -68,6 +68,7 @@ impl TraceReader {
         access: &ReadAccessParams,
         agent: &str,
         include_internal: bool,
+        by_last_activity: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<&str>,
@@ -83,6 +84,7 @@ impl TraceReader {
             access: access.clone(),
             agent: agent.to_owned(),
             include_internal,
+            by_last_activity,
             start_ms,
             end_ms,
             cursor_ms,
@@ -112,7 +114,14 @@ impl TraceReader {
         let next_cursor = page
             .last()
             .filter(|_| page.len() == params.limit as usize)
-            .map(|last| encode_cursor(&(last.start_ms, &last.trace_ref)));
+            .map(|last| {
+                let position = if by_last_activity {
+                    last.start_ms + last.duration_ms
+                } else {
+                    last.start_ms
+                };
+                encode_cursor(&(position, &last.trace_ref))
+            });
         let data = {
             let stored = match store.summaries(access, &page).await {
                 Ok(summaries) => summaries,

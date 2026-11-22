@@ -25,6 +25,11 @@ pub struct ListTracesParams {
         serialize_with = "crate::wire::serialize_flag"
     )]
     pub include_internal: bool,
+    #[serde(
+        deserialize_with = "crate::wire::flag",
+        serialize_with = "crate::wire::serialize_flag"
+    )]
+    pub by_last_activity: bool,
     pub start_ms: i64,
     pub end_ms: i64,
     pub cursor_ms: i64,

@@ -113,6 +113,10 @@ pub struct TraceSummary {
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub output_preview: String,
     pub start_time: String,
+    /// When the trace's latest record ended
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
+    pub last_activity_time: String,
     pub duration_ms: f64,
     pub status: SpanStatus,
     pub span_count: u64,
