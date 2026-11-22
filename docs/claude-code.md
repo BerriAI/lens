@@ -56,10 +56,6 @@ To keep the settings across terminals, put the same telemetry variables in the `
 }
 ```
 
-Do not set `OTEL_LOGS_EXPORTER`. The gateway accepts trace spans only and answers `POST /v1/logs` with `410`
-
-Do not add `lens.session.capture=true` to `OTEL_RESOURCE_ATTRIBUTES` with this setup. Together with `CLAUDE_CODE_PROPAGATE_TRACEPARENT=1` it splits each turn into two traces: the turn under one trace ID and its gateway calls under another
-
 ## Check the result
 
 Run one task, then open **Lens > Traces** in your LiteLLM dashboard, or **Traces** in standalone Lens, and filter by **claude-code**. A working setup shows one `claude_code.interaction` trace per turn, with the model calls and tool calls nested under it, the prompt you typed and the cost from the gateway
