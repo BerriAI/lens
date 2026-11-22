@@ -10,13 +10,22 @@ import { useLensAccessToken } from "../data/LensServices";
 import { useLensService } from "./tracing/TracingSetupCard";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
 
-export type OnboardingSetupProps = Omit<ComponentProps<"section">, "children"> & {
+export type OnboardingSetupProps = Omit<
+  ComponentProps<"section">,
+  "children"
+> & {
   state: LensReadiness;
   action?: ReactNode;
   includeTracing?: boolean;
 };
 
-export function OnboardingSetup({ state, action, includeTracing = true, className, ...props }: OnboardingSetupProps) {
+export function OnboardingSetup({
+  state,
+  action,
+  includeTracing = true,
+  className,
+  ...props
+}: OnboardingSetupProps) {
   const { readOnly, canInvestigate } = useOnboarding();
   const titleId = useId();
   const connection = useLensService(useLensAccessToken());
@@ -41,9 +50,17 @@ export function OnboardingSetup({ state, action, includeTracing = true, classNam
       <SetupAgentPrompt connection={connection.data} />
       <OnboardingSteps state={state} includeTracing={includeTracing} />
       {state.error && connection.data?.configured !== false && (
-        <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center gap-3 text-sm text-destructive"
+        >
           <p>Could not check setup. {state.error}</p>
-          <Button variant="outline" size="sm" onClick={state.refresh} disabled={state.checking}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={state.refresh}
+            disabled={state.checking}
+          >
             Retry
           </Button>
         </div>

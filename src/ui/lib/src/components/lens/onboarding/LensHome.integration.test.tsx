@@ -67,7 +67,9 @@ describe("Lens Home connection", () => {
       screen.getByRole("heading", { name: "Connect a new agent" }),
     ).toBeVisible();
     expect(
-      await screen.findByRole("button", { name: "Copy instructions with new key" }),
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Manage tracing keys" }),
@@ -88,7 +90,11 @@ describe("Lens Home connection", () => {
       "CLAUDE_CODE_ENABLE_TELEMETRY=1",
     );
     expect(await navigator.clipboard.readText()).toContain(secret);
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
+    expect(
+      gateway.post.mock.calls.filter(
+        ([path]) => path === "/lens/admin/tracing/keys",
+      ),
+    ).toHaveLength(1);
   });
 
   it("copies the new key only through the explicit action and keeps it masked and out of shared state", async () => {
@@ -97,7 +103,9 @@ describe("Lens Home connection", () => {
     const onUrlUpdate = vi.fn();
     await standaloneHome({ onUrlUpdate });
     await user.click(
-      await screen.findByRole("button", { name: "Copy instructions with new key" }),
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
     );
     expect(
       await screen.findByText("Your tracing key", { exact: true }),
@@ -119,9 +127,15 @@ describe("Lens Home connection", () => {
     const instructions = await navigator.clipboard.readText();
     expect(instructions).toContain(secret);
     expect(instructions).toContain("Bearer <the Lens tracing key>");
-    await user.click(screen.getByRole("button", { name: "Manage tracing keys" }));
-    await user.click(await screen.findByRole("button", { name: "Use key in my project" }));
-    expect(screen.getByRole("button", { name: "Copy instructions with key" })).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Manage tracing keys" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Use key in my project" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy instructions with key" }),
+    ).toBeVisible();
     expect(screen.getByText("Waiting for your agent’s trace")).toBeVisible();
     expect(JSON.stringify(onUrlUpdate.mock.calls)).not.toContain(secret);
     expect(
@@ -148,7 +162,9 @@ describe("Lens Home connection", () => {
       `LITELLM_TRACING_KEY='${secret}'`,
     );
     expect(
-      gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys"),
+      gateway.post.mock.calls.filter(
+        ([path]) => path === "/lens/admin/tracing/keys",
+      ),
     ).toHaveLength(1);
   });
 
@@ -157,29 +173,57 @@ describe("Lens Home connection", () => {
     const gateway = serve();
     await standaloneHome();
     await user.click(screen.getByRole("button", { name: "Set up manually" }));
-    await user.click(await screen.findByRole("button", { name: "Create tracing key" }));
-    await user.click(screen.getByRole("button", { name: "Copy project environment" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Create tracing key" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Copy project environment" }),
+    );
     expect(await navigator.clipboard.readText()).toContain(secret);
-    expect(await navigator.clipboard.readText()).toContain("https://lens.example/v1/traces");
-    await user.click(screen.getByRole("button", { name: "Use a coding agent" }));
-    await user.click(screen.getByRole("button", { name: "Copy instructions with key" }));
+    expect(await navigator.clipboard.readText()).toContain(
+      "https://lens.example/v1/traces",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Use a coding agent" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Copy instructions with key" }),
+    );
     expect(await navigator.clipboard.readText()).toContain(secret);
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
+    expect(
+      gateway.post.mock.calls.filter(
+        ([path]) => path === "/lens/admin/tracing/keys",
+      ),
+    ).toHaveLength(1);
   });
 
   it("preserves the new key after a clipboard failure and retries without creating another", async () => {
     const user = userEvent.setup();
     const gateway = serve();
-    const copy = vi.spyOn(clipboard, "copyToClipboard").mockResolvedValueOnce(false);
+    const copy = vi
+      .spyOn(clipboard, "copyToClipboard")
+      .mockResolvedValueOnce(false);
     await standaloneHome();
-    await user.click(await screen.findByRole("button", { name: "Copy instructions with new key" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Your key is saved on this page");
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your key is saved on this page",
+    );
     expect(screen.getByText("Run one task")).toBeVisible();
     copy.mockRestore();
-    await user.click(screen.getByRole("button", { name: "Copy instructions with key" }));
+    await user.click(
+      screen.getByRole("button", { name: "Copy instructions with key" }),
+    );
     expect(await navigator.clipboard.readText()).toContain(secret);
     expect(screen.getByText("Waiting for your agent’s trace")).toBeVisible();
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
+    expect(
+      gateway.post.mock.calls.filter(
+        ([path]) => path === "/lens/admin/tracing/keys",
+      ),
+    ).toHaveLength(1);
   });
 
   it("reports key creation failure and lets the user retry the same action", async () => {
@@ -187,10 +231,18 @@ describe("Lens Home connection", () => {
     const gateway = serve();
     gateway.post.mockRejectedValueOnce(new Error("Unavailable"));
     await standaloneHome();
-    await user.click(await screen.findByRole("button", { name: "Copy instructions with new key" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not create a tracing key");
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not create a tracing key",
+    );
     expect(screen.getByText("Run one task")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Copy instructions with new key" }));
+    await user.click(
+      screen.getByRole("button", { name: "Copy instructions with new key" }),
+    );
     expect(await navigator.clipboard.readText()).toContain(secret);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -209,7 +261,9 @@ describe("Lens Home connection", () => {
         screen.getByText(/Ask your Lens administrator for a tracing key/),
       ).toBeVisible();
       expect(
-        screen.queryByRole("button", { name: "Copy instructions with new key" }),
+        screen.queryByRole("button", {
+          name: "Copy instructions with new key",
+        }),
       ).not.toBeInTheDocument();
       await user.click(
         screen.getByRole("button", { name: "Use an existing key" }),
@@ -221,11 +275,21 @@ describe("Lens Home connection", () => {
         "Use my Lens tracing key from the LITELLM_TRACING_KEY environment variable",
       );
       expect(gateway.post).not.toHaveBeenCalled();
-      await user.click(screen.getByRole("button", { name: "Manage tracing keys" }));
-      expect(screen.queryByRole("button", { name: "Revoke", exact: true })).not.toBeInTheDocument();
-      await user.click(await screen.findByRole("button", { name: "Use key in my project" }));
-      expect(screen.getByRole("button", { name: "Choose another key" })).toBeVisible();
-      expect(screen.queryByRole("button", { name: "Create a new key" })).not.toBeInTheDocument();
+      await user.click(
+        screen.getByRole("button", { name: "Manage tracing keys" }),
+      );
+      expect(
+        screen.queryByRole("button", { name: "Revoke", exact: true }),
+      ).not.toBeInTheDocument();
+      await user.click(
+        await screen.findByRole("button", { name: "Use key in my project" }),
+      );
+      expect(
+        screen.getByRole("button", { name: "Choose another key" }),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Create a new key" }),
+      ).not.toBeInTheDocument();
     },
   );
 
@@ -258,7 +322,9 @@ describe("Lens Home connection", () => {
     });
     await user.click(screen.getByRole("button", { name: "Retry connection" }));
     expect(
-      await screen.findByRole("button", { name: "Copy instructions with new key" }),
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
     ).toBeVisible();
     expect(
       screen.queryByText(/Trace storage is not ready/),
@@ -270,7 +336,9 @@ describe("Lens Home connection", () => {
     const gateway = serve();
     const view = await standaloneHome();
     await user.click(
-      await screen.findByRole("button", { name: "Copy instructions with new key" }),
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
     );
     await user.click(
       await screen.findByRole("button", { name: "Copy instructions with key" }),
@@ -291,7 +359,9 @@ describe("Lens Home connection", () => {
     );
     expect(await navigator.clipboard.readText()).not.toContain(secret);
     expect(
-      gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys"),
+      gateway.post.mock.calls.filter(
+        ([path]) => path === "/lens/admin/tracing/keys",
+      ),
     ).toHaveLength(1);
   });
 
@@ -339,7 +409,9 @@ describe("Lens Home connection", () => {
       searchParams: "?connect_agent=support-agent&connect_step=verify",
     });
     expect(
-      await screen.findByRole("button", { name: "Copy instructions with new key" }),
+      await screen.findByRole("button", {
+        name: "Copy instructions with new key",
+      }),
     ).toBeVisible();
     expect(
       screen.queryByText("Trace received", { exact: true }),
@@ -355,13 +427,17 @@ describe("Lens Home connection", () => {
       else renderWithLens(home());
       const agents = screen.getByRole("radiogroup", { name: "Coding agent" });
       expect(
-        within(agents).getAllByRole("radio").map((chip) => chip.textContent),
+        within(agents)
+          .getAllByRole("radio")
+          .map((chip) => chip.textContent),
       ).toEqual(["Claude Code", "Codex", "OpenCode"]);
       expect(
         within(agents).getByRole("radio", { name: "Claude Code" }),
       ).toBeChecked();
       await user.click(within(agents).getByRole("radio", { name: "Codex" }));
-      expect(within(agents).getByRole("radio", { name: "Codex" })).toBeChecked();
+      expect(
+        within(agents).getByRole("radio", { name: "Codex" }),
+      ).toBeChecked();
       expect(
         screen.getByText("Paste these instructions into Codex."),
       ).toBeVisible();
@@ -430,16 +506,21 @@ describe("Lens Home connection", () => {
     renderWithLens(home());
     await user.click(screen.getByRole("button", { name: "Set up manually" }));
     expect(
-      screen.getByText(/CLAUDE_CODE_ENABLE_TELEMETRY=1/),
+      screen.getByText(/export CLAUDE_CODE_ENABLE_TELEMETRY="1"/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <your LiteLLM key>"/,
+      ),
     ).toBeVisible();
     await user.click(screen.getByRole("radio", { name: "OpenCode" }));
-    expect(screen.getByText(/OTEL_BSP_SCHEDULE_DELAY=1000/)).toBeVisible();
+    expect(
+      screen.getByText(/export OTEL_BSP_SCHEDULE_DELAY="1000"/),
+    ).toBeVisible();
     expect(
       screen.queryByText(/CLAUDE_CODE_ENABLE_TELEMETRY/),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/LITELLM_TRACING_KEY/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/LITELLM_TRACING_KEY/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /Standalone Lens/ }));
     expect(
       screen.getByRole("heading", { name: "Connect to Lens standalone" }),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentTracingPrompt,
+  agentTelemetrySettings,
   setupPrompt,
   type SetupConnection,
 } from "./setupPrompt";
@@ -8,18 +9,27 @@ import {
 describe("agent setup prompt", () => {
   it("includes an explicitly supplied tracing key with storage guidance only for tracing setup", () => {
     const tracingKey = "lens-trace-example-key";
-    const prompt = setupPrompt({ standalone: true, goal: "tracing", tracingKey });
+    const prompt = setupPrompt({
+      standalone: true,
+      goal: "tracing",
+      tracingKey,
+    });
     expect(prompt).toContain(JSON.stringify(tracingKey));
-    expect(prompt).toContain("ignored local environment file or secret manager");
+    expect(prompt).toContain(
+      "ignored local environment file or secret manager",
+    );
     expect(prompt).toContain("Do not echo the key");
     expect(prompt).not.toContain("If the key is missing");
-    expect(setupPrompt({ standalone: true, goal: "analysis", tracingKey })).not.toContain(tracingKey);
+    expect(
+      setupPrompt({ standalone: true, goal: "analysis", tracingKey }),
+    ).not.toContain(tracingKey);
   });
   it("copies deployment addresses without URL credentials, queries or fragments", () => {
     const prompt = setupPrompt({
       standalone: true,
       goal: "tracing",
-      baseUrl: "https://admin:private-password@lens.test/prefix/?token=private-token#private-fragment",
+      baseUrl:
+        "https://admin:private-password@lens.test/prefix/?token=private-token#private-fragment",
       connection: {
         connected: true,
         status: { storage_ready: true },
@@ -27,35 +37,63 @@ describe("agent setup prompt", () => {
       },
     });
     expect(prompt).toContain('Lens API base: "https://lens.test/prefix"');
-    expect(prompt).toContain('Reported tracing base: "https://traces.test/collector"');
+    expect(prompt).toContain(
+      'Reported tracing base: "https://traces.test/collector"',
+    );
     expect(prompt).not.toContain("private-");
     expect(prompt).toContain("a LiteLLM gateway is optional");
   });
 
   it.each([
     [undefined, "has not been verified"],
-    [{ configured: false, connected: false, status: {} }, "Check for an existing Lens service"],
-    [{ configured: true, connected: false, status: {} }, "Check reachability and API compatibility"],
-    [{ connected: true, status: { storage_ready: false } }, "Diagnose ClickHouse first"],
-    [{ connected: true, status: { storage_ready: true } }, "Reuse this installation"],
+    [
+      { configured: false, connected: false, status: {} },
+      "Check for an existing Lens service",
+    ],
+    [
+      { configured: true, connected: false, status: {} },
+      "Check reachability and API compatibility",
+    ],
+    [
+      { connected: true, status: { storage_ready: false } },
+      "Diagnose ClickHouse first",
+    ],
+    [
+      { connected: true, status: { storage_ready: true } },
+      "Reuse this installation",
+    ],
   ] satisfies readonly (readonly [SetupConnection | undefined, string])[])(
     "preserves the observed service state %j",
     (connection, guidance) => {
-      const prompt = setupPrompt({ standalone: false, goal: "start", connection });
+      const prompt = setupPrompt({
+        standalone: false,
+        goal: "start",
+        connection,
+      });
       expect(prompt).toContain(guidance);
       expect(prompt).toContain("existing LiteLLM admin dashboard");
       expect(prompt).toContain("Recheck the observed state");
     },
   );
 
-  it.each(["javascript:private-value", "invalid private-value"])("omits unusable address %s", (baseUrl) => {
-    const prompt = setupPrompt({ standalone: true, goal: "start", baseUrl });
-    expect(prompt).not.toContain("private-value");
-    expect(prompt).toContain("Discover the deployment's reachable API address");
-  });
+  it.each(["javascript:private-value", "invalid private-value"])(
+    "omits unusable address %s",
+    (baseUrl) => {
+      const prompt = setupPrompt({ standalone: true, goal: "start", baseUrl });
+      expect(prompt).not.toContain("private-value");
+      expect(prompt).toContain(
+        "Discover the deployment's reachable API address",
+      );
+    },
+  );
 
   it("carries the selected eval without requiring the user to look it up again", () => {
-    const evaluation = { name: "invoice-accuracy", agent: "invoice-agent", dataset: "dataset-id", revision: 3 };
+    const evaluation = {
+      name: "invoice-accuracy",
+      agent: "invoice-agent",
+      dataset: "dataset-id",
+      revision: 3,
+    };
     const prompt = setupPrompt({ standalone: true, goal: "evals", evaluation });
     expect(prompt).toContain(`Selected eval: ${JSON.stringify(evaluation)}`);
     expect(prompt).toContain("whether to add a pull-request check");
@@ -72,45 +110,87 @@ describe("agent setup prompt", () => {
         url: "https://ingest.test/collector/",
       },
     });
-    expect(prompt).toContain("Inspect the project, framework, runnable agent entry point");
+    expect(prompt).toContain(
+      "Inspect the project, framework, runnable agent entry point",
+    );
     expect(prompt).toContain("Determine the agent name from the project");
     expect(prompt).toContain("preserve its agent names");
-    expect(prompt).toContain("Infer a stable name from the existing agent definition or project");
+    expect(prompt).toContain(
+      "Infer a stable name from the existing agent definition or project",
+    );
     expect(prompt).toContain("Run one small actual agent task");
-    expect(prompt).toContain("record the exact trace_id and exported span_ids from that run");
-    expect(prompt).toContain("POST https://ingest.test/collector/v1/traces/receipt");
-    expect(prompt).toContain('"trace_id":"<actual 32-character hexadecimal trace ID>"');
-    expect(prompt).toContain('"span_ids":["<actual 16-character hexadecimal span ID>"]');
-    expect(prompt).toContain("same dedicated tracing key that exported the run");
-    expect(prompt).toContain("an HTTP 200 response by itself does not confirm delivery");
+    expect(prompt).toContain(
+      "record the exact trace_id and exported span_ids from that run",
+    );
+    expect(prompt).toContain(
+      "POST https://ingest.test/collector/v1/traces/receipt",
+    );
+    expect(prompt).toContain(
+      '"trace_id":"<actual 32-character hexadecimal trace ID>"',
+    );
+    expect(prompt).toContain(
+      '"span_ids":["<actual 16-character hexadecimal span ID>"]',
+    );
+    expect(prompt).toContain(
+      "same dedicated tracing key that exported the run",
+    );
+    expect(prompt).toContain(
+      "an HTTP 200 response by itself does not confirm delivery",
+    );
     expect(prompt).toContain("at most 30 attempts");
     expect(prompt).toContain("total deadline of 60 seconds");
     expect(prompt).toContain("Stop on an authentication or permission error");
     expect(prompt).toContain("Only after received is true");
     expect(prompt).toContain("a working Lens UI link to that trace");
-    expect(prompt).toContain("existing UI address, which may differ from the ingestion address");
-    expect(prompt).toContain('Then ask: "What would you like to instrument next?"');
-    expect(prompt).toContain("After I choose, inspect that part, help implement its instrumentation");
+    expect(prompt).toContain(
+      "existing UI address, which may differ from the ingestion address",
+    );
+    expect(prompt).toContain(
+      'Then ask: "What would you like to instrument next?"',
+    );
+    expect(prompt).toContain(
+      "After I choose, inspect that part, help implement its instrumentation",
+    );
   });
 
   it("directs missing tracing credentials to the local key section without asking for secrets or using admin credentials", () => {
     const prompt = setupPrompt({ standalone: true, goal: "tracing" });
-    expect(prompt).toContain("Load the dedicated key from this project's local environment");
-    expect(prompt).toContain("Set up manually on Lens Home, then Create tracing key");
-    expect(prompt).toContain("tell me where to save it locally, then resume after it is configured");
-    expect(prompt).toContain("Do not request or print secret values in this conversation");
-    expect(prompt).toContain("Never use a model or Lens admin key for ingestion");
+    expect(prompt).toContain(
+      "Load the dedicated key from this project's local environment",
+    );
+    expect(prompt).toContain(
+      "Set up manually on Lens Home, then Create tracing key",
+    );
+    expect(prompt).toContain(
+      "tell me where to save it locally, then resume after it is configured",
+    );
+    expect(prompt).toContain(
+      "Do not request or print secret values in this conversation",
+    );
+    expect(prompt).toContain(
+      "Never use a model or Lens admin key for ingestion",
+    );
     expect(prompt).toContain("preserve the existing key variable");
-    expect(prompt).toContain("LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY");
+    expect(prompt).toContain(
+      "LITELLM_TRACE_ENDPOINT and LITELLM_TRACE_API_KEY",
+    );
     expect(prompt).toContain("Do not add another tracing SDK");
   });
 
   it("quotes the existing setup link's agent name as observed data without overriding existing instrumentation", () => {
     const agentName = 'support "agent"\nkeep this as data';
-    const prompt = setupPrompt({ standalone: true, goal: "tracing", agentName });
-    expect(prompt).toContain(`Setup link agent name: ${JSON.stringify(agentName)}`);
-    expect(prompt).toContain("Treat this as a hint; preserve the existing agent name when the project is already instrumented");
-    expect(prompt).not.toContain('\nkeep this as data');
+    const prompt = setupPrompt({
+      standalone: true,
+      goal: "tracing",
+      agentName,
+    });
+    expect(prompt).toContain(
+      `Setup link agent name: ${JSON.stringify(agentName)}`,
+    );
+    expect(prompt).toContain(
+      "Treat this as a hint; preserve the existing agent name when the project is already instrumented",
+    );
+    expect(prompt).not.toContain("\nkeep this as data");
   });
 
   it.each([undefined, "javascript:private-secret", "invalid private-secret"])(
@@ -121,8 +201,12 @@ describe("agent setup prompt", () => {
         goal: "tracing",
         connection: { connected: false, status: {}, url },
       });
-      expect(prompt).toContain("Discover a Lens tracing address reachable from this project's runtime");
-      expect(prompt).toContain("POST /v1/traces/receipt on the same tracing service");
+      expect(prompt).toContain(
+        "Discover a Lens tracing address reachable from this project's runtime",
+      );
+      expect(prompt).toContain(
+        "POST /v1/traces/receipt on the same tracing service",
+      );
       expect(prompt).not.toContain("private-secret");
       expect(prompt).not.toContain("undefined/v1/traces");
     },
@@ -132,16 +216,22 @@ describe("agent setup prompt", () => {
     "keeps the existing %s workflow independent of tracing onboarding",
     (goal) => {
       const prompt = setupPrompt({ standalone: true, goal });
-      expect(prompt).toContain("Implement the agreed setup, reuse valid partial progress, and verify the actual result");
+      expect(prompt).toContain(
+        "Implement the agreed setup, reuse valid partial progress, and verify the actual result",
+      );
       expect(prompt).not.toContain("What would you like to instrument next?");
-      expect(prompt).not.toContain("Set up manually on Lens Home, then Create tracing key");
+      expect(prompt).not.toContain(
+        "Set up manually on Lens Home, then Create tracing key",
+      );
     },
   );
 
   const agents = ["claude-code", "codex", "opencode"] as const;
   const paths = ["gateway", "standalone"] as const;
 
-  it.each(agents.flatMap((agent) => paths.map((path) => [agent, path] as const)))(
+  it.each(
+    agents.flatMap((agent) => paths.map((path) => [agent, path] as const)),
+  )(
     "gives %s a self-contained %s prompt with no document to read",
     (agent, path) => {
       const prompt = agentTracingPrompt({
@@ -153,10 +243,14 @@ describe("agent setup prompt", () => {
       });
       expect(prompt).not.toMatch(/README|github\.com|\/docs\//);
       expect(prompt).not.toContain("pass@");
-      const address = path === "gateway" ? "https://gateway.example" : "https://lens.example";
-      const other = path === "gateway" ? "https://lens.example/v1" : "gateway.example";
+      const address =
+        path === "gateway" ? "https://gateway.example" : "https://lens.example";
+      const other =
+        path === "gateway" ? "https://lens.example/v1" : "gateway.example";
       expect(prompt).toContain(
-        agent === "codex" ? `endpoint = "${address}/v1/traces"` : `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
+        agent === "codex"
+          ? `endpoint = "${address}/v1/traces"`
+          : `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
       );
       expect(prompt).not.toContain(other);
       if (path === "gateway") {
@@ -172,25 +266,95 @@ describe("agent setup prompt", () => {
     },
   );
 
+  it.each(
+    agents.flatMap((agent) => paths.map((path) => [agent, path] as const)),
+  )(
+    "%s %s prompt carries every setting itself and names no lite command",
+    (agent, path) => {
+      const prompt = agentTracingPrompt({
+        agent,
+        path,
+        gatewayUrl: "https://gateway.example",
+        lensUrl: "https://lens.example",
+      });
+      expect(prompt).not.toMatch(/\blite(llm)? (configure|up|login)\b/i);
+      expect(prompt).toContain("carry on without waiting for my reply");
+    },
+  );
+
+  it("tells Claude Code and Codex to write the key itself, since their config files expand no variables", () => {
+    const prompt = (agent: (typeof agents)[number]) =>
+      agentTracingPrompt({
+        agent,
+        path: "gateway",
+        gatewayUrl: "https://gateway.example",
+      });
+    expect(prompt("claude-code")).toContain("never a ${...} reference");
+    expect(prompt("codex")).toContain(
+      "write the key's actual value into both Authorization headers",
+    );
+    expect(prompt("opencode")).toContain("reference that variable");
+  });
+
+  it("formats manual settings as quoted shell exports", () => {
+    expect(
+      agentTelemetrySettings(
+        "opencode",
+        "https://gateway.example",
+        "<key>",
+        "shell",
+      ),
+    ).toBe(
+      [
+        'export OTEL_EXPORTER_OTLP_ENDPOINT="https://gateway.example"',
+        'export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <key>"',
+        'export OTEL_BSP_SCHEDULE_DELAY="1000"',
+      ].join("\n"),
+    );
+  });
+
   it("gives each agent its own settings", () => {
     const prompt = (agent: (typeof agents)[number]) =>
-      agentTracingPrompt({ agent, path: "standalone", lensUrl: "https://lens.example" });
-    expect(prompt("claude-code")).toContain("CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216");
+      agentTracingPrompt({
+        agent,
+        path: "standalone",
+        lensUrl: "https://lens.example",
+      });
+    expect(prompt("claude-code")).toContain(
+      "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH=16777216",
+    );
     expect(prompt("claude-code")).toContain("~/.claude/settings.json");
     expect(prompt("codex")).toContain("~/.codex/config.toml");
-    expect(prompt("codex")).toContain('exporter = { otlp-http = { endpoint = "https://lens.example/v1/logs"');
+    expect(prompt("codex")).toContain(
+      'exporter = { otlp-http = { endpoint = "https://lens.example/v1/logs"',
+    );
     expect(prompt("codex")).not.toContain("CLAUDE_CODE");
-    expect(prompt("opencode")).toContain('{ "experimental": { "openTelemetry": true } }');
+    expect(prompt("opencode")).toContain(
+      '{ "experimental": { "openTelemetry": true } }',
+    );
     expect(prompt("opencode")).toContain("OTEL_BSP_SCHEDULE_DELAY=1000");
     expect(prompt("opencode")).toContain("unset it");
   });
 
   it("asks the agent to find its gateway when the page does not know it, and for a saved key when none is included", () => {
-    const gateway = agentTracingPrompt({ agent: "codex", path: "gateway", lensUrl: "https://lens.example/ui/" });
-    expect(gateway).toContain("Find the LiteLLM gateway address Codex already uses");
-    expect(gateway).toContain('endpoint = "<the LiteLLM gateway address>/v1/traces"');
-    expect(gateway).toContain('open Traces in Lens at "https://lens.example/ui"');
-    const standalone = agentTracingPrompt({ agent: "codex", path: "standalone" });
+    const gateway = agentTracingPrompt({
+      agent: "codex",
+      path: "gateway",
+      lensUrl: "https://lens.example/ui/",
+    });
+    expect(gateway).toContain(
+      "Find the LiteLLM gateway address Codex already uses",
+    );
+    expect(gateway).toContain(
+      'endpoint = "<the LiteLLM gateway address>/v1/traces"',
+    );
+    expect(gateway).toContain(
+      'open Traces in Lens at "https://lens.example/ui"',
+    );
+    const standalone = agentTracingPrompt({
+      agent: "codex",
+      path: "standalone",
+    });
     expect(standalone).toContain("LITELLM_TRACING_KEY");
     expect(standalone).toContain("Ask me for the Lens address");
   });

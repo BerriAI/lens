@@ -92,23 +92,33 @@ export function agentTelemetrySettings(
   agent: SetupAgent,
   address: string,
   key: string,
+  format: "list" | "shell" = "list",
 ): string {
+  if (agent === "codex") {
+    const target = (signal: string) =>
+      `{ otlp-http = { endpoint = "${address}/v1/${signal}", protocol = "json", headers = { Authorization = "Bearer ${key}" } } }`;
+    return [
+      "[otel]",
+      "log_user_prompt = true",
+      `exporter = ${target("logs")}`,
+      `trace_exporter = ${target("traces")}`,
+    ].join("\n");
+  }
   const exporter = [
     `OTEL_EXPORTER_OTLP_ENDPOINT=${address}`,
     `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer ${key}`,
   ];
-  if (agent === "claude-code")
-    return [...CLAUDE_CODE_TELEMETRY, ...exporter].join("\n");
-  if (agent === "opencode")
-    return [...exporter, "OTEL_BSP_SCHEDULE_DELAY=1000"].join("\n");
-  const target = (signal: string) =>
-    `{ otlp-http = { endpoint = "${address}/v1/${signal}", protocol = "json", headers = { Authorization = "Bearer ${key}" } } }`;
-  return [
-    "[otel]",
-    "log_user_prompt = true",
-    `exporter = ${target("logs")}`,
-    `trace_exporter = ${target("traces")}`,
-  ].join("\n");
+  const settings =
+    agent === "claude-code"
+      ? [...CLAUDE_CODE_TELEMETRY, ...exporter]
+      : [...exporter, "OTEL_BSP_SCHEDULE_DELAY=1000"];
+  if (format === "list") return settings.join("\n");
+  return settings
+    .map((setting) => {
+      const split = setting.indexOf("=");
+      return `export ${setting.slice(0, split)}="${setting.slice(split + 1)}"`;
+    })
+    .join("\n");
 }
 
 export const OPENCODE_CONFIG = '{ "experimental": { "openTelemetry": true } }';
@@ -120,6 +130,7 @@ const CODING_AGENTS: Record<
     readonly traceName: string;
     readonly gatewayHint: string;
     readonly install: string;
+    readonly keyNote: string;
     readonly caveat: string;
     readonly run: string;
   }
@@ -130,7 +141,9 @@ const CODING_AGENTS: Record<
     gatewayHint:
       "ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN in the shell or in the env object of ~/.claude/settings.json",
     install:
-      "Add these to the env object in my user-level ~/.claude/settings.json, keeping everything already there:",
+      "Add these as string entries to the env object in my user-level ~/.claude/settings.json, keeping everything already there:",
+    keyNote:
+      "settings.json does not expand variables, so write the key's actual value into OTEL_EXPORTER_OTLP_HEADERS and never a ${...} reference. Do not add or change any other entry.",
     caveat:
       "Lens then shows each turn, each tool step with its arguments and output, and each model call with its request and reply.",
     run: 'claude -p "Reply with exactly: Lens telemetry check."',
@@ -142,6 +155,8 @@ const CODING_AGENTS: Record<
       "the base_url and env_key of the model provider selected in ~/.codex/config.toml",
     install:
       "Add this to ~/.codex/config.toml, keeping everything already there. If an [otel] table exists, merge these keys into it:",
+    keyNote:
+      "config.toml does not expand variables in headers, so write the key's actual value into both Authorization headers. Do not add or change any other setting.",
     caveat:
       "Lens then shows each turn with the typed prompt and each tool step with its arguments and the first 2,000 or so characters of its output, which is a Codex limit with no setting. Codex does not export model requests or replies, so its model-call steps appear without content.",
     run: 'codex exec "Reply with exactly: Lens telemetry check."',
@@ -152,6 +167,8 @@ const CODING_AGENTS: Record<
     gatewayHint:
       "the baseURL and apiKey of the provider in opencode.json or ~/.config/opencode/opencode.json",
     install: `Merge ${OPENCODE_CONFIG} into this project's opencode.json, or ~/.config/opencode/opencode.json to cover every project, keeping everything already there. Then make these environment variables present wherever opencode is started, for example in my shell profile. If OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set and points somewhere else, unset it, because that address would receive the key:`,
+    keyNote:
+      "Where the key already sits in an environment variable, reference that variable in OTEL_EXPORTER_OTLP_HEADERS instead of copying the key.",
     caveat:
       "Lens then shows each model call with the messages sent and the reply, and each tool step with its input and output. OpenCode does not flush telemetry on exit, so the last model call of a one-shot run can be missing, and it also sends internal spans that carry no content.",
     run: 'opencode run "Run the date command, then tell me what it printed."',
@@ -178,7 +195,7 @@ export function agentTracingPrompt({
   const lens = publicUrl(lensUrl);
   const address =
     path === "gateway" ? publicUrl(gatewayUrl) : (publicUrl(traceUrl) ?? lens);
-  const { label, traceName, gatewayHint, install, caveat, run } =
+  const { label, traceName, gatewayHint, install, keyNote, caveat, run } =
     CODING_AGENTS[agent];
   const gateway = path === "gateway";
   const addressName = gateway
@@ -207,8 +224,8 @@ export function agentTracingPrompt({
           "Lens responds, but its trace storage is not ready. Diagnose ClickHouse first, and do not report success until a trace is stored.",
         ]
       : []),
-    `${install}\n\n${agentTelemetrySettings(agent, address ?? `<${addressName}>`, `<${keyName}>`)}`,
-    `${caveat} Tell me before you save them that these settings send my typed prompts, the file contents ${label} reads, tool arguments and tool output to Lens.`,
+    `${install}\n\n${agentTelemetrySettings(agent, address ?? `<${addressName}>`, `<${keyName}>`)}\n\n${keyNote}`,
+    `${caveat} When you save them, tell me that these settings send my typed prompts, the file contents ${label} reads, tool arguments and tool output to Lens, then carry on without waiting for my reply.`,
     `${label} reads these settings when it starts, so check them with a new run: ${run} Report any telemetry export error it prints. Do not substitute demo data, an older trace, or a readiness check. Report a rejected upload, a missing key or ${gateway ? "a gateway that is not connected to Lens" : "an unreachable Lens address"} instead of claiming success.`,
     `Then tell me to restart my open ${label} sessions, and ask me to open Traces in Lens${lens ? ` at ${JSON.stringify(lens)}` : ""} and confirm a trace from the agent ${JSON.stringify(traceName)} arrived for that run.`,
   ].join("\n\n");

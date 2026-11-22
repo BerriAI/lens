@@ -45,7 +45,8 @@ function StorageStep({ state, goTo, storageReady }: StepProps) {
         Trace storage is connected
       </p>
       <Button onClick={() => goTo(1)}>
-        Continue to your agent <ArrowRight aria-hidden="true" className="size-4" />
+        Continue to your agent{" "}
+        <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
       <ActivityContinuation state={state} />
     </div>
@@ -64,7 +65,8 @@ function ActivityContinuation({ state }: { state: LensReadiness }) {
       </Button>
       {state.requestsReady && !state.tracesReady && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Request logs are already available. Connect agent traces to receive automatic findings.
+          Request logs are already available. Connect agent traces to receive
+          automatic findings.
         </p>
       )}
     </div>
@@ -92,7 +94,8 @@ function AgentStep({ state }: StepProps) {
       </div>
       {state.tracesReady && (
         <p role="status" className="text-sm text-success">
-          Your first trace is ready. Continue setup so Lens can analyze your agent’s behavior.
+          Your first trace is ready. Continue setup so Lens can analyze your
+          agent’s behavior.
         </p>
       )}
       <ActivityContinuation state={state} />
@@ -111,9 +114,14 @@ function AnalysisStep({ state }: StepProps) {
           : "Connect a model in Settings. Lens will analyze each agent automatically after 10 traces."}
       </p>
       {!state.activityReady && (
-        <p className="text-sm text-muted-foreground">Send traces from your agent to start automatic analysis.</p>
+        <p className="text-sm text-muted-foreground">
+          Send traces from your agent to start automatic analysis.
+        </p>
       )}
-      <Button onClick={state.connected ? create : connect} disabled={!state.activityReady || locked}>
+      <Button
+        onClick={state.connected ? create : connect}
+        disabled={!state.activityReady || locked}
+      >
         {state.connected ? "View automatic analysis" : "Configure analysis"}
         <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
@@ -127,16 +135,19 @@ function InvestigationStep({ state }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm leading-6 text-muted-foreground">
-        Lens analyzes new traces automatically. In Findings, choose a model, edit what to look for, and set how often to
-        check. Each finding links to the evidence.
+        Lens analyzes new traces automatically. In Findings, choose a model,
+        edit what to look for, and set how often to check. Each finding links to
+        the evidence.
       </p>
       {!state.ready && (
         <p className="text-sm text-muted-foreground">
-          Connect an analysis model and send 10 traces from your agent to receive findings.
+          Connect an analysis model and send 10 traces from your agent to
+          receive findings.
         </p>
       )}
       <Button onClick={create} disabled={!state.ready || locked}>
-        View automatic analysis <ArrowRight aria-hidden="true" className="size-4" />
+        View automatic analysis{" "}
+        <ArrowRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
   );
@@ -195,63 +206,89 @@ export function OnboardingSteps({
   const offset = includeTracing ? 0 : 2;
   const accessToken = useLensAccessToken();
   const service = useLensService(accessToken);
-  const storageReady = Boolean(service.data?.connected && service.data.status.storage_ready && service.data.url);
-  const [step, setStep] = useState(() => Math.max(offset, initialSetupStep(state)));
+  const storageReady = Boolean(
+    service.data?.connected &&
+    service.data.status.storage_ready &&
+    service.data.url,
+  );
+  const [step, setStep] = useState(() =>
+    Math.max(offset, initialSetupStep(state)),
+  );
   const visibleStep = !storageReady && step === 1 ? 0 : step;
   const goTo = (index: number) => {
     setStep(index);
-    listRef.current?.querySelector<HTMLButtonElement>(`[aria-controls="${id}-${index}"]`)?.focus();
+    listRef.current
+      ?.querySelector<HTMLButtonElement>(`[aria-controls="${id}-${index}"]`)
+      ?.focus();
   };
   return (
     <ol
       ref={listRef}
       data-slot="onboarding-steps"
-      className={cn("divide-y overflow-hidden rounded-xl border bg-card", className)}
+      className={cn(
+        "divide-y overflow-hidden rounded-xl border bg-card",
+        className,
+      )}
     >
-      {STEPS.slice(offset).map(({ title, description, complete, Content }, index) => {
-        const stepIndex = index + offset;
-        const open = Math.max(offset, visibleStep) === stepIndex;
-        return (
-          <li key={title}>
-            <h3>
-              <button
-                type="button"
-                id={`${id}-trigger-${stepIndex}`}
-                aria-expanded={open}
-                aria-controls={`${id}-${stepIndex}`}
-                onClick={() => setStep(stepIndex)}
-                className="group flex w-full items-start gap-4 p-5 text-left outline-none hover:bg-muted/30 focus-visible:bg-muted/50 sm:p-6"
-              >
-                <StepIndicator index={index} state={stepState(complete(state, storageReady), open)} />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={cn(
-                      "block text-sm font-medium",
-                      !open && "text-muted-foreground group-hover:text-foreground",
-                    )}
-                  >
-                    {title}
+      {STEPS.slice(offset).map(
+        ({ title, description, complete, Content }, index) => {
+          const stepIndex = index + offset;
+          const open = Math.max(offset, visibleStep) === stepIndex;
+          return (
+            <li key={title}>
+              <h3>
+                <button
+                  type="button"
+                  id={`${id}-trigger-${stepIndex}`}
+                  aria-expanded={open}
+                  aria-controls={`${id}-${stepIndex}`}
+                  onClick={() => setStep(stepIndex)}
+                  className="group flex w-full items-start gap-4 p-5 text-left outline-none hover:bg-muted/30 focus-visible:bg-muted/50 sm:p-6"
+                >
+                  <StepIndicator
+                    index={index}
+                    state={stepState(complete(state, storageReady), open)}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "block text-sm font-medium",
+                        !open &&
+                          "text-muted-foreground group-hover:text-foreground",
+                      )}
+                    >
+                      {title}
+                    </span>
+                    <span className="mt-1 block text-sm leading-6 font-normal text-muted-foreground">
+                      {description}
+                    </span>
                   </span>
-                  <span className="mt-1 block text-sm leading-6 font-normal text-muted-foreground">{description}</span>
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn("mt-1 size-4 shrink-0 text-muted-foreground", open && "rotate-180")}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "mt-1 size-4 shrink-0 text-muted-foreground",
+                      open && "rotate-180",
+                    )}
+                  />
+                </button>
+              </h3>
+              <div
+                id={`${id}-${stepIndex}`}
+                role="region"
+                aria-labelledby={`${id}-trigger-${stepIndex}`}
+                hidden={!open}
+                className="px-5 pb-6 sm:pr-6 sm:pb-7 sm:pl-17"
+              >
+                <Content
+                  state={state}
+                  goTo={goTo}
+                  storageReady={storageReady}
                 />
-              </button>
-            </h3>
-            <div
-              id={`${id}-${stepIndex}`}
-              role="region"
-              aria-labelledby={`${id}-trigger-${stepIndex}`}
-              hidden={!open}
-              className="px-5 pb-6 sm:pr-6 sm:pb-7 sm:pl-17"
-            >
-              <Content state={state} goTo={goTo} storageReady={storageReady} />
-            </div>
-          </li>
-        );
-      })}
+              </div>
+            </li>
+          );
+        },
+      )}
     </ol>
   );
 }

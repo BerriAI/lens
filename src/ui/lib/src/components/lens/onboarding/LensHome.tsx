@@ -60,9 +60,9 @@ const PATHS: readonly {
 
 const MANUAL_TARGET: Record<SetupAgent, string> = {
   "claude-code":
-    "Add these to the env object in ~/.claude/settings.json, or export them in the terminal where you run claude.",
+    "Export these in the terminal where you run claude, or add each one as a string entry in the env object in ~/.claude/settings.json.",
   codex: "Add this to ~/.codex/config.toml.",
-  opencode: `Add ${OPENCODE_CONFIG} to opencode.json, then set these where you start opencode.`,
+  opencode: `Add ${OPENCODE_CONFIG} to opencode.json, then export these where you start opencode.`,
 };
 
 export function LensHome({
@@ -410,6 +410,7 @@ export function LensHome({
                         agent,
                         gatewayUrl || "<your LiteLLM gateway address>",
                         "<your LiteLLM key>",
+                        "shell",
                       )}
                       copyLabel={`Copy ${agentLabel} settings`}
                       wrap

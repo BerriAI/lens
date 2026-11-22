@@ -21,41 +21,79 @@ const swarmRows = Array.from({ length: 15 }, (_, row) => ({
 
 const organizedColumns = Array.from({ length: 60 }, (_, column) => column - 10);
 
-export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { standalone?: boolean }) {
+export const GatewayFlow = memo(function GatewayFlow({
+  standalone = false,
+}: {
+  standalone?: boolean;
+}) {
   const id = useId();
   return (
     <div className="mt-5 sm:mt-6">
       <div className="grid grid-cols-3 gap-3 font-mono text-[10px] sm:text-[11px]">
         <div>
           <p className="font-semibold">Agent swarms</p>
-          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">Every run, every recorded step</p>
+          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">
+            Every run, every recorded step
+          </p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-[#0017b7] dark:text-[#8b9bff]">{standalone ? "Lens" : "LiteLLM gateway"}</p>
-          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">One place, your infrastructure</p>
+          <p className="font-semibold text-[#0017b7] dark:text-[#8b9bff]">
+            {standalone ? "Lens" : "LiteLLM gateway"}
+          </p>
+          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">
+            One place, your infrastructure
+          </p>
         </div>
         <div className="text-right">
           <p className="font-semibold">{standalone ? "Findings" : "Lens"}</p>
-          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">Find what needs fixing</p>
+          <p className="mt-0.5 hidden leading-4 text-muted-foreground sm:block">
+            Find what needs fixing
+          </p>
         </div>
       </div>
       <svg
         aria-hidden="true"
         viewBox="0 0 1000 200"
-        className={cn(styles.flowGraphic, "mt-2 h-auto w-full text-[#0017b7] dark:text-[#8b9bff]")}
+        className={cn(
+          styles.flowGraphic,
+          "mt-2 h-auto w-full text-[#0017b7] dark:text-[#8b9bff]",
+        )}
         focusable="false"
       >
         <defs>
-          <pattern id={`${id}-grid`} width="40" height="40" patternUnits="userSpaceOnUse">
-            <circle cx="5" cy="4" r="0.8" className="fill-muted-foreground/15" />
+          <pattern
+            id={`${id}-grid`}
+            width="40"
+            height="40"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle
+              cx="5"
+              cy="4"
+              r="0.8"
+              className="fill-muted-foreground/15"
+            />
           </pattern>
-          <filter id={`${id}-soft-edge`} x="-10%" y="-30%" width="120%" height="160%">
+          <filter
+            id={`${id}-soft-edge`}
+            x="-10%"
+            y="-30%"
+            width="120%"
+            height="160%"
+          >
             <feGaussianBlur stdDeviation="3" />
           </filter>
           <clipPath id={`${id}-after-gate`}>
             <rect x="500" width="500" height="160" />
           </clipPath>
-          <linearGradient id={`${id}-incoming`} x1="480" x2="530" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+          <linearGradient
+            id={`${id}-incoming`}
+            x1="480"
+            x2="530"
+            y1="0"
+            y2="0"
+            gradientUnits="userSpaceOnUse"
+          >
             <stop stopColor="white" />
             <stop offset="1" stopColor="black" />
           </linearGradient>
@@ -63,9 +101,18 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
             <rect width="1000" height="160" fill={`url(#${id}-incoming)`} />
           </mask>
           <mask id={`${id}-swarm-shape`}>
-            <g fill="none" stroke="white" strokeWidth="19" strokeLinecap="round" filter={`url(#${id}-soft-edge)`}>
+            <g
+              fill="none"
+              stroke="white"
+              strokeWidth="19"
+              strokeLinecap="round"
+              filter={`url(#${id}-soft-edge)`}
+            >
               {[12, 36, 60, 84, 108, 132].map((y) => (
-                <path key={y} d={`M -30 ${y} C 130 ${y - 14} 280 ${y + 16} 370 ${(y + 80) / 2} S 450 80 520 80`} />
+                <path
+                  key={y}
+                  d={`M -30 ${y} C 130 ${y - 14} 280 ${y + 16} 370 ${(y + 80) / 2} S 450 80 520 80`}
+                />
               ))}
             </g>
           </mask>
@@ -94,7 +141,14 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
         </defs>
         <g mask={`url(#${id}-edges)`}>
           <rect width="1000" height="200" fill={`url(#${id}-grid)`} />
-          <ellipse cx="500" cy="80" rx="44" ry="40" fill={`url(#${id}-glow)`} className={styles.gatewayGlow} />
+          <ellipse
+            cx="500"
+            cy="80"
+            rx="44"
+            ry="40"
+            fill={`url(#${id}-glow)`}
+            className={styles.gatewayGlow}
+          />
           <g clipPath={`url(#${id}-after-gate)`}>
             <g mask={`url(#${id}-organized-shape)`}>
               <g className={styles.organizedDots}>
@@ -106,7 +160,9 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
                         cx={505 + column * 10}
                         cy={y}
                         r="2"
-                        fill={dotColors[(column + 10 + row * 3) % dotColors.length]}
+                        fill={
+                          dotColors[(column + 10 + row * 3) % dotColors.length]
+                        }
                       />
                     ))}
                   </g>
@@ -126,7 +182,14 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
                   }}
                 >
                   {row.dots.map((dot, column) => (
-                    <circle key={column} cx={dot.x} cy={row.y} r="2" fill={dot.color} opacity={dot.opacity} />
+                    <circle
+                      key={column}
+                      cx={dot.x}
+                      cy={row.y}
+                      r="2"
+                      fill={dot.color}
+                      opacity={dot.opacity}
+                    />
                   ))}
                 </g>
               ))}
@@ -149,14 +212,28 @@ export const GatewayFlow = memo(function GatewayFlow({ standalone = false }: { s
           stroke="currentColor"
           strokeWidth="2"
         />
-        <rect x="497" y="55" width="6" height="50" rx="3" className="fill-background/90" />
+        <rect
+          x="497"
+          y="55"
+          width="6"
+          height="50"
+          rx="3"
+          className="fill-background/90"
+        />
         <path
           d="M 487 55 H 497 V 105 H 487 M 513 55 H 503 V 105 H 513"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
         />
-        <circle cx="500" cy="80" r="5" className="fill-background" stroke="currentColor" strokeWidth="1.5" />
+        <circle
+          cx="500"
+          cy="80"
+          r="5"
+          className="fill-background"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
         <circle cx="500" cy="80" r="2" fill="currentColor" />
       </svg>
       <p className="ml-auto w-1/2 text-center font-mono text-[10px] text-[#0017b7] sm:text-[11px] dark:text-[#8b9bff]">
