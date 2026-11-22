@@ -85,6 +85,7 @@ pub fn trace(spans: Vec<Span>) -> Trace {
             agent_names: vec![],
             frameworks: vec![],
             input_preview: String::new(),
+            output_preview: String::new(),
             start_time: String::new(),
             duration_ms: 1.0,
             status: SpanStatus::Ok,

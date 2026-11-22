@@ -109,6 +109,9 @@ pub struct TraceSummary {
     #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
     pub frameworks: Vec<String>,
     pub input_preview: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(extend("x-python-optional" = true)))]
+    pub output_preview: String,
     pub start_time: String,
     pub duration_ms: f64,
     pub status: SpanStatus,
