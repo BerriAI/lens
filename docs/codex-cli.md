@@ -27,7 +27,7 @@ The address and key depend on how you run Lens:
 
 ## What Lens shows
 
-A Codex turn appears as one trace with the prompt you typed, each tool call with its arguments and output, and the model calls with their duration and token counts. Model call steps have no input or output: Codex exports neither the request it sent nor the model's reply. `log_agent_responses = true` is accepted and sends nothing
+A Codex conversation appears as one trace, grouped by the `conversation.id` Codex stamps on its telemetry. Each turn in it shows the prompt you typed, each tool call with its arguments and output, and the model calls with their duration and token counts. Resuming a conversation adds its new turns to the same trace. Model call steps have no input or output: Codex exports neither the request it sent nor the model's reply. `log_agent_responses = true` is accepted and sends nothing
 
 Codex cuts each tool output to about 2,000 characters before it exports it and ends it with `[... telemetry preview truncated ...]`. Codex has no setting that raises this limit
 
