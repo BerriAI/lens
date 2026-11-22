@@ -60,6 +60,24 @@ export function claudeToolDetails(
   );
 }
 
+// The thread already shows each prompt, tool call and reply once; the request a model call carried repeats them.
+export function withoutClaudeModelCallContent(
+  spans: readonly Span[],
+  details: ReadonlyMap<string, SpanDetail>,
+): ReadonlyMap<string, SpanDetail> {
+  const modelCalls = new Set(
+    spans.flatMap((span) =>
+      span.framework === "claude-code" && span.name === "claude_code.llm_request" ? [span.span_id] : [],
+    ),
+  );
+  return new Map(
+    [...details].map(([id, detail]) => [
+      id,
+      modelCalls.has(id) ? { ...detail, input: "", output: "", input_ui: undefined, output_ui: undefined } : detail,
+    ]),
+  );
+}
+
 export function claudeCaptureWarnings(details: ReadonlyMap<string, SpanDetail>): string[] {
   return [...details.values()].flatMap((detail) => {
     if (detail.attributes["event.name"] !== "api_request_body") return [];

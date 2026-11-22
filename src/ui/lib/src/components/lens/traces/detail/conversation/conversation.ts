@@ -2,7 +2,12 @@ import { groupBy, orderBy } from "es-toolkit";
 import type { Span, SpanDetail, TraceMessage, TraceToolCall, UIContent } from "../../types";
 import { isFrameworkSpan, parseAssistantSummary, parseMessages, prettyPayload } from "../../utils";
 import { toTraceMessage, toolInput } from "../content/payload";
-import { claudeCaptureWarnings, claudeToolDetails, isClaudeSupplement } from "./nativeClaude";
+import {
+  claudeCaptureWarnings,
+  claudeToolDetails,
+  isClaudeSupplement,
+  withoutClaudeModelCallContent,
+} from "./nativeClaude";
 import { CONTEXT_COMPACTED, compactedCalls, isNativeAgent, linkSessionCalls, newRequestMessages } from "./sessionCalls";
 
 export const CONVERSATION_PAGE_SIZE = 20;
@@ -304,7 +309,7 @@ export function buildConversation(
   complete: boolean,
   pendingBranches?: ReadonlySet<string>,
 ): ConversationItem[] {
-  const details = claudeToolDetails(recordedSpans, recordedDetails);
+  const details = withoutClaudeModelCallContent(recordedSpans, claudeToolDetails(recordedSpans, recordedDetails));
   const spans = linkSessionCalls(recordedSpans, details);
   const standalone = new Set(
     recordedSpans.flatMap((span) => (span.parent_span_id === null && span.type === "llm" ? [span.span_id] : [])),
