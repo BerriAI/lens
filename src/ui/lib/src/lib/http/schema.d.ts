@@ -48463,6 +48463,11 @@ export interface components {
             input_tokens: number;
             /** Llm Calls */
             llm_calls: number;
+            /**
+             * Output Preview
+             * @default
+             */
+            output_preview?: string;
             /** Models */
             models: string[];
             /** Name */

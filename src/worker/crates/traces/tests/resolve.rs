@@ -26,6 +26,7 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
         duration_ns: 10 * MS as u64,
         service: "agent-demo".into(),
         input_preview: format!("input of {name}"),
+        reply_preview: String::new(),
         model: String::new(),
         input_tokens: 0,
         output_tokens: 0,
@@ -1052,6 +1053,127 @@ fn overlapping_model_spans_count_leaf_usage_and_keep_agent_ownership(#[case] rev
     assert_eq!(trace.agents.len(), 1);
     assert_eq!(trace.agents[0].name, "planner");
     assert_eq!(trace.agents[0].llm_calls, 1);
+}
+
+fn turn(span_id: &str, prompt: &str, start_ms: i64) -> TraceSpansRow {
+    at(
+        TraceSpansRow {
+            framework: "claude-code".into(),
+            input_preview: prompt.into(),
+            ..row(
+                span_id,
+                "",
+                "claude_code.interaction",
+                "agent",
+                "claude-code",
+            )
+        },
+        start_ms,
+        100,
+    )
+}
+
+fn reply(span_id: &str, parent: &str, text: &str, start_ms: i64) -> TraceSpansRow {
+    at(
+        TraceSpansRow {
+            framework: "claude-code".into(),
+            input_preview: String::new(),
+            reply_preview: text.into(),
+            ..row(
+                span_id,
+                parent,
+                "claude_code.assistant_response",
+                "chain",
+                "claude-code",
+            )
+        },
+        start_ms,
+        0,
+    )
+}
+
+fn side_call(span_id: &str, parent: &str, prompt: &str, start_ms: i64) -> TraceSpansRow {
+    at(
+        TraceSpansRow {
+            framework: "claude-code".into(),
+            input_preview: prompt.into(),
+            reply_preview: "side call text".into(),
+            ..llm(span_id, parent, "", "")
+        },
+        start_ms,
+        1,
+    )
+}
+
+fn session() -> Vec<TraceSpansRow> {
+    vec![
+        turn("turn-2", "second prompt", 1_000),
+        reply("reply-2a", "turn-2", "second reply, first part", 1_010),
+        reply("reply-2b", "turn-2", "second reply, last part", 1_050),
+        side_call("suggestion", "turn-2", "[SUGGESTION MODE: guess]", 1_090),
+        turn("turn-1", "first prompt", 0),
+        reply("reply-1", "turn-1", "first reply", 50),
+        reply("nested", "reply-1", "nested reply", 2_000),
+        side_call("title", "", "write a title", -10),
+    ]
+}
+
+#[rstest]
+#[case::recorded_order(false)]
+#[case::reversed(true)]
+fn claude_code_turns_give_the_first_prompt_and_the_last_reply(#[case] reverse: bool) {
+    let mut rows = session();
+    if reverse {
+        rows.reverse();
+    }
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    assert_eq!(summary.input_preview, "first prompt");
+    assert_eq!(summary.output_preview, "second reply, last part");
+}
+
+#[rstest]
+fn last_turn_without_a_reply_keeps_the_previous_turns_reply() {
+    let rows = [
+        turn("turn-1", "first prompt", 0),
+        reply("reply-1", "turn-1", "first reply", 50),
+        turn("turn-2", "second prompt", 1_000),
+    ];
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    assert_eq!(summary.output_preview, "first reply");
+}
+
+#[rstest]
+#[case::no_agent_telemetry("langchain", "claude_code.assistant_response")]
+#[case::other_record("claude-code", "claude_code.tool_result")]
+fn traces_without_turn_replies_keep_their_input_and_have_no_output(
+    #[case] framework: &str,
+    #[case] name: &str,
+) {
+    let rows = [
+        TraceSpansRow {
+            framework: framework.into(),
+            ..row("root", "", "planner", "agent", "planner")
+        },
+        TraceSpansRow {
+            name: name.into(),
+            ..reply("child", "root", "not a turn reply", 5)
+        },
+        side_call("call", "root", "model prompt", 10),
+    ];
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    assert_eq!(summary.input_preview, "input of planner");
+    assert_eq!(summary.output_preview, "");
+}
+
+#[rstest]
+fn cached_summaries_without_an_output_preview_still_load() {
+    let rows = session();
+    let summary = resolve_trace("trace", "ref", &rows, &[]).unwrap().summary;
+    let mut cached = serde_json::to_value(&summary).unwrap();
+    cached.as_object_mut().unwrap().remove("output_preview");
+    let loaded: litellm_traces::TraceSummary = serde_json::from_value(cached).unwrap();
+    assert_eq!(loaded.output_preview, "");
+    assert_eq!(loaded.input_preview, summary.input_preview);
 }
 
 #[rstest]

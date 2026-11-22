@@ -5,8 +5,9 @@ use litellm_traces::query::named as contracts;
 use litellm_traces_cache::TraceStore;
 use litellm_traces_clickhouse::{
     Connection, InsertTable, Parameter, QueryScope, ReadQuery, execute_named_read, insert_rows,
+    insert_shared_rows,
     query::named::{ListTraces, ListTracesParams, TraceSpans, TraceSpansParams},
-    query_help, query_sql,
+    query_help, query_sql, span_rows,
 };
 use rstest::{fixture, rstest};
 use serde::Deserialize;
@@ -695,6 +696,65 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
             .unwrap()
         );
     }
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn stored_claude_code_session_lists_its_first_prompt_and_last_reply(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    admin_access: TestResult<contracts::ReadAccessParams>,
+) -> TestResult {
+    let fixture = migrated_database?;
+    let spans: Vec<_> = litellm_traces::decode_otlp(
+        include_bytes!("../../traces/tests/fixtures/claude_code_native_traces.json"),
+        Some("application/json"),
+    )?
+    .into_iter()
+    .chain(litellm_traces::decode_otlp_logs(
+        include_bytes!("../../traces/tests/fixtures/claude_code_native_logs.json"),
+        Some("application/json"),
+    )?)
+    .collect();
+    let trace_id = spans[0].trace_id.clone();
+    let tenant = litellm_traces::Tenant {
+        team_id: "team-a".to_owned(),
+        api_key_hash: "key-a".to_owned(),
+        org_id: String::new(),
+        user_id: String::new(),
+    };
+    insert_shared_rows(
+        &fixture.database.client,
+        &Connection::writer(&fixture.database.url)?,
+        DATABASE,
+        InsertTable::OtelTraces,
+        span_rows(spans, &tenant),
+    )
+    .await?;
+    let reader = Connection::reader(&fixture.database.url, DATABASE)?;
+    let params = TraceSpansParams {
+        access: admin_access?,
+        trace_id,
+        trace_ref: String::new(),
+    };
+    let rows = fetch::<TraceSpans>(&fixture.database.client, &reader, &params)
+        .await?
+        .into_iter()
+        .map(|row| row.0)
+        .collect::<Vec<_>>();
+    let summary = litellm_traces::resolve_trace(&params.trace_id, "", &rows, &[])
+        .ok_or("missing trace")?
+        .summary;
+    assert_eq!(
+        (
+            summary.input_preview.as_str(),
+            summary.output_preview.as_str()
+        ),
+        (
+            "Say MINIMAL-COMMENTARY, read README.txt, run a Bash command printing MINIMAL-EXPECTED that exits 3 without retrying, then reply MINIMAL-FINAL.",
+            "Both subagents are done. They both ran in the background, not one in the foreground as you asked.\n\n- **Reader:** NATIVE-READER LENS-REPLAY-ALPHA (the marker from README.txt)\n- **Checker:** NATIVE-CHECKER 15 (from `python3`, 7+8)\n\nNATIVE-AGE"
+        )
+    );
     Ok(())
 }
 

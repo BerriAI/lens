@@ -147,6 +147,8 @@ pub struct TraceSpansRow {
     pub duration_ns: u64,
     pub service: String,
     pub input_preview: String,
+    #[serde(default)]
+    pub reply_preview: String,
     pub model: String,
     pub input_tokens: u32,
     pub output_tokens: u32,
