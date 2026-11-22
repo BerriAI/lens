@@ -153,6 +153,18 @@ describe("buildVisibleTree / isFrameworkSpan", () => {
     expect(buildVisibleTree(spans, true).visibleCount).toBe(5);
   });
 
+  it.each(["claude_code.api_request_body", "claude_code.api_response_body"])(
+    "never lists the Claude Code %s export as its own row",
+    (name) => {
+      const spans = [
+        span({ span_id: "root", type: "agent" }),
+        span({ span_id: "call", parent_span_id: "root", type: "llm", framework: "claude-code" }),
+        span({ span_id: "body", parent_span_id: "root", type: "framework", framework: "claude-code", name }),
+      ];
+      expect(buildVisibleTree(spans, true).children.get("root")?.map((s) => s.span_id)).toEqual(["call"]);
+    },
+  );
+
   it("never hides the root span", () => {
     expect(isFrameworkSpan(span({ span_id: "r", type: "framework" }))).toBe(
       false,

@@ -19,6 +19,7 @@ enum SpanType {
     AssistantResponse,
     ToolResult,
     ApiRequestBody,
+    ApiResponseBody,
     Compaction,
     Interaction,
     LlmRequest,
@@ -37,6 +38,7 @@ fn span_type(name: &str, attributes: &BTreeMap<String, String>) -> SpanType {
         "assistant_response" => SpanType::AssistantResponse,
         "tool_result" => SpanType::ToolResult,
         "api_request_body" => SpanType::ApiRequestBody,
+        "api_response_body" => SpanType::ApiResponseBody,
         "compaction" => SpanType::Compaction,
         "interaction" => SpanType::Interaction,
         "llm_request" => SpanType::LlmRequest,
@@ -192,6 +194,89 @@ fn exported_tool_results(attributes: &BTreeMap<String, String>) -> String {
     json!({"tool_results": results}).to_string()
 }
 
+fn exported_body(attributes: &BTreeMap<String, String>) -> Option<Map<String, Value>> {
+    serde_json::from_str(attr(attributes, "body")).ok()
+}
+
+fn block_text(content: &Value) -> String {
+    match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter_map(|block| block.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n\n"),
+        _ => String::new(),
+    }
+}
+
+fn blocks_of<'a>(content: &'a Value, kind: &'a str) -> impl Iterator<Item = &'a Value> {
+    content
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(move |block| block.get("type").and_then(Value::as_str) == Some(kind))
+}
+
+fn chat_messages(role: &str, content: &Value) -> Vec<Value> {
+    let text = block_text(content);
+    let calls: Vec<Value> = blocks_of(content, "tool_use")
+        .map(|block| json!({"name": block.get("name"), "arguments": block.get("input")}))
+        .collect();
+    let own = match (text.is_empty(), calls.is_empty()) {
+        (true, true) => None,
+        (_, true) => Some(json!({"role": role, "content": text})),
+        (_, false) => Some(json!({"role": role, "content": text, "tool_calls": calls})),
+    };
+    blocks_of(content, "tool_result")
+        .map(|block| {
+            json!({"role": "tool", "content": block.get("content").map(block_text).unwrap_or_default()})
+        })
+        .chain(own)
+        .collect()
+}
+
+fn request_messages(attributes: &BTreeMap<String, String>) -> String {
+    let Some(body) = exported_body(attributes) else {
+        return String::new();
+    };
+    let Some(messages) = body.get("messages").and_then(Value::as_array) else {
+        return String::new();
+    };
+    let system = body
+        .get("system")
+        .map(block_text)
+        .filter(|system| !system.is_empty())
+        .map(|system| json!({"role": "system", "content": system}));
+    let messages: Vec<Value> = system
+        .into_iter()
+        .chain(messages.iter().flat_map(|message| {
+            chat_messages(
+                message
+                    .get("role")
+                    .and_then(Value::as_str)
+                    .unwrap_or("user"),
+                message.get("content").unwrap_or(&Value::Null),
+            )
+        }))
+        .collect();
+    if messages.is_empty() {
+        String::new()
+    } else {
+        Value::Array(messages).to_string()
+    }
+}
+
+fn response_message(attributes: &BTreeMap<String, String>) -> String {
+    exported_body(attributes)
+        .and_then(|body| {
+            chat_messages("assistant", body.get("content")?)
+                .into_iter()
+                .next()
+        })
+        .map_or_else(String::new, |message| message.to_string())
+}
+
 fn input_tokens(attributes: &BTreeMap<String, String>) -> Result<u32, Error> {
     ["input_tokens", "cache_read_tokens", "cache_creation_tokens"]
         .into_iter()
@@ -254,7 +339,22 @@ impl Format for ClaudeCode {
             ),
             SpanType::ApiRequestBody => (
                 SpanFacts {
-                    output: exported_tool_results(attributes),
+                    input: request_messages(attributes),
+                    output: if crate::normalize::visible_claude_response(
+                        "assistant_response",
+                        attr(attributes, "query_source"),
+                    ) {
+                        exported_tool_results(attributes)
+                    } else {
+                        String::new()
+                    },
+                    ..base
+                },
+                vec!["body"],
+            ),
+            SpanType::ApiResponseBody => (
+                SpanFacts {
+                    output: response_message(attributes),
                     ..base
                 },
                 vec!["body"],

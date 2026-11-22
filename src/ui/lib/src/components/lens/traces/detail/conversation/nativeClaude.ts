@@ -2,7 +2,8 @@ import type { Span, SpanDetail } from "../../types";
 
 export function isClaudeSupplement(span: Span): boolean {
   return (
-    span.framework === "claude-code" && ["claude_code.tool_result", "claude_code.api_request_body"].includes(span.name)
+    span.framework === "claude-code" &&
+    ["claude_code.tool_result", "claude_code.api_request_body", "claude_code.api_response_body"].includes(span.name)
   );
 }
 
@@ -56,6 +57,24 @@ export function claudeToolDetails(
         },
       ];
     }),
+  );
+}
+
+// The thread already shows each prompt, tool call and reply once; the request a model call carried repeats them.
+export function withoutClaudeModelCallContent(
+  spans: readonly Span[],
+  details: ReadonlyMap<string, SpanDetail>,
+): ReadonlyMap<string, SpanDetail> {
+  const modelCalls = new Set(
+    spans.flatMap((span) =>
+      span.framework === "claude-code" && span.name === "claude_code.llm_request" ? [span.span_id] : [],
+    ),
+  );
+  return new Map(
+    [...details].map(([id, detail]) => [
+      id,
+      modelCalls.has(id) ? { ...detail, input: "", output: "", input_ui: undefined, output_ui: undefined } : detail,
+    ]),
   );
 }
 
