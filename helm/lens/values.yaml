@@ -23,7 +23,7 @@ serviceTokenSecret:
   name: ""
   generatedName: ""
   key: service-token
-publicUrl: http://localhost:4318
+publicUrl: ""
 ingestionUrl: ""
 clickhouse:
   enabled: true
@@ -44,7 +44,9 @@ clickhouseSecret:
   key: url
 retentionDays: 14
 service:
+  type: ClusterIP
   port: 4318
+  nodePort: null
   annotations: {}
 ingress:
   enabled: false

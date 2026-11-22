@@ -14,7 +14,7 @@ kubectl --namespace lens port-forward service/lens 4318:4318
 
 Open `http://localhost:4318/ui/`. Obtain the generated private login credential locally with `kubectl --namespace lens get secret lens-admin -o jsonpath='{.data.admin-token}' | base64 --decode`. Keep this credential private. Helm reuses generated credentials on upgrades, and uninstall retains them and the ClickHouse volume
 
-On first start, Lens can restart a few times with `Error: Storage(Storage(Transport))` until ClickHouse is Ready. Persistent failures after that need the storage checks below. [Verify the signed release manifest](../../docs/releasing.md#verify-a-release) before adopting a release
+With bundled storage, the Lens pod stays in `Init` until ClickHouse answers. With your own ClickHouse, Lens restarts with `Error: Storage(Storage(Transport))` until it can connect. Persistent failures after that need the storage checks below. [Verify the signed release manifest](../../docs/releasing.md#verify-a-release) before adopting a release
 
 The bundled ClickHouse deployment includes an ingress NetworkPolicy that permits TCP 8123 only from this release's Lens pods in the same namespace. Keeper and Raft ports are not exposed to other pods by that policy. Your cluster must use a CNI that enforces NetworkPolicy, and other policies selecting the ClickHouse pod must not grant broader access because Kubernetes combines their allowed traffic. External ClickHouse deployments need equivalent storage isolation managed by their operator
 
@@ -57,7 +57,7 @@ Create `lens-connection` through your secret manager. Generate each value indepe
 
 With `gateway.enabled`, the standalone sign-in page offers Log in with LiteLLM once Lens knows the gateway's browser address: set `LENS_GATEWAY_PUBLIC_URL` through `extraEnv` (it falls back to `LENS_GATEWAY_URL`, then `LENS_GATEWAY_API_BASE`), and make the gateway's `lens.publicUrl` the Lens browser origin, since the gateway sends the browser back there after sign-in
 
-`publicUrl` is the Lens browser origin. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
+`publicUrl` is the Lens browser origin, and Lens rejects sign-in and saves from any other origin. Left empty, it is the `ingress.host` address when `ingress` is enabled (`https` when `ingress.tls` is set, otherwise `http`) and `http://localhost:4318` without ingress. Set it when browsers use a different scheme or port, for example TLS terminated at a load balancer. The install fails when `publicUrl` names a different host than `ingress.host`. `ingestionUrl` is the URL agents can reach and defaults to `publicUrl`. Enable `ingress` for an externally routed standalone UI and API, or set `service.type` to `NodePort` or `LoadBalancer` (with `service.nodePort` for a fixed port) and set `publicUrl` to the address browsers open. Supply analysis provider configuration through `extraEnv` or `extraEnvFrom`, using Secret references for credentials
 
 The gateway chart at `oci://ghcr.io/berriai/litellm/chart/litellm` does not deploy Lens or PostgreSQL. For chart version `1.111.0-rc.2`, set `lens.enabled: true`, `lens.url`, `lens.publicUrl`, `lens.gatewaySecret.name` and `lens.serviceTokenSecret.name`. The Secret keys default to `gateway-secret` and `service-token`. Removed `lensWorker.*` values are not supported and enabling them fails the render
 
