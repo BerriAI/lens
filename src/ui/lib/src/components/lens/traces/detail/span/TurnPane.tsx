@@ -79,11 +79,13 @@ export function TurnPane({
 }) {
   const facts = turnFacts(row);
   const message = row.root.input_preview;
-  const replied = row.members.findLast((span) => span.name === REPLY && span.parent_span_id === row.root.span_id);
+  // Claude Code's telemetry records the reply as a span under the turn; a plugin records it on the turn itself.
+  const replied =
+    row.members.findLast((span) => span.name === REPLY && span.parent_span_id === row.root.span_id) ?? row.root;
   const answer = useSpanDetail(
     accessToken,
     trace.summary.trace_id,
-    replied?.span_id ?? null,
+    replied.span_id,
     trace.summary.trace_ref,
   ).data;
   return (
@@ -105,7 +107,7 @@ export function TurnPane({
             </p>
           </section>
         )}
-        {replied && answer?.output && (
+        {answer?.output && (
           <section aria-label="Agent answer" className="flex flex-col gap-1.5">
             <h3 className={HEADING}>Agent</h3>
             <Payload
