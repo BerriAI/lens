@@ -560,6 +560,29 @@ describe("DetailPane", () => {
     expect(vi.mocked(agentTraceSpanCall)).not.toHaveBeenCalled();
   });
 
+  it("shows the reply a plugin recorded on the turn itself", async () => {
+    const turn = span({
+      span_id: "root",
+      parent_span_id: null,
+      name: "invoke_agent claude-code",
+      type: "agent",
+      input_preview: "Now fix it.",
+    });
+    renderPane({
+      kind: "turn",
+      id: "turn::root",
+      depth: 0,
+      index: 1,
+      root: turn,
+      members: [span({ ...llmFields, span_id: "ask", parent_span_id: "root" })],
+      collapsed: false,
+    });
+    const pane = screen.getByRole("complementary", { name: "Turn details" });
+    expect(await within(pane).findByRole("region", { name: "Agent answer" })).toHaveTextContent(
+      "Customer acme-404 is on the Enterprise plan.",
+    );
+  });
+
   it("'Copy step' copies a curl for this span's captured content", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
