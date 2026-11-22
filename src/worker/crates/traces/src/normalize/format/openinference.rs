@@ -55,7 +55,7 @@ fn role(context: &SpanContext<'_>) -> Option<RoleEvidence> {
 }
 
 /// LLM instrumentations record the provider response as `output.value`: a raw response is one
-/// request (`id`); a LangChain `LLMResult` carries one per prompt.
+/// request (`id`); an `LLMResult` carries one per prompt.
 fn calls(context: &SpanContext<'_>) -> CallEvidence {
     let Ok(value) = serde_json::from_str::<Value>(attr(context.attributes, "output.value")) else {
         return genai::calls(context);

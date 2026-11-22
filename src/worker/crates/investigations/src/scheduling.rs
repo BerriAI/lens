@@ -27,6 +27,12 @@ pub trait ScheduleRepository: Send + Sync {
         after: Option<&DueLens>,
     ) -> impl Future<Output = Result<Vec<DueLens>, RepositoryError>> + Send;
 
+    fn next_due(
+        &self,
+        scope: &Scope,
+        after: &DateTime<Utc>,
+    ) -> impl Future<Output = Result<Option<DateTime<Utc>>, RepositoryError>> + Send;
+
     fn sync_due(&self, lens: &Lens) -> impl Future<Output = Result<(), RepositoryError>> + Send;
 }
 

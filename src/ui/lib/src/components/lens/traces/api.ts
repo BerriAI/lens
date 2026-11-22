@@ -17,6 +17,7 @@ import type {
   SpanErrorPage,
   Trace,
   TraceListQuery,
+  TraceSort,
   TracePage,
   TraceFindingCount,
   TraceFindingsRequest,
@@ -40,6 +41,7 @@ export interface TraceWindow {
 export interface TraceListFilter {
   readonly agent: string;
   readonly includeInternal: boolean;
+  readonly sort: TraceSort;
 }
 
 export interface TraceHandoff {
@@ -106,17 +108,17 @@ export function liveTracesApi(accessToken: string): TracesApi {
       return page.agents ?? [];
     },
     findings: (traces) =>
-      apiClient.post<TraceFindingCount[]>("/lens/traces/findings", {
+      apiClient.post<TraceFindingCount[]>("/lens/admin/traces/findings", {
         accessToken,
         body: { traces } satisfies TraceFindingsRequest,
       }),
     signals: (traces) =>
-      apiClient.post<TraceSignals[]>("/lens/traces/signals", {
+      apiClient.post<TraceSignals[]>("/lens/admin/traces/signals", {
         accessToken,
         body: { traces } satisfies TraceFindingsRequest,
       }),
     feedbackSummary: (traces) =>
-      apiClient.post<TraceFeedbackSummary[]>("/lens/feedback/summary", {
+      apiClient.post<TraceFeedbackSummary[]>("/lens/admin/feedback/summary", {
         accessToken,
         body: { traces } satisfies TraceFeedbackRequest,
       }),

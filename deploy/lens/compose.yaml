@@ -2,7 +2,7 @@ name: lens
 
 services:
   credentials:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.2.0}
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.3.0}
     user: "0:0"
     entrypoint:
       - sh
@@ -35,7 +35,7 @@ services:
     restart: "no"
 
   lens:
-    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.2.0}
+    image: ${LENS_IMAGE:-ghcr.io/berriai/lens:0.3.0}
     env_file:
       - path: .env
         required: false
@@ -107,6 +107,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+    mem_limit: 4g
     restart: unless-stopped
     networks: [storage]
 
@@ -134,6 +135,7 @@ configs:
                   <snapshot_distance>10000</snapshot_distance>
                   <rotate_log_storage_interval>10000</rotate_log_storage_interval>
                   <reserved_log_items>1000</reserved_log_items>
+                  <latest_logs_cache_size_threshold>134217728</latest_logs_cache_size_threshold>
               </coordination_settings>
               <raft_configuration>
                   <server><id>1</id><hostname>127.0.0.1</hostname><port>9234</port></server>

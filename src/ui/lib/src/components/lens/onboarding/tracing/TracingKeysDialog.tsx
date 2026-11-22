@@ -41,7 +41,7 @@ export function TracingKeysDialog({
     setRevoking(true);
     setError(null);
     try {
-      await apiClient.delete(`/lens/tracing/keys/${encodeURIComponent(id)}`, {
+      await apiClient.delete(`/lens/admin/tracing/keys/${encodeURIComponent(id)}`, {
         accessToken,
       });
       cache.setQueryData<TracingKeyRecord[]>(

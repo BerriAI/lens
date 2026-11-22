@@ -32,7 +32,7 @@ describe("signal alert setup", () => {
 
   it("tests a webhook then saves only the selected signal and clears the secret", async () => {
     const gateway = stubGateway();
-    gateway.get.mockImplementation((path) => path === "/lens/alerts/rules" ? { revision: 0, rules: [] } : saved);
+    gateway.get.mockImplementation((path) => path === "/lens/admin/alerts/rules" ? { revision: 0, rules: [] } : saved);
     gateway.post.mockReturnValue({ delivered: true });
     gateway.put.mockReturnValue({
       ...saved,
@@ -54,7 +54,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: {
             revision: 0,
@@ -72,7 +72,7 @@ describe("signal alert setup", () => {
   it("saves rule-only Slack notifications without an analysis model", async () => {
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) =>
-      path === "/lens/alerts/rules" ? { revision: 1, rules: [{ id: "errors", enabled: true, condition: { kind: "model_error" } }] } : saved,
+      path === "/lens/admin/alerts/rules" ? { revision: 1, rules: [{ id: "errors", enabled: true, condition: { kind: "model_error" } }] } : saved,
     );
     gateway.put.mockReturnValue({ ...saved, revision: 1, enabled: true, connected: true });
     const user = userEvent.setup();
@@ -84,7 +84,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: {
             revision: 0,
@@ -100,7 +100,7 @@ describe("signal alert setup", () => {
 
   it("keeps the webhook and selections after failed delivery and allows retry", async () => {
     const gateway = stubGateway();
-    gateway.get.mockImplementation((path) => path === "/lens/alerts/rules" ? { revision: 0, rules: [] } : saved);
+    gateway.get.mockImplementation((path) => path === "/lens/admin/alerts/rules" ? { revision: 0, rules: [] } : saved);
     gateway.post
       .mockImplementationOnce(() => {
         throw new Error("Slack did not confirm delivery");
@@ -122,7 +122,7 @@ describe("signal alert setup", () => {
 
   it("pauses existing alerts without requiring the saved webhook again", async () => {
     const gateway = stubGateway();
-    gateway.get.mockImplementation((path) => path === "/lens/alerts/rules" ? { revision: 0, rules: [] } : {
+    gateway.get.mockImplementation((path) => path === "/lens/admin/alerts/rules" ? { revision: 0, rules: [] } : {
       ...saved,
       revision: 4,
       enabled: true,
@@ -136,7 +136,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: { revision: 4, enabled: false, signal_ids: ["prompt_injection"], webhook_url: null },
         }),

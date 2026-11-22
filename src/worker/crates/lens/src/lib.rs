@@ -29,6 +29,7 @@ pub mod signals;
 pub mod slack;
 mod storage;
 pub mod task_profiles;
+pub mod wake;
 pub mod worker;
 
 use axum::{
@@ -64,6 +65,7 @@ pub struct State {
     pub credentials: Arc<auth::Credentials>,
     pub storage: Storage,
     pub schema_ready: AtomicBool,
+    pub wake: wake::Wake,
     service_token: Option<String>,
     connected_service_token: OnceLock<ConnectedServiceToken>,
     ingest_slots: Arc<Semaphore>,
@@ -85,6 +87,7 @@ impl State {
             credentials: Arc::new(auth::Credentials::default()),
             storage,
             schema_ready: AtomicBool::new(false),
+            wake: wake::Wake::default(),
             service_token,
             connected_service_token: OnceLock::new(),
             ingest_slots: Arc::new(Semaphore::new(2)),
@@ -100,11 +103,18 @@ impl State {
         let _ = self.connected_service_token.set(Box::new(connected));
     }
 
-    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
-        let connected = self
-            .connected_service_token
+    fn connected_service_token(&self) -> Option<String> {
+        self.connected_service_token
             .get()
-            .and_then(|connected| connected());
+            .and_then(|connected| connected())
+    }
+
+    pub fn gateway_connected(&self) -> bool {
+        self.service_token.is_some() || self.connected_service_token().is_some()
+    }
+
+    fn authorize_service(&self, headers: &HeaderMap) -> Result<(), Error> {
+        let connected = self.connected_service_token();
         if self
             .service_token
             .iter()

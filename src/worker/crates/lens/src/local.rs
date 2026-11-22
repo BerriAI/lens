@@ -18,12 +18,13 @@ use lens_investigations::{
     current_job, queue_job,
 };
 use litellm_storage_clickhouse::investigations::Investigations;
-use tokio::sync::{Semaphore, watch};
+use tokio::sync::{Mutex, Semaphore, watch};
 
-use crate::{Error, SourceReader, control::JobClient, worker::Execution};
+use crate::{Error, SourceReader, control::JobClient, wake::Wake, worker::Execution};
 use job::LocalJob;
 
 const SHUTDOWN_DRAIN: Duration = Duration::from_secs(8);
+const RECOVERY_CHECK: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct LocalControl {
@@ -33,6 +34,8 @@ pub struct LocalControl {
     worker_hash: Arc<str>,
     slots: Arc<Semaphore>,
     investigator: Option<investigator::Investigator>,
+    pub wake: Wake,
+    idle: Arc<Mutex<()>>,
 }
 
 impl LocalControl {
@@ -49,6 +52,8 @@ impl LocalControl {
             worker_hash: worker_hash.into(),
             slots: Arc::new(Semaphore::new(16)),
             investigator: None,
+            wake: Wake::default(),
+            idle: Arc::default(),
         }
     }
 
@@ -296,22 +301,50 @@ impl LocalControl {
         }
     }
 
+    async fn idle_wait(&self, now: DateTime<Utc>) -> Duration {
+        let next = match self.worker().await {
+            Ok(worker) => self.repository.next_due(&worker.scope, &now).await.ok(),
+            Err(_) => None,
+        };
+        next.flatten()
+            .and_then(|due| (due - now).to_std().ok())
+            .map_or(RECOVERY_CHECK, |wait| wait.min(RECOVERY_CHECK))
+    }
+
     async fn slot(&self, stop: watch::Receiver<bool>) {
+        let mut wake = self.wake.listen();
         let mut delay = 2;
         while !*stop.borrow() {
-            match self.run_until(stop.clone()).await {
-                Ok(true) => {
+            let idle = tokio::select! {
+                idle = self.idle.lock() => idle,
+                () = stopped(stop.clone()) => return,
+            };
+            wake.borrow_and_update();
+            let wait = match self.claim_until(&stop).await {
+                Ok(Some(claim)) => {
+                    drop(idle);
                     delay = 2;
+                    if self.run_claim(claim, stop.clone(), Utc::now).await.is_err() {
+                        tracing::warn!("Lens could not run a local investigation; retrying");
+                    }
                     continue;
                 }
-                Ok(false) => {}
-                Err(_) => tracing::warn!("Lens could not run a local investigation; retrying"),
-            }
+                Ok(None) => {
+                    delay = 2;
+                    self.idle_wait(Utc::now()).await
+                }
+                Err(_) => {
+                    tracing::warn!("Lens could not run a local investigation; retrying");
+                    let wait = Duration::from_secs(delay);
+                    delay = (delay * 2).min(15);
+                    wait
+                }
+            };
             tokio::select! {
-                () = tokio::time::sleep(Duration::from_secs(delay)) => {}
+                () = tokio::time::sleep(wait) => {}
+                _ = wake.changed() => {}
                 () = stopped(stop.clone()) => return,
             }
-            delay = (delay * 2).min(15);
         }
     }
 
@@ -798,6 +831,38 @@ mod tests {
         }
         assert!(claim.job.lease_until.is_some_and(|lease| lease > due));
         assert!(control.claim_at(&worker, due).await.unwrap().is_none());
+    }
+
+    #[rstest]
+    #[case::due_soon(20, Duration::from_secs(20))]
+    #[case::due_later_than_the_recovery_check(7200, RECOVERY_CHECK)]
+    #[case::already_due(-5, RECOVERY_CHECK)]
+    #[tokio::test]
+    async fn idle_worker_sleeps_until_the_next_due_analysis(
+        #[future(awt)] stored_job: StoredJob,
+        #[case] due_in: i64,
+        #[case] expected: Duration,
+    ) {
+        let control = &stored_job.job.control;
+        let original = control
+            .repository
+            .get(&stored_job.job.lens_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let now: DateTime<Utc> = "2026-10-09T00:00:00Z".parse().unwrap();
+        let queued = Lens {
+            next_run_at: now + chrono::TimeDelta::seconds(due_in),
+            jobs: Vec::new(),
+            ..original.clone()
+        };
+        control
+            .repository
+            .replace(&original, &queued)
+            .await
+            .unwrap();
+
+        assert_eq!(control.idle_wait(now).await, expected);
     }
 
     #[rstest]

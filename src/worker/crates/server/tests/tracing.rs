@@ -76,6 +76,7 @@ impl TraceReader for Reader {
         scope: ReadAccessParams,
         agent: String,
         include_internal: bool,
+        by_last_activity: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -83,7 +84,7 @@ impl TraceReader for Reader {
     ) -> Result<TracePage, TraceReadError> {
         self.record(
             scope,
-            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit,"agent":agent,"include_internal":include_internal}),
+            json!({"start_ms":start_ms,"end_ms":end_ms,"cursor":cursor,"limit":limit,"agent":agent,"include_internal":include_internal,"by_last_activity":by_last_activity}),
         )?;
         Ok(TracePage {
             data: Vec::new(),
@@ -310,6 +311,20 @@ async fn slack_credential_cannot_expand_trace_scope(
 )]
 #[case::sql("POST", "/v1/traces/query", 200)]
 #[case::help("GET", "/v1/traces/query/help", 200)]
+#[case::page_list("GET", "/lens/v1/traces", 200)]
+#[case::page_logs("GET", "/lens/v1/logs", 200)]
+#[case::page_agents("GET", "/lens/v1/traces/agents", 200)]
+#[case::page_trace("GET", "/lens/v1/traces/trace-id", 404)]
+#[case::page_conversation("GET", "/lens/v1/traces/trace-id/conversation", 404)]
+#[case::page_span("GET", "/lens/v1/traces/trace-id/spans/span-id", 404)]
+#[case::page_error("GET", "/lens/v1/traces/trace-id/spans/span-id/error", 404)]
+#[case::page_log_detail(
+    "GET",
+    "/lens/v1/logs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    404
+)]
+#[case::page_sql("POST", "/lens/v1/traces/query", 200)]
+#[case::page_help("GET", "/lens/v1/traces/query/help", 200)]
 #[tokio::test]
 async fn public_reads_use_signed_identity_scope_and_ignore_browser_scope(
     #[future(awt)] database: Database,
@@ -485,7 +500,7 @@ async fn admin_reads_use_all_rows_and_preserve_supplied_request_parameters(
     assert!(calls[0].scope.team_ids.is_empty());
     assert_eq!(
         calls[0].parameters,
-        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50,"agent":"A","include_internal":false})
+        json!({"start_ms":1,"end_ms":2,"cursor":"opaque","limit":50,"agent":"A","include_internal":false,"by_last_activity":false})
     );
 }
 
@@ -554,6 +569,7 @@ async fn read_failures_preserve_public_status_details_and_retry_headers(
 #[rstest]
 #[case::list("/v1/traces?start_ms=bad&end_ms=bad", json!(["query","start_ms"]), "int_parsing")]
 #[case::list_internal("/v1/traces?include_internal=maybe", json!(["query","include_internal"]), "bool_parsing")]
+#[case::list_sort("/v1/traces?sort=duration", json!(["query","sort"]), "enum")]
 #[case::small_page("/v1/traces/id?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
 #[case::conversation_small_page("/v1/traces/id/conversation?page_size=0", json!(["query","page_size"]), "greater_than_equal")]
 #[case::conversation_large_page("/v1/traces/id/conversation?page_size=51", json!(["query","page_size"]), "less_than_equal")]
@@ -604,6 +620,30 @@ async fn list_shows_internal_traces_only_when_asked(
     assert_eq!(response.status(), 200);
     let calls = reader.calls.lock().unwrap();
     assert_eq!(calls[0].parameters["include_internal"], include_internal);
+}
+
+#[rstest]
+#[case::omitted("/v1/traces?start_ms=1&end_ms=2", false)]
+#[case::start("/v1/traces?start_ms=1&end_ms=2&sort=start", false)]
+#[case::last_activity("/v1/traces?start_ms=1&end_ms=2&sort=last_activity", true)]
+#[tokio::test]
+async fn list_sorts_by_last_activity_only_when_asked(
+    #[future(awt)] database: Database,
+    #[case] path: &str,
+    #[case] by_last_activity: bool,
+) {
+    let reader = Reader::default();
+    let server = serve(&database, reader.clone()).await;
+    let response = server
+        .client
+        .get(server.url.join(path).unwrap())
+        .bearer_auth(ADMIN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let calls = reader.calls.lock().unwrap();
+    assert_eq!(calls[0].parameters["by_last_activity"], by_last_activity);
 }
 
 #[rstest]
@@ -734,7 +774,7 @@ fn tool_call(name: &str, arguments: Value) -> Value {
 #[case::list_traces(
     "list_traces",
     json!({"agent":"A","cursor":"opaque","include_internal":true}),
-    json!({"cursor":"opaque","agent":"A","include_internal":true,"limit":50})
+    json!({"cursor":"opaque","agent":"A","include_internal":true,"by_last_activity":false,"limit":50})
 )]
 #[case::get_trace(
     "get_trace",

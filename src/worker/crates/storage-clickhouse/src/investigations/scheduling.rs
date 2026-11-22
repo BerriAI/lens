@@ -9,13 +9,30 @@ use crate::state::{Change, Head};
 const DUE: &str = "SELECT s.key AS key, s.revision AS revision, s.digest AS digest,
     formatDateTime(s.due_at, '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS due_at
     FROM (SELECT * FROM lens_schedule FINAL) AS s
-    INNER JOIN lens_state_heads AS h USING (key, revision, digest)
+    INNER JOIN (SELECT key, revision, digest FROM lens_state_heads WHERE key IN (
+        SELECT s.key FROM lens_schedule AS s WHERE s.due_at IS NOT NULL AND s.due_at <= parseDateTime64BestEffort({now:String}, 6, 'UTC')
+        AND ({all_teams:Bool}=1 OR (s.all_teams=0 AND s.team_id={team_id:String}
+            AND ({team_id:String} != '' OR s.api_key_hash={api_key_hash:String})))
+    )) AS h USING (key, revision, digest)
     WHERE s.due_at IS NOT NULL AND s.due_at <= parseDateTime64BestEffort({now:String}, 6, 'UTC')
     AND ({all_teams:Bool}=1 OR (s.all_teams=0 AND s.team_id={team_id:String}
         AND ({team_id:String} != '' OR s.api_key_hash={api_key_hash:String})))
     AND ({first:Bool}=1 OR (s.due_at, s.id) >
         (parseDateTime64BestEffort({after_time:String}, 6, 'UTC'), {after_id:String}))
     ORDER BY s.due_at, s.id LIMIT {limit:UInt32} FORMAT JSONEachRow";
+
+const NEXT_DUE: &str = "SELECT formatDateTime(min(due), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS due_at
+    FROM (SELECT tupleElement(argMax(tuple(due_at), revision), 1) AS due FROM lens_schedule
+        WHERE {all_teams:Bool}=1 OR (all_teams=0 AND team_id={team_id:String}
+            AND ({team_id:String} != '' OR api_key_hash={api_key_hash:String}))
+        GROUP BY key)
+    WHERE due > parseDateTime64BestEffort({after:String}, 6, 'UTC')
+    HAVING count() > 0 FORMAT JSONEachRow";
+
+#[derive(Deserialize)]
+struct NextDue {
+    due_at: DateTime<Utc>,
+}
 
 #[derive(Deserialize)]
 struct DueHead {
@@ -74,6 +91,35 @@ impl ScheduleRepository for Investigations {
                 })
             })
             .collect()
+    }
+
+    async fn next_due(
+        &self,
+        scope: &Scope,
+        after: &DateTime<Utc>,
+    ) -> Result<Option<DateTime<Utc>>, RepositoryError> {
+        let body = self
+            .0
+            .command(
+                NEXT_DUE,
+                &[
+                    ("after", after.to_rfc3339()),
+                    ("all_teams", u8::from(scope.all_teams).to_string()),
+                    ("team_id", scope.team_id.clone()),
+                    ("api_key_hash", scope.api_key_hash.clone()),
+                ],
+                String::new(),
+            )
+            .await
+            .map_err(failure)?;
+        body.lines()
+            .next()
+            .map(|line| {
+                serde_json::from_str::<NextDue>(line)
+                    .map(|row| row.due_at)
+                    .map_err(|error| RepositoryError::Unavailable(Box::new(error)))
+            })
+            .transpose()
     }
 
     async fn sync_due(&self, lens: &Lens) -> Result<(), RepositoryError> {

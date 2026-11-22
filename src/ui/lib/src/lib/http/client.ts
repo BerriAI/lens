@@ -115,6 +115,8 @@ export const extractProxyErrorMessage = (error: unknown): string => {
 export interface ApiClientConfig {
   /** Resolves the API origin at call time (it can change at runtime). */
   getBaseUrl: () => string;
+  /** Rewrites the path before the base URL is applied. Defaults to the path as given. */
+  resolvePath?: (path: string) => string;
   /** Resolves the auth header name at call time. Defaults to "Authorization". */
   getAuthHeaderName?: () => string;
   /** Invoked with the derived message right before a non-2xx response throws. Fire-and-forget. */
@@ -150,13 +152,13 @@ const appendQuery = (url: string, query: QueryParams | undefined): string => {
 };
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
-  const { getBaseUrl, getAuthHeaderName, onError, fetchImpl } = config;
+  const { getBaseUrl, resolvePath, getAuthHeaderName, onError, fetchImpl } = config;
   const doFetch: typeof fetch = (input, init) => (fetchImpl ?? fetch)(input, init);
 
   async function fetchChecked(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<Response> {
     const { accessToken, body, rawBody, query, headers: extraHeaders, signal, credentials, redirect, cache } = options;
 
-    const url = appendQuery(`${getBaseUrl()}${path}`, query);
+    const url = appendQuery(`${getBaseUrl()}${resolvePath ? resolvePath(path) : path}`, query);
 
     const headers: Record<string, string> = { Accept: "application/json" };
     if (path === "/lens" || path.startsWith("/lens/")) headers["X-Lens-Contract"] = "1";

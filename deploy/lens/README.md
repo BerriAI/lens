@@ -52,25 +52,9 @@ For an OTLP exporter, send traces to `http://localhost:4318/v1/traces` with `Aut
 
 ### Claude Code
 
-Claude Code's telemetry is off by default. Lens records Claude Code turns only when you turn it on, so set these variables wherever you run `claude`. This is the setup for Lens with no gateway: Claude Code keeps its own Anthropic login and sends telemetry straight to Lens with a tracing key
+Claude Code's telemetry is off by default. Lens records Claude Code turns only when you turn it on, so set the variables in [Claude Code telemetry](../../docs/claude-code.md) wherever you run `claude`. The variables are the same for both setups and only the endpoint and the key differ. With standalone Lens, `OTEL_EXPORTER_OTLP_ENDPOINT` is your Lens address, such as `http://localhost:4318`, and `OTEL_EXPORTER_OTLP_HEADERS` carries a Lens tracing key. When Claude Code's model calls go through a LiteLLM gateway connected to Lens, both point at the gateway instead: the endpoint is the gateway address and the header carries the LiteLLM key Claude Code already uses
 
-```sh
-export CLAUDE_CODE_ENABLE_TELEMETRY=1
-export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
-export OTEL_TRACES_EXPORTER=otlp
-export OTEL_LOGS_EXPORTER=otlp
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <your Lens tracing key>"
-export OTEL_LOG_USER_PROMPTS=1
-export OTEL_LOG_ASSISTANT_RESPONSES=1
-export OTEL_LOG_TOOL_DETAILS=1
-export OTEL_LOG_TOOL_CONTENT=1
-```
-
-The last four variables store your prompts, the assistant's replies and tool content in Lens. Without these settings Lens shows no Claude Code turns. [Claude Code telemetry](../../docs/claude-code.md#lens-with-no-gateway) explains each variable
-
-If Claude Code's model calls go through a LiteLLM gateway, use the [Lens with LiteLLM](../../docs/claude-code.md#lens-with-litellm) setup instead. It sends telemetry to the gateway with your LiteLLM key and adds cost. Do not send telemetry straight to Lens in that case
+Use one setup or the other. If Claude Code's model calls go through a gateway, send its telemetry to that gateway and not straight to Lens. These settings store the prompts you type, Claude Code's replies, the files it reads and the output of its commands. Without them Lens shows no turn or tool steps for Claude Code
 
 You can record traces without an analysis model. When you want Lens to investigate them, follow [Configure analysis models](../../docs/analysis.md), then open **Investigations** and create an investigation with an analysis model and monthly spending limit. [Signals](../../docs/signals.md) use a separate evaluation provider to flag matching traces
 

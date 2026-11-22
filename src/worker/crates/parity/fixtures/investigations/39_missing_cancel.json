@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/missing/cancel",
+    "path": "/lens/admin/missing/cancel",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

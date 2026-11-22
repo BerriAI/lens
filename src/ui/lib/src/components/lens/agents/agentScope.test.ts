@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { TraceSummary } from "../traces/types";
 import { rollUpAgents } from "./agentRollup";
-import { matchesAgent } from "./AgentPicker";
+import { ALL_AGENTS } from "../traces/routing";
+import { matchesAgent, matchesAllAgents } from "./AgentPicker";
 import { resolveAgent } from "./useAgentSelection";
 
 const summary = (overrides: Partial<TraceSummary>): TraceSummary =>
@@ -49,6 +50,15 @@ describe("resolveAgent", () => {
     expect(resolveAgent("", "", available)).toBe("moyai");
   });
 
+  it("keeps the all agents choice from a shared link and from this browser's last pick", () => {
+    expect(resolveAgent(ALL_AGENTS, "moyai", available)).toBe(ALL_AGENTS);
+    expect(resolveAgent("", ALL_AGENTS, available)).toBe(ALL_AGENTS);
+  });
+
+  it("has no remembered all agents choice before any agent is known", () => {
+    expect(resolveAgent("", ALL_AGENTS, [])).toBeNull();
+  });
+
   it("has no agent to scope to before any traces arrive", () => {
     expect(resolveAgent("", "moyai", [])).toBeNull();
   });
@@ -74,5 +84,13 @@ describe("matchesAgent", () => {
   it("finds agents by a case-insensitive part of the name", () => {
     expect(matchesAgent({ name: "Support-Bot" }, " support")).toBe(true);
     expect(matchesAgent({ name: "moyai" }, "research")).toBe(false);
+  });
+});
+
+describe("matchesAllAgents", () => {
+  it("offers the all agents choice until the search stops matching its label", () => {
+    expect(matchesAllAgents("")).toBe(true);
+    expect(matchesAllAgents(" ALL ag")).toBe(true);
+    expect(matchesAllAgents("moyai")).toBe(false);
   });
 });

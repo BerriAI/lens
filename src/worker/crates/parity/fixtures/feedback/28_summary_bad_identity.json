@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/feedback/summary",
+    "path": "/lens/admin/feedback/summary",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

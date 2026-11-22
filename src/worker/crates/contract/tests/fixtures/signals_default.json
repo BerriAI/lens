@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "path": "/lens/signals",
+    "path": "/lens/admin/signals",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

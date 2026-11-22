@@ -84,35 +84,35 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
     datasets: liveDatasetsApi(client, apiClient, accessToken),
     evalRuns: liveEvalRunsApi(apiClient, accessToken),
     lenses: () => required(client.GET("/lens", { headers })),
-    activity: () => required(client.GET("/lens/activity/available", { headers })),
+    activity: () => required(client.GET("/lens/admin/activity/available", { headers })),
     runs: (lensId, offset) =>
       required(
-        client.GET("/lens/{lens_id}/runs", { headers, params: { path: { lens_id: lensId }, query: { offset } } }),
+        client.GET("/lens/admin/{lens_id}/runs", { headers, params: { path: { lens_id: lensId }, query: { offset } } }),
       ),
     run: (lensId, jobId) =>
       required(
-        client.GET("/lens/{lens_id}/runs/{job_id}", {
+        client.GET("/lens/admin/{lens_id}/runs/{job_id}", {
           headers,
           params: { path: { lens_id: lensId, job_id: jobId } },
         }),
       ),
     reviews: (lensId, jobId, after) =>
       required(
-        client.GET("/lens/{lens_id}/runs/{job_id}/reviews", {
+        client.GET("/lens/admin/{lens_id}/runs/{job_id}/reviews", {
           headers,
           params: { path: { lens_id: lensId, job_id: jobId }, query: { after } },
         }),
       ),
     execution: (lensId, executionId, offset) =>
       required(
-        client.GET("/lens/{lens_id}/executions/{execution_id}", {
+        client.GET("/lens/admin/{lens_id}/executions/{execution_id}", {
           headers,
           params: { path: { lens_id: lensId, execution_id: executionId }, query: { offset } },
         }),
       ),
     sample: (selection, offset, asOf) =>
       required(
-        client.POST("/lens/preview/sample", {
+        client.POST("/lens/admin/preview/sample", {
           headers,
           body: {
             offset,
@@ -132,32 +132,32 @@ export function liveLensApi(client: LensClient, apiClient: ApiClient, accessToke
           },
         }),
       ),
-    agents: () => required(client.GET("/lens/agents", { headers })),
-    models: () => apiClient.get("/lens/models", { accessToken }),
-    modelDetails: () => apiClient.get("/lens/model_group/info", { accessToken }),
-    gateway: () => apiClient.get("/lens/gateway", { accessToken }),
-    refreshGateway: () => apiClient.post("/lens/gateway/refresh", { accessToken }),
+    agents: () => required(client.GET("/lens/admin/agents", { headers })),
+    models: () => apiClient.get("/lens/admin/models", { accessToken }),
+    modelDetails: () => apiClient.get("/lens/admin/model_group/info", { accessToken }),
+    gateway: () => apiClient.get("/lens/admin/gateway", { accessToken }),
+    refreshGateway: () => apiClient.post("/lens/admin/gateway/refresh", { accessToken }),
     saveLens: (id, settings) =>
       required(
         id
-          ? client.PUT("/lens/{lens_id}", { ...lens(id), body: settings })
+          ? client.PUT("/lens/admin/{lens_id}", { ...lens(id), body: settings })
           : client.POST("/lens", { headers, body: settings }),
       ),
-    startRun: (lensId, request = {}) => sent(client.POST("/lens/{lens_id}/runs", { ...lens(lensId), body: request })),
-    watchAll: () => required(client.POST("/lens/watch-all", { headers })),
-    signalConfig: () => required(client.GET("/lens/signals", { headers })),
-    signalOverview: () => apiClient.get("/lens/signals/overview", { accessToken }),
-    alertRules: () => apiClient.get("/lens/alerts/rules", { accessToken }),
-    saveAlertRules: (body) => apiClient.put("/lens/alerts/rules", { accessToken, body }),
-    alertRuleOverview: () => apiClient.get("/lens/alerts/rules/overview", { accessToken }),
-    saveSignalConfig: (config) => required(client.PUT("/lens/signals", { headers, body: config })),
-    signalAlerts: () => apiClient.get("/lens/signals/alerts", { accessToken }),
-    saveSignalAlerts: (body) => apiClient.put("/lens/signals/alerts", { accessToken, body }),
-    testSignalAlerts: (body) => apiClient.post("/lens/signals/alerts/test", { accessToken, body }),
-    cancelRun: (lensId) => sent(client.POST("/lens/{lens_id}/cancel", lens(lensId))),
+    startRun: (lensId, request = {}) => sent(client.POST("/lens/admin/{lens_id}/runs", { ...lens(lensId), body: request })),
+    watchAll: () => required(client.POST("/lens/admin/watch-all", { headers })),
+    signalConfig: () => required(client.GET("/lens/admin/signals", { headers })),
+    signalOverview: () => apiClient.get("/lens/admin/signals/overview", { accessToken }),
+    alertRules: () => apiClient.get("/lens/admin/alerts/rules", { accessToken }),
+    saveAlertRules: (body) => apiClient.put("/lens/admin/alerts/rules", { accessToken, body }),
+    alertRuleOverview: () => apiClient.get("/lens/admin/alerts/rules/overview", { accessToken }),
+    saveSignalConfig: (config) => required(client.PUT("/lens/admin/signals", { headers, body: config })),
+    signalAlerts: () => apiClient.get("/lens/admin/signals/alerts", { accessToken }),
+    saveSignalAlerts: (body) => apiClient.put("/lens/admin/signals/alerts", { accessToken, body }),
+    testSignalAlerts: (body) => apiClient.post("/lens/admin/signals/alerts/test", { accessToken, body }),
+    cancelRun: (lensId) => sent(client.POST("/lens/admin/{lens_id}/cancel", lens(lensId))),
     reviewFinding: (lensId, findingId, status, reason) =>
       sent(
-        client.PATCH("/lens/{lens_id}/findings/{finding_id}", {
+        client.PATCH("/lens/admin/{lens_id}/findings/{finding_id}", {
           headers,
           params: { path: { lens_id: lensId, finding_id: findingId } },
           body: { status, reason },

@@ -32,11 +32,11 @@ describe("Deployment analysis setup", () => {
       const list: LensList = { lenses: [], workers, tracing_enabled: true };
       gateway.get.mockImplementation((path) => {
         if (path === "/lens") return list;
-        if (path === "/lens/model_group/info") return { data: [model] };
-        if (path === "/lens/signals") return { model: "", threshold: 0.5, signals: [] };
-        if (path === "/lens/signals/alerts")
+        if (path === "/lens/admin/model_group/info") return { data: [model] };
+        if (path === "/lens/admin/signals") return { model: "", threshold: 0.5, signals: [] };
+        if (path === "/lens/admin/signals/alerts")
           return { revision: 0, enabled: false, connected: false, signal_ids: [], last_delivery: null };
-        if (path === "/lens/gateway")
+        if (path === "/lens/admin/gateway")
           return {
             configured: false,
             connected: false,
@@ -62,8 +62,8 @@ describe("Deployment analysis setup", () => {
       expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
       expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual([
         "/lens",
-        ...(host.surface === "standalone" ? ["/lens/gateway"] : []),
-        "/lens/model_group/info",
+        ...(host.surface === "standalone" ? ["/lens/admin/gateway"] : []),
+        "/lens/admin/model_group/info",
       ]);
       expect(gateway.post).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Connect project" }));
@@ -78,7 +78,7 @@ describe("Deployment analysis setup", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Analysis is configured"));
     expect(screen.getByRole("list", { name: "Analysis models" })).toHaveTextContent("analysis · openai");
     expect(screen.getByRole("button", { name: "New investigation" })).toBeVisible();
-    expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual(["/lens", "/lens/model_group/info"]);
+    expect(gateway.get.mock.calls.map(([path]) => path).sort()).toEqual(["/lens", "/lens/admin/model_group/info"]);
     expect(gateway.post).not.toHaveBeenCalled();
   });
 
@@ -101,7 +101,7 @@ describe("Deployment analysis setup", () => {
   it("distinguishes an unreachable check from missing configuration", async () => {
     const gateway = stubGateway();
     gateway.get.mockImplementation((path) => {
-      if (path === "/lens/model_group/info") throw new Error("Lens is temporarily unavailable");
+      if (path === "/lens/admin/model_group/info") throw new Error("Lens is temporarily unavailable");
       return { workers };
     });
     const user = userEvent.setup();

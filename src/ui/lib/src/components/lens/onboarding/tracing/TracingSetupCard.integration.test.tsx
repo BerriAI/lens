@@ -175,7 +175,7 @@ describe("TracingSetupCard", () => {
     await user.click(screen.getByRole("button", { name: "Generate tracing key" }));
 
     expect(await screen.findByText("Your tracing key")).toBeVisible();
-    expect(apiClient.post).toHaveBeenCalledWith("/lens/tracing/keys", {
+    expect(apiClient.post).toHaveBeenCalledWith("/lens/admin/tracing/keys", {
       accessToken: "sk-admin",
       body: TRACING_KEY_REQUEST,
     });

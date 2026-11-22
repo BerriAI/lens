@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "path": "/lens/activity/available",
+    "path": "/lens/admin/activity/available",
     "headers": {
       "content-type": "application/json"
     },

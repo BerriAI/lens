@@ -2621,8 +2621,8 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
 
 #[rstest]
 #[case::claude_code("com.anthropic.claude_code.tracing", &[], "session.id", true)]
-#[case::other_agent("opencode", &[], "session.id", true)]
-#[case::sender_with_a_stale_capture_setting("opencode", &[("lens.session.capture", "false")], "session.id", true)]
+#[case::other_agent("other-agent", &[], "session.id", true)]
+#[case::opencode_internal_span("opencode", &[], "session.id", false)]
 #[case::gateway_call_naming_its_session(
     "litellm",
     &[("lens.session.attribute", "gen_ai.conversation.id")],
@@ -3009,6 +3009,118 @@ fn native_body_exports_do_not_replay_old_tool_results(#[case] final_message: ser
     );
 }
 
+fn claude_body_log(event: &str, source: &str, body: &str) -> litellm_traces::DecodedSpan {
+    use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value::Value};
+    use prost::Message;
+    let mut request = log_request(source);
+    request.resource_logs[0].scope_logs[0].log_records[0].attributes = [
+        ("event.name", event),
+        ("query_source", source),
+        ("body", body),
+        ("request_body_id", "body-one"),
+        ("request_id", "req-one"),
+    ]
+    .into_iter()
+    .map(|(key, text)| KeyValue {
+        key: key.into(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(text.into())),
+        }),
+        ..Default::default()
+    })
+    .collect();
+    litellm_traces::decode_otlp_logs(&request.encode_to_vec(), None)
+        .unwrap()
+        .remove(0)
+}
+
+#[rstest]
+#[case::main_thread("repl_main_thread")]
+#[case::title_generation("generate_session_title")]
+fn claude_request_body_becomes_the_conversation_a_model_call_received(#[case] source: &str) {
+    let body = serde_json::json!({
+        "model": "test-model",
+        "system": [{"type": "text", "text": "SYSTEM-RULES"}],
+        "tools": [{"name": "Bash", "description": "TOOL-DEFINITION"}],
+        "messages": [
+            {"role": "user", "content": "Read the note"},
+            {"role": "assistant", "content": [
+                {"type": "thinking", "thinking": "PRIVATE-THOUGHT"},
+                {"type": "text", "text": "Reading it"},
+                {"type": "tool_use", "id": "call-1", "name": "Bash", "input": {"command": "cat note.txt"}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "call-1", "content": [{"type": "text", "text": "NOTE-CONTENT"}]}
+            ]}
+        ]
+    })
+    .to_string();
+    let span = claude_body_log("api_request_body", source, &body);
+    assert_eq!(span.name, "claude_code.api_request_body");
+    assert_eq!(
+        span.attributes.get("request_body_id").map(String::as_str),
+        Some("body-one")
+    );
+    assert!(span.consumed_attributes.contains(&"body"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&span.normalized.input).unwrap(),
+        serde_json::json!([
+            {"role": "system", "content": "SYSTEM-RULES"},
+            {"role": "user", "content": "Read the note"},
+            {"role": "assistant", "content": "Reading it", "tool_calls": [
+                {"name": "Bash", "arguments": {"command": "cat note.txt"}}
+            ]},
+            {"role": "tool", "content": "NOTE-CONTENT"}
+        ])
+    );
+}
+
+#[rstest]
+#[case::tool_call(
+    serde_json::json!([{"type": "tool_use", "id": "call-1", "name": "Bash", "input": {"command": "cat note.txt"}}]),
+    serde_json::json!({"role": "assistant", "content": "", "tool_calls": [{"name": "Bash", "arguments": {"command": "cat note.txt"}}]})
+)]
+#[case::final_text(
+    serde_json::json!([{"type": "thinking", "thinking": "PRIVATE-THOUGHT"}, {"type": "text", "text": "The note says hi"}]),
+    serde_json::json!({"role": "assistant", "content": "The note says hi"})
+)]
+fn claude_response_body_becomes_what_the_model_returned(
+    #[case] content: serde_json::Value,
+    #[case] expected: serde_json::Value,
+) {
+    let body = serde_json::json!({"id": "msg-1", "role": "assistant", "content": content, "stop_reason": "end_turn"})
+        .to_string();
+    let span = claude_body_log("api_response_body", "generate_session_title", &body);
+    assert_eq!(span.name, "claude_code.api_response_body");
+    assert_eq!(
+        span.attributes.get("request_id").map(String::as_str),
+        Some("req-one")
+    );
+    assert_eq!(
+        span.attributes.get("request_body_id").map(String::as_str),
+        Some("body-one")
+    );
+    assert!(span.consumed_attributes.contains(&"body"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&span.normalized.output).unwrap(),
+        expected
+    );
+}
+
+#[rstest]
+#[case::truncated_request("api_request_body", "{truncated")]
+#[case::request_without_messages("api_request_body", "{}")]
+#[case::truncated_response("api_response_body", "{truncated")]
+#[case::response_without_content("api_response_body", "{}")]
+fn unreadable_claude_bodies_leave_the_model_call_without_content(
+    #[case] event: &str,
+    #[case] body: &str,
+) {
+    let span = claude_body_log(event, "generate_session_title", body);
+    assert_eq!(span.normalized.input, "");
+    assert_eq!(span.normalized.output, "");
+}
+
 #[rstest]
 #[case::cli("codex_cli_rs", "session_task.turn")]
 #[case::ide("codex-app-server", "turn/start")]
@@ -3136,5 +3248,463 @@ fn codex_prompt_text_does_not_remove_half_a_turn(#[case] prompt: &str) {
     assert_eq!(
         decoded.claude_spans[1].normalized.output,
         r#"[{"role":"assistant","content":"Task title"}]"#
+    );
+}
+
+const OPENCODE_TWO_PROMPTS: &[u8] = include_bytes!("fixtures/opencode_two_prompts.json");
+const OPENCODE_TURN: &str = "opencode.turn";
+
+fn opencode_two_prompts(scope: &str) -> Vec<litellm_traces::DecodedSpan> {
+    let mut body: serde_json::Value = serde_json::from_slice(OPENCODE_TWO_PROMPTS).unwrap();
+    body["resourceSpans"][0]["scopeSpans"][0]["scope"]["name"] = scope.into();
+    decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap()
+}
+
+#[rstest]
+#[case::first_prompt(0, "Create a file named weather.txt", 3)]
+#[case::second_prompt(1, "Append a second line", 4)]
+fn opencode_prompt_gets_a_turn_holding_its_model_calls(
+    #[case] turn: usize,
+    #[case] asked: &str,
+    #[case] calls: usize,
+) {
+    let spans = opencode_two_prompts("opencode");
+    let turns: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .collect();
+    assert_eq!(turns.len(), 2);
+    let root = turns[turn];
+    assert_eq!(root.parent_span_id, "");
+    assert_eq!(root.normalized.observation_type, ObservationType::Agent);
+    assert_eq!(root.normalized.framework, Some(Integration::Opencode));
+    assert!(root.normalized.input_preview.contains(asked));
+    let wrappers: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == "ai.streamText" && span.parent_span_id == root.span_id)
+        .collect();
+    assert_eq!(wrappers.len(), calls);
+    assert!(
+        wrappers
+            .iter()
+            .all(|wrapper| wrapper.trace_id == root.trace_id && wrapper.start_ns >= root.start_ns)
+    );
+}
+
+#[rstest]
+#[case::wrapper("ai.streamText", ObservationType::Chain, 8)]
+#[case::provider_call("ai.streamText.doStream", ObservationType::Llm, 8)]
+#[case::tool("ai.toolCall", ObservationType::Tool, 5)]
+fn opencode_model_call_is_counted_once(
+    #[case] operation: &str,
+    #[case] observation_type: ObservationType,
+    #[case] count: usize,
+) {
+    let spans = opencode_two_prompts("opencode");
+    let named: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            span.attributes
+                .get("ai.operationId")
+                .is_some_and(|recorded| recorded == operation)
+        })
+        .collect();
+    assert_eq!(named.len(), count);
+    assert!(
+        named
+            .iter()
+            .all(|span| span.normalized.observation_type == observation_type)
+    );
+}
+
+#[rstest]
+fn opencode_session_title_call_stays_outside_the_turns() {
+    let spans = opencode_two_prompts("opencode");
+    let turns: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .map(|span| span.span_id.as_str())
+        .collect();
+    let outside: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            span.name == "ai.streamText" && !turns.contains(&span.parent_span_id.as_str())
+        })
+        .collect();
+    assert_eq!(outside.len(), 1);
+    assert!(outside[0].attributes["ai.prompt"].contains("You are a title generator."));
+    assert_eq!(outside[0].normalized.input_preview, "");
+}
+
+#[rstest]
+#[case::opencode_internal_stays_in_its_process_trace("opencode", false, 2)]
+#[case::other_sender_is_grouped_as_before("other", true, 0)]
+fn only_opencode_keeps_spans_without_ai_sdk_work_out_of_the_session(
+    #[case] scope: &str,
+    #[case] joins_session: bool,
+    #[case] turns: usize,
+) {
+    let spans = opencode_two_prompts(scope);
+    let session_trace = &spans
+        .iter()
+        .find(|span| span.name == "ai.streamText.doStream")
+        .unwrap()
+        .trace_id;
+    let internal: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == "Tool.execute")
+        .collect();
+    assert_eq!(internal.len(), 5);
+    assert!(
+        internal
+            .iter()
+            .all(|span| (&span.trace_id == session_trace) == joins_session)
+    );
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|span| span.name == OPENCODE_TURN)
+            .count(),
+        turns
+    );
+}
+
+#[rstest]
+fn opencode_turn_is_the_same_span_when_its_calls_arrive_in_separate_exports() {
+    let mut body: serde_json::Value = serde_json::from_slice(OPENCODE_TWO_PROMPTS).unwrap();
+    let all = body["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let together = decode_otlp(OPENCODE_TWO_PROMPTS, Some("application/json")).unwrap();
+    let last_call = all
+        .iter()
+        .rfind(|span| span["name"] == "ai.streamText")
+        .unwrap()
+        .clone();
+    body["resourceSpans"][0]["scopeSpans"][0]["spans"] = vec![last_call].into();
+    let alone = decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    assert_eq!(alone.len(), 1);
+    let second_turn = together
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .nth(1)
+        .unwrap();
+    assert_eq!(alone[0].parent_span_id, second_turn.span_id);
+    assert_eq!(alone[0].trace_id, second_turn.trace_id);
+}
+
+fn json_attrs(attributes: &[(&str, &str)]) -> Vec<serde_json::Value> {
+    attributes
+        .iter()
+        .map(|(key, value)| serde_json::json!({"key":key,"value":{"stringValue":value}}))
+        .collect()
+}
+
+fn json_span(
+    trace: &str,
+    span: &str,
+    parent: &str,
+    name: &str,
+    attributes: &[(&str, &str)],
+) -> serde_json::Value {
+    serde_json::json!({
+        "traceId":trace.repeat(16),"spanId":span.repeat(8),"parentSpanId":parent.repeat(8),
+        "name":name,"attributes":json_attrs(attributes),
+        "startTimeUnixNano":"1700000000000000010","endTimeUnixNano":"1700000000000000100"
+    })
+}
+
+fn decode_scope_spans(
+    scope: &str,
+    resource: &[(&str, &str)],
+    spans: Vec<serde_json::Value>,
+) -> Vec<litellm_traces::DecodedSpan> {
+    let request = serde_json::json!({"resourceSpans":[{
+        "resource":{"attributes":json_attrs(resource)},
+        "scopeSpans":[{"scope":{"name":scope},"spans":spans}]
+    }]});
+    decode_otlp(
+        &serde_json::to_vec(&request).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap()
+}
+
+fn codex_turn(trace: &str, root: &str, conversation: &str) -> Vec<serde_json::Value> {
+    vec![
+        json_span(
+            trace,
+            root,
+            "",
+            "session_task.turn",
+            &[("thread.id", conversation)],
+        ),
+        json_span(
+            trace,
+            "e1",
+            root,
+            "run_turn",
+            &[("conversation.id", conversation)],
+        ),
+        json_span(
+            trace,
+            "e2",
+            "e1",
+            "model_client.stream_responses_api",
+            &[("thread.id", "7"), ("model", "gpt-5.3-codex")],
+        ),
+        json_span(
+            trace,
+            "e3",
+            "e1",
+            "handle_responses",
+            &[("tool_name", "exec_command")],
+        ),
+    ]
+}
+
+#[rstest]
+#[case::cli("codex_cli_rs")]
+#[case::ide("codex-app-server")]
+#[case::exec("codex_exec")]
+fn codex_turns_of_one_conversation_share_a_trace(#[case] scope: &str) {
+    let first = decode_scope_spans(scope, &[], codex_turn("a1", "b1", "conversation-one"));
+    let second = decode_scope_spans(scope, &[], codex_turn("a2", "b2", "conversation-one"));
+    let other = decode_scope_spans(scope, &[], codex_turn("a3", "b3", "conversation-two"));
+    let trace_ids = |spans: &[litellm_traces::DecodedSpan]| {
+        spans
+            .iter()
+            .map(|span| span.trace_id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_eq!(first.len(), 3);
+    assert_eq!(trace_ids(&first).len(), 1);
+    assert_eq!(trace_ids(&first), trace_ids(&second));
+    assert_eq!(trace_ids(&other).len(), 1);
+    assert_ne!(trace_ids(&first), trace_ids(&other));
+    assert_ne!(first[0].trace_id, "a1".repeat(16));
+    assert_eq!(
+        first[0].attributes["lens.original_trace_id"],
+        "a1".repeat(16)
+    );
+    assert_eq!(
+        second[0].attributes["lens.original_trace_id"],
+        "a2".repeat(16)
+    );
+    let root = |spans: &[litellm_traces::DecodedSpan]| {
+        spans
+            .iter()
+            .find(|span| span.name == "session_task.turn")
+            .unwrap()
+            .span_id
+            .clone()
+    };
+    assert_ne!(root(&first), root(&second));
+    assert!(
+        second
+            .iter()
+            .filter(|span| span.name != "session_task.turn")
+            .all(|span| span.parent_span_id == root(&second))
+    );
+}
+
+#[rstest]
+#[case::with_trace_context("a1")]
+#[case::without_trace_context("")]
+fn codex_prompt_log_joins_its_conversation_trace(#[case] log_trace: &str) {
+    let spans = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let logs = serde_json::json!({"resourceLogs":[{"scopeLogs":[{
+        "scope":{"name":"codex_otel.log_only"},"logRecords":[{
+            "traceId":log_trace.repeat(16),"spanId":"c1".repeat(8),
+            "timeUnixNano":"1700000000000000020",
+            "attributes":json_attrs(&[
+                ("event.name", "codex.user_prompt"),
+                ("prompt", "Find the requested result"),
+                ("conversation.id", "conversation-one"),
+            ])
+        }]
+    }]}]});
+    let prompt = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let turn = spans
+        .iter()
+        .find(|span| span.name == "session_task.turn")
+        .unwrap();
+    assert_eq!(prompt.claude_spans[0].trace_id, turn.trace_id);
+    assert_eq!(
+        prompt.claude_spans[0].span_id == turn.span_id,
+        !log_trace.is_empty()
+    );
+}
+
+#[rstest]
+#[case::codex_with_trace("codex_otel.log_only", &[], "a1", "conversation-one", true)]
+#[case::codex_without_trace("codex_otel.log_only", &[], "", "conversation-one", false)]
+#[case::codex_without_conversation("codex_otel.log_only", &[], "a1", "", false)]
+#[case::codex_configured_attribute(
+    "codex_otel.log_only",
+    &[("lens.session.attribute", "session.id")],
+    "a1",
+    "conversation-one",
+    false
+)]
+#[case::other_client("other.logs", &[], "a1", "conversation-one", false)]
+fn stored_codex_log_record_follows_its_conversation_trace(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] log_trace: &str,
+    #[case] conversation: &str,
+    #[case] regrouped: bool,
+) {
+    let spans = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let logs = serde_json::json!({"resourceLogs":[{
+        "resource":{"attributes":json_attrs(resource)},
+        "scopeLogs":[{
+            "scope":{"name":scope},"logRecords":[{
+                "traceId":log_trace.repeat(16),"spanId":"c1".repeat(8),
+                "timeUnixNano":"1700000000000000020",
+                "attributes":json_attrs(&[
+                    ("event.name", "codex.api_request"),
+                    ("conversation.id", conversation),
+                ])
+            }]
+        }]
+    }]});
+    let batch = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let stored: String = batch.records[0]
+        .trace_id
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    assert_eq!(stored == spans[0].trace_id, regrouped);
+    assert_eq!(stored == log_trace.repeat(16), !regrouped);
+}
+
+#[rstest]
+#[case::codex_session_only("codex_exec", &[], &[("session.id", "s")], &[("session.id", "s")], true)]
+#[case::codex_prefers_conversation(
+    "codex_exec",
+    &[],
+    &[("session.id", "s1"), ("conversation.id", "c")],
+    &[("session.id", "s2"), ("conversation.id", "c")],
+    true
+)]
+#[case::codex_different_conversations(
+    "codex_exec",
+    &[],
+    &[("session.id", "s"), ("conversation.id", "c1")],
+    &[("session.id", "s"), ("conversation.id", "c2")],
+    false
+)]
+#[case::codex_without_ids("codex_exec", &[], &[], &[], false)]
+#[case::codex_configured_attribute_wins(
+    "codex_exec",
+    &[("lens.session.attribute", "session.id")],
+    &[("session.id", "s1"), ("conversation.id", "c")],
+    &[("session.id", "s2"), ("conversation.id", "c")],
+    false
+)]
+#[case::other_client_ignores_conversation(
+    "other-agent",
+    &[],
+    &[("conversation.id", "c")],
+    &[("conversation.id", "c")],
+    false
+)]
+#[case::other_client_keeps_session(
+    "other-agent",
+    &[],
+    &[("session.id", "s"), ("conversation.id", "c1")],
+    &[("session.id", "s"), ("conversation.id", "c2")],
+    true
+)]
+fn conversation_grouping_applies_only_to_codex(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] first: &[(&str, &str)],
+    #[case] second: &[(&str, &str)],
+    #[case] grouped: bool,
+) {
+    let first = decode_scope_spans(
+        scope,
+        resource,
+        vec![json_span("a1", "b1", "", "session_task.turn", first)],
+    );
+    let second = decode_scope_spans(
+        scope,
+        resource,
+        vec![json_span("a2", "b2", "", "session_task.turn", second)],
+    );
+    assert_eq!(first[0].trace_id == second[0].trace_id, grouped);
+}
+
+#[rstest]
+#[case::conversation_attribute("run_turn", "conversation.id", "conversation-one", true)]
+#[case::thread_attribute("guardian_scoring_observation", "thread_id", "conversation-one", true)]
+#[case::request_queue_key(
+    "app_server.serialized_request_queue",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    true
+)]
+#[case::other_queue_key("app_server.serialized_request_queue", "key", "Global", false)]
+#[case::runtime_thread("fs.read_file", "thread.id", "conversation-one", false)]
+#[case::key_on_other_span(
+    "fs.read_file",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    false
+)]
+fn codex_batch_without_conversation_attribute_joins_by_its_trace(
+    #[case] name: &str,
+    #[case] key: &str,
+    #[case] value: &str,
+    #[case] grouped: bool,
+) {
+    let turn = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let early = decode_scope_spans(
+        "codex_exec",
+        &[],
+        vec![
+            json_span("a2", "f1", "", name, &[(key, value)]),
+            json_span("a2", "f2", "f1", "turn/start", &[("turn.id", "turn-two")]),
+            json_span("a2", "f3", "f2", "model_client.stream_responses_api", &[]),
+        ],
+    );
+    assert_eq!(early.len(), 2);
+    assert_eq!(
+        (
+            early[0].trace_id == turn[0].trace_id,
+            early[1].trace_id == turn[0].trace_id
+        ),
+        (grouped, grouped)
     );
 }

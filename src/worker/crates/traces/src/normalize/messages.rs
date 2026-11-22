@@ -156,7 +156,7 @@ struct Part {
     response: Option<Value>,
 }
 
-/// A message as instrumentations record it: OpenAI chat (`role` + `content`), LangChain
+/// A message as instrumentations record it: OpenAI chat (`role` + `content`), serialized
 /// (`type`, wrapped in `kwargs` by `dumpd` or `data` by `messages_to_dict`), or OpenTelemetry
 /// GenAI and Gemini (`role` + `parts`).
 #[derive(Deserialize)]
@@ -468,13 +468,13 @@ struct LlmResult {
     llm_output: Option<LlmOutput>,
 }
 
-/// A LangChain `LLMResult`'s first generation and the requests behind it.
+/// An `LLMResult`'s first generation and the requests behind it.
 pub(super) struct Generations {
     pub first: Option<Message>,
     pub calls: CallEvidence,
 }
 
-/// LangChain `LLMResult`: `generations[prompt][candidate]`. Each prompt is one provider request,
+/// `LLMResult`: `generations[prompt][candidate]`. Each prompt is one provider request,
 /// whose candidates share its response id (`response_metadata.id`; `llm_output.id` for a single
 /// prompt). The evidence is complete only when every prompt yields exactly one id and no entry
 /// failed to parse.

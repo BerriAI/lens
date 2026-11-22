@@ -27,11 +27,11 @@ beforeEach(() => {
   testQueryClient.clear();
   proxy = stubGateway();
   proxy.get.mockImplementation(async (path) => {
-    if (path === "/lens/models")
+    if (path === "/lens/admin/models")
       return {
         data: [{ id: "chat-alias" }, { id: "other-chat" }, { id: "evaluation-only" }],
       };
-    if (path === "/lens/model_group/info")
+    if (path === "/lens/admin/model_group/info")
       return {
         data: [
           { model_group: "chat-alias", mode: "chat", providers: [] },
@@ -49,7 +49,7 @@ it("should show the first-run trace threshold with the actual received count", a
   expect(await screen.findByText("Waiting for traces · 7/10")).toBeVisible();
   expect(screen.getByText("3 more traces before the first run")).toBeVisible();
   expect(proxy.post).toHaveBeenCalledWith(
-    "/lens/preview/sample",
+    "/lens/admin/preview/sample",
     expect.objectContaining({
       body: expect.objectContaining({
         selection: expect.objectContaining({
@@ -147,7 +147,7 @@ it("should preserve paused settings while saving a model, prompt, frequency, and
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${paused.id}`,
+      `/lens/admin/${paused.id}`,
       expect.objectContaining({
         body: expect.objectContaining({
           enabled: false,
@@ -251,7 +251,7 @@ it("should allow pausing when the saved model is no longer in the gateway catalo
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${initial.id}`,
+      `/lens/admin/${initial.id}`,
       expect.objectContaining({
         body: expect.objectContaining({
           enabled: false,
@@ -278,9 +278,9 @@ it("should flag an agent's removed model after a successful refresh even when an
   };
   renderWithLens(<AutomaticAnalysis agent={initial.settings.agent_name} lenses={[completed]} ready readOnly={false} />);
   expect(await screen.findByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
-  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/models", expect.anything()));
+  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/admin/models", expect.anything()));
   proxy.get.mockImplementation(async (path) =>
-    path === "/lens/models"
+    path === "/lens/admin/models"
       ? { data: [{ id: "other-chat" }] }
       : { data: [{ model_group: "other-chat", mode: "chat", providers: [] }] },
   );
@@ -307,7 +307,7 @@ it("should not treat a transient catalogue request failure as a removed model", 
     ],
   };
   renderWithLens(<AutomaticAnalysis agent={initial.settings.agent_name} lenses={[completed]} ready readOnly={false} />);
-  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/model_group/info", expect.anything()));
+  await waitFor(() => expect(proxy.get).toHaveBeenCalledWith("/lens/admin/model_group/info", expect.anything()));
   proxy.get.mockRejectedValue(new Error("Gateway unavailable"));
   await testQueryClient.refetchQueries();
   expect(screen.getByText(`Next run: ${new Date(next).toLocaleString()}`)).toBeVisible();
@@ -336,7 +336,7 @@ it("should exclude other agents from the selected agent's analysis status", asyn
   expect(screen.queryByText("Analyzing unrelated agent")).not.toBeInTheDocument();
   expect(screen.queryByText("unrelated-agent")).not.toBeInTheDocument();
   expect(proxy.post).not.toHaveBeenCalledWith(
-    "/lens/preview/sample",
+    "/lens/admin/preview/sample",
     expect.objectContaining({
       body: expect.objectContaining({
         selection: expect.objectContaining({ agent_name: "unrelated-agent" }),
@@ -366,7 +366,7 @@ it("should expose one settings action for the agent's automatic configuration", 
   await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() =>
     expect(proxy.put).toHaveBeenCalledWith(
-      `/lens/${initial.id}`,
+      `/lens/admin/${initial.id}`,
       expect.objectContaining({
         body: expect.objectContaining({ context: initial.settings.context }),
       }),

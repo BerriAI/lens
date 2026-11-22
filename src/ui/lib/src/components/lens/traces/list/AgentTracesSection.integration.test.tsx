@@ -94,7 +94,7 @@ const stubPost = (
 ) =>
   vi.mocked(apiClient.post).mockImplementation(async (path, options) => {
     const traces = (options?.body as { traces: TraceKey[] }).traces;
-    return path === "/lens/feedback/summary" ? feedback(traces) : findings(traces);
+    return path === "/lens/admin/feedback/summary" ? feedback(traces) : findings(traces);
   });
 
 const bucketRunCounts = () =>
@@ -525,7 +525,7 @@ describe("AgentTracesSection", () => {
     renderSection(false);
     expect(await screen.findAllByTestId("agent-trace-row")).toHaveLength(runs.length);
     expect(screen.queryByRole("columnheader", { name: "Findings" })).not.toBeInTheDocument();
-    expect(apiClient.post).not.toHaveBeenCalledWith("/lens/traces/findings", expect.anything());
+    expect(apiClient.post).not.toHaveBeenCalledWith("/lens/admin/traces/findings", expect.anything());
   });
 
   it("shows the spend returned for a run", async () => {
@@ -596,7 +596,8 @@ describe("AgentTracesSection", () => {
     });
     renderSection();
     const [sdkRun, cliRun, plainRun] = await screen.findAllByTestId("agent-trace-row");
-    const agentCell = (row: HTMLElement) => within(row).getAllByRole("cell")[1];
+    const agentColumn = screen.getAllByRole("columnheader").findIndex((header) => header.textContent === "Agent");
+    const agentCell = (row: HTMLElement) => within(row).getAllByRole("cell")[agentColumn];
 
     expect(agentCell(sdkRun)).toHaveTextContent(/^research-bot$/);
     expect(within(agentCell(sdkRun)).getByTitle("research-bot · Claude Agent SDK")).toBeInTheDocument();

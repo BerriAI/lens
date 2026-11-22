@@ -15,13 +15,13 @@ fn request(name: &str, method: &str, path: &str, body: Value) -> Scenario {
 }
 
 fn preview(name: &str, body: Value) -> Scenario {
-    request(name, "POST", "/lens/preview/sample", body)
+    request(name, "POST", "/lens/admin/preview/sample", body)
 }
 
 pub fn activity_scenarios() -> Vec<Scenario> {
     let id =
         URL_SAFE.encode("[\"traces\", \"alpha\", \"f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0\", \"\"]");
-    let path = format!("/lens/parity-lens/executions/{id}");
+    let path = format!("/lens/admin/parity-lens/executions/{id}");
     let foreign = URL_SAFE.encode("[\"traces\", \"beta\", \"trace\", \"\"]");
     let wrong = URL_SAFE.encode("[\"unknown\", \"alpha\", \"trace\", \"\"]");
     vec![
@@ -29,7 +29,7 @@ pub fn activity_scenarios() -> Vec<Scenario> {
             "activity",
             "00_auth_required",
             "GET",
-            "/lens/activity/available",
+            "/lens/admin/activity/available",
             json_headers(None),
             Value::Null,
             vec![],
@@ -37,10 +37,10 @@ pub fn activity_scenarios() -> Vec<Scenario> {
         request(
             "01_availability",
             "GET",
-            "/lens/activity/available",
+            "/lens/admin/activity/available",
             Value::Null,
         ),
-        request("02_agents", "GET", "/lens/agents", Value::Null),
+        request("02_agents", "GET", "/lens/admin/agents", Value::Null),
         preview("03_selection_required", json!({})),
         preview("04_selection_null", json!({"selection":null})),
         preview("05_source_invalid", json!({"selection":{"source":"all"}})),
@@ -102,19 +102,19 @@ pub fn activity_scenarios() -> Vec<Scenario> {
         request(
             "22_lens_missing",
             "GET",
-            &format!("/lens/missing/executions/{id}"),
+            &format!("/lens/admin/missing/executions/{id}"),
             Value::Null,
         ),
         request(
             "23_execution_invalid",
             "GET",
-            "/lens/parity-lens/executions/invalid",
+            "/lens/admin/parity-lens/executions/invalid",
             Value::Null,
         ),
         request(
             "24_execution_foreign_team",
             "GET",
-            &format!("/lens/parity-lens/executions/{foreign}"),
+            &format!("/lens/admin/parity-lens/executions/{foreign}"),
             Value::Null,
         ),
         request("25_execution_content", "GET", &path, Value::Null),
@@ -145,25 +145,25 @@ pub fn activity_scenarios() -> Vec<Scenario> {
         request(
             "30_findings_missing",
             "POST",
-            "/lens/traces/findings",
+            "/lens/admin/traces/findings",
             json!({"traces":[{"trace_id":"missing"},{"trace_id":"missing","trace_ref":"ref"}]}),
         ),
         request(
             "31_findings_empty",
             "POST",
-            "/lens/traces/findings",
+            "/lens/admin/traces/findings",
             json!({"traces":[]}),
         ),
         request(
             "32_findings_invalid",
             "POST",
-            "/lens/traces/findings",
+            "/lens/admin/traces/findings",
             json!({"traces":[{"trace_id":"","trace_ref":false}]}),
         ),
         request(
             "33_findings_unknown_field",
             "POST",
-            "/lens/traces/findings",
+            "/lens/admin/traces/findings",
             json!({"traces":[{"trace_id":"trace","scope":"all"}]}),
         ),
         preview(

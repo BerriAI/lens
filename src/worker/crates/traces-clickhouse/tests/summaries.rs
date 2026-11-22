@@ -13,7 +13,7 @@ mod support;
 
 use fixtures::{
     DATABASE, SeededDatabase, migrated_database, seed_interleaved_agent_runs,
-    seed_runs_with_and_without_calls, seeded_database,
+    seed_runs_with_and_without_calls, seed_runs_with_staggered_ends, seeded_database,
 };
 use support::TestResult;
 
@@ -30,6 +30,7 @@ fn list_params(access: ReadAccessParams) -> ListTracesParams {
         access,
         agent: String::new(),
         include_internal: true,
+        by_last_activity: false,
         start_ms: 0,
         end_ms: 2_000_000_000_000,
         cursor_ms: 0,
@@ -131,7 +132,7 @@ async fn summary_pages_hide_runs_without_model_or_tool_calls_before_pagination(
     let access = access(true, "", &[]);
     let reader = TraceReader::new(usize::MAX);
     let hidden = reader
-        .list_traces(&store, &access, "", false, start_ms, end_ms, None, 1)
+        .list_traces(&store, &access, "", false, false, start_ms, end_ms, None, 1)
         .await?;
     assert_eq!(hidden.data[0].trace_id, "tool-run");
     let hidden_next = reader
@@ -139,6 +140,7 @@ async fn summary_pages_hide_runs_without_model_or_tool_calls_before_pagination(
             &store,
             &access,
             "",
+            false,
             false,
             start_ms,
             end_ms,
@@ -148,7 +150,7 @@ async fn summary_pages_hide_runs_without_model_or_tool_calls_before_pagination(
         .await?;
     assert_eq!(hidden_next.data[0].trace_id, "model-run");
     let shown = reader
-        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
+        .list_traces(&store, &access, "", true, false, start_ms, end_ms, None, 10)
         .await?;
     assert_eq!(
         shown
@@ -157,6 +159,80 @@ async fn summary_pages_hide_runs_without_model_or_tool_calls_before_pagination(
             .map(|run| run.trace_id.as_str())
             .collect::<Vec<_>>(),
         ["internal-new", "tool-run", "internal-old", "model-run"]
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::start_from_spans(false, false, ["newest-start-middle-end", "middle-start-earliest-end", "oldest-start-latest-end"])]
+#[case::start_from_summaries(true, false, ["newest-start-middle-end", "middle-start-earliest-end", "oldest-start-latest-end"])]
+#[case::last_activity_from_spans(false, true, ["oldest-start-latest-end", "newest-start-middle-end", "middle-start-earliest-end"])]
+#[case::last_activity_from_summaries(true, true, ["oldest-start-latest-end", "newest-start-middle-end", "middle-start-earliest-end"])]
+#[tokio::test]
+async fn cursor_pages_follow_the_requested_sort_within_the_start_window(
+    #[future(awt)] migrated_database: TestResult<SeededDatabase>,
+    #[case] projected: bool,
+    #[case] by_last_activity: bool,
+    #[case] expected: [&str; 3],
+) -> TestResult {
+    let fixture = migrated_database?;
+    let (start_ms, end_ms) = seed_runs_with_staggered_ends(&fixture).await?;
+    let config = Config::new(DATABASE.into(), &fixture.database.url, 7)?;
+    if projected {
+        summaries::project(&fixture.database.client, &config, 16, &mut None).await?;
+    }
+    let store = ClickHouseTraces::new(
+        fixture.database.client.clone(),
+        config.storage().reader().clone(),
+    );
+    let reader = TraceReader::new(usize::MAX);
+    let access = access(true, "", &[]);
+    let params = ListTracesParams {
+        access: access.clone(),
+        agent: String::new(),
+        include_internal: true,
+        by_last_activity,
+        start_ms,
+        end_ms,
+        cursor_ms: 0,
+        cursor_trace_id: String::new(),
+        limit: 1,
+    };
+    assert_eq!(store.summary_page(&params).await?.is_some(), projected);
+    let list = |cursor: Option<String>| {
+        let (reader, store, access) = (&reader, &store, &access);
+        async move {
+            reader
+                .list_traces(
+                    store,
+                    access,
+                    "",
+                    true,
+                    by_last_activity,
+                    start_ms,
+                    end_ms,
+                    cursor.as_deref(),
+                    1,
+                )
+                .await
+        }
+    };
+    let first = list(None).await?;
+    let second = list(first.next_cursor.clone()).await?;
+    let third = list(second.next_cursor.clone()).await?;
+    let rest = list(third.next_cursor.clone()).await?;
+    assert_eq!(
+        [&first, &second, &third].map(|page| page.data[0].trace_id.as_str()),
+        expected
+    );
+    assert!(rest.data.is_empty());
+    let latest_end = [&first, &second, &third]
+        .into_iter()
+        .find(|page| page.data[0].trace_id == "oldest-start-latest-end")
+        .ok_or("missing run")?;
+    assert_eq!(
+        latest_end.data[0].last_activity_time,
+        litellm_traces::iso_time(start_ms + 9_000)
     );
     Ok(())
 }
@@ -180,6 +256,7 @@ async fn summary_pages_filter_agents_before_pagination(
         access: access.clone(),
         agent: "A".into(),
         include_internal: true,
+        by_last_activity: false,
         start_ms,
         end_ms,
         cursor_ms: 0,
@@ -188,7 +265,7 @@ async fn summary_pages_filter_agents_before_pagination(
     };
     assert!(store.summary_page(&params).await?.is_some());
     let first = reader
-        .list_traces(&store, &access, "A", true, start_ms, end_ms, None, 2)
+        .list_traces(&store, &access, "A", true, false, start_ms, end_ms, None, 2)
         .await?;
     assert_eq!(
         first
@@ -204,6 +281,7 @@ async fn summary_pages_filter_agents_before_pagination(
             &access,
             "A",
             true,
+            false,
             start_ms,
             end_ms,
             first.next_cursor.as_deref(),
@@ -218,7 +296,7 @@ async fn summary_pages_filter_agents_before_pagination(
         ["a-old"]
     );
     let unfiltered = reader
-        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
+        .list_traces(&store, &access, "", true, false, start_ms, end_ms, None, 10)
         .await?;
     assert_eq!(unfiltered.data.len(), 6);
     assert_eq!(unfiltered.data[0].trace_id, "b-new");
@@ -354,7 +432,17 @@ async fn summaries_preserve_user_visibility_within_a_shared_trace(
     .await?;
     let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
     let before = TraceReader::new(usize::MAX)
-        .list_traces(&store, &scope, "", true, 0, 2_000_000_000_000, None, 50)
+        .list_traces(
+            &store,
+            &scope,
+            "",
+            true,
+            false,
+            0,
+            2_000_000_000_000,
+            None,
+            50,
+        )
         .await?;
     assert_eq!(before.data.len(), 1);
 
@@ -511,7 +599,17 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
         Connection::reader(&fixture.database.url, DATABASE)?,
     );
     let before = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, "", true, 0, 2_000_000_000_000, None, limit)
+        .list_traces(
+            &store,
+            &access,
+            "",
+            true,
+            false,
+            0,
+            2_000_000_000_000,
+            None,
+            limit,
+        )
         .await?;
     let before_next = if let Some(cursor) = before.next_cursor.as_deref() {
         Some(
@@ -521,6 +619,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
                     &access,
                     "",
                     true,
+                    false,
                     0,
                     2_000_000_000_000,
                     Some(cursor),
@@ -539,6 +638,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
             access: access.clone(),
             agent: String::new(),
             include_internal: true,
+            by_last_activity: false,
             start_ms: 0,
             end_ms: 2_000_000_000_000,
             cursor_ms: 0,
@@ -562,7 +662,17 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
     );
 
     let after = TraceReader::new(usize::MAX)
-        .list_traces(&store, &access, "", true, 0, 2_000_000_000_000, None, limit)
+        .list_traces(
+            &store,
+            &access,
+            "",
+            true,
+            false,
+            0,
+            2_000_000_000_000,
+            None,
+            limit,
+        )
         .await?;
     assert_eq!(after, before);
     if let Some(cursor) = after.next_cursor.as_deref() {
@@ -572,6 +682,7 @@ async fn persistent_summaries_match_resolved_lists_after_a_reader_restart(
                 &access,
                 "",
                 true,
+                false,
                 0,
                 2_000_000_000_000,
                 Some(cursor),
@@ -597,7 +708,7 @@ async fn projection_advances_past_fresh_pages_and_revisits_late_updates(
         std::time::Duration::from_secs(10)).await?;
     litellm_storage_clickhouse::execute_statement(client, config.storage().writer(),
         "INSERT INTO trace_test.lens_trace_summaries (TeamId, ApiKeyHash, TraceId, TraceRef, ScopeUserId, SourceSpanCount, StartTs, ComputedAt, ResolutionVersion, SpendKeys, Summary)
-         SELECT TeamId, ApiKeyHash, TraceId, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))), '', 1, now64(3), 1, 2, [], '{}' FROM trace_test.agent_traces_by_key",
+         SELECT TeamId, ApiKeyHash, TraceId, hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))), '', 1, now64(3), 1, 3, [], '{}' FROM trace_test.agent_traces_by_key",
         std::time::Duration::from_secs(10)).await?;
     let last = span("owner", "last")
         .into_iter()
@@ -756,7 +867,17 @@ async fn a_gateway_trace_is_listed_only_for_calls_no_agent_trace_recorded(
     let store = ClickHouseTraces::new(client.clone(), config.storage().reader().clone());
     let scope = access(true, "", &[]);
     let mut resolved: Vec<_> = TraceReader::new(usize::MAX)
-        .list_traces(&store, &scope, "", true, 0, 2_000_000_000_000, None, 50)
+        .list_traces(
+            &store,
+            &scope,
+            "",
+            true,
+            false,
+            0,
+            2_000_000_000_000,
+            None,
+            50,
+        )
         .await?
         .data
         .into_iter()

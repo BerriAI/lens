@@ -47,7 +47,7 @@ async fn request_evidence_returns_no_content_for_a_recorded_request(
         .get(
             server
                 .url
-                .join(&format!("/lens/parity-lens/executions/{id}{query}"))
+                .join(&format!("/lens/admin/parity-lens/executions/{id}{query}"))
                 .unwrap(),
         )
         .bearer_auth(ADMIN)
@@ -71,7 +71,7 @@ async fn discovered_agents_come_from_real_trace_metadata(#[future(awt)] database
     let server = database.serve(true).await;
     let response = server
         .client
-        .get(server.url.join("/lens/agents").unwrap())
+        .get(server.url.join("/lens/admin/agents").unwrap())
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -107,11 +107,11 @@ async fn recorded_activity_contracts_replay_against_real_http_and_clickhouse(
 }
 
 #[rstest]
-#[case::availability("GET","/lens/activity/available",json!(null))]
-#[case::agents("GET","/lens/agents",json!(null))]
-#[case::preview("POST","/lens/preview/sample",json!({"selection":{}}))]
-#[case::evidence("GET","/lens/parity-lens/executions/invalid",json!(null))]
-#[case::findings("POST","/lens/traces/findings",json!({"traces":[{"trace_id":"trace"}]}))]
+#[case::availability("GET","/lens/admin/activity/available",json!(null))]
+#[case::agents("GET","/lens/admin/agents",json!(null))]
+#[case::preview("POST","/lens/admin/preview/sample",json!({"selection":{}}))]
+#[case::evidence("GET","/lens/admin/parity-lens/executions/invalid",json!(null))]
+#[case::findings("POST","/lens/admin/traces/findings",json!({"traces":[{"trace_id":"trace"}]}))]
 #[tokio::test]
 async fn activity_requires_administrator_read_access(
     #[future(awt)] database: Database,
@@ -142,8 +142,8 @@ async fn activity_requires_administrator_read_access(
 }
 
 #[rstest]
-#[case::availability("/lens/activity/available",json!({"traces":false,"requests":false}))]
-#[case::agents("/lens/agents",json!([]))]
+#[case::availability("/lens/admin/activity/available",json!({"traces":false,"requests":false}))]
+#[case::agents("/lens/admin/agents",json!([]))]
 #[tokio::test]
 async fn unconfigured_activity_keeps_its_empty_discovery_responses(
     #[future(awt)] database: Database,
@@ -168,7 +168,7 @@ async fn preview_requires_a_configured_source(#[future(awt)] database: Database)
     let server = database.serve(false).await;
     let response = server
         .client
-        .post(server.url.join("/lens/preview/sample").unwrap())
+        .post(server.url.join("/lens/admin/preview/sample").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"selection":{}}))
         .send()
@@ -199,7 +199,7 @@ async fn preview_reads_recent_completed_traces_and_applies_team_selection(
     });
     let response = server
         .client
-        .post(server.url.join("/lens/preview/sample").unwrap())
+        .post(server.url.join("/lens/admin/preview/sample").unwrap())
         .bearer_auth(token)
         .json(&json!({"selection":{"team_id":"alpha"}}))
         .send()
@@ -219,8 +219,8 @@ async fn preview_reads_recent_completed_traces_and_applies_team_selection(
 #[case::models("/models")]
 #[case::openai_models("/v1/models")]
 #[case::details("/model_group/info")]
-#[case::lens_models("/lens/models")]
-#[case::lens_details("/lens/model_group/info")]
+#[case::lens_models("/lens/admin/models")]
+#[case::lens_details("/lens/admin/model_group/info")]
 #[tokio::test]
 async fn model_dropdowns_use_only_configured_models(
     #[future(awt)] database: Database,
@@ -282,12 +282,17 @@ async fn an_unconfigured_model_catalog_is_empty_and_authorized(
 }
 
 #[rstest]
-#[case::anonymous_read(None, "GET", "/lens/gateway", 401)]
-#[case::anonymous_refresh(None, "POST", "/lens/gateway/refresh", 401)]
-#[case::team_read(Some(Role::InternalUser), "GET", "/lens/gateway", 403)]
-#[case::viewer_read(Some(Role::ProxyAdminViewer), "GET", "/lens/gateway", 200)]
-#[case::viewer_refresh(Some(Role::ProxyAdminViewer), "POST", "/lens/gateway/refresh", 403)]
-#[case::admin_refresh(Some(Role::ProxyAdmin), "POST", "/lens/gateway/refresh", 200)]
+#[case::anonymous_read(None, "GET", "/lens/admin/gateway", 401)]
+#[case::anonymous_refresh(None, "POST", "/lens/admin/gateway/refresh", 401)]
+#[case::team_read(Some(Role::InternalUser), "GET", "/lens/admin/gateway", 403)]
+#[case::viewer_read(Some(Role::ProxyAdminViewer), "GET", "/lens/admin/gateway", 200)]
+#[case::viewer_refresh(
+    Some(Role::ProxyAdminViewer),
+    "POST",
+    "/lens/admin/gateway/refresh",
+    403
+)]
+#[case::admin_refresh(Some(Role::ProxyAdmin), "POST", "/lens/admin/gateway/refresh", 200)]
 #[tokio::test]
 async fn gateway_discovery_is_admin_only_and_status_is_viewer_readable(
     #[future(awt)] database: Database,
@@ -316,11 +321,11 @@ async fn gateway_discovery_is_admin_only_and_status_is_viewer_readable(
 }
 
 #[rstest]
-#[case::agents("/lens/agents")]
-#[case::availability("/lens/activity/available")]
-#[case::preview("/lens/preview/sample")]
-#[case::findings("/lens/traces/findings")]
-#[case::execution("/lens/id/executions/id")]
+#[case::agents("/lens/admin/agents")]
+#[case::availability("/lens/admin/activity/available")]
+#[case::preview("/lens/admin/preview/sample")]
+#[case::findings("/lens/admin/traces/findings")]
+#[case::execution("/lens/admin/id/executions/id")]
 #[tokio::test]
 async fn activity_trailing_slashes_preserve_the_public_redirect(
     #[future(awt)] database: Database,

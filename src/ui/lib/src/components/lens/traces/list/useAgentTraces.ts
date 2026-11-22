@@ -11,7 +11,7 @@ import {
 } from "../../../shared/timeRange/timeRange";
 import { ApiError } from "../../../../lib/http/client";
 
-import type { TracePage, TraceSummary } from "../types";
+import type { TracePage, TraceSort, TraceSummary } from "../types";
 import type { TraceWindow } from "../api";
 
 interface LoadedTracePage extends TracePage {
@@ -44,6 +44,7 @@ interface UseAgentTracesOptions {
   enabled: boolean;
   agent: string;
   includeInternal: boolean;
+  sort: TraceSort;
 }
 
 export interface AgentTracesResult {
@@ -72,14 +73,15 @@ export function useAgentTraces({
   enabled,
   agent,
   includeInternal,
+  sort,
 }: UseAgentTracesOptions): AgentTracesResult {
   const traces = useTracesApi(accessToken);
   const fetchPage = async (pageParam: unknown, signal: AbortSignal): Promise<LoadedTracePage> => {
     const window = (pageParam as TraceWindow | null) ?? timeWindow(range, Date.now());
-    return { ...(await traces.list(window, { agent, includeInternal }, signal)), window };
+    return { ...(await traces.list(window, { agent, includeInternal, sort }, signal)), window };
   };
   const queryOptions: Parameters<typeof useInfiniteQuery<LoadedTracePage, Error>>[0] = {
-    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs, agent, includeInternal],
+    queryKey: ["agentTraces", accessToken, range.hours, range.anchorMs, agent, includeInternal, sort],
     queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
     initialPageParam: null,
     getNextPageParam: (lastPage) =>

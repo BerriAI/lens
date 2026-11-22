@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeSet,
-    sync::{Arc, atomic::Ordering},
+    sync::{Arc, Mutex, atomic::Ordering},
     time::Duration,
 };
 
@@ -28,17 +28,22 @@ use litellm_traces_clickhouse::query::alert_rules::{
     AlertRuleCandidates, AlertRuleParams, AlertRuleRow,
 };
 use serde_json::json;
+use tokio::time::Instant;
 
 use crate::error::SignalAlertError as Error;
 
 const LEASE: &str = "alert-rules/sweep";
 const PAGE_SIZE: u32 = 100;
+const SETTINGS_RELOAD: Duration = Duration::from_secs(60);
+const SWEEP: Duration = Duration::from_secs(60);
+const SETTLE: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct AlertRules {
     authentication: Arc<Authentication<Sessions>>,
     sources: crate::SourceReader,
     store: ClickHouseState,
+    settings: Arc<Mutex<Option<(Instant, Settings)>>>,
 }
 
 impl AlertRules {
@@ -50,13 +55,14 @@ impl AlertRules {
             store: authentication.sessions.0.clone(),
             authentication,
             sources,
+            settings: Arc::default(),
         }
     }
 
     pub fn router(&self) -> Router {
         Router::new()
-            .route("/lens/alerts/rules", get(read).put(save))
-            .route("/lens/alerts/rules/overview", get(overview))
+            .route("/lens/admin/alerts/rules", get(read).put(save))
+            .route("/lens/admin/alerts/rules/overview", get(overview))
             .layer(DefaultBodyLimit::max(32_768))
             .with_state(self.clone())
     }
@@ -72,13 +78,34 @@ impl AlertRules {
         }
     }
 
-    async fn tick(&self) -> Result<(), crate::Error> {
-        if !self.sources.0.schema_ready.load(Ordering::Acquire) {
-            return Ok(());
+    fn remember(&self, settings: &Settings) {
+        if let Ok(mut cache) = self.settings.lock() {
+            *cache = Some((Instant::now(), settings.clone()));
+        }
+    }
+
+    async fn settings(&self) -> Result<Settings, litellm_storage_clickhouse::Error> {
+        let remembered = self.settings.lock().ok().and_then(|cache| {
+            cache
+                .as_ref()
+                .filter(|(loaded, _)| loaded.elapsed() < SETTINGS_RELOAD)
+                .map(|(_, settings)| settings.clone())
+        });
+        if let Some(settings) = remembered {
+            return Ok(settings);
         }
         let settings = storage::settings(&self.store).await?;
+        self.remember(&settings);
+        Ok(settings)
+    }
+
+    async fn tick(&self) -> Result<bool, crate::Error> {
+        if !self.sources.0.schema_ready.load(Ordering::Acquire) {
+            return Ok(false);
+        }
+        let settings = self.settings().await?;
         let Some(since) = settings.active().map(|(_, since)| since).min() else {
-            return Ok(());
+            return Ok(false);
         };
         let now = Utc::now();
         let lease = self.store.read(LEASE).await?;
@@ -86,7 +113,7 @@ impl AlertRules {
             .as_i64()
             .is_some_and(|until| until > now.timestamp())
         {
-            return Ok(());
+            return Ok(false);
         }
         let cursor = lease.value["cursor"].as_str().unwrap_or("").to_owned();
         let reservation = json!({"until":now.timestamp() + 60,"cursor":cursor});
@@ -99,7 +126,7 @@ impl AlertRules {
             .await
         {
             Ok(()) => (),
-            Err(litellm_storage_clickhouse::Error::StateConflict) => return Ok(()),
+            Err(litellm_storage_clickhouse::Error::StateConflict) => return Ok(false),
             Err(error) => return Err(error.into()),
         }
         let rows = self
@@ -126,9 +153,8 @@ impl AlertRules {
             if Utc::now() >= now + TimeDelta::seconds(50) {
                 break;
             }
-            let current = storage::settings(&self.store).await?;
-            if current.config != settings.config {
-                return Ok(());
+            if self.settings().await?.config != settings.config {
+                break;
             }
             let Some(started) = DateTime::from_timestamp_millis(row.start_ms) else {
                 continue;
@@ -138,9 +164,9 @@ impl AlertRules {
             }
             processed += 1;
         }
+        let more = processed < rows.len() || rows.len() == PAGE_SIZE as usize;
         let lease = self.store.read(LEASE).await?;
         if lease.value == reservation {
-            let more = processed < rows.len() || rows.len() == PAGE_SIZE as usize;
             let cursor = if more {
                 rows.get(processed.saturating_sub(1))
                     .filter(|_| processed > 0)
@@ -152,20 +178,27 @@ impl AlertRules {
             self.store
                 .commit(vec![Change {
                     previous: lease,
-                    value: json!({"until": Utc::now().timestamp() + if more { 0 } else { 30 }, "cursor": cursor}),
+                    value: json!({"until": 0, "cursor": cursor}),
                 }])
                 .await?;
         }
-        Ok(())
+        Ok(more)
     }
 
     pub async fn serve(self) {
-        let mut interval = tokio::time::interval(Duration::from_secs(5));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut wake = self.sources.0.wake.listen();
+        wake.mark_changed();
         loop {
-            interval.tick().await;
-            if self.tick().await.is_err() {
-                tracing::warn!("Alert rule evaluation is unavailable; will retry");
+            crate::wake::arrival(&mut wake, SETTLE, SWEEP).await;
+            loop {
+                match self.tick().await {
+                    Ok(true) => {}
+                    Ok(false) => break,
+                    Err(_) => {
+                        tracing::warn!("Alert rule evaluation is unavailable; will retry");
+                        break;
+                    }
+                }
             }
         }
     }
@@ -262,7 +295,10 @@ async fn save(
             value: serde_json::to_value(settings)?,
         }])
         .await?;
-    Ok(Json(storage::settings(&app.store).await?.config))
+    let settings = storage::settings(&app.store).await?;
+    app.remember(&settings);
+    app.sources.0.wake.notify();
+    Ok(Json(settings.config))
 }
 
 async fn overview(

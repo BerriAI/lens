@@ -4,11 +4,11 @@ import { privateValue, tracePayload, withFixture } from "./qualification-fixture
 await withFixture("runtime", process.argv[2], async (fixture) => {
   const { request, docker, storage, server } = fixture;
   await fixture.startServer();
-  for (const endpoint of ["/lens", "/v1/traces", "/lens/tracing/keys", "/lens/datasets"]) {
+  for (const endpoint of ["/lens", "/v1/traces", "/lens/admin/tracing/keys", "/lens/admin/datasets"]) {
     assert.equal((await request("GET", endpoint, undefined, "")).status, 401, `${endpoint} requires authentication`);
     assert.equal((await request("GET", endpoint, undefined, "invalid-fixture-token")).status, 401, `${endpoint} rejects an invalid token`);
   }
-  const created = await request("POST", "/lens/tracing/keys", { name: "Revocation qualification" });
+  const created = await request("POST", "/lens/admin/tracing/keys", { name: "Revocation qualification" });
   assert.equal(created.status, 200);
   assert.equal(created.data.active, true);
   const key = privateValue(created.data.key);
@@ -21,30 +21,30 @@ await withFixture("runtime", process.argv[2], async (fixture) => {
   assert.equal(traces.data.data.length, 1);
   assert.equal(traces.data.data[0].trace_id, retained.resourceSpans[0].scopeSpans[0].spans[0].traceId);
   await new Promise((resolve) => setTimeout(resolve, 1100));
-  assert.equal((await request("DELETE", `/lens/tracing/keys/${created.data.record.id}`)).status, 200);
+  assert.equal((await request("DELETE", `/lens/admin/tracing/keys/${created.data.record.id}`)).status, 200);
   assert.equal((await request("POST", "/v1/traces", tracePayload(), key)).status, 401, "Revoked keys cannot ingest");
-  const active = await request("POST", "/lens/tracing/keys", { name: "Outage qualification" });
+  const active = await request("POST", "/lens/admin/tracing/keys", { name: "Outage qualification" });
   assert.equal(active.status, 200);
   const activeKey = privateValue(active.data.key);
-  const dataset = await request("POST", "/lens/datasets", { name: "Retained through outage", agent_name: "release-qualification" });
+  const dataset = await request("POST", "/lens/admin/datasets", { name: "Retained through outage", agent_name: "release-qualification" });
   assert.equal(dataset.status, 200);
   await docker(["stop", "--time", "10", storage]);
   for (const [method, endpoint, body, token] of [
     ["GET", "/v1/traces", undefined, fixture.admin],
     ["POST", "/v1/traces", tracePayload(), activeKey],
-    ["POST", "/lens/datasets", { name: "Must not persist", agent_name: "release-qualification" }, fixture.admin],
+    ["POST", "/lens/admin/datasets", { name: "Must not persist", agent_name: "release-qualification" }, fixture.admin],
   ]) {
     const response = await request(method, endpoint, body, token);
     assert.ok(response.status >= 500 && response.status < 600, `${method} ${endpoint} must fail closed during storage outage, got ${response.status}`);
   }
-  assert.equal((await request("GET", "/lens/datasets", undefined, "")).status, 401);
+  assert.equal((await request("GET", "/lens/admin/datasets", undefined, "")).status, 401);
   await docker(["start", storage]);
   await fixture.waitStorage();
   await docker(["restart", server]);
   await fixture.waitServer();
   assert.equal((await request("GET", "/v1/traces?include_internal=true")).data.data.length, 1, "Failed ingestion must not appear after recovery");
-  assert.deepEqual((await request("GET", `/lens/datasets/${dataset.data.id}`)).data, dataset.data);
-  const datasets = await request("GET", "/lens/datasets");
+  assert.deepEqual((await request("GET", `/lens/admin/datasets/${dataset.data.id}`)).data, dataset.data);
+  const datasets = await request("GET", "/lens/admin/datasets");
   assert.equal(datasets.status, 200);
   assert.ok(!JSON.stringify(datasets.data).includes("Must not persist"));
   assert.equal((await request("POST", "/v1/traces", tracePayload(), key)).status, 401, "Revocation persists across restart");

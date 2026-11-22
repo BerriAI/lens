@@ -632,6 +632,26 @@ describe("coding sessions", () => {
     ).toEqual(["Export truncated"]);
   });
 
+  it("does not repeat the request a native Claude model call carried", () => {
+    const modelCall = {
+      ...root,
+      span_id: "model-call",
+      parent_span_id: root.span_id,
+      type: "llm" as const,
+      framework: "claude-code",
+      name: "claude_code.llm_request",
+      start_offset_ms: 1,
+    };
+    const request = [{ role: "system", content: "You are Claude Code" }, user];
+    const details = new Map([
+      [root.span_id, detail(root.span_id, [user], [answer])],
+      [modelCall.span_id, detail(modelCall.span_id, request, answer)],
+    ]);
+    expect(
+      buildConversation([root, modelCall], details, true).flatMap((item) => item.messages.map((m) => m.content)),
+    ).toEqual([user.content, answer.content]);
+  });
+
   it.each([
     { recorded: "repl_main_thread", source: "repl_main_thread" },
     { recorded: "agent", source: "agent:builtin:general-purpose" },

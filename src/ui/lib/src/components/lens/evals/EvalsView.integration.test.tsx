@@ -108,8 +108,8 @@ const cases: Record<string, RunCase> = {
 let proxy = stubGateway();
 
 const serve = (path: string, request: GatewayRequest) => {
-  if (path === "/lens/datasets") return [datasetSummary];
-  if (path === `/lens/datasets/${dataset.id}`) return dataset;
+  if (path === "/lens/admin/datasets") return [datasetSummary];
+  if (path === `/lens/admin/datasets/${dataset.id}`) return dataset;
   if (path === "/lens/evals") return [definition];
   if (path === `/lens/evals/${definition.name}`) return definition;
   if (path === "/lens/evals/runs" && request.query.eval === definition.name) return [redRun, erroredRun, mainRun];

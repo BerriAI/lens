@@ -49,8 +49,8 @@ it("deduplicates findings across investigations and applies feedback to every so
   await user.click(within(panel).getByRole("button", { name: "Mark resolved" }));
   await waitFor(() => expect(proxy.patch).toHaveBeenCalledTimes(2));
   expect(proxy.patch.mock.calls.map(([path, request]) => [path, request.body])).toEqual([
-    [`/lens/support/findings/${issue.id}`, { status: "resolved", reason: "A handoff now handles failures" }],
-    [`/lens/twin/findings/${issue.id}`, { status: "resolved", reason: "A handoff now handles failures" }],
+    [`/lens/admin/support/findings/${issue.id}`, { status: "resolved", reason: "A handoff now handles failures" }],
+    [`/lens/admin/twin/findings/${issue.id}`, { status: "resolved", reason: "A handoff now handles failures" }],
   ]);
   await waitFor(() => expect(new URLSearchParams(onUrlUpdate.mock.lastCall?.[0].queryString).has("issue")).toBe(false));
 });
@@ -168,7 +168,7 @@ it("keeps imported tool-call evidence without inferring trace prevalence from an
 it("retains feedback and the open finding when a grouped review fails", async () => {
   const user = userEvent.setup();
   proxy.patch.mockImplementation(async (path) => {
-    if (path.startsWith("/lens/twin/")) throw new Error("Review could not be saved");
+    if (path.startsWith("/lens/admin/twin/")) throw new Error("Review could not be saved");
   });
   renderWithLens(<FindingsView />, { searchParams: "?tab=findings" });
   await user.click(await screen.findByRole("row", { name: issue.title }));
@@ -204,7 +204,7 @@ it("reviews only the selected check when two findings have the same title", asyn
   await user.click(rows[0]);
   await user.click(await screen.findByRole("button", { name: "Mark resolved" }));
   await waitFor(() => expect(proxy.patch).toHaveBeenCalledTimes(1));
-  expect(proxy.patch.mock.calls[0][0]).toBe(`/lens/support/findings/${issue.id}`);
+  expect(proxy.patch.mock.calls[0][0]).toBe(`/lens/admin/support/findings/${issue.id}`);
 });
 
 it("opens a grouped finding from a link to any of its owning investigations", async () => {
@@ -343,7 +343,7 @@ it("should open evidence owned by the selected finding and return to its report"
         workers: [],
         tracing_enabled: true,
       };
-    if (path.startsWith(`/lens/${support.id}/executions/`))
+    if (path.startsWith(`/lens/admin/${support.id}/executions/`))
       return {
         parts: [
           {

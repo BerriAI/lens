@@ -62,7 +62,7 @@ const serve =
   (runs: readonly EvalRun[] = []) =>
   (path: string) => {
     if (path === "/lens/evals") return [definition, otherEval, otherAgent];
-    if (path === "/lens/datasets") return [dataset];
+    if (path === "/lens/admin/datasets") return [dataset];
     if (path === "/lens/evals/runs") return runs;
     throw new Error(`Unexpected GET ${path}`);
   };

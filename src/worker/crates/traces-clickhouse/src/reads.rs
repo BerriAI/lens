@@ -20,7 +20,7 @@ impl Query for RunCandidates {
     const SQL: &'static str = concat!(
         "SELECT * EXCEPT (request_ids), [] AS request_ids FROM (",
         include_str!("../query/list_traces.sql"),
-        ") ORDER BY start_ms DESC, trace_ref DESC"
+        ") ORDER BY if({by_last_activity:UInt8} = 1, start_ms + duration_ms, start_ms) DESC, trace_ref DESC"
     );
 }
 

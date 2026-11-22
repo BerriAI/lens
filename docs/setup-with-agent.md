@@ -29,7 +29,23 @@ Connect this project's agent to the Lens deployment I already have. Inspect the 
 Claude Code's telemetry is off by default and Lens needs it to record Claude Code turns. Follow [Claude Code telemetry](claude-code.md) for the required settings, or give your coding agent this prompt:
 
 ```text
-Turn on the Claude Code telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/claude-code.md first. Check whether Claude Code sends its model calls through a LiteLLM gateway (ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN are set) without printing any key, and use exactly one of the two setups in that guide. With a gateway, use "Lens with LiteLLM": the traces endpoint is the gateway address followed by /v1/traces, the header carries the same LiteLLM key, and you do not point telemetry at Lens. With no gateway, use "Lens with no gateway": ask me for my Lens address and read my Lens tracing key from an environment variable or a hidden prompt, never from chat. Add every variable from the chosen setup to the env object in my user-level ~/.claude/settings.json, preserving existing settings. Tell me which prompt, reply and tool content the settings store in Lens. Then run one real Claude Code task and confirm a claude_code.interaction trace with nested model and tool calls appears under Traces in Lens.
+Turn on the Claude Code telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/claude-code.md first. Decide which setup applies without printing any key: if Claude Code already sends model calls through a LiteLLM gateway connected to Lens (ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN are set), use that gateway address and the same LiteLLM key, and do not point telemetry at Lens directly; otherwise use my Lens address and a Lens tracing key, read the key from an environment variable or a hidden prompt and never from chat, and ask me for either only if it cannot be found safely. Add every variable from the required settings to the env object in my user-level ~/.claude/settings.json, preserving existing settings, with OTEL_EXPORTER_OTLP_ENDPOINT set to that address with no path and the header carrying that key. Tell me that these settings store my typed prompts, Claude Code's replies, the files it reads and the output of its commands in Lens. Then run one real Claude Code task and confirm a claude_code.interaction trace with nested model and tool calls appears under Traces in Lens, and that a model call step shows its input and output.
+```
+
+## Connect Codex
+
+Codex sends no telemetry by default. Follow [Codex CLI telemetry](codex-cli.md) for the required settings, or give your coding agent this prompt:
+
+```text
+Turn on the Codex telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/codex-cli.md first. Decide which setup applies: if Codex already sends model calls through a LiteLLM gateway connected to Lens, use that gateway address and the same LiteLLM key; otherwise use my Lens address and a Lens tracing key, and ask me for either only if it cannot be found safely. Never print a key. Add the [otel] table from that page to ~/.codex/config.toml with log_user_prompt = true and both exporters, preserving existing settings and leaving any exporter I already configured unchanged. Tell me that these settings store my typed prompts and the arguments and output of the commands Codex runs, and that Codex does not export model call content. Then run one real Codex task that runs a shell command and confirm in Lens > Traces a turn with the prompt and a tool step with its output.
+```
+
+## Connect OpenCode
+
+OpenCode sends no telemetry by default. Follow [OpenCode telemetry](opencode.md) for the required settings, or give your coding agent this prompt:
+
+```text
+Turn on the OpenCode telemetry that Lens requires on this machine. Read https://github.com/BerriAI/lens/blob/main/docs/opencode.md first. Decide which setup applies: if OpenCode already sends model calls through a LiteLLM gateway connected to Lens, use that gateway address and the same LiteLLM key; otherwise use my Lens address and a Lens tracing key, and ask me for either only if it cannot be found safely. Never print a key. Set experimental.openTelemetry to true in my opencode.json, preserving existing settings, and add OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS and OTEL_BSP_SCHEDULE_DELAY=1000 to the shell profile I start opencode from. If any OTEL_EXPORTER_OTLP_* variable is already set, stop and ask before changing it. Tell me that these settings store my typed prompts, the model's replies, the files OpenCode reads and the output of its commands. Then run one real OpenCode task that runs a shell command and confirm in Lens > Traces an ai.streamText step with input and output and a tool step.
 ```
 
 ## Use an external ClickHouse deployment

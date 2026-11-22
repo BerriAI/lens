@@ -73,6 +73,19 @@ impl Database {
         text
     }
 
+    pub async fn head_table_scans(&self) -> u64 {
+        self.sql("SYSTEM FLUSH LOGS").await;
+        self.sql(&format!(
+            "SELECT sum(ProfileEvents['ZooKeeperList']) FROM system.query_log \
+             WHERE type='QueryFinish' AND query_kind='Select' AND current_database='{}'",
+            self.name
+        ))
+        .await
+        .trim()
+        .parse()
+        .unwrap()
+    }
+
     pub fn repository(&self) -> Investigations {
         Investigations(ClickHouseState::new(
             Client::no_redirect_for_test(),

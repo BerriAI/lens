@@ -85,7 +85,7 @@ try {
     const text = await response.text();
     try { return JSON.parse(text); } catch { return text; }
   }
-  const key = await request(source, "POST", "/lens/tracing/keys", { name: "Recovery qualification" });
+  const key = await request(source, "POST", "/lens/admin/tracing/keys", { name: "Recovery qualification" });
   const traceId = randomBytes(16).toString("hex");
   const now = BigInt(Date.now()) * 1000000n;
   const messages = [["gen_ai.operation.name", "chat"], ["gen_ai.request.model", "fixture"],
@@ -97,11 +97,11 @@ try {
         startTimeUnixNano: String(now), endTimeUnixNano: String(now + 1000000n), status: { code: 1 },
         attributes: messages.map(([key, value]) => ({ key, value: { stringValue: value } })) }] }] }],
   }, key.key);
-  const dataset = await request(source, "POST", "/lens/datasets", { name: "Recovery qualification", agent_name: "recovery-proof" });
-  const built = await request(source, "POST", "/lens/datasets/build", { dataset_id: dataset.id, sources: [{ kind: "trace", trace_id: traceId }] });
+  const dataset = await request(source, "POST", "/lens/admin/datasets", { name: "Recovery qualification", agent_name: "recovery-proof" });
+  const built = await request(source, "POST", "/lens/admin/datasets/build", { dataset_id: dataset.id, sources: [{ kind: "trace", trace_id: traceId }] });
   assert.equal(built.cases.length, 1);
-  const saved = await request(source, "POST", `/lens/datasets/${dataset.id}/revisions`, { base_revision: 0, cases: built.cases });
-  const exported = await request(source, "GET", `/lens/datasets/${dataset.id}/export`);
+  const saved = await request(source, "POST", `/lens/admin/datasets/${dataset.id}/revisions`, { base_revision: 0, cases: built.cases });
+  const exported = await request(source, "GET", `/lens/admin/datasets/${dataset.id}/export`);
   const login = await fetch(source.origin + "/auth/session", { method: "POST",
     headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
   assert.equal(login.status, 200);
@@ -110,8 +110,8 @@ try {
   const compacted = await compose(source, "run", "--rm", "--no-deps", "lens", "compact-state");
   assert.match(compacted, /Compacted [1-9][0-9]* state records/);
   await compose(source, "up", "--detach", "--wait", "--wait-timeout", "180");
-  assert.deepEqual(await request(source, "GET", `/lens/datasets/${dataset.id}/export`), exported);
-  assert.equal((await fetch(source.origin + "/lens/datasets", { headers: { cookie } })).status, 200);
+  assert.deepEqual(await request(source, "GET", `/lens/admin/datasets/${dataset.id}/export`), exported);
+  assert.equal((await fetch(source.origin + "/lens/admin/datasets", { headers: { cookie } })).status, 200);
   const shim = path.join(temporary, "failed-image-save");
   await fs.mkdir(shim);
   const docker = (await execute("which", ["docker"])).trim();
@@ -121,12 +121,12 @@ try {
     ...source.environment, PATH: `${shim}${path.delimiter}${process.env.PATH}`,
   }, "failure");
   await compose(source, "up", "--detach", "--wait", "--wait-timeout", "180");
-  assert.deepEqual(await request(source, "GET", `/lens/datasets/${dataset.id}`), saved);
+  assert.deepEqual(await request(source, "GET", `/lens/admin/datasets/${dataset.id}`), saved);
   await assert.rejects(fs.access(path.join(failedBackup, "SHA256SUMS")), { code: "ENOENT" });
   const backup = path.join(temporary, "snapshot");
   await execute(path.join(source.directory, "backup"), [backup], source.environment);
   await compose(source, "up", "--detach", "--wait", "--wait-timeout", "180");
-  assert.deepEqual(await request(source, "GET", `/lens/datasets/${dataset.id}`), saved);
+  assert.deepEqual(await request(source, "GET", `/lens/admin/datasets/${dataset.id}`), saved);
   const restore = path.join(restored.directory, "restore");
   await execute(restore, [backup], { ...restored.environment, COMPOSE_PROJECT_NAME: source.project }, "failure");
   const targetEnvironment = path.join(restored.directory, ".env");
@@ -141,13 +141,13 @@ try {
   await fs.writeFile(sums, originalSums);
   await compose(source, "stop");
   await execute(restore, [backup], restored.environment);
-  assert.deepEqual(await request(restored, "GET", `/lens/datasets/${dataset.id}`), saved);
-  assert.deepEqual(await request(restored, "GET", `/lens/datasets/${dataset.id}/export`), exported);
+  assert.deepEqual(await request(restored, "GET", `/lens/admin/datasets/${dataset.id}`), saved);
+  assert.deepEqual(await request(restored, "GET", `/lens/admin/datasets/${dataset.id}/export`), exported);
   const traces = await request(restored, "GET", "/v1/traces");
   assert.equal(traces.data.length, 1);
   assert.equal(traces.data[0].trace_id, traceId);
-  assert.ok(JSON.stringify(await request(restored, "GET", "/lens/tracing/keys")).includes(key.record.id));
-  assert.equal((await fetch(restored.origin + "/lens/datasets", { headers: { cookie } })).status, 200);
+  assert.ok(JSON.stringify(await request(restored, "GET", "/lens/admin/tracing/keys")).includes(key.record.id));
+  assert.equal((await fetch(restored.origin + "/lens/admin/datasets", { headers: { cookie } })).status, 200);
   await execute(restore, [backup], restored.environment, "failure");
   console.log(JSON.stringify({ status: "passed", image, trace_retained: true, dataset_revision: saved.revision,
     export_identical: true, session_retained: true, ingestion_key_retained: true,

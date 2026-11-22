@@ -13,7 +13,7 @@ use crate::{ClickHouseTraces, Config, Connection, Error};
 
 struct Summaries;
 
-const RESOLUTION_VERSION: u32 = 2;
+const RESOLUTION_VERSION: u32 = 3;
 const MAX_RUN_BYTES: usize = 2 * 1024 * 1024;
 const RETRY_DELAY_MS: u64 = 60_000;
 
@@ -53,7 +53,7 @@ struct PageParams {
 struct PageRow {
     trace_ref: String,
     #[serde(deserialize_with = "crate::query::number::deserialize")]
-    start_ms: i64,
+    sort_ms: i64,
     summary: String,
 }
 
@@ -64,9 +64,9 @@ impl Query for Page {
         "WITH ",
         include_str!("../query/trace_summary_page.sql"),
         include_str!("../query/trace_summary_state.sql"),
-        " SELECT page.trace_ref, page.start_ms, ifNull(fresh_summaries.summary, '') AS summary ",
+        " SELECT page.trace_ref, page.sort_ms, ifNull(fresh_summaries.summary, '') AS summary ",
         "FROM page LEFT JOIN fresh_summaries USING (trace_ref) ",
-        "ORDER BY page.start_ms DESC, page.trace_ref DESC"
+        "ORDER BY page.sort_ms DESC, page.trace_ref DESC"
     );
 }
 
@@ -90,7 +90,7 @@ pub(crate) async fn page(
     let next_position = rows
         .last()
         .filter(|_| rows.len() == params.limit as usize)
-        .map(|row| (row.start_ms, row.trace_ref.clone()));
+        .map(|row| (row.sort_ms, row.trace_ref.clone()));
     let data = rows
         .into_iter()
         .map(|row| serde_json::from_str(&row.summary).map_err(|_| Error::InvalidResponse))

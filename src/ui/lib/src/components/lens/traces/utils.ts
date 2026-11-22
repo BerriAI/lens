@@ -51,6 +51,10 @@ export const isFrameworkSpan = (span: Span): boolean => {
   return span.parent_span_id !== null && isPlumbing;
 };
 
+export const isClaudeBodyExport = (span: Span): boolean =>
+  span.framework === "claude-code" &&
+  ["claude_code.api_request_body", "claude_code.api_response_body"].includes(span.name);
+
 const byStart = (a: Span, b: Span): number =>
   a.start_offset_ms - b.start_offset_ms;
 
@@ -73,7 +77,7 @@ export function buildVisibleTree(
   showFramework: boolean,
 ): VisibleTree {
   const byId = indexSpans(spans);
-  const hidden = (span: Span) => !showFramework && isFrameworkSpan(span);
+  const hidden = (span: Span) => isClaudeBodyExport(span) || (!showFramework && isFrameworkSpan(span));
   const visibleParentKey = (span: Span): string => {
     let parent = span.parent_span_id
       ? byId.get(span.parent_span_id)
@@ -281,7 +285,7 @@ export function findTraceSteps(
   const search = query.trim().toLowerCase();
   return spans
     .filter((span) => {
-      const visible = !hideFramework || !isFrameworkSpan(span);
+      const visible = !isClaudeBodyExport(span) && (!hideFramework || !isFrameworkSpan(span));
       const matchesStatus = !errorsOnly || span.status === "error";
       const matchesQuery =
         !search ||
@@ -431,7 +435,7 @@ const langchainToolCalls = (data: object): TraceToolCall[] | undefined => {
     }));
 };
 
-/** LangChain's `dumpd` message: `{"type": "human", "data": {"content": ...}}`. */
+/** A `dumpd` message: `{"type": "human", "data": {"content": ...}}`. */
 const parseLangchainMessage = (value: object): TraceMessage | null => {
   const role = LANGCHAIN_ROLE[String(Reflect.get(value, "type"))];
   const data: unknown = Reflect.get(value, "data");

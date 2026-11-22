@@ -4,5 +4,5 @@ services:
       context: ../..
       dockerfile: deploy/runtime/Dockerfile
       args:
-        LENS_VERSION: ${LENS_VERSION:-0.2.0}
+        LENS_VERSION: ${LENS_VERSION:-0.3.0}
     image: ${LENS_IMAGE:-lens:local}

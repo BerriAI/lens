@@ -70,12 +70,21 @@ where
     S: ActivityReader + 'static,
 {
     Router::new()
-        .public_route("/lens/activity/available", get(available::<R, D, S>))
-        .public_route("/lens/agents", get(agents::<R, D, S>))
-        .public_route("/lens/preview/sample", post(preview::<R, D, S>))
-        .public_route("/lens/traces/findings", post(findings::<R, D, S>))
-        .public_route(
-            "/lens/{lens_id}/executions/{execution_id}",
+        .admin_route(
+            &authentication,
+            "/activity/available",
+            get(available::<R, D, S>),
+        )
+        .admin_route(&authentication, "/agents", get(agents::<R, D, S>))
+        .admin_route(&authentication, "/preview/sample", post(preview::<R, D, S>))
+        .admin_route(
+            &authentication,
+            "/traces/findings",
+            post(findings::<R, D, S>),
+        )
+        .admin_route(
+            &authentication,
+            "/{lens_id}/executions/{execution_id}",
             get(content::<R, D, S>),
         )
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))

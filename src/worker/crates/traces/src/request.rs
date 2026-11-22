@@ -34,9 +34,22 @@ pub struct TraceListRequest {
     /// Also list traces that made no model call and no tool call. Default: false
     #[serde(default)]
     pub include_internal: Option<bool>,
+    /// Order of the list, newest first. A cursor is only valid with the sort it was issued for. Default: start
+    #[serde(default)]
+    pub sort: Option<TraceSort>,
     #[serde(default)]
     #[cfg_attr(feature = "schema", schemars(length(max = 512)))]
     pub cursor: Option<String>,
+}
+
+#[macro_rules_attribute::apply(crate::request_type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TraceSort {
+    /// When the trace's first record started
+    Start,
+    /// When the trace's latest record ended
+    LastActivity,
 }
 
 #[macro_rules_attribute::apply(crate::request_type)]

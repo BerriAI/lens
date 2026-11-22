@@ -5,6 +5,7 @@ import { useCallback, useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useLensRoute } from "../route";
 import { useLensHost } from "../../../host/LensHost";
+import { ALL_AGENTS } from "../traces/routing";
 
 const SELECTED_AGENT_KEY = "litellm.lens.agent";
 export const selectedAgentKey = (demo: boolean): string => (demo ? `${SELECTED_AGENT_KEY}.demo` : SELECTED_AGENT_KEY);
@@ -12,17 +13,18 @@ export const selectedAgentKey = (demo: boolean): string => (demo ? `${SELECTED_A
 const AGENT_PARSERS = { agent: parseAsString.withDefault("") };
 
 /**
- * Traces are always scoped to one agent: a shared link's agent first, then this browser's last pick if it still
- * exists, then the most recently active agent.
+ * A shared link's choice first, then this browser's last pick if it still exists, then the most recently active
+ * agent. `ALL_AGENTS` is a choice like any agent name once there is an agent to choose between.
  */
 export function resolveAgent(fromUrl: string, remembered: string, available: readonly string[]): string | null {
   if (fromUrl) return fromUrl;
-  if (remembered && available.includes(remembered)) return remembered;
+  if (available.length > 0 && (remembered === ALL_AGENTS || available.includes(remembered))) return remembered;
   return available[0] ?? null;
 }
 
 export interface AgentSelection {
   readonly agent: string | null;
+  readonly all: boolean;
   select(agent: string): void;
 }
 
@@ -35,9 +37,11 @@ export function useAgentSelection(demo: boolean, available: readonly string[]): 
     serializer: (value) => value,
     deserializer: (raw) => raw,
   });
-  const agent = resolveAgent(fromUrl, remembered, available);
+  const choice = resolveAgent(fromUrl, remembered, available);
+  const all = choice === ALL_AGENTS;
+  const agent = all ? null : choice;
   const effectiveTab = tab ?? (embedded && defaultTab === "home" ? "traces" : defaultTab);
-  const implied = !fromUrl && effectiveTab === "traces" ? agent : null;
+  const implied = !fromUrl && effectiveTab === "traces" ? choice : null;
   useEffect(() => {
     if (implied) void setParams({ agent: implied }, { history: "replace" });
   }, [implied, setParams]);
@@ -48,5 +52,5 @@ export function useAgentSelection(demo: boolean, available: readonly string[]): 
     },
     [openAgent, setRemembered],
   );
-  return { agent, select };
+  return { agent, all, select };
 }

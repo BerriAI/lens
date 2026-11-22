@@ -62,7 +62,7 @@ For each group:
   - Replay the fixtures against the Rust server until they pass, and add a CI job that runs replay against the Rust server.
   - In the same PR: delete the Python files and their tests, and remove the routes from crates/server/python_routes.txt.
   - Port the Python tests' intent into Rust tests (rstest cases). Don't drop coverage.
-Known behavior changes that must be separate commits, each updating the fixtures it changes: team keys can read datasets (resolve and cases) scoped to their own team; decide whether a PROXY_ADMIN_VIEW_ONLY user may call POST /lens/datasets/build (today it gets a 200 because the write check is missing).
+Known behavior changes that must be separate commits, each updating the fixtures it changes: team keys can read datasets (resolve and cases) scoped to their own team; decide whether a PROXY_ADMIN_VIEW_ONLY user may call POST /lens/admin/datasets/build (today it gets a 200 because the write check is missing).
 - Done when python_routes.txt is empty and deleted.
 
 Step 4: cleanup (one PR)

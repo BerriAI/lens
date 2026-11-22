@@ -32,6 +32,8 @@ pub enum Read {
         agent: String,
         #[serde(default)]
         include_internal: bool,
+        #[serde(default)]
+        by_last_activity: bool,
         start_ms: i64,
         end_ms: i64,
         cursor: Option<String>,
@@ -131,6 +133,7 @@ impl Storage {
                 scope,
                 agent,
                 include_internal,
+                by_last_activity,
                 start_ms,
                 end_ms,
                 cursor,
@@ -142,6 +145,7 @@ impl Storage {
                         &scope,
                         &agent,
                         include_internal,
+                        by_last_activity,
                         start_ms,
                         end_ms,
                         cursor.as_deref(),

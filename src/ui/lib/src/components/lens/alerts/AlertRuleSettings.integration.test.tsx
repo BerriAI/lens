@@ -31,7 +31,7 @@ it("creates separate duration and error rules through the condition picker witho
   await user.click(screen.getByRole("button", { name: "Save rules" }));
   await waitFor(() =>
     expect(gateway.put).toHaveBeenCalledWith(
-      "/lens/alerts/rules",
+      "/lens/admin/alerts/rules",
       expect.objectContaining({
         body: {
           revision: 0,
@@ -46,7 +46,7 @@ it("creates separate duration and error rules through the condition picker witho
   );
   const saved = gateway.put.mock.calls[0][1].body as AlertRuleConfig;
   expect(new Set(saved.rules.map((rule) => rule.id)).size).toBe(3);
-  expect(gateway.get.mock.calls.map(([path]) => path)).toEqual(["/lens/alerts/rules"]);
+  expect(gateway.get.mock.calls.map(([path]) => path)).toEqual(["/lens/admin/alerts/rules"]);
   expect(within(screen.getByRole("group", { name: "Rule 1" })).getByRole("spinbutton")).toHaveValue(12);
   expect(within(screen.getByRole("group", { name: "Rule 2" })).getByRole("spinbutton")).toHaveValue(20);
   expect(screen.getByRole("button", { name: "Save rules" })).toBeDisabled();
@@ -78,7 +78,7 @@ it("retains edits after a failed save and independently disables and removes sav
   await user.click(screen.getByRole("button", { name: "Save rules" }));
   await waitFor(() =>
     expect(gateway.put).toHaveBeenLastCalledWith(
-      "/lens/alerts/rules",
+      "/lens/admin/alerts/rules",
       expect.objectContaining({
         body: {
           revision: 3,
@@ -104,7 +104,7 @@ it("changes the condition while preserving the saved rule identity", async () =>
   await user.click(screen.getByRole("button", { name: "Save rules" }));
   await waitFor(() =>
     expect(gateway.put).toHaveBeenCalledWith(
-      "/lens/alerts/rules",
+      "/lens/admin/alerts/rules",
       expect.objectContaining({
         body: { revision: 1, rules: [{ id: "existing", enabled: true, condition: { kind: "model_error" } }] },
       }),

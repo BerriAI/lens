@@ -1,5 +1,5 @@
 import { createApiClient } from "./client";
-import { getAuthHeaderName, getRequestBaseUrl, reportError } from "./runtime";
+import { getAuthHeaderName, getRequestBaseUrl, reportError, resolveRequestPath } from "./runtime";
 import type {
   Trace,
   TracePage,
@@ -17,6 +17,7 @@ import type {
 export const getProxyBaseUrl = getRequestBaseUrl;
 export const apiClient = createApiClient({
   getBaseUrl: getRequestBaseUrl,
+  resolvePath: resolveRequestPath,
   getAuthHeaderName,
   onError: reportError,
 });
@@ -34,6 +35,7 @@ export const agentTraceListCall = async ({
   cursor,
   agent,
   includeInternal,
+  sort,
   signal,
 }: {
   accessToken: string;
@@ -42,6 +44,7 @@ export const agentTraceListCall = async ({
   cursor?: string | null;
   agent?: string;
   includeInternal?: boolean;
+  sort?: TraceListQuery["sort"];
   signal?: AbortSignal;
 }): Promise<TracePage> => {
   const query = {
@@ -50,6 +53,7 @@ export const agentTraceListCall = async ({
     cursor: cursor ?? undefined,
     agent: agent || undefined,
     include_internal: includeInternal || undefined,
+    sort: sort === "last_activity" ? sort : undefined,
   } satisfies TraceListQuery;
   return apiClient.get<TracePage>(`/v1/traces`, { accessToken, query, signal });
 };

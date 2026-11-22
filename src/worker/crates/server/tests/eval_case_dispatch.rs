@@ -6,14 +6,7 @@ use tower::ServiceExt;
 const CASES: &str = "/lens/datasets/{id}/revisions/{revision}/cases";
 
 fn app() -> Router {
-    let admin = Router::new()
-        .route(
-            CASES,
-            get(|Path((id, revision)): Path<(String, String)>| async move {
-                format!("admin {id}@{revision}")
-            }),
-        )
-        .route("/lens/datasets/{id}", get(|| async { "admin" }));
+    let admin = Router::new().route("/lens/datasets/{id}", get(|| async { "admin" }));
     let contract = Router::new().route(
         CASES,
         get(|Path((id, revision)): Path<(String, String)>| async move {
@@ -25,7 +18,7 @@ fn app() -> Router {
 
 #[rstest]
 #[case::contract_case_read("/lens/datasets/d1/revisions/7/cases", true, "contract d1@7")]
-#[case::admin_case_read("/lens/datasets/d1/revisions/7/cases", false, "admin d1@7")]
+#[case::case_read_without_the_contract("/lens/datasets/d1/revisions/7/cases", false, "")]
 #[case::contract_other_dataset_route("/lens/datasets/d1", true, "admin")]
 #[tokio::test]
 async fn should_route_only_contract_case_reads_to_the_eval_api(

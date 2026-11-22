@@ -238,6 +238,68 @@ describe("AgentTracesTable output cell", () => {
   });
 });
 
+describe("AgentTracesTable last activity column", () => {
+  const template = (traceList as TracePage).data[0] as TraceSummary;
+  const renderRun = (run: TraceSummary, sort: "start" | "last_activity", onSortChange = vi.fn()) => {
+    renderWithProviders(
+      inList(
+        <AgentTracesTable
+          traces={[run]}
+          sort={sort}
+          onSortChange={onSortChange}
+          findings={new Map()}
+          isLoading={false}
+          error={null}
+          hasMore={false}
+          onLoadMore={vi.fn()}
+          onSetUpTracing={vi.fn()}
+        />,
+      ),
+    );
+    return onSortChange;
+  };
+  const cellUnder = (header: string) => {
+    const index = screen
+      .getAllByRole("columnheader")
+      .findIndex((cell) => cell.textContent?.startsWith(header));
+    return within(screen.getByTestId("agent-trace-row")).getAllByRole("cell")[index];
+  };
+
+  it("shows when the latest record ended, apart from the start time", () => {
+    renderRun(
+      { ...template, start_time: "2026-10-03T10:00:00+00:00", last_activity_time: "2026-10-03T11:42:07+00:00" },
+      "start",
+    );
+    expect(cellUnder("Last Activity")).toHaveTextContent(":42:07");
+    expect(cellUnder("Time")).toHaveTextContent(":00:00");
+  });
+
+  it("puts Last Activity right after Time", () => {
+    renderRun(template, "start");
+    const headers = screen.getAllByRole("columnheader").map((cell) => cell.textContent ?? "");
+    const time = headers.findIndex((header) => header.startsWith("Time"));
+    expect(headers[time + 1]).toMatch(/^Last Activity/);
+  });
+
+  it("leaves the cell blank for a summary without the field", () => {
+    const { last_activity_time: _, ...run } = { ...template, last_activity_time: "" };
+    renderRun(run, "start");
+    expect(cellUnder("Last Activity")).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    { sort: "start", pressed: "Time", other: "Last Activity", requested: "last_activity" },
+    { sort: "last_activity", pressed: "Last Activity", other: "Time", requested: "start" },
+  ] as const)("marks $pressed as the sort and asks for the other on click", async ({ sort, pressed, other, requested }) => {
+    const onSortChange = renderRun(template, sort);
+    expect(screen.getByRole("button", { name: new RegExp(`^${pressed}`) })).toHaveAttribute("aria-pressed", "true");
+    const otherButton = screen.getByRole("button", { name: new RegExp(`^${other}`) });
+    expect(otherButton).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(otherButton);
+    expect(onSortChange).toHaveBeenCalledExactlyOnceWith(requested);
+  });
+});
+
 describe("AgentTracesTable trace ID column", () => {
   const template = (traceList as TracePage).data[0] as TraceSummary;
   const run = { ...template, trace_id: "0b8359ab2c99662c0f1e2d3c4b5a6978", input_preview: "How do I configure caching?" };

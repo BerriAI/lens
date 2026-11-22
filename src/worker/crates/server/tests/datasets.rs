@@ -90,7 +90,7 @@ async fn competing_revision_writes_have_one_winner_and_survive_restart(
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let created = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"name":"concurrent revision"}))
         .send()
@@ -100,7 +100,7 @@ async fn competing_revision_writes_have_one_winner_and_survive_restart(
     let original = created.json::<Dataset>().await.unwrap();
     let revisions = server
         .url
-        .join(&format!("/lens/datasets/{}/revisions", original.id))
+        .join(&format!("/lens/admin/datasets/{}/revisions", original.id))
         .unwrap();
     let first = server.client.post(revisions.clone()).bearer_auth(ADMIN).json(&json!({"base_revision":0,"cases":[
         {"id":"client-id", "messages":[{"role":"user","content":"one winner"}], "source":{}, "expected":"keep me"},
@@ -141,7 +141,7 @@ async fn competing_revision_writes_have_one_winner_and_survive_restart(
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let endpoint = server
         .url
-        .join(&format!("/lens/datasets/{}", original.id))
+        .join(&format!("/lens/admin/datasets/{}", original.id))
         .unwrap();
     let latest = server
         .client
@@ -189,7 +189,7 @@ async fn dataset_cookie_writes_require_lens_origin(
         .unwrap();
     let request = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .header("cookie", cookie)
         .json(&json!({"name":"browser dataset"}));
     let request = if let Some(origin) = origin {
@@ -205,7 +205,7 @@ async fn dataset_cookie_writes_require_lens_origin(
     );
     let created = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .header("cookie", cookie)
         .header("origin", server.url.origin().ascii_serialization())
         .json(&json!({"name":"browser dataset"}))
@@ -219,7 +219,7 @@ async fn dataset_cookie_writes_require_lens_origin(
         .get(
             server
                 .url
-                .join(&format!("/lens/datasets/{}", dataset.id))
+                .join(&format!("/lens/admin/datasets/{}", dataset.id))
                 .unwrap(),
         )
         .header("cookie", cookie)
@@ -243,7 +243,7 @@ async fn dataset_authentication_rejects_untrusted_credentials(
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let request = server
         .client
-        .get(server.url.join("/lens/datasets").unwrap());
+        .get(server.url.join("/lens/admin/datasets").unwrap());
     let request = if let Some(authorization) = authorization {
         request.header("authorization", authorization)
     } else {
@@ -287,7 +287,7 @@ async fn dataset_source_failures_preserve_http_error_contract(
     };
     let response = server
         .client
-        .post(server.url.join("/lens/datasets/build").unwrap())
+        .post(server.url.join("/lens/admin/datasets/build").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"sources":[request_source]}))
         .send()
@@ -317,7 +317,7 @@ async fn oversized_dataset_requests_are_rejected(#[future(awt)] database: Databa
     );
     let response = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .bearer_auth(ADMIN)
         .header("content-type", "application/json")
         .body(body)
@@ -328,36 +328,37 @@ async fn oversized_dataset_requests_are_rejected(#[future(awt)] database: Databa
 }
 
 #[rstest]
-#[case::malformed("{",422,json!({"detail":[{"type":"json_invalid","loc":["body",1],"msg":"JSON decode error","input":{},"ctx":{"error":"Expecting property name enclosed in double quotes"}}]}))]
-#[case::valid_json_invalid_schema("{}",401,json!({"detail":"Sign in to Lens"}))]
+#[case::malformed("{")]
+#[case::valid_json_invalid_schema("{}")]
 #[tokio::test]
-async fn malformed_json_precedes_authentication_but_schema_validation_follows_it(
+async fn sign_in_is_checked_before_the_request_body(
     #[future(awt)] database: Database,
     #[case] body: &str,
-    #[case] status: u16,
-    #[case] expected: Value,
 ) {
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let response = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .header("content-type", "application/json")
         .body(body.to_owned())
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status(), status);
-    assert_eq!(response.json::<Value>().await.unwrap(), expected);
+    assert_eq!(response.status(), 401);
+    assert_eq!(
+        response.json::<Value>().await.unwrap(),
+        json!({"detail":"Sign in to Lens"})
+    );
 }
 
 #[rstest]
-#[case::list("/lens/datasets/?revision=0", "/lens/datasets?revision=0")]
-#[case::multiple("/lens/datasets///", "/lens/datasets")]
-#[case::read("/lens/datasets/example/", "/lens/datasets/example")]
-#[case::build("/lens/datasets/build/", "/lens/datasets/build")]
+#[case::list("/lens/admin/datasets/?revision=0", "/lens/admin/datasets?revision=0")]
+#[case::multiple("/lens/admin/datasets///", "/lens/admin/datasets")]
+#[case::read("/lens/admin/datasets/example/", "/lens/admin/datasets/example")]
+#[case::build("/lens/admin/datasets/build/", "/lens/admin/datasets/build")]
 #[case::export(
-    "/lens/datasets/example/export/?revision=2",
-    "/lens/datasets/example/export?revision=2"
+    "/lens/admin/datasets/example/export/?revision=2",
+    "/lens/admin/datasets/example/export?revision=2"
 )]
 #[tokio::test]
 async fn trailing_slashes_preserve_fastapi_redirects(
@@ -395,7 +396,7 @@ async fn revisions_outside_rust_integer_range_preserve_lookup_and_conflict_behav
     let server = serve(&database, SourceResult::Missing, DatasetConfig::default()).await;
     let created = server
         .client
-        .post(server.url.join("/lens/datasets").unwrap())
+        .post(server.url.join("/lens/admin/datasets").unwrap())
         .bearer_auth(ADMIN)
         .json(&json!({"name":"wide revisions"}))
         .send()
@@ -404,7 +405,7 @@ async fn revisions_outside_rust_integer_range_preserve_lookup_and_conflict_behav
         .json::<Dataset>()
         .await
         .unwrap();
-    let path = format!("/lens/datasets/{}", created.id);
+    let path = format!("/lens/admin/datasets/{}", created.id);
     let read = server
         .client
         .get(server.url.join(&path).unwrap())
@@ -434,7 +435,12 @@ async fn revisions_outside_rust_integer_range_preserve_lookup_and_conflict_behav
     );
     let missing = server
         .client
-        .post(server.url.join("/lens/datasets/missing/revisions").unwrap())
+        .post(
+            server
+                .url
+                .join("/lens/admin/datasets/missing/revisions")
+                .unwrap(),
+        )
         .bearer_auth(ADMIN)
         .header("content-type", "application/json")
         .body(format!("{{\"base_revision\":{revision},\"cases\":[]}}"))

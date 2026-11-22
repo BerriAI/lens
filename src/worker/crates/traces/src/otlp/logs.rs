@@ -35,6 +35,26 @@ fn text<'a>(attributes: &'a [KeyValue], key: &str) -> &'a str {
     }
 }
 
+fn stored_trace_id(
+    record: &LogRecord,
+    is_codex: bool,
+    resource_attributes: &BTreeMap<String, LogValue>,
+) -> Vec<u8> {
+    let conversation = text(&record.attributes, "conversation.id");
+    let regrouped = is_codex
+        && !conversation.is_empty()
+        && !absent_id(&record.trace_id, 16)
+        && !matches!(
+            resource_attributes.get("lens.session.attribute"),
+            Some(LogValue::String(attribute)) if !attribute.is_empty()
+        );
+    if regrouped {
+        span::session_trace_id(conversation)
+    } else {
+        record.trace_id.clone()
+    }
+}
+
 fn effective_timestamp_ns(
     timestamp_ns: u64,
     observed_timestamp_ns: u64,
@@ -370,7 +390,7 @@ pub(super) fn decode(
                         scope_attributes: budget.clone_shared(&scope_attributes, map_size)?,
                         resource_schema_url: resource_schema_url.clone(),
                         scope_schema_url: scope_schema_url.clone(),
-                        trace_id: record.trace_id.clone(),
+                        trace_id: stored_trace_id(&record, is_codex, &resource_attributes),
                         span_id: record.span_id.clone(),
                         trace_flags: record.flags,
                         dropped_attributes_count: record.dropped_attributes_count,
@@ -392,12 +412,13 @@ pub(super) fn decode(
                         return Ok(Some(span));
                     }
                     if !is_claude
-                        || !(matches!(event, "tool_result" | "compaction")
-                            || (matches!(event, "assistant_response" | "api_request_body")
-                                && visible_claude_response(
-                                    "assistant_response",
-                                    text(&record.attributes, "query_source"),
-                                )))
+                        || !(matches!(
+                            event,
+                            "tool_result" | "compaction" | "api_request_body" | "api_response_body"
+                        ) || visible_claude_response(
+                            event,
+                            text(&record.attributes, "query_source"),
+                        ))
                     {
                         return Ok(None);
                     }

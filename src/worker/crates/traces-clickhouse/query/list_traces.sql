@@ -45,9 +45,9 @@ GROUP BY TeamId, ApiKeyHash, TraceId
 HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
    AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
    AND ({include_internal:UInt8} = 1 OR sum(LlmCount) + sum(ToolCount) > 0)
-   AND ({cursor_ms:Int64} = 0 OR (toUnixTimestamp64Milli(min(StartTs)), trace_ref)
+   AND ({cursor_ms:Int64} = 0 OR (if({by_last_activity:UInt8} = 1, toUnixTimestamp64Milli(max(EndTs)), toUnixTimestamp64Milli(min(StartTs))), trace_ref)
         < ({cursor_ms:Int64}, {cursor_trace_id:String}))
-ORDER BY start_ms DESC, trace_ref DESC
+ORDER BY if({by_last_activity:UInt8} = 1, toUnixTimestamp64Milli(max(EndTs)), toUnixTimestamp64Milli(min(StartTs))) DESC, trace_ref DESC
 LIMIT {limit:UInt32}
 )
 SELECT page.*,
@@ -66,4 +66,4 @@ LEFT JOIN (
 ) AS identities
 ON page.team_id = identities.TeamId AND page.api_key_hash = identities.ApiKeyHash
    AND page.trace_id = identities.TraceId
-ORDER BY page.start_ms DESC, page.trace_ref DESC
+ORDER BY if({by_last_activity:UInt8} = 1, page.start_ms + page.duration_ms, page.start_ms) DESC, page.trace_ref DESC

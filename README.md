@@ -9,7 +9,7 @@
 
 <h3>Self-improving agents, on your infrastructure.</h3>
 
-**[Start locally](deploy/lens/README.md#start-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
+**[Start locally](#run-locally)** with Git and Docker, or **[Set it up for me](docs/setup-with-agent.md)** with your coding agent
 
 <details>
 <summary>Copy a setup prompt</summary>
@@ -70,15 +70,59 @@ Compare pass rate and estimated cost before choosing a model and harness
 <br>
 
 **Run Lens on its own or open it inside LiteLLM.** Your traces stay in your own ClickHouse.<br>
-Point Claude Code or [Codex](docs/codex-cli.md) at them and let your agents improve your agents.
+Point Claude Code, [Codex](docs/codex-cli.md) or [OpenCode](docs/opencode.md) at them and let your agents improve your agents.
 
 <br>
 
 **Using Claude Code?** Its telemetry is off by default and Lens needs it to record your turns.<br>
-[Turn on the required Claude Code settings](docs/claude-code.md) before your first session. There is one setup for Lens with LiteLLM and one for Lens with no gateway.
+[Turn on the required Claude Code settings](docs/claude-code.md) before your first session. There is one setup for Lens with a LiteLLM gateway and one for standalone Lens.
 
 <br>
 
 [Get started](deploy/lens/README.md)
 
 </div>
+
+## Run locally
+
+Install Docker with Docker Compose 2.24 or newer and make sure Docker is running. Then run this from a checkout of this repository:
+
+```sh
+docker compose up --wait
+docker compose logs -n1 credentials
+```
+
+The first command starts Lens and ClickHouse. The second prints the address to open and the setup token to paste there:
+
+```
+credentials-1  | Open http://localhost:4318/ui/ and paste this setup token: <your token>
+```
+
+The token is also saved as `LENS_ADMIN_TOKEN` in `deploy/lens/.env`. `docker compose down` stops Lens and keeps its data, and adding `--volumes` deletes the stored traces
+
+See [Run Lens](deploy/lens/README.md) for recording your first trace and configuring a deployment
+
+## Connect a local LiteLLM gateway
+
+Lens and the gateway share two secrets. Generate them once in `deploy/lens/.env` and restart Lens to load them:
+
+```sh
+printf 'LITELLM_LENS_SERVICE_TOKEN=%s\nLENS_GATEWAY_SECRET=%s\n' \
+  "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" >> deploy/lens/.env
+docker compose up -d --wait
+```
+
+Then give the gateway the same two values and the Lens address, and restart it:
+
+```dotenv
+LITELLM_LENS_URL=http://localhost:4318
+LITELLM_LENS_PUBLIC_URL=http://localhost:4318
+LITELLM_LENS_SERVICE_TOKEN=<same value as Lens>
+LENS_GATEWAY_SECRET=<same value as Lens>
+```
+
+`LITELLM_LENS_URL` is the address the gateway calls and `LITELLM_LENS_PUBLIC_URL` is the one your browser and agents use. A gateway running in a container cannot reach Lens at `localhost`. With Docker Desktop, set `LITELLM_LENS_URL=http://host.docker.internal:4318`. On Linux, attach the gateway to the `lens_default` network and use `http://lens:4318`
+
+Setting `LITELLM_LENS_URL` turns the connection on, so the gateway needs no `config.yaml` change. Lens then opens from the LiteLLM sidebar with your LiteLLM login. To also offer Log in with LiteLLM on the Lens sign-in page, set `LENS_GATEWAY_PUBLIC_URL` in `deploy/lens/.env` to the address your browser uses for the gateway, such as `http://localhost:4000`
+
+[Add Lens to LiteLLM](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm) covers Helm, split deployments and the connection check

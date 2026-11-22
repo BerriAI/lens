@@ -45,11 +45,11 @@ export function liveOptimizationStore(accessToken: string): OptimizationStore {
     if (pending) return;
     pending = true;
     try {
-      const data = await apiClient.get<unknown>("/lens/optimizations", { accessToken });
+      const data = await apiClient.get<unknown>("/lens/admin/optimizations", { accessToken });
       const runs = z.array(runSchema).parse(data).map(runView);
       if (state.loading || !state.models?.length) {
         const [catalog, agents] = await Promise.all([
-          apiClient.get<unknown>("/lens/optimizations/models", { accessToken }),
+          apiClient.get<unknown>("/lens/admin/optimizations/models", { accessToken }),
           apiClient.get<unknown>("/v1/traces/agents", { accessToken }),
         ]);
         const models = modelSchema.parse(catalog).data.map((model) => ({
@@ -69,12 +69,12 @@ export function liveOptimizationStore(accessToken: string): OptimizationStore {
     snapshot: () => state,
     advance: () => { void refresh(); },
     create: async (config) => {
-      const created = runSchema.parse(await apiClient.post<unknown>("/lens/optimizations", { accessToken, body: config }));
+      const created = runSchema.parse(await apiClient.post<unknown>("/lens/admin/optimizations", { accessToken, body: config }));
       publish({...state, runs: [runView(created), ...state.runs]});
       return created.id;
     },
     setStatus: (id, status) => {
-      void apiClient.post<unknown>(`/lens/optimizations/${encodeURIComponent(id)}/status`, {accessToken, body:{status}})
+      void apiClient.post<unknown>(`/lens/admin/optimizations/${encodeURIComponent(id)}/status`, {accessToken, body:{status}})
         .then(() => refresh()).catch((error: unknown) => publish({...state, error: error instanceof Error ? error.message : "Could not update optimization"}));
     },
     connect: () => {},

@@ -32,7 +32,7 @@ async function required<T>(request: Promise<{ data?: T }>): Promise<T> {
 }
 
 export const datasetExportPath = (datasetId: string): string =>
-  `/lens/datasets/${encodeURIComponent(datasetId)}/export`;
+  `/lens/admin/datasets/${encodeURIComponent(datasetId)}/export`;
 
 export function liveDatasetsApi(
   client: Client<paths>,
@@ -41,21 +41,21 @@ export function liveDatasetsApi(
 ): DatasetsApi {
   const headers = authHeaders(accessToken);
   return {
-    list: () => required(client.GET("/lens/datasets", { headers })),
+    list: () => required(client.GET("/lens/admin/datasets", { headers })),
     get: (datasetId, revision) =>
       required(
-        client.GET("/lens/datasets/{dataset_id}", {
+        client.GET("/lens/admin/datasets/{dataset_id}", {
           headers,
           params: { path: { dataset_id: datasetId }, query: { revision } },
         }),
       ),
     create: (body) =>
-      required(client.POST("/lens/datasets", { headers, body })),
+      required(client.POST("/lens/admin/datasets", { headers, body })),
     build: (body) =>
-      required(client.POST("/lens/datasets/build", { headers, body })),
+      required(client.POST("/lens/admin/datasets/build", { headers, body })),
     saveRevision: (datasetId, body) =>
       required(
-        client.POST("/lens/datasets/{dataset_id}/revisions", {
+        client.POST("/lens/admin/datasets/{dataset_id}/revisions", {
           headers,
           params: { path: { dataset_id: datasetId } },
           body,
@@ -68,7 +68,7 @@ export function liveDatasetsApi(
       }),
     evalCases: (datasetId, revision) =>
       required(
-        client.GET("/lens/datasets/{dataset_id}/revisions/{revision}/cases", {
+        client.GET("/lens/admin/datasets/{dataset_id}/revisions/{revision}/cases", {
           headers,
           params: { path: { dataset_id: datasetId, revision } },
         }),

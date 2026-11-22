@@ -14,7 +14,10 @@ use super::{
 };
 use crate::{
     Error, Shared,
-    normalize::{SpanContext, normalize},
+    normalize::{
+        OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN, OPENCODE_TURN_NAME,
+        SpanContext, normalize,
+    },
 };
 
 pub(super) fn flatten(
@@ -73,11 +76,11 @@ fn append_scope(
     budget.consume(scope.name.len() + scope.version.len())?;
     let scope_name: Shared<String> = scope.name.into();
     let scope_version: Shared<String> = scope.version.into();
-    if matches!(
-        scope_name.as_str(),
-        "codex_cli_rs" | "codex-app-server" | "codex_exec"
-    ) {
+    if CODEX_SPAN_SCOPES.contains(&scope_name.as_str()) {
         preprocess_codex_spans(&mut scope_spans.spans);
+    }
+    if scope_name.as_str() == OPENCODE_SCOPE {
+        preprocess_opencode_spans(&mut scope_spans.spans);
     }
     for span in scope_spans.spans {
         if spans.len() >= budget.limits.spans {
@@ -129,7 +132,47 @@ fn has_attr(span: &Span, key: &str) -> bool {
     span.attributes.iter().any(|entry| entry.key == key)
 }
 
+const CODEX_SPAN_SCOPES: [&str; 3] = ["codex_cli_rs", "codex-app-server", "codex_exec"];
+const CODEX_LOG_SCOPE: &str = "codex_otel.log_only";
+const CODEX_CONVERSATION: &str = "conversation.id";
+
+fn client_session_attribute(scope: &str) -> Option<&'static str> {
+    (CODEX_SPAN_SCOPES.contains(&scope) || scope == CODEX_LOG_SCOPE).then_some(CODEX_CONVERSATION)
+}
+
+fn codex_conversation(span: &Span) -> Option<&str> {
+    raw_attr(span, CODEX_CONVERSATION)
+        .or_else(|| raw_attr(span, "thread_id"))
+        .or_else(|| {
+            raw_attr(span, "key")
+                .filter(|_| span.name == "app_server.serialized_request_queue")?
+                .strip_prefix("Thread { thread_id: \"")?
+                .strip_suffix("\" }")
+        })
+        .filter(|conversation| !conversation.is_empty())
+}
+
+fn stamp_codex_conversations(spans: &mut [Span]) {
+    let conversations: BTreeMap<Vec<u8>, String> = spans
+        .iter()
+        .rev()
+        .filter_map(|span| {
+            codex_conversation(span)
+                .map(|conversation| (span.trace_id.clone(), conversation.to_owned()))
+        })
+        .collect();
+    for span in spans.iter_mut() {
+        if !has_attr(span, CODEX_CONVERSATION)
+            && let Some(conversation) = conversations.get(&span.trace_id)
+        {
+            span.attributes
+                .push(string_attr(CODEX_CONVERSATION, conversation.clone()));
+        }
+    }
+}
+
 fn preprocess_codex_spans(spans: &mut Vec<Span>) {
+    stamp_codex_conversations(spans);
     let parents: BTreeMap<_, _> = spans
         .iter()
         .map(|span| {
@@ -345,6 +388,97 @@ pub(super) fn codex_turn_root_span_id(trace_id: &[u8]) -> Vec<u8> {
     hash.finalize()[..8].to_vec()
 }
 
+#[derive(serde::Deserialize)]
+struct OpencodeMessage {
+    role: String,
+    #[serde(default)]
+    content: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+struct OpencodePrompt {
+    messages: Vec<OpencodeMessage>,
+}
+
+fn opencode_messages(span: &Span) -> Option<Vec<OpencodeMessage>> {
+    if let Some(messages) = raw_attr(span, OPENCODE_PROMPTS[1]) {
+        return serde_json::from_str(messages).ok();
+    }
+    serde_json::from_str::<OpencodePrompt>(raw_attr(span, OPENCODE_PROMPTS[0])?)
+        .ok()
+        .map(|prompt| prompt.messages)
+}
+
+fn opencode_message_text(content: &serde_json::Value) -> String {
+    match content {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Array(parts) => parts
+            .iter()
+            .filter_map(|part| part.get("text")?.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    }
+}
+
+fn string_attr(key: &str, value: String) -> KeyValue {
+    KeyValue {
+        key: key.into(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue(value)),
+        }),
+        ..Default::default()
+    }
+}
+
+/// OpenCode records a session's prompts under spans that name no session, so they never reach the
+/// session's trace. The model calls of one prompt share the user message they answer, which stands
+/// in for the missing prompt span: each call is parented to a turn id derived from that message,
+/// and the call that opens the turn also emits the turn's root span.
+fn preprocess_opencode_spans(spans: &mut Vec<Span>) {
+    let turns: Vec<Span> = spans
+        .iter_mut()
+        .filter(|span| raw_attr(span, "ai.operationId") == Some("ai.streamText"))
+        .filter_map(|span| {
+            let session = raw_attr(span, "session.id")
+                .filter(|session| !session.is_empty())?
+                .to_owned();
+            if OPENCODE_PROMPTS.iter().any(|key| {
+                raw_attr(span, key).is_some_and(|prompt| prompt.contains(OPENCODE_TITLE_CALL))
+            }) {
+                return None;
+            }
+            let messages = opencode_messages(span)?;
+            let (index, asked) = messages
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, message)| message.role == "user")?;
+            let text = opencode_message_text(&asked.content);
+            let mut hash = Sha256::new();
+            hash.update(b"litellm.opencode.turn.v1\0");
+            hash.update(session.as_bytes());
+            hash.update(format!("\0{index}\0"));
+            hash.update(text.as_bytes());
+            let turn_id = hash.finalize()[..8].to_vec();
+            span.parent_span_id = turn_id.clone();
+            (index + 1 == messages.len()).then(|| Span {
+                trace_id: span.trace_id.clone(),
+                span_id: turn_id,
+                name: OPENCODE_TURN_NAME.into(),
+                start_time_unix_nano: span.start_time_unix_nano,
+                end_time_unix_nano: span.end_time_unix_nano,
+                attributes: vec![
+                    string_attr("session.id", session),
+                    string_attr(OPENCODE_TURN, text),
+                ],
+                ..Default::default()
+            })
+        })
+        .collect();
+    spans.extend(turns);
+}
+
 fn valid_id(value: &[u8], length: usize) -> bool {
     value.len() == length && value.iter().any(|byte| *byte != 0)
 }
@@ -399,13 +533,25 @@ fn decoded_span(
     let parent_span_id = hex_bytes(&span.parent_span_id);
     let mut span_attributes = attributes(span.attributes, budget)?;
     let original_trace_id = hex_bytes(&span.trace_id);
-    let session_attribute = resource_attributes
+    let configured_attribute = resource_attributes
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
-        .map_or("session.id", String::as_str);
-    let trace_id = if let Some(session) = span_attributes
-        .get(session_attribute)
-        .filter(|value| !value.is_empty())
+        .map(String::as_str);
+    let session_attributes = match configured_attribute {
+        Some(attribute) => [Some(attribute), None],
+        None => [
+            client_session_attribute(scope_name.as_str()),
+            Some("session.id"),
+        ],
+    };
+    let joins_session = scope_name.as_str() != OPENCODE_SCOPE
+        || span_attributes.contains_key("ai.operationId")
+        || span_attributes.contains_key(OPENCODE_TURN);
+    let trace_id = if let Some(session) = session_attributes
+        .into_iter()
+        .flatten()
+        .filter_map(|attribute| span_attributes.get(attribute))
+        .find(|value| joins_session && !value.is_empty())
     {
         let trace_id = hex_bytes(&session_trace_id(session));
         let actor = span_attributes.get("agent_id").unwrap_or(session).clone();

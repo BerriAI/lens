@@ -78,15 +78,15 @@ await withFixture("migration", process.argv[2], async (fixture) => {
   const lens = await read("/lens/lens");
   assert.deepEqual(lens.scope, source.lenses[0].data.scope);
   assert.equal(lens.findings.length, source.lenses[0].data.findings.length);
-  assert.equal((await read("/lens/lens/runs/archive")).id, "archive");
+  assert.equal((await read("/lens/admin/lens/runs/archive")).id, "archive");
   for (const revision of [1, 2]) {
-    const value = await read(`/lens/datasets/dataset?revision=${revision}`);
+    const value = await read(`/lens/admin/datasets/dataset?revision=${revision}`);
     assert.equal(value.revision, revision);
     assert.equal(value.team_id, "alpha");
     assert.deepEqual(value.cases, dataset.cases);
   }
-  assert.equal((await read("/lens/datasets/dataset")).revision, 2);
-  assert.equal((await read("/lens/tracing/keys"))[0].tenant.api_key_hash, ingestionHash);
+  assert.equal((await read("/lens/admin/datasets/dataset")).revision, 2);
+  assert.equal((await read("/lens/admin/tracing/keys"))[0].tenant.api_key_hash, ingestionHash);
   assert.equal((await fixture.request("POST", "/v1/traces", tracePayload(), ingestionKey)).status, 200);
   assert.equal((await read("/v1/traces?include_internal=true")).data.length, 1);
   return { source_groups: planned.plan.source_rows, records: planned.plan.records, source_read_only: true,

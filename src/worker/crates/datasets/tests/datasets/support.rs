@@ -87,6 +87,7 @@ pub fn trace(spans: Vec<Span>) -> Trace {
             input_preview: String::new(),
             output_preview: String::new(),
             start_time: String::new(),
+            last_activity_time: String::new(),
             duration_ms: 1.0,
             status: SpanStatus::Ok,
             span_count: spans.len() as u64,

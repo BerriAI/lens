@@ -14,7 +14,7 @@ use std::sync::Arc;
 async fn rules_can_be_added_edited_disabled_and_removed(#[future(awt)] database: Database) {
     let server = database.serve(true).await;
     let client = reqwest::Client::new();
-    let url = format!("{}/lens/alerts/rules", server.url);
+    let url = format!("{}/lens/admin/alerts/rules", server.url);
     let rules = json!([
         {"id":"short","enabled":true,"condition":{"kind":"run_duration","minutes":5}},
         {"id":"long","enabled":true,"condition":{"kind":"run_duration","minutes":20}},
@@ -88,7 +88,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
 ) {
     let server = database.serve(true).await;
     let client = reqwest::Client::new();
-    let rules_url = format!("{}/lens/alerts/rules", server.url);
+    let rules_url = format!("{}/lens/admin/alerts/rules", server.url);
     let saved = client
         .put(&rules_url)
         .bearer_auth(ADMIN)
@@ -125,7 +125,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     );
     assert_eq!(client.get(&rules_url).send().await.unwrap().status(), 401);
     let key: Value = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .bearer_auth(ADMIN)
         .json(&json!({"name":"Rule test"}))
         .send()
@@ -179,7 +179,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     assert_eq!(overview["matches"][0]["rule_id"], "errors");
     assert_eq!(overview["matches"][0]["span_id"], "1111222233334444");
     let signals: Value = client
-        .get(format!("{}/lens/signals", server.url))
+        .get(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .send()
         .await

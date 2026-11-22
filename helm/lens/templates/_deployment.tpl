@@ -28,6 +28,29 @@ spec:
         fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
+      {{- if include "lens.bundledClickhouse" . }}
+      initContainers:
+        - name: wait-for-clickhouse
+          image: {{ .Values.clickhouse.image | quote }}
+          command:
+            - sh
+            - -c
+            - until wget -q -T 3 -O /dev/null "http://$CLICKHOUSE_HOST:8123/ping"; do sleep 2; done
+          env:
+            - name: CLICKHOUSE_HOST
+              value: {{ include "lens.clickhouseName" . | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+      {{- end }}
       containers:
         - name: {{ .Values.component }}
           image: {{ include "lens.image" . | quote }}
@@ -41,9 +64,9 @@ spec:
             - name: LENS_MODE
               value: standalone
             - name: LENS_PUBLIC_URL
-              value: {{ required "Lens publicUrl is required" .Values.publicUrl | quote }}
+              value: {{ include "lens.publicUrl" . | quote }}
             - name: LITELLM_LENS_PUBLIC_URL
-              value: {{ .Values.ingestionUrl | default .Values.publicUrl | quote }}
+              value: {{ .Values.ingestionUrl | default (include "lens.publicUrl" .) | quote }}
             - name: LENS_ADMIN_TOKEN
               valueFrom:
                 secretKeyRef:

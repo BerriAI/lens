@@ -11,6 +11,16 @@ import { useConnectProjectRoute } from "../route";
 import { useOnboarding } from "./OnboardingContext";
 import { HomeConnectionStatus } from "./HomeConnectionStatus";
 import { SetupAgentPrompt } from "./SetupAgentPrompt";
+import {
+  OPENCODE_CONFIG,
+  SETUP_AGENTS,
+  agentTelemetrySettings,
+  type SetupAgent,
+  type SetupPath,
+} from "./setupPrompt";
+import { useLensHost } from "../../../host/LensHost";
+import { hostedApiRoot } from "../../../lib/http/resolveApiBase";
+import { getRequestBaseUrl } from "../../../lib/http/runtime";
 import { LensPageHeader } from "../ui/LensPageHeader";
 import {
   CodeBlock,
@@ -28,7 +38,36 @@ import { TracingKeysDialog } from "./tracing/TracingKeysDialog";
 import { emptyConnection, restoreConnection } from "./homeConnection";
 import { connectionAuthStatus } from "./connectionErrors";
 
+const servedByGateway = () =>
+  typeof window !== "undefined" &&
+  hostedApiRoot(window.location.pathname) !== null;
 const shellValue = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+
+const PATHS: readonly {
+  readonly id: SetupPath;
+  readonly label: string;
+  readonly detail: string;
+}[] = [
+  {
+    id: "gateway",
+    label: "Through the LiteLLM gateway",
+    detail:
+      "Your agent's model calls go through LiteLLM. It sends telemetry to the gateway with its LiteLLM key.",
+  },
+  {
+    id: "standalone",
+    label: "Standalone Lens",
+    detail:
+      "Your agent does not use LiteLLM. It sends telemetry straight to Lens with a tracing key.",
+  },
+];
+
+const MANUAL_TARGET: Record<SetupAgent, string> = {
+  "claude-code":
+    "Export these in the terminal where you run claude, or add each one as a string entry in the env object in ~/.claude/settings.json.",
+  codex: "Add this to ~/.codex/config.toml.",
+  opencode: `Add ${OPENCODE_CONFIG} to opencode.json, then export these where you start opencode.`,
+};
 
 export function LensHome({
   agents,
@@ -65,20 +104,36 @@ export function LensHome({
   } | null>(null);
   const [manageKeys, setManageKeys] = useState(false);
   const [manual, setManual] = useState(false);
+  const embedded = useLensHost().surface !== "standalone";
+  const [chosenPath, setPath] = useState<SetupPath | null>(null);
+  const path =
+    chosenPath ??
+    (embedded || servedByGateway() || connection.data?.gateway_connected
+      ? "gateway"
+      : "standalone");
+  const gateway = path === "gateway";
+  const [agent, setAgent] = useState<SetupAgent>("claude-code");
+  const agentLabel = SETUP_AGENTS.find((option) => option.id === agent)?.label;
+  const gatewayUrl = embedded
+    ? (getRequestBaseUrl() || globalThis.location?.origin || "").replace(
+        /\/$/,
+        "",
+      )
+    : "";
   const [preparing, setPreparing] = useState(false);
   const selected = progress.keyId
-    ? keys.data?.find((key) => key.id === progress.keyId) ??
+    ? (keys.data?.find((key) => key.id === progress.keyId) ??
       (!keys.isSuccess && created?.record.id === progress.keyId
         ? created.record
-        : undefined)
+        : undefined))
     : undefined;
   const tracingKey =
     created?.record.id === selected?.id ? created?.value : undefined;
   const traceUrl = connection.data?.url?.replace(/\/$/, "") ?? "";
   const ready = Boolean(
     connection.data?.connected &&
-      connection.data.status.storage_ready &&
-      traceUrl,
+    connection.data.status.storage_ready &&
+    traceUrl,
   );
   const auth = connectionAuthStatus(connection.error);
   const issue =
@@ -94,11 +149,13 @@ export function LensHome({
               ? "Lens is unavailable. Check your deployment, then retry."
               : !connection.data.status.storage_ready
                 ? "Trace storage is not ready. Check your deployment, then retry."
-                : !traceUrl
-                  ? "Set your public Lens address in deployment setup so your agent knows where to send traces."
-                  : connection.data.status.credentials_ready === false
-                    ? "Lens is syncing tracing credentials. This page will update when they are ready."
-                    : null;
+                : gateway
+                  ? null
+                  : !traceUrl
+                    ? "Set your public Lens address in deployment setup so your agent knows where to send traces."
+                    : connection.data.status.credentials_ready === false
+                      ? "Lens is syncing tracing credentials. This page will update when they are ready."
+                      : null;
   const startWatching = () =>
     setProgress((current) => ({
       ...current,
@@ -275,6 +332,34 @@ export function LensHome({
                 ) : null}
               </div>
             )}
+            <div
+              role="radiogroup"
+              aria-label="How your agent connects"
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              {PATHS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={path === option.id}
+                  disabled={preparing}
+                  onClick={() => setPath(option.id)}
+                  className={`rounded-lg border p-4 text-left transition-colors ${
+                    path === option.id
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "bg-background hover:bg-muted/40"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">
+                    {option.label}
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    {option.detail}
+                  </span>
+                </button>
+              ))}
+            </div>
             <section
               className="lens-panel space-y-5 p-5 sm:p-6"
               aria-labelledby="home-connect-heading"
@@ -284,7 +369,9 @@ export function LensHome({
                   id="home-connect-heading"
                   className="text-base font-semibold"
                 >
-                  {manual ? "Set up manually" : "Set up with your coding agent"}
+                  {gateway
+                    ? "Connect through the LiteLLM gateway"
+                    : "Connect to Lens standalone"}
                 </h3>
                 <Button
                   variant="link"
@@ -297,7 +384,58 @@ export function LensHome({
                   {manual ? "Use a coding agent" : "Set up manually"}
                 </Button>
               </div>
-              {manual ? (
+              {gateway ? (
+                manual ? (
+                  <div className="space-y-3">
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Point your agent’s telemetry at your LiteLLM gateway and
+                      authenticate with the LiteLLM key it already uses for
+                      model calls. The gateway forwards it to Lens, so you do
+                      not need a Lens tracing key.
+                    </p>
+                    <div
+                      role="radiogroup"
+                      aria-label="Coding agent"
+                      className="flex flex-wrap gap-2"
+                    >
+                      {SETUP_AGENTS.map((option) => (
+                        <Button
+                          key={option.id}
+                          role="radio"
+                          aria-checked={agent === option.id}
+                          size="sm"
+                          variant={agent === option.id ? "default" : "outline"}
+                          onClick={() => setAgent(option.id)}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {MANUAL_TARGET[agent]}
+                    </p>
+                    <CodeBlock
+                      code={agentTelemetrySettings(
+                        agent,
+                        gatewayUrl || "<your LiteLLM gateway address>",
+                        "<your LiteLLM key>",
+                        "shell",
+                      )}
+                      copyLabel={`Copy ${agentLabel} settings`}
+                      wrap
+                    />
+                  </div>
+                ) : (
+                  <SetupAgentPrompt
+                    goal="tracing"
+                    path="gateway"
+                    agent={agent}
+                    onAgentChange={setAgent}
+                    agentName={project?.name}
+                    prominent
+                  />
+                )
+              ) : manual ? (
                 <div className="space-y-5" id="tracing-key">
                   <div className="space-y-3">
                     <h4 className="lens-section-label">1. Get a tracing key</h4>
@@ -354,6 +492,9 @@ export function LensHome({
               ) : (
                 <SetupAgentPrompt
                   goal="tracing"
+                  path="standalone"
+                  agent={agent}
+                  onAgentChange={setAgent}
                   connection={connection.error ? undefined : connection.data}
                   agentName={project?.name}
                   tracingKey={tracingKey}
@@ -366,8 +507,8 @@ export function LensHome({
                   onCopied={startWatching}
                 />
               )}
-              {!manual && keyChoices}
-              {tracingKey && !manual && (
+              {!gateway && !manual && keyChoices}
+              {!gateway && tracingKey && !manual && (
                 <details className="text-sm" id="tracing-key">
                   <summary className="w-fit cursor-pointer text-muted-foreground">
                     Your tracing key
@@ -394,15 +535,30 @@ export function LensHome({
               <h3 id="home-trace-heading" className="lens-section-label">
                 See your trace
               </h3>
-              <HomeConnectionStatus
-                keyRecord={selected}
-                startedAt={progress.startedAt}
-                enabled={enabled && ready && !issue}
-                onRestart={restart}
-                onSelectKey={
-                  canViewInvestigations ? () => setManageKeys(true) : undefined
-                }
-              />
+              {gateway ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Run one task</p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Run a real task through your gateway, then open your agents
+                    to see its trace.
+                  </p>
+                  <Button variant="outline" onClick={onOpenAgents}>
+                    View agents <ArrowRight aria-hidden className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+                <HomeConnectionStatus
+                  keyRecord={selected}
+                  startedAt={progress.startedAt}
+                  enabled={enabled && ready && !issue}
+                  onRestart={restart}
+                  onSelectKey={
+                    canViewInvestigations
+                      ? () => setManageKeys(true)
+                      : undefined
+                  }
+                />
+              )}
             </section>
             {canViewInvestigations && (
               <TracingKeysDialog
