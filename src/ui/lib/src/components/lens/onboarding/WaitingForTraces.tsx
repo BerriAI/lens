@@ -30,18 +30,13 @@ export function WaitingForTraces({
           Waiting for traces
         </span>
         <h2 className="lens-page-title mt-5">
-          {project
-            ? "Your first trace will appear here"
-            : "Connect your project to see its traces"}
+          {project ? "Your first trace will appear here" : "Connect your project to see its traces"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {project ? (
             <>
-              Continue setup for{" "}
-              <span className="break-all font-medium text-foreground">
-                {project.name}
-              </span>{" "}
-              on Home. Lens checks the connection there automatically.
+              Continue setup for <span className="break-all font-medium text-foreground">{project.name}</span> on Home.
+              Lens checks the connection there automatically.
             </>
           ) : (
             "Home walks you through setup and checks the connection live. Your agent appears here automatically when its traces arrive."
@@ -55,8 +50,7 @@ export function WaitingForTraces({
         )}
         {detail && (
           <p role="alert" className="mt-4 text-sm text-muted-foreground">
-            Trace storage is not configured yet. Check the live connection panel
-            on Home.
+            Trace storage is not configured yet. Check the live connection panel on Home.
           </p>
         )}
         <div className="mt-4">

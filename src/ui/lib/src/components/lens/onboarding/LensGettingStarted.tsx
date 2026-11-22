@@ -24,11 +24,7 @@ export interface LensGettingStartedProps {
   readonly onExit: (to: "traces" | "findings") => void;
 }
 
-export function LensGettingStarted({
-  state,
-  onStart,
-  onExit,
-}: LensGettingStartedProps) {
+export function LensGettingStarted({ state, onStart, onExit }: LensGettingStartedProps) {
   const setupRef = useRef<HTMLElement>(null);
   const exitTo = state.tracesReady ? "traces" : "findings";
   const start = () => {
@@ -37,10 +33,7 @@ export function LensGettingStarted({
     setupRef.current?.focus({ preventScroll: true });
   };
   return (
-    <section
-      aria-label="Get started with Lens"
-      className="@container mx-auto w-full max-w-7xl space-y-6"
-    >
+    <section aria-label="Get started with Lens" className="@container mx-auto w-full max-w-7xl space-y-6">
       <LensIntroduction onStart={start} />
       <div className="grid items-start gap-6 @3xl:grid-cols-[minmax(0,1fr)_280px] @3xl:gap-8">
         <OnboardingSetup
@@ -50,11 +43,7 @@ export function LensGettingStarted({
           onFocusCapture={onStart}
           action={
             (state.activityReady || state.hasInvestigations) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onExit(exitTo)}
-              >
+              <Button variant="outline" size="sm" onClick={() => onExit(exitTo)}>
                 {exitTo === "traces" ? "View traces" : "View findings"}
               </Button>
             )
@@ -86,35 +75,24 @@ function Prerequisites() {
       ]
     : PREREQUISITES;
   return (
-    <aside
-      className="rounded-xl border bg-card p-6"
-      aria-labelledby="lens-prerequisites"
-    >
+    <aside className="rounded-xl border bg-card p-6" aria-labelledby="lens-prerequisites">
       <h2 id="lens-prerequisites" className="lens-section-label">
         Before you start
       </h2>
       <ul className="mt-5 space-y-5 text-sm">
         {prerequisites.map((item) => (
           <li key={item.title} className="flex gap-3">
-            <Check
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-            />
+            <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div>
               <p className="font-medium">{item.title}</p>
-              <p className="mt-1 leading-5 text-muted-foreground">
-                {item.detail}
-              </p>
+              <p className="mt-1 leading-5 text-muted-foreground">{item.detail}</p>
             </div>
           </li>
         ))}
       </ul>
       <div className="mt-5 flex gap-2 border-t pt-5 text-xs leading-5 text-muted-foreground">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Your infrastructure stores the traces. Selected trace content is sent
-          to your selected model provider.
-        </p>
+        <p>Your infrastructure stores the traces. Selected trace content is sent to your selected model provider.</p>
       </div>
     </aside>
   );

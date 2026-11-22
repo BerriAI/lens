@@ -19,10 +19,8 @@ export const OnboardingProvider = OnboardingContext.Provider;
 
 export function useOnboarding(): Onboarding {
   const onboarding = useContext(OnboardingContext);
-  if (!onboarding)
-    throw new Error("useOnboarding needs an OnboardingProvider above it");
+  if (!onboarding) throw new Error("useOnboarding needs an OnboardingProvider above it");
   return onboarding;
 }
 
-export const useOptionalOnboarding = (): Onboarding | null =>
-  useContext(OnboardingContext);
+export const useOptionalOnboarding = (): Onboarding | null => useContext(OnboardingContext);

@@ -22,38 +22,13 @@ const summary = {
 
 beforeEach(() => testQueryClient.clear());
 
-it.each([401, 403])(
-  "reports a receipt permission failure (%s) without claiming delivery",
-  async (status) => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({ detail: "Access required" }, { status }),
-      ),
-    );
-    renderWithLens(
-      <HomeConnectionStatus
-        keyRecord={key}
-        startedAt={Date.now()}
-        enabled
-        onRestart={vi.fn()}
-      />,
-    );
-    expect(
-      await screen.findByText(
-        status === 401
-          ? "Sign in again to check delivery."
-          : "Your account cannot check delivery. Ask your Lens administrator for access.",
-      ),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Open trace" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Check again" }),
-    ).not.toBeInTheDocument();
-  },
-);
+it.each([401, 403])("reports a receipt permission failure (%s) without claiming delivery", async (status) => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ detail: "Access required" }, { status })));
+  renderWithLens(<HomeConnectionStatus keyRecord={key} startedAt={Date.now()} enabled onRestart={vi.fn()} />);
+  expect(await screen.findByText(status === 401 ? "Sign in again to check delivery." : "Your account cannot check delivery. Ask your Lens administrator for access.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Open trace" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Check again" })).not.toBeInTheDocument();
+});
 
 it("checks only traces sent after setup with the selected key, and opens the exact trace", async () => {
   const user = userEvent.setup();

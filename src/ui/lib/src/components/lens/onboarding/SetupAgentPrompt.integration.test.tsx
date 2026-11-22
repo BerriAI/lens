@@ -56,9 +56,7 @@ it("copies complete instructions from the first screen and exposes the next conv
   );
 
   expect(screen.getByText("Claude Code", { exact: true })).toBeVisible();
-  expect(
-    screen.getByText(/The instructions help your coding agent/),
-  ).toHaveTextContent("run one real task");
+  expect(screen.getByText(/The instructions help your coding agent/)).toHaveTextContent("run one real task");
   await user.click(
     screen.getByRole("button", { name: "Copy setup instructions" }),
   );
