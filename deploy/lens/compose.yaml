@@ -107,6 +107,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+    mem_limit: 4g
     restart: unless-stopped
     networks: [storage]
 
