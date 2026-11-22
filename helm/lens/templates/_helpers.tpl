@@ -22,6 +22,22 @@
 {{- if and .Values.clickhouse.enabled (not .Values.clickhouseSecret.name) -}}true{{- end -}}
 {{- end -}}
 
+{{- define "lens.publicUrl" -}}
+{{- if not .Values.ingress.enabled -}}
+{{- .Values.publicUrl | default "http://localhost:4318" -}}
+{{- else -}}
+{{- $host := required "Lens ingress.host is required" .Values.ingress.host -}}
+{{- if not .Values.publicUrl -}}
+{{- printf "%s://%s" (ternary "https" "http" (not (empty .Values.ingress.tls))) $host -}}
+{{- else -}}
+{{- if ne (lower (urlParse .Values.publicUrl).hostname) (lower $host) -}}
+{{- fail (printf "Lens publicUrl %s does not match ingress.host %s. Browsers on the ingress host could not sign in or save changes. Unset publicUrl to use the ingress host, or set it to the address browsers open" .Values.publicUrl $host) -}}
+{{- end -}}
+{{- .Values.publicUrl -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "lens.image" -}}
 {{- if .Values.image.digest -}}
 {{- if not (regexMatch "^sha256:[0-9a-f]{64}$" .Values.image.digest) -}}

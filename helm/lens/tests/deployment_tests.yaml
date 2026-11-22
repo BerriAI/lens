@@ -31,6 +31,30 @@ tests:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
+  - it: holds Lens until the bundled ClickHouse answers
+    set:
+      clickhouse.image: example.test/clickhouse:1
+      clickhouse.nameOverride: store
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: example.test/clickhouse:1
+      - equal:
+          path: spec.template.spec.initContainers[0].command[2]
+          value: until wget -q -T 3 -O /dev/null "http://$CLICKHOUSE_HOST:8123/ping"; do sleep 2; done
+      - equal:
+          path: spec.template.spec.initContainers[0].env
+          value:
+            - {name: CLICKHOUSE_HOST, value: store}
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
   - it: selects an independent immutable release
     set:
       image.tag: 4.2.1
@@ -60,6 +84,9 @@ tests:
             name: CLICKHOUSE_URL
             valueFrom:
               secretKeyRef: {name: existing-clickhouse, key: CLICKHOUSE_URL}
+        documentSelector: {path: kind, value: Deployment}
+      - notExists:
+          path: spec.template.spec.initContainers
         documentSelector: {path: kind, value: Deployment}
   - it: requires a connection when bundled storage is disabled
     set:
@@ -104,6 +131,72 @@ tests:
               service:
                 name: lens
                 port: {name: otlp}
+  - it: serves browsers on the ingress host when no public URL is given
+    set:
+      ingress.enabled: true
+      ingress.host: lens.example
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_PUBLIC_URL, value: http://lens.example}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LITELLM_LENS_PUBLIC_URL, value: http://lens.example}
+  - it: serves browsers over HTTPS when the ingress terminates TLS
+    set:
+      ingress.enabled: true
+      ingress.host: lens.example
+      ingress.tls: [{hosts: [lens.example], secretName: lens-tls}]
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_PUBLIC_URL, value: https://lens.example}
+  - it: keeps a public URL on the ingress host whose TLS and port are handled upstream
+    set:
+      ingress.enabled: true
+      ingress.host: lens.example
+      publicUrl: https://LENS.example:8443
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_PUBLIC_URL, value: https://LENS.example:8443}
+  - it: rejects a public URL that browsers on the ingress host cannot use
+    set:
+      ingress.enabled: true
+      ingress.host: lens.example
+      publicUrl: http://localhost:4318
+    asserts:
+      - failedTemplate:
+          errorPattern: Lens publicUrl http://localhost:4318 does not match ingress.host lens.example
+  - it: serves port-forward browsers when nothing is configured
+    documentSelector: {path: kind, value: Deployment}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: LENS_PUBLIC_URL, value: http://localhost:4318}
+  - it: keeps the service internal unless another type is chosen
+    documentSelector: {path: "spec.ports[0].name", value: otlp}
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - notExists:
+          path: spec.ports[0].nodePort
+  - it: exposes Lens on a fixed node port
+    set:
+      service.type: NodePort
+      service.nodePort: 30418
+    documentSelector: {path: "spec.ports[0].name", value: otlp}
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.ports[0].nodePort
+          value: 30418
   - it: allows gateway wrappers to own rendering once
     set:
       library: true
