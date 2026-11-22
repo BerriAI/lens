@@ -3401,3 +3401,167 @@ fn opencode_turn_is_the_same_span_when_its_calls_arrive_in_separate_exports() {
     assert_eq!(alone[0].parent_span_id, second_turn.span_id);
     assert_eq!(alone[0].trace_id, second_turn.trace_id);
 }
+
+const OPENCODE_V2_TWO_PROMPTS: &[u8] = include_bytes!("fixtures/opencode_v2_two_prompts.json");
+
+fn opencode_v2_two_prompts(service: &str) -> Vec<litellm_traces::DecodedSpan> {
+    let mut body: serde_json::Value = serde_json::from_slice(OPENCODE_V2_TWO_PROMPTS).unwrap();
+    let service_name = body["resourceSpans"][0]["resource"]["attributes"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|attribute| attribute["key"] == "service.name")
+        .unwrap();
+    service_name["value"]["stringValue"] = service.into();
+    decode_otlp(
+        &serde_json::to_vec(&body).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap()
+}
+
+#[rstest]
+#[case::turn("SessionRunner.drain", ObservationType::Agent, 2)]
+#[case::model_call("SessionStep.attempt", ObservationType::Llm, 7)]
+#[case::session_title_call("SessionTitle.attempt", ObservationType::Llm, 1)]
+#[case::provider_stream("LLM.stream", ObservationType::Chain, 7)]
+#[case::tool("Tool.execute", ObservationType::Tool, 5)]
+#[case::model_request("POST", ObservationType::Framework, 8)]
+fn opencode_v2_span_is_typed_by_what_it_does_in_the_run(
+    #[case] recorded_name: &str,
+    #[case] observation_type: ObservationType,
+    #[case] count: usize,
+) {
+    let recorded: serde_json::Value = serde_json::from_slice(OPENCODE_V2_TWO_PROMPTS).unwrap();
+    let ids: Vec<&str> = recorded["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|span| span["name"] == recorded_name)
+        .map(|span| span["spanId"].as_str().unwrap())
+        .collect();
+    let spans = opencode_v2_two_prompts("opencode");
+    let typed: Vec<_> = spans
+        .iter()
+        .filter(|span| ids.contains(&span.span_id.as_str()))
+        .collect();
+    assert_eq!(typed.len(), count);
+    assert!(typed.iter().all(|span| {
+        span.normalized.observation_type == observation_type
+            && span.normalized.framework == Some(Integration::Opencode)
+            && span.normalized.agent_name.as_deref() == Some("opencode")
+    }));
+}
+
+#[rstest]
+fn opencode_v2_session_is_one_trace_with_a_turn_per_prompt() {
+    let spans = opencode_v2_two_prompts("opencode");
+    let turns: Vec<_> = spans
+        .iter()
+        .filter(|span| span.name == OPENCODE_TURN)
+        .collect();
+    assert_eq!(turns.len(), 2);
+    assert_eq!(turns[0].trace_id, turns[1].trace_id);
+    assert_ne!(
+        turns[0].attributes["lens.original_trace_id"],
+        turns[1].attributes["lens.original_trace_id"]
+    );
+    assert!(turns.iter().all(|turn| turn.parent_span_id.is_empty()));
+}
+
+#[rstest]
+#[case::model_call("SessionStep.attempt")]
+#[case::tool("Tool.execute")]
+#[case::model_request("POST")]
+fn opencode_v2_step_reaches_its_turn_inside_the_session_trace(#[case] name: &str) {
+    let spans = opencode_v2_two_prompts("opencode");
+    let session_trace = &spans
+        .iter()
+        .find(|span| span.name == OPENCODE_TURN)
+        .unwrap()
+        .trace_id;
+    let in_session: std::collections::HashMap<&str, &litellm_traces::DecodedSpan> = spans
+        .iter()
+        .filter(|span| &span.trace_id == session_trace)
+        .map(|span| (span.span_id.as_str(), span))
+        .collect();
+    let root = |span: &litellm_traces::DecodedSpan| {
+        std::iter::successors(Some(span), |current| {
+            in_session.get(current.parent_span_id.as_str()).copied()
+        })
+        .last()
+        .map(|top| top.name.clone())
+    };
+    let steps: Vec<_> = in_session
+        .values()
+        .filter(|span| span.name == name)
+        .collect();
+    assert!(!steps.is_empty());
+    assert!(
+        steps
+            .iter()
+            .all(|step| root(step).as_deref() == Some(OPENCODE_TURN))
+    );
+}
+
+#[rstest]
+fn opencode_v2_model_call_keeps_its_model_and_tokens_and_its_request_is_the_gateway_match() {
+    let spans = opencode_v2_two_prompts("opencode");
+    let call = spans
+        .iter()
+        .find(|span| span.name == "SessionStep.attempt")
+        .unwrap();
+    assert_eq!(call.normalized.model.as_deref(), Some("openai/gpt-5-mini"));
+    assert!(call.normalized.input_tokens > 0);
+    assert!(call.normalized.output_tokens > 0);
+    let request = spans
+        .iter()
+        .find(|span| span.name == "POST" && span.attributes.contains_key("lens.original_trace_id"))
+        .unwrap();
+    assert_eq!(
+        request.normalized.calls.key_set(),
+        Some(&std::collections::BTreeSet::from([
+            litellm_traces::CallKey::Transport
+        ]))
+    );
+}
+
+#[rstest]
+#[case::opencode_internals_stay_out("opencode", false, 2)]
+#[case::another_effect_app_is_grouped_as_before("other-app", true, 0)]
+fn only_opencode_v2_keeps_its_internal_spans_out_of_the_session(
+    #[case] service: &str,
+    #[case] joins_session: bool,
+    #[case] turns: usize,
+) {
+    let spans = opencode_v2_two_prompts(service);
+    let internal: Vec<_> = spans
+        .iter()
+        .filter(|span| {
+            matches!(
+                span.name.as_str(),
+                "Shell.create" | "SessionRunner.prepareContext"
+            )
+        })
+        .collect();
+    assert_eq!(internal.len(), 10);
+    assert!(
+        internal
+            .iter()
+            .all(|span| span.attributes.contains_key("lens.original_trace_id") == joins_session)
+    );
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|span| span.name == OPENCODE_TURN)
+            .count(),
+        turns
+    );
+    assert_eq!(
+        spans
+            .iter()
+            .filter(|span| span.normalized.observation_type == ObservationType::Llm)
+            .count(),
+        if joins_session { 0 } else { 8 }
+    );
+}

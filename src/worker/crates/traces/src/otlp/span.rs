@@ -16,7 +16,7 @@ use crate::{
     Error, Shared,
     normalize::{
         OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN, OPENCODE_TURN_NAME,
-        SpanContext, normalize,
+        SpanContext, is_opencode_v2, normalize, opencode_v2_step,
     },
 };
 
@@ -500,9 +500,19 @@ fn decoded_span(
         .get("lens.session.attribute")
         .filter(|value| !value.is_empty())
         .map_or("session.id", String::as_str);
-    let joins_session = scope_name.as_str() != OPENCODE_SCOPE
-        || span_attributes.contains_key("ai.operationId")
-        || span_attributes.contains_key(OPENCODE_TURN);
+    let joins_session = if is_opencode_v2(scope_name, resource_attributes) {
+        opencode_v2_step(
+            scope_name,
+            &span.name,
+            &span_attributes,
+            resource_attributes,
+        )
+        .is_some()
+    } else {
+        scope_name.as_str() != OPENCODE_SCOPE
+            || span_attributes.contains_key("ai.operationId")
+            || span_attributes.contains_key(OPENCODE_TURN)
+    };
     let trace_id = if let Some(session) = span_attributes
         .get(session_attribute)
         .filter(|value| joins_session && !value.is_empty())

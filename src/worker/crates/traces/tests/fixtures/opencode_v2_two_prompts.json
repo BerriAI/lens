@@ -1,0 +1,2128 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "@effect/opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "nodejs"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "4.1.0"
+      }
+     },
+     {
+      "key": "deployment.environment.name",
+      "value": {
+       "stringValue": "latest"
+      }
+     },
+     {
+      "key": "opencode.client",
+      "value": {
+       "stringValue": "cli"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "opencode"
+      }
+     },
+     {
+      "key": "service.version",
+      "value": {
+       "stringValue": "2.3.2"
+      }
+     }
+    ],
+    "droppedAttributesCount": 0
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "effect",
+      "version": "4.1.0"
+     },
+     "spans": [
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.drain",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280306736001",
+       "endTimeUnixNano": "1795331292172235941",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "44a0cadfb9734d7c",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280308005423",
+       "endTimeUnixNano": "1795331280337015434",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "4476c984dfaf8744",
+       "parentSpanId": "44a0cadfb9734d7c",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280308384905",
+       "endTimeUnixNano": "1795331280316256852",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "617566c6dfd80583",
+       "parentSpanId": "44a0cadfb9734d7c",
+       "name": "SessionTitle.generate",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280318003082",
+       "endTimeUnixNano": "1795331287262399157",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "6a38f9b9cac283a9",
+       "parentSpanId": "617566c6dfd80583",
+       "name": "SessionTitle.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280330457982",
+       "endTimeUnixNano": "1795331287260710383",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "9a2989acc82002ab",
+       "parentSpanId": "6a38f9b9cac283a9",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331280334140034",
+       "endTimeUnixNano": "1795331287140403492",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "91fee017e3970398",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280337036507",
+       "endTimeUnixNano": "1795331290258081981",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "41806afff8e95fb0",
+       "parentSpanId": "91fee017e3970398",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280341646720",
+       "endTimeUnixNano": "1795331290258033563",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 9194
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5077
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 707
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 1536
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.0023376499999999997
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "34f6327dd29cc685",
+       "parentSpanId": "41806afff8e95fb0",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331280342076484",
+       "endTimeUnixNano": "1795331290160606618",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "644f360ffff22054",
+       "parentSpanId": "34f6327dd29cc685",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331280343739010",
+       "endTimeUnixNano": "1795331289513470929",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "b23b183b8bed66af",
+       "parentSpanId": "41806afff8e95fb0",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290163175949",
+       "endTimeUnixNano": "1795331290253863007",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "shell"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_LlZDzzLuumTkFiM7IL16c2nZ"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "79e781a084760ab9",
+       "parentSpanId": "b23b183b8bed66af",
+       "name": "Shell.create",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290163655379",
+       "endTimeUnixNano": "1795331290251711786",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_LlZDzzLuumTkFiM7IL16c2nZ"
+         }
+        },
+        {
+         "key": "opencode.shell.command",
+         "value": {
+          "stringValue": "echo -n 'Paris 14C.' > weather.txt"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "a60aefaf2b666ab5",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290258097481",
+       "endTimeUnixNano": "1795331290264321938",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "55148d4394e28dea",
+       "parentSpanId": "a60aefaf2b666ab5",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290258374794",
+       "endTimeUnixNano": "1795331290260281597",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "c8a2185259bf31d7",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290264338149",
+       "endTimeUnixNano": "1795331291115905455",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "29d4077689c675a8",
+       "parentSpanId": "c8a2185259bf31d7",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290269062129",
+       "endTimeUnixNano": "1795331291115869810",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 713
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5151
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 17
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 4864
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.00022735000000000002
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "9b80666ef4c31f1a",
+       "parentSpanId": "29d4077689c675a8",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331290269244009",
+       "endTimeUnixNano": "1795331291107037735",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "d2fe6b96d92dd7bf",
+       "parentSpanId": "9b80666ef4c31f1a",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331290270657196",
+       "endTimeUnixNano": "1795331290975614225",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "cd97532e020b4dee",
+       "parentSpanId": "29d4077689c675a8",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291109008782",
+       "endTimeUnixNano": "1795331291112476502",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_mhJXk00rG3JNxIffGTFIfMEG"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "a66731fb78c5e08c",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291115917051",
+       "endTimeUnixNano": "1795331291121392254",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "dd33aeec9039f99b",
+       "parentSpanId": "a66731fb78c5e08c",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291116202574",
+       "endTimeUnixNano": "1795331291117895019",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "0be8b5bce705a877",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291121405497",
+       "endTimeUnixNano": "1795331292171117427",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "d6207064c7d00821",
+       "parentSpanId": "0be8b5bce705a877",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291125204686",
+       "endTimeUnixNano": "1795331292169945936",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 714
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5196
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 24
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 4992
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.0002238
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "2c78158a760ec5f1",
+       "parentSpanId": "d6207064c7d00821",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331291125356820",
+       "endTimeUnixNano": "1795331292166328343",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "11970a2667c5466c",
+       "parentSpanId": "2c78158a760ec5f1",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331291126514578",
+       "endTimeUnixNano": "1795331291816453956",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "2d3105ffa7bed936793bc094f0ad3f8b",
+       "spanId": "5470e75a988e7275",
+       "parentSpanId": "931fbee83b3f71d3",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331292171136606",
+       "endTimeUnixNano": "1795331292172227811",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "3a82f396ed551313",
+       "name": "SessionRunner.drain",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293179065948",
+       "endTimeUnixNano": "1795331304293796232",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "802adc0d6208b492",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293180348456",
+       "endTimeUnixNano": "1795331293194722087",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "a368e554c031bcf7",
+       "parentSpanId": "802adc0d6208b492",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293180741826",
+       "endTimeUnixNano": "1795331293185722061",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "f81b4b7fab3e1ea8",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293194750462",
+       "endTimeUnixNano": "1795331300288702513",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "caa185889c559700",
+       "parentSpanId": "f81b4b7fab3e1ea8",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293200089090",
+       "endTimeUnixNano": "1795331300288655041",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 6327
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5252
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 506
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 4992
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.0012017999999999998
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "154ea8caf8de3cfa",
+       "parentSpanId": "caa185889c559700",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331293200432467",
+       "endTimeUnixNano": "1795331300207608529",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "55ace6107db04ce4",
+       "parentSpanId": "154ea8caf8de3cfa",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331293202539087",
+       "endTimeUnixNano": "1795331299503082507",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "61ee73e2c87879c5",
+       "parentSpanId": "caa185889c559700",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300210024093",
+       "endTimeUnixNano": "1795331300284194576",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "shell"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_B4XzQBa9KuT5VRDqlkAubb74"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "767410601b6a05d9",
+       "parentSpanId": "61ee73e2c87879c5",
+       "name": "Shell.create",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300210378065",
+       "endTimeUnixNano": "1795331300281799675",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_B4XzQBa9KuT5VRDqlkAubb74"
+         }
+        },
+        {
+         "key": "opencode.shell.command",
+         "value": {
+          "stringValue": "printf '\\nTokyo 22C' >> weather.txt"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "ee24940633bee5bc",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300288718363",
+       "endTimeUnixNano": "1795331300295505984",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "77317fae649f28d0",
+       "parentSpanId": "ee24940633bee5bc",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300289024013",
+       "endTimeUnixNano": "1795331300291027792",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "75e4d49747d250bb",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300295523190",
+       "endTimeUnixNano": "1795331301144435238",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "d916e510c4ac179b",
+       "parentSpanId": "75e4d49747d250bb",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300300172339",
+       "endTimeUnixNano": "1795331301144403666",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 757
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5317
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 17
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 5120
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.00021125
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "32f7f2e51b87a6b9",
+       "parentSpanId": "d916e510c4ac179b",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331300300453257",
+       "endTimeUnixNano": "1795331301134628812",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "104a92c1edbe45de",
+       "parentSpanId": "32f7f2e51b87a6b9",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331300301876688",
+       "endTimeUnixNano": "1795331301049639216",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "5c7aa453c47965cd",
+       "parentSpanId": "d916e510c4ac179b",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301136550021",
+       "endTimeUnixNano": "1795331301140872719",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "read"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_A7lyhxXx1dJnjwMz8lxTKjHz"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "0c5c17438ef8a13c",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301144452547",
+       "endTimeUnixNano": "1795331301150410108",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "5df937fe8c530ee7",
+       "parentSpanId": "0c5c17438ef8a13c",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301144694056",
+       "endTimeUnixNano": "1795331301146476246",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "cc0aa929f8c0e579",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301150424842",
+       "endTimeUnixNano": "1795331302038163508",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "7fa8ffbe1c7244e9",
+       "parentSpanId": "cc0aa929f8c0e579",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301154697345",
+       "endTimeUnixNano": "1795331302038118887",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 737
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "tool-calls"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5368
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 18
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 5120
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.00022600000000000002
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "bcd4fd4315824d02",
+       "parentSpanId": "7fa8ffbe1c7244e9",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331301154834170",
+       "endTimeUnixNano": "1795331302024809336",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "9dbcbe3a069c656e",
+       "parentSpanId": "bcd4fd4315824d02",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331301156084821",
+       "endTimeUnixNano": "1795331301883064169",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "4d55cdfe6d84fc82",
+       "parentSpanId": "7fa8ffbe1c7244e9",
+       "name": "Tool.execute",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302026826159",
+       "endTimeUnixNano": "1795331302034413633",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "shell"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_PJJw1CYdnoVoDlNUx7OPOzU4"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "1c9a87376dd4d24f",
+       "parentSpanId": "4d55cdfe6d84fc82",
+       "name": "Shell.create",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302027031502",
+       "endTimeUnixNano": "1795331302032128055",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "call_PJJw1CYdnoVoDlNUx7OPOzU4"
+         }
+        },
+        {
+         "key": "opencode.shell.command",
+         "value": {
+          "stringValue": "ls -la"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "b3c62b6c3cd06fe2",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302038176863",
+       "endTimeUnixNano": "1795331302044746054",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "fb4273cdfb3e7a80",
+       "parentSpanId": "b3c62b6c3cd06fe2",
+       "name": "SessionRunner.prepareContext",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302038468694",
+       "endTimeUnixNano": "1795331302040357396",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "f3828b9eafa2cac9",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.runStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302044761317",
+       "endTimeUnixNano": "1795331304292745412",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "fd6d9d27d266f9c2",
+       "parentSpanId": "f3828b9eafa2cac9",
+       "name": "SessionStep.attempt",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302049578961",
+       "endTimeUnixNano": "1795331304291325943",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "build"
+         }
+        },
+        {
+         "key": "opencode.llm.first_output_ms",
+         "value": {
+          "intValue": 803
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": 5490
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": 143
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": 5248
+         }
+        },
+        {
+         "key": "opencode.usage.cost_usd",
+         "value": {
+          "doubleValue": 0.0004777
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "62db599b6d1aff6a",
+       "parentSpanId": "fd6d9d27d266f9c2",
+       "name": "LLM.stream",
+       "kind": 1,
+       "startTimeUnixNano": "1795331302049729295",
+       "endTimeUnixNano": "1795331304287931874",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "litellm"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "openai/gpt-5-mini"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "f6b29116220fcb16",
+       "parentSpanId": "62db599b6d1aff6a",
+       "name": "POST",
+       "kind": 3,
+       "startTimeUnixNano": "1795331302051243237",
+       "endTimeUnixNano": "1795331302834306394",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        },
+        {
+         "key": "http.request.method",
+         "value": {
+          "stringValue": "POST"
+         }
+        },
+        {
+         "key": "url.full",
+         "value": {
+          "stringValue": "http://gateway.example/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.path",
+         "value": {
+          "stringValue": "/v1/chat/completions"
+         }
+        },
+        {
+         "key": "url.scheme",
+         "value": {
+          "stringValue": "https"
+         }
+        },
+        {
+         "key": "http.response.status_code",
+         "value": {
+          "intValue": 200
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      },
+      {
+       "traceId": "c7019cae6cfb25573d94cf329d80db42",
+       "spanId": "99ad1e4ecb680389",
+       "parentSpanId": "3a82f396ed551313",
+       "name": "SessionRunner.advanceToStep",
+       "kind": 1,
+       "startTimeUnixNano": "1795331304292762267",
+       "endTimeUnixNano": "1795331304293789143",
+       "attributes": [
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "ses_fixture"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 257
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

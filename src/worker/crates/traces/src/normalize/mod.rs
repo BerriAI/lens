@@ -35,6 +35,51 @@ pub(crate) const OPENCODE_TITLE_CALL: &str =
 /// Set on the root span Lens adds for each prompt of an OpenCode session, holding what was asked
 pub(crate) const OPENCODE_TURN: &str = "lens.opencode.turn";
 pub(crate) const OPENCODE_TURN_NAME: &str = "opencode.turn";
+/// OpenCode 2 records its spans under the Effect tracer's scope and names itself in the resource
+const OPENCODE_V2_SCOPE: &str = "effect";
+
+/// What a span of OpenCode 2 is in an agent run. Its other spans are its internals
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OpencodeV2Step {
+    Turn,
+    ModelCall,
+    Tool,
+    /// The HTTP request of a model call, which carries the `traceparent` the gateway logs
+    Transport,
+    Wrapper,
+}
+
+pub(crate) fn is_opencode_v2(scope: &str, resource_attributes: &BTreeMap<String, String>) -> bool {
+    scope == OPENCODE_V2_SCOPE
+        && resource_attributes.get("service.name").map(String::as_str) == Some(OPENCODE_SCOPE)
+}
+
+pub(crate) fn opencode_v2_step(
+    scope: &str,
+    name: &str,
+    attributes: &BTreeMap<String, String>,
+    resource_attributes: &BTreeMap<String, String>,
+) -> Option<OpencodeV2Step> {
+    if !is_opencode_v2(scope, resource_attributes) {
+        return None;
+    }
+    match name {
+        "SessionRunner.drain" => Some(OpencodeV2Step::Turn),
+        "SessionStep.attempt" | "SessionTitle.attempt" => Some(OpencodeV2Step::ModelCall),
+        "Tool.execute" if attributes.contains_key("gen_ai.tool.name") => Some(OpencodeV2Step::Tool),
+        "SessionRunner.runStep"
+        | "SessionRunner.advanceToStep"
+        | "SessionTitle.generate"
+        | "LLM.stream" => Some(OpencodeV2Step::Wrapper),
+        _ if attributes.get("http.request.method").map(String::as_str) == Some("POST")
+            && attributes.contains_key("url.full")
+            && !attributes.contains_key("http.route") =>
+        {
+            Some(OpencodeV2Step::Transport)
+        }
+        _ => None,
+    }
+}
 use instrumentation::Instrumentation;
 pub(crate) use messages::{HIDDEN_BLOCK_TYPES, MessagePayload, encode};
 pub use metadata::{AgentMetadata, AgentType, Integration};

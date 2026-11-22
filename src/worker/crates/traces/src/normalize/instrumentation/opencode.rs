@@ -1,6 +1,10 @@
-use super::{Extraction, Integration, ObservationType, RoleEvidence, Rule, SpanContext, SpanFacts};
+use super::{
+    CallEvidence, CallKey, Extraction, Integration, ObservationType, RoleEvidence, Rule,
+    SpanContext, SpanFacts, present,
+};
 use crate::normalize::{
     OPENCODE_AGENT, OPENCODE_PROMPTS, OPENCODE_SCOPE, OPENCODE_TITLE_CALL, OPENCODE_TURN,
+    OPENCODE_TURN_NAME, OpencodeV2Step, opencode_v2_step,
 };
 
 /// Set by the Vercel AI SDK on the model-call and tool spans of a run; OpenCode's other spans
@@ -65,4 +69,62 @@ impl Rule for Opencode {
 fn is_agent_work(context: &SpanContext<'_>) -> bool {
     context.attributes.contains_key(AI_SDK_OPERATION)
         || context.attributes.contains_key(OPENCODE_TURN)
+}
+
+pub(super) struct OpencodeV2;
+
+fn v2_step(context: &SpanContext<'_>) -> Option<OpencodeV2Step> {
+    opencode_v2_step(
+        context.scope,
+        context.name,
+        context.attributes,
+        context.resource_attributes,
+    )
+}
+
+impl Rule for OpencodeV2 {
+    fn matches(&self, context: &SpanContext<'_>) -> bool {
+        v2_step(context).is_some()
+    }
+
+    fn integration(&self, _: &SpanContext<'_>) -> Option<Integration> {
+        Some(Integration::Opencode)
+    }
+
+    /// OpenCode 2 records its mode (`build`, `plan`) as the agent name, which would list one
+    /// OpenCode install as several agents
+    fn agent_name(&self, context: &SpanContext<'_>, _: Option<String>) -> Option<String> {
+        present(context.resource_attributes, &["gen_ai.agent.name"])
+            .or_else(|| Some(OPENCODE_AGENT.to_owned()))
+    }
+
+    fn adjust(&self, context: &SpanContext<'_>, extraction: Extraction) -> Extraction {
+        let Some(step) = v2_step(context) else {
+            return extraction;
+        };
+        let role = match step {
+            OpencodeV2Step::Turn => ObservationType::Agent,
+            OpencodeV2Step::ModelCall => ObservationType::Llm,
+            OpencodeV2Step::Tool => ObservationType::Tool,
+            OpencodeV2Step::Transport => ObservationType::Framework,
+            OpencodeV2Step::Wrapper => ObservationType::Chain,
+        };
+        let adjusted = extraction.map_facts(|facts| SpanFacts {
+            role: Some(RoleEvidence::Declared(role)),
+            calls: if step == OpencodeV2Step::Transport {
+                CallEvidence::complete(CallKey::Transport)
+            } else {
+                facts.calls
+            },
+            ..facts
+        });
+        if step == OpencodeV2Step::Turn {
+            Extraction {
+                display_name: Some(OPENCODE_TURN_NAME.to_owned()),
+                ..adjusted
+            }
+        } else {
+            adjusted
+        }
+    }
 }
