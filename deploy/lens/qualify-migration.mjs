@@ -86,7 +86,7 @@ await withFixture("migration", process.argv[2], async (fixture) => {
     assert.deepEqual(value.cases, dataset.cases);
   }
   assert.equal((await read("/lens/datasets/dataset")).revision, 2);
-  assert.equal((await read("/lens/tracing/keys"))[0].tenant.api_key_hash, ingestionHash);
+  assert.equal((await read("/lens/admin/tracing/keys"))[0].tenant.api_key_hash, ingestionHash);
   assert.equal((await fixture.request("POST", "/v1/traces", tracePayload(), ingestionKey)).status, 200);
   assert.equal((await read("/v1/traces?include_internal=true")).data.length, 1);
   return { source_groups: planned.plan.source_rows, records: planned.plan.records, source_read_only: true,

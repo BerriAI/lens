@@ -286,7 +286,7 @@ describe("Lens findings and runs", () => {
       proxy.get.mockImplementation(async (path) => {
         if (path === "/lens") return { lenses: [{ ...lens, jobs }], workers: [], tracing_enabled: true };
         if (path === "/lens/lens/runs") return jobs;
-        if (path === "/lens/agents") return [];
+        if (path === "/lens/admin/agents") return [];
         return { data: [] };
       });
       const user = userEvent.setup();
@@ -400,7 +400,7 @@ it("runs with saved settings from Run now without opening setup, then accepts an
         ],
       };
     if (path === "/lens/lens/runs") return lens.jobs;
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     return { data: [] };
   });
   proxy.post.mockResolvedValue(lens);
@@ -431,7 +431,7 @@ it("guides a first-time administrator into worker connection and lens setup", as
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [], workers: [], tracing_enabled: true };
-    if (path === "/lens/agents") return [];
+    if (path === "/lens/admin/agents") return [];
     return { traces: true, requests: false, data: [] };
   });
   const user = userEvent.setup();
@@ -442,7 +442,7 @@ it("guides a first-time administrator into worker connection and lens setup", as
   });
   const guide = within(await screen.findByRole("region", { name: "Get Lens running" }));
   expect(proxy.get).toHaveBeenCalledWith(
-    "/lens/activity/available",
+    "/lens/admin/activity/available",
     expect.objectContaining({ authorization: "Bearer test" }),
   );
   expect(guide.queryByRole("button", { name: /Send your first trace/ })).not.toBeInTheDocument();
@@ -650,7 +650,7 @@ it("allows retrying a failed trace readiness check without treating it as an emp
     .mockResolvedValue({ data: [] });
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [], workers: [], tracing_enabled: true };
-    if (path === "/lens/activity/available") return traceCheck();
+    if (path === "/lens/admin/activity/available") return traceCheck();
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -671,7 +671,7 @@ it("shows a loading state until the investigation list arrives", async () => {
       return new Promise((resolve) => {
         resolveList = resolve;
       });
-    if (path === "/lens/agents") return Promise.resolve([]);
+    if (path === "/lens/admin/agents") return Promise.resolve([]);
     return Promise.resolve({ traces: true, requests: false, data: [] });
   });
   renderWithProviders(<InvestigationsView />);
@@ -718,7 +718,7 @@ it("allows request-only accounts to connect a worker without requiring agent tra
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [], workers: [], tracing_enabled: true };
-    if (path === "/lens/activity/available") return { traces: false, requests: true };
+    if (path === "/lens/admin/activity/available") return { traces: false, requests: true };
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -734,7 +734,7 @@ it("reopens the inline editor from a shared link and drops it from the URL on ca
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
     if (path === "/lens/lens/runs") return lens.jobs;
-    if (path === "/lens/agents") return [];
+    if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
   const onUrlUpdate = vi.fn();
@@ -787,7 +787,7 @@ it("walks the compact investigation list with J and K and closes with Escape", a
   const twin: Lens = { ...lens, id: "twin", settings: { ...lens.settings, name: "Twin reviews" } };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens, twin], tracing_enabled: true, workers: [] };
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     if (path.endsWith("/runs")) return [];
     return { data: [] };
   });
@@ -830,9 +830,9 @@ it("lists investigations without edit or run controls for read-only viewers", as
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], tracing_enabled: true, workers: [] };
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     if (path === "/lens/lens/runs") return [];
-    if (path === "/lens/agents") return [];
+    if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -849,9 +849,9 @@ it("opens investigations from the keyboard without treating nested edit keys as 
   testQueryClient.clear();
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens], tracing_enabled: true, workers: [] };
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     if (path === "/lens/lens/runs") return [];
-    if (path === "/lens/agents") return [];
+    if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -888,10 +888,10 @@ it("opens a failed investigation's details from its row and edits only from the 
   };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [{ ...lens, jobs: [job] }], workers: [], tracing_enabled: true };
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     if (path === "/lens/lens/runs") return [job];
     if (path === "/lens/lens/runs/failed-run") return job;
-    if (path === "/lens/agents") return [];
+    if (path === "/lens/admin/agents") return [];
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -978,7 +978,7 @@ it("keeps a finding open to retry when its update fails", async () => {
   const twin: Lens = { ...lens, id: "twin", settings: { ...lens.settings, name: "Twin reviews" } };
   proxy.get.mockImplementation(async (path) => {
     if (path === "/lens") return { lenses: [lens, twin], tracing_enabled: true, workers: [] };
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     if (path.endsWith("/runs")) return [];
     return { data: [] };
   });
@@ -1189,8 +1189,8 @@ it("lists recorded agents in Run now and runs the one picked from the list", asy
         ],
       };
     if (path === "/lens/lens/runs") return lens.jobs;
-    if (path === "/lens/agents") return ["billing-agent", "support-bot"];
-    if (path === "/lens/activity/available") return { traces: true, requests: false };
+    if (path === "/lens/admin/agents") return ["billing-agent", "support-bot"];
+    if (path === "/lens/admin/activity/available") return { traces: true, requests: false };
     return { data: [] };
   });
   proxy.post.mockResolvedValue(lens);
@@ -1215,7 +1215,7 @@ it.each([
   testQueryClient.clear();
   proxy.get.mockImplementation((path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
-    if (path === "/lens/activity/available") return { traces: false, requests: false };
+    if (path === "/lens/admin/activity/available") return { traces: false, requests: false };
     return { data: [] };
   });
   const user = userEvent.setup();
@@ -1243,7 +1243,7 @@ it("keeps saved investigations usable without reporting missing activity while r
   proxy.get.mockImplementation((path) => {
     if (path === "/lens") return { lenses: [lens], workers: [], tracing_enabled: true };
     if (path === "/v1/traces") return traces.promise;
-    if (path === "/lens/activity/available") return activity.promise;
+    if (path === "/lens/admin/activity/available") return activity.promise;
     return { data: [] };
   });
   renderWithProviders(<InvestigationsView />, { searchParams: "?tab=investigations" });

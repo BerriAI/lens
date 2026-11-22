@@ -108,7 +108,7 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
         assert!(initial.workers[0].analysis_key_id.is_none());
         Mock::given(method("GET")).and(path("/model_group/info")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"data":[{"model_group":"test-analysis","mode":"chat","input_cost_per_token":0.000001,"output_cost_per_token":0.000002,"max_input_tokens":1000000,"max_output_tokens":4096}]}))).mount(&provider).await;
         let refreshed: Value = reqwest::Client::new()
-            .post(format!("{}/lens/gateway/refresh", server.url))
+            .post(format!("{}/lens/admin/gateway/refresh", server.url))
             .bearer_auth(ADMIN)
             .send()
             .await
@@ -153,7 +153,7 @@ async fn standalone_investigation_uses_local_storage_and_settles_budget(
     assert_eq!(models["data"][0]["model_group"], "test-analysis");
     assert_eq!(models["data"][0]["mode"], "chat");
     let key = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .bearer_auth(ADMIN)
         .json(&json!({"name":"Test agent"}))
         .send()
@@ -618,7 +618,7 @@ async fn interrupted_investigation_reuses_grouping_and_finished_checks_after_res
     let server = database.serve_models(true, vec![config.clone()]).await;
     let client = reqwest::Client::new();
     let key: IngestionKeyCreated = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .bearer_auth(ADMIN)
         .json(&json!({"name":"Checkpoint test"}))
         .send()

@@ -66,9 +66,9 @@ where
     M: ModelCatalog,
 {
     Router::new()
-        .public_route("/lens/signals", get(read::<R, S, M>).put(save::<R, S, M>))
-        .public_route("/lens/signals/overview", get(overview::<R, S, M>))
-        .public_route("/lens/traces/signals", post(traces::<R, S, M>))
+        .admin_route(&authentication, "/signals", get(read::<R, S, M>).put(save::<R, S, M>))
+        .admin_route(&authentication, "/signals/overview", get(overview::<R, S, M>))
+        .admin_route(&authentication, "/traces/signals", post(traces::<R, S, M>))
         .layer(DefaultBodyLimit::max(crate::routing::MAX_REQUEST_BYTES))
         .layer(axum::middleware::from_fn(
             crate::routing::redirect_trailing_slash,

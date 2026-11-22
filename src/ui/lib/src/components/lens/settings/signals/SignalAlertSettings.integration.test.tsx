@@ -54,7 +54,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: {
             revision: 0,
@@ -84,7 +84,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: {
             revision: 0,
@@ -136,7 +136,7 @@ describe("signal alert setup", () => {
     await user.click(screen.getByRole("button", { name: "Save alert settings" }));
     await waitFor(() =>
       expect(gateway.put).toHaveBeenCalledWith(
-        "/lens/signals/alerts",
+        "/lens/admin/signals/alerts",
         expect.objectContaining({
           body: { revision: 4, enabled: false, signal_ids: ["prompt_injection"], webhook_url: null },
         }),

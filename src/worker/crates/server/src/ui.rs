@@ -4,7 +4,7 @@ use axum::{
     Router,
     body::{Body, to_bytes},
     extract::Request,
-    http::{HeaderValue, StatusCode, Uri, header},
+    http::{HeaderMap, HeaderValue, StatusCode, Uri, header},
     middleware::{Next, from_fn},
     response::{IntoResponse, Redirect, Response},
     routing::get,
@@ -32,12 +32,19 @@ fn nosniff() -> SetResponseHeaderLayer<HeaderValue> {
     )
 }
 
-async fn entry(uri: Uri) -> Redirect {
-    let location = match uri.query() {
-        Some(query) => format!("/ui/?{query}"),
-        None => "/ui/".into(),
+async fn entry(uri: Uri, headers: HeaderMap) -> Response {
+    let Some(path) = mount_path(headers.get(MOUNT_HEADER)) else {
+        return StatusCode::BAD_REQUEST.into_response();
     };
-    Redirect::temporary(&location)
+    let location = match uri.query() {
+        Some(query) => format!("{path}/?{query}"),
+        None => format!("{path}/"),
+    };
+    let mut response = Redirect::temporary(&location).into_response();
+    response
+        .headers_mut()
+        .insert(header::VARY, HeaderValue::from_static(MOUNT_HEADER));
+    response
 }
 
 fn mount_path(value: Option<&HeaderValue>) -> Option<String> {
@@ -81,6 +88,9 @@ async fn mount(mut request: Request, next: Next) -> Response {
     if let Some(hosted) = hosted {
         parts.headers.insert(MOUNT_HEADER, hosted);
     }
+    parts
+        .headers
+        .insert(header::VARY, HeaderValue::from_static(MOUNT_HEADER));
     let Ok(text) = std::str::from_utf8(&bytes) else {
         return Response::from_parts(parts, Body::from(bytes));
     };
@@ -88,6 +98,7 @@ async fn mount(mut request: Request, next: Next) -> Response {
     for name in [
         header::CONTENT_LENGTH,
         header::LAST_MODIFIED,
+        header::ETAG,
         header::ACCEPT_RANGES,
     ] {
         parts.headers.remove(name);

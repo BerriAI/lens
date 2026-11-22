@@ -125,7 +125,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     );
     assert_eq!(client.get(&rules_url).send().await.unwrap().status(), 401);
     let key: Value = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .bearer_auth(ADMIN)
         .json(&json!({"name":"Rule test"}))
         .send()
@@ -179,7 +179,7 @@ async fn model_error_flows_from_ingestion_to_alert_without_a_model(
     assert_eq!(overview["matches"][0]["rule_id"], "errors");
     assert_eq!(overview["matches"][0]["span_id"], "1111222233334444");
     let signals: Value = client
-        .get(format!("{}/lens/signals", server.url))
+        .get(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .send()
         .await

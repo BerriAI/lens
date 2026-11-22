@@ -21,7 +21,7 @@ describe("hostedApiRoot", () => {
 
 describe("hostedApiPath", () => {
   it.each([
-    ["/lens/agents", "/team-a/lens/agents"],
+    ["/lens/admin/agents", "/team-a/lens/admin/agents"],
     ["/lens", "/team-a/lens"],
     ["/lens?limit=1", "/team-a/lens?limit=1"],
     ["/v1/traces/abc/spans/def", "/team-a/lens/v1/traces/abc/spans/def"],

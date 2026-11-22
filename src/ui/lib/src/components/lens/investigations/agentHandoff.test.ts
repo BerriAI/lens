@@ -11,7 +11,7 @@ describe("investigation agent handoff", () => {
     );
     expect(text).toContain("Inspect jobs[0]");
     expect(text).toContain("/lens/lens-one/runs/{job_id}");
-    expect(text).toContain("/lens/lens-one/executions/{execution_id}");
+    expect(text).toContain("/lens/admin/lens-one/executions/{execution_id}");
     expect(text).toContain("URL-encoding the complete evidence.execution_id as one path segment");
     expect(text).toContain("Follow next_cursor");
     expect(text).toContain("truncated parts, missing evidence, and access errors");

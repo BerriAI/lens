@@ -1,23 +1,74 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
-    extract::Request,
+    extract::{Request, State},
     http::{StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
     routing::{MethodRouter, any},
 };
 
+use lens_auth::{Authentication, SessionRepository};
+use lens_contract::auth::Role;
+
+use crate::{
+    auth,
+    error::{InvestigationError, SessionError},
+};
+
 pub const PAGE_PREFIX: &str = "/lens";
+pub const ADMIN_PREFIX: &str = "/lens/admin";
 pub const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 
 pub(crate) trait PublicRoutes<S> {
     fn public_route(self, path: &str, method: MethodRouter<S>) -> Self;
+    fn admin_route<R: SessionRepository + 'static>(
+        self,
+        authentication: &Arc<Authentication<R>>,
+        path: &str,
+        method: MethodRouter<S>,
+    ) -> Self;
 }
 
 impl<S: Clone + Send + Sync + 'static> PublicRoutes<S> for Router<S> {
     fn public_route(self, path: &str, method: MethodRouter<S>) -> Self {
         self.route(path, method)
             .route(&format!("{path}/"), any(redirect))
+    }
+
+    fn admin_route<R: SessionRepository + 'static>(
+        self,
+        authentication: &Arc<Authentication<R>>,
+        path: &str,
+        method: MethodRouter<S>,
+    ) -> Self {
+        self.public_route(
+            &format!("{ADMIN_PREFIX}{path}"),
+            method.route_layer(axum::middleware::from_fn_with_state(
+                authentication.clone(),
+                require_admin::<R>,
+            )),
+        )
+    }
+}
+
+async fn require_admin<R: SessionRepository>(
+    State(authentication): State<Arc<Authentication<R>>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    match auth::identity(&authentication, request.headers(), request.method()).await {
+        Ok(identity)
+            if matches!(
+                identity.user_role,
+                Role::ProxyAdmin | Role::ProxyAdminViewer
+            ) =>
+        {
+            next.run(request).await
+        }
+        Ok(_) => InvestigationError::ForbiddenRead.into_response(),
+        Err(error) => SessionError::from(error).into_response(),
     }
 }
 
@@ -79,15 +130,16 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
         ["", "lens"]
             | ["", "lens", _]
             | ["", "lens", _, "runs" | "cancel"]
-            | ["", "lens", _, "runs" | "findings" | "executions", _]
+            | ["", "lens", _, "runs" | "findings", _]
             | ["", "lens", _, "runs", _, "reviews"]
-            | ["", "lens", "activity", "available"]
-            | ["", "lens", "preview", "sample"]
-            | ["", "lens", "traces", "findings" | "signals"]
+            | ["", "lens", "admin", _, "executions", _]
+            | ["", "lens", "admin", "activity", "available"]
+            | ["", "lens", "admin", "preview", "sample"]
+            | ["", "lens", "admin", "traces", "findings" | "signals"]
             | ["", "lens", "logs", _]
-            | ["", "lens", "feedback", "summary"]
-            | ["", "lens", "tracing", "keys"]
-            | ["", "lens", "tracing", "keys", _]
+            | ["", "lens", "admin", "feedback", "summary"]
+            | ["", "lens", "admin", "tracing", "keys"]
+            | ["", "lens", "admin", "tracing", "keys", _]
             | ["", "lens", "datasets", _]
             | ["", "lens", "datasets", _, "revisions" | "export"]
             | ["", "lens", "datasets", _, "revisions", _, "cases"]
@@ -254,9 +306,9 @@ mod composed_tests {
 
     #[rstest]
     #[case::datasets("/lens/datasets///?x=1", "/lens/datasets?x=1")]
-    #[case::activity("/lens/activity/available////", "/lens/activity/available")]
+    #[case::activity("/lens/admin/activity/available////", "/lens/admin/activity/available")]
     #[case::feedback("/lens/feedback//", "/lens/feedback")]
-    #[case::evidence("/lens/one/executions/two//", "/lens/one/executions/two")]
+    #[case::evidence("/lens/admin/one/executions/two//", "/lens/admin/one/executions/two")]
     #[case::traces("/v1/traces/one/spans/two/error//", "/v1/traces/one/spans/two/error")]
     #[tokio::test]
     async fn final_middleware_preserves_repeated_slashes_after_ui_merge(

@@ -74,7 +74,7 @@ pub fn feedback_scenarios() -> Vec<Scenario> {
         request(
             "11_summary",
             "POST",
-            "/lens/feedback/summary",
+            "/lens/admin/feedback/summary",
             json!({"traces":[{"trace_id":trace},{"trace_id":trace,"trace_ref":"wrong"},{"trace_id":"missing"}]}),
         ),
         request(
@@ -159,19 +159,19 @@ pub fn feedback_scenarios() -> Vec<Scenario> {
         request(
             "26_empty_summary",
             "POST",
-            "/lens/feedback/summary",
+            "/lens/admin/feedback/summary",
             json!({"traces":[]}),
         ),
         request(
             "27_summary_bound",
             "POST",
-            "/lens/feedback/summary",
+            "/lens/admin/feedback/summary",
             json!({"traces":vec![json!({"trace_id":trace});501]}),
         ),
         request(
             "28_summary_bad_identity",
             "POST",
-            "/lens/feedback/summary",
+            "/lens/admin/feedback/summary",
             json!({"traces":[{"trace_id":"","trace_ref":false}]}),
         ),
         request(
@@ -190,7 +190,7 @@ pub fn feedback_scenarios() -> Vec<Scenario> {
         request(
             "32_final_summary",
             "POST",
-            "/lens/feedback/summary",
+            "/lens/admin/feedback/summary",
             json!({"traces":[{"trace_id":trace}]}),
         ),
     ]

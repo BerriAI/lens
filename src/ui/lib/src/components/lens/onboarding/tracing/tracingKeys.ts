@@ -13,7 +13,7 @@ export const maskSecret = (secret: string): string =>
 export async function createTracingKey(accessToken: string, name: string) {
   const result = await apiClient.post<
     components["schemas"]["IngestionKeyCreated"]
-  >("/lens/tracing/keys", { accessToken, body: { name } });
+  >("/lens/admin/tracing/keys", { accessToken, body: { name } });
   if (!result.key) throw new Error("Lens did not return the new key");
   return result;
 }
@@ -23,7 +23,7 @@ export function useTracingKeys(accessToken: string, enabled: boolean) {
     queryKey: tracingKeysQuery(accessToken),
     queryFn: async () => {
       const keys = await apiClient.get<TracingKeyRecord[]>(
-        "/lens/tracing/keys",
+        "/lens/admin/tracing/keys",
         { accessToken },
       );
       if (!Array.isArray(keys))

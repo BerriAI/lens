@@ -343,7 +343,7 @@ it("should open evidence owned by the selected finding and return to its report"
         workers: [],
         tracing_enabled: true,
       };
-    if (path.startsWith(`/lens/${support.id}/executions/`))
+    if (path.startsWith(`/lens/admin/${support.id}/executions/`))
       return {
         parts: [
           {

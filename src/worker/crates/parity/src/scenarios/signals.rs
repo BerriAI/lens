@@ -6,17 +6,17 @@ fn request(name: &str, method: &str, path: &str, body: Value) -> Scenario {
 }
 
 fn config(name: &str, body: Value) -> Scenario {
-    request(name, "PUT", "/lens/signals", body)
+    request(name, "PUT", "/lens/admin/signals", body)
 }
 
 pub fn signal_scenarios() -> Vec<Scenario> {
     vec![
         config("00_reset_default", json!({})),
-        request("01_default", "GET", "/lens/signals", Value::Null),
+        request("01_default", "GET", "/lens/admin/signals", Value::Null),
         request(
             "02_unclassified",
             "POST",
-            "/lens/traces/signals",
+            "/lens/admin/traces/signals",
             json!({"traces":[{"trace_id":"missing"},{"trace_id":"missing","trace_ref":"ref"}]}),
         ),
         config("03_threshold_lower", json!({"threshold":0.04})),
@@ -59,21 +59,21 @@ pub fn signal_scenarios() -> Vec<Scenario> {
             "15_custom_disabled",
             json!({"threshold":"0.95","signals":[{"id":"failed_lookup","name":"Lookup failed","question":"Did the lookup fail?"}]}),
         ),
-        request("16_saved_config", "GET", "/lens/signals", Value::Null),
+        request("16_saved_config", "GET", "/lens/admin/signals", Value::Null),
         request(
             "17_empty_traces",
             "POST",
-            "/lens/traces/signals",
+            "/lens/admin/traces/signals",
             json!({"traces":[]}),
         ),
         request(
             "18_invalid_trace",
             "POST",
-            "/lens/traces/signals",
+            "/lens/admin/traces/signals",
             json!({"traces":[{"trace_id":"","trace_ref":false}]}),
         ),
         config("19_empty_signals", json!({"signals":[],"threshold":0.05})),
-        request("20_empty_config", "GET", "/lens/signals", Value::Null),
+        request("20_empty_config", "GET", "/lens/admin/signals", Value::Null),
         config("21_restore_default", json!({})),
     ]
 }

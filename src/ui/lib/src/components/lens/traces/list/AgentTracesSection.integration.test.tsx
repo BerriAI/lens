@@ -94,7 +94,7 @@ const stubPost = (
 ) =>
   vi.mocked(apiClient.post).mockImplementation(async (path, options) => {
     const traces = (options?.body as { traces: TraceKey[] }).traces;
-    return path === "/lens/feedback/summary" ? feedback(traces) : findings(traces);
+    return path === "/lens/admin/feedback/summary" ? feedback(traces) : findings(traces);
   });
 
 const bucketRunCounts = () =>
@@ -525,7 +525,7 @@ describe("AgentTracesSection", () => {
     renderSection(false);
     expect(await screen.findAllByTestId("agent-trace-row")).toHaveLength(runs.length);
     expect(screen.queryByRole("columnheader", { name: "Findings" })).not.toBeInTheDocument();
-    expect(apiClient.post).not.toHaveBeenCalledWith("/lens/traces/findings", expect.anything());
+    expect(apiClient.post).not.toHaveBeenCalledWith("/lens/admin/traces/findings", expect.anything());
   });
 
   it("shows the spend returned for a run", async () => {

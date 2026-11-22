@@ -295,7 +295,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method(method)
-                    .uri("/lens/signals/alerts")
+                    .uri("/lens/admin/signals/alerts")
                     .header("authorization", format!("Bearer {token}"))
                     .header("content-type", "application/json")
                     .body(Body::from(body.to_string()))

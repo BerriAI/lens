@@ -53,7 +53,7 @@ async fn standalone_default_scope_closes_ingested_evals_without_a_gateway(
             &client,
             &server.url,
             reqwest::Method::POST,
-            "/lens/tracing/keys",
+            "/lens/admin/tracing/keys",
             Some(json!({"name":"Standalone evaluation", "team_id":""})),
         )
         .await,
@@ -195,7 +195,7 @@ async fn standalone_owns_sessions_keys_and_traces_across_restart(
         .unwrap()
         .to_owned();
     let created = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .header("cookie", &cookie)
         .header("origin", &server.url)
         .json(&json!({"name":"Standalone sender", "team_id":"standalone-team"}))
@@ -268,7 +268,7 @@ async fn standalone_owns_sessions_keys_and_traces_across_restart(
     assert_eq!(active.status(), 200);
     let revoked = client
         .delete(format!(
-            "{}/lens/tracing/keys/{}",
+            "{}/lens/admin/tracing/keys/{}",
             restarted.url, created.record.id
         ))
         .header("cookie", &cookie)
@@ -385,7 +385,7 @@ async fn standalone_router_has_public_read_contract_and_rejects_internal_or_unsa
         .unwrap()
         .to_owned();
     let csrf = client
-        .post(format!("{}/lens/tracing/keys", server.url))
+        .post(format!("{}/lens/admin/tracing/keys", server.url))
         .header("cookie", &cookie)
         .json(&json!({}))
         .send()

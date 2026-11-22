@@ -63,7 +63,7 @@ test -s "$lens_temp/ui.html"
 docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" http://127.0.0.1:4318/lens' > "$lens_temp/lenses.json"
 test "$(jq '.lenses | length' "$lens_temp/lenses.json")" = 0
 test "$(docker exec "$lens_name" curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4318/lens)" = 401
-docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" --header "Content-Type: application/json" --data '\''{"name":"Container smoke tracing"}'\'' http://127.0.0.1:4318/lens/tracing/keys' > "$lens_temp/key.json"
+docker exec "$lens_name" sh -c 'curl --fail --silent --header "Authorization: Bearer $LENS_ADMIN_TOKEN" --header "Content-Type: application/json" --data '\''{"name":"Container smoke tracing"}'\'' http://127.0.0.1:4318/lens/admin/tracing/keys' > "$lens_temp/key.json"
 jq -er '"Authorization: Bearer " + .key' "$lens_temp/key.json" > "$lens_temp/tracing-header"
 docker exec -i "$lens_name" sh -c 'umask 077; cat > /tmp/lens-smoke-header' < "$lens_temp/tracing-header"
 jq -n --arg now "$(date +%s)000000000" '{resourceSpans:[{resource:{attributes:[{key:"service.name",value:{stringValue:"container-smoke"}}]},scopeSpans:[{spans:[{traceId:"11112222333344445555666677778888",spanId:"1111222233334444",name:"Container smoke trace",startTimeUnixNano:$now,endTimeUnixNano:$now,attributes:[{key:"gen_ai.operation.name",value:{stringValue:"invoke_agent"}},{key:"gen_ai.agent.name",value:{stringValue:"container-smoke"}}],status:{code:1}}]}]}]}' > "$lens_temp/trace.json"

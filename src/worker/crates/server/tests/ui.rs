@@ -163,6 +163,33 @@ async fn one_build_loads_its_assets_from_where_it_is_mounted(
 }
 
 #[rstest]
+#[case::page("/ui/")]
+#[case::versioned_asset("/ui/_next/static/app.js")]
+#[tokio::test]
+async fn a_cache_keeps_each_mount_apart(built: (Router, TempDir), #[case] path: &str) {
+    let response = mounted(built.0, path, Some("/lens/ui")).await;
+    assert_eq!(
+        response.headers()[header::VARY],
+        lens_server::ui::MOUNT_HEADER
+    );
+    assert!(!response.headers().contains_key(header::ETAG));
+}
+
+#[rstest]
+#[case::gateway(Some("/lens/ui"), "/lens/ui/?trace=one")]
+#[case::opened_on_lens_itself(None, "/ui/?trace=one")]
+#[tokio::test]
+async fn the_entry_redirect_stays_inside_the_mount(
+    built: (Router, TempDir),
+    #[case] mount: Option<&str>,
+    #[case] location: &str,
+) {
+    let response = mounted(built.0, "/ui?trace=one", mount).await;
+    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(response.headers()[header::LOCATION], location);
+}
+
+#[rstest]
 #[case::gateway(Some("/lens/ui"), Some("/lens/ui"))]
 #[case::opened_on_lens_itself(None, None)]
 #[tokio::test]

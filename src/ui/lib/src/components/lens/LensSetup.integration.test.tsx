@@ -38,23 +38,23 @@ function serve({ enabled = false, traces = false, requests = false, connected = 
         : Response.json({ detail: "Tracing is not enabled" }, { status: 501 });
     if (path === "/v1/traces/agents")
       return Response.json({ agents: traces ? rollUpAgents([data.runs[0].trace.summary]) : [] });
-    if (path === "/lens/activity/available") return Response.json({ traces, requests });
-    if (path === "/lens/traces/findings") return Response.json([]);
-    if (path === "/lens/feedback/summary") return Response.json([]);
+    if (path === "/lens/admin/activity/available") return Response.json({ traces, requests });
+    if (path === "/lens/admin/traces/findings") return Response.json([]);
+    if (path === "/lens/admin/feedback/summary") return Response.json([]);
     if (path === "/lens" && method === "POST") {
       const saved = { ...data.lenses[0], settings: { ...data.lenses[0].settings, ...(body as object) } };
       list.mockResolvedValue({ lenses: [saved], workers: [worker()], tracing_enabled: true });
       return Response.json(saved);
     }
     if (path === "/lens") return Response.json(await list());
-    if (path === "/lens/models") return Response.json({ data: [{ id: "analysis" }] });
-    if (path === "/lens/model_group/info")
+    if (path === "/lens/admin/models") return Response.json({ data: [{ id: "analysis" }] });
+    if (path === "/lens/admin/model_group/info")
       return Response.json({
         data: [{ model_group: "analysis", providers: ["OpenAI"], mode: "chat" }],
       });
-    if (path === "/lens/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
-    if (path === "/lens/agents") return Response.json(["support_agent"]);
-    if (path === "/lens/preview/sample") return Response.json({ eligible: 1, selected: 1, executions: [] });
+    if (path === "/lens/admin/signals") return Response.json({ model: "", threshold: 0.5, signals: [] });
+    if (path === "/lens/admin/agents") return Response.json(["support_agent"]);
+    if (path === "/lens/admin/preview/sample") return Response.json({ eligible: 1, selected: 1, executions: [] });
     if (path.endsWith("/reviews"))
       return Response.json({
         reviews: data.lenses[0].jobs[0].reviews.slice(Number(query.get("after") ?? 0)),
@@ -154,7 +154,7 @@ describe("Lens setup journey", () => {
     network.mockImplementation((input, init) =>
       requestPath(input) === "/lens/service"
         ? Promise.resolve(Response.json({ url: "", configured, connected: false, status: { storage_ready: false } }))
-        : ["/lens", "/lens/activity/available"].includes(requestPath(input))
+        : ["/lens", "/lens/admin/activity/available"].includes(requestPath(input))
         ? Promise.resolve(Response.json({ detail: "Lens service unavailable" }, { status: 503 }))
         : normal(input, init),
     );
@@ -184,7 +184,7 @@ describe("Lens setup journey", () => {
     expect(await screen.findByRole("combobox", { name: "Your agent framework" })).toBeVisible();
   });
 
-  it.each(["/lens", "/lens/activity/available"])(
+  it.each(["/lens", "/lens/admin/activity/available"])(
     "keeps recorded traces visible while %s is pending",
     async (pendingPath) => {
       serve({ enabled: true, traces: true });
@@ -197,7 +197,7 @@ describe("Lens setup journey", () => {
     },
   );
 
-  it.each(["/v1/traces", "/lens/activity/available"])(
+  it.each(["/v1/traces", "/lens/admin/activity/available"])(
     "should open Findings from a saved link while %s is pending",
     async (pendingPath) => {
       serve();
@@ -250,7 +250,7 @@ describe("Lens setup journey", () => {
     await chooseSelectOption(user, intro.getByRole("combobox", { name: "Your agent framework" }), "LangGraph");
     const normal = network.getMockImplementation()!;
     network.mockImplementation((input, init) =>
-      requestPath(input) === "/lens/tracing/keys"
+      requestPath(input) === "/lens/admin/tracing/keys"
         ? Promise.resolve(Response.json({ key: "sk-tracing-setup", active: true }))
         : normal(input, init),
     );
@@ -335,7 +335,7 @@ describe("Lens setup journey", () => {
     expect(await screen.findByRole("region", { name: "Findings settings" })).toBeVisible();
     const normal = network.getMockImplementation()!;
     network.mockImplementation((input, init) =>
-      requestPath(input) === "/lens/activity/available"
+      requestPath(input) === "/lens/admin/activity/available"
         ? Promise.resolve(Response.json({ detail: "Activity unavailable" }, { status: 503 }))
         : normal(input, init),
     );
@@ -364,7 +364,7 @@ describe("Lens setup journey", () => {
       const activity = { enabled: true, traces: source === "traces", requests: source === "requests", connected: true };
       serve(activity);
       const normal = network.getMockImplementation()!;
-      const failingPath = scenario === "requests with trace errors" ? "/v1/traces" : "/lens/activity/available";
+      const failingPath = scenario === "requests with trace errors" ? "/v1/traces" : "/lens/admin/activity/available";
       network.mockImplementation((input, init) => {
         const path = requestPath(input);
         if (path === "/v1/traces" && scenario === "requests with pending traces")

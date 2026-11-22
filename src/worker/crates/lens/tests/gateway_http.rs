@@ -34,7 +34,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     let client = reqwest::Client::new();
     let config = json!({"model":"new/evaluator","threshold":0.5,"signals":[{"id":"correct","name":"Correctness","question":"Is the result correct?"}]});
     let missing = client
-        .put(format!("{}/lens/signals", server.url))
+        .put(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&config)
         .send()
@@ -49,7 +49,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
             {"model_group":"embeddings","mode":"embedding"}
         ]}))).mount(&gateway).await;
     let refreshed: Value = client
-        .post(format!("{}/lens/gateway/refresh", server.url))
+        .post(format!("{}/lens/admin/gateway/refresh", server.url))
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -65,7 +65,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     assert!(evaluation_models.contains(&"new/evaluator".to_owned()));
     assert!(evaluation_models.contains(&"typesafe/jev-latest".to_owned()));
     let saved = client
-        .put(format!("{}/lens/signals", server.url))
+        .put(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&config)
         .send()
@@ -75,7 +75,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     let mut decisions = config.clone();
     decisions["model"] = json!("typesafe/jev-latest");
     let saved_decisions = client
-        .put(format!("{}/lens/signals", server.url))
+        .put(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&decisions)
         .send()
@@ -85,7 +85,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     let mut chat = config.clone();
     chat["model"] = json!("ordinary-chat");
     let saved_chat = client
-        .put(format!("{}/lens/signals", server.url))
+        .put(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&chat)
         .send()
@@ -95,7 +95,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
     let mut embeddings = config;
     embeddings["model"] = json!("embeddings");
     let rejected = client
-        .put(format!("{}/lens/signals", server.url))
+        .put(format!("{}/lens/admin/signals", server.url))
         .bearer_auth(ADMIN)
         .json(&embeddings)
         .send()
@@ -103,7 +103,7 @@ async fn signals_validate_against_refreshed_models_without_a_restart(
         .unwrap();
     assert_eq!(rejected.status(), 400);
     let public: Value = client
-        .get(format!("{}/lens/model_group/info", server.url))
+        .get(format!("{}/lens/admin/model_group/info", server.url))
         .bearer_auth(ADMIN)
         .send()
         .await

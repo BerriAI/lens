@@ -26,7 +26,7 @@ function serve() {
   const gateway = stubGateway();
   const records = vi.fn(() => [] as (typeof key)[]);
   gateway.get.mockImplementation((path) =>
-    path === "/lens/tracing/keys"
+    path === "/lens/admin/tracing/keys"
       ? records()
       : path === "/v1/traces/agents"
         ? { agents: [] }
@@ -37,7 +37,7 @@ function serve() {
           },
   );
   gateway.post.mockImplementation((path) => {
-    if (path === "/lens/tracing/keys") {
+    if (path === "/lens/admin/tracing/keys") {
       records.mockReturnValue([key]);
       return { key: secret, active: true, record: key };
     }
@@ -82,7 +82,7 @@ describe("Lens Home connection", () => {
       "/v1/traces/receipt",
     );
     expect(await navigator.clipboard.readText()).toContain(secret);
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/tracing/keys")).toHaveLength(1);
+    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
   });
 
   it("copies the new key only through the explicit action and keeps it masked and out of shared state", async () => {
@@ -97,7 +97,7 @@ describe("Lens Home connection", () => {
       await screen.findByText("Your tracing key", { exact: true }),
     ).toBeVisible();
     expect(gateway.post).toHaveBeenCalledWith(
-      "/lens/tracing/keys",
+      "/lens/admin/tracing/keys",
       expect.objectContaining({ body: { name: "Agent tracing" } }),
     );
     await user.click(screen.getByText("View full instructions"));
@@ -143,7 +143,7 @@ describe("Lens Home connection", () => {
       `LITELLM_TRACING_KEY='${secret}'`,
     );
     expect(
-      gateway.post.mock.calls.filter(([path]) => path === "/lens/tracing/keys"),
+      gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys"),
     ).toHaveLength(1);
   });
 
@@ -159,7 +159,7 @@ describe("Lens Home connection", () => {
     await user.click(screen.getByRole("button", { name: "Use a coding agent" }));
     await user.click(screen.getByRole("button", { name: "Copy instructions with key" }));
     expect(await navigator.clipboard.readText()).toContain(secret);
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/tracing/keys")).toHaveLength(1);
+    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
   });
 
   it("preserves the new key after a clipboard failure and retries without creating another", async () => {
@@ -174,7 +174,7 @@ describe("Lens Home connection", () => {
     await user.click(screen.getByRole("button", { name: "Copy instructions with key" }));
     expect(await navigator.clipboard.readText()).toContain(secret);
     expect(screen.getByText("Waiting for your agent’s trace")).toBeVisible();
-    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/tracing/keys")).toHaveLength(1);
+    expect(gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys")).toHaveLength(1);
   });
 
   it("reports key creation failure and lets the user retry the same action", async () => {
@@ -233,7 +233,7 @@ describe("Lens Home connection", () => {
       status: { storage_ready: false },
     }));
     gateway.get.mockImplementation((path) =>
-      path === "/lens/tracing/keys" ? [] : service(),
+      path === "/lens/admin/tracing/keys" ? [] : service(),
     );
     renderWithLens(home());
     expect(await screen.findByText(/Trace storage is not ready/)).toBeVisible();
@@ -286,7 +286,7 @@ describe("Lens Home connection", () => {
     );
     expect(await navigator.clipboard.readText()).not.toContain(secret);
     expect(
-      gateway.post.mock.calls.filter(([path]) => path === "/lens/tracing/keys"),
+      gateway.post.mock.calls.filter(([path]) => path === "/lens/admin/tracing/keys"),
     ).toHaveLength(1);
   });
 
@@ -320,7 +320,7 @@ describe("Lens Home connection", () => {
     await user.click(screen.getByRole("button", { name: "Confirm revoke" }));
     await waitFor(() =>
       expect(gateway.delete).toHaveBeenCalledWith(
-        "/lens/tracing/keys/key-one",
+        "/lens/admin/tracing/keys/key-one",
         expect.anything(),
       ),
     );

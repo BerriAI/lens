@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "path": "/lens/preview/sample",
+    "path": "/lens/admin/preview/sample",
     "headers": {
       "authorization": "Bearer {{admin_token}}",
       "content-type": "application/json"

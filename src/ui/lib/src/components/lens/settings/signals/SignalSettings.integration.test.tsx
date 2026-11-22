@@ -46,7 +46,7 @@ describe("signal settings", () => {
     network.mockReset();
     network.mockImplementation(async (input) => {
       const path = new URL(input instanceof Request ? input.url : String(input), "http://localhost").pathname;
-      return Response.json(path === "/lens/model_group/info" ? { data: [] } : {});
+      return Response.json(path === "/lens/admin/model_group/info" ? { data: [] } : {});
     });
     vi.stubGlobal("fetch", network);
   });

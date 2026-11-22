@@ -26,7 +26,7 @@ describe("Lens navigation", () => {
       "fetch",
       vi.fn(async (input) => {
         const path = requestPath(input);
-        if (path === "/lens/signals/overview")
+        if (path === "/lens/admin/signals/overview")
           return Response.json({
             since: new Date().toISOString(),
             limit: 500,
@@ -140,8 +140,8 @@ describe("Lens navigation", () => {
     const original = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation((input, init) => {
       const path = requestPath(input);
-      if (path === "/lens/signals/overview") return Promise.resolve(Response.json(alerts));
-      if (path === "/lens/traces/signals")
+      if (path === "/lens/admin/signals/overview") return Promise.resolve(Response.json(alerts));
+      if (path === "/lens/admin/traces/signals")
         return Promise.resolve(
           Response.json([
             {
@@ -156,7 +156,7 @@ describe("Lens navigation", () => {
             },
           ]),
         );
-      if (path === "/lens/signals")
+      if (path === "/lens/admin/signals")
         return Promise.resolve(
           Response.json({
             model: "judge",
@@ -164,7 +164,7 @@ describe("Lens navigation", () => {
             signals: [{ id: "timeout", name: flag.name, question: "Did an upstream attempt time out?" }],
           }),
         );
-      if (path === "/lens/signals/alerts")
+      if (path === "/lens/admin/signals/alerts")
         return Promise.resolve(
           Response.json({ connected: false, enabled: false, revision: 0, signal_ids: [] }),
         );
@@ -260,7 +260,7 @@ describe("Lens navigation", () => {
     const original = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation((input, init) => {
       const path = requestPath(input);
-      if (path === "/lens/signals/overview")
+      if (path === "/lens/admin/signals/overview")
         return Promise.resolve(
           Response.json({
             since: "2026-11-20T00:00:00Z",
@@ -324,14 +324,14 @@ describe("Lens navigation", () => {
     await user.click(screen.getByRole("button", { name: "Slack notifications", exact: true }));
     expect(await screen.findByLabelText("Slack webhook URL")).toBeVisible();
     expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/signals")),
+      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input).startsWith("/lens/admin/signals")),
     ).toBe(false);
   });
 
   it("shows a read-only empty dashboard for a Gateway admin viewer", async () => {
     const original = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation((input, init) =>
-      requestPath(input) === "/lens/signals/overview"
+      requestPath(input) === "/lens/admin/signals/overview"
         ? Promise.resolve(
             Response.json({
               since: "2026-11-20T04:00:00Z",
@@ -363,7 +363,7 @@ describe("Lens navigation", () => {
     expect(await screen.findByRole("tab", { name: "Home", selected: true })).toBeVisible();
     expect(screen.queryByRole("tab", { name: "Alerts" })).not.toBeInTheDocument();
     expect(
-      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input) === "/lens/signals/overview"),
+      vi.mocked(fetch).mock.calls.some(([input]) => requestPath(input) === "/lens/admin/signals/overview"),
     ).toBe(false);
   });
 
