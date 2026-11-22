@@ -1031,6 +1031,11 @@ async fn mcp_lists_only_read_only_tools(#[future(awt)] database: Database) {
     200,
     Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid JSON-RPC request"}}))
 )]
+#[case::oversized_batch(
+    Value::Array(vec![json!({"jsonrpc":"2.0","id":1,"method":"ping"}); 17]),
+    200,
+    Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid JSON-RPC request"}}))
+)]
 #[case::not_a_request(
     json!("ping"),
     200,

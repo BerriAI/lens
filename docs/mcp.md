@@ -31,4 +31,4 @@ The endpoint takes the same credentials as the Lens trace API. `LENS_ADMIN_TOKEN
 
 Cost is the `spend` field in USD. It is filled when the calls went through a LiteLLM gateway, which is where the price is known
 
-Every tool is read only. The endpoint answers each request, or each batch of requests, with one JSON response, keeps no session between requests and does not open an event stream, so `GET /lens/mcp` returns `405`
+Every tool is read only. The endpoint answers each request, or each batch of up to 16 requests, with one JSON response, keeps no session between requests and does not open an event stream, so `GET /lens/mcp` returns `405`

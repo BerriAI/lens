@@ -24,6 +24,7 @@ use crate::{
 };
 
 const PROTOCOL_VERSIONS: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
+const BATCH_MAX: usize = 16;
 const HOUR_MS: i64 = 3_600_000;
 const DEFAULT_HOURS: u32 = 24;
 const TRACE_PAGE_SIZE_DEFAULT: u16 = 50;
@@ -332,7 +333,7 @@ pub(super) async fn handle<R: SessionRepository, B: TraceReader>(
     let identity = auth::identity(&app.authentication, &headers, &method).await?;
     let scope = scope(&identity)?;
     Ok(match serde_json::from_slice::<Value>(&body) {
-        Ok(Value::Array(messages)) if !messages.is_empty() => {
+        Ok(Value::Array(messages)) if (1..=BATCH_MAX).contains(&messages.len()) => {
             let answers: Vec<Value> = stream::iter(messages)
                 .then(|message| answer(&app, scope.clone(), message))
                 .filter_map(std::future::ready)
