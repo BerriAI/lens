@@ -8,4 +8,3 @@
 - Consult the convention specifications when changing mappings:
   - [OpenInference](https://github.com/Arize-ai/openinference/tree/main/spec)
   - [OpenTelemetry GenAI](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/index.md)
-  - [LangSmith OTLP](https://docs.langchain.com/langsmith/trace-with-opentelemetry.md)

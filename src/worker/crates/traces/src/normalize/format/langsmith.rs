@@ -15,7 +15,6 @@ use crate::{
     },
 };
 
-/// LangSmith's OpenTelemetry exporter: spans carry `langsmith.span.kind`.
 pub(crate) struct LangSmith;
 
 enum MessageBatch {
