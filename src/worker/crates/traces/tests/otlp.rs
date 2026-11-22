@@ -3610,3 +3610,50 @@ fn conversation_grouping_applies_only_to_codex(
     );
     assert_eq!(first[0].trace_id == second[0].trace_id, grouped);
 }
+
+#[rstest]
+#[case::conversation_attribute("run_turn", "conversation.id", "conversation-one", true)]
+#[case::thread_attribute("guardian_scoring_observation", "thread_id", "conversation-one", true)]
+#[case::request_queue_key(
+    "app_server.serialized_request_queue",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    true
+)]
+#[case::other_queue_key("app_server.serialized_request_queue", "key", "Global", false)]
+#[case::runtime_thread("fs.read_file", "thread.id", "conversation-one", false)]
+#[case::key_on_other_span(
+    "fs.read_file",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    false
+)]
+fn codex_batch_without_conversation_attribute_joins_by_its_trace(
+    #[case] name: &str,
+    #[case] key: &str,
+    #[case] value: &str,
+    #[case] grouped: bool,
+) {
+    let turn = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let early = decode_scope_spans(
+        "codex_exec",
+        &[],
+        vec![
+            json_span("a2", "f1", "", name, &[(key, value)]),
+            json_span("a2", "f2", "f1", "turn/start", &[("turn.id", "turn-two")]),
+            json_span("a2", "f3", "f2", "model_client.stream_responses_api", &[]),
+        ],
+    );
+    assert_eq!(early.len(), 2);
+    assert_eq!(
+        (
+            early[0].trace_id == turn[0].trace_id,
+            early[1].trace_id == turn[0].trace_id
+        ),
+        (grouped, grouped)
+    );
+}

@@ -140,13 +140,24 @@ fn client_session_attribute(scope: &str) -> Option<&'static str> {
     (CODEX_SPAN_SCOPES.contains(&scope) || scope == CODEX_LOG_SCOPE).then_some(CODEX_CONVERSATION)
 }
 
+fn codex_conversation(span: &Span) -> Option<&str> {
+    raw_attr(span, CODEX_CONVERSATION)
+        .or_else(|| raw_attr(span, "thread_id"))
+        .or_else(|| {
+            raw_attr(span, "key")
+                .filter(|_| span.name == "app_server.serialized_request_queue")?
+                .strip_prefix("Thread { thread_id: \"")?
+                .strip_suffix("\" }")
+        })
+        .filter(|conversation| !conversation.is_empty())
+}
+
 fn stamp_codex_conversations(spans: &mut [Span]) {
     let conversations: BTreeMap<Vec<u8>, String> = spans
         .iter()
         .rev()
         .filter_map(|span| {
-            raw_attr(span, CODEX_CONVERSATION)
-                .filter(|conversation| !conversation.is_empty())
+            codex_conversation(span)
                 .map(|conversation| (span.trace_id.clone(), conversation.to_owned()))
         })
         .collect();
