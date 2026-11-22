@@ -28,6 +28,7 @@ pub struct ServiceConnection {
     pub status: ServiceStatus,
     pub configured: bool,
     pub release: String,
+    pub gateway_connected: bool,
 }
 
 pub trait ServiceProvider: Send + Sync {

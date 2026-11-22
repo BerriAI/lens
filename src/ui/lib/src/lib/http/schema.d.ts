@@ -45711,6 +45711,12 @@ export interface components {
             /** Connected */
             connected: boolean;
             /**
+             * Gateway Connected
+             * @description Whether this Lens is connected to a LiteLLM gateway
+             * @default false
+             */
+            gateway_connected?: boolean;
+            /**
              * Release
              * @default
              */

@@ -186,6 +186,10 @@ impl Settings {
         self.gateway_secret.is_some()
     }
 
+    pub fn gateway_connected(&self) -> bool {
+        self.gateway_secret.is_some() || self.connected().is_some()
+    }
+
     pub fn origin(&self) -> &str {
         &self.origin
     }

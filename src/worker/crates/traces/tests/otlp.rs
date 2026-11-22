@@ -3580,3 +3580,310 @@ fn only_opencode_v2_keeps_its_internal_spans_out_of_the_session(
         if joins_session { 0 } else { 8 }
     );
 }
+
+fn json_attrs(attributes: &[(&str, &str)]) -> Vec<serde_json::Value> {
+    attributes
+        .iter()
+        .map(|(key, value)| serde_json::json!({"key":key,"value":{"stringValue":value}}))
+        .collect()
+}
+
+fn json_span(
+    trace: &str,
+    span: &str,
+    parent: &str,
+    name: &str,
+    attributes: &[(&str, &str)],
+) -> serde_json::Value {
+    serde_json::json!({
+        "traceId":trace.repeat(16),"spanId":span.repeat(8),"parentSpanId":parent.repeat(8),
+        "name":name,"attributes":json_attrs(attributes),
+        "startTimeUnixNano":"1700000000000000010","endTimeUnixNano":"1700000000000000100"
+    })
+}
+
+fn decode_scope_spans(
+    scope: &str,
+    resource: &[(&str, &str)],
+    spans: Vec<serde_json::Value>,
+) -> Vec<litellm_traces::DecodedSpan> {
+    let request = serde_json::json!({"resourceSpans":[{
+        "resource":{"attributes":json_attrs(resource)},
+        "scopeSpans":[{"scope":{"name":scope},"spans":spans}]
+    }]});
+    decode_otlp(
+        &serde_json::to_vec(&request).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap()
+}
+
+fn codex_turn(trace: &str, root: &str, conversation: &str) -> Vec<serde_json::Value> {
+    vec![
+        json_span(
+            trace,
+            root,
+            "",
+            "session_task.turn",
+            &[("thread.id", conversation)],
+        ),
+        json_span(
+            trace,
+            "e1",
+            root,
+            "run_turn",
+            &[("conversation.id", conversation)],
+        ),
+        json_span(
+            trace,
+            "e2",
+            "e1",
+            "model_client.stream_responses_api",
+            &[("thread.id", "7"), ("model", "gpt-5.3-codex")],
+        ),
+        json_span(
+            trace,
+            "e3",
+            "e1",
+            "handle_responses",
+            &[("tool_name", "exec_command")],
+        ),
+    ]
+}
+
+#[rstest]
+#[case::cli("codex_cli_rs")]
+#[case::ide("codex-app-server")]
+#[case::exec("codex_exec")]
+fn codex_turns_of_one_conversation_share_a_trace(#[case] scope: &str) {
+    let first = decode_scope_spans(scope, &[], codex_turn("a1", "b1", "conversation-one"));
+    let second = decode_scope_spans(scope, &[], codex_turn("a2", "b2", "conversation-one"));
+    let other = decode_scope_spans(scope, &[], codex_turn("a3", "b3", "conversation-two"));
+    let trace_ids = |spans: &[litellm_traces::DecodedSpan]| {
+        spans
+            .iter()
+            .map(|span| span.trace_id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_eq!(first.len(), 3);
+    assert_eq!(trace_ids(&first).len(), 1);
+    assert_eq!(trace_ids(&first), trace_ids(&second));
+    assert_eq!(trace_ids(&other).len(), 1);
+    assert_ne!(trace_ids(&first), trace_ids(&other));
+    assert_ne!(first[0].trace_id, "a1".repeat(16));
+    assert_eq!(
+        first[0].attributes["lens.original_trace_id"],
+        "a1".repeat(16)
+    );
+    assert_eq!(
+        second[0].attributes["lens.original_trace_id"],
+        "a2".repeat(16)
+    );
+    let root = |spans: &[litellm_traces::DecodedSpan]| {
+        spans
+            .iter()
+            .find(|span| span.name == "session_task.turn")
+            .unwrap()
+            .span_id
+            .clone()
+    };
+    assert_ne!(root(&first), root(&second));
+    assert!(
+        second
+            .iter()
+            .filter(|span| span.name != "session_task.turn")
+            .all(|span| span.parent_span_id == root(&second))
+    );
+}
+
+#[rstest]
+#[case::with_trace_context("a1")]
+#[case::without_trace_context("")]
+fn codex_prompt_log_joins_its_conversation_trace(#[case] log_trace: &str) {
+    let spans = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let logs = serde_json::json!({"resourceLogs":[{"scopeLogs":[{
+        "scope":{"name":"codex_otel.log_only"},"logRecords":[{
+            "traceId":log_trace.repeat(16),"spanId":"c1".repeat(8),
+            "timeUnixNano":"1700000000000000020",
+            "attributes":json_attrs(&[
+                ("event.name", "codex.user_prompt"),
+                ("prompt", "Find the requested result"),
+                ("conversation.id", "conversation-one"),
+            ])
+        }]
+    }]}]});
+    let prompt = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let turn = spans
+        .iter()
+        .find(|span| span.name == "session_task.turn")
+        .unwrap();
+    assert_eq!(prompt.claude_spans[0].trace_id, turn.trace_id);
+    assert_eq!(
+        prompt.claude_spans[0].span_id == turn.span_id,
+        !log_trace.is_empty()
+    );
+}
+
+#[rstest]
+#[case::codex_with_trace("codex_otel.log_only", &[], "a1", "conversation-one", true)]
+#[case::codex_without_trace("codex_otel.log_only", &[], "", "conversation-one", false)]
+#[case::codex_without_conversation("codex_otel.log_only", &[], "a1", "", false)]
+#[case::codex_configured_attribute(
+    "codex_otel.log_only",
+    &[("lens.session.attribute", "session.id")],
+    "a1",
+    "conversation-one",
+    false
+)]
+#[case::other_client("other.logs", &[], "a1", "conversation-one", false)]
+fn stored_codex_log_record_follows_its_conversation_trace(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] log_trace: &str,
+    #[case] conversation: &str,
+    #[case] regrouped: bool,
+) {
+    let spans = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let logs = serde_json::json!({"resourceLogs":[{
+        "resource":{"attributes":json_attrs(resource)},
+        "scopeLogs":[{
+            "scope":{"name":scope},"logRecords":[{
+                "traceId":log_trace.repeat(16),"spanId":"c1".repeat(8),
+                "timeUnixNano":"1700000000000000020",
+                "attributes":json_attrs(&[
+                    ("event.name", "codex.api_request"),
+                    ("conversation.id", conversation),
+                ])
+            }]
+        }]
+    }]});
+    let batch = litellm_traces::decode_otlp_log_batch(
+        &serde_json::to_vec(&logs).unwrap(),
+        Some("application/json"),
+    )
+    .unwrap();
+    let stored: String = batch.records[0]
+        .trace_id
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    assert_eq!(stored == spans[0].trace_id, regrouped);
+    assert_eq!(stored == log_trace.repeat(16), !regrouped);
+}
+
+#[rstest]
+#[case::codex_session_only("codex_exec", &[], &[("session.id", "s")], &[("session.id", "s")], true)]
+#[case::codex_prefers_conversation(
+    "codex_exec",
+    &[],
+    &[("session.id", "s1"), ("conversation.id", "c")],
+    &[("session.id", "s2"), ("conversation.id", "c")],
+    true
+)]
+#[case::codex_different_conversations(
+    "codex_exec",
+    &[],
+    &[("session.id", "s"), ("conversation.id", "c1")],
+    &[("session.id", "s"), ("conversation.id", "c2")],
+    false
+)]
+#[case::codex_without_ids("codex_exec", &[], &[], &[], false)]
+#[case::codex_configured_attribute_wins(
+    "codex_exec",
+    &[("lens.session.attribute", "session.id")],
+    &[("session.id", "s1"), ("conversation.id", "c")],
+    &[("session.id", "s2"), ("conversation.id", "c")],
+    false
+)]
+#[case::other_client_ignores_conversation(
+    "other-agent",
+    &[],
+    &[("conversation.id", "c")],
+    &[("conversation.id", "c")],
+    false
+)]
+#[case::other_client_keeps_session(
+    "other-agent",
+    &[],
+    &[("session.id", "s"), ("conversation.id", "c1")],
+    &[("session.id", "s"), ("conversation.id", "c2")],
+    true
+)]
+fn conversation_grouping_applies_only_to_codex(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] first: &[(&str, &str)],
+    #[case] second: &[(&str, &str)],
+    #[case] grouped: bool,
+) {
+    let first = decode_scope_spans(
+        scope,
+        resource,
+        vec![json_span("a1", "b1", "", "session_task.turn", first)],
+    );
+    let second = decode_scope_spans(
+        scope,
+        resource,
+        vec![json_span("a2", "b2", "", "session_task.turn", second)],
+    );
+    assert_eq!(first[0].trace_id == second[0].trace_id, grouped);
+}
+
+#[rstest]
+#[case::conversation_attribute("run_turn", "conversation.id", "conversation-one", true)]
+#[case::thread_attribute("guardian_scoring_observation", "thread_id", "conversation-one", true)]
+#[case::request_queue_key(
+    "app_server.serialized_request_queue",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    true
+)]
+#[case::other_queue_key("app_server.serialized_request_queue", "key", "Global", false)]
+#[case::runtime_thread("fs.read_file", "thread.id", "conversation-one", false)]
+#[case::key_on_other_span(
+    "fs.read_file",
+    "key",
+    "Thread { thread_id: \"conversation-one\" }",
+    false
+)]
+fn codex_batch_without_conversation_attribute_joins_by_its_trace(
+    #[case] name: &str,
+    #[case] key: &str,
+    #[case] value: &str,
+    #[case] grouped: bool,
+) {
+    let turn = decode_scope_spans(
+        "codex_exec",
+        &[],
+        codex_turn("a1", "b1", "conversation-one"),
+    );
+    let early = decode_scope_spans(
+        "codex_exec",
+        &[],
+        vec![
+            json_span("a2", "f1", "", name, &[(key, value)]),
+            json_span("a2", "f2", "f1", "turn/start", &[("turn.id", "turn-two")]),
+            json_span("a2", "f3", "f2", "model_client.stream_responses_api", &[]),
+        ],
+    );
+    assert_eq!(early.len(), 2);
+    assert_eq!(
+        (
+            early[0].trace_id == turn[0].trace_id,
+            early[1].trace_id == turn[0].trace_id
+        ),
+        (grouped, grouped)
+    );
+}

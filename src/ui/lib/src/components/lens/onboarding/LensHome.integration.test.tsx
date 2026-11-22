@@ -5,6 +5,7 @@ import { renderWithLens, stubGateway } from "../../../../tests/lens-test-utils";
 import { testQueryClient } from "../../../../tests/test-utils";
 import * as clipboard from "../../../utils/dataUtils";
 import type { LensAgents } from "../agents/AgentScoped";
+import { LensHostProvider } from "../../../host/LensHost";
 import { LensHome } from "./LensHome";
 
 const agents: LensAgents = {
@@ -500,14 +501,89 @@ describe("Lens Home connection", () => {
     ).toHaveLength(0);
   });
 
+  it.each([
+    { gateway_connected: true, checked: /Through the LiteLLM gateway/ },
+    { gateway_connected: false, checked: /Standalone Lens/ },
+    { gateway_connected: undefined, checked: /Standalone Lens/ },
+  ])(
+    "opens the standalone app on the path matching gateway_connected=$gateway_connected",
+    async ({ gateway_connected, checked }) => {
+      const gateway = serve();
+      const get = gateway.get.getMockImplementation();
+      gateway.get.mockImplementation((path, ...rest) => {
+        const body = get?.(path, ...rest);
+        return path === "/lens/service" ? { ...body, gateway_connected } : body;
+      });
+      renderWithLens(
+        <LensHostProvider host={{ surface: "standalone" }}>
+          {home()}
+        </LensHostProvider>,
+      );
+      await waitFor(() =>
+        expect(gateway.get).toHaveBeenCalledWith(
+          "/lens/service",
+          expect.anything(),
+        ),
+      );
+      expect(await screen.findByRole("radio", { name: checked })).toBeChecked();
+    },
+  );
+
+  it("opens on the gateway path when a gateway serves the app under its own mount", async () => {
+    window.history.replaceState(null, "", "/litellm/lens/ui/");
+    try {
+      serve();
+      renderWithLens(
+        <LensHostProvider host={{ surface: "standalone" }}>
+          {home()}
+        </LensHostProvider>,
+      );
+      expect(
+        await screen.findByRole("radio", {
+          name: /Through the LiteLLM gateway/,
+        }),
+      ).toBeChecked();
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("keeps the path a user picked in the standalone app when a connected gateway is reported", async () => {
+    const user = userEvent.setup();
+    const gateway = serve();
+    const get = gateway.get.getMockImplementation();
+    const service = vi.fn(() => ({ gateway_connected: true }));
+    gateway.get.mockImplementation((path, ...rest) => {
+      const body = get?.(path, ...rest);
+      return path === "/lens/service" ? { ...body, ...service() } : body;
+    });
+    renderWithLens(
+      <LensHostProvider host={{ surface: "standalone" }}>
+        {home()}
+      </LensHostProvider>,
+    );
+    expect(
+      await screen.findByRole("radio", {
+        name: /Through the LiteLLM gateway/,
+        checked: true,
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: /Standalone Lens/ }));
+    service.mockClear();
+    await testQueryClient.refetchQueries({ queryKey: ["lens-service"] });
+    expect(service).toHaveBeenCalled();
+    expect(
+      screen.getByRole("radio", { name: /Standalone Lens/ }),
+    ).toBeChecked();
+  });
+
   it("keeps the public address and tracing credential notices off the gateway path", async () => {
     const user = userEvent.setup();
     const gateway = serve();
     const get = gateway.get.getMockImplementation();
     gateway.get.mockImplementation((path, ...rest) => {
       const body = get?.(path, ...rest);
-      return path === "/lens/admin/tracing/keys" ||
-        path === "/v1/traces/agents"
+      return path === "/lens/admin/tracing/keys" || path === "/v1/traces/agents"
         ? body
         : { ...body, url: "" };
     });

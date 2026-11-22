@@ -413,3 +413,32 @@ async fn rejected_gateway_traces_never_reach_storage(
     assert_eq!(response.status(), expected);
     assert!(server.storage.received_requests().await.unwrap().is_empty());
 }
+
+fn state(token: Option<&str>) -> State {
+    let config =
+        litellm_traces_clickhouse::Config::new("lens".into(), "http://127.0.0.1:1", 14).unwrap();
+    let storage = Storage::new(config, http_client().unwrap(), "query-secret".into());
+    match token {
+        Some(token) => State::connected(storage, token.into()),
+        None => State::standalone(storage),
+    }
+}
+
+#[rstest]
+#[case::environment_token(Some(SERVICE_TOKEN), None, true)]
+#[case::gateway_connected_after_startup(None, Some(SERVICE_TOKEN), true)]
+#[case::disconnected_again(None, None, false)]
+fn a_service_token_marks_the_gateway_connected(
+    #[case] environment: Option<&str>,
+    #[case] saved: Option<&'static str>,
+    #[case] expected: bool,
+) {
+    let state = state(environment);
+    state.service_token_connected_by(move || saved.map(str::to_owned));
+    assert_eq!(state.gateway_connected(), expected);
+}
+
+#[rstest]
+fn standalone_lens_has_no_connected_gateway() {
+    assert!(!state(None).gateway_connected());
+}
