@@ -66,6 +66,12 @@ where
             "/datasets",
             get(list::<R, D, B>).post(create::<R, D, B>),
         )
+        .sdk_admin_route(&authentication, "/datasets", get(list::<R, D, B>))
+        .sdk_admin_route(
+            &authentication,
+            "/datasets/{dataset_id}",
+            get(read::<R, D, B>),
+        )
         .admin_route(&authentication, "/datasets/build", post(build::<R, D, B>))
         .admin_route(
             &authentication,

@@ -207,3 +207,27 @@ async fn composed_application_preserves_repeated_slash_redirects(
         format!("{}{target}", server.url)
     );
 }
+
+#[rstest]
+#[case::sdk_list("/lens/datasets", Some("1"), 200)]
+#[case::list_without_the_contract("/lens/datasets", None, 404)]
+#[case::sdk_read("/lens/datasets/missing", Some("2"), 404)]
+#[case::sdk_resolve("/lens/datasets/resolve?name=missing", Some("2"), 404)]
+#[tokio::test]
+async fn eval_sdk_dataset_lookups_answer_at_their_address_under_lens(
+    #[future(awt)] database: Database,
+    #[case] path: &str,
+    #[case] contract: Option<&str>,
+    #[case] status: u16,
+) {
+    let server = database.serve(false).await;
+    let request = reqwest::Client::new()
+        .get(format!("{}{path}", server.url))
+        .bearer_auth(ADMIN);
+    let request = match contract {
+        Some(version) => request.header("X-Lens-Contract", version),
+        None => request,
+    };
+    let response = request.send().await.unwrap();
+    assert_eq!(response.status(), status);
+}

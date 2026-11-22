@@ -10,7 +10,7 @@ use axum::{
 };
 
 use lens_auth::{Authentication, SessionRepository};
-use lens_contract::auth::Role;
+use lens_contract::{CONTRACT_HEADER, auth::Role};
 
 use crate::{
     auth,
@@ -24,6 +24,13 @@ pub const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) trait PublicRoutes<S> {
     fn public_route(self, path: &str, method: MethodRouter<S>) -> Self;
     fn admin_route<R: SessionRepository + 'static>(
+        self,
+        authentication: &Arc<Authentication<R>>,
+        path: &str,
+        method: MethodRouter<S>,
+    ) -> Self;
+    /// An admin only read the eval SDK still asks for at its address under `/lens`, answered there only for a request carrying the contract header
+    fn sdk_admin_route<R: SessionRepository + 'static>(
         self,
         authentication: &Arc<Authentication<R>>,
         path: &str,
@@ -50,6 +57,31 @@ impl<S: Clone + Send + Sync + 'static> PublicRoutes<S> for Router<S> {
                 require_admin::<R>,
             )),
         )
+    }
+
+    fn sdk_admin_route<R: SessionRepository + 'static>(
+        self,
+        authentication: &Arc<Authentication<R>>,
+        path: &str,
+        method: MethodRouter<S>,
+    ) -> Self {
+        self.public_route(
+            &format!("{PAGE_PREFIX}{path}"),
+            method
+                .route_layer(axum::middleware::from_fn_with_state(
+                    authentication.clone(),
+                    require_admin::<R>,
+                ))
+                .route_layer(axum::middleware::from_fn(require_contract)),
+        )
+    }
+}
+
+async fn require_contract(request: Request, next: Next) -> Response {
+    if request.headers().contains_key(CONTRACT_HEADER) {
+        next.run(request).await
+    } else {
+        StatusCode::NOT_FOUND.into_response()
     }
 }
 
@@ -107,7 +139,7 @@ pub async fn redirect_trailing_slash(request: Request, next: Next) -> Response {
         || (matches!(request.method().as_str(), "GET" | "HEAD")
             && matches!(
                 parts.as_slice(),
-                ["", "lens", "datasets", _, "revisions", _, "cases"]
+                ["", "lens", "datasets", _] | ["", "lens", "datasets", _, "revisions", _, "cases"]
             ));
     let contract: Vec<_> = request
         .headers()
