@@ -435,7 +435,7 @@ const langchainToolCalls = (data: object): TraceToolCall[] | undefined => {
     }));
 };
 
-/** LangChain's `dumpd` message: `{"type": "human", "data": {"content": ...}}`. */
+/** A `dumpd` message: `{"type": "human", "data": {"content": ...}}`. */
 const parseLangchainMessage = (value: object): TraceMessage | null => {
   const role = LANGCHAIN_ROLE[String(Reflect.get(value, "type"))];
   const data: unknown = Reflect.get(value, "data");

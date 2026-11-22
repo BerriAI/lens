@@ -24,7 +24,7 @@ export interface TraceFramework {
 
 /**
  * Ids are the slugs the trace normalizer emits (litellm-rust `Integration`, kebab-case) plus the raw
- * `ls_integration` values LangChain reports. A trace lists every framework seen on its spans, so the
+ * `ls_integration` values spans carry. A trace lists every framework seen on its spans, so the
  * registry runs most-specific first: an agent framework beats the model SDK it wraps.
  */
 const FRAMEWORKS: readonly TraceFramework[] = [
