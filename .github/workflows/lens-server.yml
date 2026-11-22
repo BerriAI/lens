@@ -92,7 +92,7 @@ jobs:
         run: >-
           npm exec --workspace @litellm/lens-ui -- vitest run
           src/components/lens/onboarding
-          src/components/lens/admin/agents
+          src/components/lens/agents
           src/components/lens/evals
           src/components/lens/optimizations
           src/components/lens/settings
