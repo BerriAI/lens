@@ -48477,6 +48477,12 @@ export interface components {
             input_preview: string;
             /** Input Tokens */
             input_tokens: number;
+            /**
+             * Last Activity Time
+             * @description When the trace's latest record ended
+             * @default
+             */
+            last_activity_time?: string;
             /** Llm Calls */
             llm_calls: number;
             /**
@@ -82140,6 +82146,8 @@ export interface operations {
                 agent?: string | null;
                 /** @description Also list traces that made no model call and no tool call. Default: false */
                 include_internal?: boolean | null;
+                /** @description Order of the list, newest first. A cursor is only valid with the sort it was issued for. Default: start */
+                sort?: "start" | "last_activity" | null;
             };
             header?: never;
             path?: never;

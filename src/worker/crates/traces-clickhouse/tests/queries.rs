@@ -207,6 +207,7 @@ async fn run_start_times_match_the_trace_list_whatever_the_server_timezone(
             },
             agent: String::new(),
             include_internal: true,
+            by_last_activity: false,
             start_ms: started_ms - 60_000,
             end_ms: started_ms + 60_000,
             cursor_ms: 0,
@@ -397,6 +398,7 @@ async fn typed_queries_read_normalized_spans_and_keep_trace_identities_separate(
         access: admin_access?,
         agent: String::new(),
         include_internal: true,
+        by_last_activity: false,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -465,6 +467,7 @@ async fn typed_trace_cursor_returns_the_next_fixture_trace(
         access: admin_access?,
         agent: String::new(),
         include_internal: true,
+        by_last_activity: false,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -512,6 +515,7 @@ async fn run_candidates_filter_agents_before_pagination(
         access: access.clone(),
         agent: "A".into(),
         include_internal: true,
+        by_last_activity: false,
         start_ms,
         end_ms,
         cursor_ms: 0,
@@ -520,7 +524,7 @@ async fn run_candidates_filter_agents_before_pagination(
     };
     assert!(store.summary_page(&params).await?.is_none());
     let first = reader
-        .list_traces(&store, &access, "A", true, start_ms, end_ms, None, 2)
+        .list_traces(&store, &access, "A", true, false, start_ms, end_ms, None, 2)
         .await?;
     assert_eq!(
         first
@@ -536,6 +540,7 @@ async fn run_candidates_filter_agents_before_pagination(
             &access,
             "A",
             true,
+            false,
             start_ms,
             end_ms,
             first.next_cursor.as_deref(),
@@ -550,7 +555,7 @@ async fn run_candidates_filter_agents_before_pagination(
         ["a-old"]
     );
     let unfiltered = reader
-        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
+        .list_traces(&store, &access, "", true, false, start_ms, end_ms, None, 10)
         .await?;
     assert_eq!(unfiltered.data.len(), 6);
     assert_eq!(unfiltered.data[0].trace_id, "b-new");
@@ -580,7 +585,7 @@ async fn run_candidates_hide_runs_without_model_or_tool_calls_before_pagination(
     };
     let reader = litellm_traces_cache::TraceReader::new(usize::MAX);
     let hidden = reader
-        .list_traces(&store, &access, "", false, start_ms, end_ms, None, 1)
+        .list_traces(&store, &access, "", false, false, start_ms, end_ms, None, 1)
         .await?;
     assert_eq!(hidden.data[0].trace_id, "tool-run");
     let hidden_next = reader
@@ -588,6 +593,7 @@ async fn run_candidates_hide_runs_without_model_or_tool_calls_before_pagination(
             &store,
             &access,
             "",
+            false,
             false,
             start_ms,
             end_ms,
@@ -597,7 +603,7 @@ async fn run_candidates_hide_runs_without_model_or_tool_calls_before_pagination(
         .await?;
     assert_eq!(hidden_next.data[0].trace_id, "model-run");
     let shown = reader
-        .list_traces(&store, &access, "", true, start_ms, end_ms, None, 10)
+        .list_traces(&store, &access, "", true, false, start_ms, end_ms, None, 10)
         .await?;
     assert_eq!(
         shown
@@ -644,6 +650,7 @@ async fn captured_sdk_exports_round_trip_through_clickhouse(
         access: params.access,
         agent: String::new(),
         include_internal: true,
+        by_last_activity: false,
         start_ms: 0,
         end_ms: i64::MAX / 1_000_000,
         cursor_ms: 0,
@@ -1066,6 +1073,7 @@ async fn eval_traces_stay_out_of_production_sampling_and_dashboards(
             access: access.clone(),
             agent: String::new(),
             include_internal: true,
+            by_last_activity: false,
             start_ms,
             end_ms,
             cursor_ms: 0,

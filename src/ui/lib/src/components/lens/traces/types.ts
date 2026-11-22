@@ -19,6 +19,7 @@ export type SpanErrorPage =
 export type TraceListQuery = NonNullable<
   paths["/v1/traces"]["get"]["parameters"]["query"]
 >;
+export type TraceSort = NonNullable<TraceListQuery["sort"]>;
 export type TraceDetailQuery = NonNullable<
   paths["/v1/traces/{trace_id}"]["get"]["parameters"]["query"]
 >;

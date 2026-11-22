@@ -17,6 +17,7 @@ import type {
   SpanErrorPage,
   Trace,
   TraceListQuery,
+  TraceSort,
   TracePage,
   TraceFindingCount,
   TraceFindingsRequest,
@@ -40,6 +41,7 @@ export interface TraceWindow {
 export interface TraceListFilter {
   readonly agent: string;
   readonly includeInternal: boolean;
+  readonly sort: TraceSort;
 }
 
 export interface TraceHandoff {

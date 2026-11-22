@@ -2,7 +2,7 @@ import { parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryStates } f
 import { useCallback, useState } from "react";
 
 import { TIME_RANGE_PARSERS } from "../../shared/timeRange/routing";
-import type { SignalFlag, TraceSummary } from "./types";
+import type { SignalFlag, TraceSort, TraceSummary } from "./types";
 
 export const TRACE_VIEWS = ["steps", "thread"] as const;
 export type TraceView = (typeof TRACE_VIEWS)[number];
@@ -63,6 +63,7 @@ export const RUN_FILTER_PARSERS = {
   agent: parseAsString.withDefault(""),
   status: parseAsStringLiteral(["all", "ok", "error"]).withDefault("all"),
   internal: parseAsBoolean.withDefault(false),
+  sort: parseAsStringLiteral(["start", "last_activity"]).withDefault("start"),
   ...TIME_RANGE_PARSERS,
 };
 
@@ -203,15 +204,17 @@ export function useLocalRunSelection(initialSpanId: string | null): RunSelection
 }
 
 export function useRunFilterRouting() {
-  const [{ q, agent, status, internal }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
+  const [{ q, agent, status, internal, sort }, setParams] = useQueryStates(RUN_FILTER_PARSERS);
   return {
     query: q,
     agent,
     status,
     includeInternal: internal,
+    sort,
     setQuery: (query: string) => void setParams({ q: query }),
     setAgent: (agent: string) => void setParams({ agent }),
     setStatus: (status: "all" | "ok" | "error") => void setParams({ status }),
     setIncludeInternal: (internal: boolean) => void setParams({ internal }),
+    setSort: (sort: TraceSort) => void setParams({ sort }),
   };
 }

@@ -1,6 +1,6 @@
 page AS (
     SELECT hex(SHA256(concat(TeamId, char(0), ApiKeyHash, char(0), TraceId))) AS trace_ref,
-           toUnixTimestamp64Milli(min(StartTs)) AS start_ms
+           if({by_last_activity:UInt8} = 1, toUnixTimestamp64Milli(max(EndTs)), toUnixTimestamp64Milli(min(StartTs))) AS sort_ms
     FROM agent_traces_by_key
     WHERE ({all_teams:UInt8} = 1
            OR ({user_id:String} != '' AND UserIds = [{user_id:String}])
@@ -33,9 +33,9 @@ AND NOT arrayExists(key -> startsWith(key, 'litellm_request:'), CallKeys)
     HAVING min(StartTs) >= fromUnixTimestamp64Milli({start_ms:Int64})
        AND min(StartTs) < fromUnixTimestamp64Milli({end_ms:Int64})
        AND ({include_internal:UInt8} = 1 OR sum(LlmCount) + sum(ToolCount) > 0)
-       AND ({cursor_ms:Int64} = 0 OR (toUnixTimestamp64Milli(min(StartTs)), trace_ref)
+       AND ({cursor_ms:Int64} = 0 OR (sort_ms, trace_ref)
             < ({cursor_ms:Int64}, {cursor_trace_id:String}))
-    ORDER BY start_ms DESC, trace_ref DESC
+    ORDER BY sort_ms DESC, trace_ref DESC
     LIMIT {limit:UInt32}
 ), selected_refs AS (
     SELECT trace_ref FROM page
