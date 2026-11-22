@@ -151,7 +151,7 @@ const CODING_AGENTS: Record<
     gatewayHint:
       "the base_url and env_key of the model provider selected in ~/.codex/config.toml",
     install:
-      "Install the LiteLLM Lens plugin for Codex and connect it by running these three commands in order. If the marketplace berriai-lens is already added from another source, run codex plugin marketplace remove berriai-lens first. Do not add an [otel] table to ~/.codex/config.toml:",
+      "Install the LiteLLM Lens plugin for Codex and connect it by running these three commands in order. If the marketplace berriai-lens is already added from another source, run codex plugin marketplace remove berriai-lens first. Do not add an [otel] table to ~/.codex/config.toml. If one is already there and sends to this same address, tell me that it would record every chat a second time and ask whether to remove it; change nothing in it without my answer:",
     keyNote:
       "--key-env takes the name of an environment variable, never the key itself. If the key is not already in that variable, set it for that one command only. The plugin needs Python 3.11 or newer, macOS or Linux, and an https address unless the address is localhost. If one of these is missing, stop and tell me instead of configuring something else.",
     caveat:
