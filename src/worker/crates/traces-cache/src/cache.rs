@@ -313,6 +313,7 @@ mod tests {
             duration_ns: 10_000_000,
             service: "agent-demo".into(),
             input_preview: format!("input of {span_id}"),
+            reply_preview: String::new(),
             model: String::new(),
             input_tokens: 0,
             output_tokens: 0,

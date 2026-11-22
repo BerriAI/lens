@@ -17,6 +17,8 @@ use super::{
 };
 
 const NANOS_PER_MS: f64 = 1_000_000.0;
+const CLAUDE_CODE_FRAMEWORK: &str = "claude-code";
+const CLAUDE_CODE_REPLY: &str = "claude_code.assistant_response";
 
 fn optional(value: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_owned())
@@ -202,6 +204,30 @@ pub fn resolve_trace(
         .min_by_key(|(index, (_, row))| (row.start_ns, *index))
         .map(|(_, (span, _))| span.input_preview.clone())
         .unwrap_or_default();
+    let turns: Vec<usize> = (0..rows.len())
+        .filter(|index| {
+            rows[*index].parent_span_id.is_empty()
+                && spans[*index].kind == ObservationType::Agent
+                && spans[*index].framework == CLAUDE_CODE_FRAMEWORK
+        })
+        .collect();
+    let turn_input = turns
+        .iter()
+        .min_by_key(|index| (rows[**index].start_ns, **index))
+        .and_then(|index| optional(&spans[*index].input_preview));
+    let last_reply = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, row)| {
+            row.name == CLAUDE_CODE_REPLY
+                && !row.reply_preview.is_empty()
+                && turns
+                    .iter()
+                    .any(|turn| rows[*turn].span_id == row.parent_span_id)
+        })
+        .max_by_key(|(index, row)| (row.start_ns, *index))
+        .map(|(_, row)| row.reply_preview.clone())
+        .unwrap_or_default();
     let summary = TraceSummary {
         resolution_limited: false,
         trace_id: trace_id.to_owned(),
@@ -215,7 +241,10 @@ pub fn resolve_trace(
             .into_iter()
             .collect(),
         frameworks: sorted_unique(spans.iter().map(|span| span.framework.as_str())),
-        input_preview: optional(&spans[root].input_preview).unwrap_or(first_input),
+        input_preview: turn_input
+            .or_else(|| optional(&spans[root].input_preview))
+            .unwrap_or(first_input),
+        output_preview: last_reply,
         start_time: iso_time(trace_start_ns.div_euclid(1_000_000)),
         duration_ms: (trace_end_ns - i128::from(trace_start_ns)) as f64 / NANOS_PER_MS,
         status: spans[root].status,
@@ -228,7 +257,7 @@ pub fn resolve_trace(
             .iter()
             .filter(|span| span.status == SpanStatus::Error)
             .map(|span| {
-                if span.framework == "claude-code" && !span.tool_call_id.is_empty() {
+                if span.framework == CLAUDE_CODE_FRAMEWORK && !span.tool_call_id.is_empty() {
                     ("claude-tool", span.tool_call_id.as_str())
                 } else {
                     ("span", span.span_id.as_str())
@@ -267,6 +296,7 @@ pub fn listed_summary(row: &ListTracesRow) -> TraceSummary {
         agent_names: row.agent_names.clone(),
         frameworks: row.frameworks.clone(),
         input_preview: row.input_preview.clone(),
+        output_preview: String::new(),
         start_time: iso_time(row.start_ms),
         duration_ms: row.duration_ms as f64,
         status: row.status,

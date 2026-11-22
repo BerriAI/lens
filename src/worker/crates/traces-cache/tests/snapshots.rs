@@ -32,6 +32,7 @@ fn row(span_id: &str, parent: &str, name: &str, kind: &str, agent: &str) -> Trac
         duration_ns: 10 * MS as u64,
         service: "agent-demo".into(),
         input_preview: format!("input of {name}"),
+        reply_preview: String::new(),
         model: String::new(),
         input_tokens: 0,
         output_tokens: 0,

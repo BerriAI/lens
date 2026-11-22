@@ -8,7 +8,7 @@ SELECT o.TraceId AS trace_id, o.SpanAttributes['lens.original_trace_id'] AS orig
        if(o.SpanAttributes['lens.codex.root'] = '1',
           argMaxIf(o.InputPreview, tuple(o.SpanAttributes['lens.codex.prompt_kind'] != 'title', o.EngineReceivedMs), o.InputPreview != '') OVER
               (PARTITION BY o.TeamId, o.ApiKeyHash, o.TraceId, o.SpanId),
-          o.InputPreview) AS input_preview, o.Model AS model,
+          o.InputPreview) AS input_preview, o.ReplyPreview AS reply_preview, o.Model AS model,
        o.InputTokens AS input_tokens, o.OutputTokens AS output_tokens,
        o.LiteLLMRequestId AS litellm_request_id,
        o.CallKeys AS call_keys, o.CallEvidence AS call_evidence,
