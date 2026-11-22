@@ -1,33 +1,39 @@
 # Codex CLI telemetry
 
-Codex sends trace spans and log records through separate OTLP exporters. Configure both endpoints with a Lens tracing key generated for the same Lens workspace
+Codex sends no telemetry by default, and Lens needs it to record Codex turns. Codex sends trace spans and log records through two separate OTLP exporters. Add both to `~/.codex/config.toml` and keep any settings already there:
 
 ```toml
 [otel]
-environment = "staging"
 log_user_prompt = true
-log_agent_responses = true
 
 exporter = { otlp-http = {
-    endpoint = "https://lens.example/v1/logs",
+    endpoint = "<address>/v1/logs",
     protocol = "json",
-    headers = { Authorization = "Bearer <lens-tracing-key>" }
+    headers = { Authorization = "Bearer <key>" }
 }}
 trace_exporter = { otlp-http = {
-    endpoint = "https://lens.example/v1/traces",
+    endpoint = "<address>/v1/traces",
     protocol = "json",
-    headers = { Authorization = "Bearer <lens-tracing-key>" }
+    headers = { Authorization = "Bearer <key>" }
 }}
-
-[otel.span_attributes]
-"gen_ai.agent.name" = "codex-cli"
 ```
 
-Replace the endpoint with a Lens URL reachable from Codex. Keep the tracing key private and separate from model-provider credentials. Prompt and response logging can capture sensitive content, so enable only the records you intend to retain
+The address and key depend on how you run Lens:
 
-Codex supplies `service.name` as resource metadata. Do not override it in `span_attributes`, which adds span-level data; use `gen_ai.agent.name` there when you need an agent label
+| Setup | `<address>` | `<key>` |
+| --- | --- | --- |
+| Codex routed through a LiteLLM gateway [connected to Lens](https://docs.litellm.ai/docs/proxy/lens/deployment/litellm) | Your gateway address, such as `http://localhost:4000` | The LiteLLM key Codex already uses for model calls |
+| Standalone Lens | Your Lens address, such as `http://localhost:4318` | A Lens tracing key |
 
-Lens correlates Codex prompt, response, tool execution, and API request records across both OTLP streams into unified turn traces in the Traces view. Both terminal Codex CLI (`codex_cli_rs`) and IDE integrations powered by `codex-app-server` (such as Xcode) are supported. When Codex sends requests through LiteLLM Gateway, Lens enriches turn and LLM spans with full message history and completion payloads from `spend_logs`. Enrichment requires matching trace and call identifiers within the same workspace. When an IDE client does not forward correlation identifiers, Lens shows its recorded OTLP content without guessing which gateway completion belongs to it. Internal lifecycle spans such as auth and initialization are filtered from the trace view. Both `exporter` and `trace_exporter` may point to `/v1/logs` and `/v1/traces` respectively, or both may point to `/v1/traces`
+## What Lens shows
+
+A Codex turn appears as one trace with the prompt you typed, each tool call with its arguments and output, and the model calls with their duration and token counts. Model call steps have no input or output: Codex exports neither the request it sent nor the model's reply. `log_agent_responses = true` is accepted and sends nothing
+
+Codex cuts each tool output to about 2,000 characters before it exports it and ends it with `[... telemetry preview truncated ...]`. Codex has no setting that raises this limit
+
+`log_user_prompt = true` stores what you type, and tool steps store the arguments and output of the commands Codex runs, which can include file contents or secrets. Use these settings only with a Lens deployment where you intend to keep that content.
+
+Codex supplies `service.name` as resource metadata. To label the agent, add `"gen_ai.agent.name" = "codex-cli"` under `[otel.span_attributes]`; do not override `service.name` there. Both terminal Codex CLI (`codex_cli_rs`) and IDE integrations powered by `codex-app-server` (such as Xcode) are supported. Internal lifecycle spans such as auth and initialization are filtered from the trace view
 
 In Lens, open the trace workspace to inspect Codex turns, or select **Show log events** to inspect raw OTLP log records. Logs with a non-empty trace ID also appear in that trace's detail view. The `/lens/logs` read endpoint supports time, service, event, severity, trace ID, and conversation ID filters
 
@@ -42,3 +48,5 @@ curl --fail-with-body --silent --show-error --get "$LENS_URL/lens/logs" \
 ```
 
 An empty `data` array means no matching prompt records are available in that time range. Check the configured log exporter endpoint, the time range, and the Lens version receiving the request before changing trace settings
+
+Verified with Codex CLI 0.171.0
