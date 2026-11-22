@@ -159,6 +159,7 @@ lens-keeper.xml: |
       <coordination_settings>
         <operation_timeout_ms>10000</operation_timeout_ms>
         <quorum_reads>true</quorum_reads>
+        <latest_logs_cache_size_threshold>134217728</latest_logs_cache_size_threshold>
       </coordination_settings>
       <raft_configuration>
         <server><id>1</id><hostname>127.0.0.1</hostname><port>9234</port></server>
