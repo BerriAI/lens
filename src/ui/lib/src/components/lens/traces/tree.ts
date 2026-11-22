@@ -30,13 +30,13 @@ export interface GroupRowData {
   expanded: boolean;
 }
 
-/** One typed message of a coding session and everything the agent did to answer it. */
+/** One typed message of a Claude Code session and everything the agent recorded while answering it. */
 export interface TurnRowData {
   kind: "turn";
   id: string;
   depth: number;
   index: number;
-  message: string;
+  root: Span;
   members: Span[];
   collapsed: boolean;
 }

@@ -118,7 +118,7 @@ async fn receive_authorized(
     body: Body,
     logs: bool,
 ) -> Result<(), Error> {
-    let sender = if !logs && state.authorize_service(headers).is_ok() {
+    let sender = if state.authorize_service(headers).is_ok() {
         Sender::Gateway(forwarded_owner(headers))
     } else {
         Sender::Tenant(state.credentials.tenant(headers)?)
@@ -167,6 +167,7 @@ async fn store(
         let payload = decompress(&payload, encoding.as_deref())?;
         let tenant = match sender {
             Sender::Tenant(tenant) => tenant,
+            Sender::Gateway(forwarded) if logs => forwarded,
             Sender::Gateway(forwarded) => {
                 let spans = gateway_span_rows(&payload, content_type.as_deref(), &forwarded)?;
                 return Ok((Vec::new(), spans, permit));

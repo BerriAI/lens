@@ -2329,7 +2329,8 @@ fn native_assistant_logs_preserve_visible_messages_without_counting_model_calls(
     );
     assert_eq!(json.len(), count);
     if let Some(span) = json.first() {
-        assert_eq!(span.trace_id, "01".repeat(16));
+        assert_eq!(span.attributes["lens.original_trace_id"], "01".repeat(16));
+        assert_ne!(span.trace_id, "01".repeat(16));
         assert_eq!(span.parent_span_id, "02".repeat(8));
         assert_ne!(span.span_id, span.parent_span_id);
         assert_eq!(span.normalized.observation_type, ObservationType::Chain);
@@ -2520,29 +2521,15 @@ fn configurable_session_capture_uses_selected_attribute(
 }
 
 #[rstest]
-#[case::missing_flag(None, "session.id", Some("session-one"))]
-#[case::false_flag(Some("false"), "session.id", Some("session-one"))]
-#[case::missing_default(Some("true"), "session.id", None)]
-#[case::empty_default(Some("true"), "session.id", Some(""))]
-#[case::missing_custom(Some("true"), "harness.conversation", None)]
-#[case::empty_custom(Some("true"), "harness.conversation", Some(""))]
-fn configurable_session_capture_leaves_ineligible_spans_unchanged(
-    #[case] capture: Option<&str>,
-    #[case] key: &str,
-    #[case] session: Option<&str>,
-) {
+#[case::missing_default("session.id", None)]
+#[case::empty_default("session.id", Some(""))]
+#[case::missing_custom("harness.conversation", None)]
+#[case::empty_custom("harness.conversation", Some(""))]
+fn a_span_naming_no_session_keeps_its_own_trace(#[case] key: &str, #[case] session: Option<&str>) {
     let mut body: serde_json::Value =
         serde_json::from_slice(include_bytes!("fixtures/opencode_session.json")).unwrap();
     body["resourceSpans"][0]["resource"]["attributes"] =
         serde_json::json!([{"key":"lens.session.attribute","value":{"stringValue":key}}]);
-    if let Some(capture) = capture {
-        body["resourceSpans"][0]["resource"]["attributes"]
-            .as_array_mut()
-            .unwrap()
-            .push(
-                serde_json::json!({"key":"lens.session.capture","value":{"stringValue":capture}}),
-            );
-    }
     let attributes = &mut body["resourceSpans"][0]["scopeSpans"][0]["spans"][1]["attributes"];
     *attributes = serde_json::json!([]);
     if key != "session.id" {
@@ -2633,11 +2620,78 @@ fn session_capture_joins_native_logs_and_traces_across_turns_without_changing_sp
         first[0].normalized.agent_name.as_deref(),
         Some("custom-claude")
     );
-    request.resource_spans[0].resource = None;
+}
+
+#[rstest]
+#[case::claude_code("com.anthropic.claude_code.tracing", &[], "session.id", true)]
+#[case::other_agent("opencode", &[], "session.id", true)]
+#[case::sender_that_once_opted_out("opencode", &[("lens.session.capture", "false")], "session.id", true)]
+#[case::gateway_call_naming_its_session(
+    "litellm",
+    &[("lens.session.attribute", "gen_ai.conversation.id")],
+    "gen_ai.conversation.id",
+    true,
+)]
+#[case::gateway_call_naming_no_session(
+    "litellm",
+    &[("lens.session.attribute", "gen_ai.conversation.id")],
+    "gen_ai.agent.name",
+    false,
+)]
+fn a_span_joins_its_session_trace_under_its_recorded_parent(
+    #[case] scope: &str,
+    #[case] resource: &[(&str, &str)],
+    #[case] session_key: &str,
+    #[case] joins: bool,
+) {
+    use opentelemetry_proto::tonic::{
+        common::v1::{AnyValue, InstrumentationScope, KeyValue, any_value::Value},
+        resource::v1::Resource,
+        trace::v1::Span,
+    };
+    use prost::Message;
+    let text = |(key, value): &(&str, &str)| KeyValue {
+        key: (*key).to_owned(),
+        value: Some(AnyValue {
+            value: Some(Value::StringValue((*value).to_owned())),
+        }),
+        ..Default::default()
+    };
+    let mut request = request_with(Span {
+        trace_id: vec![3; 16],
+        span_id: vec![4; 8],
+        parent_span_id: vec![5; 8],
+        name: "call".to_owned(),
+        attributes: vec![text(&(session_key, "session-one"))],
+        start_time_unix_nano: 100,
+        end_time_unix_nano: 200,
+        ..Default::default()
+    });
+    request.resource_spans[0].resource = Some(Resource {
+        attributes: resource.iter().map(text).collect(),
+        ..Default::default()
+    });
+    request.resource_spans[0].scope_spans[0].scope = Some(InstrumentationScope {
+        name: scope.to_owned(),
+        ..Default::default()
+    });
+    let span = decode_otlp(&request.encode_to_vec(), None)
+        .unwrap()
+        .remove(0);
+    let own_trace = "03".repeat(16);
     assert_eq!(
-        decode_otlp(&request.encode_to_vec(), None).unwrap()[0].trace_id,
-        "03".repeat(16)
+        span.trace_id,
+        if joins {
+            "5fddf060372c8501dca4f331b9da882b"
+        } else {
+            own_trace.as_str()
+        }
     );
+    assert_eq!(
+        span.attributes.get("lens.original_trace_id"),
+        joins.then_some(&own_trace)
+    );
+    assert_eq!(span.parent_span_id, "05".repeat(8));
 }
 
 #[rstest]

@@ -164,6 +164,12 @@ const details: Record<string, SpanDetail> = {
     }),
     attributes: {},
   },
+  reply: {
+    span_id: "reply",
+    input: "",
+    output: JSON.stringify({ role: "assistant", content: "WebFetch fetches web pages." }),
+    attributes: {},
+  },
 };
 
 const standardDetail: SpanDetail = {
@@ -444,22 +450,24 @@ describe("DetailPane", () => {
     const user = userEvent.setup();
     const onOpenStep = vi.fn();
     const typed = "Find a tool that fetches web pages";
-    const asked = span({
-      ...llmFields,
-      span_id: "ask",
+    const turn = span({
+      span_id: "root",
       parent_span_id: null,
+      name: "claude_code.interaction",
+      type: "agent",
       input_preview: typed,
     });
+    const asked = span({ ...llmFields, span_id: "ask", parent_span_id: "root" });
     const search = span({
       span_id: "search",
-      parent_span_id: null,
+      parent_span_id: "root",
       name: "execute_tool ToolSearch",
       type: "tool",
       input_preview: '{"query": "fetch web page"}',
     });
     const delegated = span({
       span_id: "agent",
-      parent_span_id: null,
+      parent_span_id: "root",
       name: "execute_tool Agent",
       type: "tool",
     });
@@ -469,25 +477,39 @@ describe("DetailPane", () => {
       parent_span_id: "agent",
       model: "subagent-model",
     });
-    const answered = span({
+    const answered = span({ ...llmFields, span_id: "answer", parent_span_id: "root" });
+    const suggested = span({
       ...llmFields,
-      span_id: "root",
-      parent_span_id: null,
-      input_preview: typed,
+      span_id: "suggest",
+      parent_span_id: "root",
+      input_preview: "[SUGGESTION MODE: Suggest what the user might naturally type next]",
     });
-    const titled = span({
-      ...llmFields,
-      parent_span_id: null,
-      input_preview: "Write the title of the session",
+    const replied = span({
+      span_id: "reply",
+      parent_span_id: "root",
+      name: "claude_code.assistant_response",
+      type: "chain",
+    });
+    const wrapper = span({
+      span_id: "wrapper",
+      parent_span_id: "root",
+      name: "claude_code.tool",
+      type: "framework",
+    });
+    const wrapped = span({
+      span_id: "wrapped",
+      parent_span_id: "wrapper",
+      name: "WebFetch",
+      type: "tool",
     });
     renderPane(
       {
         kind: "turn",
-        id: "turn::ask",
+        id: "turn::root",
         depth: 0,
         index: 2,
-        message: typed,
-        members: [asked, search, delegated, answered, titled, delegate],
+        root: turn,
+        members: [asked, search, delegated, delegate, answered, suggested, replied, wrapper, wrapped],
         collapsed: false,
       },
       onOpenStep,
@@ -495,22 +517,47 @@ describe("DetailPane", () => {
     const pane = screen.getByRole("complementary", { name: "Turn details" });
     expect(pane).toHaveTextContent("Turn 2");
     expect(pane).toHaveTextContent("Model calls4");
-    expect(pane).toHaveTextContent("Tool calls2");
+    expect(pane).toHaveTextContent("Tool calls3");
     expect(
       within(pane).getByRole("region", { name: "User message" }),
     ).toHaveTextContent(typed);
     expect(
       await within(pane).findByRole("region", { name: "Agent answer" }),
-    ).toHaveTextContent("Customer acme-404 is on the Enterprise plan.");
+    ).toHaveTextContent("WebFetch fetches web pages.");
     const steps = within(
       within(pane).getByRole("region", { name: "Turn steps" }),
     ).getAllByRole("button");
-    expect(steps).toHaveLength(6);
+    expect(steps).toHaveLength(8);
+    expect(steps[7]).toHaveTextContent("WebFetch");
     expect(steps[2]).toHaveTextContent("execute_tool Agent");
     expect(steps[3]).toHaveTextContent("subagent-model");
     expect(steps[1]).toHaveTextContent("execute_tool ToolSearch");
     await user.click(steps[1]);
     expect(onOpenStep).toHaveBeenCalledWith("search");
+  });
+
+  it("shows no answer on a turn whose reply was not recorded, instead of another turn's", async () => {
+    const turn = span({
+      span_id: "root",
+      parent_span_id: null,
+      name: "claude_code.interaction",
+      type: "agent",
+      input_preview: "Now fix it.",
+    });
+    const asked = span({ ...llmFields, span_id: "ask", parent_span_id: "root" });
+    renderPane({
+      kind: "turn",
+      id: "turn::root",
+      depth: 0,
+      index: 2,
+      root: turn,
+      members: [asked],
+      collapsed: false,
+    });
+    const pane = screen.getByRole("complementary", { name: "Turn details" });
+    expect(await within(pane).findByRole("region", { name: "User message" })).toHaveTextContent("Now fix it.");
+    expect(within(pane).queryByRole("region", { name: "Agent answer" })).not.toBeInTheDocument();
+    expect(vi.mocked(agentTraceSpanCall)).not.toHaveBeenCalled();
   });
 
   it("'Copy step' copies a curl for this span's captured content", async () => {

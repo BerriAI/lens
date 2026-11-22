@@ -344,6 +344,55 @@ async fn spans_a_gateway_forwards_belong_to_the_key_that_sent_them_whatever_owne
 }
 
 #[rstest]
+#[tokio::test]
+async fn logs_a_gateway_forwards_are_stored_under_the_key_that_sent_them(
+    #[future(awt)] server: Server,
+) {
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server.storage)
+        .await;
+    let response = reqwest::Client::new()
+        .post(format!("{}/v1/logs", server.url))
+        .bearer_auth(SERVICE_TOKEN)
+        .header("x-litellm-api-key-hash", "key-f")
+        .header("x-litellm-team-id", "team-f")
+        .header("x-litellm-user-id", "user-f")
+        .header("x-litellm-org-id", "org-f")
+        .json(&json!({"resourceLogs": [{"scopeLogs": [{
+            "scope": {"name": "com.anthropic.claude_code.events"},
+            "logRecords": [{
+                "traceId": "0af7651916cd43dd8448eb211c80319a",
+                "spanId": "b7ad6b7169203331",
+                "timeUnixNano": "1700000000000000020",
+                "body": {"stringValue": "claude_code.assistant_response"},
+                "attributes": [
+                    {"key": "event.name", "value": {"stringValue": "assistant_response"}},
+                    {"key": "session.id", "value": {"stringValue": "session-f"}},
+                    {"key": "response", "value": {"stringValue": "The add function subtracts."}}
+                ]
+            }]
+        }]}]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let requests = server.storage.received_requests().await.unwrap();
+    let mut decoded = String::new();
+    std::io::Read::read_to_string(
+        &mut flate2::read::GzDecoder::new(requests[0].body.as_slice()),
+        &mut decoded,
+    )
+    .unwrap();
+    let row: Value = serde_json::from_str(decoded.lines().next().unwrap()).unwrap();
+    assert_eq!(
+        json!([row["TeamId"], row["ApiKeyHash"], row["UserId"]]),
+        json!(["team-f", "key-f", "user-f"])
+    );
+    assert!(decoded.contains("The add function subtracts."));
+}
+
+#[rstest]
 #[case::unknown_token_before_tracing_keys_load("incorrect-secret", r#"{"resourceSpans":[]}"#, 503)]
 #[case::malformed(SERVICE_TOKEN, "{", 400)]
 #[tokio::test]
