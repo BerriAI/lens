@@ -760,7 +760,23 @@ fn codex_message(
             }),
         ),
     ]);
-    vec![turn, asked]
+    let mut replied = Span {
+        span: "reply",
+        parent: span.span,
+        duration: 0,
+        input: "",
+        output: "a reply",
+        ..span
+    }
+    .row();
+    replied.extend([
+        ("SpanName".into(), json!("codex.agent_response")),
+        (
+            "SpanAttributes".into(),
+            json!({"conversation.id": conversation, "event.name": "codex.agent_response"}),
+        ),
+    ]);
+    vec![turn, asked, replied]
 }
 
 #[rstest]
@@ -822,5 +838,6 @@ async fn codex_messages_share_a_thread_through_their_conversation_id(
         .await?;
     let inputs: Vec<&str> = previous.iter().map(|turn| turn.input.as_str()).collect();
     assert_eq!(inputs, expected_inputs);
+    assert!(previous.iter().all(|turn| turn.output == "a reply"));
     Ok(())
 }

@@ -12,10 +12,24 @@ WITH conversation_candidates AS (
       AND coalesce(nullIf(SpanAttributes['session.id'], ''), nullIf(ResourceAttributes['session.id'], ''),
                    SpanAttributes['conversation.id']) = {session_id:String}
       AND Timestamp < fromUnixTimestamp64Nano({before_ns:Int64})
+),
+codex_replies AS (
+    SELECT TraceId, argMax(Output, Timestamp) AS reply
+    FROM otel_traces
+    WHERE TeamId = {team_id:String} AND ApiKeyHash = {api_key_hash:String}
+      AND EngineReceivedMs <= {snapshot_ms:UInt64}
+      AND TraceId IN (SELECT TraceId FROM conversation_candidates)
+      AND ({all_teams:UInt8} = 1
+           OR ({user_id:String} != '' AND UserId = {user_id:String})
+           OR has({team_ids:Array(String)}, TeamId))
+      AND SpanAttributes['event.name'] = 'codex.agent_response' AND Output != ''
+      AND Timestamp < fromUnixTimestamp64Nano({before_ns:Int64})
+    GROUP BY TraceId
 )
 SELECT TraceId AS trace_id, trace_ref, SpanId AS span_id, start_ns,
        root_input AS input,
-       if(toInt128(start_ns) + toInt128(Duration) <= toInt128({before_ns:Int64}), Output, '') AS output
+       if(toInt128(start_ns) + toInt128(Duration) <= toInt128({before_ns:Int64}),
+          if(Output != '', Output, codex_replies.reply), '') AS output
 FROM (
     SELECT TraceId, SpanId, ParentSpanId,
            if(SpanAttributes['lens.codex.root'] = '1',
@@ -44,7 +58,8 @@ FROM (
              Timestamp DESC, ParentSpanId, ambiguous_session DESC, session,
              Input DESC, Output DESC, Duration DESC
     LIMIT 1 BY TraceId, SpanId
-)
+) AS turns
+LEFT JOIN codex_replies ON codex_replies.TraceId = turns.TraceId
 WHERE ParentSpanId IN ('', '0000000000000000')
   AND NOT ambiguous_session
   AND {session_id:String} != '' AND session = {session_id:String}
