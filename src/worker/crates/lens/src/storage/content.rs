@@ -4,8 +4,8 @@ use std::{
     time::Duration,
 };
 
-use litellm_traces::{SpanDetail, hydrated_input_output, to_ui_content};
 use litellm_storage_clickhouse::fetch;
+use litellm_traces::{SpanDetail, hydrated_input_output, to_ui_content};
 use litellm_traces_clickhouse::{
     content_reference::{self, ContentReference, Owner, REFERENCE_ATTRIBUTE},
     query::{
@@ -32,7 +32,9 @@ struct Endpoint {
 }
 
 fn content_url(base: &str) -> Option<url::Url> {
-    format!("{}/lens/content", base.trim_end_matches('/')).parse().ok()
+    format!("{}/lens/content", base.trim_end_matches('/'))
+        .parse()
+        .ok()
 }
 
 /// Reads proxy-generated trace content LiteLLM stored in object storage, through the gateway that holds the
@@ -190,13 +192,13 @@ pub fn hydrated_detail(
 ) -> SpanDetail {
     let (input, output) = match hydrated {
         Hydrated::Content(content) => hydrated_input_output(
-                &row.scope,
-                &row.name,
-                &row.parent_span_id,
-                &with_content(&detail.attributes, content),
-                &row.resource_attributes,
-            )
-            .unwrap_or_else(|_| (unavailable_text("unreadable"), String::new())),
+            &row.scope,
+            &row.name,
+            &row.parent_span_id,
+            &with_content(&detail.attributes, content),
+            &row.resource_attributes,
+        )
+        .unwrap_or_else(|_| (unavailable_text("unreadable"), String::new())),
         Hydrated::Unavailable(reason) => (unavailable_text(&reason), String::new()),
     };
     SpanDetail {
@@ -419,7 +421,10 @@ mod tests {
                 r#"[{"role": "assistant", "content": "one file"}]"#.to_owned(),
             ),
         ]);
-        let metadata = [("gen_ai.operation.name", "chat"), (REFERENCE_ATTRIBUTE, "{}")];
+        let metadata = [
+            ("gen_ai.operation.name", "chat"),
+            (REFERENCE_ATTRIBUTE, "{}"),
+        ];
         let inline_attributes: BTreeMap<String, String> = detail(&metadata[..1])
             .attributes
             .into_iter()
@@ -488,8 +493,10 @@ mod tests {
             gateway.verified(&fixture_owner(), UNAVAILABLE),
             Ok((_, ContentReference::Unavailable(reason))) if reason == "upload_failed"
         ));
-        *connected.write().unwrap() =
-            Some(("http://gateway.test/".into(), "a-rotated-service-token-32-characters".into()));
+        *connected.write().unwrap() = Some((
+            "http://gateway.test/".into(),
+            "a-rotated-service-token-32-characters".into(),
+        ));
         assert_eq!(
             read_url(&gateway, UNAVAILABLE),
             Err(Hydrated::Unavailable("unverified".into()))
@@ -543,13 +550,7 @@ mod tests {
         let gateway = ContentGateway::new(Some((&base, TOKEN))).unwrap();
         let tampered = STORED.replace("\"bytes\":45", "\"bytes\":46");
         let reasoned = UNAVAILABLE.replace("upload_failed", "too_large");
-        let refused = [
-            "",
-            "{",
-            &STORED[..60],
-            tampered.as_str(),
-            reasoned.as_str(),
-        ];
+        let refused = ["", "{", &STORED[..60], tampered.as_str(), reasoned.as_str()];
         for raw in refused {
             assert_eq!(
                 read_url(&gateway, raw),

@@ -155,8 +155,7 @@ pub fn page(
     status_message: &str,
     offset: u32,
 ) -> (String, u8) {
-    let full =
-        format!("Input: {input}\nOutput: {output}\nStatus: {status_code} {status_message}");
+    let full = format!("Input: {input}\nOutput: {output}\nStatus: {status_code} {status_message}");
     if offset == 0 {
         return (full, 0);
     }
@@ -207,7 +206,12 @@ mod tests {
             "v": 2, "state": "unavailable", "reason": "upload_failed",
             "mac": "b691bdbb706af2a54e56f68077a6a63c909d5e6248aa37c1764feff4d88f30b9",
         });
-        if state == "stored" { stored } else { unavailable }.to_string()
+        if state == "stored" {
+            stored
+        } else {
+            unavailable
+        }
+        .to_string()
     }
 
     #[test]
@@ -232,8 +236,14 @@ mod tests {
         for (owner, raw) in [
             (owner("team-b"), fixture("stored")),
             (other_span, fixture("stored")),
-            (owner("team-\u{e9}"), fixture("stored").replace("\"bytes\":45", "\"bytes\":46")),
-            (owner("team-\u{e9}"), fixture("stored").replace("\"v\":2", "\"v\":1")),
+            (
+                owner("team-\u{e9}"),
+                fixture("stored").replace("\"bytes\":45", "\"bytes\":46"),
+            ),
+            (
+                owner("team-\u{e9}"),
+                fixture("stored").replace("\"v\":2", "\"v\":1"),
+            ),
         ] {
             assert_eq!(verify(&key, &owner, &raw), None);
         }

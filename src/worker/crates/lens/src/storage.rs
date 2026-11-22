@@ -149,13 +149,10 @@ impl Storage {
             return Some(detail);
         };
         let reader = self.config.storage().reader();
-        let rows = litellm_storage_clickhouse::fetch::<SpanContentOwner>(
-            &self.client,
-            reader,
-            params,
-        )
-        .await
-        .unwrap_or_default();
+        let rows =
+            litellm_storage_clickhouse::fetch::<SpanContentOwner>(&self.client, reader, params)
+                .await
+                .unwrap_or_default();
         let Some(row) = rows.into_iter().next() else {
             return Some(content::unavailable_detail(detail, "retrieval_failed"));
         };

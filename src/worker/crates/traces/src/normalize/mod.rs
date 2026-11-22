@@ -376,10 +376,14 @@ mod tests {
         #[case] content: &[(&str, &str)],
     ) {
         let owned = |pairs: &[(&str, &str)]| -> BTreeMap<String, String> {
-            pairs.iter().map(|(key, value)| ((*key).to_owned(), (*value).to_owned())).collect()
+            pairs
+                .iter()
+                .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+                .collect()
         };
         let resource = owned(&[("service.name", "litellm")]);
-        let inline_attributes: BTreeMap<String, String> = owned(metadata).into_iter().chain(owned(content)).collect();
+        let inline_attributes: BTreeMap<String, String> =
+            owned(metadata).into_iter().chain(owned(content)).collect();
         let inline = normalize(&SpanContext {
             scope,
             name,
